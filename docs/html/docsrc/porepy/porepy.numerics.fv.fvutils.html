@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.fvutils module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fv.fvutils.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fv.fvutils.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
@@ -276,15 +276,15 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.fv.fvutils">
-<span id="porepy-numerics-fv-fvutils-module"></span><h1>porepy.numerics.fv.fvutils module<a class="headerlink" href="#module-porepy.numerics.fv.fvutils" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-fv-fvutils-module"></span><h1>porepy.numerics.fv.fvutils module<a class="headerlink" href="#module-porepy.numerics.fv.fvutils" title="Link to this heading"></a></h1>
 <p>Various FV specific utility functions.</p>
 <p>Implementation note: This could perhaps have been implemneted as a superclass
 for MPxA discertizations, however, due to the somewhat intricate inheritance relation
 between these methods, the current structure with multiple auxiliary methods emerged.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ExcludeBoundaries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bound</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ExcludeBoundaries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bound</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Wrapper class to store mappings needed in the finite volume discretizations.
 The original use for this class was for exclusion of equations that are
 redundant due to the presence of boundary conditions, hence the name. The use of
@@ -299,15 +299,15 @@ flux/stresses). This class contains mappings to eliminate the necessary fields i
 order set the correct boundary conditions.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_boundary">
-<span class="sig-name descname"><span class="pre">exclude_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_boundary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exclude_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_boundary" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/component with any boundary condition from
 local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>Neumann conditions eliminated.</p>
 </dd>
@@ -319,15 +319,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_dirichlet">
-<span class="sig-name descname"><span class="pre">exclude_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_dirichlet" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exclude_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_dirichlet" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components with Dirichlet boundary conditions from
 local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>Dirichlet conditions eliminated.</p>
 </dd>
@@ -339,15 +339,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann">
-<span class="sig-name descname"><span class="pre">exclude_neumann</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_neumann"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exclude_neumann</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_neumann"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components with Neumann boundary conditions from
 local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>Neumann conditions eliminated.</p>
 </dd>
@@ -359,15 +359,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_dirichlet">
-<span class="sig-name descname"><span class="pre">exclude_neumann_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_neumann_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_dirichlet" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exclude_neumann_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_neumann_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_dirichlet" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components with Neumann and Dirichlet boundary
 conditions from local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>Neumann conditions eliminated.</p>
 </dd>
@@ -379,15 +379,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_robin">
-<span class="sig-name descname"><span class="pre">exclude_neumann_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_neumann_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_robin" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exclude_neumann_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_neumann_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_robin" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components with Neumann and Robin boundary
 conditions from local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>Neumann conditions eliminated.</p>
 </dd>
@@ -399,15 +399,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_robin_dirichlet">
-<span class="sig-name descname"><span class="pre">exclude_robin_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_robin_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_robin_dirichlet" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">exclude_robin_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.exclude_robin_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_robin_dirichlet" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components with Robin and Dirichlet boundary
 conditions from local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>Neumann conditions eliminated.</p>
 </dd>
@@ -419,15 +419,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_neumann">
-<span class="sig-name descname"><span class="pre">keep_neumann</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.keep_neumann"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_neumann" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">keep_neumann</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.keep_neumann"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_neumann" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components that is not on the Neumann boundary
 conditions from local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>all but Neumann conditions eliminated.</p>
 </dd>
@@ -439,15 +439,15 @@ continuity of flux and pressure.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_robin">
-<span class="sig-name descname"><span class="pre">keep_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.keep_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_robin" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">keep_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#ExcludeBoundaries.keep_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_robin" title="Link to this definition"></a></dt>
 <dd><p>Mapping to exclude faces/components that is not on the Robin boundary
 conditions from local systems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">scipy.sparse</span> <span class="pre">matrix</span></code>) – Matrix of local equations for
 continuity of flux and pressure.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>scipy.sparse matrix, with rows corresponding to faces/components with</dt><dd><p>all but Robin conditions eliminated.</p>
 </dd>
@@ -461,8 +461,8 @@ continuity of flux and pressure.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.SubcellTopology">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SubcellTopology</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#SubcellTopology"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.SubcellTopology" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SubcellTopology</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#SubcellTopology"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.SubcellTopology" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Class to represent data of subcell topology (interaction regions) for
 mpsa/mpfa.</p>
 <dl class="py attribute">
@@ -554,7 +554,7 @@ and similarly cno_unique = cno[subfno_unique] etc.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces">
-<span class="sig-name descname"><span class="pre">pair_over_subfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#SubcellTopology.pair_over_subfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">pair_over_subfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#SubcellTopology.pair_over_subfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces" title="Link to this definition"></a></dt>
 <dd><p>Transfer quantities from a cell-face base (cells sharing a face have
 their own expressions) to a face-based. The quantities should live
 on sub-faces (not faces)</p>
@@ -563,7 +563,7 @@ different signs when paired up.</p>
 <p>The method is intended used for combining forces, fluxes,
 displacements and pressures, as used in MPSA / MPFA.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>other</strong> – sps.matrix, size (self.subhfno.size x something)</p>
 </dd>
 </dl>
@@ -575,7 +575,7 @@ displacements and pressures, as used in MPSA / MPFA.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces_nd">
-<span class="sig-name descname"><span class="pre">pair_over_subfaces_nd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#SubcellTopology.pair_over_subfaces_nd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces_nd" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">pair_over_subfaces_nd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#SubcellTopology.pair_over_subfaces_nd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces_nd" title="Link to this definition"></a></dt>
 <dd><p>nd-version of pair_over_subfaces, see above.</p>
 </dd></dl>
 
@@ -583,7 +583,7 @@ displacements and pressures, as used in MPSA / MPFA.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.append_dofs_of_discretization">
-<span class="sig-name descname"><span class="pre">append_dofs_of_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kw1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kw2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_dof</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#append_dofs_of_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.append_dofs_of_discretization" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">append_dofs_of_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kw1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kw2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_dof</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#append_dofs_of_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.append_dofs_of_discretization" title="Link to this definition"></a></dt>
 <dd><p>Appends rows to existing discretizations stored as ‘stress’ and
 ‘bound_stress’ in the data dictionary on the nodes. Only applies to the
 highest dimension (for now, at least). The newly added faces are found
@@ -604,7 +604,7 @@ kw1 -   keyword for the stored discretization in the data dictionary,</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.boundary_to_sub_boundary">
-<span class="sig-name descname"><span class="pre">boundary_to_sub_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bound</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#boundary_to_sub_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.boundary_to_sub_boundary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">boundary_to_sub_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bound</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#boundary_to_sub_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.boundary_to_sub_boundary" title="Link to this definition"></a></dt>
 <dd><p>Convert a boundary condition defined for faces to a boundary condition defined by
 subfaces.</p>
 <p>Args:
@@ -617,7 +617,7 @@ bound (pp.BoundaryCondition/pp.BoundarConditionVectorial):</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><dl class="simple">
 <dt>An instance of the</dt><dd><p>BoundaryCondition/BoundaryConditionVectorial class, where all face values of
 bound has been copied to the subfaces as defined by subcell_topology.</p>
@@ -625,7 +625,7 @@ bound has been copied to the subfaces as defined by subcell_topology.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>pp.BoundarCondition/pp.BoundarConditionVectorial</p>
 </dd>
 </dl>
@@ -633,7 +633,7 @@ bound has been copied to the subfaces as defined by subcell_topology.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.cell_ind_for_partial_update">
-<span class="sig-name descname"><span class="pre">cell_ind_for_partial_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#cell_ind_for_partial_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.cell_ind_for_partial_update" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_ind_for_partial_update</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#cell_ind_for_partial_update"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.cell_ind_for_partial_update" title="Link to this definition"></a></dt>
 <dd><p>Obtain indices of cells and faces needed for a partial update of the
 discretization stencil.</p>
 <p>Implementation note: This function should really be split into three parts,
@@ -651,19 +651,19 @@ not been tested. Problems may arise for grid configurations where separate
 regions are close to touching. This is however speculation at the time of
 writing.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">core.grids.grid</span></code>) – grid to be discretized</p></li>
-<li><p><strong>cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">int,</span> <span class="pre">optional</span></code>) – Index of cells on which to base the
+<li><p><strong>cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Index of cells on which to base the
 subgrid computation. Defaults to None.</p></li>
-<li><p><strong>faces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">int,</span> <span class="pre">optional</span></code>) – Index of faces on which to base the
+<li><p><strong>faces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Index of faces on which to base the
 subgrid computation. Defaults to None.</p></li>
-<li><p><strong>nodes</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">int,</span> <span class="pre">optional</span></code>) – Index of faces on which to base the
+<li><p><strong>nodes</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Index of faces on which to base the
 subgrid computation. Defaults to None.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Cell indexes of the subgrid. No guarantee that they form</dt><dd><p>a connected grid.</p>
 </dd>
@@ -671,55 +671,55 @@ subgrid computation. Defaults to None.</p></li>
 <p>np.array, int: Indexes of faces to have their discretization updated.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>np.array, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.array, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.cell_scalar_to_subcell_vector">
-<span class="sig-name descname"><span class="pre">cell_scalar_to_subcell_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sub_cell_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#cell_scalar_to_subcell_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.cell_scalar_to_subcell_vector" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_scalar_to_subcell_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sub_cell_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#cell_scalar_to_subcell_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.cell_scalar_to_subcell_vector" title="Link to this definition"></a></dt>
 <dd><p>Create mapping from sub-cells to cells for vector problems.
 For example, discretization of grad_p-term in Biot,
 where p is a cell-center scalar</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>nd</strong> – dimension</p></li>
 <li><p><strong>sub_cell_index</strong> – sub-cell indices</p></li>
 <li><p><strong>cell_index</strong> – cell indices</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a> (shape num_subcells * nd, num_cells)</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csr_matrix</a> (shape num_subcells * nd, num_cells)</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.cell_vector_to_subcell">
-<span class="sig-name descname"><span class="pre">cell_vector_to_subcell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sub_cell_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#cell_vector_to_subcell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.cell_vector_to_subcell" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_vector_to_subcell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sub_cell_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#cell_vector_to_subcell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.cell_vector_to_subcell" title="Link to this definition"></a></dt>
 <dd><p>Create mapping from sub-cells to cells for scalar problems.
 For example, discretization of div_g-term in mpfa with gravity,
 where g is a cell-center vector (dim nd)</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>nd</strong> – dimension</p></li>
 <li><p><strong>sub_cell_index</strong> – sub-cell indices</p></li>
 <li><p><strong>cell_index</strong> – cell indices</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a> (shape num_subcells * nd, num_cells * nd)</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csr_matrix</a> (shape num_subcells * nd, num_cells * nd)</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.compute_darcy_flux">
-<span class="sig-name descname"><span class="pre">compute_darcy_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'darcy_flux'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pressure'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lam_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mortar_solution'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">well_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'well_flux'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_iterate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#compute_darcy_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.compute_darcy_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_darcy_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword_store</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'darcy_flux'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pressure'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lam_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mortar_solution'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">well_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'well_flux'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_iterate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#compute_darcy_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.compute_darcy_flux" title="Link to this definition"></a></dt>
 <dd><p>Computes darcy_flux over all faces in the entire mixed-dimensional grid given
 pressures for all nodes, provided as node properties.</p>
 <p>Parameter:
@@ -750,7 +750,7 @@ no effect.</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>the same mixed-dimensional grid with the added
 field ‘darcy_flux’ added to all subdomain data fields. Note that the
 fluxes between grids will be added only at the mdg edge, not at the node
@@ -760,7 +760,7 @@ between grids of equal dimension, there is an implicit assumption
 that all normals point from the second to the first of the sorted grids
 (mdg.sorted_nodes_of_edge(e)).</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>pp.MixedDimensionalGrid</p>
 </dd>
 </dl>
@@ -768,7 +768,7 @@ that all normals point from the second to the first of the sorted grids
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.compute_dist_face_cell">
-<span class="sig-name descname"><span class="pre">compute_dist_face_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_paired</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#compute_dist_face_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.compute_dist_face_cell" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_dist_face_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_paired</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#compute_dist_face_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.compute_dist_face_cell" title="Link to this definition"></a></dt>
 <dd><p>Compute vectors from cell centers continuity points on each sub-face.</p>
 <p>The location of the continuity point is given by</p>
 <blockquote>
@@ -777,7 +777,7 @@ that all normals point from the second to the first of the sorted grids
 <p>On the boundary, eta is set to zero, thus the continuity point is at the
 face center</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> – Grid</p></li>
 <li><p><strong>subcell_topology</strong> – Of class subcell topology in this module</p></li>
@@ -794,25 +794,21 @@ Note that eta=0 at the boundary is ONLY enforced for scalar eta.</p></li>
 <dt>Returns</dt><dd><p>sps.csr() matrix representation of vectors. Size sd.nf x (sd.nc * sd.nd)</p>
 </dd>
 </dl>
-<dl class="field-list simple">
-<dt class="field-odd">Raises</dt>
-<dd class="field-odd"><p><strong>ValueError if the size</strong><strong> of </strong><strong>eta is not 1</strong><strong> or </strong><strong>subcell_topology.num_subfno_unique.</strong> – </p>
-</dd>
-</dl>
+<p>:raises ValueError if the size` of <code class="xref py py-class docutils literal notranslate"><span class="pre">eta</span> <span class="pre">is</span> <span class="pre">not</span> <span class="pre">1</span></code> or :py:class:<a href="#id1"><span class="problematic" id="id2">`</span></a>subcell_topology.num_subfno_unique.:</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.determine_eta">
-<span class="sig-name descname"><span class="pre">determine_eta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#determine_eta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.determine_eta" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">determine_eta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#determine_eta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.determine_eta" title="Link to this definition"></a></dt>
 <dd><p>Set default value for the location of continuity point eta in MPFA and
 MSPA.</p>
 <p>The function is intended to give a best estimate of eta in cases where the
 user has not specified a value.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Grid for discretization</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>double. 1/3 if the grid in known to consist of simplicies (it is one of</dt><dd><p>TriangleGrid, TetrahedralGrid, or their structured versions). 0 if
 not.</p>
@@ -820,20 +816,38 @@ not.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.diagonal_scaling_matrix">
+<span class="sig-name descname"><span class="pre">diagonal_scaling_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mat</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#diagonal_scaling_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.diagonal_scaling_matrix" title="Link to this definition"></a></dt>
+<dd><p>Helper function to form a diagonal matrix that scales the rows of a matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mat</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>) – Matrix to be scaled.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Diagonal matrix with the diagonal elements equal to the row-wise sum of the
+absolute values of the input matrix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.expand_indices_incr">
-<span class="sig-name descname"><span class="pre">expand_indices_incr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increment</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#expand_indices_incr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.expand_indices_incr" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">expand_indices_incr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">increment</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#expand_indices_incr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.expand_indices_incr" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.expand_indices_nd">
-<span class="sig-name descname"><span class="pre">expand_indices_nd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'F'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#expand_indices_nd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.expand_indices_nd" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">expand_indices_nd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'F'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#expand_indices_nd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.expand_indices_nd" title="Link to this definition"></a></dt>
 <dd><p>Expand indices from scalar to vector form.</p>
 <p>Examples:
 &gt;&gt;&gt; i = np.array([0, 1, 3])
@@ -844,15 +858,15 @@ not.</p>
 </pre></div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ind</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>direction</strong> – </p></li>
+<li><p><strong>ind</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>direction</strong></p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 <p>Returns</p>
@@ -860,7 +874,7 @@ not.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.find_active_indices">
-<span class="sig-name descname"><span class="pre">find_active_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameter_dictionary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#find_active_indices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.find_active_indices" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">find_active_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameter_dictionary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#find_active_indices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.find_active_indices" title="Link to this definition"></a></dt>
 <dd><p>Process information in parameter dictionary on whether the discretization
 should consider a subgrid. Look for fields in the parameter dictionary called
 specified_cells, specified_faces or specified_nodes. These are then processed by
@@ -868,14 +882,14 @@ the function pp.fvutils.cell-ind_for_partial_update.</p>
 <p>If no relevant information is found, the active indices are all cells and
 faces in the grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>parameter_dictionary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Parameters, potentially containing fields
+<li><p><strong>parameter_dictionary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Parameters, potentially containing fields
 “specified_cells”, “specified_faces”, “specified_nodes”.</p></li>
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid to be discretized.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Cells to be included in the active grid.
 np.ndarary: Faces to have their discretization updated. NOTE: This may not</p>
 <blockquote>
@@ -883,7 +897,7 @@ np.ndarary: Faces to have their discretization updated. NOTE: This may not</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
 </dd>
 </dl>
@@ -891,7 +905,7 @@ np.ndarary: Faces to have their discretization updated. NOTE: This may not</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.map_hf_2_f">
-<span class="sig-name descname"><span class="pre">map_hf_2_f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fno</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subfno</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#map_hf_2_f"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.map_hf_2_f" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">map_hf_2_f</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fno</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subfno</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#map_hf_2_f"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.map_hf_2_f" title="Link to this definition"></a></dt>
 <dd><p>Create mapping from half-faces to faces for vector problems.
 Either fno, subfno and nd should be given or g (and optinally nd) should be
 given.</p>
@@ -916,24 +930,24 @@ subfno = pp.fvutils.SubcellTopology(g).subfno_unique</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.map_subgrid_to_grid">
-<span class="sig-name descname"><span class="pre">map_subgrid_to_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loc_faces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loc_cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#map_subgrid_to_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.map_subgrid_to_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">map_subgrid_to_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loc_faces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loc_cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_vector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#map_subgrid_to_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.map_subgrid_to_grid" title="Link to this definition"></a></dt>
 <dd><p>Obtain mappings from the cells and faces of a subgrid back to a larger grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – The larger grid.</p></li>
 <li><p><strong>loc_faces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – For each face in the subgrid, the index of the
 corresponding face in the larger grid.</p></li>
 <li><p><strong>loc_cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – For each cell in the subgrid, the index of the
 corresponding cell in the larger grid.</p></li>
-<li><p><strong>is_vector</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – If True, the returned mappings are sized to fit with vector
+<li><p><strong>is_vector</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>) – If True, the returned mappings are sized to fit with vector
 variables, with nd elements per cell and face.</p></li>
-<li><p><strong>nd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Dimension. Defaults to sd.dim.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Dimension. Defaults to sd.dim.</p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 <dl class="simple">
@@ -949,7 +963,7 @@ variables, with nd elements per cell and face.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.partial_discretization">
-<span class="sig-name descname"><span class="pre">partial_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bnd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apertures</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partial_discr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#partial_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.partial_discretization" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">partial_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bnd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apertures</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partial_discr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physics</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#partial_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.partial_discretization" title="Link to this definition"></a></dt>
 <dd><p>Perform a partial (local) multi-point discretization on a grid with
 provided data, tensor and boundary conditions by</p>
 <blockquote>
@@ -964,7 +978,7 @@ partial discretization function (mpfa_partial or mpsa_partial).
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.partial_update_discretization">
-<span class="sig-name descname"><span class="pre">partial_update_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discretize</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_cell_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_cell_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_face_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_face_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_cell_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_cell_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_face_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_face_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#partial_update_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.partial_update_discretization" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">partial_update_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discretize</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_cell_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_cell_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_face_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_face_right</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_cell_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_cell_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalar_face_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_face_left</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">second_keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#partial_update_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.partial_update_discretization" title="Link to this definition"></a></dt>
 <dd><p>Do partial update of discretization scheme.</p>
 <p>This is intended as a helper function for the update_discretization methods of
 fv schemes. In particular, this method allows for a unified implementation of
@@ -977,25 +991,25 @@ used to map rows and columns, respectively.
 Together these fields allows for mapping a discretization between grids.</p>
 <p>If a term misses a right or left mapping, it will be ignored.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>discretize</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><em>Callable</em></a>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
-<li><p><strong>scalar_cell_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>vector_cell_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>scalar_face_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>vector_face_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>scalar_cell_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>vector_cell_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>scalar_face_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>vector_face_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>second_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>discretize</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.13)"><em>Callable</em></a>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>scalar_cell_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>vector_cell_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>scalar_face_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>vector_face_right</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>scalar_cell_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>vector_cell_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>scalar_face_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>vector_face_left</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>second_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -1003,7 +1017,7 @@ Together these fields allows for mapping a discretization between grids.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.remove_nonlocal_contribution">
-<span class="sig-name descname"><span class="pre">remove_nonlocal_contribution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#remove_nonlocal_contribution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.remove_nonlocal_contribution" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">remove_nonlocal_contribution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#remove_nonlocal_contribution"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.remove_nonlocal_contribution" title="Link to this definition"></a></dt>
 <dd><p>For a set of matrices, zero out rows associated with given faces, adjusting for
 the matrices being related to vector quantities if necessary.</p>
 <dl class="simple">
@@ -1014,17 +1028,17 @@ the matrices being related to vector quantities if necessary.</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>raw_ind</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – Face indices to have their rows eliminated.</p></li>
-<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Spatial dimension. Needed to map face indices to rows.</p></li>
+<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Spatial dimension. Needed to map face indices to rows.</p></li>
 <li><p><strong>*args</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">sps.spmatrix</span></code>) – Set of matrices. Will be eliminated in place.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>DESCRIPTION.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -1032,17 +1046,17 @@ the matrices being related to vector quantities if necessary.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.scalar_divergence">
-<span class="sig-name descname"><span class="pre">scalar_divergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#scalar_divergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.scalar_divergence" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">scalar_divergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#scalar_divergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.scalar_divergence" title="Link to this definition"></a></dt>
 <dd><p>Get divergence operator for a grid.</p>
 <p>The operator is easily accessible from the grid itself, so we keep it
 here for completeness.</p>
 <p>See also vector_divergence(g)</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – grid</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)"><em>csr_matrix</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)"><em>csr_matrix</em></a></p>
 </dd>
 </dl>
 <dl class="simple">
@@ -1053,7 +1067,7 @@ here for completeness.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.scalar_tensor_vector_prod">
-<span class="sig-name descname"><span class="pre">scalar_tensor_vector_prod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#scalar_tensor_vector_prod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.scalar_tensor_vector_prod" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">scalar_tensor_vector_prod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#scalar_tensor_vector_prod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.scalar_tensor_vector_prod" title="Link to this definition"></a></dt>
 <dd><p>Compute product of normal vectors and tensors on a sub-cell level.
 This is essentially defining Darcy’s law for each sub-face in terms of
 sub-cell gradients. Thus, we also implicitly define the global ordering
@@ -1071,7 +1085,7 @@ sd.face_normals.shape[0] etc. See implementation note in main method.
 <div><p>subcell numbering.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><p>sub-face wise product of normal vector and permeability tensor.
 cell_node_blocks pairings of node and cell indices, which together</p>
 <blockquote>
@@ -1080,14 +1094,14 @@ cell_node_blocks pairings of node and cell indices, which together</p>
 <p>sub_cell_ind: index of all subcells</p>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>nk</p>
 </dd>
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>k</strong> (<a class="reference internal" href="porepy.params.tensor.html#porepy.params.tensor.SecondOrderTensor" title="porepy.params.tensor.SecondOrderTensor"><em>SecondOrderTensor</em></a>) – </p></li>
-<li><p><strong>subcell_topology</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">fvutils.SubcellTopology</span></code>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>k</strong> (<a class="reference internal" href="porepy.params.tensor.html#porepy.params.tensor.SecondOrderTensor" title="porepy.params.tensor.SecondOrderTensor"><em>SecondOrderTensor</em></a>)</p></li>
+<li><p><strong>subcell_topology</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">fvutils.SubcellTopology</span></code>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -1095,35 +1109,35 @@ cell_node_blocks pairings of node and cell indices, which together</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.subproblems">
-<span class="sig-name descname"><span class="pre">subproblems</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_memory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_memory_estimate</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#subproblems"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.subproblems" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subproblems</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_memory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_memory_estimate</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#subproblems"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.subproblems" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>max_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>peak_memory_estimate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>max_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>peak_memory_estimate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><em>Generator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>], None, None]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.13)"><em>Generator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>], None, None]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.fvutils.vector_divergence">
-<span class="sig-name descname"><span class="pre">vector_divergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#vector_divergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.vector_divergence" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">vector_divergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/fvutils.html#vector_divergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.fvutils.vector_divergence" title="Link to this definition"></a></dt>
 <dd><p>Get vector divergence operator for a grid g</p>
 <p>It is assumed that the first column corresponds to the x-equation of face
 0, second column is y-equation etc. (and so on in nd&gt;2). The next column is
 then the x-equation for face 1. Correspondingly, the first row
 represents x-component in first cell etc.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – grid</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)"><em>csr_matrix</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)"><em>csr_matrix</em></a></p>
 </dd>
 </dl>
 <dl class="simple">

@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.mass_matrix &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/mass_matrix.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/mass_matrix.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.fv.mass_matrix</li>
       <li class="wy-breadcrumbs-aside">
@@ -291,24 +291,26 @@
 <span class="sd">The corresponding (null) rhs vectors are stored as</span>
 <span class="sd">self._key() + &quot;bound_mass&quot; or self._key() + &quot;bound_inv_mass&quot;, respectively.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.numerics.discretization</span> <span class="kn">import</span> <span class="n">Discretization</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.numerics.discretization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Discretization</span>
 
 
-<div class="viewcode-block" id="MassMatrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix">[docs]</a><span class="k">class</span> <span class="nc">MassMatrix</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class that provides the discretization of a L2-mass bilinear form with constant</span>
+<div class="viewcode-block" id="MassMatrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MassMatrix</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class that provides the discretization of a L2-mass bilinear form with constant</span>
 <span class="sd">    test and trial functions.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
 <span class="sd">        information associated with the discretization.</span>
 
 <span class="sd">        Parameters:</span>
@@ -319,8 +321,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">mass_matrix_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mass&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bound_mass&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the keyword of this object, on a format friendly to access relevant</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the keyword of this object, on a format friendly to access relevant</span>
 <span class="sd">        fields in the data dictionary</span>
 
 <span class="sd">        Returns:</span>
@@ -329,8 +331,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
 
-<div class="viewcode-block" id="MassMatrix.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="MassMatrix.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 <span class="sd">        In this case number of cells.</span>
 
 <span class="sd">        Parameter:</span>
@@ -342,10 +346,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="MassMatrix.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MassMatrix.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side (null) for a discretization of a</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side (null) for a discretization of a</span>
 <span class="sd">        L2-mass bilinear form with constant test and trial functions. Also</span>
 <span class="sd">        discretize the necessary operators if the data dictionary does not contain</span>
 <span class="sd">        a mass matrix.</span>
@@ -362,8 +369,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MassMatrix.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix for a discretization of a L2-mass bilinear form with</span>
+
+<div class="viewcode-block" id="MassMatrix.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix for a discretization of a L2-mass bilinear form with</span>
 <span class="sd">        constant test and trial functions.</span>
 
 <span class="sd">        Parameters:</span>
@@ -382,8 +392,11 @@
         <span class="n">M</span> <span class="o">=</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mass_matrix_key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">M</span></div>
 
-<div class="viewcode-block" id="MassMatrix.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the (null) right-hand side for a discretization of a L2-mass bilinear</span>
+
+<div class="viewcode-block" id="MassMatrix.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the (null) right-hand side for a discretization of a L2-mass bilinear</span>
 <span class="sd">        form with constant test and trial functions.</span>
 
 <span class="sd">        Parameters:</span>
@@ -402,8 +415,11 @@
         <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">rhs</span></div>
 
-<div class="viewcode-block" id="MassMatrix.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize a L2-mass bilinear form with constant test and trial functions.</span>
+
+<div class="viewcode-block" id="MassMatrix.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize a L2-mass bilinear form with constant test and trial functions.</span>
 
 <span class="sd">        Note that the porosity is not included in the volumes, and should be included</span>
 <span class="sd">        in the mass weight if appropriate.</span>
@@ -451,16 +467,20 @@
         <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mass_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">(</span>
             <span class="p">(</span><span class="n">coeff_exp</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">tot_ndof</span><span class="p">,</span> <span class="n">tot_ndof</span><span class="p">)</span>
         <span class="p">)</span>
-        <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ndof</span><span class="p">)</span></div></div>
+        <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">ndof</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="InvMassMatrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix">[docs]</a><span class="k">class</span> <span class="nc">InvMassMatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Class that provides the discretization of a L2-mass bilinear form with constant</span>
+
+<div class="viewcode-block" id="InvMassMatrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">InvMassMatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class that provides the discretization of a L2-mass bilinear form with constant</span>
 <span class="sd">    test and trial functions.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the discretization, with the keyword used for storing various</span>
 <span class="sd">        information associated with the discretization.</span>
 
@@ -472,8 +492,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">mass_matrix_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;inv_mass&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;inv_bound_mass&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the keyword of this object, on a format friendly to access relevant</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the keyword of this object, on a format friendly to access relevant</span>
 <span class="sd">        fields in the data dictionary</span>
 
 <span class="sd">        Returns:</span>
@@ -482,8 +502,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
 
-<div class="viewcode-block" id="InvMassMatrix.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="InvMassMatrix.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 <span class="sd">        In this case number of cells.</span>
 
 <span class="sd">        Parameter</span>
@@ -497,10 +519,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="InvMassMatrix.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="InvMassMatrix.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return the inverse of the matrix and right-hand side (null) for a</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the inverse of the matrix and right-hand side (null) for a</span>
 <span class="sd">        discretization of a L2-mass bilinear form with constant test and trial</span>
 <span class="sd">        functions. Also discretize the necessary operators if the data dictionary does</span>
 <span class="sd">        not contain a discrete inverse mass matrix.</span>
@@ -518,8 +543,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="InvMassMatrix.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the inverse of the matrix for a discretization of a L2-mass bilinear</span>
+
+<div class="viewcode-block" id="InvMassMatrix.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the inverse of the matrix for a discretization of a L2-mass bilinear</span>
 <span class="sd">        form with constant test and trial functions. Also discretize the necessary</span>
 <span class="sd">        operators if the data dictionary does not contain a discrete inverse mass</span>
 <span class="sd">        matrix.</span>
@@ -539,8 +567,11 @@
         <span class="n">M</span> <span class="o">=</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">mass_matrix_key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">M</span></div>
 
-<div class="viewcode-block" id="InvMassMatrix.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the (null) right-hand side for a discretization of the inverse of a</span>
+
+<div class="viewcode-block" id="InvMassMatrix.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the (null) right-hand side for a discretization of the inverse of a</span>
 <span class="sd">        L2-mass bilinear form with constant test and trial functions. Also discretize</span>
 <span class="sd">        the necessary operators if the data dictionary does not contain a discretization</span>
 <span class="sd">        of the boundary term.</span>
@@ -560,8 +591,11 @@
         <span class="n">rhs</span> <span class="o">=</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">rhs</span></div>
 
-<div class="viewcode-block" id="InvMassMatrix.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the inverse of a L2-mass bilinear form with constant test and</span>
+
+<div class="viewcode-block" id="InvMassMatrix.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.InvMassMatrix.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the inverse of a L2-mass bilinear form with constant test and</span>
 <span class="sd">        trial functions. Calls the MassMatrix().discretize() method and takes the</span>
 <span class="sd">        inverse for the lhs.</span>
 
@@ -594,7 +628,9 @@
             <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">M</span><span class="o">.</span><span class="n">diagonal</span><span class="p">(),</span> <span class="mi">0</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="n">M</span><span class="o">.</span><span class="n">shape</span>
         <span class="p">)</span>
 
-        <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">rhs</span></div></div>
+        <span class="n">matrix_dictionary</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_mass_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">rhs</span></div>
+</div>
+
 </pre></div>
 
            </div>

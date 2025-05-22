@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.equation_system &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/equation_system.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/equation_system.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.ad.equation_system</li>
       <li class="wy-breadcrumbs-aside">
@@ -275,18 +275,18 @@
 <span class="sd">using the AD framework.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
-<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">TypeAlias</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeAlias</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_ad_utils</span>
-<span class="kn">from</span> <span class="nn">.operators</span> <span class="kn">import</span> <span class="n">MixedDimensionalVariable</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">Variable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">_ad_utils</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.operators</span><span class="w"> </span><span class="kn">import</span> <span class="n">MixedDimensionalVariable</span><span class="p">,</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">Variable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;EquationSystem&quot;</span><span class="p">]</span>
 
@@ -366,8 +366,10 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 
-<div class="viewcode-block" id="EquationSystem"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem">[docs]</a><span class="k">class</span> <span class="nc">EquationSystem</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Represents an equation system, modelled by AD variables and equations in AD form.</span>
+<div class="viewcode-block" id="EquationSystem">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EquationSystem</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents an equation system, modelled by AD variables and equations in AD form.</span>
 
 <span class="sd">    This class provides functionalities to create and manage variables, as well as</span>
 <span class="sd">    managing equations on the form of :class:`~porepy.numerics.ad.operators.Operator`.</span>
@@ -390,7 +392,7 @@
     <span class="n">admissible_dof_types</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span>
         <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;cells&quot;</span><span class="p">],</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;faces&quot;</span><span class="p">],</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;nodes&quot;</span><span class="p">]</span>
     <span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;cells&quot;</span><span class="p">,</span> <span class="s2">&quot;faces&quot;</span><span class="p">,</span> <span class="s2">&quot;nodes&quot;</span><span class="p">)</span>
-    <span class="sd">&quot;&quot;&quot;A set denoting admissible types of local DOFs for variables.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A set denoting admissible types of local DOFs for variables.</span>
 
 <span class="sd">    - nodes: DOFs per grid node.</span>
 <span class="sd">    - cells: DOFs per grid cell.</span>
@@ -398,14 +400,14 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
         <span class="c1">### PUBLIC</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span> <span class="o">=</span> <span class="n">mdg</span>
-        <span class="sd">&quot;&quot;&quot;Mixed-dimensional domain passed at instantiation.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mixed-dimensional domain passed at instantiation.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">assembled_equation_indices</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Contains the row indices in the last assembled (sub-) system for a given</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Contains the row indices in the last assembled (sub-) system for a given</span>
 <span class="sd">        equation name (key).</span>
 
 <span class="sd">        This dictionary changes with every call to any assemble-method.</span>
@@ -414,7 +416,7 @@
         <span class="c1">### PRIVATE</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_equations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Operator</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Contains references to equations in AD operator form for a given name (key).</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Contains references to equations in AD operator form for a given name (key).</span>
 
 <span class="sd">        Private to avoid users setting equations directly and circumventing the current</span>
 <span class="sd">        set-method which includes information about the image space.</span>
@@ -424,7 +426,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_equation_image_space_composition</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
             <span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">GridLike</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
         <span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Definition of image space for all equations.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Definition of image space for all equations.</span>
 
 <span class="sd">        Contains for every equation name (key) a dictionary, which provides again for</span>
 <span class="sd">        every involved grid (key) the indices of equations expressed through the</span>
@@ -436,13 +438,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_equation_image_size_info</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">GridEntity</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Contains for every equation name (key) the number of equations per grid</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Contains for every equation name (key) the number of equations per grid</span>
 <span class="sd">        entity.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Contains references to Variables.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Contains references to Variables.</span>
 
 <span class="sd">        A Variable is uniquely identified by its name and domain, stored as attributes</span>
 <span class="sd">        of the Variable object.</span>
@@ -450,18 +452,18 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_Schur_complement</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="sd">&quot;&quot;&quot;Contains block matrices and the rhs of the last assembled Schur complement.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Contains block matrices and the rhs of the last assembled Schur complement.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_variable_numbers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Variable</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary containing the index of the variable in the system vector of the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary containing the index of the variable in the system vector of the</span>
 <span class="sd">        last assembled system.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_variable_num_dofs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Array containing the number of DOFS per block number.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Array containing the number of DOFS per block number.</span>
 
 <span class="sd">        The block number corresponds to this array&#39;s indexation, see also</span>
 <span class="sd">        attr:`_variable_numbers`.</span>
@@ -469,19 +471,21 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_variable_dof_type</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Variable</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">GridEntity</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary containing the type of DOFs per variable.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary containing the type of DOFs per variable.</span>
 
 <span class="sd">        The type is given as a dictionary with keys &#39;cells&#39;, &#39;faces&#39; or &#39;nodes&#39;,</span>
 <span class="sd">        and integer values denoting the number of DOFs per grid entity.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="EquationSystem.SubSystem"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.SubSystem">[docs]</a>    <span class="k">def</span> <span class="nf">SubSystem</span><span class="p">(</span>
+<div class="viewcode-block" id="EquationSystem.SubSystem">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.SubSystem">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">SubSystem</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">equation_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EquationList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">variable_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquationSystem</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Creates an :class:`EquationSystem` for a given subset of equations and</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates an :class:`EquationSystem` for a given subset of equations and</span>
 <span class="sd">        variables.</span>
 
 <span class="sd">        Currently only subsystems containing *whole* equations and variables in the</span>
@@ -552,25 +556,26 @@
 
         <span class="k">return</span> <span class="n">new_equation_system</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Operator</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary containing names of operators (keys) and operators (values), which</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Operator</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary containing names of operators (keys) and operators (values), which</span>
 <span class="sd">        have been set as equations in this system.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_equations</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;List containing all :class:`~porepy.numerics.ad.Variable`s known to this</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List containing all :class:`~porepy.numerics.ad.Variable`s known to this</span>
 <span class="sd">        system.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">variable_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;List containing all domains where at least one variable is defined.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">variable_domains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List containing all domains where at least one variable is defined.&quot;&quot;&quot;</span>
         <span class="n">domains</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_variables</span><span class="p">:</span>
             <span class="n">domains</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">domain</span><span class="p">)</span>
@@ -578,10 +583,12 @@
 
     <span class="c1">### Variable management ------------------------------------------------------------</span>
 
-<div class="viewcode-block" id="EquationSystem.md_variable"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.md_variable">[docs]</a>    <span class="k">def</span> <span class="nf">md_variable</span><span class="p">(</span>
+<div class="viewcode-block" id="EquationSystem.md_variable">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.md_variable">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">md_variable</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DomainList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalVariable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create a mixed-dimensional variable for a given name-domain list combination.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a mixed-dimensional variable for a given name-domain list combination.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            name (str): Name of the mixed-dimensional variable.</span>
@@ -623,7 +630,10 @@
             <span class="p">]</span>
         <span class="k">return</span> <span class="n">MixedDimensionalVariable</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="EquationSystem.create_variables"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.create_variables">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.create_variables">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_variables</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">dof_info</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">GridEntity</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -631,7 +641,7 @@
         <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tags</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalVariable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Creates new variables according to specifications.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates new variables according to specifications.</span>
 
 <span class="sd">        This method does not assign any values to the variable. This has to be done in a</span>
 <span class="sd">        subsequent step (e.g. using :meth:`set_var_values`).</span>
@@ -726,12 +736,15 @@
 
         <span class="k">return</span> <span class="n">merged_variable</span></div>
 
-<div class="viewcode-block" id="EquationSystem.update_variable_tags"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.update_variable_tags">[docs]</a>    <span class="k">def</span> <span class="nf">update_variable_tags</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.update_variable_tags">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.update_variable_tags">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_variable_tags</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assigns tags to variables.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assigns tags to variables.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            tag_name: Tag dictionary (tag-value pairs). This will be assigned to all</span>
@@ -748,14 +761,17 @@
         <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">:</span>
             <span class="n">var</span><span class="o">.</span><span class="n">tags</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">tags</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="EquationSystem.get_variables"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.get_variables">[docs]</a>    <span class="k">def</span> <span class="nf">get_variables</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.get_variables">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.get_variables">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_variables</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">grids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tag_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tag_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Filter variables based on grid, tag name and tag value.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Filter variables based on grid, tag name and tag value.</span>
 
 <span class="sd">        Particular usage: calling without arguments will return all variables in the</span>
 <span class="sd">        system.</span>
@@ -806,10 +822,13 @@
 
         <span class="k">return</span> <span class="n">filtered_variables</span></div>
 
-<div class="viewcode-block" id="EquationSystem.get_variable_values"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.get_variable_values">[docs]</a>    <span class="k">def</span> <span class="nf">get_variable_values</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.get_variable_values">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.get_variable_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_variable_values</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">from_iterate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assembles an array containing values for the passed variable-like argument.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assembles an array containing values for the passed variable-like argument.</span>
 
 <span class="sd">        The global order is preserved and independent of the order of the argument.</span>
 
@@ -864,7 +883,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span></div>
 
-<div class="viewcode-block" id="EquationSystem.set_variable_values"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.set_variable_values">[docs]</a>    <span class="k">def</span> <span class="nf">set_variable_values</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.set_variable_values">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.set_variable_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_variable_values</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -872,7 +894,7 @@
         <span class="n">to_iterate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">additive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Sets values for a (sub) vector of the global vector of unknowns.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets values for a (sub) vector of the global vector of unknowns.</span>
 
 <span class="sd">        The order of values is assumed to fit the global order.</span>
 
@@ -944,10 +966,11 @@
         <span class="c1"># since we only require a vector of at least this size.</span>
         <span class="k">assert</span> <span class="n">dof_end</span> <span class="o">==</span> <span class="n">values</span><span class="o">.</span><span class="n">size</span></div>
 
+
     <span class="c1">### DOF management -----------------------------------------------------------------</span>
 
-    <span class="k">def</span> <span class="nf">_append_dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Appends DOFs for a newly created variable.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_append_dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variable</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Appends DOFs for a newly created variable.</span>
 
 <span class="sd">        Must only be called by :meth:`create_variables`.</span>
 
@@ -985,8 +1008,8 @@
         <span class="c1"># first optimization of Jacobian structure</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cluster_dofs_gridwise</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_cluster_dofs_gridwise</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_cluster_dofs_gridwise</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Re-arranges the DOFs grid-wise s.t. we obtain grid-blocks in the column sense</span>
 <span class="sd">        and reduce the matrix bandwidth.</span>
 
 <span class="sd">        The aim is to impose a more block-diagonal-like structure on the Jacobian where</span>
@@ -1032,8 +1055,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_variable_num_dofs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">new_block_dofs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_variable_numbers</span> <span class="o">=</span> <span class="n">new_variable_numbers</span>
 
-    <span class="k">def</span> <span class="nf">_parse_variable_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Parse the input argument for the variable type.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_variable_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse the input argument for the variable type.</span>
 
 <span class="sd">        This method is used to parse the input argument for the variable type in</span>
 <span class="sd">        several exposed methods, allowing the user to specify a single variable or a</span>
@@ -1079,8 +1102,8 @@
                 <span class="p">)</span>
         <span class="k">return</span> <span class="n">parsed_variables</span>
 
-    <span class="k">def</span> <span class="nf">_gridbased_variable_complement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">VariableList</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Finds the grid-based complement of a variable-like structure.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gridbased_variable_complement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">VariableList</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Finds the grid-based complement of a variable-like structure.</span>
 
 <span class="sd">        The grid-based complement consists of all variables known to this</span>
 <span class="sd">        EquationSystem, but which are not in the passed list ``variables``.</span>
@@ -1111,12 +1134,17 @@
             <span class="c1"># return a unique collection</span>
             <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">grid_variables</span><span class="p">))</span>
 
-<div class="viewcode-block" id="EquationSystem.num_dofs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.num_dofs">[docs]</a>    <span class="k">def</span> <span class="nf">num_dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns the total number of dofs managed by this system.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="EquationSystem.num_dofs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.num_dofs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_dofs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the total number of dofs managed by this system.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_variable_num_dofs</span><span class="p">))</span>  <span class="c1"># cast numpy.int64 into Python int</span></div>
 
-<div class="viewcode-block" id="EquationSystem.projection_to"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.projection_to">[docs]</a>    <span class="k">def</span> <span class="nf">projection_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create a projection matrix from the global vector of unknowns to a specified</span>
+
+<div class="viewcode-block" id="EquationSystem.projection_to">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.projection_to">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">projection_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a projection matrix from the global vector of unknowns to a specified</span>
 <span class="sd">        subspace.</span>
 
 <span class="sd">        The transpose of the returned matrix can be used to slice respective columns out</span>
@@ -1154,8 +1182,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_dofs</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="EquationSystem.dofs_of"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.dofs_of">[docs]</a>    <span class="k">def</span> <span class="nf">dofs_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">VariableList</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the indices in the global vector of unknowns belonging to the variable(s).</span>
+
+<div class="viewcode-block" id="EquationSystem.dofs_of">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.dofs_of">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dofs_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">VariableList</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the indices in the global vector of unknowns belonging to the variable(s).</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            variables: VariableType input for which the indices are requested.</span>
@@ -1187,8 +1218,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="EquationSystem.identify_dof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.identify_dof">[docs]</a>    <span class="k">def</span> <span class="nf">identify_dof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dof</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Identifies the variable to which a specific DOF index belongs.</span>
+
+<div class="viewcode-block" id="EquationSystem.identify_dof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.identify_dof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">identify_dof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dof</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Identifies the variable to which a specific DOF index belongs.</span>
 
 <span class="sd">        The intended use is to help identify entries in the global vector or the column</span>
 <span class="sd">        of the Jacobian.</span>
@@ -1216,15 +1250,18 @@
         <span class="p">][</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">variable</span></div>
 
+
     <span class="c1">### Equation management -------------------------------------------------------------------</span>
 
-<div class="viewcode-block" id="EquationSystem.set_equation"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.set_equation">[docs]</a>    <span class="k">def</span> <span class="nf">set_equation</span><span class="p">(</span>
+<div class="viewcode-block" id="EquationSystem.set_equation">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.set_equation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_equation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">equation</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span>
         <span class="n">grids</span><span class="p">:</span> <span class="n">DomainList</span><span class="p">,</span>
         <span class="n">equations_per_grid_entity</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">GridEntity</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Sets an equation using the passed operator and uses its name as an identifier.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets an equation using the passed operator and uses its name as an identifier.</span>
 
 <span class="sd">        If an equation already exists under that name, it is overwritten.</span>
 
@@ -1351,8 +1388,11 @@
         <span class="c1"># Store the equation itself.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_equations</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">name</span><span class="p">:</span> <span class="n">equation</span><span class="p">})</span></div>
 
-<div class="viewcode-block" id="EquationSystem.remove_equation"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.remove_equation">[docs]</a>    <span class="k">def</span> <span class="nf">remove_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Operator</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Removes a previously set equation and all related information.</span>
+
+<div class="viewcode-block" id="EquationSystem.remove_equation">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.remove_equation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Operator</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Removes a previously set equation and all related information.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A reference to the equation in operator form or None, if the equation is</span>
@@ -1373,11 +1413,12 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot remove unknown equation </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
+
     <span class="c1">### System assembly and discretization ----------------------------------------------------</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_recursive_discretization_search</span><span class="p">(</span><span class="n">operator</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">discr</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Recursive search in the tree of this operator to identify all discretizations</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_recursive_discretization_search</span><span class="p">(</span><span class="n">operator</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">discr</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recursive search in the tree of this operator to identify all discretizations</span>
 <span class="sd">        represented in the operator.</span>
 
 <span class="sd">        Parameters:</span>
@@ -1396,10 +1437,10 @@
 
         <span class="k">return</span> <span class="n">discr</span>
 
-    <span class="k">def</span> <span class="nf">_parse_equations</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_equations</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">equations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EquationList</span> <span class="o">|</span> <span class="n">EquationRestriction</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Helper method to parse equations into a properly ordered structure.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to parse equations into a properly ordered structure.</span>
 
 <span class="sd">        The equations will be ordered according to the order in self._equations (which</span>
 <span class="sd">        is the order in which they were added to the equation system manager and which</span>
@@ -1454,10 +1495,10 @@
 
         <span class="k">return</span> <span class="n">ordered_blocks</span>
 
-    <span class="k">def</span> <span class="nf">_parse_single_equation</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_single_equation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">equation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Operator</span> <span class="o">|</span> <span class="n">EquationRestriction</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Helper method to identify possible restrictions of a single equation.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method to identify possible restrictions of a single equation.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            equation: Equation to be parsed.</span>
@@ -1556,10 +1597,10 @@
             <span class="c1"># an equation.</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">equation</span><span class="p">)</span><span class="si">}</span><span class="s2"> not parsable as an equation.&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_gridbased_equation_complement</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_gridbased_equation_complement</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">equations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Takes the information from equation parsing and finds for each equation</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Takes the information from equation parsing and finds for each equation</span>
 <span class="sd">        (identified by its name string) the indices which were excluded in the</span>
 <span class="sd">        grid-sense.</span>
 
@@ -1595,10 +1636,12 @@
                 <span class="n">complement</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">name</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">complement</span>
 
-<div class="viewcode-block" id="EquationSystem.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+<div class="viewcode-block" id="EquationSystem.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">equations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EquationList</span> <span class="o">|</span> <span class="n">EquationRestriction</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Find and loop over all discretizations in the equation operators, extract</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find and loop over all discretizations in the equation operators, extract</span>
 <span class="sd">        unique references and discretize.</span>
 
 <span class="sd">        This is more efficient than discretizing on the Operator level, since</span>
@@ -1627,11 +1670,14 @@
         <span class="n">unique_discr</span> <span class="o">=</span> <span class="n">_ad_utils</span><span class="o">.</span><span class="n">uniquify_discretization_list</span><span class="p">(</span><span class="n">discr</span><span class="p">)</span>
         <span class="n">_ad_utils</span><span class="o">.</span><span class="n">discretize_from_list</span><span class="p">(</span><span class="n">unique_discr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="EquationSystem.assemble"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.assemble">[docs]</a>    <span class="k">def</span> <span class="nf">assemble</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.assemble">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.assemble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector of the whole system.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector of the whole system.</span>
 
 <span class="sd">        This is a shallow wrapper of :meth:`assemble_subsystem`. Here, the subsystem is</span>
 <span class="sd">        the complete set of equations, variables and grids.</span>
@@ -1652,13 +1698,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_subsystem</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="n">state</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="EquationSystem.assemble_subsystem"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.assemble_subsystem">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_subsystem</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.assemble_subsystem">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.assemble_subsystem">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_subsystem</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">equations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EquationList</span> <span class="o">|</span> <span class="n">EquationRestriction</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">variables</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">VariableList</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector using a specified subset of</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector using a specified subset of</span>
 <span class="sd">        equations, variables and grids.</span>
 
 <span class="sd">        The method is intended for use in splitting algorithms. Matrix blocks not</span>
@@ -1761,14 +1810,17 @@
         <span class="n">column_projection</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">projection_to</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">A</span> <span class="o">*</span> <span class="n">column_projection</span><span class="p">,</span> <span class="o">-</span><span class="n">rhs_cat</span></div>
 
-<div class="viewcode-block" id="EquationSystem.assemble_schur_complement_system"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.assemble_schur_complement_system">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_schur_complement_system</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.assemble_schur_complement_system">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.assemble_schur_complement_system">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_schur_complement_system</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">primary_equations</span><span class="p">:</span> <span class="n">EquationList</span> <span class="o">|</span> <span class="n">EquationRestriction</span><span class="p">,</span>
         <span class="n">primary_variables</span><span class="p">:</span> <span class="n">VariableList</span><span class="p">,</span>
         <span class="n">inverter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector using a Schur complement</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Assemble Jacobian matrix and residual vector using a Schur complement</span>
 <span class="sd">        elimination of the variables and equations not to be included.</span>
 
 <span class="sd">        The specified equations and variables will define blocks of the linearized</span>
@@ -1965,10 +2017,13 @@
 
         <span class="k">return</span> <span class="n">S</span><span class="p">,</span> <span class="n">rhs_S</span></div>
 
-<div class="viewcode-block" id="EquationSystem.expand_schur_complement_solution"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.expand_schur_complement_solution">[docs]</a>    <span class="k">def</span> <span class="nf">expand_schur_complement_solution</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationSystem.expand_schur_complement_solution">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.equation_system.html#porepy.numerics.ad.EquationSystem.expand_schur_complement_solution">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expand_schur_complement_solution</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">reduced_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sa">r</span><span class="sd">&quot;&quot;&quot;Expands the solution of the *last assembled* Schur complement system to the</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Expands the solution of the *last assembled* Schur complement system to the</span>
 <span class="sd">        whole solution.</span>
 
 <span class="sd">        With ``reduced_solution`` as :math:`x_p` from</span>
@@ -2014,9 +2069,10 @@
         <span class="n">X</span> <span class="o">=</span> <span class="n">prolong_p</span> <span class="o">*</span> <span class="n">reduced_solution</span> <span class="o">+</span> <span class="n">prolong_s</span> <span class="o">*</span> <span class="n">x_s</span>
         <span class="k">return</span> <span class="n">X</span></div>
 
+
     <span class="c1">### Special methods ----------------------------------------------------------------</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="s2">&quot;EquationSystem for mixed-dimensional grid with &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">num_subdomains</span><span class="p">()</span><span class="si">}</span><span class="s2"> subdomains &quot;</span>
@@ -2035,7 +2091,7 @@
 
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="s2">&quot;EquationSystem for mixed-dimensional grid with &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">num_subdomains</span><span class="p">()</span><span class="si">}</span><span class="s2"> subdomains &quot;</span>
@@ -2076,6 +2132,7 @@
             <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">eq_names</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
 
         <span class="k">return</span> <span class="n">s</span></div>
+
 </pre></div>
 
            </div>

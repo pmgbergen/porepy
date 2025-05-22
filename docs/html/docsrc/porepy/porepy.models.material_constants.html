@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.material_constants module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.material_constants.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.material_constants.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
       <li class="breadcrumb-item active">porepy.models.material_constants module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.models.material_constants">
-<span id="porepy-models-material-constants-module"></span><h1>porepy.models.material_constants module<a class="headerlink" href="#module-porepy.models.material_constants" title="Permalink to this heading"></a></h1>
+<span id="porepy-models-material-constants-module"></span><h1>porepy.models.material_constants module<a class="headerlink" href="#module-porepy.models.material_constants" title="Link to this heading"></a></h1>
 <p>Storage classes for material constants.</p>
 <p>Materials are storage classes for values of physical properties. They are typically used
 when composing constitutive laws. A material is instantiated with a Units object, which
@@ -285,7 +285,7 @@ which are the ones used internally in the simulation. The conversion hopefully r
 problems with scaling/rounding errors and condition numbers.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FluidConstants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FluidConstants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.models.material_constants.MaterialConstants" title="porepy.models.material_constants.MaterialConstants"><code class="xref py py-class docutils literal notranslate"><span class="pre">MaterialConstants</span></code></a></p>
 <p>Class giving scaled values of fluid parameters.</p>
 <p>Each constant (class attribute) typically corresponds to exactly one method which
@@ -298,8 +298,8 @@ specified subdomains or interfaces.</p>
 for the material classes.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>constants</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – <p>Dictionary of constants. Only keys corresponding to a constant
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>constants</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – <p>Dictionary of constants. Only keys corresponding to a constant
 in the class will be used. The permissible keys are:</p>
 <blockquote>
 <div><ul class="simple">
@@ -315,130 +315,130 @@ in the class will be used. The permissible keys are:</p>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.compressibility">
-<span class="sig-name descname"><span class="pre">compressibility</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.compressibility"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.compressibility" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compressibility</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.compressibility"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.compressibility" title="Link to this definition"></a></dt>
 <dd><p>Compressibility [1/Pa].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Compressibility array in converted pressure units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.density">
-<span class="sig-name descname"><span class="pre">density</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.density"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.density" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">density</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.density"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.density" title="Link to this definition"></a></dt>
 <dd><p>Density [kg/m^3].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Density in converted mass and length units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.normal_thermal_conductivity">
-<span class="sig-name descname"><span class="pre">normal_thermal_conductivity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.normal_thermal_conductivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.normal_thermal_conductivity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">normal_thermal_conductivity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.normal_thermal_conductivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.normal_thermal_conductivity" title="Link to this definition"></a></dt>
 <dd><p>Normal thermal conductivity [W/m/K].</p>
 <p>Resides in fluid, not solid, because of the assumption of open fractures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Normal thermal conductivity in converted energy, length and temperature
 units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.pressure">
-<span class="sig-name descname"><span class="pre">pressure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.pressure" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">pressure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.pressure" title="Link to this definition"></a></dt>
 <dd><p>Pressure [Pa].</p>
 <p>Intended usage: Reference pressure.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Pressure in converted pressure units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.specific_heat_capacity">
-<span class="sig-name descname"><span class="pre">specific_heat_capacity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.specific_heat_capacity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.specific_heat_capacity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">specific_heat_capacity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.specific_heat_capacity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.specific_heat_capacity" title="Link to this definition"></a></dt>
 <dd><p>Specific heat [J/kg/K].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Specific heat in converted mass, temperature and time units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.temperature">
-<span class="sig-name descname"><span class="pre">temperature</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.temperature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.temperature" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">temperature</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.temperature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.temperature" title="Link to this definition"></a></dt>
 <dd><p>Temperature [K].</p>
 <p>Intended usage: Reference temperature.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Temperature in converted temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.thermal_conductivity">
-<span class="sig-name descname"><span class="pre">thermal_conductivity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.thermal_conductivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.thermal_conductivity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">thermal_conductivity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.thermal_conductivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.thermal_conductivity" title="Link to this definition"></a></dt>
 <dd><p>Thermal conductivity [W/m/K].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Thermal conductivity in converted mass, length and temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.thermal_expansion">
-<span class="sig-name descname"><span class="pre">thermal_expansion</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.thermal_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.thermal_expansion" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">thermal_expansion</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.thermal_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.thermal_expansion" title="Link to this definition"></a></dt>
 <dd><p>Thermal expansion coefficient [1/K].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Thermal expansion coefficient in converted temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.FluidConstants.viscosity">
-<span class="sig-name descname"><span class="pre">viscosity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.viscosity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.viscosity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">viscosity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#FluidConstants.viscosity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.FluidConstants.viscosity" title="Link to this definition"></a></dt>
 <dd><p>Viscosity [Pa s].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Viscosity array in converted pressure and time units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -447,8 +447,8 @@ units.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.material_constants.MaterialConstants">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MaterialConstants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constants</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#MaterialConstants"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MaterialConstants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constants</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#MaterialConstants"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Material property container and conversion class.</p>
 <p>Modifications to parameter values should be done by subclassing. To set a different
 constant value, simply define a new class attribute with the same name. If a
@@ -456,50 +456,50 @@ different value is needed for a specific subdomain or there is spatial heterogen
 internal to a subdomain, the method should be overridden. The latter is assumed to
 be most relevant for solids.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>constants</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>constants</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.MaterialConstants.convert_units">
-<span class="sig-name descname"><span class="pre">convert_units</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_si</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#MaterialConstants.convert_units"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.convert_units" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">convert_units</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">units</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_si</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#MaterialConstants.convert_units"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.convert_units" title="Link to this definition"></a></dt>
 <dd><p>Convert value between SI and user specified units.</p>
 <p>The method divides the value by the units as defined by the user. As an example,
 if the user has defined the unit for pressure to be 1 MPa, then a value of  1e8
 will be converted to 1e8 / 1e6 = 1e2. Conversely, if to_si is True, the value
 will be converted to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>value</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – Value to be converted.</p></li>
-<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – Units of value defined as a string in
+<li><p><strong>value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Value to be converted.</p></li>
+<li><p><strong>units</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Units of value defined as a string in
 the form of <code class="docutils literal notranslate"><span class="pre">unit1</span> <span class="pre">*</span> <span class="pre">unit2</span> <span class="pre">*</span> <span class="pre">unit3^-1</span></code>, e.g., <code class="docutils literal notranslate"><span class="pre">&quot;Pa*m^3/kg&quot;</span></code>.
 Valid units are the attributes and properties of the Units class. Valid
 operators are * and ^, including negative powers (e.g. m^-2). A
 dimensionless value can be specified by setting units to “”, “1” or “-“.</p></li>
-<li><p><strong>to_si</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a><em>]</em>) – If True, the value is converted to SI units. If False, the value is
+<li><p><strong>to_si</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em> | </em><em>None</em>) – If True, the value is converted to SI units. If False, the value is
 converted to the units specified by the user, which are the ones used in
 the</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Value in the user specified units to be used in the simulation.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.MaterialConstants.set_units">
-<span class="sig-name descname"><span class="pre">set_units</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#MaterialConstants.set_units"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.set_units" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_units</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">units</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#MaterialConstants.set_units"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.set_units" title="Link to this definition"></a></dt>
 <dd><p>Set units of the material.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>units</strong> (<a class="reference internal" href="porepy.models.units.html#porepy.models.units.Units" title="porepy.models.units.Units"><em>Units</em></a>) – Units object.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -507,10 +507,10 @@ the</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="porepy.models.material_constants.MaterialConstants.constants">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">constants</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a></em><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.constants" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">constants</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a></em><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.constants" title="Link to this definition"></a></dt>
 <dd><p>Constants of the material.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Dictionary of constants.</p>
 </dd>
 </dl>
@@ -518,10 +518,10 @@ the</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="porepy.models.material_constants.MaterialConstants.units">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.units.html#porepy.models.units.Units" title="porepy.models.units.Units"><span class="pre">Units</span></a></em><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.units" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.units.html#porepy.models.units.Units" title="porepy.models.units.Units"><span class="pre">Units</span></a></em><a class="headerlink" href="#porepy.models.material_constants.MaterialConstants.units" title="Link to this definition"></a></dt>
 <dd><p>Units of the material.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Units object.</p>
 </dd>
 </dl>
@@ -531,15 +531,15 @@ the</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolidConstants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolidConstants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">constants</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.models.material_constants.MaterialConstants" title="porepy.models.material_constants.MaterialConstants"><code class="xref py py-class docutils literal notranslate"><span class="pre">MaterialConstants</span></code></a></p>
 <p>Solid material with unit values.</p>
 <p>Each constant (class attribute) typically corresponds to exactly one method which
 scales the value and broadcasts to relevant size, typically number of cells in the
 specified subdomains or interfaces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>constants</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – <p>Dictionary of constants. Only keys corresponding to a constant
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>constants</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – <p>Dictionary of constants. Only keys corresponding to a constant
 in the class will be used. The permissible keys are:</p>
 <blockquote>
 <div><ul class="simple">
@@ -550,6 +550,7 @@ in the class will be used. The permissible keys are:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">normal_permeability</span></code>: Normal permeability [m^2].</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">lame_lambda</span></code>: Lame parameter lambda [Pa].</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">shear_modulus</span></code>: Shear modulus [Pa].</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">specific_storage</span></code>: Specific storage [Pa^-1].</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">friction_coefficient</span></code>: Friction coefficient [-].</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">fracture_gap</span></code>: Fracture gap [m].</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dilation_angle</span></code>: Dilation angle [radians].</p></li>
@@ -560,210 +561,224 @@ in the class will be used. The permissible keys are:</p>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.biot_coefficient">
-<span class="sig-name descname"><span class="pre">biot_coefficient</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.biot_coefficient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.biot_coefficient" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">biot_coefficient</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.biot_coefficient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.biot_coefficient" title="Link to this definition"></a></dt>
 <dd><p>Biot coefficient [-].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Biot coefficient.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.density">
-<span class="sig-name descname"><span class="pre">density</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.density"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.density" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">density</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.density"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.density" title="Link to this definition"></a></dt>
 <dd><p>Density [kg/m^3].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Density in converted mass and length units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.dilation_angle">
-<span class="sig-name descname"><span class="pre">dilation_angle</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.dilation_angle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.dilation_angle" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dilation_angle</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.dilation_angle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.dilation_angle" title="Link to this definition"></a></dt>
 <dd><p>Dilation angle.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Dilation angle in converted angle units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.friction_coefficient">
-<span class="sig-name descname"><span class="pre">friction_coefficient</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.friction_coefficient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.friction_coefficient" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">friction_coefficient</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.friction_coefficient"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.friction_coefficient" title="Link to this definition"></a></dt>
 <dd><p>Friction coefficient [-].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Friction coefficient.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.gap">
-<span class="sig-name descname"><span class="pre">gap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.gap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.gap" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">gap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.gap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.gap" title="Link to this definition"></a></dt>
 <dd><p>Fracture gap [m].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Fracture gap in converted length units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.lame_lambda">
-<span class="sig-name descname"><span class="pre">lame_lambda</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.lame_lambda"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.lame_lambda" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">lame_lambda</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.lame_lambda"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.lame_lambda" title="Link to this definition"></a></dt>
 <dd><p>Lame’s first parameter [Pa].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Lame’s first parameter in converted pressure units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.normal_permeability">
-<span class="sig-name descname"><span class="pre">normal_permeability</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.normal_permeability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.normal_permeability" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">normal_permeability</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.normal_permeability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.normal_permeability" title="Link to this definition"></a></dt>
 <dd><p>Normal permeability [m^2].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Normal permeability in converted length units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.permeability">
-<span class="sig-name descname"><span class="pre">permeability</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.permeability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.permeability" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">permeability</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.permeability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.permeability" title="Link to this definition"></a></dt>
 <dd><p>Permeability [m^2].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Permeability in converted length units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.porosity">
-<span class="sig-name descname"><span class="pre">porosity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.porosity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.porosity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">porosity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.porosity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.porosity" title="Link to this definition"></a></dt>
 <dd><p>Porosity [-].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Porosity.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.residual_aperture">
-<span class="sig-name descname"><span class="pre">residual_aperture</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.residual_aperture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.residual_aperture" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">residual_aperture</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.residual_aperture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.residual_aperture" title="Link to this definition"></a></dt>
 <dd><p>Residual aperture [m].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Residual aperture.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.shear_modulus">
-<span class="sig-name descname"><span class="pre">shear_modulus</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.shear_modulus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.shear_modulus" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">shear_modulus</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.shear_modulus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.shear_modulus" title="Link to this definition"></a></dt>
 <dd><p>Young’s modulus [Pa].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Shear modulus in converted pressure units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.specific_heat_capacity">
-<span class="sig-name descname"><span class="pre">specific_heat_capacity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.specific_heat_capacity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.specific_heat_capacity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">specific_heat_capacity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.specific_heat_capacity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.specific_heat_capacity" title="Link to this definition"></a></dt>
 <dd><p>Specific heat [energy / (mass * temperature)].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Specific heat in converted energy, mass and temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.specific_storage">
+<span class="sig-name descname"><span class="pre">specific_storage</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.specific_storage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.specific_storage" title="Link to this definition"></a></dt>
+<dd><p>Specific storage [1/Pa].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Specific storage in converted pressure units.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.temperature">
-<span class="sig-name descname"><span class="pre">temperature</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.temperature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.temperature" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">temperature</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.temperature"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.temperature" title="Link to this definition"></a></dt>
 <dd><p>Temperature [K].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Temperature in converted temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.thermal_conductivity">
-<span class="sig-name descname"><span class="pre">thermal_conductivity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.thermal_conductivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.thermal_conductivity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">thermal_conductivity</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.thermal_conductivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.thermal_conductivity" title="Link to this definition"></a></dt>
 <dd><p>Thermal conductivity [W/m/K].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Thermal conductivity in converted energy, length and temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.material_constants.SolidConstants.thermal_expansion">
-<span class="sig-name descname"><span class="pre">thermal_expansion</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.thermal_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.thermal_expansion" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">thermal_expansion</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/material_constants.html#SolidConstants.thermal_expansion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.material_constants.SolidConstants.thermal_expansion" title="Link to this definition"></a></dt>
 <dd><p>Thermal expansion coefficient [1/K].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Thermal expansion coefficient in converted temperature units.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>

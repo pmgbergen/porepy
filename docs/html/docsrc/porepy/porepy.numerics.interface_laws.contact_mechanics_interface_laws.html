@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.interface_laws.contact_mechanics_interface_laws module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.interface_laws.contact_mechanics_interface_laws.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
@@ -276,14 +276,14 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.interface_laws.contact_mechanics_interface_laws">
-<span id="porepy-numerics-interface-laws-contact-mechanics-interface-laws-module"></span><h1>porepy.numerics.interface_laws.contact_mechanics_interface_laws module<a class="headerlink" href="#module-porepy.numerics.interface_laws.contact_mechanics_interface_laws" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-interface-laws-contact-mechanics-interface-laws-module"></span><h1>porepy.numerics.interface_laws.contact_mechanics_interface_laws module<a class="headerlink" href="#module-porepy.numerics.interface_laws.contact_mechanics_interface_laws" title="Link to this heading"></a></h1>
 <p>Implementation of contact conditions for fracture mechanics, using a primal formulation.</p>
 <p>We provide a class for coupling the higher-dimensional mechanical discretization to the
 tractions on the fractures. Also, in the case of coupled physics (Biot and the like),
 classes handling the arising coupling terms are provided.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DivUCoupling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DivUCoupling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw" title="porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInterfaceLaw</span></code></a></p>
 <p>Coupling conditions for DivU term.</p>
 <p>For mixed-dimensional flow in coupled to matrix mechanics, i.e. Biot in the matrix
@@ -292,7 +292,7 @@ We have assumed a primal displacement mortar variable, which will contribute
 to the div u term in fracture (“div aperture”) and matrix.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Assemble the mortar displacement’s contribution as a internal Dirichlet
 contribution for the higher dimension, and source term for the lower dimension.
 :param sd_primary: Grid on one neighboring subdomain.
@@ -305,39 +305,39 @@ contribution for the higher dimension, and source term for the lower dimension.
 <div><p>added.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.discretize" title="Link to this definition"></a></dt>
 <dd><p>Nothing to do</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -345,13 +345,13 @@ contribution for the higher dimension, and source term for the lower dimension.
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#DivUCoupling.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.DivUCoupling.ndof" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -360,7 +360,7 @@ contribution for the higher dimension, and source term for the lower dimension.
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FractureScalarToForceBalance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FractureScalarToForceBalance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw" title="porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInterfaceLaw</span></code></a></p>
 <p>This class adds the fracture pressure contribution to the force balance posed on the
 mortar grid by PrimalContactCoupling and modified to account for matrix pressure by
@@ -374,43 +374,43 @@ have to subtract the pressure contribution, i.e.</p>
 contact forces and the fracture pressure force.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Assemble the pressure contributions of the interface force balance law.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Grid on one neighboring subdomain.</p></li>
 <li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Grid on the other neighboring subdomain.</p></li>
-<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Data dictionary for the primary suddomain</p></li>
-<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Data dictionary for the secondary subdomain.</p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Data dictionary for the edge between the subdomains</p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – original discretization matrix, to which the coupling terms will be
+<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – Data dictionary for the primary suddomain</p></li>
+<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – Data dictionary for the secondary subdomain.</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – Data dictionary for the edge between the subdomains</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>) – original discretization matrix, to which the coupling terms will be
 added.</p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.discretize" title="Link to this definition"></a></dt>
 <dd><p>Nothing to do</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_l</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_l</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -418,13 +418,13 @@ added.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#FractureScalarToForceBalance.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.FractureScalarToForceBalance.ndof" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -433,7 +433,7 @@ added.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MatrixScalarToForceBalance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MatrixScalarToForceBalance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw" title="porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInterfaceLaw</span></code></a></p>
 <p>This class adds the matrix scalar (pressure) contribution to the force balance posed
 on the mortar grid by PrimalContactCoupling.</p>
@@ -450,49 +450,49 @@ will only be included for nonzero values of the biot_alpha coefficient.</p>
 </div></blockquote>
 <p>This is taken care of by FracturePressureToForceBalance.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Assemble the pressure contributions of the interface force balance law.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd_primary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid on one neighboring subdomain.</p></li>
 <li><p><strong>sd_secondary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid on the other neighboring subdomain.</p></li>
 <li><p><strong>intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MortarGrid</span></code>) – interface between subdomains</p></li>
-<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Data dictionary for the primary suddomain</p></li>
-<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Data dictionary for the secondary subdomain.</p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – Data dictionary for the edge between the subdomains</p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – original discretization matrix, to which the coupling terms will be
+<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – Data dictionary for the primary suddomain</p></li>
+<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – Data dictionary for the secondary subdomain.</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – Data dictionary for the edge between the subdomains</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>) – original discretization matrix, to which the coupling terms will be
 added.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.discretize" title="Link to this definition"></a></dt>
 <dd><p>Nothing to do</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_l</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_l</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -500,13 +500,13 @@ added.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#MatrixScalarToForceBalance.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.MatrixScalarToForceBalance.ndof" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -515,7 +515,7 @@ added.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PrimalContactCoupling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_surface_discr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PrimalContactCoupling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_surface_discr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw" title="porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInterfaceLaw</span></code></a></p>
 <p>Implement the coupling conditions for the pure mechanics problem.</p>
 <p>The primary variables for this formulation are displacement in the ambient dimension,
@@ -542,39 +542,39 @@ solution at the previous time step. The state should be available in</p>
 <p>and may usually be set to zero for stationary problems.
 See also contact_conditions.py</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>use_surface_discr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>use_surface_discr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_intf_coupling_via_high_dim">
-<span class="sig-name descname"><span class="pre">assemble_intf_coupling_via_high_dim</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_between</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_between</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assemble_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assemble_rhs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.assemble_intf_coupling_via_high_dim"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_intf_coupling_via_high_dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_intf_coupling_via_high_dim</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_between</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_between</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assemble_matrix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assemble_rhs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.assemble_intf_coupling_via_high_dim"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_intf_coupling_via_high_dim" title="Link to this definition"></a></dt>
 <dd><p>Assemble the stress contribution from the mortar displacement on one edge
 on the stress balance on a neighboring edge, in the sense that the two edges
 share a node located at the corner.</p>
 <p>The impact of the boundary condition gives an additional term in the stress
 balance on the primary mortar.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g_between</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid of the higher dimensional neighbor to the
 main interface</p></li>
-<li><p><strong>data_between</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary of the intermediate grid.</p></li>
-<li><p><strong>intf_primary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span> <span class="pre">of</span> <span class="pre">grids</span></code>) – The grids of the primary edge</p></li>
-<li><p><strong>intf_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary of the primary interface.</p></li>
-<li><p><strong>intf_secondary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span> <span class="pre">of</span> <span class="pre">grids</span></code>) – The grids of the secondary edge.</p></li>
-<li><p><strong>intf_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary of the secondary interface.</p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – original discretization.</p></li>
-<li><p><strong>sd_pair_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>sd_pair_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>assemble_matrix</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
-<li><p><strong>assemble_rhs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>data_between</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary of the intermediate grid.</p></li>
+<li><p><strong>intf_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">grids</span></code>) – The grids of the primary edge</p></li>
+<li><p><strong>intf_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary of the primary interface.</p></li>
+<li><p><strong>intf_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">grids</span></code>) – The grids of the secondary edge.</p></li>
+<li><p><strong>intf_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary of the secondary interface.</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>) – original discretization.</p></li>
+<li><p><strong>sd_pair_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>sd_pair_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>assemble_matrix</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
+<li><p><strong>assemble_rhs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Block matrix of size 3 x 3, whwere each block represents</dt><dd><p>coupling between variables on this interface. Index 0, 1 and 2
 represent the primary grid, the primary and secondary interface,
@@ -586,7 +586,7 @@ the primary and secondary interface, respectively.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array</p>
 </dd>
 </dl>
@@ -594,7 +594,7 @@ the primary and secondary interface, respectively.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Assemble the dicretization of the interface law, and its impact on
 the neighboring domains.
 :param sd_primary: Grid on one neighboring subdomain.
@@ -607,38 +607,38 @@ the neighboring domains.
 <div><p>added.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_h</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_l</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.discretize" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_l</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_h</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_l</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -646,16 +646,16 @@ the neighboring domains.
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/contact_mechanics_interface_laws.html#PrimalContactCoupling.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.contact_mechanics_interface_laws.PrimalContactCoupling.ndof" title="Link to this definition"></a></dt>
 <dd><p>Get the number of dof for this coupling.</p>
 <p>It is assumed that this method will only be called for mortar grids of
 co-dimension 1. If the assumption is broken, this will not work.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>

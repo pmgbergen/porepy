@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.geometry.map_geometry module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.map_geometry.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.map_geometry.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.geometry.html">porepy.geometry package</a></li>
       <li class="breadcrumb-item active">porepy.geometry.map_geometry module</li>
@@ -275,11 +275,11 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.geometry.map_geometry">
-<span id="porepy-geometry-map-geometry-module"></span><h1>porepy.geometry.map_geometry module<a class="headerlink" href="#module-porepy.geometry.map_geometry" title="Permalink to this heading"></a></h1>
+<span id="porepy-geometry-map-geometry-module"></span><h1>porepy.geometry.map_geometry module<a class="headerlink" href="#module-porepy.geometry.map_geometry" title="Link to this heading"></a></h1>
 <p>Collection of functions related to geometry mappings, rotations etc.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.compute_normal">
-<span class="sig-name descname"><span class="pre">compute_normal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#compute_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.compute_normal" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_normal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#compute_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.compute_normal" title="Link to this definition"></a></dt>
 <dd><p>Compute the normal of a set of points.</p>
 <p>The sign of the normal is arbitrary The algorithm assumes that the points lie on a
 plane. Three non-aligned points are needed. If the points are almost collinear, the
@@ -287,35 +287,35 @@ algorithm will attempt to find a combination of points that minimizes rounding
 errors. To ensure stable results, make sure to provide points that truly span a 2d
 plane.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>An array representing the points. Need <code class="docutils literal notranslate"><span class="pre">np</span> <span class="pre">&gt;</span> <span class="pre">2</span></code>.</p>
 </p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<em>optional</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Absolute tolerance used to detect essentially collinear points.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If less than three points are provided.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If all points provided are collinear (relative to the specified
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If less than three points are provided.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If all points provided are collinear (relative to the specified
     tolerance)</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code> representing the normal.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.compute_normals_1d">
-<span class="sig-name descname"><span class="pre">compute_normals_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#compute_normals_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.compute_normals_1d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_normals_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#compute_normals_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.compute_normals_1d" title="Link to this definition"></a></dt>
 <dd><p>Compute the normals of a set of points aligned along a 1d line.</p>
 <p>The sign and direction of the two normal vectors are arbitrary. The algorithm
 assumes that the points lie on a line.</p>
@@ -335,128 +335,128 @@ assumes that the points lie on a line.</p>
 <p><a class="reference internal" href="#porepy.geometry.map_geometry.compute_normal" title="porepy.geometry.map_geometry.compute_normal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_normal()</span></code></a></p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>An array representing the points. Need np &gt; 2.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">2)</span></code> representing the normal.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.compute_tangent">
-<span class="sig-name descname"><span class="pre">compute_tangent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#compute_tangent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.compute_tangent" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_tangent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#compute_tangent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.compute_tangent" title="Link to this definition"></a></dt>
 <dd><p>Compute a tangent vector of a set of points that are aligned along a 1d line.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>Array representing the points.</p>
 </p></li>
-<li><p><strong>check</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
+<li><p><strong>check</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
 <p>Do sanity check on the result.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code> representing the tangent.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.force_point_collinearity">
-<span class="sig-name descname"><span class="pre">force_point_collinearity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#force_point_collinearity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.force_point_collinearity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">force_point_collinearity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#force_point_collinearity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.force_point_collinearity" title="Link to this definition"></a></dt>
 <dd><p>Given a set of points, return them aligned on a line.</p>
 <p>Useful to enforce collinearity for almost collinear points. The order of the points
 remain the same.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>An array representing the points. The first point should
 be on one extremum of the line.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <blockquote>
 <div><p>An array representing the corrected points.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.map_grid">
-<span class="sig-name descname"><span class="pre">map_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">R</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#map_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.map_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">map_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">R</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#map_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.map_grid" title="Link to this definition"></a></dt>
 <dd><p>Map a grid to a local coordinate system.</p>
 <p>If a 2d or a 1d grid is passed, the function returns the cell_centers,
 face_normals, and face_centers using local coordinates. If a 3d grid is
 passed nothing is applied. The return vectors have a reduced number of rows.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The subdomain grid.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Tolerance used to check that the grid is linear or planar.</p>
 </p></li>
-<li><p><strong>R</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>R</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Rotation matrix (shape=(3, 3)). The first dim rows should map
 vectors onto the tangential space of the grid.</p>
 <p>If not provided, a rotation matrix will be computed.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Mapped attributes of the grid.</p>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_cells)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_cells)</span></code></p>
 <blockquote>
 <div><p>The mapped centers of the cells.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_faces)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_faces)</span></code></p>
 <blockquote>
 <div><p>The mapped normals of the faces.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_faces)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_faces)</span></code></p>
 <blockquote>
 <div><p>The mapped centers of the faces.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">3)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">3)</span></code></p>
 <blockquote>
 <div><p>The rotation matrix used.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</p>
 <blockquote>
 <div><p>Indices of the active dimensions</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_nodes)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.dim,</span> <span class="pre">g.num_nodes)</span></code></p>
 <blockquote>
 <div><p>The mapped nodes.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)">numpy.dtype</a>[numpy.float64]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)">numpy.dtype</a>[numpy.float64]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)">numpy.dtype</a>[numpy.float64]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)">numpy.dtype</a>[numpy.float64]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)">numpy.dtype</a>[numpy.int64]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)">numpy.dtype</a>[numpy.float64]]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>int64</em>]], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.normal_matrix">
-<span class="sig-name descname"><span class="pre">normal_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#normal_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.normal_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">normal_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#normal_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.normal_matrix" title="Link to this definition"></a></dt>
 <dd><p>Compute the normal projection matrix of a plane.</p>
 <p>The algorithm assume that the points lie on a plane. Three non-aligned points are
 required.</p>
@@ -465,31 +465,31 @@ required.</p>
 <p>Either <code class="docutils literal notranslate"><span class="pre">pts</span></code> or <code class="docutils literal notranslate"><span class="pre">normal</span></code> are mandatory.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">np),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">np),</span> <span class="pre">default=None)</span></code></p>
 <p>An array representing the points. Need <code class="docutils literal notranslate"><span class="pre">np</span> <span class="pre">&gt;</span> <span class="pre">2</span></code>.</p>
 </p></li>
-<li><p><strong>normal</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>normal</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
 <p>An array representing the normal.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If neither <code class="docutils literal notranslate"><span class="pre">pts</span></code> nor <code class="docutils literal notranslate"><span class="pre">normal</span></code> is provided.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If neither <code class="docutils literal notranslate"><span class="pre">pts</span></code> nor <code class="docutils literal notranslate"><span class="pre">normal</span></code> is provided.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">3)</span></code> representing the normal matrix.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.project_line_matrix">
-<span class="sig-name descname"><span class="pre">project_line_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tangent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#project_line_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.project_line_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_line_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tangent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#project_line_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.project_line_matrix" title="Link to this definition"></a></dt>
 <dd><p>Project the points on a line using local coordinates.</p>
 <p>The projected points are computed by a dot product.</p>
 <div class="admonition-example admonition">
@@ -501,105 +501,105 @@ required.</p>
 </div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
 <p>An array, representing the points.</p>
 </p></li>
-<li><p><strong>tangent</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>tangent</strong> (<em>optional</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>The tangent unit vector of the plane, otherwise two points
 are required.</p>
 </p></li>
-<li><p><strong>reference</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>reference</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
 <p>Reference vector to compute the angles.
 Defaults to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">0,</span> <span class="pre">1]</span></code>.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>An array (shape=(3, 3)), representing the projection matrix.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.project_plane_matrix">
-<span class="sig-name descname"><span class="pre">project_plane_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#project_plane_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.project_plane_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_plane_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#project_plane_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.project_plane_matrix" title="Link to this definition"></a></dt>
 <dd><p>Project the points on a plane using local coordinates.</p>
 <p>The projected points are computed by a dot product.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
 <p>A matrix representing the points.</p>
 </p></li>
-<li><p><strong>normal</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>normal</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>The normal of the plane, otherwise three points are required.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Tolerance to assert the planarity of the cloud of points.</p>
 </p></li>
-<li><p><strong>reference</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>reference</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
 <p>Reference array to compute the angles.
 Defaults to <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">0,</span> <span class="pre">1]</span></code>.</p>
 </p></li>
-<li><p><strong>check_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
+<li><p><strong>check_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
 <p>Whether to check for planarity. Defaults to True</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">3)</span></code> representing the projection matrix.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.project_points_to_line">
-<span class="sig-name descname"><span class="pre">project_points_to_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#project_points_to_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.project_points_to_line" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_points_to_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#project_points_to_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.project_points_to_line" title="Link to this definition"></a></dt>
 <dd><p>Project a set of colinear points onto a line.</p>
 <p>The points should be co-linear such that a 1d description is meaningful.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
 <p>An array representation of coordinates of the points. Should be co-linear,
 but can have random ordering along the common line.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-4</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-4</span></code></p>
 <p>Tolerance used for testing of co-linearity.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the points are not aligned on a line.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the points are not aligned on a line.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(np,))</span></code></p>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(np,))</span></code></p>
 <blockquote>
 <div><p>One-dimensional coordinates of the points, sorted along the line.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">3)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">3)</span></code></p>
 <blockquote>
 <div><p>Rotation matrix used for mapping the points onto a coordinate axis.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>:</p>
+<p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>:</p>
 <blockquote>
 <div><p>The dimension onto which the point coordinates were mapped.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(np,))</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(np,))</span></code></p>
 <blockquote>
 <div><p>Index array used to sort the points onto the line.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>Information on the projected points</p>
 </dd>
 </dl>
@@ -607,57 +607,57 @@ but can have random ordering along the common line.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.rotation_matrix">
-<span class="sig-name descname"><span class="pre">rotation_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vect</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#rotation_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.rotation_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">rotation_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vect</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#rotation_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.rotation_matrix" title="Link to this definition"></a></dt>
 <dd><p>Compute the rotation matrix about a vector by an angle using the matrix form of
 Rodrigues’ formula.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>a</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – The angle.</p></li>
-<li><p><strong>vect</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
+<li><p><strong>a</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – The angle.</p></li>
+<li><p><strong>vect</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,)</span></code></p>
 <p>The vector to be rotated.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">3)</span></code> representing the rotation matrix.</p>
 <p>If vect is a zero vector, the returned rotation matrix will be the
 identity matrix.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.sort_points_on_line">
-<span class="sig-name descname"><span class="pre">sort_points_on_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#sort_points_on_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.sort_points_on_line" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sort_points_on_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#sort_points_on_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.sort_points_on_line" title="Link to this definition"></a></dt>
 <dd><p>Return the indexes of the point according to their position on a line.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>Array of points</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Tolerance used in check for point collinearity.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The indexes of the points.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.map_geometry.tangent_matrix">
-<span class="sig-name descname"><span class="pre">tangent_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#tangent_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.tangent_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tangent_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/map_geometry.html#tangent_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.map_geometry.tangent_matrix" title="Link to this definition"></a></dt>
 <dd><p>Compute the tangential projection matrix of a plane.</p>
 <p>The algorithm assume that the points lie on a plane. Three non-aligned points are
 required.</p>
@@ -666,24 +666,24 @@ required.</p>
 <p>Either points or normal are mandatory.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">np),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,</span> <span class="pre">np),</span> <span class="pre">default=None)</span></code></p>
 <p>An array representing the points. Need <code class="docutils literal notranslate"><span class="pre">np</span> <span class="pre">&gt;</span> <span class="pre">2</span></code>.</p>
 </p></li>
-<li><p><strong>normal</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>normal</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>, </em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a><em>[</em><em>float64</em><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(3,),</span> <span class="pre">default=None)</span></code></p>
 <p>Array representing the normal.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If neither <code class="docutils literal notranslate"><span class="pre">pts</span></code> nor <code class="docutils literal notranslate"><span class="pre">normal</span></code> is provided.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If neither <code class="docutils literal notranslate"><span class="pre">pts</span></code> nor <code class="docutils literal notranslate"><span class="pre">normal</span></code> is provided.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">3)</span></code> representing the tangential matrix.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v1.24)"><em>dtype</em></a>[<em>float64</em>]]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.dtype.html#numpy.dtype" title="(in NumPy v2.2)"><em>dtype</em></a>[<em>float64</em>]]</p>
 </dd>
 </dl>
 </dd></dl>

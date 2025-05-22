@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.parameter_dictionaries module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.params.parameter_dictionaries.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.params.parameter_dictionaries.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.params.html">porepy.params package</a></li>
       <li class="breadcrumb-item active">porepy.params.parameter_dictionaries module</li>
@@ -275,24 +275,24 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.params.parameter_dictionaries">
-<span id="porepy-params-parameter-dictionaries-module"></span><h1>porepy.params.parameter_dictionaries module<a class="headerlink" href="#module-porepy.params.parameter_dictionaries" title="Permalink to this heading"></a></h1>
+<span id="porepy-params-parameter-dictionaries-module"></span><h1>porepy.params.parameter_dictionaries module<a class="headerlink" href="#module-porepy.params.parameter_dictionaries" title="Link to this heading"></a></h1>
 <p>Parameter dictionaries.</p>
 <p>Here, we store various parameter dictionaries with “sensible” (typically unitary or
 zero) default values for the parameters required by the discretization objects.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.parameter_dictionaries.flow_dictionary">
-<span class="sig-name descname"><span class="pre">flow_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/parameter_dictionaries.html#flow_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.parameter_dictionaries.flow_dictionary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">flow_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/parameter_dictionaries.html#flow_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.parameter_dictionaries.flow_dictionary" title="Link to this definition"></a></dt>
 <dd><p>Dictionary with parameters for standard flow problems.</p>
 <p>All parameters listed below which are not specified in in_data are assigned default
 values. Additional parameters may be passed in in_data.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> – Grid.</p></li>
 <li><p><strong>in_data</strong> – Dictionary containing any custom (non-default) parameter values.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Dictionary with the “mathematical” parameters required by various flow</dt><dd><p>discretization objects specified.</p>
 </dd>
@@ -304,18 +304,18 @@ values. Additional parameters may be passed in in_data.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.parameter_dictionaries.mechanics_dictionary">
-<span class="sig-name descname"><span class="pre">mechanics_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/parameter_dictionaries.html#mechanics_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.parameter_dictionaries.mechanics_dictionary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mechanics_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/parameter_dictionaries.html#mechanics_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.parameter_dictionaries.mechanics_dictionary" title="Link to this definition"></a></dt>
 <dd><p>Dictionary with parameters for standard mechanics problems.</p>
 <p>All parameters listed below which are not specified in in_data are assigned default
 values. Additional parameters may be passed in in_data.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> – Grid.</p></li>
 <li><p><strong>in_data</strong> – Dictionary containing any custom (non-default) parameter values.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Dictionary with the “mathematical” parameters required by various flow</dt><dd><p>discretization objects specified.</p>
 </dd>
@@ -327,18 +327,18 @@ values. Additional parameters may be passed in in_data.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.parameter_dictionaries.transport_dictionary">
-<span class="sig-name descname"><span class="pre">transport_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/parameter_dictionaries.html#transport_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.parameter_dictionaries.transport_dictionary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">transport_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/parameter_dictionaries.html#transport_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.parameter_dictionaries.transport_dictionary" title="Link to this definition"></a></dt>
 <dd><p>Dictionary with parameters for standard transport problems.</p>
 <p>All parameters listed below which are not specified in in_data are assigned default
 values. Additional parameters may be passed in in_data.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> – Grid.</p></li>
 <li><p><strong>in_data</strong> – Dictionary containing any custom (non-default) parameter values.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Dictionary with the “mathematical” parameters required by various flow</dt><dd><p>discretization objects specified.</p>
 </dd>

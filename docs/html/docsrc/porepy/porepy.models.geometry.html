@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.geometry module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.geometry.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.geometry.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
       <li class="breadcrumb-item active">porepy.models.geometry module</li>
@@ -275,17 +275,17 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.models.geometry">
-<span id="porepy-models-geometry-module"></span><h1>porepy.models.geometry module<a class="headerlink" href="#module-porepy.models.geometry" title="Permalink to this heading"></a></h1>
+<span id="porepy-models-geometry-module"></span><h1>porepy.models.geometry module<a class="headerlink" href="#module-porepy.models.geometry" title="Link to this heading"></a></h1>
 <p>Geometry definition for simulation setup.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ModelGeometry</span></span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ModelGeometry</span></span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>This class provides geometry related methods and information for a simulation
 model.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.basis">
-<span class="sig-name descname"><span class="pre">basis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.basis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.basis" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">basis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.basis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.basis" title="Link to this definition"></a></dt>
 <dd><p>Return a cell-wise basis for all subdomains.</p>
 <p>The basis is represented as a list of matrices, each of which represents a
 basis function. The individual matrices have shape <code class="docutils literal notranslate"><span class="pre">Nc</span> <span class="pre">*</span> <span class="pre">dim,</span> <span class="pre">Nc</span></code> where <code class="docutils literal notranslate"><span class="pre">Nc</span></code>
@@ -310,41 +310,69 @@ tangential direction only, use
 </dl>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>]</em>) – List of grids on which the basis is defined.</p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Dimension of the basis.</p></li>
+<li><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – List of grids on which the basis is defined.</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Dimension of the basis.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>List of pp.ad.Matrix, each of which represents a basis function.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix">porepy.numerics.ad.operators.Matrix</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><em>Matrix</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.domain_boundary_sides">
-<span class="sig-name descname"><span class="pre">domain_boundary_sides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.domain_boundary_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.domain_boundary_sides" title="Permalink to this definition"></a></dt>
-<dd><p>Obtain indices of grid faces on the different parts of the domain boundary.</p>
-<p>It is assumed the domain is box shaped.</p>
-<p>TODO: Update this from develop before merging.
-:param g: Grid for which to obtain the boundary faces.</p>
+<span class="sig-name descname"><span class="pre">domain_boundary_sides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.domain_boundary_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.domain_boundary_sides" title="Link to this definition"></a></dt>
+<dd><p>Obtain indices of the faces lying on the sides of the domain boundaries.</p>
+<p>The method is primarily intended for box-shaped domains. However, it can also be
+applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
+provided <cite>tol</cite> is tuned accordingly.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Subdomain grid.</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><em>None</em>) – Tolerance used to determine whether a face center lies on a boundary side.</p></li>
+</ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>all_bf (np.ndarray of int): indices of the boundary faces.</p></li>
+<li><p>east (np.ndarray of bool): flags of the faces lying on the East side.</p></li>
+<li><p>west (np.ndarray of bool): flags of the faces lying on the West side.</p></li>
+<li><p>north (np.ndarray of bool): flags of the faces lying on the North side.</p></li>
+<li><p>south (np.ndarray of bool): flags of the faces lying on the South side.</p></li>
+<li><p>top (np.ndarray of bool): flags of the faces lying on the Top side.</p></li>
+<li><p>bottom (np.ndarray of bool): flags of the faces lying on Bottom side.</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>NamedTuple containing the domain boundary sides. Available attributes are</p>
 </dd>
 </dl>
+<div class="admonition-examples admonition">
+<p class="admonition-title">Examples</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">SinglePhaseFlow</span><span class="p">({})</span>
+<span class="n">model</span><span class="o">.</span><span class="n">prepare_simulation</span><span class="p">()</span>
+<span class="n">sd</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">sides</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">domain_boundary_sides</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+<span class="c1"># Access north faces using index or name is equivalent:</span>
+<span class="n">north_by_index</span> <span class="o">=</span> <span class="n">sides</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span>
+<span class="n">north_by_name</span> <span class="o">=</span> <span class="n">sides</span><span class="o">.</span><span class="n">north</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">north_by_index</span> <span class="o">==</span> <span class="n">north_by_name</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.e_i">
-<span class="sig-name descname"><span class="pre">e_i</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.e_i"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.e_i" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">e_i</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.e_i"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.e_i" title="Link to this definition"></a></dt>
 <dd><p>Return a cell-wise basis function in a specified dimension.</p>
 <p>It is assumed that the grids are embedded in a space of dimension dim and
 aligned with the coordinate axes, that is, the reference space of the grid.
@@ -370,27 +398,27 @@ will be (aftert conversion to a numpy array)
 <p><a class="reference internal" href="#porepy.models.geometry.ModelGeometry.basis" title="porepy.models.geometry.ModelGeometry.basis"><code class="xref py py-meth docutils literal notranslate"><span class="pre">basis()</span></code></a> for the construction of a full basis.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>]</em>) – List of grids on which the basis vector is defined.</p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Dimension of the functions.</p></li>
-<li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Index of the basis function. Note: Counts from 0.</p></li>
+<li><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – List of grids on which the basis vector is defined.</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Dimension of the functions.</p></li>
+<li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Index of the basis function. Note: Counts from 0.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Ad representation of a matrix with the basis functions as</dt><dd><p>columns.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.Matrix</p>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If dim is smaller than the dimension of the mixed-dimensional.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If i is larger than dim.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If dim is smaller than the dimension of the mixed-dimensional.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If i is larger than dim.</p></li>
 </ul>
 </dd>
 </dl>
@@ -398,26 +426,26 @@ will be (aftert conversion to a numpy array)
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.interfaces_to_subdomains">
-<span class="sig-name descname"><span class="pre">interfaces_to_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.interfaces_to_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.interfaces_to_subdomains" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">interfaces_to_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.interfaces_to_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.interfaces_to_subdomains" title="Link to this definition"></a></dt>
 <dd><p>Subdomain neighbours of interfaces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – List of interfaces for which to find subdomains.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – List of interfaces for which to find subdomains.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Unique list of all subdomains neighbouring any of the interfaces. The
 subdomains are sorted according to their index as defined by the
 mixed-dimensional grid.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.internal_boundary_normal_to_outwards">
-<span class="sig-name descname"><span class="pre">internal_boundary_normal_to_outwards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.internal_boundary_normal_to_outwards"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.internal_boundary_normal_to_outwards" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">internal_boundary_normal_to_outwards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.internal_boundary_normal_to_outwards"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.internal_boundary_normal_to_outwards" title="Link to this definition"></a></dt>
 <dd><p>Obtain a vector for flipping normal vectors on internal boundaries.</p>
 <p>For a list of subdomains, check if the normal vector on internal boundaries
 point into the internal interface (e.g., into the fracture), and if so, flip the
@@ -430,16 +458,16 @@ subdomain faces that are part of an internal boundary.</p>
 is adviced to carefully consider subdomain lists when combining this with other
 operators.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains.</p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of subdomains.</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Operator with flipped signs if normal vector points inwards.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
@@ -447,16 +475,16 @@ operators.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.local_coordinates">
-<span class="sig-name descname"><span class="pre">local_coordinates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.local_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.local_coordinates" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">local_coordinates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.local_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.local_coordinates" title="Link to this definition"></a></dt>
 <dd><p>Ad wrapper around tangential_normal_projections for fractures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains for which to compute the local coordinates.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of subdomains for which to compute the local coordinates.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Local coordinates as a pp.ad.Matrix.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><em>Matrix</em></a></p>
 </dd>
 </dl>
@@ -464,17 +492,17 @@ operators.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.mesh_arguments">
-<span class="sig-name descname"><span class="pre">mesh_arguments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.mesh_arguments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.mesh_arguments" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mesh_arguments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.mesh_arguments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.mesh_arguments" title="Link to this definition"></a></dt>
 <dd><p>Mesh arguments for md-grid creation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><dl class="simple">
 <dt>Dictionary of meshing arguments compatible with</dt><dd><p>FractureNetwork.mesh() method.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>mesh_args</p>
 </dd>
 </dl>
@@ -482,7 +510,7 @@ operators.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.normal_component">
-<span class="sig-name descname"><span class="pre">normal_component</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.normal_component"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.normal_component" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">normal_component</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.normal_component"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.normal_component" title="Link to this definition"></a></dt>
 <dd><p>Compute the normal component of a vector field.</p>
 <p>The normal space is defined according to the local coordinates of the
 subdomains, with the normal space defined by final component, e.g., number
@@ -495,15 +523,15 @@ varies fastest).</p>
 <a class="reference internal" href="#porepy.models.geometry.ModelGeometry.tangential_component" title="porepy.models.geometry.ModelGeometry.tangential_component"><code class="xref py py-meth docutils literal notranslate"><span class="pre">tangential_component()</span></code></a> for the definition of the tangential space.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of grids on which the vector field is defined.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of grids on which the vector field is defined.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Matrix extracting normal component of the vector field and expressing it
 in normal basis. The size of the matrix is <cite>(Nc, Nc * self.nd)</cite>, where
 <cite>Nc</cite> is the total number of cells in the subdomains.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><em>Matrix</em></a></p>
 </dd>
 </dl>
@@ -511,20 +539,20 @@ in normal basis. The size of the matrix is <cite>(Nc, Nc * self.nd)</cite>, wher
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.outwards_internal_boundary_normals">
-<span class="sig-name descname"><span class="pre">outwards_internal_boundary_normals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unitary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.outwards_internal_boundary_normals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.outwards_internal_boundary_normals" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">outwards_internal_boundary_normals</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">unitary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.outwards_internal_boundary_normals"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.outwards_internal_boundary_normals" title="Link to this definition"></a></dt>
 <dd><p>Compute outward normal vectors on internal boundaries.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – List of interfaces.</p></li>
-<li><p><strong>unitary</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If True, return unit vectors, i.e. normalize by face area.</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – List of interfaces.</p></li>
+<li><p><strong>unitary</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If True, return unit vectors, i.e. normalize by face area.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Operator computing outward normal vectors on internal boundaries. Evaluated
 shape <cite>(num_intf_cells * dim, num_intf_cells * dim)</cite>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
@@ -532,10 +560,10 @@ shape <cite>(num_intf_cells * dim, num_intf_cells * dim)</cite>.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.set_fracture_network">
-<span class="sig-name descname"><span class="pre">set_fracture_network</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.set_fracture_network"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.set_fracture_network" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_fracture_network</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.set_fracture_network"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.set_fracture_network" title="Link to this definition"></a></dt>
 <dd><p>Assign fracture network class.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -543,10 +571,10 @@ shape <cite>(num_intf_cells * dim, num_intf_cells * dim)</cite>.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.set_geometry">
-<span class="sig-name descname"><span class="pre">set_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.set_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.set_geometry" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.set_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.set_geometry" title="Link to this definition"></a></dt>
 <dd><p>Define geometry and create a mixed-dimensional grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -554,7 +582,7 @@ shape <cite>(num_intf_cells * dim, num_intf_cells * dim)</cite>.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.set_md_grid">
-<span class="sig-name descname"><span class="pre">set_md_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.set_md_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.set_md_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_md_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.set_md_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.set_md_grid" title="Link to this definition"></a></dt>
 <dd><p>Create the mixed-dimensional grid.</p>
 <p>A unit square grid with no fractures is assigned by default if
 self.fracture_network contains no fractures. Otherwise, the network’s mesh
@@ -568,7 +596,7 @@ box (dict): The bounding box of the domain, defined through minimum and</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -576,7 +604,7 @@ box (dict): The bounding box of the domain, defined through minimum and</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.subdomain_projections">
-<span class="sig-name descname"><span class="pre">subdomain_projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.subdomain_projections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.subdomain_projections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomain_projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.subdomain_projections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.subdomain_projections" title="Link to this definition"></a></dt>
 <dd><p>Return the projection operators for all subdomains in md-grid.</p>
 <p>The projection operators restrict or prolong a dim-dimensional quantity from the
 full set of subdomains to any subset. Projection operators are constructed once
@@ -587,13 +615,13 @@ projection from subset A to subset B as</p>
 <div><p>P_A_to_B = P_full_to_B * P_A_to_full.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Dimension of the quantities to be projected.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Dimension of the quantities to be projected.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection operator.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>proj</p>
 </dd>
 </dl>
@@ -601,44 +629,44 @@ projection from subset A to subset B as</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.subdomains_to_interfaces">
-<span class="sig-name descname"><span class="pre">subdomains_to_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codims</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.subdomains_to_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.subdomains_to_interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomains_to_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codims</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.subdomains_to_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.subdomains_to_interfaces" title="Link to this definition"></a></dt>
 <dd><p>Interfaces neighbouring any of the subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – Subdomains for which to find interfaces.</p></li>
-<li><p><strong>codims</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – Codimension of interfaces to return. The common option is [1], i.e.
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – Subdomains for which to find interfaces.</p></li>
+<li><p><strong>codims</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>]</em>) – Codimension of interfaces to return. The common option is [1], i.e.
 only interfaces between subdomains one dimension apart.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Unique list of all interfaces neighboring any of the subdomains. Interfaces
 are sorted according to their index, as defined by the mixed-dimensional
 grid.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid">porepy.grids.mortar_grid.MortarGrid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.tangential_component">
-<span class="sig-name descname"><span class="pre">tangential_component</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.tangential_component"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.tangential_component" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tangential_component</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.tangential_component"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.tangential_component" title="Link to this definition"></a></dt>
 <dd><p>Compute the tangential component of a vector field.</p>
 <p>The tangential space is defined according to the local coordinates of the
 subdomains, with the tangential space defined by the first <cite>self.nd</cite> components
 of the cell-wise vector. It is assumed that the components of the vector are
 stored with a dimension-major ordering (the dimension varies fastest).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of grids on which the vector field is defined.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of grids on which the vector field is defined.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Operator extracting tangential component of the vector field and expressing
 it in tangential basis.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
@@ -646,34 +674,34 @@ it in tangential basis.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.wrap_grid_attribute">
-<span class="sig-name descname"><span class="pre">wrap_grid_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.wrap_grid_attribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.wrap_grid_attribute" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">wrap_grid_attribute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attr</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/geometry.html#ModelGeometry.wrap_grid_attribute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.wrap_grid_attribute" title="Link to this definition"></a></dt>
 <dd><p>Wrap a grid attribute as an ad matrix.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>]</em>) – List of grids on which the property is defined.</p></li>
-<li><p><strong>attr</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – Grid attribute to wrap. The attribute should be a ndarray and will be
+<li><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – List of grids on which the property is defined.</p></li>
+<li><p><strong>attr</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Grid attribute to wrap. The attribute should be a ndarray and will be
 flattened if it is not already one dimensional.</p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Dimensions to include for vector attributes. Intended use is to
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Dimensions to include for vector attributes. Intended use is to
 limit the number of dimensions for a vector attribute, e.g. to exclude
 the z-component of a vector attribute in 2d, to acieve compatibility
 with code which is explicitly 2d (e.g. fv discretizations).</p></li>
-<li><p><strong>inverse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If True, the inverse of the attribute will be wrapped. This is a
+<li><p><strong>inverse</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If True, the inverse of the attribute will be wrapped. This is a
 hack around the fact that the Ad framework does not support division.
 FIXME: Remove when ad supports division.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The property wrapped as an ad matrix, with the wrapped attribute on the
 diagonal.</p>
 </dd>
-<dt class="field-odd">Raises</dt>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If one of the grids does not have the attribute.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the attribute is not a ndarray.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If one of the grids does not have the attribute.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the attribute is not a ndarray.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><em>Matrix</em></a></p>
 </dd>
 </dl>
@@ -681,37 +709,37 @@ diagonal.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.domain_bounds">
-<span class="sig-name descname"><span class="pre">domain_bounds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.domain_bounds" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">domain_bounds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.domain_bounds" title="Link to this definition"></a></dt>
 <dd><p>Box-shaped domain. Set by the method <a class="reference internal" href="#porepy.models.geometry.ModelGeometry.set_md_grid" title="porepy.models.geometry.ModelGeometry.set_md_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_md_grid()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.fracture_network">
-<span class="sig-name descname"><span class="pre">fracture_network</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.fracs.fracture_network_2d.html#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d"><span class="pre">FractureNetwork2d</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="porepy.fracs.fracture_network_3d.FractureNetwork3d"><span class="pre">FractureNetwork3d</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.fracture_network" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">fracture_network</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.fracs.fracture_network_2d.html#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d"><span class="pre">FractureNetwork2d</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="porepy.fracs.fracture_network_3d.FractureNetwork3d"><span class="pre">FractureNetwork3d</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.fracture_network" title="Link to this definition"></a></dt>
 <dd><p>Representation of fracture network including intersections.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.mdg" title="Link to this definition"></a></dt>
 <dd><p>Mixed-dimensional grid. Set by the method <a class="reference internal" href="#porepy.models.geometry.ModelGeometry.set_md_grid" title="porepy.models.geometry.ModelGeometry.set_md_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_md_grid()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.nd">
-<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.nd" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.nd" title="Link to this definition"></a></dt>
 <dd><p>Ambient dimension of the problem. Set by the method <a class="reference internal" href="#porepy.models.geometry.ModelGeometry.set_geometry" title="porepy.models.geometry.ModelGeometry.set_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">set_geometry()</span></code></a></p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.units">
-<span class="sig-name descname"><span class="pre">units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.units.html#porepy.models.units.Units" title="porepy.models.units.Units"><span class="pre">Units</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.units" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">units</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.units.html#porepy.models.units.Units" title="porepy.models.units.Units"><span class="pre">Units</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.units" title="Link to this definition"></a></dt>
 <dd><p>Unit system.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.geometry.ModelGeometry.well_network">
-<span class="sig-name descname"><span class="pre">well_network</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.WellNetwork3d" title="porepy.fracs.wells_3d.WellNetwork3d"><span class="pre">WellNetwork3d</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.well_network" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">well_network</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.fracs.wells_3d.html#porepy.fracs.wells_3d.WellNetwork3d" title="porepy.fracs.wells_3d.WellNetwork3d"><span class="pre">WellNetwork3d</span></a></em><a class="headerlink" href="#porepy.models.geometry.ModelGeometry.well_network" title="Link to this definition"></a></dt>
 <dd><p>Well network.</p>
 </dd></dl>
 

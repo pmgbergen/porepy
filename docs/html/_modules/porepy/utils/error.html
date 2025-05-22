@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.error &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/utils/error.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/utils/error.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.utils.error</li>
       <li class="wy-breadcrumbs-aside">
@@ -271,26 +271,28 @@
            <div itemprop="articleBody">
              
   <h1>Source code for porepy.utils.error</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 <span class="n">GridLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
 
 
-<div class="viewcode-block" id="grid_error"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.grid_error">[docs]</a><span class="k">def</span> <span class="nf">grid_error</span><span class="p">(</span>
+<div class="viewcode-block" id="grid_error">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.grid_error">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">grid_error</span><span class="p">(</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
     <span class="n">mdg_ref</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
     <span class="n">variable</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
     <span class="n">variable_dof</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Compute grid errors a grid bucket and refined reference grid bucket</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute grid errors a grid bucket and refined reference grid bucket</span>
 
 <span class="sd">    Assumes that the coarse grid bucket has a property</span>
 <span class="sd">    &#39;coarse_fine_cell_mapping&#39; assigned on each subdomain, which</span>
@@ -390,8 +392,11 @@
     <span class="k">return</span> <span class="n">errors</span></div>
 
 
-<div class="viewcode-block" id="interpolate"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.interpolate">[docs]</a><span class="k">def</span> <span class="nf">interpolate</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="interpolate">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.interpolate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">interpolate</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Interpolate a scalar or vector function on the cell centers of the grid.</span>
 
 <span class="sd">    Parameters</span>
@@ -422,8 +427,11 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">fun</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span> <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span><span class="o">.</span><span class="n">T</span><span class="p">])</span><span class="o">.</span><span class="n">T</span></div>
 
 
-<div class="viewcode-block" id="norm_L2"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.norm_L2">[docs]</a><span class="k">def</span> <span class="nf">norm_L2</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="norm_L2">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.norm_L2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">norm_L2</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the L2 norm of a scalar or vector field.</span>
 
 <span class="sd">    Parameters</span>
@@ -454,8 +462,11 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">norm_sq</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">val</span><span class="p">]))</span></div>
 
 
-<div class="viewcode-block" id="error_L2"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.error_L2">[docs]</a><span class="k">def</span> <span class="nf">error_L2</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">val_ex</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">relative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="error_L2">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.utils.error.html#porepy.utils.error.error_L2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">error_L2</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">GridLike</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">val_ex</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">relative</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the L2 error of a scalar or vector field with respect to a reference</span>
 <span class="sd">    field. It is possible to compute the relative error (default) or the</span>
 <span class="sd">    absolute error.</span>
@@ -491,6 +502,7 @@
     <span class="n">den</span> <span class="o">=</span> <span class="n">norm_L2</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">val_ex</span><span class="p">)</span> <span class="k">if</span> <span class="n">relative</span> <span class="k">else</span> <span class="mi">1</span>
     <span class="k">assert</span> <span class="n">den</span> <span class="o">!=</span> <span class="mi">0</span>
     <span class="k">return</span> <span class="n">err</span> <span class="o">/</span> <span class="n">den</span></div>
+
 </pre></div>
 
            </div>

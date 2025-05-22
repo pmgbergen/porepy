@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.vem.vem_source module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.vem.vem_source.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.vem.vem_source.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.vem.html">porepy.numerics.vem package</a></li>
@@ -276,14 +276,14 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.vem.vem_source">
-<span id="porepy-numerics-vem-vem-source-module"></span><h1>porepy.numerics.vem.vem_source module<a class="headerlink" href="#module-porepy.numerics.vem.vem_source" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-vem-vem-source-module"></span><h1>porepy.numerics.vem.vem_source module<a class="headerlink" href="#module-porepy.numerics.vem.vem_source" title="Link to this heading"></a></h1>
 <p>Discretization of the source term of an equation tailored for a dual
 (flux-pressure) system. The sources are assigned to the rows starting from
 sd.num_faces, that is, to those rows in the saddle point system that represents
 conservation.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.vem.vem_source.DualScalarSource">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DualScalarSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DualScalarSource</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.discretization.html#porepy.numerics.discretization.Discretization" title="porepy.numerics.discretization.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <p>Discretization of the integrated source term
 int q * dx
@@ -291,54 +291,54 @@ over each grid cell.</p>
 <p>All this function does is returning a zero lhs and
 rhs = - param.get_source.keyword in a saddle point fashion.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.vem.vem_source.DualScalarSource.assemble_matrix">
-<span class="sig-name descname"><span class="pre">assemble_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.assemble_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.assemble_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.assemble_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.assemble_matrix" title="Link to this definition"></a></dt>
 <dd><p>Return the (null) matrix and for a discretization of the integrated source
 term. Also discretize the necessary operators if the data dictionary does not
 contain a source term.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Null system matrix of this</dt><dd><p>discretization.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a> (self.ndof x self.ndof)</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csr_matrix</a> (self.ndof x self.ndof)</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.vem.vem_source.DualScalarSource.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Return the (null) matrix and right-hand side for a discretization of the
 integrated source term. Also discretize the necessary operators if the data
 dictionary does not contain a source term.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – grid, or a subclass, with geometry fields computed.</p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictiotary to store the data.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictiotary to store the data.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Null lhs.
 sources (array, self.ndof): Right-hand side vector.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>lhs (sparse dia, self.ndof x self.ndof)</p>
 </dd>
 </dl>
@@ -351,25 +351,25 @@ param (Parameter Class) with the source field set for self.keyword. The assigned
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.vem.vem_source.DualScalarSource.assemble_rhs">
-<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.assemble_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.assemble_rhs" title="Link to this definition"></a></dt>
 <dd><p>Return the rhs for a discretization of the integrated source term. Also
 discretize the necessary operators if the data dictionary does not contain a
 source term.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Right hand side vector representing the</dt><dd><p>source.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (self.ndof)</p>
 </dd>
 </dl>
@@ -377,16 +377,16 @@ source term.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.vem.vem_source.DualScalarSource.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.discretize" title="Link to this definition"></a></dt>
 <dd><p>Discretize an integrated source term.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – grid, or a subclass, with geometry fields computed.</p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – dictionary to store the data.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – dictionary to store the data.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -406,18 +406,18 @@ param (Parameter Class) with the source field set for self.keyword. The assigned
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.vem.vem_source.DualScalarSource.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/vem/vem_source.html#DualScalarSource.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.vem.vem_source.DualScalarSource.ndof" title="Link to this definition"></a></dt>
 <dd><p>Return the number of degrees of freedom associated to the method.
 In this case number of faces plus number of cells.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – grid, or a subclass.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>the number of degrees of freedom.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>

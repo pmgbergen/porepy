@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.fracture_importer module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.fracture_importer.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.fracture_importer.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.fracture_importer module</li>
@@ -275,26 +275,26 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.fracture_importer">
-<span id="porepy-fracs-fracture-importer-module"></span><h1>porepy.fracs.fracture_importer module<a class="headerlink" href="#module-porepy.fracs.fracture_importer" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-fracture-importer-module"></span><h1>porepy.fracs.fracture_importer module<a class="headerlink" href="#module-porepy.fracs.fracture_importer" title="Link to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_importer.dfm_3d_from_fab">
-<span class="sig-name descname"><span class="pre">dfm_3d_from_fab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">mesh_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#dfm_3d_from_fab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.dfm_3d_from_fab" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dfm_3d_from_fab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">mesh_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#dfm_3d_from_fab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.dfm_3d_from_fab" title="Link to this definition"></a></dt>
 <dd><p>Create the grid bucket from a set of 3d fractures stored in a fab file and
 domain.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – name of the file</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – (optional) tolerance for the methods</p></li>
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – name of the file</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – (optional) tolerance for the methods</p></li>
 <li><p><strong>domain</strong> – (optional) the domain, otherwise a bounding box is considered</p></li>
-<li><p><strong>return_domain</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – whether to return the domain.</p></li>
+<li><p><strong>return_domain</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – whether to return the domain.</p></li>
 <li><p><strong>mesh_kwargs</strong> – kwargs for the gridding, see meshing.simplex_grid</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>the mixed-dimensional grid</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>mdg</p>
 </dd>
 </dl>
@@ -302,23 +302,23 @@ domain.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_importer.dfm_from_gmsh">
-<span class="sig-name descname"><span class="pre">dfm_from_gmsh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#dfm_from_gmsh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.dfm_from_gmsh" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dfm_from_gmsh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#dfm_from_gmsh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.dfm_from_gmsh" title="Link to this definition"></a></dt>
 <dd><p>Generate a MixedDimensionalGrid from a gmsh file.</p>
 <p>If the provided file is input for gmsh (.geo, not .msh), gmsh will be called
 to generate the mesh before the MixedDimensionalGrid is constructed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of gmsh in and out file. Should have extsion .geo
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of gmsh in and out file. Should have extsion .geo
 or .msh. In the former case, gmsh will be called upon to generate the
 mesh before the mixed-dimensional mesh is constructed.</p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Dimension of the problem. Should be 2 or 3.</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Dimension of the problem. Should be 2 or 3.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Mixed-dimensional grid as contained in the gmsh file.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">MixedDimensionalGrid</a></p>
 </dd>
 </dl>
@@ -326,7 +326,7 @@ mesh before the mixed-dimensional mesh is constructed.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_importer.elliptic_network_3d_from_csv">
-<span class="sig-name descname"><span class="pre">elliptic_network_3d_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#elliptic_network_3d_from_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.elliptic_network_3d_from_csv" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">elliptic_network_3d_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">degrees</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#elliptic_network_3d_from_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.elliptic_network_3d_from_csv" title="Link to this definition"></a></dt>
 <dd><p>Create the fracture network from a set of 3d fractures stored in a csv file and
 domain. In the csv file, we assume the following structure
 - first line (optional) describes the domain as a rectangle with</p>
@@ -346,7 +346,7 @@ center_x, center_y, center_z, major_axis, minor_axis, major_axis_angle,</p>
 </div></blockquote>
 <p>Lines that start with a # are ignored.</p>
 <section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>file_name</dt><dd><p>Name of the file</p>
 </dd>
@@ -360,7 +360,7 @@ Defaults to 1e-4.</p>
 degrees</p>
 </section>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>FractureNetwork3d</dt><dd><p>the fracture network</p>
 </dd>
@@ -370,7 +370,7 @@ degrees</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_importer.network_2d_from_csv">
-<span class="sig-name descname"><span class="pre">network_2d_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagcols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_fracs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_frac_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#network_2d_from_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.network_2d_from_csv" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">network_2d_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tagcols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_fracs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_frac_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#network_2d_from_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.network_2d_from_csv" title="Link to this definition"></a></dt>
 <dd><p>Read csv file with fractures to obtain fracture description.</p>
 <p>Create the mixed-dimensional grid from a set of fractures stored in a csv file and a
 domain. In the csv file, we assume one of the two following structures:</p>
@@ -392,34 +392,34 @@ np.genfromtxt.</p>
 <p>The csv file is assumed to have a header of 1 line. To change this number,
 use kwargs skip_header.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>f_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to csv file</p></li>
-<li><p><strong>tagcols</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array-like,</span> <span class="pre">int.</span> <span class="pre">Optional</span></code>) – Column index where fracture tags
+<li><p><strong>f_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to csv file</p></li>
+<li><p><strong>tagcols</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array-like</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">int.</span> <span class="pre">Optional</span></code>) – Column index where fracture tags
 are stored. 0-offset. Defaults to no columns.</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double,</span> <span class="pre">optional</span></code>) – Tolerance for merging points with almost equal
+<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code>, <em>optional</em>) – Tolerance for merging points with almost equal
 coordinates.</p></li>
-<li><p><strong>max_num_fracs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Maximum number of fractures included,
+<li><p><strong>max_num_fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Maximum number of fractures included,
 counting from the start of the file. Defaults to inclusion of all
 fractures.</p></li>
 <li><p><strong>**kwargs</strong> – keyword arguments passed on to np.genfromtxt.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Network representation of the fractures</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.fracs.fracture_network_2d.html#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d">FractureNetwork2d</a></p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If a fracture of a single point is specified.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If a fracture of a single point is specified.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_importer.network_3d_from_csv">
-<span class="sig-name descname"><span class="pre">network_3d_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#network_3d_from_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.network_3d_from_csv" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">network_3d_from_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">has_domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#network_3d_from_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.network_3d_from_csv" title="Link to this definition"></a></dt>
 <dd><p>Create the fracture network from a set of 3d fractures stored in a csv file and
 domain. In the csv file, we assume the following structure
 - first line (optional) describes the domain as a rectangle with</p>
@@ -432,19 +432,19 @@ P0_X, P0_Y, P0_Z, …,PN_X, PN_Y, PN_Z</p></li>
 </ul>
 <p>Lines that start with a # are ignored.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – path to the csv file</p></li>
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – path to the csv file</p></li>
 <li><p><strong>has_domain</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>) – if the first line in the csv file specify the domain</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – (double, optional) geometric tolerance used in the computations.
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – (double, optional) geometric tolerance used in the computations.
 Defaults to 1e-4.</p></li>
 <li><p><strong>**kwargs</strong> – Keyword arguments passed on to Fracture and FractureNetwork3d</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>the fracture network</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>network</p>
 </dd>
 </dl>
@@ -452,19 +452,19 @@ Defaults to 1e-4.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_importer.network_3d_from_fab">
-<span class="sig-name descname"><span class="pre">network_3d_from_fab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_all</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#network_3d_from_fab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.network_3d_from_fab" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">network_3d_from_fab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_all</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_importer.html#network_3d_from_fab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_importer.network_3d_from_fab" title="Link to this definition"></a></dt>
 <dd><p>Read fractures from a .fab file, as specified by FracMan.</p>
 <p>The filter is based on the .fab-files available at the time of writing, and
 may not cover all options available.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>f_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to .fab file.</p></li>
-<li><p><strong>return_all</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Whether to return additional information (see Returns)</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – Tolerance passed on instantiation of the returned FractureNetwork3d</p></li>
+<li><p><strong>f_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Path to .fab file.</p></li>
+<li><p><strong>return_all</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Whether to return additional information (see Returns)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><em>None</em>) – Tolerance passed on instantiation of the returned FractureNetwork3d</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>the network of fractures
 tess_fracs (optional returned if return_all==True, list of np.ndarray):</p>
 <blockquote>
@@ -479,7 +479,7 @@ which boundary the fracture is on.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>network</p>
 </dd>
 </dl>

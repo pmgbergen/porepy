@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.meshing module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.meshing.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.meshing.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.meshing module</li>
@@ -275,19 +275,19 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.meshing">
-<span id="porepy-fracs-meshing-module"></span><h1>porepy.fracs.meshing module<a class="headerlink" href="#module-porepy.fracs.meshing" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-meshing-module"></span><h1>porepy.fracs.meshing module<a class="headerlink" href="#module-porepy.fracs.meshing" title="Link to this heading"></a></h1>
 <p>Main module for grid generation in fractured domains in 2d and 3d.</p>
 <p>The module serves as the only necessary entry point to create the grid. It
 will therefore wrap interface to different mesh generators, pass options to the
 generators etc.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.meshing.cart_grid">
-<span class="sig-name descname"><span class="pre">cart_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fracs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nx</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#cart_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.cart_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cart_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fracs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nx</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#cart_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.cart_grid" title="Link to this definition"></a></dt>
 <dd><p>Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em>) – One list item for each fracture. Each item consist of a
+<li><p><strong>fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>) – One list item for each fracture. Each item consist of a
 (nd x npt) array describing fracture vertices, where npt is 2 for
 2d domains, 4 for 3d domains. The fractures have to be
 rectangles(3D) or straight lines(2D) that align with the axis.
@@ -296,7 +296,7 @@ closest grid faces.</p></li>
 <li><p><strong>nx</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – Number of cells in each direction. Should be 2D or 3D</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a></p>
 </dd>
 </dl>
@@ -309,7 +309,7 @@ May also contain fracture tags, options for gridding, etc.</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A complete mixed-dimensional grid where all
 fractures are represented as lower dim grids. The higher dim fracture
 faces are split in two, and on the edges of the MixedDimensionalGrid
@@ -322,13 +322,13 @@ A boundary face that is not on the domain boundary, nor coupled to a
 lower dimensional domain. The union of the above three is the tag
 boundary_faces.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">MixedDimensionalGrid</a></p>
 </dd>
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em>) – </p></li>
-<li><p><strong>nx</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>)</p></li>
+<li><p><strong>nx</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -345,13 +345,13 @@ boundary_faces.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.meshing.create_interfaces">
-<span class="sig-name descname"><span class="pre">create_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair_to_face_cell_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#create_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.create_interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">create_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair_to_face_cell_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#create_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.create_interfaces" title="Link to this definition"></a></dt>
 <dd><p>Create interfaces for a given MixedDimensionalGrid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – The mixed-dimensional grid where the interfaces are built.</p></li>
-<li><p><strong>sd_pair_to_face_cell_map</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>scipy.sparse._base.spmatrix</em></a><em>]</em>) – A dictionary of subdomains mapped to a
+<li><p><strong>sd_pair_to_face_cell_map</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a><em>]</em>) – A dictionary of subdomains mapped to a
 face-cell map. The first item represents two neighboring
 subdomains. The second item is a mapping between faces in the high
 dimension subdomain and cells in the low dimension subdomain.</p></li>
@@ -362,7 +362,7 @@ dimension subdomain and cells in the low dimension subdomain.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.meshing.subdomains_to_mdg">
-<span class="sig-name descname"><span class="pre">subdomains_to_mdg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_tot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#subdomains_to_mdg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.subdomains_to_mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomains_to_mdg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_tot</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#subdomains_to_mdg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.subdomains_to_mdg" title="Link to this definition"></a></dt>
 <dd><p>Convert a list of grids to a full MixedDimensionalGrid.</p>
 <p>The list can come from several mesh constructors, both simplex and
 structured approaches uses this in 2D and 3D.</p>
@@ -372,20 +372,20 @@ created by the standard mixed-dimensional grid constructors. Essentially,
 do not directly use this function unless you are knowledgeable about how it
 works.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em><em>]</em>) – Subdomains to enter into the Mixed-dimensional grid.
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>]</em>) – Subdomains to enter into the Mixed-dimensional grid.
 Sorted per dimension.</p></li>
-<li><p><strong>time_tot</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Start time for full mesh construction. Used for
+<li><p><strong>time_tot</strong> (<em>optional</em>) – Start time for full mesh construction. Used for
 logging. Defaults to None, in which case no information on total
 time consumption is logged.</p></li>
 <li><p><strong>**kwargs</strong> – Passed on to subfunctions.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Final mixed-dimensional grid.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">MixedDimensionalGrid</a></p>
 </dd>
 </dl>
@@ -393,7 +393,7 @@ time consumption is logged.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.meshing.tensor_grid">
-<span class="sig-name descname"><span class="pre">tensor_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fracs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#tensor_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.tensor_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tensor_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fracs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/meshing.html#tensor_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.meshing.tensor_grid" title="Link to this definition"></a></dt>
 <dd><p>Creates a cartesian fractured MixedDimensionalGrid in 2- or 3-dimensions.</p>
 <p>Args:
 fracs (list of np.ndarray): One list item for each fracture. Each item</p>
@@ -436,13 +436,13 @@ given boolean tags depending on the type:</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em>) – </p></li>
-<li><p><strong>x</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>fracs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>)</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a></p>
 </dd>
 </dl>

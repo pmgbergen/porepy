@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.fracture &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/fracture.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/fracture.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.fracs.fracture</li>
       <li class="wy-breadcrumbs-aside">
@@ -273,19 +273,21 @@
   <h1>Source code for porepy.fracs.fracture</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;A module containing the abstract base class for all fractures.&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">abc</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span>
 
-<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">setmembership</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">setmembership</span>
 
 
-<div class="viewcode-block" id="Fracture"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture">[docs]</a><span class="k">class</span> <span class="nc">Fracture</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Abstract base class for representing a single fracture.</span>
+<div class="viewcode-block" id="Fracture">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Fracture</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for representing a single fracture.</span>
 
 <span class="sd">    This base class provides general functionalities agnostic to the dimension of the</span>
 <span class="sd">    fracture and the ambient dimension. It contains various utility methods, mainly</span>
@@ -302,14 +304,14 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">points</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
         <span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">sort_points</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Fracture vertices (shape=(nd, num_points)), stored in the implemented order.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fracture vertices (shape=(nd, num_points)), stored in the implemented order.</span>
 
 <span class="sd">        Note that the ``points`` passed to init will mutate.</span>
 
@@ -321,18 +323,18 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">sort_points</span><span class="p">()</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">normal</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_normal</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Normal vector `(shape=(nd, ))`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normal vector `(shape=(nd, ))`.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_centroid</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Centroid of the fracture `(shape=(nd, ))`.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Centroid of the fracture `(shape=(nd, ))`.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">orig_pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Original fracture vertices `(shape=(nd, num_points))`.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Original fracture vertices `(shape=(nd, num_points))`.</span>
 
 <span class="sd">         The original points are kept in case the fracture geometry is modified.</span>
 
 <span class="sd">         &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">index</span>
-        <span class="sd">&quot;&quot;&quot;Index of fracture.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index of fracture.</span>
 
 <span class="sd">        Intended use in :class:`~porepy.fracs.fracture_network_2d.FractureNetwork2d`</span>
 <span class="sd">        and :class:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`. Exact use is</span>
@@ -340,20 +342,20 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Representation is same as str-representation.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Representation is same as str-representation.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;The str-representation displays the number of points, normal and centroid.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The str-representation displays the number of points, normal and centroid.&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Points: </span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Center: </span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">center</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Normal: </span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">normal</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Equality is defined as two fractures having the same index.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Equality is defined as two fractures having the same index.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            other: Fracture to be compared to self.</span>
@@ -369,8 +371,10 @@
             <span class="k">return</span> <span class="bp">NotImplemented</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">index</span>
 
-<div class="viewcode-block" id="Fracture.set_index"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.set_index">[docs]</a>    <span class="k">def</span> <span class="nf">set_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set index of this fracture.</span>
+<div class="viewcode-block" id="Fracture.set_index">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.set_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set index of this fracture.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            i: Index.</span>
@@ -378,8 +382,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">i</span></div>
 
-<div class="viewcode-block" id="Fracture.points"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.points">[docs]</a>    <span class="k">def</span> <span class="nf">points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Generator over the vertices of the fracture.</span>
+
+<div class="viewcode-block" id="Fracture.points">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.points">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generator over the vertices of the fracture.</span>
 
 <span class="sd">        Yields:</span>
 <span class="sd">            Fracture vertex `(shape=(nd, ))`.</span>
@@ -388,8 +395,11 @@
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
             <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Fracture.segments"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.segments">[docs]</a>    <span class="k">def</span> <span class="nf">segments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Generator over the segments according to the currently applied order.</span>
+
+<div class="viewcode-block" id="Fracture.segments">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.segments">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">segments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generator over the segments according to the currently applied order.</span>
 
 <span class="sd">        Yields:</span>
 <span class="sd">            Fracture segment `(shape=(nd, 2))`.</span>
@@ -399,10 +409,13 @@
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sz</span><span class="p">):</span>
             <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">%</span> <span class="n">sz</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Fracture.is_vertex"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.is_vertex">[docs]</a>    <span class="k">def</span> <span class="nf">is_vertex</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Fracture.is_vertex">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.is_vertex">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_vertex</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Check whether a given point is a vertex of the fracture.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether a given point is a vertex of the fracture.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            p (shape=(nd, )): Point to be checked.</span>
@@ -429,8 +442,11 @@
             <span class="n">occurrences</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ind</span> <span class="o">==</span> <span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="p">(</span><span class="n">occurrences</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Fracture.copy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fracture</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return a copy of the fracture with the current vertices.</span>
+
+<div class="viewcode-block" id="Fracture.copy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Fracture</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a copy of the fracture with the current vertices.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            The original ``points`` (as given when the fracture was initialized) will</span>
@@ -442,10 +458,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span><span class="bp">self</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">)</span></div>
 
+
     <span class="c1"># Below are the dimension-dependent abstract methods</span>
-<div class="viewcode-block" id="Fracture.sort_points"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.sort_points">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="nf">sort_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method to sort the vertices as needed for geometric algorithms.</span>
+<div class="viewcode-block" id="Fracture.sort_points">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.sort_points">[docs]</a>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sort_points</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method to sort the vertices as needed for geometric algorithms.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Array of integer indices corresponding to the sorting.</span>
@@ -453,9 +472,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="Fracture.local_coordinates"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.local_coordinates">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="nf">local_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method for computing the local coordinates.</span>
+
+<div class="viewcode-block" id="Fracture.local_coordinates">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.local_coordinates">[docs]</a>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">local_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method for computing the local coordinates.</span>
 
 <span class="sd">        The compuation is performed on the vertex coordinates in a local system and its</span>
 <span class="sd">        local dimension :math:`d` is assumed to be :math:`d = nd - 1`, i.e. the fracture</span>
@@ -467,29 +489,37 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="Fracture.compute_centroid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.compute_centroid">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="nf">compute_centroid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method for computing and returning the centroid of the fracture.</span>
+
+<div class="viewcode-block" id="Fracture.compute_centroid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.compute_centroid">[docs]</a>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_centroid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method for computing and returning the centroid of the fracture.</span>
 
 <span class="sd">        Note that convexity is assumed.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="Fracture.compute_normal"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.compute_normal">[docs]</a>    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="nf">compute_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method for computing and returning the normal vector.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Fracture.compute_normal">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture.compute_normal">[docs]</a>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_normal</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method for computing and returning the normal vector.&quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
+
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_check_pts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method for checking consistency of :attr:`pts`.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_pts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method for checking consistency of :attr:`pts`.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError if :attr:`pts` violates some assumptions (e.g. shape).</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
+
 </pre></div>
 
            </div>

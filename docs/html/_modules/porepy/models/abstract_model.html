@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.abstract_model &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/abstract_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/abstract_model.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.abstract_model</li>
       <li class="wy-breadcrumbs-aside">
@@ -285,25 +285,27 @@
 <span class="sd">after_newton_iteration. The name &quot;newton&quot; is there for legacy reasons, a more fitting</span>
 <span class="sd">and general name would be something like &quot;equation_solve&quot;.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">abc</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="AbstractModel"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel">[docs]</a><span class="k">class</span> <span class="nc">AbstractModel</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This is a class that specifies methods that a model must implement to</span>
+<div class="viewcode-block" id="AbstractModel">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AbstractModel</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is a class that specifies methods that a model must implement to</span>
 <span class="sd">    be compatible with the Newton and time stepping methods.</span>
 
 <span class="sd">    Public attributes:</span>
@@ -315,7 +317,7 @@
 <span class="sd">        dof_manager (pp.DofManager): Degree of freedom manager.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">else</span><span class="p">:</span>
@@ -350,8 +352,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">:</span> <span class="nb">dict</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">linear_system</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
 
-<div class="viewcode-block" id="AbstractModel.create_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.create_grid">[docs]</a>    <span class="k">def</span> <span class="nf">create_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create the grid bucket.</span>
+<div class="viewcode-block" id="AbstractModel.create_grid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.create_grid">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the grid bucket.</span>
 
 <span class="sd">        A unit square grid with no fractures is assigned by default.</span>
 
@@ -366,11 +370,12 @@
         <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">CartGrid</span><span class="p">(</span><span class="n">n_cells</span><span class="p">,</span> <span class="n">phys_dims</span><span class="p">)</span>
         <span class="n">g</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">meshing</span><span class="o">.</span><span class="n">subdomains_to_mdg</span><span class="p">([[</span><span class="n">g</span><span class="p">]])</span></div>
+
         <span class="c1"># If fractures are present, it is advised to call</span>
         <span class="c1"># pp.contact_conditions.set_projections(self.mdg)</span>
 
-    <span class="k">def</span> <span class="nf">_initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set initial guess for the variables.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set initial guess for the variables.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ad</span><span class="p">:</span>
             <span class="n">initial_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">())</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_variable_values</span><span class="p">(</span>
@@ -381,8 +386,10 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">distribute_variable</span><span class="p">(</span><span class="n">initial_values</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dof_manager</span><span class="o">.</span><span class="n">distribute_variable</span><span class="p">(</span><span class="n">initial_values</span><span class="p">,</span> <span class="n">to_iterate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<div class="viewcode-block" id="AbstractModel.prepare_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.prepare_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method called prior to the start of time stepping, or prior to entering the</span>
+<div class="viewcode-block" id="AbstractModel.prepare_simulation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.prepare_simulation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method called prior to the start of time stepping, or prior to entering the</span>
 <span class="sd">        non-linear solver for stationary problems.</span>
 
 <span class="sd">        The intended use is to define parameters, geometry and grid, discretize linear</span>
@@ -391,8 +398,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="AbstractModel.before_newton_loop"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.before_newton_loop">[docs]</a>    <span class="k">def</span> <span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method to be called before entering the non-linear solver, thus at the start</span>
+
+<div class="viewcode-block" id="AbstractModel.before_newton_loop">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.before_newton_loop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to be called before entering the non-linear solver, thus at the start</span>
 <span class="sd">        of a new time step.</span>
 
 <span class="sd">        Possible usage is to update time-dependent parameters, discretizations etc.</span>
@@ -400,16 +410,22 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="AbstractModel.before_newton_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.before_newton_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">before_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method to be called at the start of every non-linear iteration.</span>
+
+<div class="viewcode-block" id="AbstractModel.before_newton_iteration">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.before_newton_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">before_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to be called at the start of every non-linear iteration.</span>
 
 <span class="sd">        Possible usage is to update non-linear parameters, discretizations etc.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="AbstractModel.after_newton_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_newton_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Method to be called after every non-linear iteration.</span>
+
+<div class="viewcode-block" id="AbstractModel.after_newton_iteration">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_newton_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to be called after every non-linear iteration.</span>
 
 <span class="sd">        Possible usage is to distribute information on the new trial state, visualize</span>
 <span class="sd">        the current approximation etc.</span>
@@ -420,10 +436,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="AbstractModel.after_newton_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_newton_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_convergence</span><span class="p">(</span>
+
+<div class="viewcode-block" id="AbstractModel.after_newton_convergence">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_newton_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_newton_convergence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method to be called after every non-linear iteration.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to be called after every non-linear iteration.</span>
 
 <span class="sd">        Possible usage is to distribute information on the solution, visualization, etc.</span>
 
@@ -433,7 +452,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="AbstractModel.after_newton_failure"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_newton_failure">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_failure</span><span class="p">(</span>
+
+<div class="viewcode-block" id="AbstractModel.after_newton_failure">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_newton_failure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_newton_failure</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_nonlinear_problem</span><span class="p">():</span>
@@ -441,18 +463,24 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Tried solving singular matrix for the linear problem.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="AbstractModel.after_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Run at the end of simulation. Can be used for cleanup etc.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="AbstractModel.after_simulation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.after_simulation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run at the end of simulation. Can be used for cleanup etc.&quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-<div class="viewcode-block" id="AbstractModel.check_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.check_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">check_convergence</span><span class="p">(</span>
+
+<div class="viewcode-block" id="AbstractModel.check_convergence">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.check_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_convergence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">prev_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">init_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">nl_params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Implements a convergence check, to be called by a non-linear solver.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Implements a convergence check, to be called by a non-linear solver.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            solution (np.array): Newly obtained solution vector</span>
@@ -498,8 +526,9 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
 
-    <span class="k">def</span> <span class="nf">_initialize_linear_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initialize linear solver.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_linear_solver</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize linear solver.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError if the chosen solver is not among the three currently</span>
@@ -515,8 +544,10 @@
         <span class="k">if</span> <span class="n">solver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;scipy_sparse&quot;</span><span class="p">,</span> <span class="s2">&quot;pypardiso&quot;</span><span class="p">,</span> <span class="s2">&quot;umfpack&quot;</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown linear solver </span><span class="si">{</span><span class="n">solver</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="AbstractModel.assemble_linear_system"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.assemble_linear_system">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_linear_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the linearized system.</span>
+<div class="viewcode-block" id="AbstractModel.assemble_linear_system">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.assemble_linear_system">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_linear_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the linearized system.</span>
 
 <span class="sd">        The linear system is defined by the current state of the model.</span>
 
@@ -532,8 +563,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">linear_system</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assembled linear system in </span><span class="si">{</span><span class="n">t_0</span><span class="o">-</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="AbstractModel.solve_linear_system"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.solve_linear_system">[docs]</a>    <span class="k">def</span> <span class="nf">solve_linear_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Solve linear system.</span>
+
+<div class="viewcode-block" id="AbstractModel.solve_linear_system">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel.solve_linear_system">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solve_linear_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Solve linear system.</span>
 
 <span class="sd">        Default method is a direct solver. The linear solver is chosen in the</span>
 <span class="sd">        initialize_linear_solver of this model. Implemented options are</span>
@@ -549,8 +583,8 @@
         <span class="n">t_0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Max element in A </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;Max </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> and min</span>
-<span class="s2">            </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> A sum.&quot;&quot;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;Max </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">),</span><span class="w"> </span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> and min</span>
+<span class="s2">            </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">A</span><span class="p">),</span><span class="w"> </span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2"> A sum.&quot;&quot;&quot;</span>
         <span class="p">)</span>
 
         <span class="n">solver</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear_solver</span>
@@ -558,12 +592,12 @@
             <span class="c1"># This is the default option which is invoked unless explicitly overridden by the</span>
             <span class="c1"># user. We need to check if the pypardiso package is available.</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="kn">from</span> <span class="nn">pypardiso</span> <span class="kn">import</span> <span class="n">spsolve</span> <span class="k">as</span> <span class="n">sparse_solver</span>  <span class="c1"># type: ignore</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">pypardiso</span><span class="w"> </span><span class="kn">import</span> <span class="n">spsolve</span> <span class="k">as</span> <span class="n">sparse_solver</span>  <span class="c1"># type: ignore</span>
             <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
                 <span class="c1"># Fall back on the standard scipy sparse solver.</span>
                 <span class="n">sparse_solver</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">spsolve</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="sd">&quot;&quot;&quot;PyPardiso could not be imported,</span>
+<span class="w">                    </span><span class="sd">&quot;&quot;&quot;PyPardiso could not be imported,</span>
 <span class="sd">                    falling back on scipy.sparse.linalg.spsolve&quot;&quot;&quot;</span>
                 <span class="p">)</span>
             <span class="n">x</span> <span class="o">=</span> <span class="n">sparse_solver</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
@@ -582,14 +616,15 @@
 
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
+
     <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Specifies whether the Model problem is nonlinear.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Specifies whether the Model problem is nonlinear.&quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
     <span class="c1">## Utility methods</span>
-    <span class="k">def</span> <span class="nf">_l2_norm_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_l2_norm_cell</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the cell volume weighted norm of a vector-valued cell-wise quantity for</span>
 <span class="sd">        a given grid.</span>
 
@@ -614,19 +649,19 @@
 
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">norm</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_nd_subdomain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the grid of the highest dimension. Assumes self.mdg is set.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_nd_subdomain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the grid of the highest dimension. Assumes self.mdg is set.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()))[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">_export</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method to export the solution to using an Exporter.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to export the solution to using an Exporter.</span>
 
 <span class="sd">        Method is called after initialization and after solution convergence.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-    <span class="k">def</span> <span class="nf">_domain_boundary_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NamedTuple</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain indices of the faces lying on the sides of the domain boundaries.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_domain_boundary_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NamedTuple</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain indices of the faces lying on the sides of the domain boundaries.</span>
 
 <span class="sd">        The method is primarily intended for box-shaped domains. However, it can also be</span>
 <span class="sd">        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)</span>
@@ -687,6 +722,7 @@
         <span class="n">domain_sides</span> <span class="o">=</span> <span class="n">DomainSides</span><span class="p">(</span><span class="n">all_bf</span><span class="p">,</span> <span class="n">east</span><span class="p">,</span> <span class="n">west</span><span class="p">,</span> <span class="n">north</span><span class="p">,</span> <span class="n">south</span><span class="p">,</span> <span class="n">top</span><span class="p">,</span> <span class="n">bottom</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">domain_sides</span></div>
+
 </pre></div>
 
            </div>

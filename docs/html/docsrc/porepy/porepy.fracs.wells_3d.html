@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.wells_3d module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.wells_3d.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.wells_3d.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.wells_3d module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.wells_3d">
-<span id="porepy-fracs-wells-3d-module"></span><h1>porepy.fracs.wells_3d module<a class="headerlink" href="#module-porepy.fracs.wells_3d" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-wells-3d-module"></span><h1>porepy.fracs.wells_3d module<a class="headerlink" href="#module-porepy.fracs.wells_3d" title="Link to this heading"></a></h1>
 <p>Module for well representation in Well and WellNetworks.</p>
 <p>A well is a polyline of at least nsegs=1 segment defined through a list of
 npts=nsegs+1 points. Wells are connected in a network.</p>
@@ -287,75 +287,75 @@ well_network.mesh(mdg)</p>
 </div></blockquote>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Well</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Well</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Class representing a single well as a polyline embedded in 3D space.</p>
 <p>The fracture is defined by its vertexes. It contains various utility
 methods, mainly intended for use together with the WellNetwork3d class.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>points</strong> (<em>np.ndarray</em>) – </p></li>
-<li><p><strong>index</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
-<li><p><strong>tags</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em>) – </p></li>
+<li><p><strong>points</strong> (<em>np.ndarray</em>)</p></li>
+<li><p><strong>index</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>]</em>)</p></li>
+<li><p><strong>tags</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.p">
-<span class="sig-name descname"><span class="pre">p</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.p" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">p</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.p" title="Link to this definition"></a></dt>
 <dd><p>Fracture vertices. Will be stored in a CCW
 order (or CW, depending on which side it is viewed from).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">3</span> <span class="pre">x</span> <span class="pre">npt</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3</span> <span class="pre">x</span> <span class="pre">npt</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.orig_p">
-<span class="sig-name descname"><span class="pre">orig_p</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.orig_p" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">orig_p</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.orig_p" title="Link to this definition"></a></dt>
 <dd><p>Original fracture vertices, kept in case
 the fracture geometry for some reason is modified.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">3</span> <span class="pre">x</span> <span class="pre">npt</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3</span> <span class="pre">x</span> <span class="pre">npt</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.index">
-<span class="sig-name descname"><span class="pre">index</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.index" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">index</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.index" title="Link to this definition"></a></dt>
 <dd><p>Index of well. Intended used in WellNetwork3d.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.tags">
-<span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.Well.tags" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.add_point">
-<span class="sig-name descname"><span class="pre">add_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.add_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.add_point" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.add_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.add_point" title="Link to this definition"></a></dt>
 <dd><p>Add new pts (3 x 1) to self.pts.
 If ind is not specified, the point is appended at the end of
 self.pts. Otherwise, it is inserted between the old points number ind
 and ind + 1.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>point</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
+<li><p><strong>point</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -363,12 +363,12 @@ and ind + 1.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.copy" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.copy" title="Link to this definition"></a></dt>
 <dd><p>Return a deep copy of the fracture.</p>
 <p>Note that the original points (as given when the fracture was
 initialized) will <em>not</em> be preserved.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Fracture with the same points.</p>
 </dd>
 </dl>
@@ -376,44 +376,44 @@ initialized) will <em>not</em> be preserved.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.num_points">
-<span class="sig-name descname"><span class="pre">num_points</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.num_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.num_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_points</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.num_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.num_points" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.num_segments">
-<span class="sig-name descname"><span class="pre">num_segments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.num_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.num_segments" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_segments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.num_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.num_segments" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.segments">
-<span class="sig-name descname"><span class="pre">segments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.segments" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">segments</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.segments" title="Link to this definition"></a></dt>
 <dd><p>Iterate over the segments defined through segment indices and endpoints.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterator" title="(in Python v3.11)"><em>Iterator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a>], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterator" title="(in Python v3.13)"><em>Iterator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a>], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.Well.set_index">
-<span class="sig-name descname"><span class="pre">set_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.set_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.set_index" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#Well.set_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.Well.set_index" title="Link to this definition"></a></dt>
 <dd><p>Set index of this fracture.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -423,38 +423,38 @@ initialized) will <em>not</em> be preserved.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">WellNetwork3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#WellNetwork3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">WellNetwork3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">wells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#WellNetwork3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Collection of Wells with geometrical information.</p>
 <p>Facilitates meshing of all wells in the network and their addition to
 a mixed-dimensional grid, see mesh method.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>wells</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="#porepy.fracs.wells_3d.Well" title="porepy.fracs.wells_3d.Well"><em>Well</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>domain</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>parameters</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em>) – </p></li>
+<li><p><strong>wells</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="#porepy.fracs.wells_3d.Well" title="porepy.fracs.wells_3d.Well"><em>Well</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>domain</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>parameters</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d._wells">
-<span class="sig-name descname"><span class="pre">_wells</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d._wells" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">_wells</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d._wells" title="Link to this definition"></a></dt>
 <dd><p>All fractures forming the network.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">Fracture</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Fracture</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d.tol">
-<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.tol" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.tol" title="Link to this definition"></a></dt>
 <dd><p>Geometric tolerance used in computations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code></p>
 </dd>
 </dl>
@@ -462,11 +462,11 @@ a mixed-dimensional grid, see mesh method.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d.domain">
-<span class="sig-name descname"><span class="pre">domain</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.domain" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">domain</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.domain" title="Link to this definition"></a></dt>
 <dd><p>External bounding box. See
 impose_external_boundary() for details.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code></p>
 </dd>
 </dl>
@@ -474,10 +474,10 @@ impose_external_boundary() for details.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d.tags">
-<span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.tags" title="Link to this definition"></a></dt>
 <dd><p>Tags used on Wells.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code></p>
 </dd>
 </dl>
@@ -485,15 +485,15 @@ impose_external_boundary() for details.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d.add">
-<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#WellNetwork3d.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.add" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">w</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#WellNetwork3d.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.add" title="Link to this definition"></a></dt>
 <dd><p>Add a well to the network.</p>
 <p>The well will be assigned a new index, higher than the maximum
 value currently found in the network.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>w</strong> (<a class="reference internal" href="#porepy.fracs.wells_3d.Well" title="porepy.fracs.wells_3d.Well"><code class="xref py py-class docutils literal notranslate"><span class="pre">Well</span></code></a>) – Well to be added.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -501,7 +501,7 @@ value currently found in the network.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.WellNetwork3d.mesh">
-<span class="sig-name descname"><span class="pre">mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#WellNetwork3d.mesh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.mesh" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#WellNetwork3d.mesh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.WellNetwork3d.mesh" title="Link to this definition"></a></dt>
 <dd><p>Produce grids for the network’s wells and add to existing mixed-dimensional grid.</p>
 <p>One grid is constructed for each subline extending between two fracture
 intersections. In the simplest case, the well is a (poly)line with two
@@ -556,10 +556,10 @@ are joined and a single _piecewise_ linear grid is produced.</p>
 is to let gmsh do the actual meshing as done in the FractureNetwork
 classes. For now, this simplified approach is deemed sufficient.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -569,22 +569,22 @@ classes. For now, this simplified approach is deemed sufficient.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.compute_well_fracture_intersections">
-<span class="sig-name descname"><span class="pre">compute_well_fracture_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">well_network</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fracture_network</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#compute_well_fracture_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.compute_well_fracture_intersections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_well_fracture_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">well_network</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fracture_network</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#compute_well_fracture_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.compute_well_fracture_intersections" title="Link to this definition"></a></dt>
 <dd><p>Compute intersections and store tags identifying which fracture
 and well segments each intersection corresponds.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>wells</strong> (<em>well_network containing the</em>) – two points each (in well.pts). Intersection points and tags are added
 and updated in-place.</p></li>
 <li><p><strong>least</strong> (<em>which are assumed to have at</em>) – two points each (in well.pts). Intersection points and tags are added
 and updated in-place.</p></li>
-<li><p><strong>the</strong> (<em>fracture_network containing</em>) – </p></li>
-<li><p><strong>well_network</strong> (<a class="reference internal" href="#porepy.fracs.wells_3d.WellNetwork3d" title="porepy.fracs.wells_3d.WellNetwork3d"><em>WellNetwork3d</em></a>) – </p></li>
-<li><p><strong>fracture_network</strong> (<a class="reference internal" href="porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="porepy.fracs.fracture_network_3d.FractureNetwork3d"><em>FractureNetwork3d</em></a>) – </p></li>
+<li><p><strong>the</strong> (<em>fracture_network containing</em>)</p></li>
+<li><p><strong>well_network</strong> (<a class="reference internal" href="#porepy.fracs.wells_3d.WellNetwork3d" title="porepy.fracs.wells_3d.WellNetwork3d"><em>WellNetwork3d</em></a>)</p></li>
+<li><p><strong>fracture_network</strong> (<a class="reference internal" href="porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="porepy.fracs.fracture_network_3d.FractureNetwork3d"><em>FractureNetwork3d</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -600,24 +600,24 @@ The tags are crucial to the meshing of the well network.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.wells_3d.compute_well_rock_matrix_intersections">
-<span class="sig-name descname"><span class="pre">compute_well_rock_matrix_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#compute_well_rock_matrix_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.compute_well_rock_matrix_intersections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_well_rock_matrix_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/wells_3d.html#compute_well_rock_matrix_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.wells_3d.compute_well_rock_matrix_intersections" title="Link to this definition"></a></dt>
 <dd><p>Compute intersections and add edge coupling between the well and the rock matrix.
 To be called after the well grids are constructed.
 We are assuming convex cells and a single high dimensional grid.
 To speed up the geometrical computation we construct an ADTree.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – the mixed-dimensional grid containing all the elements</p></li>
-<li><p><strong>cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">optional</span></code>) – a set of cells that might be considered to construct the
+<li><p><strong>cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <em>optional</em>) – a set of cells that might be considered to construct the
 ADTree. If it is not given the tree is constructed by using all the higher
 dimensional grid cells</p></li>
-<li><p><strong>min_length</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float,</span> <span class="pre">optional</span></code>) – minimum length a segment that intersect a cell needs
+<li><p><strong>min_length</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – minimum length a segment that intersect a cell needs
 to have to be considered in the mapping</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float,</span> <span class="pre">optional</span></code>) – geometric tolerance, default 1e-5</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – geometric tolerance, default 1e-5</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>

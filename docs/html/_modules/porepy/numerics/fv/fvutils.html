@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.fvutils &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/fvutils.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/fvutils.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.fv.fvutils</li>
       <li class="wy-breadcrumbs-aside">
@@ -279,18 +279,20 @@
 <span class="sd">between these methods, the current structure with multiple auxiliary methods emerged.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="SubcellTopology"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.SubcellTopology">[docs]</a><span class="k">class</span> <span class="nc">SubcellTopology</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SubcellTopology">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.SubcellTopology">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SubcellTopology</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class to represent data of subcell topology (interaction regions) for</span>
 <span class="sd">    mpsa/mpfa.</span>
 
@@ -319,8 +321,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Constructor for subcell topology</span>
 
 <span class="sd">        Args:</span>
@@ -440,7 +442,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">num_subfno_unique</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subfno_unique</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">unique_subfno</span> <span class="o">=</span> <span class="n">unique_subfno</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Subcell topology with:</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cno</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; cells</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sd</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; nodes</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -449,8 +451,10 @@
         <span class="n">s</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fno</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; subfaces before pairing face neighbors</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="SubcellTopology.pair_over_subfaces"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces">[docs]</a>    <span class="k">def</span> <span class="nf">pair_over_subfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SubcellTopology.pair_over_subfaces">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pair_over_subfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Transfer quantities from a cell-face base (cells sharing a face have</span>
 <span class="sd">        their own expressions) to a face-based. The quantities should live</span>
 <span class="sd">        on sub-faces (not faces)</span>
@@ -472,8 +476,11 @@
         <span class="n">pair_over_subfaces</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">((</span><span class="n">sgn</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subfno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subhfno</span><span class="p">)))</span>
         <span class="k">return</span> <span class="n">pair_over_subfaces</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="SubcellTopology.pair_over_subfaces_nd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces_nd">[docs]</a>    <span class="k">def</span> <span class="nf">pair_over_subfaces_nd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;nd-version of pair_over_subfaces, see above.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SubcellTopology.pair_over_subfaces_nd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.SubcellTopology.pair_over_subfaces_nd">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pair_over_subfaces_nd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;nd-version of pair_over_subfaces, see above.&quot;&quot;&quot;</span>
         <span class="n">nd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span>
         <span class="c1"># For force balance, displacements and stresses on the two sides of the</span>
         <span class="c1"># matrices must be paired</span>
@@ -482,14 +489,18 @@
         <span class="n">pair_over_subfaces</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">((</span><span class="n">sgn</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subfno</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">subhfno</span><span class="p">)))</span>
         <span class="c1"># vector version, to be used on stresses</span>
         <span class="n">pair_over_subfaces_nd</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nd</span><span class="p">),</span> <span class="n">pair_over_subfaces</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">pair_over_subfaces_nd</span> <span class="o">*</span> <span class="n">other</span></div></div>
+        <span class="k">return</span> <span class="n">pair_over_subfaces_nd</span> <span class="o">*</span> <span class="n">other</span></div>
+</div>
+
 
 
 <span class="c1"># ------------------------ End of class SubcellTopology ----------------------</span>
 
 
-<div class="viewcode-block" id="compute_dist_face_cell"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.compute_dist_face_cell">[docs]</a><span class="k">def</span> <span class="nf">compute_dist_face_cell</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">return_paired</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="compute_dist_face_cell">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.compute_dist_face_cell">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_dist_face_cell</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">return_paired</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute vectors from cell centers continuity points on each sub-face.</span>
 
 <span class="sd">    The location of the continuity point is given by</span>
@@ -545,8 +556,11 @@
         <span class="k">return</span> <span class="n">mat</span></div>
 
 
-<div class="viewcode-block" id="determine_eta"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.determine_eta">[docs]</a><span class="k">def</span> <span class="nf">determine_eta</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Set default value for the location of continuity point eta in MPFA and</span>
+
+<div class="viewcode-block" id="determine_eta">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.determine_eta">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">determine_eta</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set default value for the location of continuity point eta in MPFA and</span>
 <span class="sd">    MSPA.</span>
 
 <span class="sd">    The function is intended to give a best estimate of eta in cases where the</span>
@@ -573,10 +587,13 @@
         <span class="k">return</span> <span class="mi">0</span></div>
 
 
-<div class="viewcode-block" id="find_active_indices"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.find_active_indices">[docs]</a><span class="k">def</span> <span class="nf">find_active_indices</span><span class="p">(</span>
+
+<div class="viewcode-block" id="find_active_indices">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.find_active_indices">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">find_active_indices</span><span class="p">(</span>
     <span class="n">parameter_dictionary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Process information in parameter dictionary on whether the discretization</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Process information in parameter dictionary on whether the discretization</span>
 <span class="sd">    should consider a subgrid. Look for fields in the parameter dictionary called</span>
 <span class="sd">    specified_cells, specified_faces or specified_nodes. These are then processed by</span>
 <span class="sd">    the function pp.fvutils.cell-ind_for_partial_update.</span>
@@ -623,7 +640,10 @@
     <span class="k">return</span> <span class="n">active_cells</span><span class="p">,</span> <span class="n">active_faces</span></div>
 
 
-<div class="viewcode-block" id="subproblems"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.subproblems">[docs]</a><span class="k">def</span> <span class="nf">subproblems</span><span class="p">(</span>
+
+<div class="viewcode-block" id="subproblems">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.subproblems">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">subproblems</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">max_memory</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">peak_memory_estimate</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span>
     <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
@@ -680,10 +700,13 @@
             <span class="k">yield</span> <span class="n">sub_sd</span><span class="p">,</span> <span class="n">loc_faces</span><span class="p">,</span> <span class="n">cells_in_partition</span><span class="p">,</span> <span class="n">l2g_cells</span><span class="p">,</span> <span class="n">l2g_faces</span></div>
 
 
-<div class="viewcode-block" id="remove_nonlocal_contribution"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.remove_nonlocal_contribution">[docs]</a><span class="k">def</span> <span class="nf">remove_nonlocal_contribution</span><span class="p">(</span>
+
+<div class="viewcode-block" id="remove_nonlocal_contribution">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.remove_nonlocal_contribution">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_nonlocal_contribution</span><span class="p">(</span>
     <span class="n">raw_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    For a set of matrices, zero out rows associated with given faces, adjusting for</span>
 <span class="sd">    the matrices being related to vector quantities if necessary.</span>
 
@@ -705,8 +728,11 @@
         <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">zero_rows</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">eliminate_ind</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="expand_indices_nd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.expand_indices_nd">[docs]</a><span class="k">def</span> <span class="nf">expand_indices_nd</span><span class="p">(</span><span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="expand_indices_nd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.expand_indices_nd">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">expand_indices_nd</span><span class="p">(</span><span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Expand indices from scalar to vector form.</span>
 
 <span class="sd">    Examples:</span>
@@ -732,7 +758,10 @@
     <span class="k">return</span> <span class="n">new_ind</span></div>
 
 
-<div class="viewcode-block" id="expand_indices_incr"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.expand_indices_incr">[docs]</a><span class="k">def</span> <span class="nf">expand_indices_incr</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">increment</span><span class="p">):</span>
+
+<div class="viewcode-block" id="expand_indices_incr">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.expand_indices_incr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">expand_indices_incr</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">increment</span><span class="p">):</span>
 
     <span class="c1"># Convenience method for duplicating a list, with a certain increment</span>
 
@@ -745,8 +774,11 @@
     <span class="k">return</span> <span class="n">ind_new</span></div>
 
 
-<div class="viewcode-block" id="map_hf_2_f"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.map_hf_2_f">[docs]</a><span class="k">def</span> <span class="nf">map_hf_2_f</span><span class="p">(</span><span class="n">fno</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">subfno</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="map_hf_2_f">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.map_hf_2_f">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">map_hf_2_f</span><span class="p">(</span><span class="n">fno</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">subfno</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nd</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create mapping from half-faces to faces for vector problems.</span>
 <span class="sd">    Either fno, subfno and nd should be given or g (and optinally nd) should be</span>
 <span class="sd">    given.</span>
@@ -778,9 +810,12 @@
     <span class="k">return</span> <span class="n">hf2f</span></div>
 
 
-<div class="viewcode-block" id="cell_vector_to_subcell"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.cell_vector_to_subcell">[docs]</a><span class="k">def</span> <span class="nf">cell_vector_to_subcell</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">sub_cell_index</span><span class="p">,</span> <span class="n">cell_index</span><span class="p">):</span>
 
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="cell_vector_to_subcell">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.cell_vector_to_subcell">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cell_vector_to_subcell</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">sub_cell_index</span><span class="p">,</span> <span class="n">cell_index</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create mapping from sub-cells to cells for scalar problems.</span>
 <span class="sd">    For example, discretization of div_g-term in mpfa with gravity,</span>
 <span class="sd">    where g is a cell-center vector (dim nd)</span>
@@ -807,9 +842,12 @@
     <span class="k">return</span> <span class="n">mat</span></div>
 
 
-<div class="viewcode-block" id="cell_scalar_to_subcell_vector"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.cell_scalar_to_subcell_vector">[docs]</a><span class="k">def</span> <span class="nf">cell_scalar_to_subcell_vector</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">sub_cell_index</span><span class="p">,</span> <span class="n">cell_index</span><span class="p">):</span>
 
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="cell_scalar_to_subcell_vector">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.cell_scalar_to_subcell_vector">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cell_scalar_to_subcell_vector</span><span class="p">(</span><span class="n">nd</span><span class="p">,</span> <span class="n">sub_cell_index</span><span class="p">,</span> <span class="n">cell_index</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create mapping from sub-cells to cells for vector problems.</span>
 <span class="sd">    For example, discretization of grad_p-term in Biot,</span>
 <span class="sd">    where p is a cell-center scalar</span>
@@ -826,7 +864,7 @@
 
     <span class="n">num_cells</span> <span class="o">=</span> <span class="n">cell_index</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
 
-    <span class="k">def</span> <span class="nf">build_sc2c_single_dimension</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_sc2c_single_dimension</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
         <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sub_cell_index</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
         <span class="n">cols</span> <span class="o">=</span> <span class="n">cell_index</span>
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">rows</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
@@ -843,8 +881,11 @@
     <span class="k">return</span> <span class="n">sc2c</span></div>
 
 
-<div class="viewcode-block" id="scalar_divergence"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.scalar_divergence">[docs]</a><span class="k">def</span> <span class="nf">scalar_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="scalar_divergence">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.scalar_divergence">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scalar_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get divergence operator for a grid.</span>
 
 <span class="sd">    The operator is easily accessible from the grid itself, so we keep it</span>
@@ -861,8 +902,11 @@
     <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="vector_divergence"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.vector_divergence">[docs]</a><span class="k">def</span> <span class="nf">vector_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="vector_divergence">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.vector_divergence">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">vector_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get vector divergence operator for a grid g</span>
 
 <span class="sd">    It is assumed that the first column corresponds to the x-equation of face</span>
@@ -887,10 +931,13 @@
     <span class="k">return</span> <span class="n">block_div</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="scalar_tensor_vector_prod"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.scalar_tensor_vector_prod">[docs]</a><span class="k">def</span> <span class="nf">scalar_tensor_vector_prod</span><span class="p">(</span>
+
+<div class="viewcode-block" id="scalar_tensor_vector_prod">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.scalar_tensor_vector_prod">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">scalar_tensor_vector_prod</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">:</span> <span class="n">SubcellTopology</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute product of normal vectors and tensors on a sub-cell level.</span>
 <span class="sd">    This is essentially defining Darcy&#39;s law for each sub-face in terms of</span>
 <span class="sd">    sub-cell gradients. Thus, we also implicitly define the global ordering</span>
@@ -956,8 +1003,11 @@
     <span class="k">return</span> <span class="n">nk</span><span class="p">,</span> <span class="n">cell_node_blocks</span><span class="p">,</span> <span class="n">sub_cell_ind</span></div>
 
 
-<div class="viewcode-block" id="ExcludeBoundaries"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries">[docs]</a><span class="k">class</span> <span class="nc">ExcludeBoundaries</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Wrapper class to store mappings needed in the finite volume discretizations.</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExcludeBoundaries</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrapper class to store mappings needed in the finite volume discretizations.</span>
 <span class="sd">    The original use for this class was for exclusion of equations that are</span>
 <span class="sd">    redundant due to the presence of boundary conditions, hence the name. The use of</span>
 <span class="sd">    this class has increased to also include linear transformation that can be applied</span>
@@ -973,8 +1023,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">bound</span><span class="p">,</span> <span class="n">nd</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">bound</span><span class="p">,</span> <span class="n">nd</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Define mappings to exclude boundary subfaces/components with Dirichlet,</span>
 <span class="sd">        Neumann or Robin conditions. If bound.bc_type==&quot;scalar&quot; we assign one</span>
 <span class="sd">        component per subface, while if bound.bc_type==&quot;vector&quot; we assign nd</span>
@@ -1051,8 +1101,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">keep_rob</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exclude_matrix_xyz</span><span class="p">(</span><span class="o">~</span><span class="n">bound</span><span class="o">.</span><span class="n">is_rob</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">keep_neu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exclude_matrix_xyz</span><span class="p">(</span><span class="o">~</span><span class="n">bound</span><span class="o">.</span><span class="n">is_neu</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_linear_transformation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc_trans</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_linear_transformation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loc_trans</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Creates a global linear transformation matrix from a set of local matrices.</span>
 <span class="sd">        The global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.</span>
 <span class="sd">        The loc_trans matrices are given per sub-face and is a mapping from a nd vector</span>
@@ -1093,8 +1143,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Unknow loc_trans type: &quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc_type</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_exclude_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_exclude_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        creates an exclusion matrix. This is a mapping from sub-faces to</span>
 <span class="sd">        all sub-faces except those given by ids.</span>
 <span class="sd">        Example:</span>
@@ -1111,7 +1161,7 @@
             <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_subfno</span><span class="p">),</span>
         <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_exclude_matrix_xyz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_exclude_matrix_xyz</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ids</span><span class="p">):</span>
         <span class="n">col_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">([</span><span class="ow">not</span> <span class="n">it</span> <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
 
         <span class="n">col_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">([</span><span class="ow">not</span> <span class="n">it</span> <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="n">ids</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
@@ -1132,8 +1182,10 @@
 
         <span class="k">return</span> <span class="n">exclude_nd</span>
 
-<div class="viewcode-block" id="ExcludeBoundaries.exclude_dirichlet"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_dirichlet">[docs]</a>    <span class="k">def</span> <span class="nf">exclude_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ExcludeBoundaries.exclude_dirichlet">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_dirichlet">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components with Dirichlet boundary conditions from</span>
 <span class="sd">        local systems.</span>
 
@@ -1151,8 +1203,11 @@
             <span class="k">return</span> <span class="n">exclude_dirichlet</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
         <span class="k">return</span> <span class="n">exclude_dirichlet</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.exclude_neumann"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann">[docs]</a>    <span class="k">def</span> <span class="nf">exclude_neumann</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.exclude_neumann">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_neumann</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components with Neumann boundary conditions from</span>
 <span class="sd">        local systems.</span>
 
@@ -1168,8 +1223,11 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_neu</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_neu</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.exclude_neumann_robin"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_robin">[docs]</a>    <span class="k">def</span> <span class="nf">exclude_neumann_robin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.exclude_neumann_robin">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_robin">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_neumann_robin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components with Neumann and Robin boundary</span>
 <span class="sd">        conditions from local systems.</span>
 
@@ -1186,8 +1244,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_neu_rob</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.exclude_neumann_dirichlet"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_dirichlet">[docs]</a>    <span class="k">def</span> <span class="nf">exclude_neumann_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.exclude_neumann_dirichlet">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_neumann_dirichlet">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_neumann_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components with Neumann and Dirichlet boundary</span>
 <span class="sd">        conditions from local systems.</span>
 
@@ -1203,8 +1264,11 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_neu_dir</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_neu_dir</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.exclude_robin_dirichlet"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_robin_dirichlet">[docs]</a>    <span class="k">def</span> <span class="nf">exclude_robin_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.exclude_robin_dirichlet">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_robin_dirichlet">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_robin_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components with Robin and Dirichlet boundary</span>
 <span class="sd">        conditions from local systems.</span>
 
@@ -1220,8 +1284,11 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_rob_dir</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_rob_dir</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.exclude_boundary"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_boundary">[docs]</a>    <span class="k">def</span> <span class="nf">exclude_boundary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Mapping to exclude faces/component with any boundary condition from</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.exclude_boundary">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.exclude_boundary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_boundary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mapping to exclude faces/component with any boundary condition from</span>
 <span class="sd">        local systems.</span>
 
 <span class="sd">        Args:</span>
@@ -1237,8 +1304,11 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_bnd</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclude_bnd</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.keep_robin"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_robin">[docs]</a>    <span class="k">def</span> <span class="nf">keep_robin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.keep_robin">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_robin">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">keep_robin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components that is not on the Robin boundary</span>
 <span class="sd">        conditions from local systems.</span>
 
@@ -1254,8 +1324,11 @@
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_rob</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_rob</span> <span class="o">*</span> <span class="n">other</span></div>
 
-<div class="viewcode-block" id="ExcludeBoundaries.keep_neumann"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_neumann">[docs]</a>    <span class="k">def</span> <span class="nf">keep_neumann</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ExcludeBoundaries.keep_neumann">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.ExcludeBoundaries.keep_neumann">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">keep_neumann</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Mapping to exclude faces/components that is not on the Neumann boundary</span>
 <span class="sd">        conditions from local systems.</span>
 
@@ -1269,13 +1342,17 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">transform</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_neu</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">basis_matrix</span> <span class="o">*</span> <span class="n">other</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_neu</span> <span class="o">*</span> <span class="n">other</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_neu</span> <span class="o">*</span> <span class="n">other</span></div>
+</div>
+
 
 
 <span class="c1"># -----------------End of class ExcludeBoundaries-----------------------------</span>
 
 
-<div class="viewcode-block" id="partial_update_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.partial_update_discretization">[docs]</a><span class="k">def</span> <span class="nf">partial_update_discretization</span><span class="p">(</span>
+<div class="viewcode-block" id="partial_update_discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.partial_update_discretization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">partial_update_discretization</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>  <span class="c1"># Grid</span>
     <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>  <span class="c1"># full data dictionary for this grid</span>
     <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>  <span class="c1"># keyword for the target discretization</span>
@@ -1291,7 +1368,7 @@
     <span class="n">vector_face_left</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">second_keyword</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># Used for biot discertization</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Do partial update of discretization scheme.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Do partial update of discretization scheme.</span>
 
 <span class="sd">    This is intended as a helper function for the update_discretization methods of</span>
 <span class="sd">    fv schemes. In particular, this method allows for a unified implementation of</span>
@@ -1464,13 +1541,16 @@
                 <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="cell_ind_for_partial_update"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.cell_ind_for_partial_update">[docs]</a><span class="k">def</span> <span class="nf">cell_ind_for_partial_update</span><span class="p">(</span>
+
+<div class="viewcode-block" id="cell_ind_for_partial_update">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.cell_ind_for_partial_update">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cell_ind_for_partial_update</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
     <span class="n">cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">faces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">nodes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Obtain indices of cells and faces needed for a partial update of the</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Obtain indices of cells and faces needed for a partial update of the</span>
 <span class="sd">    discretization stencil.</span>
 
 <span class="sd">    Implementation note: This function should really be split into three parts,</span>
@@ -1669,14 +1749,17 @@
     <span class="k">return</span> <span class="n">cell_ind</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int&quot;</span><span class="p">),</span> <span class="n">face_ind</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="map_subgrid_to_grid"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.map_subgrid_to_grid">[docs]</a><span class="k">def</span> <span class="nf">map_subgrid_to_grid</span><span class="p">(</span>
+
+<div class="viewcode-block" id="map_subgrid_to_grid">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.map_subgrid_to_grid">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">map_subgrid_to_grid</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
     <span class="n">loc_faces</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">loc_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">is_vector</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
     <span class="n">nd</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Obtain mappings from the cells and faces of a subgrid back to a larger grid.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Obtain mappings from the cells and faces of a subgrid back to a larger grid.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        g (pp.Grid): The larger grid.</span>
@@ -1729,7 +1812,42 @@
     <span class="k">return</span> <span class="n">face_map</span><span class="p">,</span> <span class="n">cell_map</span></div>
 
 
-<div class="viewcode-block" id="compute_darcy_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.compute_darcy_flux">[docs]</a><span class="k">def</span> <span class="nf">compute_darcy_flux</span><span class="p">(</span>
+
+<div class="viewcode-block" id="diagonal_scaling_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.diagonal_scaling_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">diagonal_scaling_matrix</span><span class="p">(</span><span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Helper function to form a diagonal matrix that scales the rows of a matrix.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mat: Matrix to be scaled.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Diagonal matrix with the diagonal elements equal to the row-wise sum of the</span>
+<span class="sd">        absolute values of the input matrix.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,</span>
+    <span class="c1"># since we want to manipulate the matrix elements.</span>
+    <span class="n">tmp</span> <span class="o">=</span> <span class="n">mat</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Use an absolute value here. For some of the matrices the row sum will be zero</span>
+    <span class="c1"># on interior faces.</span>
+    <span class="n">tmp</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tmp</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="c1"># Take a sum here. Intuitively, an average would be better, but calling tmp.mean()</span>
+    <span class="c1"># would take the average over all elements, most of which are zero (this turned out</span>
+    <span class="c1"># not to be optimal). We could also find the number of non-zero elements and divide</span>
+    <span class="c1"># the sum by this, but a sum seems to be good enough.</span>
+    <span class="n">scalings</span> <span class="o">=</span> <span class="n">tmp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="c1"># Diagonal scaling matrix</span>
+    <span class="n">full_scaling</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">scalings</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="n">mat</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">full_scaling</span></div>
+
+
+
+<div class="viewcode-block" id="compute_darcy_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.compute_darcy_flux">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_darcy_flux</span><span class="p">(</span>
     <span class="n">mdg</span><span class="p">,</span>
     <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;flow&quot;</span><span class="p">,</span>
     <span class="n">keyword_store</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -1740,7 +1858,7 @@
     <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">from_iterate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Computes darcy_flux over all faces in the entire mixed-dimensional grid given</span>
 <span class="sd">    pressures for all nodes, provided as node properties.</span>
 
@@ -1777,13 +1895,13 @@
 <span class="sd">        (mdg.sorted_nodes_of_edge(e)).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">extract_variable</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_variable</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">from_iterate</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">var</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">calculate_flux</span><span class="p">(</span><span class="n">param_dict</span><span class="p">,</span> <span class="n">mat_dict</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_flux</span><span class="p">(</span><span class="n">param_dict</span><span class="p">,</span> <span class="n">mat_dict</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
         <span class="c1"># Calculate the flux. First contributions from pressure and boundary conditions</span>
         <span class="n">dis</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">mat_dict</span><span class="p">[</span><span class="s2">&quot;flux&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">extract_variable</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">p_name</span><span class="p">)</span>
@@ -1807,7 +1925,7 @@
             <span class="n">dis</span> <span class="o">=</span> <span class="n">calculate_flux</span><span class="p">(</span><span class="n">parameter_dictionary</span><span class="p">,</span> <span class="n">matrix_dictionary</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Darcy_Flux can only be computed if a flux-based</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Darcy_Flux can only be computed if a flux-based</span>
 <span class="sd">                                 discretization has been applied&quot;&quot;&quot;</span>
             <span class="p">)</span>
         <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="n">keyword_store</span><span class="p">][</span><span class="n">d_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">dis</span>
@@ -1822,7 +1940,7 @@
             <span class="n">dis</span> <span class="o">=</span> <span class="n">calculate_flux</span><span class="p">(</span><span class="n">parameter_dictionary</span><span class="p">,</span> <span class="n">matrix_dictionary</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Darcy_Flux can only be computed if a flux-based</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Darcy_Flux can only be computed if a flux-based</span>
 <span class="sd">                             discretization has been applied&quot;&quot;&quot;</span>
             <span class="p">)</span>
 
@@ -1856,8 +1974,11 @@
         <span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="boundary_to_sub_boundary"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.boundary_to_sub_boundary">[docs]</a><span class="k">def</span> <span class="nf">boundary_to_sub_boundary</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="boundary_to_sub_boundary">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.boundary_to_sub_boundary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">boundary_to_sub_boundary</span><span class="p">(</span><span class="n">bound</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert a boundary condition defined for faces to a boundary condition defined by</span>
 <span class="sd">    subfaces.</span>
 
@@ -1890,8 +2011,11 @@
     <span class="k">return</span> <span class="n">bound</span></div>
 
 
-<div class="viewcode-block" id="append_dofs_of_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.append_dofs_of_discretization">[docs]</a><span class="k">def</span> <span class="nf">append_dofs_of_discretization</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">kw1</span><span class="p">,</span> <span class="n">kw2</span><span class="p">,</span> <span class="n">k_dof</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="append_dofs_of_discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.append_dofs_of_discretization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">append_dofs_of_discretization</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">kw1</span><span class="p">,</span> <span class="n">kw2</span><span class="p">,</span> <span class="n">k_dof</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Appends rows to existing discretizations stored as &#39;stress&#39; and</span>
 <span class="sd">    &#39;bound_stress&#39; in the data dictionary on the nodes. Only applies to the</span>
 <span class="sd">    highest dimension (for now, at least). The newly added faces are found</span>
@@ -1920,10 +2044,13 @@
     <span class="n">d</span><span class="p">[</span><span class="n">kw2</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">sps</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">d</span><span class="p">[</span><span class="n">kw2</span><span class="p">],</span> <span class="n">new_rows</span><span class="p">]),</span> <span class="n">new_columns</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;csr&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="partial_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.partial_discretization">[docs]</a><span class="k">def</span> <span class="nf">partial_discretization</span><span class="p">(</span>
+
+<div class="viewcode-block" id="partial_discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fvutils.html#porepy.numerics.fv.fvutils.partial_discretization">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">partial_discretization</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">bnd</span><span class="p">,</span> <span class="n">apertures</span><span class="p">,</span> <span class="n">partial_discr</span><span class="p">,</span> <span class="n">physics</span><span class="o">=</span><span class="s2">&quot;flow&quot;</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Perform a partial (local) multi-point discretization on a grid with</span>
 <span class="sd">    provided data, tensor and boundary conditions by</span>
 <span class="sd">        1)  Appending the existing discretization matrices to the right size</span>
@@ -1966,6 +2093,7 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">zero_rows</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">kw2</span><span class="p">],</span> <span class="n">affected_faces</span><span class="p">)</span>
     <span class="n">data</span><span class="p">[</span><span class="n">kw1</span><span class="p">]</span> <span class="o">+=</span> <span class="n">trm</span>
     <span class="n">data</span><span class="p">[</span><span class="n">kw2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">bound_flux</span></div>
+
 </pre></div>
 
            </div>

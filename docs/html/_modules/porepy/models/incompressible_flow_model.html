@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.incompressible_flow_model &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/incompressible_flow_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/incompressible_flow_model.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.incompressible_flow_model</li>
       <li class="wy-breadcrumbs-aside">
@@ -274,20 +274,20 @@
 <span></span><span class="sd">&quot;&quot;&quot;This module contains an implementation of a base model for incompressible flow problems.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">_AdVariables</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_AdVariables</span><span class="p">:</span>
     <span class="n">pressure</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span>
     <span class="n">mortar_flux</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span>
     <span class="n">mortar_proj</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MortarProjections</span>
@@ -295,8 +295,10 @@
     <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
 
 
-<div class="viewcode-block" id="IncompressibleFlow"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow">[docs]</a><span class="k">class</span> <span class="nc">IncompressibleFlow</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">abstract_model</span><span class="o">.</span><span class="n">AbstractModel</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;This is a shell class for single-phase incompressible flow problems.</span>
+<div class="viewcode-block" id="IncompressibleFlow">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">IncompressibleFlow</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">abstract_model</span><span class="o">.</span><span class="n">AbstractModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is a shell class for single-phase incompressible flow problems.</span>
 
 <span class="sd">    This class is intended to provide a standardized setup, with all discretizations</span>
 <span class="sd">    in place and reasonable parameter and boundary values. The intended use is to</span>
@@ -328,7 +330,7 @@
 <span class="sd">    The implementation assumes use of AD.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
         <span class="c1"># Variables</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;p&quot;</span>
@@ -338,7 +340,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span> <span class="o">=</span> <span class="n">_AdVariables</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Exporter</span>
 
-<div class="viewcode-block" id="IncompressibleFlow.prepare_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.prepare_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="IncompressibleFlow.prepare_simulation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.prepare_simulation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">create_grid</span><span class="p">()</span>
         <span class="c1"># Exporter initialization must be done after grid creation.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Exporter</span><span class="p">(</span>
@@ -363,8 +367,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretize</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_linear_solver</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set default (unitary/zero) parameters for the flow problem.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set default (unitary/zero) parameters for the flow problem.</span>
 
 <span class="sd">        The parameter fields of the data dictionaries are updated for all</span>
 <span class="sd">        subdomains and interfaces (of codimension 1).</span>
@@ -437,15 +442,15 @@
                 <span class="p">},</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_bc_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Dirichlet conditions on all external boundaries.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dirichlet conditions on all external boundaries.&quot;&quot;&quot;</span>
         <span class="c1"># Define boundary regions</span>
         <span class="n">all_bf</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_domain_boundary_sides</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
         <span class="c1"># Define boundary condition on faces</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">all_bf</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_bc_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Homogeneous boundary values.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Homogeneous boundary values.</span>
 
 <span class="sd">        Units:</span>
 <span class="sd">            Dirichlet conditions: Pa = kg / m^1 / s^2</span>
@@ -453,29 +458,29 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Zero source term.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Zero source term.</span>
 
 <span class="sd">        Units: m^3 / s</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Unitary permeability.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unitary permeability.</span>
 
 <span class="sd">        Units: m^2</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Unitary viscosity.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unitary viscosity.</span>
 
 <span class="sd">        Units: kg / m / s = Pa s</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_vector_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Zero vector source (gravity).</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_vector_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Zero vector source (gravity).</span>
 
 <span class="sd">        To assign a gravity-like vector source, add a non-zero contribution in</span>
 <span class="sd">        the last dimension:</span>
@@ -484,8 +489,8 @@
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">(),</span> <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">vals</span>
 
-    <span class="k">def</span> <span class="nf">_aperture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aperture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Aperture is a characteristic thickness of a cell, with units [m].</span>
 <span class="sd">        1 in matrix, thickness of fractures and &quot;side length&quot; of cross-sectional</span>
 <span class="sd">        area/volume (or &quot;specific volume&quot;) for intersections of dimension 1 and 0.</span>
@@ -496,8 +501,8 @@
             <span class="n">aperture</span> <span class="o">*=</span> <span class="mf">0.1</span>
         <span class="k">return</span> <span class="n">aperture</span>
 
-    <span class="k">def</span> <span class="nf">_specific_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_specific_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The specific volume of a cell accounts for the dimension reduction and has</span>
 <span class="sd">        dimensions [m^(Nd - d)].</span>
 <span class="sd">        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube</span>
@@ -506,8 +511,8 @@
         <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aperture</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nd_subdomain</span><span class="p">()</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_assign_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Assign primary variables to subdomains and interfaces of the mixed-dimensional grid.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ad</span><span class="p">:</span>
@@ -530,8 +535,8 @@
                         <span class="bp">self</span><span class="o">.</span><span class="n">mortar_variable</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
                     <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">_create_equation_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create equation_system based on a mixed-dimensional grid.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_equation_system</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create equation_system based on a mixed-dimensional grid.</span>
 
 <span class="sd">        This method previously created a dof and equation manager, but those classes</span>
 <span class="sd">        have been deprecated for ad compatible models.</span>
@@ -539,8 +544,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_ad_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create the mixed-dimensional variables for potential and mortar flux&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_ad_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the mixed-dimensional variables for potential and mortar flux&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span><span class="o">.</span><span class="n">pressure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">md_variable</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">()</span>
@@ -550,8 +555,8 @@
             <span class="p">[</span><span class="n">intf</span> <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">()</span> <span class="k">if</span> <span class="n">intf</span><span class="o">.</span><span class="n">codim</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">],</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_assign_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Define equations.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define equations.</span>
 
 <span class="sd">        Assigns a Laplace/Darcy problem discretized using Mpfa on all subdomains with</span>
 <span class="sd">        Neumann conditions on all internal boundaries. On interfaces of co-dimension one,</span>
@@ -639,8 +644,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">subdomain_flow_eq</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">interface_flow_eq</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
 
-    <span class="k">def</span> <span class="nf">_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Fluid flux.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fluid flux.</span>
 
 
 <span class="sd">        Parameters</span>
@@ -683,14 +688,16 @@
         <span class="n">flux</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;Fluid flux&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">flux</span>
 
-    <span class="k">def</span> <span class="nf">_discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize all terms&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize all terms&quot;&quot;&quot;</span>
         <span class="n">tic</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">discretize</span><span class="p">()</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Discretized in </span><span class="si">{}</span><span class="s2"> seconds&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span><span class="p">))</span>
 
-<div class="viewcode-block" id="IncompressibleFlow.after_newton_iteration"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="IncompressibleFlow.after_newton_iteration">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_newton_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution_vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Scatters the solution vector for current iterate.</span>
 
 <span class="sd">        Parameters:</span>
@@ -702,7 +709,10 @@
             <span class="n">values</span><span class="o">=</span><span class="n">solution_vector</span><span class="p">,</span> <span class="n">additive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">to_iterate</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="IncompressibleFlow.after_newton_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_convergence</span><span class="p">(</span>
+
+<div class="viewcode-block" id="IncompressibleFlow.after_newton_convergence">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_newton_convergence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
@@ -716,19 +726,27 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">convergence_status</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_export</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_export</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;exporter&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="o">.</span><span class="n">write_vtu</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">])</span>
 
-    <span class="k">def</span> <span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">False</span>
 
     <span class="c1">## Methods required by AbstractModel but irrelevant for static problems:</span>
-<div class="viewcode-block" id="IncompressibleFlow.before_newton_loop"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.before_newton_loop">[docs]</a>    <span class="k">def</span> <span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="IncompressibleFlow.before_newton_loop">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.before_newton_loop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_nonlinear_iteration</span> <span class="o">=</span> <span class="mi">0</span></div>
 
-<div class="viewcode-block" id="IncompressibleFlow.after_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.after_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">pass</span></div></div>
+
+<div class="viewcode-block" id="IncompressibleFlow.after_simulation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.incompressible_flow_model.html#porepy.models.incompressible_flow_model.IncompressibleFlow.after_simulation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+</div>
+
 </pre></div>
 
            </div>

@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.interface_laws.cell_dof_face_dof_map module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.interface_laws.cell_dof_face_dof_map.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.interface_laws.html">porepy.numerics.interface_laws package</a></li>
@@ -276,7 +276,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.interface_laws.cell_dof_face_dof_map">
-<span id="porepy-numerics-interface-laws-cell-dof-face-dof-map-module"></span><h1>porepy.numerics.interface_laws.cell_dof_face_dof_map module<a class="headerlink" href="#module-porepy.numerics.interface_laws.cell_dof_face_dof_map" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-interface-laws-cell-dof-face-dof-map-module"></span><h1>porepy.numerics.interface_laws.cell_dof_face_dof_map module<a class="headerlink" href="#module-porepy.numerics.interface_laws.cell_dof_face_dof_map" title="Link to this heading"></a></h1>
 <p>This module is primarily thought for the elliptic part in DFN simulations,
 where the one codimensional domains are used as Lagrange
 multipliers for the interface law. Use this module for the co-dimensional objects.
@@ -284,8 +284,8 @@ In this way no equations are explicitly associated
 and some of the interface operators are provided.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CellDofFaceDofMap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CellDofFaceDofMap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Only the methods int_bound_source and int_bound_pressure_cell are implemented to allow
 appropriate interface laws. No discretization is associated to the grid.
 A possible usage is for the co-dimensional objects in a DFN discretization.</p>
@@ -304,25 +304,25 @@ RT0: Mixed finite element method, using the lowest order Raviart-Thomas</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.keyword">
-<span class="sig-name descname"><span class="pre">keyword</span></span><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.keyword" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">keyword</span></span><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.keyword" title="Link to this definition"></a></dt>
 <dd><p>This is used to identify operators and parameters that
 the discretization will work on.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_flux">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_flux" title="Link to this definition"></a></dt>
 <dd><p>Abstract method. Assemble the contribution from an internal
 boundary, manifested as a flux boundary condition.</p>
 <p>The intended use is when the internal boundary is coupled to another
@@ -332,14 +332,14 @@ used to impose flux continuity on a higher-dimensional domain.</p>
 <p>Implementations of this method will use an interplay between the grid on
 the node and the mortar grid on the relevant edge.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Grid which the condition should be imposed on.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the node in the
 mixed-dimensional grid.</p></li>
 <li><p><strong>data_intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the edge in the
 mixed-dimensional grid.</p></li>
-<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix,</span> <span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
+<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
 The first and second rows and columns are identified with the
 primary and secondary side; the third belongs to the edge variable.
 The discretization of the relevant term is done in-place in cc.</p></li>
@@ -347,7 +347,7 @@ The discretization of the relevant term is done in-place in cc.</p></li>
 the two adjacent nodes.</p></li>
 <li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block_array</span> <span class="pre">3x1</span></code>) – Right hand side contribution for the edge and
 the two adjacent nodes.</p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
 Should be either 1 or 2.</p></li>
 <li><p><strong>use_secondary_proj</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>) – If True, the secondary side projection operator is
 used. Needed for periodic boundary conditions.</p></li>
@@ -358,7 +358,7 @@ used. Needed for periodic boundary conditions.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_pressure_cell">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_pressure_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_pressure_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_pressure_cell" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_pressure_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_pressure_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_pressure_cell" title="Link to this definition"></a></dt>
 <dd><p>Assemble the contribution from an internal
 boundary, manifested as a condition on the cell pressure.</p>
 <p>The intended use is when the internal boundary is coupled to another
@@ -368,14 +368,14 @@ used to impose flux continuity on a lower-dimensional domain.</p>
 <p>Implementations of this method will use an interplay between the grid on
 the node and the mortar grid on the relevant edge.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Grid which the condition should be imposed on.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the node in the
 mixed-dimensional grid.</p></li>
 <li><p><strong>data_intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the edge in the
 mixed-dimensional grid.</p></li>
-<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix,</span> <span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
+<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
 The first and second rows and columns are identified with the
 primary and secondary side; the third belongs to the edge variable.
 The discretization of the relevant term is done in-place in cc.</p></li>
@@ -383,7 +383,7 @@ The discretization of the relevant term is done in-place in cc.</p></li>
 the two adjacent nodes.</p></li>
 <li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block_array</span> <span class="pre">3x1</span></code>) – Right hand side contribution for the edge and
 the two adjacent nodes.</p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
 Should be either 0 or 1.</p></li>
 </ul>
 </dd>
@@ -392,7 +392,7 @@ Should be either 0 or 1.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_pressure_trace">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_pressure_trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_pressure_trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_pressure_trace" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_pressure_trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_pressure_trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_pressure_trace" title="Link to this definition"></a></dt>
 <dd><p>Abstract method. Assemble the contribution from an internal
 boundary, manifested as a condition on the boundary pressure.</p>
 <p>The intended use is when the internal boundary is coupled to another
@@ -402,14 +402,14 @@ used to impose flux continuity on a higher-dimensional domain.</p>
 <p>Implementations of this method will use an interplay between the grid on
 the node and the mortar grid on the relevant edge.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Grid which the condition should be imposed on.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the node in the
 mixed-dimensional grid.</p></li>
 <li><p><strong>data_intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the edge in the
 mixed-dimensional grid.</p></li>
-<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix,</span> <span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
+<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
 The first and second rows and columns are identified with the
 primary and secondary side; the third belongs to the edge variable.
 The discretization of the relevant term is done in-place in cc.</p></li>
@@ -417,7 +417,7 @@ The discretization of the relevant term is done in-place in cc.</p></li>
 the two adjacent nodes.</p></li>
 <li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block_array</span> <span class="pre">3x1</span></code>) – Right hand side contribution for the edge and
 the two adjacent nodes.</p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
 Should be either 1 or 2.</p></li>
 <li><p><strong>use_secondary_proj</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>) – If True, the secondary side projection operator is
 used. Needed for periodic boundary conditions.</p></li>
@@ -428,7 +428,7 @@ used. Needed for periodic boundary conditions.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_source">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_source"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_source" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_int_bound_source"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_int_bound_source" title="Link to this definition"></a></dt>
 <dd><p>Assemble the contribution from an internal boundary,
 manifested as a source term.</p>
 <p>The intended use is when the internal boundary is coupled to another
@@ -438,14 +438,14 @@ used to impose flux continuity on a lower-dimensional domain.</p>
 <p>Implementations of this method will use an interplay between the grid on
 the node and the mortar grid on the relevant edge.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Grid which the condition should be imposed on.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the node in the
 mixed-dimensional grid.</p></li>
 <li><p><strong>data_intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the edge in the
 mixed-dimensional grid.</p></li>
-<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix,</span> <span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
+<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
 The first and second rows and columns are identified with the
 primary and secondary side; the third belongs to the edge variable.
 The discretization of the relevant term is done in-place in cc.</p></li>
@@ -453,7 +453,7 @@ The discretization of the relevant term is done in-place in cc.</p></li>
 the two adjacent nodes.</p></li>
 <li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block_array</span> <span class="pre">3x1</span></code>) – Right hand side contribution for the edge and
 the two adjacent nodes.</p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
 Should be either 0 or 1.</p></li>
 </ul>
 </dd>
@@ -462,61 +462,61 @@ Should be either 0 or 1.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_matrix">
-<span class="sig-name descname"><span class="pre">assemble_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_matrix" title="Link to this definition"></a></dt>
 <dd><p>An empty matrix with size num_cells x num_cells.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored. Not used.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>System matrix of this discretization.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csr_matrix</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Return the matrix and right-hand side, no PDE are associate with
 this discretization so empty matrix and zero rhs is returned.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>System matrix of this discretization.
 np.ndarray: zero right hand side vector.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csr_matrix</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_rhs">
-<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.assemble_rhs" title="Link to this definition"></a></dt>
 <dd><p>Zero right-hand side vector.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored. Not used.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Zero right hand side vector.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
 </dd>
 </dl>
@@ -524,16 +524,16 @@ np.ndarray: zero right hand side vector.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.discretize" title="Link to this definition"></a></dt>
 <dd><p>Construct discretization matrices. Operation is void for this discretization.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid to be discretized.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With discretization parameters.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -541,13 +541,13 @@ np.ndarray: zero right hand side vector.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.enforce_neumann_int_bound">
-<span class="sig-name descname"><span class="pre">enforce_neumann_int_bound</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.enforce_neumann_int_bound"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.enforce_neumann_int_bound" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">enforce_neumann_int_bound</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.enforce_neumann_int_bound"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.enforce_neumann_int_bound" title="Link to this definition"></a></dt>
 <dd><p>Enforce Neumann boundary conditions on a given system matrix.</p>
 <p>Methods based on a mixed variational form will need this function to
 implement essential boundary conditions.</p>
 <p>The discretization matrix should be modified in place.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – On which the equation is discretized</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Of data related to the discretization.</p></li>
@@ -559,10 +559,10 @@ implement essential boundary conditions.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.extract_flux">
-<span class="sig-name descname"><span class="pre">extract_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.extract_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.extract_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extract_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.extract_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.extract_flux" title="Link to this definition"></a></dt>
 <dd><p>We return an empty vector for consistency with the previous method.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">grid</span></code>) – To which the solution array belongs.</p></li>
 <li><p><strong>solution_array</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Solution for this grid obtained from
@@ -570,10 +570,10 @@ either a mono-dimensional or a mixed-dimensional problem.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary associated with the grid. Not used.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Empty vector.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (0)</p>
 </dd>
 </dl>
@@ -581,26 +581,26 @@ either a mono-dimensional or a mixed-dimensional problem.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.extract_pressure">
-<span class="sig-name descname"><span class="pre">extract_pressure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.extract_pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.extract_pressure" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extract_pressure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.extract_pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.extract_pressure" title="Link to this definition"></a></dt>
 <dd><p>Return exactly the solution_array itself.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">grid</span></code>) – To which the solution array belongs.</p></li>
 <li><p><strong>solution_array</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Solution for this grid obtained from
 either a mono-dimensional or a mixed-dimensional problem.</p></li>
 <li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary associated with the grid. Not used.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Pressure solution vector. Will be identical</dt><dd><p>to solution_array.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (g.num_cells)</p>
 </dd>
 </dl>
@@ -608,21 +608,21 @@ either a mono-dimensional or a mixed-dimensional problem.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/interface_laws/cell_dof_face_dof_map.html#CellDofFaceDofMap.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.interface_laws.cell_dof_face_dof_map.CellDofFaceDofMap.ndof" title="Link to this definition"></a></dt>
 <dd><p>Return the number of degrees of freedom, in this case the number of cells</p>
 <dl class="simple">
 <dt>Parameters</dt><dd><p>sd (pp.Grid): Computational grid</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>the number of degrees of freedom (number of cells).</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p>
 </dd>
 </dl>
 </dd></dl>

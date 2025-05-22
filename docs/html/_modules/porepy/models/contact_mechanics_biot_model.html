@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.contact_mechanics_biot_model &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/contact_mechanics_biot_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/contact_mechanics_biot_model.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.contact_mechanics_biot_model</li>
       <li class="wy-breadcrumbs-aside">
@@ -280,26 +280,28 @@
 <span class="sd">pressure (Biot equations) or temperature. Parameters, variables and discretizations are</span>
 <span class="sd">set in the model class, and the problem may be solved using run_biot.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.utils.derived_discretizations</span> <span class="kn">import</span> <span class="n">implicit_euler</span> <span class="k">as</span> <span class="n">IE_discretizations</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils.derived_discretizations</span><span class="w"> </span><span class="kn">import</span> <span class="n">implicit_euler</span> <span class="k">as</span> <span class="n">IE_discretizations</span>
 
 <span class="c1"># Module-wide logger</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="ContactMechanicsBiotAdObjects"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects">[docs]</a><span class="k">class</span> <span class="nc">ContactMechanicsBiotAdObjects</span><span class="p">(</span>
+<div class="viewcode-block" id="ContactMechanicsBiotAdObjects">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContactMechanicsBiotAdObjects</span><span class="p">(</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">contact_mechanics_model</span><span class="o">.</span><span class="n">ContactMechanicsAdObjects</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Storage class for ad related objects.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Storage class for ad related objects.</span>
 
 <span class="sd">    Stored objects include variables, compound ad operators and projections.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -314,8 +316,11 @@
     <span class="n">codim_one_interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="ContactMechanicsBiot"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot">[docs]</a><span class="k">class</span> <span class="nc">ContactMechanicsBiot</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ContactMechanics</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;This is a shell class for poroelastic contact mechanics problems.</span>
+
+<div class="viewcode-block" id="ContactMechanicsBiot">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContactMechanicsBiot</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">ContactMechanics</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is a shell class for poroelastic contact mechanics problems.</span>
 
 <span class="sd">    Setting up such problems requires a lot of boilerplate definitions of variables,</span>
 <span class="sd">    parameters and discretizations. This class is intended to provide a standardized</span>
@@ -369,7 +374,7 @@
     <span class="c1"># contact mechanics only.</span>
     <span class="n">_ad</span><span class="p">:</span> <span class="n">ContactMechanicsBiotAdObjects</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
         <span class="c1"># Time manager</span>
@@ -393,8 +398,10 @@
         <span class="c1"># temperature. See assign_discretizations</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subtract_fracture_pressure</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 
-<div class="viewcode-block" id="ContactMechanicsBiot.before_newton_loop"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.before_newton_loop">[docs]</a>    <span class="k">def</span> <span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Will be run before entering a Newton loop.</span>
+<div class="viewcode-block" id="ContactMechanicsBiot.before_newton_loop">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.before_newton_loop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">before_newton_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Will be run before entering a Newton loop.</span>
 <span class="sd">        E.g.</span>
 <span class="sd">           Discretize time-dependent quantities etc.</span>
 <span class="sd">           Update time-dependent parameters (captured by assembly).</span>
@@ -402,18 +409,27 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">before_newton_loop</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_parameters</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="ContactMechanicsBiot.after_newton_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.after_newton_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">after_newton_convergence</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ContactMechanicsBiot.after_newton_convergence">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.after_newton_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_newton_convergence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">errors</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">after_newton_convergence</span><span class="p">(</span><span class="n">solution</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">iteration_counter</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_save_mechanical_bc_values</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="ContactMechanicsBiot.after_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.after_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="ContactMechanicsBiot.after_simulation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.after_simulation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;exporter&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="o">.</span><span class="n">write_pvd</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="ContactMechanicsBiot.reconstruct_stress"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.reconstruct_stress">[docs]</a>    <span class="k">def</span> <span class="nf">reconstruct_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">previous_iterate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ContactMechanicsBiot.reconstruct_stress">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.reconstruct_stress">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reconstruct_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">previous_iterate</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the stress in the highest-dimensional grid based on the displacement</span>
 <span class="sd">        and pressure states in that grid, adjacent interfaces and global boundary</span>
 <span class="sd">        conditions.</span>
@@ -444,19 +460,20 @@
         <span class="c1"># Stress contribution from the scalar variable</span>
         <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="s2">&quot;stress&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="n">mpsa</span><span class="o">.</span><span class="n">grad_p_matrix_key</span><span class="p">]</span> <span class="o">*</span> <span class="n">p</span></div>
 
+
         <span class="c1"># Is it correct there is no contribution from the global boundary conditions?</span>
 
     <span class="c1"># Methods for setting parameters etc.</span>
 
-    <span class="k">def</span> <span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the parameters for the simulation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_scalar_parameters</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_mechanics_parameters</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_set_mechanics_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_mechanics_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the parameters for the simulation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_set_parameters</span><span class="p">()</span>
@@ -488,7 +505,7 @@
         <span class="k">for</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">interfaces</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="n">pp</span><span class="o">.</span><span class="n">initialize_data</span><span class="p">(</span><span class="n">intf</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanics_parameter_key</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_set_scalar_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_scalar_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">tensor_scale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scalar_scale</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">length_scale</span><span class="o">**</span><span class="mi">2</span>
         <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="n">storativity</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_storativity</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
@@ -551,8 +568,8 @@
                 <span class="p">},</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_bc_type_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Use parent class method for mechanics</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_type_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Use parent class method for mechanics</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -567,8 +584,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_bc_type</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_bc_type_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Dirichlet condition on all external boundaries</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_type_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dirichlet condition on all external boundaries</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -586,8 +603,8 @@
         <span class="c1"># Define boundary condition on faces</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">all_bf</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_bc_values_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Homogeneous values on all boundaries</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_values_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Homogeneous values on all boundaries</span>
 
 <span class="sd">        Note that Dirichlet values should be divided by length_scale, and Neumann values</span>
 <span class="sd">        by scalar_scale.</span>
@@ -606,8 +623,8 @@
         <span class="c1"># Set the boundary values</span>
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_bc_values</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_bc_values_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Homogeneous values on all boundaries</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_values_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Homogeneous values on all boundaries</span>
 
 <span class="sd">        Note that Dirichlet values should be divided by scalar_scale.</span>
 
@@ -624,8 +641,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_stiffness_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">FourthOrderTensor</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Stress tensor parameter, unitary Lame parameters.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_stiffness_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">FourthOrderTensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stress tensor parameter, unitary Lame parameters.</span>
 
 
 <span class="sd">        Parameters</span>
@@ -644,29 +661,29 @@
         <span class="n">mu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">scalar_scale</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">FourthOrderTensor</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_source_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Zero source term.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_source_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Zero source term.</span>
 
 <span class="sd">        Units: m^3 / s</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Unitary permeability.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unitary permeability.</span>
 
 <span class="sd">        Units: m^2</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Unitary viscosity.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unitary viscosity.</span>
 
 <span class="sd">        Units: kg / m / s = Pa s</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_vector_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Zero vector source (gravity).</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_vector_source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Zero vector source (gravity).</span>
 
 <span class="sd">        To assign a gravity-like vector source, add a non-zero contribution in</span>
 <span class="sd">        the last dimension:</span>
@@ -675,8 +692,8 @@
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">vals</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_reference_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Reference scalar value.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reference_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reference scalar value.</span>
 
 <span class="sd">        Used for the scalar (pressure) contribution to stress.</span>
 <span class="sd">        Parameters</span>
@@ -692,8 +709,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_storativity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set unitary storativity.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_storativity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set unitary storativity.</span>
 
 <span class="sd">        The storativity is also called Biot modulus or storage coefficient.</span>
 
@@ -707,8 +724,8 @@
 
         <span class="k">return</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_biot_alpha</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Set unitary Biot-Willis coefficient.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_biot_alpha</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set unitary Biot-Willis coefficient.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd: Subdomain grid.</span>
@@ -724,8 +741,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="mf">1.0</span>
 
-    <span class="k">def</span> <span class="nf">_aperture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aperture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Aperture is a characteristic thickness of a cell, with units [m].</span>
 <span class="sd">        1 in matrix, thickness of fractures and &quot;side length&quot; of cross-sectional</span>
 <span class="sd">        area/volume (or &quot;specific volume&quot;) for intersections of co-dimension 2 and 3.</span>
@@ -736,8 +753,8 @@
             <span class="n">aperture</span> <span class="o">*=</span> <span class="mf">0.1</span>
         <span class="k">return</span> <span class="n">aperture</span>
 
-    <span class="k">def</span> <span class="nf">_specific_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_specific_volume</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The specific volume of a cell accounts for the dimension reduction and has</span>
 <span class="sd">        dimensions [m^(Nd - d)].</span>
 <span class="sd">        Typically, equals 1 in Nd, the aperture in codimension 1 and the square/cube</span>
@@ -746,8 +763,8 @@
         <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aperture</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_assign_discretizations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_discretizations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Assign discretizations to the nodes and edges of the grid bucket.</span>
 
 <span class="sd">        Note the attribute subtract_fracture_pressure: Indicates whether to</span>
@@ -906,8 +923,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_assign_equations</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_assign_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assign equations for mixed-dimensional flow and deformation.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign equations for mixed-dimensional flow and deformation.</span>
 
 <span class="sd">        The following equations are assigned to the equation manager:</span>
 <span class="sd">            &quot;momentum&quot; in the nd subdomain</span>
@@ -943,10 +960,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">subdomain_flow_eq</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">interface_flow_eq</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">})</span>
 
-    <span class="k">def</span> <span class="nf">_set_ad_projections</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_ad_projections</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Sets projection and rotation matrices.</span>
 
 
@@ -989,13 +1006,13 @@
         <span class="c1"># if time steps are changed.</span>
         <span class="n">ad</span><span class="o">.</span><span class="n">time_step</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_manager</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="s2">&quot;time step&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_force_balance_equation</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_force_balance_equation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">matrix_subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
         <span class="n">fracture_subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
         <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Force balance equation on fracture subdomains.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Force balance equation on fracture subdomains.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1084,8 +1101,8 @@
         <span class="n">force_balance_equation</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span> <span class="o">=</span> <span class="n">eq</span> <span class="o">+</span> <span class="n">fracture_pressure</span>
         <span class="k">return</span> <span class="n">force_balance_equation</span>
 
-    <span class="k">def</span> <span class="nf">_subdomain_flow_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Mass balance equation for slightly compressible flow in a deformable medium.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_subdomain_flow_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mass balance equation for slightly compressible flow in a deformable medium.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1140,8 +1157,8 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">eq</span>
 
-    <span class="k">def</span> <span class="nf">_interface_flow_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Equation for interface fluxes.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_interface_flow_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Equation for interface fluxes.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1194,7 +1211,7 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">interface_flow_eq</span>
 
-    <span class="k">def</span> <span class="nf">_boundary_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_boundary_pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
         <span class="n">flux_discr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span><span class="o">.</span><span class="n">flux_discretization</span>
         <span class="n">bc</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">ParameterArray</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">scalar_parameter_key</span><span class="p">,</span>
@@ -1217,8 +1234,8 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">p_primary</span>
 
-    <span class="k">def</span> <span class="nf">_div_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Divergence of u</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_div_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Divergence of u</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1281,8 +1298,8 @@
         <span class="n">div_u_terms</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;div_u&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">div_u_terms</span>
 
-    <span class="k">def</span> <span class="nf">_biot_terms_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Biot terms, div(u) and stabilization</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_biot_terms_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Biot terms, div(u) and stabilization</span>
 
 
 <span class="sd">        Parameters</span>
@@ -1312,8 +1329,8 @@
         <span class="n">biot_terms</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span> <span class="o">=</span> <span class="n">div_u_terms</span> <span class="o">+</span> <span class="n">stabilization_term</span>
         <span class="k">return</span> <span class="n">biot_terms</span>
 
-    <span class="k">def</span> <span class="nf">_volume_change</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Volume change term for fracture subdomains</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_volume_change</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Volume change term for fracture subdomains</span>
 
 <span class="sd">        Volume change terms for intersections are neglected in this implementation.</span>
 
@@ -1342,8 +1359,8 @@
         <span class="n">volume_change</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;Volume change&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">volume_change</span>
 
-    <span class="k">def</span> <span class="nf">_fluid_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Fluid flux.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fluid_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fluid flux.</span>
 
 
 <span class="sd">        Parameters</span>
@@ -1386,11 +1403,11 @@
         <span class="n">flux</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;Fluid flux&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">flux</span>
 
-    <span class="k">def</span> <span class="nf">_stress</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_stress</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">matrix_subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Ad representation of poromechanical stress.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ad representation of poromechanical stress.</span>
 
 
 <span class="sd">        Parameters</span>
@@ -1425,8 +1442,8 @@
         <span class="n">stress</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;poromechanical_stress&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">stress</span>
 
-    <span class="k">def</span> <span class="nf">_assign_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Assign primary variables to the nodes and edges of the mixed-dimensional grid.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_assign_variables</span><span class="p">()</span>
@@ -1460,8 +1477,8 @@
                         <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mortar_scalar_variable</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}}</span>
                     <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_ad_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assign variables to self._ad</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_ad_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign variables to self._ad</span>
 
 
 <span class="sd">        Assigns the following attributes to self._ad in addition to those set by</span>
@@ -1487,14 +1504,16 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">mortar_scalar_variable</span><span class="p">,</span> <span class="n">interfaces</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="ContactMechanicsBiot.check_convergence"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.check_convergence">[docs]</a>    <span class="k">def</span> <span class="nf">check_convergence</span><span class="p">(</span>
+<div class="viewcode-block" id="ContactMechanicsBiot.check_convergence">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot.check_convergence">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">check_convergence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">prev_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">init_solution</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">nl_params</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Check whether the solution has converged by comparing values from the two</span>
 <span class="sd">        most recent iterations.</span>
 
@@ -1558,8 +1577,9 @@
 
         <span class="k">return</span> <span class="n">error</span><span class="p">,</span> <span class="n">converged</span><span class="p">,</span> <span class="n">diverged</span></div>
 
-    <span class="k">def</span> <span class="nf">_initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initial guess for Newton iteration, scalar variable and bc_values (for time</span>
 <span class="sd">        discretization).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1575,8 +1595,8 @@
             <span class="p">},</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_save_mechanical_bc_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_save_mechanical_bc_values</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The div_u term uses the mechanical bc values for both current and previous time</span>
 <span class="sd">        step. In the case of time dependent bc values, these must be updated. As this</span>
 <span class="sd">        is very easy to overlook, we do it by default.</span>
@@ -1590,8 +1610,8 @@
 
     <span class="c1"># Methods for discretization etc.</span>
 
-    <span class="k">def</span> <span class="nf">_discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize all terms&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize all terms&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_use_ad</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">discretize</span><span class="p">()</span>
             <span class="k">return</span>
@@ -1644,8 +1664,8 @@
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done. Elapsed time </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">_discretize_biot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">update_after_geometry_change</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discretize_biot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">update_after_geometry_change</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        To save computational time, the full Biot equation (without contact mechanics)</span>
 <span class="sd">        is discretized once. This is to avoid computing the same terms multiple times.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1663,8 +1683,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">biot</span><span class="o">.</span><span class="n">discretize</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_set_ad_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Sets the storage class self._ad</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_ad_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the storage class self._ad</span>
 
 
 <span class="sd">        Returns</span>
@@ -1673,6 +1693,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span> <span class="o">=</span> <span class="n">ContactMechanicsBiotAdObjects</span><span class="p">()</span></div>
+
 </pre></div>
 
            </div>

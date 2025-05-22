@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.momentum_balance &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/momentum_balance.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/momentum_balance.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.momentum_balance</li>
       <li class="wy-breadcrumbs-aside">
@@ -285,94 +285,98 @@
 
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">constitutive_laws</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">constitutive_laws</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="MomentumBalanceEquations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations">[docs]</a><span class="k">class</span> <span class="nc">MomentumBalanceEquations</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">BalanceEquation</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for momentum balance equations and fracture deformation equations.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MomentumBalanceEquations">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomentumBalanceEquations</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">BalanceEquation</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for momentum balance equations and fracture deformation equations.&quot;&quot;&quot;</span>
 
     <span class="n">stress</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Stress on the grid faces. Provided by a suitable mixin class that specifies the</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stress on the grid faces. Provided by a suitable mixin class that specifies the</span>
 <span class="sd">    physical laws governing the stress.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
-    <span class="sd">&quot;&quot;&quot;Mixed dimensional grid for the current model. Normally defined in a mixin</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixed dimensional grid for the current model. Normally defined in a mixin</span>
 <span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">interfaces_to_subdomains</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span>
-    <span class="sd">&quot;&quot;&quot;Map from interfaces to the adjacent subdomains. Normally defined in a mixin</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map from interfaces to the adjacent subdomains. Normally defined in a mixin</span>
 <span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">internal_boundary_normal_to_outwards</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">int</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Switch interface normal vectors to point outwards from the subdomain. Normally</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Switch interface normal vectors to point outwards from the subdomain. Normally</span>
 <span class="sd">    set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">fracture_stress</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Stress on the fracture faces. Provided by a suitable mixin class that specifies</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stress on the fracture faces. Provided by a suitable mixin class that specifies</span>
 <span class="sd">    the physical laws governing the stress, see for instance</span>
 <span class="sd">    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress` or</span>
 <span class="sd">    :class:`~porepy.models.constitutive_laws.PressureStress`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">basis</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">],</span> <span class="nb">int</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]]</span>
-    <span class="sd">&quot;&quot;&quot;Basis for the local coordinate system. Normally set by a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Basis for the local coordinate system. Normally set by a mixin instance of</span>
 <span class="sd">    :class:`porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">normal_component</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Operator giving the normal component of vectors. Normally defined in a mixin</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Operator giving the normal component of vectors. Normally defined in a mixin</span>
 <span class="sd">    instance of :class:`~porepy.models.models.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">tangential_component</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Operator giving the tangential component of vectors. Normally defined in a mixin</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Operator giving the tangential component of vectors. Normally defined in a mixin</span>
 <span class="sd">    instance of :class:`~porepy.models.models.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">displacement_jump</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Operator giving the displacement jump on fracture grids. Normally defined in a</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Operator giving the displacement jump on fracture grids. Normally defined in a</span>
 <span class="sd">    mixin instance of :class:`~porepy.models.models.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">contact_traction</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MixedDimensionalVariable</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Contact traction variable. Normally defined in a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Contact traction variable. Normally defined in a mixin instance of</span>
 <span class="sd">    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">gap</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Gap of a fracture. Normally provided by a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gap of a fracture. Normally provided by a mixin instance of</span>
 <span class="sd">    :class:`~porepy.models.constitutive_laws.FracturedSolid`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">friction_bound</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Friction bound of a fracture. Normally provided by a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Friction bound of a fracture. Normally provided by a mixin instance of</span>
 <span class="sd">    :class:`~porepy.models.constitutive_laws.FrictionBound`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">contact_mechanics_numerical_constant</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Numerical constant for contact mechanics. Normally provided by a mixin instance</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Numerical constant for contact mechanics. Normally provided by a mixin instance</span>
 <span class="sd">    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.set_equations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.set_equations">[docs]</a>    <span class="k">def</span> <span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set equations for the subdomains and interfaces.</span>
+<div class="viewcode-block" id="MomentumBalanceEquations.set_equations">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.set_equations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set equations for the subdomains and interfaces.</span>
 
 <span class="sd">        The following equations are set:</span>
 <span class="sd">            - Momentum balance in the matrix.</span>
@@ -407,8 +411,11 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">set_equation</span><span class="p">(</span><span class="n">intf_eq</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cells&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">})</span></div>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.momentum_balance_equation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.momentum_balance_equation">[docs]</a>    <span class="k">def</span> <span class="nf">momentum_balance_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Momentum balance equation in the matrix.</span>
+
+<div class="viewcode-block" id="MomentumBalanceEquations.momentum_balance_equation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.momentum_balance_equation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">momentum_balance_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Momentum balance equation in the matrix.</span>
 
 <span class="sd">        Inertial term is not included.</span>
 
@@ -430,8 +437,11 @@
         <span class="n">equation</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;momentum_balance_equation&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">equation</span></div>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.inertia"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.inertia">[docs]</a>    <span class="k">def</span> <span class="nf">inertia</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Inertial term [m^2/s].</span>
+
+<div class="viewcode-block" id="MomentumBalanceEquations.inertia">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.inertia">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">inertia</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Inertial term [m^2/s].</span>
 
 <span class="sd">        Added here for completeness, but not used in the current implementation. Be</span>
 <span class="sd">        aware that the elasticity discretization has employed herein has, as far as we</span>
@@ -449,11 +459,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.interface_force_balance_equation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.interface_force_balance_equation">[docs]</a>    <span class="k">def</span> <span class="nf">interface_force_balance_equation</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MomentumBalanceEquations.interface_force_balance_equation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.interface_force_balance_equation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interface_force_balance_equation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Momentum balance equation at matrix-fracture interfaces.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Momentum balance equation at matrix-fracture interfaces.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            interfaces: Fracture-matrix interfaces.</span>
@@ -509,8 +522,11 @@
         <span class="n">force_balance_eq</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;interface_force_balance_equation&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">force_balance_eq</span></div>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.normal_fracture_deformation_equation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.normal_fracture_deformation_equation">[docs]</a>    <span class="k">def</span> <span class="nf">normal_fracture_deformation_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Equation for the normal component of the fracture deformation.</span>
+
+<div class="viewcode-block" id="MomentumBalanceEquations.normal_fracture_deformation_equation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.normal_fracture_deformation_equation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normal_fracture_deformation_equation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Equation for the normal component of the fracture deformation.</span>
 
 <span class="sd">        This constraint equation enforces non-penetration of opposing fracture</span>
 <span class="sd">        interfaces.</span>
@@ -559,11 +575,14 @@
         <span class="n">equation</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;normal_fracture_deformation_equation&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">equation</span></div>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.tangential_fracture_deformation_equation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.tangential_fracture_deformation_equation">[docs]</a>    <span class="k">def</span> <span class="nf">tangential_fracture_deformation_equation</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MomentumBalanceEquations.tangential_fracture_deformation_equation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.tangential_fracture_deformation_equation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tangential_fracture_deformation_equation</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Contact mechanics equation for the tangential constraints.</span>
 
 <span class="sd">        The function reads</span>
@@ -686,8 +705,11 @@
         <span class="n">equation</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;tangential_fracture_deformation_equation&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">equation</span></div>
 
-<div class="viewcode-block" id="MomentumBalanceEquations.body_force"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.body_force">[docs]</a>    <span class="k">def</span> <span class="nf">body_force</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Body force integrated over the subdomain cells.</span>
+
+<div class="viewcode-block" id="MomentumBalanceEquations.body_force">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations.body_force">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">body_force</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Body force integrated over the subdomain cells.</span>
 
 <span class="sd">        FIXME: See FluidMassBalanceEquations.fluid_source.</span>
 
@@ -701,18 +723,24 @@
         <span class="n">num_cells</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">)</span>
         <span class="n">source</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="s2">&quot;body_force&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">source</span></div></div>
+        <span class="k">return</span> <span class="n">source</span></div>
+</div>
 
 
-<div class="viewcode-block" id="ConstitutiveLawsMomentumBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance">[docs]</a><span class="k">class</span> <span class="nc">ConstitutiveLawsMomentumBalance</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ConstitutiveLawsMomentumBalance">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConstitutiveLawsMomentumBalance</span><span class="p">(</span>
     <span class="n">constitutive_laws</span><span class="o">.</span><span class="n">LinearElasticSolid</span><span class="p">,</span>
     <span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FracturedSolid</span><span class="p">,</span>
     <span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FrictionBound</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for constitutive equations for momentum balance equations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for constitutive equations for momentum balance equations.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ConstitutiveLawsMomentumBalance.stress"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.stress">[docs]</a>    <span class="k">def</span> <span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Stress operator.</span>
+<div class="viewcode-block" id="ConstitutiveLawsMomentumBalance.stress">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.ConstitutiveLawsMomentumBalance.stress">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stress operator.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains where the stress is defined.</span>
@@ -722,11 +750,15 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Method from constitutive library&#39;s LinearElasticRock.</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="VariablesMomentumBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance">[docs]</a><span class="k">class</span> <span class="nc">VariablesMomentumBalance</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="VariablesMomentumBalance">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VariablesMomentumBalance</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Variables for mixed-dimensional deformation:</span>
 <span class="sd">        Displacement in matrix and on fracture-matrix interfaces. Fracture contact</span>
 <span class="sd">        traction.</span>
@@ -737,51 +769,53 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">displacement_variable</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the displacement in subdomains.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Name of the primary variable representing the displacement in subdomains.</span>
 <span class="sd">    Normally defined in a mixin of instance</span>
 <span class="sd">    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">interface_displacement_variable</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the displacement on an interface.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Name of the primary variable representing the displacement on an interface.</span>
 <span class="sd">    Normally defined in a mixin of instance</span>
 <span class="sd">    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">contact_traction_variable</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="sd">&quot;&quot;&quot;Name of the primary variable representing the contact traction on a fracture</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Name of the primary variable representing the contact traction on a fracture</span>
 <span class="sd">    subdomain. Normally defined in a mixin of instance</span>
 <span class="sd">    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
-    <span class="sd">&quot;&quot;&quot;Mixed dimensional grid for the current model. Normally defined in a mixin</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixed dimensional grid for the current model. Normally defined in a mixin</span>
 <span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
 <span class="sd">    :class:`porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">subdomains_to_interfaces</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span>
-    <span class="sd">&quot;&quot;&quot;Map from subdomains to the adjacent interfaces. Normally defined in a mixin</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map from subdomains to the adjacent interfaces. Normally defined in a mixin</span>
 <span class="sd">    instance of :class:`~porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">equation_system</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span>
-    <span class="sd">&quot;&quot;&quot;EquationSystem object for the current model. Normally defined in a mixin class</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;EquationSystem object for the current model. Normally defined in a mixin class</span>
 <span class="sd">    defining the solution strategy.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">local_coordinates</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Mapping to local coordinates. Normally defined in a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mapping to local coordinates. Normally defined in a mixin instance of</span>
 <span class="sd">    :class:`~porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="VariablesMomentumBalance.create_variables"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set variables for the subdomains and interfaces.</span>
+<div class="viewcode-block" id="VariablesMomentumBalance.create_variables">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.create_variables">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set variables for the subdomains and interfaces.</span>
 
 <span class="sd">        The following variables are set:</span>
 <span class="sd">            - Displacement in the matrix.</span>
@@ -806,8 +840,11 @@
             <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="VariablesMomentumBalance.displacement"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.displacement">[docs]</a>    <span class="k">def</span> <span class="nf">displacement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Displacement in the matrix.</span>
+
+<div class="viewcode-block" id="VariablesMomentumBalance.displacement">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.displacement">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">displacement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Displacement in the matrix.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            grids: List of subdomains or interface grids where the displacement is</span>
@@ -828,8 +865,11 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">md_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">displacement_variable</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="VariablesMomentumBalance.interface_displacement"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.interface_displacement">[docs]</a>    <span class="k">def</span> <span class="nf">interface_displacement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Displacement on fracture-matrix interfaces.</span>
+
+<div class="viewcode-block" id="VariablesMomentumBalance.interface_displacement">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.interface_displacement">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interface_displacement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Displacement on fracture-matrix interfaces.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            interfaces: List of interface grids where the displacement is defined.</span>
@@ -853,8 +893,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">interface_displacement_variable</span><span class="p">,</span> <span class="n">interfaces</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="VariablesMomentumBalance.contact_traction"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.contact_traction">[docs]</a>    <span class="k">def</span> <span class="nf">contact_traction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
-        <span class="sd">&quot;&quot;&quot;Fracture contact traction.</span>
+
+<div class="viewcode-block" id="VariablesMomentumBalance.contact_traction">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.contact_traction">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contact_traction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fracture contact traction.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains where the contact traction is defined. Should</span>
@@ -873,8 +916,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">contact_traction_variable</span><span class="p">,</span> <span class="n">subdomains</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="VariablesMomentumBalance.displacement_jump"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.displacement_jump">[docs]</a>    <span class="k">def</span> <span class="nf">displacement_jump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Displacement jump on fracture-matrix interfaces.</span>
+
+<div class="viewcode-block" id="VariablesMomentumBalance.displacement_jump">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance.displacement_jump">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">displacement_jump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Displacement jump on fracture-matrix interfaces.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains where the displacement jump is defined.</span>
@@ -907,11 +953,15 @@
             <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">interface_displacement</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">rotated_jumps</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;Rotated_displacement_jump&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">rotated_jumps</span></div></div>
+        <span class="k">return</span> <span class="n">rotated_jumps</span></div>
+</div>
 
 
-<div class="viewcode-block" id="SolutionStrategyMomentumBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyMomentumBalance</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">SolutionStrategy</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;This is whatever is left of pp.ContactMechanics.</span>
+
+<div class="viewcode-block" id="SolutionStrategyMomentumBalance">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolutionStrategyMomentumBalance</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">SolutionStrategy</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is whatever is left of pp.ContactMechanics.</span>
 
 <span class="sd">    At some point, this will be refined to be a more sophisticated (modularised)</span>
 <span class="sd">    solution strategy class. More refactoring may be beneficial.</span>
@@ -922,56 +972,58 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
 <span class="sd">    :class:`porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">solid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SolidConstants</span>
-    <span class="sd">&quot;&quot;&quot;Solid constant object that takes care of scaling of solid-related quantities.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solid constant object that takes care of scaling of solid-related quantities.</span>
 <span class="sd">    Normally, this is set by a mixin of instance</span>
 <span class="sd">    :class:`~porepy.models.solution_strategy.SolutionStrategy`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">equation_system</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span>
-    <span class="sd">&quot;&quot;&quot;EquationSystem object for the current model. Normally defined in a mixin class</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;EquationSystem object for the current model. Normally defined in a mixin class</span>
 <span class="sd">    defining the solution strategy.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">stiffness_tensor</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">FourthOrderTensor</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Function that returns the stiffness tensor of a subdomain. Normally provided by a</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function that returns the stiffness tensor of a subdomain. Normally provided by a</span>
 <span class="sd">    mixin of instance :class:`~porepy.models.constitutive_laws.LinearElasticSolid`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">bc_type_mechanics</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Function that returns the boundary condition type for the momentum problem.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function that returns the boundary condition type for the momentum problem.</span>
 <span class="sd">    Normally provided by a mixin instance of</span>
 <span class="sd">    :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
         <span class="c1"># Variables</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">displacement_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;u&quot;</span>
-        <span class="sd">&quot;&quot;&quot;Name of the displacement variable.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name of the displacement variable.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">interface_displacement_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;u_interface&quot;</span>
-        <span class="sd">&quot;&quot;&quot;Name of the displacement variable on fracture-matrix interfaces.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name of the displacement variable on fracture-matrix interfaces.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">contact_traction_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;t&quot;</span>
-        <span class="sd">&quot;&quot;&quot;Name of the contact traction variable.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name of the contact traction variable.&quot;&quot;&quot;</span>
 
         <span class="c1"># Discretization</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stress_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mechanics&quot;</span>
-        <span class="sd">&quot;&quot;&quot;Keyword for stress term.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keyword for stress term.</span>
 
 <span class="sd">        Used to access discretization parameters and store discretization matrices.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="SolutionStrategyMomentumBalance.initial_condition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.initial_condition">[docs]</a>    <span class="k">def</span> <span class="nf">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set initial guess for the variables.</span>
+<div class="viewcode-block" id="SolutionStrategyMomentumBalance.initial_condition">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.initial_condition">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set initial guess for the variables.</span>
 
 <span class="sd">        The displacement is set to zero in the Nd-domain, and at the fracture interfaces</span>
 <span class="sd">        The displacement jump is thereby also zero.</span>
@@ -997,8 +1049,11 @@
             <span class="n">to_iterate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolutionStrategyMomentumBalance.set_discretization_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.set_discretization_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set discretization parameters for the simulation.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SolutionStrategyMomentumBalance.set_discretization_parameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.set_discretization_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set discretization parameters for the simulation.&quot;&quot;&quot;</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_discretization_parameters</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">return_data</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
@@ -1013,10 +1068,13 @@
                     <span class="p">},</span>
                 <span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant">[docs]</a>    <span class="k">def</span> <span class="nf">contact_mechanics_numerical_constant</span><span class="p">(</span>
+
+<div class="viewcode-block" id="SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance.contact_mechanics_numerical_constant">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contact_mechanics_numerical_constant</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Numerical constant for the contact problem.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Numerical constant for the contact problem.</span>
 
 <span class="sd">        The numerical constant is a cell-wise scalar, but we return a matrix to allow</span>
 <span class="sd">        for automatic differentiation and left multiplication.</span>
@@ -1038,25 +1096,32 @@
         <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">solid</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;c_num&quot;</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        If there is no fracture, the problem is usually linear. Overwrite this function</span>
 <span class="sd">        if e.g. parameter nonlinearities are included.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_min</span><span class="p">()</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span></div>
 
 
-<div class="viewcode-block" id="BoundaryConditionsMomentumBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsMomentumBalance</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Boundary conditions for the momentum balance.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="BoundaryConditionsMomentumBalance">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryConditionsMomentumBalance</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Boundary conditions for the momentum balance.&quot;&quot;&quot;</span>
 
     <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Normally set by a mixin instance of</span>
 <span class="sd">    :class:`porepy.models.geometry.ModelGeometry`.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">domain_boundary_sides</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">DomainSides</span><span class="p">]</span>
 
-<div class="viewcode-block" id="BoundaryConditionsMomentumBalance.bc_type_mechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_type_mechanics">[docs]</a>    <span class="k">def</span> <span class="nf">bc_type_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Define type of boundary conditions.</span>
+<div class="viewcode-block" id="BoundaryConditionsMomentumBalance.bc_type_mechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_type_mechanics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bc_type_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define type of boundary conditions.</span>
 
 
 <span class="sd">        Parameters:</span>
@@ -1067,16 +1132,20 @@
 <span class="sd">            Dirichlet also on fracture faces.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">all_bf</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_boundary_faces</span><span class="p">()</span>
-        <span class="n">bc</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">all_bf</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span>
+        <span class="c1"># Define boundary faces.</span>
+        <span class="n">boundary_faces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_boundary_sides</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span><span class="o">.</span><span class="n">all_bf</span>
+        <span class="n">bc</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">boundary_faces</span><span class="p">,</span> <span class="s2">&quot;dir&quot;</span><span class="p">)</span>
         <span class="c1"># Default internal BC is Neumann. We change to Dirichlet for the contact</span>
         <span class="c1"># problem. I.e., the mortar variable represents the displacement on the fracture</span>
         <span class="c1"># faces.</span>
         <span class="n">bc</span><span class="o">.</span><span class="n">internal_to_dirichlet</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">bc</span></div>
 
-<div class="viewcode-block" id="BoundaryConditionsMomentumBalance.bc_values_mechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_values_mechanics">[docs]</a>    <span class="k">def</span> <span class="nf">bc_values_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Boundary values for the momentum balance.</span>
+
+<div class="viewcode-block" id="BoundaryConditionsMomentumBalance.bc_values_mechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance.bc_values_mechanics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bc_values_mechanics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Array</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Boundary values for the momentum balance.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains.</span>
@@ -1089,7 +1158,9 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">num_faces</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
-        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">wrap_as_ad_array</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_faces</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="s2">&quot;bc_vals_mechanics&quot;</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">wrap_as_ad_array</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_faces</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="s2">&quot;bc_vals_mechanics&quot;</span><span class="p">)</span></div>
+</div>
+
 
 
 <span class="c1"># Note that we ignore a mypy error here. There are some inconsistencies in the method</span>
@@ -1100,7 +1171,9 @@
 <span class="c1"># which should be types as Callable[[int, int], None], cannot be parsed by mypy.</span>
 <span class="c1"># For this reason, we ignore the error here, and rely on the tests to catch any</span>
 <span class="c1"># inconsistencies.</span>
-<div class="viewcode-block" id="MomentumBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalance">[docs]</a><span class="k">class</span> <span class="nc">MomentumBalance</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
+<div class="viewcode-block" id="MomentumBalance">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalance">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MomentumBalance</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
     <span class="n">MomentumBalanceEquations</span><span class="p">,</span>
     <span class="n">VariablesMomentumBalance</span><span class="p">,</span>
     <span class="n">ConstitutiveLawsMomentumBalance</span><span class="p">,</span>
@@ -1109,9 +1182,10 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">ModelGeometry</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">DataSavingMixin</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for mixed-dimensional momentum balance with contact mechanics.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for mixed-dimensional momentum balance with contact mechanics.&quot;&quot;&quot;</span>
 
     <span class="k">pass</span></div>
+
 </pre></div>
 
            </div>

@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.grid module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.grid.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.grid module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.grid">
-<span id="porepy-grids-grid-module"></span><h1>porepy.grids.grid module<a class="headerlink" href="#module-porepy.grids.grid" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-grid-module"></span><h1>porepy.grids.grid module<a class="headerlink" href="#module-porepy.grids.grid" title="Link to this heading"></a></h1>
 <p>Module containing the parent class for all grids.</p>
 <p>See documentation of class <a class="reference internal" href="#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a> for further details.</p>
 <p class="rubric">Acknowledgements
@@ -287,8 +287,8 @@ translations of the corresponding functions in MRST as they were defined around
 2016.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Parent class for all grids.</p>
 <p>The grid stores topological information, as well as geometric information. Geometric
 information requires calling <a class="reference internal" href="#porepy.grids.grid.Grid.compute_geometry" title="porepy.grids.grid.Grid.compute_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code></a> to be initialized.</p>
@@ -298,7 +298,7 @@ information requires calling <a class="reference internal" href="#porepy.grids.g
 be introduced later.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dim</strong> – Grid dimension.</p></li>
 <li><p><strong>nodes</strong> – <p><code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code></p>
@@ -319,52 +319,52 @@ be introduced later.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_connection_map">
-<span class="sig-name descname"><span class="pre">cell_connection_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_connection_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_connection_map" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_connection_map</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_connection_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_connection_map" title="Link to this definition"></a></dt>
 <dd><p>Get a matrix representation of cell-cell connections, as defined by
 two cells sharing a face.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><p>A sparse matrix with <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,</span> <span class="pre">num_cells),</span> <span class="pre">dtype=bool)</span></code>.</p>
 <p>Element <code class="docutils literal notranslate"><span class="pre">(i,j)</span></code> is True if cells <code class="docutils literal notranslate"><span class="pre">i</span></code> and <code class="docutils literal notranslate"><span class="pre">j</span></code> share a face.
 The matrix is thus symmetric.</p>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)"><em>csr_matrix</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)"><em>csr_matrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_diameters">
-<span class="sig-name descname"><span class="pre">cell_diameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_diameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_diameters" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_diameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_diameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_diameters" title="Link to this definition"></a></dt>
 <dd><p>Computes the cell diameters.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>cn</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a><em>]</em>) – <code class="docutils literal notranslate"><span class="pre">default=None</span></code>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cn</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a><em> | </em><em>None</em>) – <code class="docutils literal notranslate"><span class="pre">default=None</span></code>
 Cell-to-nodes map, already computed previously.
 If None, a call to <a class="reference internal" href="#porepy.grids.grid.Grid.cell_nodes" title="porepy.grids.grid.Grid.cell_nodes"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cell_nodes()</span></code></a> is provided.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Values of the cell diameter for each cell, <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells))</span></code>.</p>
 <p>If the dimension of the grid is zero, returns 0.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_face_as_dense">
-<span class="sig-name descname"><span class="pre">cell_face_as_dense</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_face_as_dense"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_face_as_dense" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_face_as_dense</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_face_as_dense"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_face_as_dense" title="Link to this definition"></a></dt>
 <dd><p>Obtain the cell-face relation in the form of two rows, rather than a
 sparse matrix.</p>
 <p>This alternative format can be useful in some cases.</p>
@@ -372,73 +372,73 @@ sparse matrix.</p>
 refers to cell indices. The value -1 signifies a boundary. The normal vector of
 the face points from the first to the second row.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Array representation of face-cell relations with <code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_faces)</span></code>.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_nodes">
-<span class="sig-name descname"><span class="pre">cell_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.cell_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.cell_nodes" title="Link to this definition"></a></dt>
 <dd><p>Obtain mapping between cells and nodes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_cells)</span></code> representing the mapping from
 cells to nodes spanning respective cell.</p>
 <p>The value 1 indicates a connection between a cell and node column-wise.</p>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><em>csc_matrix</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)"><em>csc_matrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.closest_cell">
-<span class="sig-name descname"><span class="pre">closest_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_distance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.closest_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.closest_cell" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">closest_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_distance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.closest_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.closest_cell" title="Link to this definition"></a></dt>
 <dd><p>For a set of points, find closest cell by cell center.</p>
 <p>If several centers have the same distance, one of them will be returned.</p>
 <p>For <code class="docutils literal notranslate"><span class="pre">dim</span> <span class="pre">&lt;</span> <span class="pre">3</span></code>, no checks are made if the point is in the plane / line
 of the grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
 <p>Coordinates of <code class="docutils literal notranslate"><span class="pre">n</span></code> points. If <code class="docutils literal notranslate"><span class="pre">p.shape[0]</span> <span class="pre">&lt;</span> <span class="pre">3</span></code>,
 additional points will be treated as zeros.</p>
 </p></li>
-<li><p><strong>return_distance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – A flag indicating whether the distances should be returned
+<li><p><strong>return_distance</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – A flag indicating whether the distances should be returned
 as well.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>An array with <code class="docutils literal notranslate"><span class="pre">(shape=(n,),</span> <span class="pre">dtype=int)</span></code> containing for each point the
 index of the cell with center closest to the point.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">return_distance</span></code> is True, returns a 2-tuple, where the second array
 contains the distances to respective centers for each point.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a> | <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.compute_geometry">
-<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.compute_geometry" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.compute_geometry" title="Link to this definition"></a></dt>
 <dd><p>Compute geometric quantities for the grid.</p>
 <p>The method could have been called from the constructor, however, in cases where
 the grid is modified after the initial construction ( say, grid refinement),
 this may lead to costly, unnecessary computations.</p>
 <p>Computes the face areas, face centers, face normals and cell volumes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -446,13 +446,13 @@ this may lead to costly, unnecessary computations.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.copy" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.copy" title="Link to this definition"></a></dt>
 <dd><p>Create a new instance with some attributes deep-copied from the grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A deep copy of <code class="docutils literal notranslate"><span class="pre">self</span></code>. Some predefined attributes are also copied.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a></p>
 </dd>
 </dl>
@@ -460,95 +460,95 @@ this may lead to costly, unnecessary computations.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_all_boundary_faces">
-<span class="sig-name descname"><span class="pre">get_all_boundary_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_all_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_all_boundary_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_all_boundary_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_all_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_all_boundary_faces" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_boundary_faces,)</span></code> containing the indices of
 all faces tagged as either fractures, domain boundary or tip.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_all_boundary_nodes">
-<span class="sig-name descname"><span class="pre">get_all_boundary_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_all_boundary_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_all_boundary_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_all_boundary_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_all_boundary_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_all_boundary_nodes" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with Indices of all boundary nodes <code class="docutils literal notranslate"><span class="pre">shape=(num_boundary_nodes,)</span></code>
 containing the indices of all faces tagged as either fractures,
 domain boundary or tip.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_boundary_faces">
-<span class="sig-name descname"><span class="pre">get_boundary_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_boundary_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_boundary_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_boundary_faces" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code> containing the indices of all faces tagged as
 domain boundary.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_boundary_nodes">
-<span class="sig-name descname"><span class="pre">get_boundary_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_boundary_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_boundary_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_boundary_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_boundary_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_boundary_nodes" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code> containing indices of all domain
 boundary nodes.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_internal_faces">
-<span class="sig-name descname"><span class="pre">get_internal_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_internal_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_internal_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_internal_faces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_internal_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_internal_faces" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_internal_faces,)</span></code> containing indices of internal
 faces.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.get_internal_nodes">
-<span class="sig-name descname"><span class="pre">get_internal_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_internal_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_internal_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_internal_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.get_internal_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.get_internal_nodes" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_internal_nodes,)</span></code> containing the indices of
 internal nodes.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.initiate_face_tags">
-<span class="sig-name descname"><span class="pre">initiate_face_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.initiate_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.initiate_face_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">initiate_face_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.initiate_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.initiate_face_tags" title="Link to this definition"></a></dt>
 <dd><p>Create zero arrays for the standard face tags and update <a class="reference internal" href="#porepy.grids.grid.Grid.tags" title="porepy.grids.grid.Grid.tags"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tags</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -556,10 +556,10 @@ internal nodes.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.initiate_node_tags">
-<span class="sig-name descname"><span class="pre">initiate_node_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.initiate_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.initiate_node_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">initiate_node_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.initiate_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.initiate_node_tags" title="Link to this definition"></a></dt>
 <dd><p>Create zero arrays for the standard node tags and update <a class="reference internal" href="#porepy.grids.grid.Grid.tags" title="porepy.grids.grid.Grid.tags"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tags</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -567,21 +567,21 @@ internal nodes.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_cell_nodes">
-<span class="sig-name descname"><span class="pre">num_cell_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.num_cell_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.num_cell_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_cell_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.num_cell_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.num_cell_nodes" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code> containing the number of nodes per
 cell.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.set_periodic_map">
-<span class="sig-name descname"><span class="pre">set_periodic_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">periodic_face_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.set_periodic_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.set_periodic_map" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_periodic_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">periodic_face_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.set_periodic_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.set_periodic_map" title="Link to this definition"></a></dt>
 <dd><p>Sets the index map between periodic boundary faces.</p>
 <p>The mapping assumes a one to one mapping between the periodic boundary faces
 (i.e., matching faces).</p>
@@ -592,19 +592,19 @@ The domain boundary tags are set to <code class="docutils literal notranslate"><
 in <code class="docutils literal notranslate"><span class="pre">periodic_face_map</span></code>.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>periodic_face_map</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>periodic_face_map</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int</span></code></p>
 <p>Defines the periodic faces.
 Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
 face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
 The given map is stored to the attribute <a class="reference internal" href="#porepy.grids.grid.Grid.periodic_face_map" title="porepy.grids.grid.Grid.periodic_face_map"><code class="xref py py-attr docutils literal notranslate"><span class="pre">periodic_face_map</span></code></a>.</p>
 </p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">periodic_face_map</span></code> is of wrong shape or contains negative
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">periodic_face_map</span></code> is of wrong shape or contains negative
     values.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -612,44 +612,44 @@ The given map is stored to the attribute <a class="reference internal" href="#po
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces">
-<span class="sig-name descname"><span class="pre">signs_and_cells_of_boundary_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">faces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.signs_and_cells_of_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">signs_and_cells_of_boundary_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">faces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.signs_and_cells_of_boundary_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces" title="Link to this definition"></a></dt>
 <dd><p>Get the direction of the normal vector (inward or outwards from a cell)
 and the cell neighbor of <strong>boundary</strong> faces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>faces</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>faces</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
 <p>Indices of <code class="docutils literal notranslate"><span class="pre">n</span></code> faces that you want to know the sign for. The faces
 must be boundary faces.</p>
 </p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If a target face is internal.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If a target face is internal.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><p>A 2-tuple containing</p>
 <dl>
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
 <p>The sign of the faces. Will be +1 if the face normal vector points out
 of the cell, -1 if the normal vector is pointing inwards.</p>
 </dd>
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">shape=(n,)</span></code></p>
 <p>For each face, index of the cell next to the boundary.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.update_boundary_face_tag">
-<span class="sig-name descname"><span class="pre">update_boundary_face_tag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.update_boundary_face_tag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.update_boundary_face_tag" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_boundary_face_tag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.update_boundary_face_tag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.update_boundary_face_tag" title="Link to this definition"></a></dt>
 <dd><p>Tags faces on the boundary of the grid with boundary tag.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -657,10 +657,10 @@ of the cell, -1 if the normal vector is pointing inwards.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.update_boundary_node_tag">
-<span class="sig-name descname"><span class="pre">update_boundary_node_tag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.update_boundary_node_tag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.update_boundary_node_tag" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_boundary_node_tag</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid.html#Grid.update_boundary_node_tag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid.Grid.update_boundary_node_tag" title="Link to this definition"></a></dt>
 <dd><p>Tags nodes on the boundary of the grid with boundary tag.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -668,7 +668,7 @@ of the cell, -1 if the normal vector is pointing inwards.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_centers">
-<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.cell_centers" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.cell_centers" title="Link to this definition"></a></dt>
 <dd><p>An array containing column-wise the centers of all cells with
 <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
 <p>Available after calling <a class="reference internal" href="#porepy.grids.grid.Grid.compute_geometry" title="porepy.grids.grid.Grid.compute_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code></a>.</p>
@@ -676,7 +676,7 @@ of the cell, -1 if the normal vector is pointing inwards.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_faces">
-<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.cell_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.cell_faces" title="Link to this definition"></a></dt>
 <dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
 cells to faces bordering respective cell.</p>
 <p>Matrix elements have value +-1, where + corresponds to the face normal vector
@@ -685,7 +685,7 @@ being outwards.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.cell_volumes">
-<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.cell_volumes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.cell_volumes" title="Link to this definition"></a></dt>
 <dd><p>An array containing column-wise the volumes per cell with
 <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
 <p>Available after calling <a class="reference internal" href="#porepy.grids.grid.Grid.compute_geometry" title="porepy.grids.grid.Grid.compute_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code></a>.</p>
@@ -693,27 +693,27 @@ being outwards.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.dim" title="Link to this definition"></a></dt>
 <dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_areas">
-<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_areas" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_areas" title="Link to this definition"></a></dt>
 <dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
 Available after calling <a class="reference internal" href="#porepy.grids.grid.Grid.compute_geometry" title="porepy.grids.grid.Grid.compute_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_centers">
-<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_centers" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_centers" title="Link to this definition"></a></dt>
 <dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
 Available after calling <a class="reference internal" href="#porepy.grids.grid.Grid.compute_geometry" title="porepy.grids.grid.Grid.compute_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_nodes">
-<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_nodes" title="Link to this definition"></a></dt>
 <dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
 faces to nodes spanning respective face.</p>
 <p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
@@ -735,7 +735,7 @@ which will break <a class="reference internal" href="#porepy.grids.grid.Grid.com
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.face_normals">
-<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_normals" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.face_normals" title="Link to this definition"></a></dt>
 <dd><p>An array containing column-wise normal vectors of all faces with
 <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
 <p>See also <a class="reference internal" href="#porepy.grids.grid.Grid.cell_faces" title="porepy.grids.grid.Grid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
@@ -744,21 +744,21 @@ which will break <a class="reference internal" href="#porepy.grids.grid.Grid.com
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.frac_num">
-<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.frac_num" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.frac_num" title="Link to this definition"></a></dt>
 <dd><p>Index of the fracture the grid corresponds to. Take
 value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.frac_pairs">
-<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.frac_pairs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.frac_pairs" title="Link to this definition"></a></dt>
 <dd><p>Indices of faces that are geometrically coinciding, but
 lay on different side of a lower-dimensional grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.global_point_ind">
-<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.global_point_ind" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.global_point_ind" title="Link to this definition"></a></dt>
 <dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
 assigned during processing of mixed-dimensional grids created by gmsh.</p>
 <p>Used to identify points that are geometrically equal, though on different grids.</p>
@@ -768,14 +768,14 @@ later stage, but there is no guarantee that this will work.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.history">
-<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.grid.Grid.history" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.grid.Grid.history" title="Link to this definition"></a></dt>
 <dd><p>Information on the formation of the grid, such as the
 constructor, computations of geometry etc.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.id">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.id" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.id" title="Link to this definition"></a></dt>
 <dd><p>Grid ID.</p>
 <p>The returned attribute must not be changed. This may severely compromise other
 parts of the code, such as sorting in md grids.</p>
@@ -785,38 +785,38 @@ This avoids calls to <code class="docutils literal notranslate"><span class="pre
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.name" title="Link to this definition"></a></dt>
 <dd><p>Name assigned to this grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.nodes">
-<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.nodes" title="Link to this definition"></a></dt>
 <dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
 coordinates column-wise.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_cells">
-<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.num_cells" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.num_cells" title="Link to this definition"></a></dt>
 <dd><p>Number of cells in the grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_faces">
-<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.num_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.num_faces" title="Link to this definition"></a></dt>
 <dd><p>Number of faces in the grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.num_nodes">
-<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.num_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.num_nodes" title="Link to this definition"></a></dt>
 <dd><p>Number of nodes in the grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.parent_cell_ind">
-<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.parent_cell_ind" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.parent_cell_ind" title="Link to this definition"></a></dt>
 <dd><p>Index of parent the cell in the parent grid for grids that have refined
 sub-grids or are sub-grids of larger grids.</p>
 <p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
@@ -824,7 +824,7 @@ sub-grids or are sub-grids of larger grids.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.periodic_face_map">
-<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.periodic_face_map" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.periodic_face_map" title="Link to this definition"></a></dt>
 <dd><p>Index of periodic boundary faces,
 <code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
 <p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
@@ -834,7 +834,7 @@ This attribute is set with <a class="reference internal" href="#porepy.grids.gri
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.tags">
-<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.grid.Grid.tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.grid.Grid.tags" title="Link to this definition"></a></dt>
 <dd><p>Tags allow to mark subdomains of interest.</p>
 <p>The default tags are used to mark fractures, tips and domain boundaries.
 Tags are used for nodes, as well as faces.
@@ -843,7 +843,7 @@ User tags can be provided in the constructor.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.grid.Grid.well_num">
-<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.well_num" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.grid.Grid.well_num" title="Link to this definition"></a></dt>
 <dd><p>Index of the well associated to the grid. Takes a value in
 <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
 </dd></dl>

@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.boundary_grid &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/boundary_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/boundary_grid.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.grids.boundary_grid</li>
       <li class="wy-breadcrumbs-aside">
@@ -271,16 +271,18 @@
            <div itemprop="articleBody">
              
   <h1>Source code for porepy.grids.boundary_grid</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="BoundaryGrid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html#porepy.grids.boundary_grid.BoundaryGrid">[docs]</a><span class="k">class</span> <span class="nc">BoundaryGrid</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;A grid representing the boundary of a domain.</span>
+<div class="viewcode-block" id="BoundaryGrid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.boundary_grid.html#porepy.grids.boundary_grid.BoundaryGrid">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryGrid</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A grid representing the boundary of a domain.</span>
 
 <span class="sd">    The BoundaryGrid is generated from a parent grid, and represents those faces in the</span>
 <span class="sd">    parent which are on the boundary of the computational domain (i.e. those with tag</span>
@@ -303,11 +305,11 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">parent_boundary</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">parent_boundary</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Number of cells in the boundary grid. Will correspond to the number of</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of cells in the boundary grid. Will correspond to the number of</span>
 <span class="sd">        faces on the domain boundary in the parent grid.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -315,13 +317,13 @@
         <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;boundary_grid&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="sd">&quot;&quot;&quot;Name of the grid. &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name of the grid. &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">g</span>
-        <span class="sd">&quot;&quot;&quot;Parent grid from which the boundary grid is constructed.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parent grid from which the boundary grid is constructed.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[:,</span> <span class="n">parent_boundary</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;Cell centers of the boundary grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cell centers of the boundary grid.</span>
 
 <span class="sd">        Subset of the face centers of the parent grid.</span>
 
@@ -330,10 +332,10 @@
         <span class="k">if</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Boundary grids are not supported for 0d grids.&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">dim</span> <span class="o">-</span> <span class="mi">1</span>
-        <span class="sd">&quot;&quot;&quot;Dimension of the boundary grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the boundary grid.&quot;&quot;&quot;</span>
 
         <span class="n">sz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span>
-        <span class="sd">&quot;&quot;&quot;Number of cells in the boundary grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of cells in the boundary grid.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_proj</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
             <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sz</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sz</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">parent_boundary</span><span class="p">)[</span><span class="mi">0</span><span class="p">])),</span>
@@ -341,8 +343,8 @@
         <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">projection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Projection matrix from the parent grid to the boundary grid.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">projection</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Projection matrix from the parent grid to the boundary grid.</span>
 
 <span class="sd">        The projection matrix is a sparse matrix,</span>
 <span class="sd">        with  ``shape=(num_cells, num_faces_parent)``,</span>
@@ -350,6 +352,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_proj</span></div>
+
 </pre></div>
 
            </div>

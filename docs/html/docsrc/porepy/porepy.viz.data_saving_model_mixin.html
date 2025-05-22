@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.viz.data_saving_model_mixin module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.data_saving_model_mixin.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.data_saving_model_mixin.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.viz.html">porepy.viz package</a></li>
       <li class="breadcrumb-item active">porepy.viz.data_saving_model_mixin module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.viz.data_saving_model_mixin">
-<span id="porepy-viz-data-saving-model-mixin-module"></span><h1>porepy.viz.data_saving_model_mixin module<a class="headerlink" href="#module-porepy.viz.data_saving_model_mixin" title="Permalink to this heading"></a></h1>
+<span id="porepy-viz-data-saving-model-mixin-module"></span><h1>porepy.viz.data_saving_model_mixin module<a class="headerlink" href="#module-porepy.viz.data_saving_model_mixin" title="Link to this heading"></a></h1>
 <p>This mixin class is used to save data from a model to file.</p>
 <p>It is combined with a Model class and provides methods for saving data to file.</p>
 <p>We provide basic Exporter functionality, but the user is free to override
@@ -283,8 +283,8 @@ and extend this class to suit their needs. This could include, e.g., saving
 data to a database, or to a file format other than vtu.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DataSavingMixin</span></span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DataSavingMixin</span></span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Class for saving data from a simulation model.</p>
 <dl class="simple">
 <dt>Contract with other classes:</dt><dd><p>The model should/may call save_data_time_step() at the end of each time step.
@@ -293,11 +293,11 @@ The model should/may call finalize_save_data() at the end of the simulation.</p>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.data_to_export">
-<span class="sig-name descname"><span class="pre">data_to_export</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.data_to_export"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.data_to_export" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">data_to_export</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.data_to_export"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.data_to_export" title="Link to this definition"></a></dt>
 <dd><p>Return data to be exported.</p>
 <p>Return type should comply with pp.exporter.DataInput.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>List containing all variable names.</p>
 </dd>
 </dl>
@@ -305,10 +305,10 @@ The model should/may call finalize_save_data() at the end of the simulation.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.finalize_data_saving">
-<span class="sig-name descname"><span class="pre">finalize_data_saving</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.finalize_data_saving"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.finalize_data_saving" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">finalize_data_saving</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.finalize_data_saving"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.finalize_data_saving" title="Link to this definition"></a></dt>
 <dd><p>Export pvd file and finalize export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -316,13 +316,13 @@ The model should/may call finalize_save_data() at the end of the simulation.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.initialize_data_saving">
-<span class="sig-name descname"><span class="pre">initialize_data_saving</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.initialize_data_saving"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.initialize_data_saving" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">initialize_data_saving</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.initialize_data_saving"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.initialize_data_saving" title="Link to this definition"></a></dt>
 <dd><p>Initialize data saving.</p>
 <p>This method is called by <code class="xref py py-meth docutils literal notranslate"><span class="pre">prepare_simulation()</span></code> to initialize the exporter,
 and any other data saving functionality (e.g., empty data containers to be
 appended in <a class="reference internal" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.save_data_time_step" title="porepy.viz.data_saving_model_mixin.DataSavingMixin.save_data_time_step"><code class="xref py py-meth docutils literal notranslate"><span class="pre">save_data_time_step()</span></code></a>).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -330,10 +330,10 @@ appended in <a class="reference internal" href="#porepy.viz.data_saving_model_mi
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.save_data_time_step">
-<span class="sig-name descname"><span class="pre">save_data_time_step</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.save_data_time_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.save_data_time_step" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">save_data_time_step</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/data_saving_model_mixin.html#DataSavingMixin.save_data_time_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.save_data_time_step" title="Link to this definition"></a></dt>
 <dd><p>Export the model state at a given time step.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -341,31 +341,31 @@ appended in <a class="reference internal" href="#porepy.viz.data_saving_model_mi
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.equation_system">
-<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.equation_system.html#porepy.numerics.ad.equation_system.EquationSystem" title="porepy.numerics.ad.equation_system.EquationSystem"><span class="pre">EquationSystem</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.equation_system" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.equation_system.html#porepy.numerics.ad.equation_system.EquationSystem" title="porepy.numerics.ad.equation_system.EquationSystem"><span class="pre">EquationSystem</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.equation_system" title="Link to this definition"></a></dt>
 <dd><p>Equation system manager.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.mdg" title="Link to this definition"></a></dt>
 <dd><p>Mixed dimensional grid for the simulation.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.params">
-<span class="sig-name descname"><span class="pre">params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.params" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.params" title="Link to this definition"></a></dt>
 <dd><p>Dictionary of parameters. May contain data saving parameters.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.suppress_export">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">suppress_export</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.suppress_export" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">suppress_export</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.suppress_export" title="Link to this definition"></a></dt>
 <dd><p>Suppress export of data to file.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.data_saving_model_mixin.DataSavingMixin.time_manager">
-<span class="sig-name descname"><span class="pre">time_manager</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager" title="porepy.numerics.time_step_control.TimeManager"><span class="pre">TimeManager</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.time_manager" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_manager</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager" title="porepy.numerics.time_step_control.TimeManager"><span class="pre">TimeManager</span></a></em><a class="headerlink" href="#porepy.viz.data_saving_model_mixin.DataSavingMixin.time_manager" title="Link to this definition"></a></dt>
 <dd><p>Time manager for the simulation.</p>
 </dd></dl>
 

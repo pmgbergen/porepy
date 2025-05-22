@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.mortar_grid &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/mortar_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/mortar_grid.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.grids.mortar_grid</li>
       <li class="wy-breadcrumbs-aside">
@@ -275,21 +275,23 @@
 <span class="sd">interfaces between two subdomains in the mixed-dimensional sense.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">count</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="MortarSides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarSides">[docs]</a><span class="k">class</span> <span class="nc">MortarSides</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;A custom enumeration for the left, the right and empty side of an</span>
+<div class="viewcode-block" id="MortarSides">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarSides">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MortarSides</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A custom enumeration for the left, the right and empty side of an</span>
 <span class="sd">    interface represented by a mortar grid.&quot;&quot;&quot;</span>
 
     <span class="c1"># Enum of constants used to identify the grids on each side of the mortar</span>
@@ -298,8 +300,11 @@
     <span class="n">RIGHT_SIDE</span> <span class="o">=</span> <span class="mi">2</span></div>
 
 
-<div class="viewcode-block" id="MortarGrid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid">[docs]</a><span class="k">class</span> <span class="nc">MortarGrid</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Parent class for mortar grids.</span>
+
+<div class="viewcode-block" id="MortarGrid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MortarGrid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parent class for mortar grids.</span>
 
 <span class="sd">    It contains two grids representing the left and right part of the mortar grid and</span>
 <span class="sd">    the weighted mapping from the primary grid to the mortar grids and from the</span>
@@ -350,16 +355,16 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">_counter</span> <span class="o">=</span> <span class="n">count</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="sd">&quot;&quot;&quot;Counter of instantiated mortar grids. See :meth:`__new__` and :meth:`id`.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Counter of instantiated mortar grids. See :meth:`__new__` and :meth:`id`.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Make object and set ID by forwarding :attr:`_counter`.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make object and set ID by forwarding :attr:`_counter`.&quot;&quot;&quot;</span>
 
         <span class="n">obj</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">__id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_counter</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">obj</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">side_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">MortarSides</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
@@ -376,17 +381,17 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All the mortar grids have to have the same dimension&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">dim</span>
-        <span class="sd">&quot;&quot;&quot;The ambient dimension of the mortar grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The ambient dimension of the mortar grid.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">codim</span> <span class="o">=</span> <span class="n">codim</span>
-        <span class="sd">&quot;&quot;&quot;The co-dimension of the mortar grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The co-dimension of the mortar grid.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">MortarSides</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="n">side_grids</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;A dictionary containing for each enumeration :class:`MortarSides` the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A dictionary containing for each enumeration :class:`MortarSides` the</span>
 <span class="sd">        respective side grid.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">sides</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
-        <span class="sd">&quot;&quot;&quot;An array containing the enumeration of each side grid</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array containing the enumeration of each side grid</span>
 <span class="sd">        (keys of :attr:`side_grids`).&quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_sides</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">):</span>
@@ -395,7 +400,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Co-dimension 2 interfaces have no faces to duplicate&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;The name of mortar grid stored as a list of relevant information.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name of mortar grid stored as a list of relevant information.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="k">else</span><span class="p">:</span>
@@ -403,23 +408,23 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;mortar_grid&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="n">tol</span>
-        <span class="sd">&quot;&quot;&quot;The tolerance given at instantiation.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The tolerance given at instantiation.&quot;&quot;&quot;</span>
 
         <span class="c1"># easy access attributes with a fixed ordering of the side grids</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
             <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span>
         <span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Total number of cells in all side grids.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Total number of cells in all side grids.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
             <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
         <span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Cell volumes of each cell in the side grids.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cell volumes of each cell in the side grids.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span>
             <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
         <span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Cell centers of each cell in the side grids.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cell centers of each cell in the side grids.&quot;&quot;&quot;</span>
 
         <span class="c1"># Set projections</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">primary_secondary</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
@@ -427,8 +432,8 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Grid ID.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Grid ID.</span>
 
 <span class="sd">        The returned attribute must not be changed.</span>
 <span class="sd">        This may severely compromise other parts of the code,</span>
@@ -440,8 +445,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__id</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;A string representation of the mortar grid including topological information</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A string representation of the mortar grid including topological information</span>
 <span class="sd">        and information about side grids.&quot;&quot;&quot;</span>
 
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
@@ -467,8 +472,8 @@
 
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;A simplified string representation of the mortar grid including the dimension</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A simplified string representation of the mortar grid including the dimension</span>
 <span class="sd">        and some other information.&quot;&quot;&quot;</span>
 
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
@@ -480,8 +485,10 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="MortarGrid.compute_geometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.compute_geometry">[docs]</a>    <span class="k">def</span> <span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the geometry of the mortar grids.</span>
+<div class="viewcode-block" id="MortarGrid.compute_geometry">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.compute_geometry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the geometry of the mortar grids.</span>
 
 <span class="sd">        We assume that they are not aligned with the x-axis (1D) or the x-y-plane (2D).</span>
 
@@ -503,12 +510,15 @@
             <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
         <span class="p">)</span></div>
 
+
     <span class="c1">### Methods to update the mortar grid, or the neighboring grids.</span>
 
-<div class="viewcode-block" id="MortarGrid.update_mortar"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_mortar">[docs]</a>    <span class="k">def</span> <span class="nf">update_mortar</span><span class="p">(</span>
+<div class="viewcode-block" id="MortarGrid.update_mortar">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_mortar">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_mortar</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">new_side_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">MortarSides</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update the ``low_to_mortar_int`` and ``high_to_mortar_int`` maps when the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the ``low_to_mortar_int`` and ``high_to_mortar_int`` maps when the</span>
 <span class="sd">        mortar grids are changed.</span>
 
 <span class="sd">        Parameters:</span>
@@ -620,8 +630,11 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_mappings</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="MortarGrid.update_secondary"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_secondary">[docs]</a>    <span class="k">def</span> <span class="nf">update_secondary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update the mappings between mortar and secondary grid when the latter is</span>
+
+<div class="viewcode-block" id="MortarGrid.update_secondary">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_secondary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_secondary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the mappings between mortar and secondary grid when the latter is</span>
 <span class="sd">        changed.</span>
 
 <span class="sd">        Note:</span>
@@ -651,7 +664,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">!=</span> <span class="n">new_g</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;update_secondary() is only implemented when the secondary</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;update_secondary() is only implemented when the secondary</span>
 <span class="sd">                grid has the same dimension as the mortar grid&quot;&quot;&quot;</span>
             <span class="p">)</span>
 
@@ -709,10 +722,13 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_mappings</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="MortarGrid.update_primary"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_primary">[docs]</a>    <span class="k">def</span> <span class="nf">update_primary</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MortarGrid.update_primary">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.update_primary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_primary</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">g_new</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">g_old</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update the ``_primary_to_mortar_int`` map when the primary</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the ``_primary_to_mortar_int`` map when the primary</span>
 <span class="sd">        (higher-dimensional) grid is changed.</span>
 
 <span class="sd">        Parameters:</span>
@@ -789,8 +805,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_projections</span><span class="p">(</span><span class="n">secondary</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_check_mappings</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="MortarGrid.num_sides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.num_sides">[docs]</a>    <span class="k">def</span> <span class="nf">num_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Shortcut to compute the number of sides. It has to be 2 or 1.</span>
+
+<div class="viewcode-block" id="MortarGrid.num_sides">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.num_sides">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shortcut to compute the number of sides. It has to be 2 or 1.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Number of sides.</span>
@@ -798,10 +817,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">side_grids</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.project_to_side_grids"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.project_to_side_grids">[docs]</a>    <span class="k">def</span> <span class="nf">project_to_side_grids</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MortarGrid.project_to_side_grids">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.project_to_side_grids">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">project_to_side_grids</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Generator for the side grids and projection operators from the mortar cells,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generator for the side grids and projection operators from the mortar cells,</span>
 <span class="sd">        combining cells on all the sides, to the specific side grids.</span>
 
 <span class="sd">        Yields:</span>
@@ -828,10 +850,13 @@
             <span class="n">counter</span> <span class="o">+=</span> <span class="n">nc</span>
             <span class="k">yield</span> <span class="n">proj</span><span class="p">,</span> <span class="n">grid</span></div>
 
+
     <span class="c1">## Methods to construct projection matrices</span>
 
-<div class="viewcode-block" id="MortarGrid.primary_to_mortar_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int">[docs]</a>    <span class="k">def</span> <span class="nf">primary_to_mortar_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from faces of primary to the mortar, by summing quantities</span>
+<div class="viewcode-block" id="MortarGrid.primary_to_mortar_int">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primary_to_mortar_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from faces of primary to the mortar, by summing quantities</span>
 <span class="sd">        from the primary side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
@@ -853,8 +878,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.secondary_to_mortar_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int">[docs]</a>    <span class="k">def</span> <span class="nf">secondary_to_mortar_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from cells on the secondary side to the mortar, by summing</span>
+
+<div class="viewcode-block" id="MortarGrid.secondary_to_mortar_int">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">secondary_to_mortar_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from cells on the secondary side to the mortar, by summing</span>
 <span class="sd">        quantities from the secondary side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
@@ -876,8 +904,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.primary_to_mortar_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg">[docs]</a>    <span class="k">def</span> <span class="nf">primary_to_mortar_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from faces of primary to the mortar, by averaging quantities</span>
+
+<div class="viewcode-block" id="MortarGrid.primary_to_mortar_avg">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">primary_to_mortar_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from faces of primary to the mortar, by averaging quantities</span>
 <span class="sd">        from the primary side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values on</span>
@@ -900,8 +931,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_primary_to_mortar_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.secondary_to_mortar_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg">[docs]</a>    <span class="k">def</span> <span class="nf">secondary_to_mortar_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from cells at the secondary to the mortar, by averaging</span>
+
+<div class="viewcode-block" id="MortarGrid.secondary_to_mortar_avg">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">secondary_to_mortar_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from cells at the secondary to the mortar, by averaging</span>
 <span class="sd">        quantities from the secondary side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values on</span>
@@ -924,8 +958,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.mortar_to_primary_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_primary_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from the mortar to faces of primary, by summing quantities</span>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_primary_int">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mortar_to_primary_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from the mortar to faces of primary, by summing quantities</span>
 <span class="sd">        from the mortar side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
@@ -947,8 +984,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_primary_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.mortar_to_secondary_int"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_secondary_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from the mortar to cells at the secondary, by summing</span>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_secondary_int">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mortar_to_secondary_int</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from the mortar to cells at the secondary, by summing</span>
 <span class="sd">        quantities from the mortar side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the column sum is unity, that is, values</span>
@@ -971,8 +1011,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_secondary_int</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.mortar_to_primary_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_primary_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from the mortar to faces of primary, by averaging quantities</span>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_primary_avg">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mortar_to_primary_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from the mortar to faces of primary, by averaging quantities</span>
 <span class="sd">        from the mortar side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values on</span>
@@ -995,8 +1038,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_primary_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MortarGrid.mortar_to_secondary_avg"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg">[docs]</a>    <span class="k">def</span> <span class="nf">mortar_to_secondary_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Project values from the mortar to secondary, by averaging quantities from the</span>
+
+<div class="viewcode-block" id="MortarGrid.mortar_to_secondary_avg">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mortar_to_secondary_avg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project values from the mortar to secondary, by averaging quantities from the</span>
 <span class="sd">        mortar side.</span>
 
 <span class="sd">        The projection matrix is scaled so that the row sum is unity, that is, values on</span>
@@ -1019,10 +1065,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_convert_to_vector_variable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mortar_to_secondary_avg</span><span class="p">,</span> <span class="n">nd</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_convert_to_vector_variable</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_convert_to_vector_variable</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Convert the scalar projection to a vector quantity. If the prescribed</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the scalar projection to a vector quantity. If the prescribed</span>
 <span class="sd">        dimension is 1 (default for all the above methods), the projection matrix will</span>
 <span class="sd">        in effect not be altered.</span>
 
@@ -1033,8 +1080,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">nd</span><span class="p">))</span><span class="o">.</span><span class="n">tocsc</span><span class="p">()</span>
 
-<div class="viewcode-block" id="MortarGrid.sign_of_mortar_sides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides">[docs]</a>    <span class="k">def</span> <span class="nf">sign_of_mortar_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assign positive or negative weight to the two sides of a mortar grid.</span>
+<div class="viewcode-block" id="MortarGrid.sign_of_mortar_sides">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sign_of_mortar_sides</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign positive or negative weight to the two sides of a mortar grid.</span>
 
 <span class="sd">        This is needed e.g. to make projection operators into signed projections, for</span>
 <span class="sd">        variables that have no particular defined sign conventions.</span>
@@ -1086,8 +1135,11 @@
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">nd</span> <span class="o">*</span> <span class="n">nc</span><span class="p">,</span> <span class="n">nd</span> <span class="o">*</span> <span class="n">nc</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="MortarGrid.cell_diameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.cell_diameters">[docs]</a>    <span class="k">def</span> <span class="nf">cell_diameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MortarGrid.cell_diameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid.cell_diameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_diameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array containing the diameters of each cell in the mortar grid and</span>
 <span class="sd">            ``shape=(mortar_grid.num_cells,)``.</span>
@@ -1098,8 +1150,9 @@
             <span class="n">diams</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_diameters</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">diams</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_check_mappings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Check whether the tolerance for matching new and old grids is reached.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_mappings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check whether the tolerance for matching new and old grids is reached.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError: If the check is not satisfied for the primary grid.</span>
@@ -1114,12 +1167,12 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">row_sum</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">tol</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Check not satisfied for the secondary grid&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_init_projections</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_init_projections</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">primary_secondary</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
         <span class="n">face_duplicate_ind</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initialize projections from primary and secondary to mortar.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize projections from primary and secondary to mortar.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            primary_secondary: Projection from the primary to the secondary. It is</span>
@@ -1186,7 +1239,7 @@
             <span class="c1"># cell. Check this:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">secondary_f</span><span class="p">),</span> <span class="mi">2</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sd">&quot;&quot;&quot;Each face in the higher dimensional grid must map to</span>
+<span class="w">                    </span><span class="sd">&quot;&quot;&quot;Each face in the higher dimensional grid must map to</span>
 <span class="sd">                exactly two lower dimensional cells&quot;&quot;&quot;</span>
                 <span class="p">)</span>
             <span class="c1"># The mortar grid cells are ordered as first all cells on side 1 then all</span>
@@ -1202,7 +1255,7 @@
         <span class="n">cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">secondary_f</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">==</span> <span class="n">cells</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;In the construction of MortarGrid it is assumed</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;In the construction of MortarGrid it is assumed</span>
 <span class="sd">            to be a one to one mapping between the mortar grid and the</span>
 <span class="sd">            secondary mapping&quot;&quot;&quot;</span>
             <span class="p">)</span>
@@ -1227,8 +1280,8 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_set_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">primary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">secondary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set projections to and from primary from the current state of</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">primary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">secondary</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set projections to and from primary from the current state of</span>
 <span class="sd">        ``_primary_to_mortar_int`` and ``_secondary_to_mortar_int`` .</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1257,6 +1310,7 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">_secondary_to_mortar_int</span><span class="o">.</span><span class="n">T</span>
                 <span class="p">)</span>
             <span class="p">)</span></div>
+
 </pre></div>
 
            </div>

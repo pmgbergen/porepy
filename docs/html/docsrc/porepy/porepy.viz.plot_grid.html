@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.viz.plot_grid module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.plot_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.plot_grid.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.viz.html">porepy.viz package</a></li>
       <li class="breadcrumb-item active">porepy.viz.plot_grid module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.viz.plot_grid">
-<span id="porepy-viz-plot-grid-module"></span><h1>porepy.viz.plot_grid module<a class="headerlink" href="#module-porepy.viz.plot_grid" title="Permalink to this heading"></a></h1>
+<span id="porepy-viz-plot-grid-module"></span><h1>porepy.viz.plot_grid module<a class="headerlink" href="#module-porepy.viz.plot_grid" title="Link to this heading"></a></h1>
 <p>Module for PorePy’s plotting functionality for (mixed-dimensional grids) built on matplotlib.</p>
 <p>The functionality provided covers plotting of grids in 0 to 3 dimensions. Data may be
 represented by cell-wise colors or cell- or face-wise vector arrows.
@@ -284,25 +284,25 @@ visualization, especially in 3d, we recommend exporting the information to vtu u
 exporter module found in this folder.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.viz.plot_grid.plot_grid">
-<span class="sig-name descname"><span class="pre">plot_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#plot_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.plot_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">plot_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#plot_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.plot_grid" title="Link to this definition"></a></dt>
 <dd><p>Plot the (possibly mixed-dimensional) grid with data in a 3d framework.</p>
 <p>It is possible to add the cell ids at the cells centers (info option ‘c’),
 the face ids at the face centers (info option ‘f’), the node ids at the node
 (info option ‘n’), and the normal at the face (info option ‘o’). If info is
 set to ‘all’ all the information are displayed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span> <span class="pre">or</span> <span class="pre">pp.MixedDimensionalGrid</span></code>) – subdomain or mixed-dimensional grid.</p></li>
-<li><p><strong>cell_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span> <span class="pre">or</span> <span class="pre">array,</span> <span class="pre">optional</span></code>) – represented (only 1d and 2d). If g is a mixed-dimensional grid the name (key)
+<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – subdomain or mixed-dimensional grid.</p></li>
+<li><p><strong>cell_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>, <em>optional</em>) – represented (only 1d and 2d). If g is a mixed-dimensional grid the name (key)
 of the scalar field.</p></li>
-<li><p><strong>vector_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – (optional) if g is a single grid then vector scalar field to be
+<li><p><strong>vector_value</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>) – (optional) if g is a single grid then vector scalar field to be
 represented (only 1d and 2d). If g is a mixed-dimensional grid the name (key)
 of the vector field.</p></li>
-<li><p><strong>info</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – (optional) add extra information to the plot. C, F, and N add cell, face and
+<li><p><strong>info</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>) – (optional) add extra information to the plot. C, F, and N add cell, face and
 node numbers, respectively. O gives a plot of the face normals. See the funtion
 add_info.</p></li>
-<li><p><strong>kwargs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – <p>Keyword arguments:
+<li><p><strong>kwargs</strong> (<em>optional</em>) – <p>Keyword arguments:
 alpha: transparency of cells (2d) and faces (3d)
 cells: boolean array with length number of cells. Only plot cells c</p>
 <blockquote>
@@ -311,7 +311,7 @@ cells: boolean array with length number of cells. Only plot cells c</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -325,17 +325,17 @@ plot_grid(grid, cell_value=”cell_id”, info=”ncfo”, alpha=0.75)</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.viz.plot_grid.plot_mdg">
-<span class="sig-name descname"><span class="pre">plot_mdg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#plot_mdg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.plot_mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">plot_mdg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#plot_mdg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.plot_mdg" title="Link to this definition"></a></dt>
 <dd><p>Plot a mixed-dimensional grid and selected data.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – Mixed-dimensional grid</p></li>
-<li><p><strong>cell_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – key to scalar cell values, will be represented by the color</p></li>
-<li><p><strong>cells.</strong> (<em>of the</em>) – </p></li>
-<li><p><strong>vector_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – key to vector cell or face values.</p></li>
-<li><p><strong>info</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str,</span> <span class="pre">optional</span></code>) – Which geometry information to display, see add_info.</p></li>
-<li><p><strong>kwargs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – <p>Keyword arguments:
+<li><p><strong>cell_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – key to scalar cell values, will be represented by the color</p></li>
+<li><p><strong>cells.</strong> (<em>of the</em>)</p></li>
+<li><p><strong>vector_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – key to vector cell or face values.</p></li>
+<li><p><strong>info</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>optional</em>) – Which geometry information to display, see add_info.</p></li>
+<li><p><strong>kwargs</strong> (<em>optional</em>) – <p>Keyword arguments:
 figsize: Size of figure.
 color_map: Limits of the cell value color axis.
 rgb: Color map weights. Defaults to [1, 0, 0].
@@ -350,7 +350,7 @@ cells: boolean array with length number of cells. Only plot cells c</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -358,18 +358,18 @@ cells: boolean array with length number of cells. Only plot cells c</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.viz.plot_grid.plot_sd">
-<span class="sig-name descname"><span class="pre">plot_sd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#plot_sd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.plot_sd" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">plot_sd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#plot_sd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.plot_sd" title="Link to this definition"></a></dt>
 <dd><p>Plot data on a subdomain and provided data.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Subdomain</p></li>
 <li><p><strong>cell_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – cell-wise scalar values, will be represented by the color</p></li>
-<li><p><strong>cells.</strong> (<em>of the</em>) – </p></li>
+<li><p><strong>cells.</strong> (<em>of the</em>)</p></li>
 <li><p><strong>vector_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>) – vector values, one 3d vector for each cell or for each
 face (see the _quiver function).</p></li>
-<li><p><strong>info</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str,</span> <span class="pre">optional</span></code>) – Which geometry information to display, see add_info.</p></li>
-<li><p><strong>kwargs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – <p>Keyword arguments:
+<li><p><strong>info</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>optional</em>) – Which geometry information to display, see add_info.</p></li>
+<li><p><strong>kwargs</strong> (<em>optional</em>) – <p>Keyword arguments:
 figsize: Size of figure.
 color_map: Limits of the cell value color axis.
 if_plot: Boolean flag determining whether the plot is shown or not.
@@ -385,7 +385,7 @@ cells: boolean array with length number of cells. Only plot cells c</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -393,30 +393,30 @@ cells: boolean array with length number of cells. Only plot cells c</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.viz.plot_grid.save_img">
-<span class="sig-name descname"><span class="pre">save_img</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#save_img"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.save_img" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">save_img</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vector_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/plot_grid.html#save_img"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.plot_grid.save_img" title="Link to this definition"></a></dt>
 <dd><p>Plot and save the grid in a 3d framework.</p>
 <p>It is possible to add the cell ids at the cells centers (info option ‘c’),
 the face ids at the face centers (info option ‘f’), the node ids at the node
 (info option ‘n’), and the normal at the face (info option ‘o’). If info is
 set to ‘all’ all the informations are displayed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – the name of the file</p></li>
-<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span> <span class="pre">or</span> <span class="pre">pp.MixedDimensionalGrid</span></code>) – subdomain or mixed-dimensional grid.</p></li>
-<li><p><strong>cell_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span> <span class="pre">or</span> <span class="pre">string,</span> <span class="pre">optional</span></code>) – if g is a single grid then cell scalar
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – the name of the file</p></li>
+<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – subdomain or mixed-dimensional grid.</p></li>
+<li><p><strong>cell_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">string</span></code>, <em>optional</em>) – if g is a single grid then cell scalar
 field to be represented (only 1d and 2d). If g is a mixed-dimensional grid
 the name (key) of the scalar field.</p></li>
-<li><p><strong>vector_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span> <span class="pre">or</span> <span class="pre">string,</span> <span class="pre">optional</span></code>) – if grid is a single grid then
+<li><p><strong>vector_value</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">string</span></code>, <em>optional</em>) – if grid is a single grid then
 vector scalar field to be represented (only 1d and 2d). If grid is a
 mixed-dimensional grid the name (key) of the vector field.</p></li>
-<li><p><strong>kwargs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Keyword arguments:
+<li><p><strong>kwargs</strong> (<em>optional</em>) – Keyword arguments:
 info: add extra information to the plot, see plot_grid.
 alpha: transparency of cells (2d) and faces (3d)</p></li>
-<li><p><strong>info</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>info</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>

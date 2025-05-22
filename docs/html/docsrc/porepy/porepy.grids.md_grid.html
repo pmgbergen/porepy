@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.md_grid module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.md_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.md_grid.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.md_grid module</li>
@@ -275,20 +275,20 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.md_grid">
-<span id="porepy-grids-md-grid-module"></span><h1>porepy.grids.md_grid module<a class="headerlink" href="#module-porepy.grids.md_grid" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-md-grid-module"></span><h1>porepy.grids.md_grid module<a class="headerlink" href="#module-porepy.grids.md_grid" title="Link to this heading"></a></h1>
 <p>A module to store the grid hierarchy formed by a set of fractures and their
 intersections along with a surrounding matrix in the form of a mixed-dimensional grid.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MixedDimensionalGrid</span></span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MixedDimensionalGrid</span></span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Container for the hierarchy of grids formed by fractures and their intersections
 along with a surrounding matrix.</p>
 <dl class="field-list simple">
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.add_interface">
-<span class="sig-name descname"><span class="pre">add_interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primary_secondary_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.add_interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.add_interface" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pair</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primary_secondary_map</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.add_interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.add_interface" title="Link to this definition"></a></dt>
 <dd><p>Add an interface to the mixed-dimensional grid.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -297,13 +297,13 @@ the higher-dimensional grid as the first (primary) subdomain. For equal
 dimensions, the ordering of the subdomains is the same as in input grids.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – MortarGrid that represents this interface.</p></li>
-<li><p><strong>sd_pair</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">len==2</span></code></p>
+<li><p><strong>sd_pair</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">len==2</span></code></p>
 <p>A 2-tuple containing grids to be connected. The ordering is arbitrary.</p>
 </p></li>
-<li><p><strong>primary_secondary_map</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – <p>Identity mapping between faces in the
+<li><p><strong>primary_secondary_map</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>) – <p>Identity mapping between faces in the
 higher-dimensional grid and cells in the lower-dimensional grid. No
 assumptions are made on the type of the object at this stage.</p>
 <p>In the <code class="docutils literal notranslate"><span class="pre">grids[0].dim</span> <span class="pre">=</span> <span class="pre">grids[1].dim</span></code> case,
@@ -312,14 +312,14 @@ In the co-dimension 2 case, it maps from cells to cells.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the interface is not specified by exactly two grids</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the interface already exists.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the two grids are not between zero and two dimensions apart.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the interface is not specified by exactly two grids</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the interface already exists.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the two grids are not between zero and two dimensions apart.</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -327,17 +327,17 @@ In the co-dimension 2 case, it maps from cells to cells.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.add_subdomains">
-<span class="sig-name descname"><span class="pre">add_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.add_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.add_subdomains" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.add_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.add_subdomains" title="Link to this definition"></a></dt>
 <dd><p>Add new subdomains to the mixed-dimensional grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>new_subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.11)"><em>Iterable</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>]</em>) – The subdomains to be added. None of these should have been
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>new_subdomains</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.13)"><em>Iterable</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – The subdomains to be added. None of these should have been
 added previously.</p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If a subdomain is already present in the mixed-dimensional grid.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If a subdomain is already present in the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -345,7 +345,7 @@ added previously.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids">
-<span class="sig-name descname"><span class="pre">argsort_grids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.argsort_grids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">argsort_grids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grids</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.argsort_grids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="Link to this definition"></a></dt>
 <dd><p>Return indices that would sort the subdomains or interfaces.</p>
 <p>Sorting is done according to two criteria:</p>
 <blockquote>
@@ -364,47 +364,47 @@ interfaces.</p></li>
 </div>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.11)"><em>Iterable</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>]</em>) – List of subdomain grids.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.13)"><em>Iterable</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – List of subdomain grids.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array that sorts the grids with <code class="docutils literal notranslate"><span class="pre">shape=(len(grids),)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.boundaries">
-<span class="sig-name descname"><span class="pre">boundaries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.boundaries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.boundaries" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">boundaries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.boundaries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.boundaries" title="Link to this definition"></a></dt>
 <dd><p>Get a sorted list of boundary grids in the mixed-dimensional grid.</p>
 <p>Optionally, the boundary grids can be filtered by dimension.</p>
 <p>Sorting by descending boundary dimension and increasing BoundaryGrid id,
 see <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">argsort_grids()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>If provided, only boundary grids of the specified
 dimension will be returned.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A list of boundary grids.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.boundary_grid.html#porepy.grids.boundary_grid.BoundaryGrid" title="porepy.grids.boundary_grid.BoundaryGrid">porepy.grids.boundary_grid.BoundaryGrid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.boundary_grid.html#porepy.grids.boundary_grid.BoundaryGrid" title="porepy.grids.boundary_grid.BoundaryGrid"><em>BoundaryGrid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.compute_geometry">
-<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.compute_geometry" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.compute_geometry" title="Link to this definition"></a></dt>
 <dd><p>Compute geometric quantities for each contained grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -412,14 +412,14 @@ dimension will be returned.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.copy" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.copy" title="Link to this definition"></a></dt>
 <dd><p>Make a shallow copy of the mixed-dimensional grid. The underlying subdomain
 and interface grids are not copied.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Copy of this mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a></p>
 </dd>
 </dl>
@@ -427,81 +427,81 @@ and interface grids are not copied.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.diameter">
-<span class="sig-name descname"><span class="pre">diameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.diameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.diameter" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">diameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.diameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.diameter" title="Link to this definition"></a></dt>
 <dd><p>Compute the cell diameter (mesh size) of the mixed-dimensional grid.</p>
 <p>A function can be passed to filter subdomains and/or interfaces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Predicate with a subdomain or interface as input.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The diameter of the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.dim_max">
-<span class="sig-name descname"><span class="pre">dim_max</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.dim_max"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.dim_max" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim_max</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.dim_max"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.dim_max" title="Link to this definition"></a></dt>
 <dd><p>Get the maximal dimension represented in the grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Maximum dimension of the grids present in the hierarchy.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.dim_min">
-<span class="sig-name descname"><span class="pre">dim_min</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.dim_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.dim_min" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim_min</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.dim_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.dim_min" title="Link to this definition"></a></dt>
 <dd><p>Get the minimal dimension represented in the mixed-dimensional grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Minimum dimension of the grids present in the hierarchy.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.interface_data">
-<span class="sig-name descname"><span class="pre">interface_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.interface_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.interface_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">interface_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.interface_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.interface_data" title="Link to this definition"></a></dt>
 <dd><p>Getter for the interface data dictionary.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – The mortar grid associated with the interface.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The data dictionary associated with the interface.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.interface_to_subdomain_pair">
-<span class="sig-name descname"><span class="pre">interface_to_subdomain_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.interface_to_subdomain_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.interface_to_subdomain_pair" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">interface_to_subdomain_pair</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">intf</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.interface_to_subdomain_pair"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.interface_to_subdomain_pair" title="Link to this definition"></a></dt>
 <dd><p>Obtain the subdomains of an interface.</p>
 <p>The subdomains will be given in descending order with respect to their
 dimension. If the interface is between grids of the same dimension, ascending
 subdomain ordering (as defined by <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple" title="porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sort_subdomain_tuple()</span></code></a>) is used.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – The mortar grid associated with an interface.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A 2-tuple containing</p>
 <blockquote>
 <div><ul class="simple">
@@ -513,24 +513,24 @@ will be the subdomain with the lower dimension.</p></li>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">MortarGrid</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.interfaces" title="Link to this definition"></a></dt>
 <dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">porepy.grids.mortar_grid.MortarGrid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span></dt>
+<span class="sig-name descname"><span class="pre">interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">MortarGrid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span></dt>
 <dd><p>Get a sorted list of interfaces in the mixed-dimensional grid.</p>
 <p>Optionally, the interfaces can be filtered on dimension. Also, the data
 dictionary belonging to the interfaces can be returned.</p>
 <p>Sorting by descending interface dimension and increasing MortarGrid ID, see
 <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">argsort_grids()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>return_data</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>If True, the data dictionary of the interface will
@@ -542,7 +542,7 @@ be returned.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Either a list of mortar grids associated with interfaces (default), or (if
 <code class="docutils literal notranslate"><span class="pre">return_data=True</span></code>) list of tuples, where the first tuple item is the
 interface mortar grid, the second is the associated data dictionary.</p>
@@ -552,109 +552,109 @@ interface mortar grid, the second is the associated data dictionary.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.neighboring_subdomains">
-<span class="sig-name descname"><span class="pre">neighboring_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">only_higher</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">only_lower</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.neighboring_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.neighboring_subdomains" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">neighboring_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">only_higher</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">only_lower</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.neighboring_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.neighboring_subdomains" title="Link to this definition"></a></dt>
 <dd><p>Get the subdomain neighbors of a subdomain (going through interfaces).</p>
 <p>Optionally, return only neighbors corresponding to higher or lower
 dimension. At most one of only_higher and only_lower can be True.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Subdomain in the mixed-dimensional grid.</p></li>
-<li><p><strong>only_higher</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<li><p><strong>only_higher</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>Consider only the higher-dimensional neighbors.</p>
 </p></li>
-<li><p><strong>only_lower</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<li><p><strong>only_lower</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>Consider only the lower-dimensional neighbors.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If both <code class="docutils literal notranslate"><span class="pre">only_higher</span></code> and <code class="docutils literal notranslate"><span class="pre">only_lower</span></code> are True.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If both <code class="docutils literal notranslate"><span class="pre">only_higher</span></code> and <code class="docutils literal notranslate"><span class="pre">only_lower</span></code> are True.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Subdomain neighbors of <code class="docutils literal notranslate"><span class="pre">sd</span></code>.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.num_interface_cells">
-<span class="sig-name descname"><span class="pre">num_interface_cells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_interface_cells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_interface_cells" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_interface_cells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_interface_cells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_interface_cells" title="Link to this definition"></a></dt>
 <dd><p>Compute the total number of mortar cells of the mixed-dimensional grid.</p>
 <p>A function can be passed to filter interfaces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Predicate with an interface as input.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The total number of mortar cells of the grid bucket.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.num_interfaces">
-<span class="sig-name descname"><span class="pre">num_interfaces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_interfaces</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_interfaces" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Total number of interfaces in the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.num_subdomain_cells">
-<span class="sig-name descname"><span class="pre">num_subdomain_cells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_subdomain_cells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomain_cells" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_subdomain_cells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_subdomain_cells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomain_cells" title="Link to this definition"></a></dt>
 <dd><p>Compute the total number of subdomain cells of the mixed-dimensional grid.</p>
 <p>A function can be passed to filter subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Predicate with a subdomain as input.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The total number of subdomain cells of the grid bucket.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.num_subdomains">
-<span class="sig-name descname"><span class="pre">num_subdomains</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomains" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_subdomains</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.num_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomains" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Total number of subdomains in the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.remove_subdomain">
-<span class="sig-name descname"><span class="pre">remove_subdomain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.remove_subdomain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.remove_subdomain" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">remove_subdomain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.remove_subdomain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.remove_subdomain" title="Link to this definition"></a></dt>
 <dd><p>Remove a subdomain and related interfaces from the mixed-dimensional grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The subdomain to be removed.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -662,16 +662,16 @@ dimension. At most one of only_higher and only_lower can be True.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.replace_subdomains_and_interfaces">
-<span class="sig-name descname"><span class="pre">replace_subdomains_and_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.replace_subdomains_and_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.replace_subdomains_and_interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">replace_subdomains_and_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.replace_subdomains_and_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.replace_subdomains_and_interfaces" title="Link to this definition"></a></dt>
 <dd><p>Replace grids and/or mortar grids in the mixed-dimensional grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_map</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>sd_map</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Mapping between the old and new grids. Keys are the old
 grids, and values are the new grids.</p>
 </p></li>
-<li><p><strong>intf_map</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><em>porepy.grids.mortar_grid.MortarSides</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>intf_map</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><em>MortarSides</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Mapping between the old mortar grid and new (side grids of the) mortar
 grid. Keys are the old mortar grids, and values are dictionaries with
 side grid number as keys, and side grids as values. Optionally, the
@@ -679,12 +679,12 @@ mapping can be directly from old to new mortar grid (sometimes it is
 easier to construct the new mortar grid right away, before replacing it
 in the mixed-dimensional grid).</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-6</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-6</span></code></p>
 <p>Geometric tolerance used when updating mortar projections.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -692,97 +692,97 @@ in the mixed-dimensional grid).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces">
-<span class="sig-name descname"><span class="pre">sort_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.sort_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sort_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.sort_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces" title="Link to this definition"></a></dt>
 <dd><p>Sort interfaces.</p>
 <p>Sorting by descending interface dimension and increasing MortarGrid ID,
 see <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">argsort_grids()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – list of interfaces.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – list of interfaces.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>List containing the same interfaces, sorted.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid">porepy.grids.mortar_grid.MortarGrid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple">
-<span class="sig-name descname"><span class="pre">sort_subdomain_tuple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.sort_subdomain_tuple"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sort_subdomain_tuple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.sort_subdomain_tuple"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple" title="Link to this definition"></a></dt>
 <dd><p>Sort two subdomains.</p>
 <p>Sorting by descending subdomain dimension and increasing node ID, see
 <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">argsort_grids()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">len=2</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">len=2</span></code></p>
 <p>Tuple of two subdomains.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Tuple containing the same two subdomains, sorted.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomains">
-<span class="sig-name descname"><span class="pre">sort_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.sort_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomains" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sort_subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.sort_subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomains" title="Link to this definition"></a></dt>
 <dd><p>Sort subdomains.</p>
 <p>Sorting by descending subdomain dimension and increasing node ID, see
 <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">argsort_grids()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of subdomains.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>List containing the same subdomains, sorted.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.subdomain_data">
-<span class="sig-name descname"><span class="pre">subdomain_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomain_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_data" title="Link to this definition"></a></dt>
 <dd><p>Getter for the subdomain data dictionary.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The subdomain grid.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The data dictionary associated with the subdomain.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.subdomain_pair_to_interface">
-<span class="sig-name descname"><span class="pre">subdomain_pair_to_interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_pair</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_pair_to_interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_pair_to_interface" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomain_pair_to_interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_pair</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_pair_to_interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_pair_to_interface" title="Link to this definition"></a></dt>
 <dd><p>Get an interface from a pair of subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>sd_pair</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – Pair of subdomains. Should exist in the mixed-dimensional grid.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sd_pair</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – Pair of subdomains. Should exist in the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#KeyError" title="(in Python v3.11)"><strong>KeyError</strong></a> – If the subdomain pair is not represented in the mixed-dimensional
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#KeyError" title="(in Python v3.13)"><strong>KeyError</strong></a> – If the subdomain pair is not represented in the mixed-dimensional
     grid.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>The interface that connects the subdomain pairs, represented by a
 MortarGrid.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a></p>
 </dd>
 </dl>
@@ -790,16 +790,16 @@ MortarGrid.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_boundary_grid">
-<span class="sig-name descname"><span class="pre">subdomain_to_boundary_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_to_boundary_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_boundary_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomain_to_boundary_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_to_boundary_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_boundary_grid" title="Link to this definition"></a></dt>
 <dd><p>Get the boundary grid associated with a subdomain.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – A subdomain in the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The boundary grid associated with this subdomain.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.boundary_grid.html#porepy.grids.boundary_grid.BoundaryGrid" title="porepy.grids.boundary_grid.BoundaryGrid"><em>BoundaryGrid</em></a></p>
 </dd>
 </dl>
@@ -807,34 +807,34 @@ MortarGrid.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_interfaces">
-<span class="sig-name descname"><span class="pre">subdomain_to_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_to_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_interfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomain_to_interfaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomain_to_interfaces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_interfaces" title="Link to this definition"></a></dt>
 <dd><p>Iterator over the interfaces of a specific subdomain.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – A subdomain in the mixed-dimensional grid.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Sorted list of interfaces associated with the subdomain
 (see <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces" title="porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sort_interfaces()</span></code></a>).</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid">porepy.grids.mortar_grid.MortarGrid</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomains" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">False</span></span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/porepy/grids/md_grid.html#MixedDimensionalGrid.subdomains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.subdomains" title="Link to this definition"></a></dt>
 <dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span></dt>
+<span class="sig-name descname"><span class="pre">subdomains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">return_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><span class="pre">Literal</span></a><span class="p"><span class="pre">[</span></span><span class="k"><span class="pre">True</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span></dt>
 <dd><p>Get a sorted list of subdomains in the mixed-dimensional grid.</p>
 <p>Optionally, the subdomains can be filtered by dimension. Also, the data
 dictionary belonging to the subdomain can be returned.</p>
 <p>Sorted by descending subdomain dimension and increasing Grid ID, see
 <a class="reference internal" href="#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids" title="porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids"><code class="xref py py-meth docutils literal notranslate"><span class="pre">argsort_grids()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>return_data</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>If True, the data dictionary of the subdomain will
@@ -846,7 +846,7 @@ be returned.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Either a list of grids associated with subdomains (default), or (if
 <code class="docutils literal notranslate"><span class="pre">return_data=True</span></code>) list of tuples, where the first tuple item is the
 subdomain grid, the second is the associated data dictionary.</p>
@@ -856,7 +856,7 @@ subdomain grid, the second is the associated data dictionary.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.md_grid.MixedDimensionalGrid.name">
-<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#porepy.grids.md_grid.MixedDimensionalGrid.name" title="Link to this definition"></a></dt>
 <dd><p>Name of the md-grid, initiated as <code class="docutils literal notranslate"><span class="pre">'Mixed-dimensional</span> <span class="pre">grid'</span></code>.</p>
 </dd></dl>
 

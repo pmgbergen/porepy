@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.grid_extrusion module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.grid_extrusion.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.grid_extrusion.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.grid_extrusion module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.grid_extrusion">
-<span id="porepy-grids-grid-extrusion-module"></span><h1>porepy.grids.grid_extrusion module<a class="headerlink" href="#module-porepy.grids.grid_extrusion" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-grid-extrusion-module"></span><h1>porepy.grids.grid_extrusion module<a class="headerlink" href="#module-porepy.grids.grid_extrusion" title="Link to this heading"></a></h1>
 <p>This module contains functionality to to increase the dimensions of grids by
 extrusion in the z-direction.</p>
 <p>Both, single grids and mixed-dimensional grids can be extruded. The
@@ -287,51 +287,51 @@ dimension of the highest-dimensional grid should be 2 at most.</p>
 </ul>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.grid_extrusion.extrude_grid">
-<span class="sig-name descname"><span class="pre">extrude_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid_extrusion.html#extrude_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid_extrusion.extrude_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extrude_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid_extrusion.html#extrude_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid_extrusion.extrude_grid" title="Link to this definition"></a></dt>
 <dd><p>Increases the dimension of a given grid by 1, by extruding the grid in the
 z-direction.</p>
 <p>The original grid is assumed to be in the xy-plane, that is, any existing non-zero
 z-direction is ignored.</p>
 <p>Both, the original and the new grid will have their geometry computed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Original grid to be extruded. Must have dimension 0, 1 or 2.</p></li>
-<li><p><strong>z</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – An array containing z-coordinates per node for the extruded grid.
+<li><p><strong>z</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – An array containing z-coordinates per node for the extruded grid.
 Should be either non-negative or non-positive, and be sorted in increasing
 or decreasing order, respectively.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the z-coordinates for nodes contain both positive and negative
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the z-coordinates for nodes contain both positive and negative
     values.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If a 3D grid is provided for extrusion.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If a 3D grid is provided for extrusion.</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><p>A 3-tuple containing</p>
 <dl class="simple">
 <dt><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a>:</dt><dd><p>The extruded grid of dimension <code class="docutils literal notranslate"><span class="pre">g.dim</span> <span class="pre">+</span> <span class="pre">1</span></code>.</p>
 </dd>
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p>Cell mappings, such that that row <code class="docutils literal notranslate"><span class="pre">i</span></code> gives all indices of
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p>Cell mappings, such that that row <code class="docutils literal notranslate"><span class="pre">i</span></code> gives all indices of
 cells in the extruded grid that comes from cell <code class="docutils literal notranslate"><span class="pre">i</span></code> in the original grid.</p>
 </dd>
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p>Face mappings, s.t. row <code class="docutils literal notranslate"><span class="pre">i</span></code> gives all indices of
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</dt><dd><p>Face mappings, s.t. row <code class="docutils literal notranslate"><span class="pre">i</span></code> gives all indices of
 faces in the extruded grid that come from face <code class="docutils literal notranslate"><span class="pre">i</span></code> in the original grid.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.grid_extrusion.extrude_grid_bucket">
-<span class="sig-name descname"><span class="pre">extrude_grid_bucket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid_extrusion.html#extrude_grid_bucket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid_extrusion.extrude_grid_bucket" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extrude_grid_bucket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/grid_extrusion.html#extrude_grid_bucket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.grid_extrusion.extrude_grid_bucket" title="Link to this definition"></a></dt>
 <dd><p>Extrude a mixed-dimensional grid by extending all fixed-dimensional grids in the
 z-direction.</p>
 <p>In practice, the original grid bucket will be 2D, and the result is 3D.</p>
@@ -340,21 +340,21 @@ the mdg edges. The data dictionaries on subdomains and interfaces are mainly emp
 Data can be transferred from the original md-grid via the returned map between old
 and new grids.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – Mixed-dimensional grid to be extruded. The highest dimension should be 2D.</p></li>
-<li><p><strong>z</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – An array containing z-coordinates per node for the extruded grid.
+<li><p><strong>z</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – An array containing z-coordinates per node for the extruded grid.
 Should be either non-negative or non-positive, and be sorted in increasing
 or decreasing order, respectively.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A 2-tuple containing</p>
 <dl class="simple">
 <dt><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">MixedDimensionalGrid</span></code></a>:</dt><dd><p>A mixed-dimensional grid with highest dimension 3. The data dictionaries on
 subdomains and interfaces are mostly empty.</p>
 </dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>:</dt><dd><p>Mapping from individual grids in the old mixed-dimensional grid to the
+<dt><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>:</dt><dd><p>Mapping from individual grids in the old mixed-dimensional grid to the
 corresponding extruded grids in the new one. The dictionary values are a
 named tuple with elements grid (new grid), cell_map and face_map, where the
 two latter describe mapping between the new and old grid, see
@@ -363,8 +363,8 @@ two latter describe mapping between the new and old grid, see
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">porepy.grids.md_grid.MixedDimensionalGrid</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a>]</p>
 </dd>
 </dl>
 </dd></dl>

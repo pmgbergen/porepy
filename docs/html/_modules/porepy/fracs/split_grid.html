@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.split_grid &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/split_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/split_grid.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.fracs.split_grid</li>
       <li class="wy-breadcrumbs-aside">
@@ -274,26 +274,28 @@
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Module for splitting a grid at the fractures.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">setmembership</span><span class="p">,</span> <span class="n">tags</span>
-<span class="kn">from</span> <span class="nn">porepy.utils.graph</span> <span class="kn">import</span> <span class="n">Graph</span>
-<span class="kn">from</span> <span class="nn">porepy.utils.mcolon</span> <span class="kn">import</span> <span class="n">mcolon</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">setmembership</span><span class="p">,</span> <span class="n">tags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils.graph</span><span class="w"> </span><span class="kn">import</span> <span class="n">Graph</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils.mcolon</span><span class="w"> </span><span class="kn">import</span> <span class="n">mcolon</span>
 
 
-<div class="viewcode-block" id="split_fractures"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_fractures">[docs]</a><span class="k">def</span> <span class="nf">split_fractures</span><span class="p">(</span>
+<div class="viewcode-block" id="split_fractures">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_fractures">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_fractures</span><span class="p">(</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
     <span class="n">sd_pairs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Wrapper function to split all fractures. For each grid in the mdg,</span>
 <span class="sd">    we locate the corresponding lower-dimensional grids. The faces and</span>
 <span class="sd">    nodes corresponding to these grids are then split, creating internal</span>
@@ -396,8 +398,11 @@
     <span class="k">return</span> <span class="n">mdg</span><span class="p">,</span> <span class="n">sd_pairs</span></div>
 
 
-<div class="viewcode-block" id="split_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_faces">[docs]</a><span class="k">def</span> <span class="nf">split_faces</span><span class="p">(</span><span class="n">gh</span><span class="p">,</span> <span class="n">face_cells</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="split_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_faces">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_faces</span><span class="p">(</span><span class="n">gh</span><span class="p">,</span> <span class="n">face_cells</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Split faces of the grid along each fracture. This function will</span>
 <span class="sd">    add an extra face to each fracture face. Note that the original</span>
 <span class="sd">    and new fracture face will share the same nodes. However, the</span>
@@ -438,7 +443,10 @@
     <span class="k">return</span> <span class="n">face_cells</span></div>
 
 
-<div class="viewcode-block" id="split_specific_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_specific_faces">[docs]</a><span class="k">def</span> <span class="nf">split_specific_faces</span><span class="p">(</span>
+
+<div class="viewcode-block" id="split_specific_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_specific_faces">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_specific_faces</span><span class="p">(</span>
     <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
     <span class="n">face_cell_list</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span>
     <span class="n">faces</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -446,7 +454,7 @@
     <span class="n">secondary_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">non_planar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    For a given pair of sd_primary and sd_secondary.</span>
 <span class="sd">    Split only the faces specified by faces (higher-dimensional), corresponding</span>
 <span class="sd">    to new cells (lower-dimensional). gl_ind identifies gl in</span>
@@ -514,13 +522,16 @@
         <span class="k">return</span> <span class="n">face_cell_list</span></div>
 
 
-<div class="viewcode-block" id="split_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_nodes">[docs]</a><span class="k">def</span> <span class="nf">split_nodes</span><span class="p">(</span>
+
+<div class="viewcode-block" id="split_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.split_nodes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">split_nodes</span><span class="p">(</span>
     <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
     <span class="n">sd_secondary</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
     <span class="n">primary_to_secondary_nodes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">visualization_offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Splits the nodes of a subdomain grid</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Splits the nodes of a subdomain grid</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">    ----------</span>
@@ -558,8 +569,11 @@
     <span class="k">return</span> <span class="kc">True</span></div>
 
 
-<div class="viewcode-block" id="duplicate_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.duplicate_faces">[docs]</a><span class="k">def</span> <span class="nf">duplicate_faces</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">face_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="duplicate_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.duplicate_faces">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">duplicate_faces</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">face_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Duplicate all faces that are connected to a lower-dim cell</span>
 
 <span class="sd">    Parameters:</span>
@@ -580,8 +594,9 @@
     <span class="k">return</span> <span class="n">_duplicate_specific_faces</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">,</span> <span class="n">frac_id</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_duplicate_specific_faces</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">frac_id</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_duplicate_specific_faces</span><span class="p">(</span><span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">frac_id</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Duplicate faces of sd_primary specified by frac_id.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -659,13 +674,13 @@
     <span class="k">return</span> <span class="n">frac_id</span>
 
 
-<span class="k">def</span> <span class="nf">_update_face_cells</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_update_face_cells</span><span class="p">(</span>
     <span class="n">face_cells</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span>
     <span class="n">face_id</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">cell_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Add duplicate faces to connection map between lower-dim grids</span>
 <span class="sd">    and higher dim grids. To be run after duplicate_faces.</span>
 <span class="sd">    cell_id refers to new lower-dimensional cells, e.g. after fracture</span>
@@ -744,10 +759,12 @@
     <span class="k">return</span> <span class="n">face_cells</span>
 
 
-<div class="viewcode-block" id="update_cell_connectivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.update_cell_connectivity">[docs]</a><span class="k">def</span> <span class="nf">update_cell_connectivity</span><span class="p">(</span>
+<div class="viewcode-block" id="update_cell_connectivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.update_cell_connectivity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_cell_connectivity</span><span class="p">(</span>
     <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">face_id</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">normal</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">x0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    After the faces in a grid are duplicated, we update the cell connectivity</span>
 <span class="sd">    list. Cells on the right side of the fracture do not change, but the cells</span>
 <span class="sd">    on the left side are attached to the face duplicates. We assume that all</span>
@@ -839,8 +856,11 @@
     <span class="k">return</span> <span class="mi">0</span></div>
 
 
-<div class="viewcode-block" id="remove_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.remove_faces">[docs]</a><span class="k">def</span> <span class="nf">remove_faces</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">face_id</span><span class="p">,</span> <span class="n">rem_cell_faces</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="remove_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.remove_faces">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_faces</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">face_id</span><span class="p">,</span> <span class="n">rem_cell_faces</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Remove faces from grid.</span>
 
 <span class="sd">    PARAMETERS:</span>
@@ -866,8 +886,11 @@
         <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[</span><span class="n">keep</span><span class="p">,</span> <span class="p">:]</span></div>
 
 
-<div class="viewcode-block" id="duplicate_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.duplicate_nodes">[docs]</a><span class="k">def</span> <span class="nf">duplicate_nodes</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="duplicate_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.duplicate_nodes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">duplicate_nodes</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">nodes</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Duplicate nodes on a fracture. The number of duplication will depend on</span>
 <span class="sd">    the cell topology around the node. If the node is not on a fracture 1</span>
 <span class="sd">    duplicate will be added. If the node is on a single fracture 2 duplicates</span>
@@ -1117,8 +1140,9 @@
     <span class="k">return</span> <span class="n">num_added</span></div>
 
 
-<span class="k">def</span> <span class="nf">_duplicate_nodes_with_offset</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_duplicate_nodes_with_offset</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Duplicate nodes on a fracture, and perturb the duplicated nodes. This option</span>
 <span class="sd">    is useful for visualization purposes.</span>
 
@@ -1233,7 +1257,7 @@
     <span class="k">return</span> <span class="n">node_count</span>
 
 
-<span class="k">def</span> <span class="nf">_sort_sub_list</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_sort_sub_list</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">):</span>
     <span class="n">ix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">indices</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">indptr</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">sub_ind</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">indptr</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">indptr</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
@@ -1245,8 +1269,8 @@
     <span class="k">return</span> <span class="n">indices</span><span class="p">,</span> <span class="n">iv</span>
 
 
-<span class="k">def</span> <span class="nf">_find_cell_color</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">cells</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_cell_color</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">cells</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Color the cells depending on the cell connections. Each group of cells</span>
 <span class="sd">    that are connected (either directly by a shared face or through a series</span>
 <span class="sd">    of shared faces of many cells) is are given different colors.</span>
@@ -1288,8 +1312,8 @@
     <span class="k">return</span> <span class="n">graph</span><span class="o">.</span><span class="n">color</span><span class="p">[</span><span class="n">child_cell_ind</span><span class="p">[</span><span class="n">cells</span><span class="p">]]</span>
 
 
-<span class="k">def</span> <span class="nf">_avg_normal</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">faces</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_avg_normal</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">faces</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculates the average face normal of a set of faces. The average normal</span>
 <span class="sd">    is only constructed from the boundary faces, that is, a face that belongs</span>
 <span class="sd">    to exactly one cell. If a face is not a boundary face, it will be ignored.</span>
@@ -1309,8 +1333,10 @@
     <span class="k">return</span> <span class="n">n</span>
 
 
-<div class="viewcode-block" id="remove_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.remove_nodes">[docs]</a><span class="k">def</span> <span class="nf">remove_nodes</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">rem</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="remove_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.split_grid.html#porepy.fracs.split_grid.remove_nodes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remove_nodes</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">rem</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Remove nodes from grid.</span>
 <span class="sd">    g - a valid grid definition</span>
 <span class="sd">    rem - a ndarray of indices of nodes to be removed</span>
@@ -1320,6 +1346,7 @@
     <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">[</span><span class="n">rows_to_keep</span><span class="p">,</span> <span class="p">:]</span>
     <span class="n">g</span><span class="o">.</span><span class="n">nodes</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">rows_to_keep</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">g</span></div>
+
 </pre></div>
 
            </div>

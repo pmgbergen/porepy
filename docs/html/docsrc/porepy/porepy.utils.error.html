@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.error module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.error.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.error.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
       <li class="breadcrumb-item active">porepy.utils.error module</li>
@@ -275,15 +275,15 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.error">
-<span id="porepy-utils-error-module"></span><h1>porepy.utils.error module<a class="headerlink" href="#module-porepy.utils.error" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-error-module"></span><h1>porepy.utils.error module<a class="headerlink" href="#module-porepy.utils.error" title="Link to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.error.error_L2">
-<span class="sig-name descname"><span class="pre">error_L2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_ex</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relative</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#error_L2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.error_L2" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">error_L2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val_ex</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">relative</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#error_L2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.error_L2" title="Link to this definition"></a></dt>
 <dd><p>Compute the L2 error of a scalar or vector field with respect to a reference
 field. It is possible to compute the relative error (default) or the
 absolute error.</p>
 <section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>g<span class="classifier">grid</span></dt><dd><p>Grid, or a subclass, with geometry fields computed.</p>
 </dd>
@@ -296,26 +296,26 @@ absolute error.</p>
 </dl>
 </section>
 <section id="return">
-<h2>Return<a class="headerlink" href="#return" title="Permalink to this heading"></a></h2>
+<h2>Return<a class="headerlink" href="#return" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>out: double</dt><dd><p>The L2 error of the input fields.</p>
 </dd>
 </dl>
 </section>
 <section id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this heading"></a></h2>
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
 <p>p = …</p>
 <p>def fun_p(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])
 p_ex = interpolate(g, fun_p)
 err_p = err_L2(g, p, p_ex)</p>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – </p></li>
-<li><p><strong>val</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>val_ex</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>relative</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>val</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>val_ex</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>relative</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -323,14 +323,14 @@ err_p = err_L2(g, p, p_ex)</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.error.grid_error">
-<span class="sig-name descname"><span class="pre">grid_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mdg_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable_dof</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#grid_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.grid_error" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">grid_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mdg_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable_dof</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#grid_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.grid_error" title="Link to this definition"></a></dt>
 <dd><p>Compute grid errors a grid bucket and refined reference grid bucket</p>
 <p>Assumes that the coarse grid bucket has a property
 ‘coarse_fine_cell_mapping’ assigned on each subdomain, which
 maps from coarse to fine cells according to the method
 ‘coarse_fine_cell_mapping(…)’.</p>
 <section id="id1">
-<h2>Parameters<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>mdg, mdg_ref<span class="classifier">pp.MixedDimensionalGrid</span></dt><dd><p>Coarse and fine grid buckets, respectively</p>
 </dd>
@@ -341,7 +341,7 @@ maps from coarse to fine cells according to the method
 </dl>
 </section>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>errors<span class="classifier">dict</span></dt><dd><p>Dictionary with top level keys as node_number,
 within which for each variable, the error is
@@ -350,26 +350,26 @@ reported.</p>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p></li>
-<li><p><strong>mdg_ref</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p></li>
-<li><p><strong>variable</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
-<li><p><strong>variable_dof</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
+<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>)</p></li>
+<li><p><strong>mdg_ref</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>)</p></li>
+<li><p><strong>variable</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>variable_dof</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.error.interpolate">
-<span class="sig-name descname"><span class="pre">interpolate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fun</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#interpolate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.interpolate" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">interpolate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fun</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#interpolate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.interpolate" title="Link to this definition"></a></dt>
 <dd><p>Interpolate a scalar or vector function on the cell centers of the grid.</p>
 <section id="id2">
-<h2>Parameters<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>g<span class="classifier">grid</span></dt><dd><p>Grid, or a subclass, with geometry fields computed.</p>
 </dd>
@@ -378,14 +378,14 @@ reported.</p>
 </dl>
 </section>
 <section id="id3">
-<h2>Return<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h2>
+<h2>Return<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>out: np.ndarray (dim of fun, g.num_cells)</dt><dd><p>Function interpolated in the cell centers.</p>
 </dd>
 </dl>
 </section>
 <section id="id4">
-<h2>Examples<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h2>
+<h2>Examples<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <p>def fun_p(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])</p>
 <dl class="simple">
 <dt>def fun_u(pt): return [                      -2*np.pi*np.cos(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1]),</dt><dd><p>-2*np.pi*np.sin(2*np.pi*pt[0])*np.cos(2*np.pi*pt[1])]</p>
@@ -395,10 +395,10 @@ reported.</p>
 u_ex = interpolate(g, fun_u)</p>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – </p></li>
-<li><p><strong>fun</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><em>Callable</em></a>) – </p></li>
+<li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>fun</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.13)"><em>Callable</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -406,10 +406,10 @@ u_ex = interpolate(g, fun_u)</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.error.norm_L2">
-<span class="sig-name descname"><span class="pre">norm_L2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#norm_L2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.norm_L2" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">norm_L2</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/error.html#norm_L2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.error.norm_L2" title="Link to this definition"></a></dt>
 <dd><p>Compute the L2 norm of a scalar or vector field.</p>
 <section id="id5">
-<h2>Parameters<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>g:</dt><dd><p>Grid, or a subclass, with geometry fields computed.</p>
 </dd>
@@ -418,23 +418,23 @@ u_ex = interpolate(g, fun_u)</p>
 </dl>
 </section>
 <section id="id6">
-<h2>Return<a class="headerlink" href="#id6" title="Permalink to this heading"></a></h2>
+<h2>Return<a class="headerlink" href="#id6" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>out: double</dt><dd><p>The L2 norm of the input field.</p>
 </dd>
 </dl>
 </section>
 <section id="id7">
-<h2>Examples<a class="headerlink" href="#id7" title="Permalink to this heading"></a></h2>
+<h2>Examples<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
 <p>def fun_p(pt): return np.sin(2*np.pi*pt[0])*np.sin(2*np.pi*pt[1])
 p_ex = interpolate(g, fun_p)
 norm_ex = norm_L2(g, p_ex)</p>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – </p></li>
-<li><p><strong>val</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>val</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
 </dl>

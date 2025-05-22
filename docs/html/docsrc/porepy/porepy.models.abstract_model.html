@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.abstract_model module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.abstract_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.abstract_model.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
       <li class="breadcrumb-item active">porepy.models.abstract_model module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.models.abstract_model">
-<span id="porepy-models-abstract-model-module"></span><h1>porepy.models.abstract_model module<a class="headerlink" href="#module-porepy.models.abstract_model" title="Permalink to this heading"></a></h1>
+<span id="porepy-models-abstract-model-module"></span><h1>porepy.models.abstract_model module<a class="headerlink" href="#module-porepy.models.abstract_model" title="Link to this heading"></a></h1>
 <p>Contains the mother class for all models, that is, standardized setups for complex
 problems.</p>
 <p>Some methods may raise NotImplementedErrors instead of being abstract methods. This
@@ -289,8 +289,8 @@ after_newton_iteration. The name “newton” is there for legacy reasons, a mor
 and general name would be something like “equation_solve”.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AbstractModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AbstractModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>This is a class that specifies methods that a model must implement to
 be compatible with the Newton and time stepping methods.</p>
 <dl>
@@ -307,25 +307,25 @@ linear_solver (str): Specification of linear solver. Only known permissible</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>]</em>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.after_newton_convergence">
-<span class="sig-name descname"><span class="pre">after_newton_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iteration_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_newton_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_newton_convergence" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_newton_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iteration_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_newton_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_newton_convergence" title="Link to this definition"></a></dt>
 <dd><p>Method to be called after every non-linear iteration.</p>
 <p>Possible usage is to distribute information on the solution, visualization, etc.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>np.array</strong> – The new solution state, as computed by the non-linear solver.</p></li>
-<li><p><strong>solution</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>iteration_counter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>solution</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>iteration_counter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -333,16 +333,16 @@ linear_solver (str): Specification of linear solver. Only known permissible</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.after_newton_failure">
-<span class="sig-name descname"><span class="pre">after_newton_failure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iteration_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_newton_failure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_newton_failure" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_newton_failure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iteration_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_newton_failure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_newton_failure" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>solution</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>iteration_counter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>solution</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>iteration_counter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -350,15 +350,15 @@ linear_solver (str): Specification of linear solver. Only known permissible</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.after_newton_iteration">
-<span class="sig-name descname"><span class="pre">after_newton_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution_vector</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_newton_iteration" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_newton_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution_vector</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_newton_iteration" title="Link to this definition"></a></dt>
 <dd><p>Method to be called after every non-linear iteration.</p>
 <p>Possible usage is to distribute information on the new trial state, visualize
 the current approximation etc.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>np.array</strong> – The new solution state, as computed by the non-linear solver.</p></li>
-<li><p><strong>solution_vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>solution_vector</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -366,10 +366,10 @@ the current approximation etc.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.after_simulation">
-<span class="sig-name descname"><span class="pre">after_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_simulation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.after_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.after_simulation" title="Link to this definition"></a></dt>
 <dd><p>Run at the end of simulation. Can be used for cleanup etc.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -377,11 +377,11 @@ the current approximation etc.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.assemble_linear_system">
-<span class="sig-name descname"><span class="pre">assemble_linear_system</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.assemble_linear_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.assemble_linear_system" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_linear_system</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.assemble_linear_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.assemble_linear_system" title="Link to this definition"></a></dt>
 <dd><p>Assemble the linearized system.</p>
 <p>The linear system is defined by the current state of the model.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -394,11 +394,11 @@ the current approximation etc.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.before_newton_iteration">
-<span class="sig-name descname"><span class="pre">before_newton_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.before_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.before_newton_iteration" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">before_newton_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.before_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.before_newton_iteration" title="Link to this definition"></a></dt>
 <dd><p>Method to be called at the start of every non-linear iteration.</p>
 <p>Possible usage is to update non-linear parameters, discretizations etc.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -406,12 +406,12 @@ the current approximation etc.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.before_newton_loop">
-<span class="sig-name descname"><span class="pre">before_newton_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.before_newton_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.before_newton_loop" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">before_newton_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.before_newton_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.before_newton_loop" title="Link to this definition"></a></dt>
 <dd><p>Method to be called before entering the non-linear solver, thus at the start
 of a new time step.</p>
 <p>Possible usage is to update time-dependent parameters, discretizations etc.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -419,21 +419,21 @@ of a new time step.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.check_convergence">
-<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prev_solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nl_params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.check_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.check_convergence" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">check_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prev_solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nl_params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.check_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.check_convergence" title="Link to this definition"></a></dt>
 <dd><p>Implements a convergence check, to be called by a non-linear solver.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>solution</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Newly obtained solution vector</p></li>
 <li><p><strong>prev_solution</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Solution obtained in the previous non-linear
 iteration.</p></li>
 <li><p><strong>init_solution</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Solution obtained from the previous time-step.</p></li>
-<li><p><strong>nl_params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Dictionary of parameters used for the convergence check.
+<li><p><strong>nl_params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Dictionary of parameters used for the convergence check.
 Which items are required will depend on the convergence test to be
 implemented.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Error, computed to the norm in question.
 boolean: True if the solution is converged according to the test</p>
 <blockquote>
@@ -445,8 +445,8 @@ boolean: True if the solution is converged according to the test</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a></p>
 </dd>
 </dl>
 <dl class="simple">
@@ -458,7 +458,7 @@ providing a general method.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.create_grid">
-<span class="sig-name descname"><span class="pre">create_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.create_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.create_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">create_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.create_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.create_grid" title="Link to this definition"></a></dt>
 <dd><p>Create the grid bucket.</p>
 <p>A unit square grid with no fractures is assigned by default.</p>
 <dl>
@@ -470,7 +470,7 @@ box (dict): The bounding box of the domain, defined through minimum and</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -478,13 +478,13 @@ box (dict): The bounding box of the domain, defined through minimum and</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.prepare_simulation">
-<span class="sig-name descname"><span class="pre">prepare_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.prepare_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.prepare_simulation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">prepare_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.prepare_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.prepare_simulation" title="Link to this definition"></a></dt>
 <dd><p>Method called prior to the start of time stepping, or prior to entering the
 non-linear solver for stationary problems.</p>
 <p>The intended use is to define parameters, geometry and grid, discretize linear
 and time-independent terms, and generally prepare for the simulation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -492,7 +492,7 @@ and time-independent terms, and generally prepare for the simulation.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.abstract_model.AbstractModel.solve_linear_system">
-<span class="sig-name descname"><span class="pre">solve_linear_system</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.solve_linear_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.solve_linear_system" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">solve_linear_system</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/abstract_model.html#AbstractModel.solve_linear_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.abstract_model.AbstractModel.solve_linear_system" title="Link to this definition"></a></dt>
 <dd><p>Solve linear system.</p>
 <p>Default method is a direct solver. The linear solver is chosen in the
 initialize_linear_solver of this model. Implemented options are</p>
@@ -504,10 +504,10 @@ initialize_linear_solver of this model. Implemented options are</p>
 <p>pypardiso.spsolve</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Solution vector.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>np.ndarray</p>
 </dd>
 </dl>

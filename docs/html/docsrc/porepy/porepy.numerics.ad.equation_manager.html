@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.equation_manager module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.equation_manager.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.equation_manager.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
@@ -276,33 +276,33 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.ad.equation_manager">
-<span id="porepy-numerics-ad-equation-manager-module"></span><h1>porepy.numerics.ad.equation_manager module<a class="headerlink" href="#module-porepy.numerics.ad.equation_manager" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-ad-equation-manager-module"></span><h1>porepy.numerics.ad.equation_manager module<a class="headerlink" href="#module-porepy.numerics.ad.equation_manager" title="Link to this heading"></a></h1>
 <p>Main content:
 EquationManager: representation of a set of equations on Ad form.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EquationManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_manager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">equations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secondary_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EquationManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dof_manager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">equations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secondary_variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Representation of a set of equations specified on Ad form.</p>
 <p>The equations are tied to a specific MixedDimensionalGrid, with variables fixed in a
 corresponding DofManager.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mdg</strong> (<em>pp.MixedDimensionalGrid</em>) – </p></li>
-<li><p><strong>dof_manager</strong> (<em>pp.DofManager</em>) – </p></li>
-<li><p><strong>equations</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><em>'pp.ad.Operator'</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>secondary_variables</strong> (<em>Optional</em><em>[</em><em>Sequence</em><em>[</em><em>'pp.ad.Variable'</em><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>mdg</strong> (<em>pp.MixedDimensionalGrid</em>)</p></li>
+<li><p><strong>dof_manager</strong> (<em>pp.DofManager</em>)</p></li>
+<li><p><strong>equations</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><em>'pp.ad.Operator'</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>secondary_variables</strong> (<em>Optional</em><em>[</em><em>Sequence</em><em>[</em><em>'pp.ad.Variable'</em><em>]</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mdg</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.mdg" title="Link to this definition"></a></dt>
 <dd><p>Mixed-dimensional grid on which this EquationManager
 operates.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code></p>
 </dd>
 </dl>
@@ -310,11 +310,11 @@ operates.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.dof_manager">
-<span class="sig-name descname"><span class="pre">dof_manager</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.dof_manager" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dof_manager</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.dof_manager" title="Link to this definition"></a></dt>
 <dd><p>Degree of freedom manager used for this
 EquationManager.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.DofManager</span></code></p>
 </dd>
 </dl>
@@ -322,24 +322,24 @@ EquationManager.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.equations">
-<span class="sig-name descname"><span class="pre">equations</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.equations" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">equations</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.equations" title="Link to this definition"></a></dt>
 <dd><p>Equations assigned to this EquationManager.
 can be expanded by direct addition to the list.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span> <span class="pre">of</span> <span class="pre">Ad</span> <span class="pre">Operators</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Ad</span> <span class="pre">Operators</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.variables">
-<span class="sig-name descname"><span class="pre">variables</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.variables" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">variables</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.variables" title="Link to this definition"></a></dt>
 <dd><p>Mapping from subdomains or grid tuples (interfaces) to Ad
 variables. These are set at initialization from the MixedDimensionalGrid, and
 should not be changed later.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></p>
 </dd>
 </dl>
@@ -347,22 +347,22 @@ should not be changed later.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.secondary_variables">
-<span class="sig-name descname"><span class="pre">secondary_variables</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.secondary_variables" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">secondary_variables</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.secondary_variables" title="Link to this definition"></a></dt>
 <dd><p>List of variables that are secondary,
 that is, their derivatives will not be included in the Jacobian matrix.
 Variables will be represented on atomic form, that is, mixed-dimensional variables
 are unravelled. Secondary variables act as a filter during assembly, that is,
 they do not impact the ordering or treatment of variables.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span> <span class="pre">of</span> <span class="pre">Ad</span> <span class="pre">Variables</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Ad</span> <span class="pre">Variables</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.row_block_indices_last_assembled">
-<span class="sig-name descname"><span class="pre">row_block_indices_last_assembled</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.row_block_indices_last_assembled" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">row_block_indices_last_assembled</span></span><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.row_block_indices_last_assembled" title="Link to this definition"></a></dt>
 <dd><p>Row indices for the start of blocks
 corresponding to different equations in the last assembled system. The last item
 in the array is the total number of rows, so that row indices for block i can
@@ -370,7 +370,7 @@ be recovered by np.arange(row_bl..[i], row_bl..[i+1]). The user must relate the
 indices to equations (either in self.equations or the equation list given to the
 relevant assembly method). This information is intended for diagnostic usage.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
 </dd>
 </dl>
@@ -378,16 +378,16 @@ relevant assembly method). This information is intended for diagnostic usage.</p
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.assemble">
-<span class="sig-name descname"><span class="pre">assemble</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.assemble"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.assemble" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.assemble"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.assemble" title="Link to this definition"></a></dt>
 <dd><p>Assemble Jacobian matrix and residual vector with respect to the current
 state represented in self.mdg.</p>
 <p>Derivatives for secondary variables are not included in the Jacobian matrix.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>state</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">optional</span></code>) – State vector to assemble from. If not provided,
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>state</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <em>optional</em>) – State vector to assemble from. If not provided,
 the default behavior of pp.ad.Expression.to_ad() will be followed.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Jacobian matrix corresponding to the current variable state,</dt><dd><p>as found in self.mdg. The ordering of the equations is determined by
 the ordering in self.equations (for rows) and self.dof_manager (for
@@ -398,7 +398,7 @@ columns).</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sps.spmatrix</p>
 </dd>
 </dl>
@@ -406,7 +406,7 @@ columns).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.assemble_schur_complement_system">
-<span class="sig-name descname"><span class="pre">assemble_schur_complement_system</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">primary_equations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primary_variables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.assemble_schur_complement_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.assemble_schur_complement_system" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_schur_complement_system</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">primary_equations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primary_variables</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inverter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.assemble_schur_complement_system"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.assemble_schur_complement_system" title="Link to this definition"></a></dt>
 <dd><p>Assemble Jacobian matrix and residual vector using a Schur complement
 elimination of the variables and equations not to be included.</p>
 <p>The specified equations and variables will define a reordering of the linearized
@@ -435,16 +435,16 @@ computational time and memory.</p>
 where the latter can be efficiently eliminated (for instance, they contain no
 spatial derivatives).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>primary_equations</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span> <span class="pre">of</span> <span class="pre">str</span></code>) – Equations to be assembled, specified
+<li><p><strong>primary_equations</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Equations to be assembled, specified
 as keys in self.equations. Should have length &gt; 0.</p></li>
-<li><p><strong>primary_variables</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span> <span class="pre">of</span> <span class="pre">Variables</span></code>) – Variables to be assembled. Should have
+<li><p><strong>primary_variables</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Variables</span></code>) – Variables to be assembled. Should have
 length &gt; 0.</p></li>
 <li><p><strong>inverter</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Callable</span></code>) – Method to compute the inverse of the matrix A_ss.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Jacobian matrix corresponding to the current variable state,</dt><dd><p>as found in self.mdg, for the specified equations and variables.</p>
 </dd>
@@ -454,7 +454,7 @@ Scaled with -1 (moved to rhs).</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sps.spmatrix</p>
 </dd>
 </dl>
@@ -462,24 +462,24 @@ Scaled with -1 (moved to rhs).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.assemble_subsystem">
-<span class="sig-name descname"><span class="pre">assemble_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eq_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.assemble_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.assemble_subsystem" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_subsystem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eq_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.assemble_subsystem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.assemble_subsystem" title="Link to this definition"></a></dt>
 <dd><p>Assemble Jacobian matrix and residual vector using a specified subset of
 equations and variables.</p>
 <p>The method is intended for use in splitting algorithms. Matrix blocks not
 included will simply be ignored.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>eq_names</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span> <span class="pre">of</span> <span class="pre">str,</span> <span class="pre">optional</span></code>) – Equations to be assembled, specified
+<li><p><strong>eq_names</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>optional</em>) – Equations to be assembled, specified
 as keys in self.equations. If not provided (None), all equations known to
 this EquationManager will be included.</p></li>
-<li><p><strong>variables</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span> <span class="pre">of</span> <span class="pre">Variables,</span> <span class="pre">optional</span></code>) – Variables to be assembled.
+<li><p><strong>variables</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Variables</span></code>, <em>optional</em>) – Variables to be assembled.
 If not provided (None), all variables known to this EquationManager will be
 included. If a secondary variable is specified, this will be included in
 the returned system.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Jacobian matrix corresponding to the current variable state,</dt><dd><p>as found in self.mdg, for the specified equations and variables.</p>
 </dd>
@@ -493,7 +493,7 @@ by the ordering in the parameter eq_names.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sps.spmatrix</p>
 </dd>
 </dl>
@@ -501,18 +501,18 @@ by the ordering in the parameter eq_names.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.discretize" title="Link to this definition"></a></dt>
 <dd><p>Loop over all discretizations in self.equations, find all unique discretizations
 and discretize.</p>
 <p>This is more efficient than discretizing on the Operator level, since
 discretizations which occur more than once in a set of equations will be
 identified and only discretized once.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – Mixed-dimensional grid from which parameters etc.
 will be taken and where discretization matrices will be stored.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -520,7 +520,7 @@ will be taken and where discretization matrices will be stored.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.merge_variables">
-<span class="sig-name descname"><span class="pre">merge_variables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_var</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.merge_variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.merge_variables" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">merge_variables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_var</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.merge_variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.merge_variables" title="Link to this definition"></a></dt>
 <dd><p>Concatenate a variable defined over several subdomains or interfaces.</p>
 <p>The mixed-dimensional variable can be used to define mathematical operations on
 multiple subdomains simultaneously (provided it is combined with other operators
@@ -530,18 +530,18 @@ Variable and MixedDimensionalVariable), thus two MixedDimensionalVariables will 
 different ids even if they represent the same combination of subdomains and variables.
 This does not impact the parsing of the variables into numerical values.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>grid_var</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.11)"><em>Tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – Tuple containing first a (Mortar)grid representing the subdomain
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grid_var</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><em>Tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>]</em>) – Tuple containing first a (Mortar)grid representing the subdomain
 or interface and second the name of the variable.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Joint representation of the variable on the</dt><dd><p>specified subdomains.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.MixedDimensionalVariable</p>
 </dd>
 </dl>
@@ -549,13 +549,13 @@ or interface and second the name of the variable.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.name_and_assign_equations">
-<span class="sig-name descname"><span class="pre">name_and_assign_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">equation_dictionary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.name_and_assign_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.name_and_assign_equations" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">name_and_assign_equations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">equation_dictionary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.name_and_assign_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.name_and_assign_equations" title="Link to this definition"></a></dt>
 <dd><p>Convenience method for assigning and naming equations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>equation_dictionary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>) – Dictionary containing name: equation pairs.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -563,19 +563,19 @@ or interface and second the name of the variable.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.subsystem_equation_manager">
-<span class="sig-name descname"><span class="pre">subsystem_equation_manager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eq_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.subsystem_equation_manager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.subsystem_equation_manager" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">subsystem_equation_manager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">eq_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.subsystem_equation_manager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.subsystem_equation_manager" title="Link to this definition"></a></dt>
 <dd><p>Extract an EquationManager for a subset of variables and equations.
 In effect, this produce a nonlinear subsystem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>eq_names</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span> <span class="pre">of</span> <span class="pre">str</span></code>) – Equations assigned to the new EquationManager,
+<li><p><strong>eq_names</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Equations assigned to the new EquationManager,
 specified as keys in self.equations.</p></li>
-<li><p><strong>variables</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span> <span class="pre">of</span> <span class="pre">Variables</span></code>) – Variables for which the new EquationManager is
+<li><p><strong>variables</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Sequence</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Variables</span></code>) – Variables for which the new EquationManager is
 defined.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>System of nonlinear equations. The ordering of the</dt><dd><p>equations in the subsystem will be the same as in the original
 EquationManager (i.e. self),  disregarding equations not included in the
@@ -585,7 +585,7 @@ secondary_variables in the new EquationManager.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="#porepy.numerics.ad.equation_manager.EquationManager" title="porepy.numerics.ad.equation_manager.EquationManager">EquationManager</a></p>
 </dd>
 </dl>
@@ -593,22 +593,22 @@ secondary_variables in the new EquationManager.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.variable">
-<span class="sig-name descname"><span class="pre">variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.variable" title="Link to this definition"></a></dt>
 <dd><p>Get a variable for a specified grid or interface between grids, that is
 a mortar grid.</p>
 <p>Subsequent calls of this method with the same grid and variable will return
 references to the same variable.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Ad representation of a variable.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>pp.ad.Variable</p>
 </dd>
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid_like</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – </p></li>
-<li><p><strong>variable</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>grid_like</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em> | </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>variable</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -616,16 +616,16 @@ references to the same variable.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.equation_manager.EquationManager.variable_state">
-<span class="sig-name descname"><span class="pre">variable_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.variable_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.variable_state" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">variable_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_var</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/equation_manager.html#EquationManager.variable_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.equation_manager.EquationManager.variable_state" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid_var</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.11)"><em>Tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>state</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>grid_var</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><em>List</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><em>Tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>state</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.11)"><em>List</em></a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><em>List</em></a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>

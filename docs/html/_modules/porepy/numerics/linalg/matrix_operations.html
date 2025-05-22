@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.linalg.matrix_operations &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/linalg/matrix_operations.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/linalg/matrix_operations.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.linalg.matrix_operations</li>
       <li class="wy-breadcrumbs-aside">
@@ -274,19 +274,21 @@
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">module for operations on sparse matrices</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
-<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Literal</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
 
-<span class="kn">from</span> <span class="nn">porepy.utils.mcolon</span> <span class="kn">import</span> <span class="n">mcolon</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils.mcolon</span><span class="w"> </span><span class="kn">import</span> <span class="n">mcolon</span>
 
 
-<div class="viewcode-block" id="zero_columns"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.zero_columns">[docs]</a><span class="k">def</span> <span class="nf">zero_columns</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="zero_columns">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.zero_columns">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">zero_columns</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to zero out columns in matrix A. Note that this function does not</span>
 <span class="sd">    change the sparcity structure of the matrix, it only changes the column</span>
 <span class="sd">    values to 0.</span>
@@ -312,8 +314,11 @@
     <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">col_indptr</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span></div>
 
 
-<div class="viewcode-block" id="zero_rows"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.zero_rows">[docs]</a><span class="k">def</span> <span class="nf">zero_rows</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="zero_rows">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.zero_rows">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">zero_rows</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to zero out rows in matrix A. Note that this function does not</span>
 <span class="sd">    change the sparcity structure of the matrix, it only changes the row</span>
 <span class="sd">    values to 0.</span>
@@ -338,13 +343,16 @@
     <span class="n">A</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">row_indptr</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span></div>
 
 
-<div class="viewcode-block" id="merge_matrices"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.merge_matrices">[docs]</a><span class="k">def</span> <span class="nf">merge_matrices</span><span class="p">(</span>
+
+<div class="viewcode-block" id="merge_matrices">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.merge_matrices">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">merge_matrices</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="n">lines_to_replace</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">matrix_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;csr&quot;</span><span class="p">,</span> <span class="s2">&quot;csc&quot;</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Replace rows/coloms of matrix A with rows/cols of matrix B.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Replace rows/coloms of matrix A with rows/cols of matrix B.</span>
 
 <span class="sd">    If the matrix format is csc, this function is equivalent with</span>
 
@@ -427,8 +435,11 @@
     <span class="n">A</span><span class="o">.</span><span class="n">indptr</span> <span class="o">=</span> <span class="n">indptr</span> <span class="o">+</span> <span class="n">num_added</span></div>
 
 
-<div class="viewcode-block" id="stack_mat"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.stack_mat">[docs]</a><span class="k">def</span> <span class="nf">stack_mat</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="stack_mat">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.stack_mat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">stack_mat</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stack matrix B at the end of matrix A.</span>
 <span class="sd">    If A and B are csc matrices this function is equivalent to</span>
 <span class="sd">        A = scipy.sparse.hstack((A, B))</span>
@@ -468,8 +479,11 @@
         <span class="n">A</span><span class="o">.</span><span class="n">_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">A</span><span class="o">.</span><span class="n">_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span></div>
 
 
-<div class="viewcode-block" id="copy"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.copy">[docs]</a><span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="copy">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.copy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a new matrix C that is a copy of matrix A</span>
 <span class="sd">    This function is equivalent to</span>
 <span class="sd">    A.copy(), but does not change the ordering</span>
@@ -492,8 +506,11 @@
         <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="stack_diag"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.stack_diag">[docs]</a><span class="k">def</span> <span class="nf">stack_diag</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="stack_diag">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.stack_diag">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">stack_diag</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">B</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a new matrix C that contains matrix A and B at the diagonal:</span>
 <span class="sd">    C = [[A, 0], [0, B]]</span>
 <span class="sd">    This function is equivalent to</span>
@@ -531,10 +548,13 @@
     <span class="k">return</span> <span class="n">C</span></div>
 
 
-<div class="viewcode-block" id="slice_indices"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.slice_indices">[docs]</a><span class="k">def</span> <span class="nf">slice_indices</span><span class="p">(</span>
+
+<div class="viewcode-block" id="slice_indices">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.slice_indices">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">slice_indices</span><span class="p">(</span>
     <span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">slice_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">return_array_ind</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">slice</span><span class="p">]]]:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function for slicing sparse matrix along rows or columns.</span>
 <span class="sd">    If A is a csc_matrix A will be sliced along columns, while if A is a</span>
 <span class="sd">    csr_matrix A will be sliced along the rows.</span>
@@ -584,8 +604,11 @@
         <span class="k">return</span> <span class="n">indices</span></div>
 
 
-<div class="viewcode-block" id="slice_mat"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.slice_mat">[docs]</a><span class="k">def</span> <span class="nf">slice_mat</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="slice_mat">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.slice_mat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">slice_mat</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function for slicing sparse matrix along rows or columns.</span>
 <span class="sd">    If A is a csc_matrix A will be sliced along columns, while if A is a</span>
 <span class="sd">    csr_matrix A will be sliced along the rows.</span>
@@ -636,8 +659,11 @@
         <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">data</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span></div>
 
 
-<div class="viewcode-block" id="optimized_compressed_storage"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.optimized_compressed_storage">[docs]</a><span class="k">def</span> <span class="nf">optimized_compressed_storage</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Choose an optimal storage format (csr or csc) for a sparse matrix.</span>
+
+<div class="viewcode-block" id="optimized_compressed_storage">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.optimized_compressed_storage">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">optimized_compressed_storage</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Choose an optimal storage format (csr or csc) for a sparse matrix.</span>
 
 <span class="sd">    The format is chosen depending on whether A.shape[0] &gt; A.shape[1] or not.</span>
 
@@ -662,10 +688,13 @@
         <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="csr_matrix_from_blocks"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.csr_matrix_from_blocks">[docs]</a><span class="k">def</span> <span class="nf">csr_matrix_from_blocks</span><span class="p">(</span>
+
+<div class="viewcode-block" id="csr_matrix_from_blocks">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.csr_matrix_from_blocks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">csr_matrix_from_blocks</span><span class="p">(</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Create a csr representation of a block diagonal matrix of uniform block size.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a csr representation of a block diagonal matrix of uniform block size.</span>
 
 <span class="sd">    The function is equivalent to, but orders of magnitude faster than, the call</span>
 
@@ -696,10 +725,13 @@
     <span class="k">return</span> <span class="n">_csx_matrix_from_blocks</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">block_size</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="csc_matrix_from_blocks"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.csc_matrix_from_blocks">[docs]</a><span class="k">def</span> <span class="nf">csc_matrix_from_blocks</span><span class="p">(</span>
+
+<div class="viewcode-block" id="csc_matrix_from_blocks">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.csc_matrix_from_blocks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">csc_matrix_from_blocks</span><span class="p">(</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Create a csc representation of a block diagonal matrix of uniform block size.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a csc representation of a block diagonal matrix of uniform block size.</span>
 
 <span class="sd">    The function is equivalent to, but orders of magnitude faster than, the call</span>
 
@@ -730,10 +762,11 @@
     <span class="k">return</span> <span class="n">_csx_matrix_from_blocks</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">block_size</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_csx_matrix_from_blocks</span><span class="p">(</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_csx_matrix_from_blocks</span><span class="p">(</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_blocks</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">matrix_format</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Create a csr representation of a block diagonal matrix of uniform block size.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a csr representation of a block diagonal matrix of uniform block size.</span>
 
 <span class="sd">    The function is equivalent to, but orders of magnitude faster than, the call</span>
 
@@ -795,10 +828,12 @@
     <span class="k">return</span> <span class="n">mat</span>
 
 
-<div class="viewcode-block" id="invert_diagonal_blocks"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.invert_diagonal_blocks">[docs]</a><span class="k">def</span> <span class="nf">invert_diagonal_blocks</span><span class="p">(</span>
+<div class="viewcode-block" id="invert_diagonal_blocks">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.invert_diagonal_blocks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">invert_diagonal_blocks</span><span class="p">(</span>
     <span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Invert block diagonal matrix.</span>
 
 <span class="sd">    Three implementations are available, either pure numpy, or a speedup using</span>
@@ -824,8 +859,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">invert_diagonal_blocks_python</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sz</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">invert_diagonal_blocks_python</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sz</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Invert block diagonal matrix using pure python code.</span>
 
 <span class="sd">        The implementation is slow for large matrices, consider to use the</span>
@@ -855,8 +890,8 @@
             <span class="n">p2</span> <span class="o">=</span> <span class="n">p2</span> <span class="o">+</span> <span class="n">n2</span>
         <span class="k">return</span> <span class="n">v</span>
 
-    <span class="k">def</span> <span class="nf">invert_diagonal_blocks_numba</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">invert_diagonal_blocks_numba</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Invert block diagonal matrix by invoking numba acceleration of a simple</span>
 <span class="sd">        for-loop based algorithm.</span>
 
@@ -873,7 +908,7 @@
 <span class="sd">        ia: inverse of a</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">import</span> <span class="nn">numba</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Numba not available on the system&quot;</span><span class="p">)</span>
         <span class="c1"># Sort matrix storage before pulling indices and data</span>
@@ -884,8 +919,8 @@
 
         <span class="c1"># Just in time compilation</span>
         <span class="nd">@numba</span><span class="o">.</span><span class="n">njit</span><span class="p">(</span><span class="s2">&quot;f8[:](i4[:],i4[:],f8[:],i8[:])&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">def</span> <span class="nf">inv_python</span><span class="p">(</span><span class="n">indptr</span><span class="p">,</span> <span class="n">ind</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">sz</span><span class="p">):</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">inv_python</span><span class="p">(</span><span class="n">indptr</span><span class="p">,</span> <span class="n">ind</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">sz</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Invert block matrices by explicitly forming local matrices. The code</span>
 <span class="sd">            in itself is not efficient, but it is hopefully well suited for</span>
 <span class="sd">            speeding up with numba.</span>
@@ -982,8 +1017,11 @@
     <span class="k">return</span> <span class="n">ia</span></div>
 
 
-<div class="viewcode-block" id="block_diag_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.block_diag_matrix">[docs]</a><span class="k">def</span> <span class="nf">block_diag_matrix</span><span class="p">(</span><span class="n">vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sz</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="block_diag_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.block_diag_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">block_diag_matrix</span><span class="p">(</span><span class="n">vals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sz</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Construct block diagonal matrix based on matrix elements and block sizes.</span>
 
 <span class="sd">    Parameters</span>
@@ -1001,10 +1039,13 @@
     <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">vals</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">indptr</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="block_diag_index"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.block_diag_index">[docs]</a><span class="k">def</span> <span class="nf">block_diag_index</span><span class="p">(</span>
+
+<div class="viewcode-block" id="block_diag_index">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.block_diag_index">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">block_diag_index</span><span class="p">(</span>
     <span class="n">m</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get row and column indices for block diagonal matrix</span>
 
 <span class="sd">    This is intended as the equivalent of the corresponding method in MRST.</span>
@@ -1041,8 +1082,11 @@
     <span class="k">return</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span></div>
 
 
-<div class="viewcode-block" id="rlencode"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.rlencode">[docs]</a><span class="k">def</span> <span class="nf">rlencode</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Compress matrix by looking for identical columns.</span>
+
+<div class="viewcode-block" id="rlencode">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.rlencode">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rlencode</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compress matrix by looking for identical columns.</span>
 
 <span class="sd">    Example usage: Convert a full set of (row or column) indices of a</span>
 <span class="sd">    sparse matrix into compressed storage.</span>
@@ -1073,8 +1117,11 @@
     <span class="k">return</span> <span class="n">A</span><span class="p">[::,</span> <span class="n">i</span><span class="p">],</span> <span class="n">num</span></div>
 
 
-<div class="viewcode-block" id="rldecode"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.rldecode">[docs]</a><span class="k">def</span> <span class="nf">rldecode</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Decode compressed information in indices.</span>
+
+<div class="viewcode-block" id="rldecode">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.linalg.matrix_operations.html#porepy.numerics.linalg.matrix_operations.rldecode">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rldecode</span><span class="p">(</span><span class="n">A</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Decode compressed information in indices.</span>
 
 <span class="sd">    Example usage: Convert the index pointers in compressed matrix storage</span>
 <span class="sd">    (row or column) to a full set of indices.</span>
@@ -1107,6 +1154,7 @@
     <span class="n">j</span><span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">:]]</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">B</span> <span class="o">=</span> <span class="n">A</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">j</span><span class="p">)]</span>
     <span class="k">return</span> <span class="n">B</span></div>
+
 </pre></div>
 
            </div>

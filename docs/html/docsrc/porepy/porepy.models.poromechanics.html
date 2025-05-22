@@ -1,24 +1,23 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.poromechanics module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.poromechanics.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
-        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.poromechanics.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -31,14 +30,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -263,7 +263,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
       <li class="breadcrumb-item active">porepy.models.poromechanics module</li>
@@ -276,7 +276,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.models.poromechanics">
-<span id="porepy-models-poromechanics-module"></span><h1>porepy.models.poromechanics module<a class="headerlink" href="#module-porepy.models.poromechanics" title="Permalink to this heading"></a></h1>
+<span id="porepy-models-poromechanics-module"></span><h1>porepy.models.poromechanics module<a class="headerlink" href="#module-porepy.models.poromechanics" title="Link to this heading"></a></h1>
 <p>Coupling of mass and momentum balance to obtain poromechanics equations.</p>
 <p>The module only contains what is needed for the coupling, the two individual subproblems
 are defined elsewhere.</p>
@@ -294,20 +294,20 @@ isotropic pressure term <span class="math notranslate nohighlight">\(lpha p \ma
 </dl>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionsMechanicsTimeDependent</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsMechanicsTimeDependent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionsMechanicsTimeDependent</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsMechanicsTimeDependent"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.momentum_balance.html#porepy.models.momentum_balance.BoundaryConditionsMomentumBalance" title="porepy.models.momentum_balance.BoundaryConditionsMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsMomentumBalance</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics">
-<span class="sig-name descname"><span class="pre">bc_values_mechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bc_values_mechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics" title="Link to this definition"></a></dt>
 <dd><p>Boundary values for mechanics.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains on which to define boundary conditions.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of subdomains on which to define boundary conditions.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array of boundary values.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.TimeDependentArray" title="porepy.numerics.ad.operators.TimeDependentArray"><em>TimeDependentArray</em></a></p>
 </dd>
 </dl>
@@ -315,24 +315,24 @@ isotropic pressure term <span class="math notranslate nohighlight">\(lpha p \ma
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics">
-<span class="sig-name descname"><span class="pre">time_dependent_bc_values_mechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_dependent_bc_values_mechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics" title="Link to this definition"></a></dt>
 <dd><p>Boundary values for mechanics.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains on which to define boundary conditions.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of subdomains on which to define boundary conditions.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array of boundary values.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics_key">
-<span class="sig-name descname"><span class="pre">bc_values_mechanics_key</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bc_values_mechanics_key</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics_key" title="Link to this definition"></a></dt>
 <dd><p>Key for the mechanical boundary conditions in the state and iterate dictionaries.</p>
 </dd></dl>
 
@@ -340,7 +340,7 @@ isotropic pressure term <span class="math notranslate nohighlight">\(lpha p \ma
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsPoromechanics">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionsPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsPoromechanics" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionsPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#BoundaryConditionsPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsPoromechanics" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow" title="porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsSinglePhaseFlow</span></code></a>, <a class="reference internal" href="#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent" title="porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsMechanicsTimeDependent</span></code></a></p>
 <p>Combines mass and momentum balance boundary conditions.</p>
 <div class="admonition note">
@@ -356,312 +356,79 @@ redefine the method
 <span class="pre">initial_condition()</span></code> and <code class="xref py py-meth docutils literal notranslate"><span class="pre">before_nonlinear_loop()</span></code> to update the boundary
 conditions in <cite>data[pp.STATE]</cite> and <cite>data[pp.STATE][pp.ITERATE]</cite>.</p>
 </div>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsPoromechanics.domain_boundary_sides">
-<span class="sig-name descname"><span class="pre">domain_boundary_sides</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.11)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsPoromechanics.domain_boundary_sides" title="Permalink to this definition"></a></dt>
-<dd><p>Boundary sides of the domain. Normally defined in a mixin instance of
-<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.BoundaryConditionsPoromechanics.fluid">
-<span class="sig-name descname"><span class="pre">fluid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants" title="porepy.models.material_constants.FluidConstants"><span class="pre">FluidConstants</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.BoundaryConditionsPoromechanics.fluid" title="Permalink to this definition"></a></dt>
-<dd><p>Fluid constant object that takes care of scaling of fluid-related quantities.
-Normally, this is set by a mixin of instance
-<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a>.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ConstitutiveLawsPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#ConstitutiveLawsPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ConstitutiveLawsPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#ConstitutiveLawsPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.DisplacementJumpAperture" title="porepy.models.constitutive_laws.DisplacementJumpAperture"><code class="xref py py-class docutils literal notranslate"><span class="pre">DisplacementJumpAperture</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.BiotCoefficient" title="porepy.models.constitutive_laws.BiotCoefficient"><code class="xref py py-class docutils literal notranslate"><span class="pre">BiotCoefficient</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.PressureStress" title="porepy.models.constitutive_laws.PressureStress"><code class="xref py py-class docutils literal notranslate"><span class="pre">PressureStress</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.PoroMechanicsPorosity" title="porepy.models.constitutive_laws.PoroMechanicsPorosity"><code class="xref py py-class docutils literal notranslate"><span class="pre">PoroMechanicsPorosity</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.DarcysLaw" title="porepy.models.constitutive_laws.DarcysLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">DarcysLaw</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.DimensionReduction" title="porepy.models.constitutive_laws.DimensionReduction"><code class="xref py py-class docutils literal notranslate"><span class="pre">DimensionReduction</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.AdvectiveFlux" title="porepy.models.constitutive_laws.AdvectiveFlux"><code class="xref py py-class docutils literal notranslate"><span class="pre">AdvectiveFlux</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FluidMobility" title="porepy.models.constitutive_laws.FluidMobility"><code class="xref py py-class docutils literal notranslate"><span class="pre">FluidMobility</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.ConstantPermeability" title="porepy.models.constitutive_laws.ConstantPermeability"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstantPermeability</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FluidDensityFromPressure" title="porepy.models.constitutive_laws.FluidDensityFromPressure"><code class="xref py py-class docutils literal notranslate"><span class="pre">FluidDensityFromPressure</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.ConstantViscosity" title="porepy.models.constitutive_laws.ConstantViscosity"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstantViscosity</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.LinearElasticSolid" title="porepy.models.constitutive_laws.LinearElasticSolid"><code class="xref py py-class docutils literal notranslate"><span class="pre">LinearElasticSolid</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FracturedSolid" title="porepy.models.constitutive_laws.FracturedSolid"><code class="xref py py-class docutils literal notranslate"><span class="pre">FracturedSolid</span></code></a>, <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FrictionBound" title="porepy.models.constitutive_laws.FrictionBound"><code class="xref py py-class docutils literal notranslate"><span class="pre">FrictionBound</span></code></a></p>
 <p>Class for the coupling of mass and momentum balance to obtain poromechanics
 equations.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.stress">
-<span class="sig-name descname"><span class="pre">stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#ConstitutiveLawsPoromechanics.stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.stress" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#ConstitutiveLawsPoromechanics.stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.stress" title="Link to this definition"></a></dt>
 <dd><p>Stress operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – List of subdomains where the stress is defined.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – List of subdomains where the stress is defined.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Operator for the stress.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.displacement_jump">
-<span class="sig-name descname"><span class="pre">displacement_jump</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.displacement_jump" title="Permalink to this definition"></a></dt>
-<dd><p>Operator giving the displacement jump on fracture grids. Normally defined in a
-mixin instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.equation_system">
-<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.ad.EquationSystem</span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.equation_system" title="Permalink to this definition"></a></dt>
-<dd><p>EquationSystem object for the current model. Normally defined in a mixin class
-defining the solution strategy.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.interfaces_to_subdomains">
-<span class="sig-name descname"><span class="pre">interfaces_to_subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.interfaces_to_subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.MixedDimensionalGrid</span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.mdg" title="Permalink to this definition"></a></dt>
-<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.nd">
-<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.nd" title="Permalink to this definition"></a></dt>
-<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.normal_component">
-<span class="sig-name descname"><span class="pre">normal_component</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Matrix</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.normal_component" title="Permalink to this definition"></a></dt>
-<dd><p>Operator giving the normal component of vectors. Normally defined in a mixin
-instance of <code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.solid">
-<span class="sig-name descname"><span class="pre">solid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.SolidConstants</span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.solid" title="Permalink to this definition"></a></dt>
-<dd><p>Solid constant object that takes care of scaling of solid-related quantities.
-Normally, this is set by a mixin of instance
-<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.ConstitutiveLawsPoromechanics.subdomains_to_interfaces">
-<span class="sig-name descname"><span class="pre">subdomains_to_interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.subdomains_to_interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EquationsPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#EquationsPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EquationsPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#EquationsPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.MassBalanceEquations" title="porepy.models.fluid_mass_balance.MassBalanceEquations"><code class="xref py py-class docutils literal notranslate"><span class="pre">MassBalanceEquations</span></code></a>, <a class="reference internal" href="porepy.models.momentum_balance.html#porepy.models.momentum_balance.MomentumBalanceEquations" title="porepy.models.momentum_balance.MomentumBalanceEquations"><code class="xref py py-class docutils literal notranslate"><span class="pre">MomentumBalanceEquations</span></code></a></p>
 <p>Combines mass and momentum balance equations.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.set_equations">
-<span class="sig-name descname"><span class="pre">set_equations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#EquationsPoromechanics.set_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.set_equations" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_equations</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#EquationsPoromechanics.set_equations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.set_equations" title="Link to this definition"></a></dt>
 <dd><p>Set the equations for the poromechanics problem.</p>
 <p>Call both parent classes’ set_equations methods.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.advective_flux">
-<span class="sig-name descname"><span class="pre">advective_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.UpwindAd</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.advective_flux" title="Permalink to this definition"></a></dt>
-<dd><p>Ad operator representing the advective flux. Normally provided by a mixin
-instance of <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.AdvectiveFlux" title="porepy.models.constitutive_laws.AdvectiveFlux"><code class="xref py py-class docutils literal notranslate"><span class="pre">AdvectiveFlux</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.basis">
-<span class="sig-name descname"><span class="pre">basis</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">pp.GridLike</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.ad.Matrix</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.basis" title="Permalink to this definition"></a></dt>
-<dd><p>Basis for the local coordinate system. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.bc_values_mobrho">
-<span class="sig-name descname"><span class="pre">bc_values_mobrho</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Array</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.bc_values_mobrho" title="Permalink to this definition"></a></dt>
-<dd><p>Mobility times density boundary conditions. Normally defined in a mixin instance
-of <a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow" title="porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsSinglePhaseFlow</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.equation_system">
-<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.ad.EquationSystem</span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.equation_system" title="Permalink to this definition"></a></dt>
-<dd><p>EquationSystem object for the current model. Normally defined in a mixin class
-defining the solution strategy.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.fluid_density">
-<span class="sig-name descname"><span class="pre">fluid_density</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.fluid_density" title="Permalink to this definition"></a></dt>
-<dd><p>Fluid density. Defined in a mixin class with a suitable constitutive relation.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.interface_advective_flux">
-<span class="sig-name descname"><span class="pre">interface_advective_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.UpwindCouplingAd</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.interface_advective_flux" title="Permalink to this definition"></a></dt>
-<dd><p>Ad operator representing the advective flux on internal boundaries. Normally
-provided by a mixin instance of
-<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.AdvectiveFlux" title="porepy.models.constitutive_laws.AdvectiveFlux"><code class="xref py py-class docutils literal notranslate"><span class="pre">AdvectiveFlux</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.interface_darcy_flux">
-<span class="sig-name descname"><span class="pre">interface_darcy_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.MixedDimensionalVariable</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.interface_darcy_flux" title="Permalink to this definition"></a></dt>
-<dd><p>Darcy flux variable on interfaces. Normally defined in a mixin instance of
-<a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow" title="porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesSinglePhaseFlow</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.interface_darcy_flux_equation">
-<span class="sig-name descname"><span class="pre">interface_darcy_flux_equation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.interface_darcy_flux_equation" title="Permalink to this definition"></a></dt>
-<dd><p>Interface Darcy flux equation. Normally provided by a mixin instance of
-<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.DarcysLaw" title="porepy.models.constitutive_laws.DarcysLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">DarcysLaw</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.interface_mobility_discretization">
-<span class="sig-name descname"><span class="pre">interface_mobility_discretization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.UpwindCouplingAd</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.interface_mobility_discretization" title="Permalink to this definition"></a></dt>
-<dd><p>Discretization of the fluid mobility on internal boundaries. Normally provided
-by a mixin instance of <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FluidMobility" title="porepy.models.constitutive_laws.FluidMobility"><code class="xref py py-class docutils literal notranslate"><span class="pre">FluidMobility</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.interfaces_to_subdomains">
-<span class="sig-name descname"><span class="pre">interfaces_to_subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.interfaces_to_subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.MixedDimensionalGrid</span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.mdg" title="Permalink to this definition"></a></dt>
-<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.mobility">
-<span class="sig-name descname"><span class="pre">mobility</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.mobility" title="Permalink to this definition"></a></dt>
-<dd><p>Fluid mobility. Normally provided by a mixin instance of
-<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FluidMobility" title="porepy.models.constitutive_laws.FluidMobility"><code class="xref py py-class docutils literal notranslate"><span class="pre">FluidMobility</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.mobility_discretization">
-<span class="sig-name descname"><span class="pre">mobility_discretization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.UpwindAd</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.mobility_discretization" title="Permalink to this definition"></a></dt>
-<dd><p>Discretization of the fluid mobility. Normally provided by a mixin instance of
-<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.FluidMobility" title="porepy.models.constitutive_laws.FluidMobility"><code class="xref py py-class docutils literal notranslate"><span class="pre">FluidMobility</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.nd">
-<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.nd" title="Permalink to this definition"></a></dt>
-<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.porosity">
-<span class="sig-name descname"><span class="pre">porosity</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.porosity" title="Permalink to this definition"></a></dt>
-<dd><p>Porosity of the rock. Normally provided by a mixin instance of
-<a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.ConstantPorosity" title="porepy.models.constitutive_laws.ConstantPorosity"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstantPorosity</span></code></a> or a subclass thereof.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.specific_volume">
-<span class="sig-name descname"><span class="pre">specific_volume</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Operator</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.specific_volume" title="Permalink to this definition"></a></dt>
-<dd><p>Function that returns the specific volume of a subdomain. Normally provided by a
-mixin of instance <a class="reference internal" href="porepy.models.constitutive_laws.html#porepy.models.constitutive_laws.DimensionReduction" title="porepy.models.constitutive_laws.DimensionReduction"><code class="xref py py-class docutils literal notranslate"><span class="pre">DimensionReduction</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.subdomains_to_interfaces">
-<span class="sig-name descname"><span class="pre">subdomains_to_interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.subdomains_to_interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.time_manager">
-<span class="sig-name descname"><span class="pre">time_manager</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.TimeManager</span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.time_manager" title="Permalink to this definition"></a></dt>
-<dd><p>Time manager. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.solution_strategy.SolutionStrategy</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.EquationsPoromechanics.wrap_grid_attribute">
-<span class="sig-name descname"><span class="pre">wrap_grid_attribute</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">pp.GridLike</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><span class="pre">bool</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">pp.ad.Matrix</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.EquationsPoromechanics.wrap_grid_attribute" title="Permalink to this definition"></a></dt>
-<dd><p>Wrap grid attributes as Ad operators. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.Poromechanics">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Poromechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#Poromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.Poromechanics" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Poromechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#Poromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.Poromechanics" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.models.poromechanics.EquationsPoromechanics" title="porepy.models.poromechanics.EquationsPoromechanics"><code class="xref py py-class docutils literal notranslate"><span class="pre">EquationsPoromechanics</span></code></a>, <a class="reference internal" href="#porepy.models.poromechanics.VariablesPoromechanics" title="porepy.models.poromechanics.VariablesPoromechanics"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesPoromechanics</span></code></a>, <a class="reference internal" href="#porepy.models.poromechanics.ConstitutiveLawsPoromechanics" title="porepy.models.poromechanics.ConstitutiveLawsPoromechanics"><code class="xref py py-class docutils literal notranslate"><span class="pre">ConstitutiveLawsPoromechanics</span></code></a>, <a class="reference internal" href="#porepy.models.poromechanics.BoundaryConditionsPoromechanics" title="porepy.models.poromechanics.BoundaryConditionsPoromechanics"><code class="xref py py-class docutils literal notranslate"><span class="pre">BoundaryConditionsPoromechanics</span></code></a>, <a class="reference internal" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics" title="porepy.models.poromechanics.SolutionStrategyPoromechanics"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyPoromechanics</span></code></a>, <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>, <a class="reference internal" href="porepy.viz.data_saving_model_mixin.html#porepy.viz.data_saving_model_mixin.DataSavingMixin" title="porepy.viz.data_saving_model_mixin.DataSavingMixin"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataSavingMixin</span></code></a></p>
 <p>Class for the coupling of mass and momentum balance in a mixed-dimensional porous
 medium.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>]</em>)</p>
 </dd>
 </dl>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.Poromechanics.equation_system">
-<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.ad.EquationSystem</span></em><a class="headerlink" href="#porepy.models.poromechanics.Poromechanics.equation_system" title="Permalink to this definition"></a></dt>
-<dd><p>EquationSystem object for the current model. Normally defined in a mixin class
-defining the solution strategy.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.Poromechanics.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.MixedDimensionalGrid</span></em><a class="headerlink" href="#porepy.models.poromechanics.Poromechanics.mdg" title="Permalink to this definition"></a></dt>
-<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.Poromechanics.nd">
-<span class="sig-name descname"><span class="pre">nd</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.Poromechanics.nd" title="Permalink to this definition"></a></dt>
-<dd><p>Ambient dimension of the problem. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.geometry.ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.Poromechanics.time_manager">
-<span class="sig-name descname"><span class="pre">time_manager</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.TimeManager</span></em><a class="headerlink" href="#porepy.models.poromechanics.Poromechanics.time_manager" title="Permalink to this definition"></a></dt>
-<dd><p>Time manager. Normally set by a mixin instance of
-<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">porepy.models.solution_strategy.SolutionStrategy</span></code></a>.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyPoromechanics">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolutionStrategyPoromechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolutionStrategyPoromechanics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs" title="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyTimeDependentBCs</span></code></a>, <a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow" title="porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategySinglePhaseFlow</span></code></a>, <a class="reference internal" href="porepy.models.momentum_balance.html#porepy.models.momentum_balance.SolutionStrategyMomentumBalance" title="porepy.models.momentum_balance.SolutionStrategyMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategyMomentumBalance</span></code></a></p>
 <p>Combines mass and momentum balance solution strategies.</p>
 <p>This class has a diamond structure inheritance. The user should be aware of this
 and take method resolution order into account when defining new methods.</p>
 <p>TODO: More targeted (re-)discretization.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>]</em>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyPoromechanics.set_discretization_parameters">
-<span class="sig-name descname"><span class="pre">set_discretization_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyPoromechanics.set_discretization_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics.set_discretization_parameters" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_discretization_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyPoromechanics.set_discretization_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics.set_discretization_parameters" title="Link to this definition"></a></dt>
 <dd><p>Set parameters for the subproblems and the combined problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -669,13 +436,13 @@ and take method resolution order into account when defining new methods.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyPoromechanics.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.MixedDimensionalGrid</span></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics.mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">pp.MixedDimensionalGrid</span></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics.mdg" title="Link to this definition"></a></dt>
 <dd><p>Mixed dimensional grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyPoromechanics.time_dependent_bc_values_mechanics">
-<span class="sig-name descname"><span class="pre">time_dependent_bc_values_mechanics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">np.ndarray</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics.time_dependent_bc_values_mechanics" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_dependent_bc_values_mechanics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">np.ndarray</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyPoromechanics.time_dependent_bc_values_mechanics" title="Link to this definition"></a></dt>
 <dd><p>Method for time dependent boundary values for mechanics.</p>
 </dd></dl>
 
@@ -683,18 +450,18 @@ and take method resolution order into account when defining new methods.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolutionStrategyTimeDependentBCs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SolutionStrategyTimeDependentBCs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>]</em>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.before_nonlinear_loop">
-<span class="sig-name descname"><span class="pre">before_nonlinear_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs.before_nonlinear_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.before_nonlinear_loop" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">before_nonlinear_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs.before_nonlinear_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.before_nonlinear_loop" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -702,12 +469,12 @@ and take method resolution order into account when defining new methods.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.initial_condition">
-<span class="sig-name descname"><span class="pre">initial_condition</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs.initial_condition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.initial_condition" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">initial_condition</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs.initial_condition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.initial_condition" title="Link to this definition"></a></dt>
 <dd><p>Set initial condition for the coupled problem.</p>
 <p>The initial condition for the coupled problem is the initial condition for the
 subproblems.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -715,15 +482,15 @@ subproblems.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays">
-<span class="sig-name descname"><span class="pre">update_time_dependent_ad_arrays</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initial</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_time_dependent_ad_arrays</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initial</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays" title="Link to this definition"></a></dt>
 <dd><p>Update the time dependent arrays for the mechanics boundary conditions.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>initial</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If True, the array generating method is called for both state and
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>initial</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If True, the array generating method is called for both state and
 iterate. If False, the array generating method is called only for the
 iterate, and the state is updated by copying the iterate.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -731,14 +498,14 @@ iterate, and the state is updated by copying the iterate.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.bc_values_mechanics_key">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bc_values_mechanics_key</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.bc_values_mechanics_key" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">bc_values_mechanics_key</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.bc_values_mechanics_key" title="Link to this definition"></a></dt>
 <dd><p>Key for the mechanical boundary conditions in the state and iterate
 dictionaries.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.time_dependent_bc_values_mechanics">
-<span class="sig-name descname"><span class="pre">time_dependent_bc_values_mechanics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">np.ndarray</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.time_dependent_bc_values_mechanics" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_dependent_bc_values_mechanics</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">np.ndarray</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.time_dependent_bc_values_mechanics" title="Link to this definition"></a></dt>
 <dd><p>Method for time dependent boundary conditions for mechanics.</p>
 </dd></dl>
 
@@ -746,52 +513,14 @@ dictionaries.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VariablesPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#VariablesPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VariablesPoromechanics</span></span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#VariablesPoromechanics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow" title="porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesSinglePhaseFlow</span></code></a>, <a class="reference internal" href="porepy.models.momentum_balance.html#porepy.models.momentum_balance.VariablesMomentumBalance" title="porepy.models.momentum_balance.VariablesMomentumBalance"><code class="xref py py-class docutils literal notranslate"><span class="pre">VariablesMomentumBalance</span></code></a></p>
 <p>Combines mass and momentum balance variables.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics.create_variables">
-<span class="sig-name descname"><span class="pre">create_variables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#VariablesPoromechanics.create_variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.create_variables" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">create_variables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/poromechanics.html#VariablesPoromechanics.create_variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.create_variables" title="Link to this definition"></a></dt>
 <dd><p>Set the variables for the poromechanics problem.</p>
 <p>Call both parent classes’ set_variables methods.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics.equation_system">
-<span class="sig-name descname"><span class="pre">equation_system</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.equation_system.html#porepy.numerics.ad.equation_system.EquationSystem" title="porepy.numerics.ad.equation_system.EquationSystem"><span class="pre">EquationSystem</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.equation_system" title="Permalink to this definition"></a></dt>
-<dd><p>EquationSystem object for the current model. Normally defined in a mixin class
-defining the solution strategy.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics.fluid">
-<span class="sig-name descname"><span class="pre">fluid</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants" title="porepy.models.material_constants.FluidConstants"><span class="pre">FluidConstants</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.fluid" title="Permalink to this definition"></a></dt>
-<dd><p>Fluid constant object that takes care of scaling of fluid-related quantities.
-Normally, this is set by a mixin of instance
-<a class="reference internal" href="porepy.models.solution_strategy.html#porepy.models.solution_strategy.SolutionStrategy" title="porepy.models.solution_strategy.SolutionStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategy</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics.interface_darcy_flux_variable">
-<span class="sig-name descname"><span class="pre">interface_darcy_flux_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.interface_darcy_flux_variable" title="Permalink to this definition"></a></dt>
-<dd><p>Name of the primary variable representing the Darcy flux across an interface.
-Normally defined in a mixin of instance
-<a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow" title="porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategySinglePhaseFlow</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><span class="pre">MixedDimensionalGrid</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.mdg" title="Permalink to this definition"></a></dt>
-<dd><p>Mixed dimensional grid for the current model. Normally defined in a mixin
-instance of <a class="reference internal" href="porepy.models.geometry.html#porepy.models.geometry.ModelGeometry" title="porepy.models.geometry.ModelGeometry"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModelGeometry</span></code></a>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.models.poromechanics.VariablesPoromechanics.pressure_variable">
-<span class="sig-name descname"><span class="pre">pressure_variable</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.models.poromechanics.VariablesPoromechanics.pressure_variable" title="Permalink to this definition"></a></dt>
-<dd><p>Name of the primary variable representing the pressure. Normally defined in a
-mixin of instance
-<a class="reference internal" href="porepy.models.fluid_mass_balance.html#porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow" title="porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow"><code class="xref py py-class docutils literal notranslate"><span class="pre">SolutionStrategySinglePhaseFlow</span></code></a>.</p>
 </dd></dl>
 
 </dd></dl>

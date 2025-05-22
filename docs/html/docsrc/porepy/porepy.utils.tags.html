@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.tags module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.tags.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.tags.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
       <li class="breadcrumb-item active">porepy.utils.tags module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.tags">
-<span id="porepy-utils-tags-module"></span><h1>porepy.utils.tags module<a class="headerlink" href="#module-porepy.utils.tags" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-tags-module"></span><h1>porepy.utils.tags module<a class="headerlink" href="#module-porepy.utils.tags" title="Link to this heading"></a></h1>
 <dl>
 <dt>Methods for tag handling. The following primary applications are intended:</dt><dd><p>–Grid tags, stored in the grids and data fields of the grid bucket.
 Geometry tags are stored in the grids, typical fields
@@ -303,7 +303,7 @@ list entry for each fracture:</p>
 </dl>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.add_node_tags_from_face_tags">
-<span class="sig-name descname"><span class="pre">add_node_tags_from_face_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag_base</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#add_node_tags_from_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.add_node_tags_from_face_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_node_tags_from_face_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag_base</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#add_node_tags_from_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.add_node_tags_from_face_tags" title="Link to this definition"></a></dt>
 <dd><p>Set domain boundary tags for all nodes at least one domain boundary
 face. The tag base should exist for all faces of all subdomains, and may e.g.
 be domain_boundary.</p>
@@ -311,7 +311,7 @@ be domain_boundary.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.add_tags">
-<span class="sig-name descname"><span class="pre">add_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_tags</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#add_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.add_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_tags</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#add_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.add_tags" title="Link to this definition"></a></dt>
 <dd><p>Add new tags (as a pre-made dictionary) to the tags of the parent object
 (usually a grid). Values corresponding to keys existing in both
 dictionaries (parent.tags and new_tags) will be decided by those in
@@ -320,28 +320,28 @@ new_tags.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.all_face_tags">
-<span class="sig-name descname"><span class="pre">all_face_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#all_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.all_face_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">all_face_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#all_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.all_face_tags" title="Link to this definition"></a></dt>
 <dd><p>Return a logical array indicate which of the parent (grid.tags) faces are
 tagged with any of the standard face tags.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.all_node_tags">
-<span class="sig-name descname"><span class="pre">all_node_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#all_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.all_node_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">all_node_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#all_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.all_node_tags" title="Link to this definition"></a></dt>
 <dd><p>Return a logical array indicate which of the parent (grid.nodes) nodes are
 tagged with any of the standard node tags.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.all_tags">
-<span class="sig-name descname"><span class="pre">all_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ft</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#all_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.all_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">all_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ft</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#all_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.all_tags" title="Link to this definition"></a></dt>
 <dd><p>Return a logical array indicate which of the parent objects are
 tagged with any of the standard object tags.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.append_tags">
-<span class="sig-name descname"><span class="pre">append_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tags</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">appendices</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#append_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.append_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">append_tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tags</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">appendices</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#append_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.append_tags" title="Link to this definition"></a></dt>
 <dd><p>Append tags of certain keys.
 tags:       dictionary with existing entries corresponding to
 keys:       list of keys
@@ -350,7 +350,7 @@ appendices: list of values to be appended, typically numpy arrays</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.extract">
-<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">all_tags</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.extract" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">all_tags</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#extract"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.extract" title="Link to this definition"></a></dt>
 <dd><p>Extracts only the values of indices (e.g. a face subset) for the given
 keys. Any unspecified keys are left untouched (e.g. all node tags). If
 keys=None, the extraction is performed on all fields.</p>
@@ -358,13 +358,13 @@ keys=None, the extraction is performed on all fields.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.standard_face_tags">
-<span class="sig-name descname"><span class="pre">standard_face_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#standard_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.standard_face_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">standard_face_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#standard_face_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.standard_face_tags" title="Link to this definition"></a></dt>
 <dd><p>Returns the three standard face tag keys.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.tags.standard_node_tags">
-<span class="sig-name descname"><span class="pre">standard_node_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#standard_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.standard_node_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">standard_node_tags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tags.html#standard_node_tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tags.standard_node_tags" title="Link to this definition"></a></dt>
 <dd><p>Returns the standard node tag key.</p>
 </dd></dl>
 

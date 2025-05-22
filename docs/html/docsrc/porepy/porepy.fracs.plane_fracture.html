@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.plane_fracture module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.plane_fracture.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.plane_fracture.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.plane_fracture module</li>
@@ -275,64 +275,64 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.plane_fracture">
-<span id="porepy-fracs-plane-fracture-module"></span><h1>porepy.fracs.plane_fracture module<a class="headerlink" href="#module-porepy.fracs.plane_fracture" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-plane-fracture-module"></span><h1>porepy.fracs.plane_fracture module<a class="headerlink" href="#module-porepy.fracs.plane_fracture" title="Link to this heading"></a></h1>
 <p>Contains classes representing fractures in 2D, i.e. manifolds of dimension 2 embedded in 3D.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PlaneFracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_convexity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PlaneFracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_convexity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture" title="porepy.fracs.fracture.Fracture"><code class="xref py py-class docutils literal notranslate"><span class="pre">Fracture</span></code></a></p>
 <p>A class representing planar fracture in 3D in form of a (bounded) plane.</p>
 <p>Non-convex fractures can be initialized, but geometry processing (computation
 of intersections etc.) is not supported for non-convex geometries.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>points</strong> (<em>ArrayLike</em>) – </p></li>
-<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
-<li><p><strong>check_convexity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
-<li><p><strong>sort_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>points</strong> (<em>ArrayLike</em>)</p></li>
+<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>check_convexity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
+<li><p><strong>sort_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.add_points">
-<span class="sig-name descname"><span class="pre">add_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_convexity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enforce_pt_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.add_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.add_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_convexity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enforce_pt_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.add_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.add_points" title="Link to this definition"></a></dt>
 <dd><p>Add points to the polygon with the implemented sorting enforced.</p>
 <p>Always run a test to check that the points are still planar.
 By default, a check of convexity is also performed, however, this can be
 turned off to speed up simulations (the test uses sympy, which turns
 out to be slow in many cases).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">nd</span> <span class="pre">x</span> <span class="pre">n</span></code>) – Points to be added.</p></li>
-<li><p><strong>check_convexity</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – Verify that the polygon is convex.
+<li><p><strong>p</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">nd</span> <span class="pre">x</span> <span class="pre">n</span></code>) – Points to be added.</p></li>
+<li><p><strong>check_convexity</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>optional</em>) – Verify that the polygon is convex.
 Defaults to true.</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span> <span class="pre">,</span> <span class="pre">optional</span></code>) – Tolerance used to check if the point already exists.
+<li><p><strong>tol</strong> (float , <em>optional</em>) – Tolerance used to check if the point already exists.
 Defaults to 1e-4.</p></li>
-<li><p><strong>enforce_pt_tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float,</span> <span class="pre">optional</span></code>) – Defaults to None. If not None, enforces a
+<li><p><strong>enforce_pt_tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Defaults to None. If not None, enforces a
 maximal distance between points by removing points failing that criterion.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>True, if the resulting polygon is planar, False otherwise. If the</dt><dd><p>argument <cite>check_convexity</cite> is True, checks for planarity <em>AND</em> convexity</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.as_sympy_polygon">
-<span class="sig-name descname"><span class="pre">as_sympy_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.as_sympy_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.as_sympy_polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">as_sympy_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.as_sympy_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.as_sympy_polygon" title="Link to this definition"></a></dt>
 <dd><p>Represent polygon as a <code class="docutils literal notranslate"><span class="pre">sympy</span></code> object.</p>
 <section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
 <blockquote>
 <div><dl class="simple">
 <dt>pts<span class="classifier">numpy.array(nd x npt) , optional</span></dt><dd><p>Points for the polygon. Defaults to None, in which case self.pts is used.</p>
@@ -341,51 +341,51 @@ maximal distance between points by removing points failing that criterion.</p></
 </div></blockquote>
 </section>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>sympy.geometry.Polygon</dt><dd><p>Representation of the polygon formed by p.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>pts</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><em>None</em>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><em>Polygon</em></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.sympy.org/latest/modules/geometry/polygons.html#sympy.geometry.polygon.Polygon" title="(in SymPy v1.14.0)"><em>Polygon</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.compute_centroid">
-<span class="sig-name descname"><span class="pre">compute_centroid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.compute_centroid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.compute_centroid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_centroid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.compute_centroid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.compute_centroid" title="Link to this definition"></a></dt>
 <dd><p>See parent class docs.
 The method assumes the polygon is convex.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.compute_normal">
-<span class="sig-name descname"><span class="pre">compute_normal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.compute_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.compute_normal" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_normal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.compute_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.compute_normal" title="Link to this definition"></a></dt>
 <dd><p>See parent class docs.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.is_convex">
-<span class="sig-name descname"><span class="pre">is_convex</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.is_convex"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.is_convex" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_convex</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.is_convex"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.is_convex" title="Link to this definition"></a></dt>
 <dd><p>See parent class docs</p>
 <section id="todo">
-<h2>TODO<a class="headerlink" href="#todo" title="Permalink to this heading"></a></h2>
+<h2>TODO<a class="headerlink" href="#todo" title="Link to this heading"></a></h2>
 <blockquote>
 <div><p>If a hanging node is inserted at a segment, this may slightly
 violate convexity due to rounding errors. It should be possible to
@@ -395,18 +395,18 @@ is less than a tolerance, it is okay.</p>
 </div></blockquote>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.is_planar">
-<span class="sig-name descname"><span class="pre">is_planar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.is_planar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.is_planar" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_planar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.is_planar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.is_planar" title="Link to this definition"></a></dt>
 <dd><p>Check if the points representing this fracture lie within a 2D-plane.</p>
 <section id="id1">
-<h2>Parameters<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <blockquote>
 <div><dl class="simple">
 <dt>tol<span class="classifier">float</span></dt><dd><p>Tolerance for non-planarity. Treated as an absolute quantity
@@ -416,51 +416,51 @@ is less than a tolerance, it is okay.</p>
 </div></blockquote>
 </section>
 <section id="id2">
-<h2>Returns<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>bool</dt><dd><p>True if the polygon is planar, False otherwise.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.local_coordinates">
-<span class="sig-name descname"><span class="pre">local_coordinates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.local_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.local_coordinates" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">local_coordinates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.local_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.local_coordinates" title="Link to this definition"></a></dt>
 <dd><p>Represent the vertex coordinates in the natural 2D plane.</p>
 <p>The plane has constant, but not necessarily zero, third coordinate.
 I.e., no translation to the origin is made.</p>
 <section id="id3">
-<h2>Returns<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>numpy.ndarray(2 x n)</dt><dd><p>The 2d coordinates of the vertices.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.remove_points">
-<span class="sig-name descname"><span class="pre">remove_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_orig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.remove_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.remove_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">remove_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_orig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.remove_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.remove_points" title="Link to this definition"></a></dt>
 <dd><p>Remove points from the fracture definition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ind</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span> <span class="pre">or</span> <span class="pre">list</span></code>) – Numpy array or list of indices of points to be removed.</p></li>
-<li><p><strong>keep_orig</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – Defaults to False. If True, keeps the original
+<li><p><strong>ind</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code> or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – Numpy array or list of indices of points to be removed.</p></li>
+<li><p><strong>keep_orig</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>optional</em>) – Defaults to False. If True, keeps the original
 points in the attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">orig_pts</span></code>.</p></li>
 </ul>
 </dd>
@@ -469,10 +469,10 @@ points in the attribute <code class="xref py py-attr docutils literal notranslat
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.sort_points">
-<span class="sig-name descname"><span class="pre">sort_points</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.sort_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.sort_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sort_points</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#PlaneFracture.sort_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.sort_points" title="Link to this definition"></a></dt>
 <dd><p>Ensure that the points are sorted in a counter-clockwise (CCW) order.</p>
 <section id="notes">
-<h2>Notes<a class="headerlink" href="#notes" title="Permalink to this heading"></a></h2>
+<h2>Notes<a class="headerlink" href="#notes" title="Link to this heading"></a></h2>
 <blockquote>
 <div><p>For now, the ordering of nodes in based on a simple angle argument.
 This will not be robust for general point clouds, but we expect the
@@ -481,59 +481,24 @@ will be safe if the cell is convex.</p>
 </div></blockquote>
 </section>
 <section id="id4">
-<h2>Returns<a class="headerlink" href="#id4" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#id4" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>numpy.ndarray(dtype=int)</dt><dd><p>The indices corresponding to the sorting.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.center">
-<span class="sig-name descname"><span class="pre">center</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.center" title="Permalink to this definition"></a></dt>
-<dd><p>Centroid of the fracture <cite>(shape=(nd, ))</cite>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.index">
-<span class="sig-name descname"><span class="pre">index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><span class="pre">Optional</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.index" title="Permalink to this definition"></a></dt>
-<dd><p>Index of fracture.</p>
-<p>Intended use in <a class="reference internal" href="porepy.fracs.fracture_network_2d.html#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d"><code class="xref py py-class docutils literal notranslate"><span class="pre">FractureNetwork2d</span></code></a>
-and <a class="reference internal" href="porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="porepy.fracs.fracture_network_3d.FractureNetwork3d"><code class="xref py py-class docutils literal notranslate"><span class="pre">FractureNetwork3d</span></code></a>. Exact use is
-not clear (several fractures can be given same index), use with care.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.normal">
-<span class="sig-name descname"><span class="pre">normal</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.normal" title="Permalink to this definition"></a></dt>
-<dd><p>Normal vector <cite>(shape=(nd, ))</cite>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.orig_pts">
-<span class="sig-name descname"><span class="pre">orig_pts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.orig_pts" title="Permalink to this definition"></a></dt>
-<dd><p>Original fracture vertices <cite>(shape=(nd, num_points))</cite>.</p>
-<p>The original points are kept in case the fracture geometry is modified.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.plane_fracture.PlaneFracture.pts">
-<span class="sig-name descname"><span class="pre">pts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.fracs.plane_fracture.PlaneFracture.pts" title="Permalink to this definition"></a></dt>
-<dd><p>Fracture vertices (shape=(nd, num_points)), stored in the implemented order.</p>
-<p>Note that the <code class="docutils literal notranslate"><span class="pre">points</span></code> passed to init will mutate.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.plane_fracture.create_elliptic_fracture">
-<span class="sig-name descname"><span class="pre">create_elliptic_fracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">major_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minor_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">major_axis_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strike_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dip_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#create_elliptic_fracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.create_elliptic_fracture" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">create_elliptic_fracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">major_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minor_axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">major_axis_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strike_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dip_angle</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/plane_fracture.html#create_elliptic_fracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.plane_fracture.create_elliptic_fracture" title="Link to this definition"></a></dt>
 <dd><p>Initialize an elliptic shaped fracture, approximated by a polygon.</p>
 <p>The rotation of the plane is calculated using three angles. First, the
 rotation of the major axis from the x-axis. Next, the fracture is
@@ -541,14 +506,14 @@ inclined by specifying the strike angle (which gives the rotation
 axis) measured from the x-axis, and the dip angle. All angles are
 measured in radians.</p>
 <section id="id5">
-<h2>Notes<a class="headerlink" href="#id5" title="Permalink to this heading"></a></h2>
+<h2>Notes<a class="headerlink" href="#id5" title="Link to this heading"></a></h2>
 <blockquote>
 <div><p>This child class constructor does not call the parent class constructor.
 Ergo parent methods like <cite>copy</cite> are not available</p>
 </div></blockquote>
 </section>
 <section id="id6">
-<h2>Parameters<a class="headerlink" href="#id6" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id6" title="Link to this heading"></a></h2>
 <blockquote>
 <div><dl class="simple">
 <dt>center<span class="classifier">numpy.ndarray(3x1)</span></dt><dd><p>Center coordinates of fracture.</p>
@@ -575,7 +540,7 @@ Number of points used to approximate the ellipsis.</p>
 </div></blockquote>
 </section>
 <section id="examples">
-<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this heading"></a></h2>
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading"></a></h2>
 <blockquote>
 <div><p>Fracture centered at [0, 1, 0], with a ratio of lengths of 2,
 rotation in xy-plane of 45 degrees, and an incline of 30 degrees
@@ -587,16 +552,16 @@ rotated around the x-axis.
 </div></blockquote>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>center</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>major_axis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>minor_axis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>major_axis_angle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>strike_angle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>dip_angle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>num_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
+<li><p><strong>center</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>major_axis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>minor_axis</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>major_axis_angle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>strike_angle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>dip_angle</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>num_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
 </ul>
 </dd>
 </dl>

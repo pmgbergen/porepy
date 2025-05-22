@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.graph module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.graph.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.graph.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
       <li class="breadcrumb-item active">porepy.utils.graph module</li>
@@ -275,23 +275,23 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.graph">
-<span id="porepy-utils-graph-module"></span><h1>porepy.utils.graph module<a class="headerlink" href="#module-porepy.utils.graph" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-graph-module"></span><h1>porepy.utils.graph module<a class="headerlink" href="#module-porepy.utils.graph" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.graph.Graph">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_connections</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/graph.html#Graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.graph.Graph" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node_connections</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/graph.html#Graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.graph.Graph" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>A graph class.</p>
 <p>The graph class stores the nodes and edges of the graph in a sparse
 array (equivalently to face_nodes in the Grid class).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.graph.Graph.node_connections">
-<span class="sig-name descname"><span class="pre">node_connections</span></span><a class="headerlink" href="#porepy.utils.graph.Graph.node_connections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">node_connections</span></span><a class="headerlink" href="#porepy.utils.graph.Graph.node_connections" title="Link to this definition"></a></dt>
 <dd><p>Should be given at construction.
 node_node connections. Matrix size: num_nodes x num_nodes.
 node_connections[i,j] should be true if there is an edge
 connecting node i and j.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">sps.csc-matrix</span></code></p>
 </dd>
 </dl>
@@ -299,39 +299,39 @@ connecting node i and j.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.graph.Graph.regions">
-<span class="sig-name descname"><span class="pre">regions</span></span><a class="headerlink" href="#porepy.utils.graph.Graph.regions" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">regions</span></span><a class="headerlink" href="#porepy.utils.graph.Graph.regions" title="Link to this definition"></a></dt>
 <dd><p>that can be reached by traversing the graph. Two nodes are
 int different regions if they can not be reached by traversing
 the graph.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.graph.Graph.color">
-<span class="sig-name descname"><span class="pre">color</span></span><a class="headerlink" href="#porepy.utils.graph.Graph.color" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">color</span></span><a class="headerlink" href="#porepy.utils.graph.Graph.color" title="Link to this definition"></a></dt>
 <dd><p>calling color_nodes() all nodes in a region are given the
 same colors and nodes in different regions are given different
 colors.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">int)</span> <span class="pre">the</span> <span class="pre">color</span> <span class="pre">of</span> <span class="pre">each</span> <span class="pre">region.</span> <span class="pre">Initialized</span> <span class="pre">as</span> <span class="pre">(NaN</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">int)</span> <span class="pre">the</span> <span class="pre">color</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">each</span> <span class="pre">region.</span> <span class="pre">Initialized</span> <span class="pre">as</span> <span class="pre">(NaN</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.graph.Graph.bfs">
-<span class="sig-name descname"><span class="pre">bfs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/graph.html#Graph.bfs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.graph.Graph.bfs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bfs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">color</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/graph.html#Graph.bfs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.graph.Graph.bfs" title="Link to this definition"></a></dt>
 <dd><p>Breadth first search</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.graph.Graph.color_nodes">
-<span class="sig-name descname"><span class="pre">color_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/graph.html#Graph.color_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.graph.Graph.color_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">color_nodes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/graph.html#Graph.color_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.graph.Graph.color_nodes" title="Link to this definition"></a></dt>
 <dd><p>Color the nodes in each region</p>
 </dd></dl>
 

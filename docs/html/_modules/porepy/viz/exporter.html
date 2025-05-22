@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.viz.exporter &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/viz/exporter.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/viz/exporter.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.viz.exporter</li>
       <li class="wy-breadcrumbs-aside">
@@ -280,17 +280,17 @@
 <span class="sd">time steps, a single pvd file takes care of the ordering of all printed vtu</span>
 <span class="sd">files.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">meshio</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">meshio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="c1"># Object type to store data to export.</span>
 <span class="n">Field</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;Field&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;values&quot;</span><span class="p">])</span>
@@ -319,8 +319,10 @@
 <span class="n">InterfaceData</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
 
 
-<div class="viewcode-block" id="Exporter"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter">[docs]</a><span class="k">class</span> <span class="nc">Exporter</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Exporter">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Exporter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for exporting data to vtu files.</span>
 
 <span class="sd">    The Exporter allows for various way to express which state variables,</span>
@@ -359,14 +361,14 @@
 <span class="sd">        # the time steps will be used instead.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">],</span>
         <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">folder_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initialization of Exporter.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization of Exporter.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            grid: Subdomain or mixed-dimensional grid containing all mesh information</span>
@@ -455,10 +457,12 @@
         <span class="c1"># Parameter to be used in several occasions for adding time stamps.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_padding</span> <span class="o">=</span> <span class="mi">6</span>
 
-<div class="viewcode-block" id="Exporter.add_constant_data"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter.add_constant_data">[docs]</a>    <span class="k">def</span> <span class="nf">add_constant_data</span><span class="p">(</span>
+<div class="viewcode-block" id="Exporter.add_constant_data">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter.add_constant_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_constant_data</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">DataInput</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">DataInput</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Collect user-defined constant-in-time data, associated with grids,</span>
 <span class="sd">        and to be exported to separate files instead of the main files.</span>
 
@@ -496,14 +500,17 @@
         <span class="k">for</span> <span class="n">key_i</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">interface_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_constant_interface_data</span><span class="p">[</span><span class="n">key_i</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Exporter.write_vtu"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter.write_vtu">[docs]</a>    <span class="k">def</span> <span class="nf">write_vtu</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Exporter.write_vtu">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter.write_vtu">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_vtu</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">DataInput</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">DataInput</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">time_dependent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">time_step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Interface function to export the grid and additional data with meshio.</span>
 
 <span class="sd">        In 1d the cells are represented as lines, 2d the cells as polygon or</span>
@@ -626,12 +633,15 @@
         <span class="n">file_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_append_folder_name</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_folder_name</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_export_mdg_pvd</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">time_step</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Exporter.write_pvd"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter.write_pvd">[docs]</a>    <span class="k">def</span> <span class="nf">write_pvd</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Exporter.write_pvd">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.viz.exporter.html#porepy.viz.exporter.Exporter.write_pvd">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">write_pvd</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">times</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">file_extension</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Interface function to export in PVD file the time loop information.</span>
 <span class="sd">        The user should open only this file in ParaView.</span>
 
@@ -756,14 +766,15 @@
         <span class="n">o_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;&lt;/Collection&gt;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;&lt;/VTKFile&gt;&quot;</span><span class="p">)</span>
         <span class="n">o_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
+
     <span class="c1"># Some auxiliary routines used in write_vtu()</span>
 
-    <span class="k">def</span> <span class="nf">_sort_and_unify_data</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sort_and_unify_data</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="c1"># ignore type which is essentially Union[DataInput, list[DataInput]]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">SubdomainData</span><span class="p">,</span> <span class="n">InterfaceData</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Preprocess data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Preprocess data.</span>
 
 <span class="sd">        The routine has two goals:</span>
 <span class="sd">        1. Splitting data into subdomain and interface data.</span>
@@ -795,10 +806,10 @@
         <span class="c1"># actual routine.</span>
 
         <span class="c1"># Aux. method: Transform scalar- to vector-ranged values.</span>
-        <span class="k">def</span> <span class="nf">_toVectorFormat</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_toVectorFormat</span><span class="p">(</span>
             <span class="n">value</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether the value array has the right dimension corresponding</span>
 <span class="sd">            to the grid size. If possible, translate the value to a vectorial</span>
 <span class="sd">            object, but do nothing if the data naturally can be interpreted as</span>
@@ -829,10 +840,10 @@
 
         <span class="c1"># TODO rename pt to data_pt?</span>
         <span class="c1"># TODO typing</span>
-        <span class="k">def</span> <span class="nf">add_data_from_str</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_data_from_str</span><span class="p">(</span>
             <span class="n">data_pt</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">interface_data</span><span class="p">:</span> <span class="nb">dict</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether data is provided by a key of a field - could be both subdomain</span>
 <span class="sd">            and interface data. If so, collect all data corresponding to subdomains and</span>
 <span class="sd">            interfaces identified by the key.</span>
@@ -850,7 +861,7 @@
                 <span class="c1"># Initialize tag storing whether data corresponding to the key has been found.</span>
                 <span class="n">has_key</span> <span class="o">=</span> <span class="kc">False</span>
 
-                <span class="k">def</span> <span class="nf">_add_data</span><span class="p">(</span>
+                <span class="k">def</span><span class="w"> </span><span class="nf">_add_data</span><span class="p">(</span>
                     <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
                     <span class="n">grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
                     <span class="n">grid_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -893,12 +904,12 @@
                 <span class="c1"># Return original data dictionaries and indicate no modification.</span>
                 <span class="k">return</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span><span class="p">,</span> <span class="kc">False</span>
 
-        <span class="k">def</span> <span class="nf">add_data_from_tuple_subdomains_str</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_data_from_tuple_subdomains_str</span><span class="p">(</span>
             <span class="n">data_pt</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">str</span><span class="p">],</span>
             <span class="n">subdomain_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
             <span class="n">interface_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether data is provided as tuple (subdomains, key),</span>
 <span class="sd">            where subdomains is a list of subdomains, and key is a string.</span>
 <span class="sd">            This routine explicitly checks only for subdomain data.</span>
@@ -929,7 +940,7 @@
                     <span class="c1"># Make sure the data exists.</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span> <span class="ow">in</span> <span class="n">sd_data</span> <span class="ow">and</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">]):</span>
                         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;No state with prescribed key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"></span>
+                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;No state with prescribed key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span>
 <span class="s2">                            available on selected subdomains.&quot;&quot;&quot;</span>
                         <span class="p">)</span>
 
@@ -947,10 +958,10 @@
                 <span class="k">return</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span><span class="p">,</span> <span class="kc">False</span>
 
         <span class="c1"># Aux. method: Detect and convert data of form ([interfaces], &quot;key&quot;).</span>
-        <span class="k">def</span> <span class="nf">add_data_from_tuple_interfaces_str</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_data_from_tuple_interfaces_str</span><span class="p">(</span>
             <span class="n">data_pt</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether data is provided as tuple (interfaces, key),</span>
 <span class="sd">            where interfaces is a list of interfaces, and key is a string.</span>
 <span class="sd">            This routine explicitly checks only for interface data.</span>
@@ -983,7 +994,7 @@
                     <span class="c1"># Make sure the data exists.</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span> <span class="ow">in</span> <span class="n">intf_data</span> <span class="ow">and</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">intf_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">]):</span>
                         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;No state with prescribed key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"></span>
+                            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;No state with prescribed key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span>
 <span class="s2">                            available on selected interfaces.&quot;&quot;&quot;</span>
                         <span class="p">)</span>
 
@@ -1000,10 +1011,10 @@
                 <span class="c1"># Return original data dictionaries and indicate no modification.</span>
                 <span class="k">return</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span><span class="p">,</span> <span class="kc">False</span>
 
-        <span class="k">def</span> <span class="nf">add_data_from_tuple_subdomain_str_array</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_data_from_tuple_subdomain_str_array</span><span class="p">(</span>
             <span class="n">data_pt</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether data is provided as tuple (sd, key, data),</span>
 <span class="sd">            where sd is a single subdomain, key is a string, and data is a user-defined data</span>
 <span class="sd">            array. This routine explicitly checks only for subdomain data.</span>
@@ -1034,10 +1045,10 @@
                 <span class="c1"># Return original data dictionaries and indicate no modification.</span>
                 <span class="k">return</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span><span class="p">,</span> <span class="kc">False</span>
 
-        <span class="k">def</span> <span class="nf">add_data_from_tuple_interface_str_array</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_data_from_tuple_interface_str_array</span><span class="p">(</span>
             <span class="n">data_pt</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">interface_data</span><span class="p">:</span> <span class="nb">dict</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether data is provided as tuple (g, key, data),</span>
 <span class="sd">            where e is a single interface, key is a string, and data is a user-defined</span>
 <span class="sd">            data array. This routine explicitly checks only for interface data.</span>
@@ -1071,10 +1082,10 @@
 
         <span class="c1"># TODO can we unify to add_data_from_tuple_grid_str_array ?</span>
 
-        <span class="k">def</span> <span class="nf">add_data_from_tuple_str_array</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">add_data_from_tuple_str_array</span><span class="p">(</span>
             <span class="n">data_pt</span><span class="p">,</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Check whether data is provided by a tuple (key, data),</span>
 <span class="sd">            where key is a string, and data is a user-defined data array.</span>
 <span class="sd">            This only works when the mixed-dimensional grid contains a single subdomain.</span>
@@ -1170,8 +1181,8 @@
 
         <span class="k">return</span> <span class="n">subdomain_data</span><span class="p">,</span> <span class="n">interface_data</span>
 
-    <span class="k">def</span> <span class="nf">_update_constant_mesh_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_constant_mesh_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Construct/update subdomain and interface data related with geometry and topology.</span>
 
 <span class="sd">        The data is identified as constant data. The final containers, stored as</span>
@@ -1267,13 +1278,13 @@
                 <span class="c1"># Update offset</span>
                 <span class="n">side_grid_num_cells</span> <span class="o">+=</span> <span class="n">grid</span><span class="o">.</span><span class="n">num_cells</span>
 
-    <span class="k">def</span> <span class="nf">_export_data_vtu</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_data_vtu</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SubdomainData</span><span class="p">,</span> <span class="n">InterfaceData</span><span class="p">],</span>
         <span class="n">time_step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Collect data associated to a single grid dimension</span>
 <span class="sd">        and passing further to the final writing routine.</span>
 
@@ -1363,8 +1374,8 @@
             <span class="k">if</span> <span class="n">meshio_geom</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_write</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">meshio_geom</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_mdg_pvd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">time_step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_mdg_pvd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">time_step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Routine to export to pvd format and collect all data scattered over</span>
 <span class="sd">        several files for distinct grid dimensions.</span>
 
@@ -1439,8 +1450,8 @@
         <span class="n">o_file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;&lt;/Collection&gt;</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;&lt;/VTKFile&gt;&quot;</span><span class="p">)</span>
         <span class="n">o_file</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_update_meshio_geom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_meshio_geom</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Manager for storing the grid information in meshio format.</span>
 
 <span class="sd">        The internal variables meshio_geom and m_meshio_geom, storing all</span>
@@ -1465,10 +1476,10 @@
             <span class="c1"># Export and store</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">m_meshio_geom</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_export_grid</span><span class="p">(</span><span class="n">interface_side_grids</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_grid</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_grid</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">Meshio_Geom</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Wrapper function to export grids of dimension dim. Calls the</span>
 <span class="sd">        appropriate dimension specific export function.</span>
 
@@ -1495,8 +1506,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_grid_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_grid_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from the 1d PorePy grids to meshio.</span>
 
@@ -1558,10 +1569,10 @@
         <span class="c1"># Return final meshio data: points, cell (connectivity), cell ids</span>
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_simplex_cell_to_nodes</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_simplex_cell_to_nodes</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">cells</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Determine cell to node connectivity for a general n-simplex mesh.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determine cell to node connectivity for a general n-simplex mesh.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            n (int): dimension of the simplices in the grid.</span>
@@ -1596,8 +1607,8 @@
 
         <span class="k">return</span> <span class="n">cn_indices</span>
 
-    <span class="k">def</span> <span class="nf">_export_grid_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_grid_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from the 2d PorePy grids to meshio.</span>
 
 <span class="sd">        Parameters:</span>
@@ -1761,8 +1772,8 @@
         <span class="c1"># Return final meshio data: points, cell (connectivity), cell ids</span>
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_grid_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_grid_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy grids to meshio.</span>
 
 <span class="sd">        Parameters:</span>
@@ -1807,8 +1818,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_export_polyhedron_3d</span><span class="p">(</span><span class="n">grids</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_simplex_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_simplex_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy simplex grids to meshio.</span>
 
 <span class="sd">        Parameters:</span>
@@ -1869,8 +1880,8 @@
         <span class="c1"># Return final meshio data: points, cell (connectivity), cell ids</span>
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_hexahedron_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_hexahedron_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy hexahedron grids to meshio.</span>
 
 <span class="sd">        NOTE: Optimally, a StructuredGrid would be exported in this case.</span>
@@ -1965,10 +1976,10 @@
         <span class="c1"># Return final meshio data: points, cell (connectivity), cell ids</span>
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_test_hex_meshio_format</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_test_hex_meshio_format</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cn_indices</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Test whether the node numbering for each cell complies</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Test whether the node numbering for each cell complies</span>
 <span class="sd">        with the hardcoded numbering used by meshio, cf. documentation</span>
 <span class="sd">        of meshio.</span>
 
@@ -1977,14 +1988,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="kn">import</span> <span class="nn">numba</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Numba not available on the system&quot;</span><span class="p">)</span>
 
         <span class="c1"># Just in time compilation</span>
         <span class="nd">@numba</span><span class="o">.</span><span class="n">njit</span><span class="p">(</span><span class="s2">&quot;b1(f8[:,:], i4[:,:])&quot;</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">def</span> <span class="nf">_function_to_compile</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">cn_indices</span><span class="p">):</span>
-            <span class="sd">&quot;&quot;&quot;</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_function_to_compile</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">cn_indices</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">            Test whether the node numbering for each cell complies</span>
 <span class="sd">            with the hardcoded numbering used by meshio, cf. documentation</span>
 <span class="sd">            of meshio.</span>
@@ -2065,8 +2076,8 @@
 
         <span class="k">return</span> <span class="n">_function_to_compile</span><span class="p">(</span><span class="n">nodes</span><span class="p">,</span> <span class="n">cn_indices</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_export_polyhedron_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export_polyhedron_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Meshio_Geom</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Export the geometrical data (point coordinates) and connectivity</span>
 <span class="sd">        information from 3d PorePy polyhedron grids to meshio.</span>
 
 <span class="sd">        Parameters:</span>
@@ -2175,10 +2186,10 @@
         <span class="c1"># Return final meshio data: points, cell (connectivity), cell ids</span>
         <span class="k">return</span> <span class="n">Meshio_Geom</span><span class="p">(</span><span class="n">meshio_pts</span><span class="p">,</span> <span class="n">meshio_cells</span><span class="p">,</span> <span class="n">meshio_cell_id</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_write</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_write</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">fields</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Field</span><span class="p">],</span> <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">meshio_geom</span><span class="p">:</span> <span class="n">Meshio_Geom</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Interface to meshio for exporting cell data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interface to meshio for exporting cell data.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            fields: fields which shall be exported</span>
@@ -2220,10 +2231,10 @@
         <span class="c1"># Write mesh information and data to VTK format.</span>
         <span class="n">meshio</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">meshio_grid_to_export</span><span class="p">,</span> <span class="n">binary</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_binary</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_append_folder_name</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_append_folder_name</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">folder_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Auxiliary method setting up potentially non-existent folder structure and</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Auxiliary method setting up potentially non-existent folder structure and</span>
 <span class="sd">        setting up a path for exporting.</span>
 
 <span class="sd">        Parameters:</span>
@@ -2247,14 +2258,14 @@
         <span class="c1"># Return full path.</span>
         <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder_name</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_make_file_name</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_file_name</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">time_step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">extension</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.vtu&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Auxiliary method to setting up file name.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Auxiliary method to setting up file name.</span>
 
 <span class="sd">        The final name is built as combination of a prescribed prefix,</span>
 <span class="sd">        and possibly the dimension of underlying grid and time (step)</span>
@@ -2281,6 +2292,7 @@
 
         <span class="c1"># Combine prefix and extensions to define the complete name</span>
         <span class="k">return</span> <span class="n">file_name</span> <span class="o">+</span> <span class="n">dim_extension</span> <span class="o">+</span> <span class="n">time_extension</span> <span class="o">+</span> <span class="n">extension</span></div>
+
 </pre></div>
 
            </div>

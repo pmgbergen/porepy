@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.poromechanics &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/poromechanics.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/poromechanics.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.poromechanics</li>
       <li class="wy-breadcrumbs-aside">
@@ -286,18 +286,20 @@
 <span class="sd">    - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">import</span> <span class="nn">porepy.models.fluid_mass_balance</span> <span class="k">as</span> <span class="nn">mass</span>
-<span class="kn">import</span> <span class="nn">porepy.models.momentum_balance</span> <span class="k">as</span> <span class="nn">momentum</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy.models.fluid_mass_balance</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mass</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy.models.momentum_balance</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">momentum</span>
 
 
-<div class="viewcode-block" id="ConstitutiveLawsPoromechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.ConstitutiveLawsPoromechanics">[docs]</a><span class="k">class</span> <span class="nc">ConstitutiveLawsPoromechanics</span><span class="p">(</span>
+<div class="viewcode-block" id="ConstitutiveLawsPoromechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.ConstitutiveLawsPoromechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConstitutiveLawsPoromechanics</span><span class="p">(</span>
     <span class="c1"># Combined effects</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">DisplacementJumpAperture</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">BiotCoefficient</span><span class="p">,</span>
@@ -316,13 +318,15 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FracturedSolid</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FrictionBound</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the coupling of mass and momentum balance to obtain poromechanics</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the coupling of mass and momentum balance to obtain poromechanics</span>
 <span class="sd">    equations.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ConstitutiveLawsPoromechanics.stress"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.stress">[docs]</a>    <span class="k">def</span> <span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Stress operator.</span>
+<div class="viewcode-block" id="ConstitutiveLawsPoromechanics.stress">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.ConstitutiveLawsPoromechanics.stress">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stress operator.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains where the stress is defined.</span>
@@ -332,53 +336,71 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Method from constitutive library&#39;s LinearElasticRock.</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pressure_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mechanical_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pressure_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="EquationsPoromechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.EquationsPoromechanics">[docs]</a><span class="k">class</span> <span class="nc">EquationsPoromechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationsPoromechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.EquationsPoromechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EquationsPoromechanics</span><span class="p">(</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="p">,</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance equations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines mass and momentum balance equations.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="EquationsPoromechanics.set_equations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.EquationsPoromechanics.set_equations">[docs]</a>    <span class="k">def</span> <span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the equations for the poromechanics problem.</span>
+<div class="viewcode-block" id="EquationsPoromechanics.set_equations">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.EquationsPoromechanics.set_equations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the equations for the poromechanics problem.</span>
 
 <span class="sd">        Call both parent classes&#39; set_equations methods.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+        <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="VariablesPoromechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.VariablesPoromechanics">[docs]</a><span class="k">class</span> <span class="nc">VariablesPoromechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="VariablesPoromechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.VariablesPoromechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VariablesPoromechanics</span><span class="p">(</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="p">,</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance variables.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines mass and momentum balance variables.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="VariablesPoromechanics.create_variables"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.VariablesPoromechanics.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the variables for the poromechanics problem.</span>
+<div class="viewcode-block" id="VariablesPoromechanics.create_variables">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.VariablesPoromechanics.create_variables">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the variables for the poromechanics problem.</span>
 
 <span class="sd">        Call both parent classes&#39; set_variables methods.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+        <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="BoundaryConditionsMechanicsTimeDependent"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsMechanicsTimeDependent</span><span class="p">(</span>
+
+<div class="viewcode-block" id="BoundaryConditionsMechanicsTimeDependent">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryConditionsMechanicsTimeDependent</span><span class="p">(</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">BoundaryConditionsMomentumBalance</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="n">bc_values_mechanics_key</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="sd">&quot;&quot;&quot;Key for the mechanical boundary conditions in the state and iterate dictionaries.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Key for the mechanical boundary conditions in the state and iterate dictionaries.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics">[docs]</a>    <span class="k">def</span> <span class="nf">bc_values_mechanics</span><span class="p">(</span>
+<div class="viewcode-block" id="BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.bc_values_mechanics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bc_values_mechanics</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">TimeDependentArray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Boundary values for mechanics.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Boundary values for mechanics.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains on which to define boundary conditions.</span>
@@ -393,10 +415,13 @@
         <span class="c1"># the div(u) term.</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">TimeDependentArray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bc_values_mechanics_key</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics">[docs]</a>    <span class="k">def</span> <span class="nf">time_dependent_bc_values_mechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsMechanicsTimeDependent.time_dependent_bc_values_mechanics">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">time_dependent_bc_values_mechanics</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Boundary values for mechanics.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Boundary values for mechanics.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains on which to define boundary conditions.</span>
@@ -411,14 +436,18 @@
         <span class="c1"># Default is zero.</span>
         <span class="n">num_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="n">subdomains</span><span class="p">])</span>
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">nd</span><span class="p">,</span> <span class="n">num_faces</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">vals</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">vals</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="BoundaryConditionsPoromechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsPoromechanics">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsPoromechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="BoundaryConditionsPoromechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.BoundaryConditionsPoromechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryConditionsPoromechanics</span><span class="p">(</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">BoundaryConditionsSinglePhaseFlow</span><span class="p">,</span>
     <span class="n">BoundaryConditionsMechanicsTimeDependent</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance boundary conditions.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines mass and momentum balance boundary conditions.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        The mechanical boundary conditions are differentiated wrt time in the div_u</span>
@@ -437,21 +466,26 @@
 <span class="sd">    &quot;&quot;&quot;</span></div>
 
 
-<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyTimeDependentBCs</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">SolutionStrategy</span><span class="p">):</span>
+
+<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolutionStrategyTimeDependentBCs</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">SolutionStrategy</span><span class="p">):</span>
 
     <span class="n">time_dependent_bc_values_mechanics</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Method for time dependent boundary conditions for mechanics.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Method for time dependent boundary conditions for mechanics.&quot;&quot;&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">bc_values_mechanics_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Key for the mechanical boundary conditions in the state and iterate</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bc_values_mechanics_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Key for the mechanical boundary conditions in the state and iterate</span>
 <span class="sd">        dictionaries.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="s2">&quot;bc_values_mechanics&quot;</span>
 
-<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs.initial_condition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.initial_condition">[docs]</a>    <span class="k">def</span> <span class="nf">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set initial condition for the coupled problem.</span>
+<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs.initial_condition">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.initial_condition">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_condition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set initial condition for the coupled problem.</span>
 
 <span class="sd">        The initial condition for the coupled problem is the initial condition for the</span>
 <span class="sd">        subproblems.</span>
@@ -462,13 +496,19 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">update_time_dependent_ad_arrays</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs.before_nonlinear_loop"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.before_nonlinear_loop">[docs]</a>    <span class="k">def</span> <span class="nf">before_nonlinear_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs.before_nonlinear_loop">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.before_nonlinear_loop">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">before_nonlinear_loop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">before_nonlinear_loop</span><span class="p">()</span>
         <span class="c1"># Update the mechanical boundary conditions to both the state and iterate.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update_time_dependent_ad_arrays</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays">[docs]</a>    <span class="k">def</span> <span class="nf">update_time_dependent_ad_arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update the time dependent arrays for the mechanics boundary conditions.</span>
+
+<div class="viewcode-block" id="SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyTimeDependentBCs.update_time_dependent_ad_arrays">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_time_dependent_ad_arrays</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the time dependent arrays for the mechanics boundary conditions.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            initial: If True, the array generating method is called for both state and</span>
@@ -492,15 +532,19 @@
                 <span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">bc_values_mechanics_key</span><span class="p">]</span>
             <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">bc_values_mechanics_key</span>
-            <span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_dependent_bc_values_mechanics</span><span class="p">([</span><span class="n">sd</span><span class="p">])</span></div></div>
+            <span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_dependent_bc_values_mechanics</span><span class="p">([</span><span class="n">sd</span><span class="p">])</span></div>
+</div>
 
 
-<div class="viewcode-block" id="SolutionStrategyPoromechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyPoromechanics">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyPoromechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="SolutionStrategyPoromechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyPoromechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolutionStrategyPoromechanics</span><span class="p">(</span>
     <span class="n">SolutionStrategyTimeDependentBCs</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">SolutionStrategySinglePhaseFlow</span><span class="p">,</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">SolutionStrategyMomentumBalance</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance solution strategies.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines mass and momentum balance solution strategies.</span>
 
 <span class="sd">    This class has a diamond structure inheritance. The user should be aware of this</span>
 <span class="sd">    and take method resolution order into account when defining new methods.</span>
@@ -510,13 +554,15 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
-    <span class="sd">&quot;&quot;&quot;Mixed dimensional grid.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixed dimensional grid.&quot;&quot;&quot;</span>
 
     <span class="n">time_dependent_bc_values_mechanics</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Method for time dependent boundary values for mechanics.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Method for time dependent boundary values for mechanics.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="SolutionStrategyPoromechanics.set_discretization_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyPoromechanics.set_discretization_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set parameters for the subproblems and the combined problem.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SolutionStrategyPoromechanics.set_discretization_parameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.SolutionStrategyPoromechanics.set_discretization_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set parameters for the subproblems and the combined problem.&quot;&quot;&quot;</span>
         <span class="c1"># Set parameters for the subproblems.</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_discretization_parameters</span><span class="p">()</span>
 
@@ -531,9 +577,11 @@
                 <span class="p">},</span>
             <span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;The coupled problem is nonlinear.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_nonlinear_problem</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The coupled problem is nonlinear.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="kc">True</span></div>
+
 
 
 <span class="c1"># Note that we ignore a mypy error here. There are some inconsistencies in the method</span>
@@ -544,7 +592,9 @@
 <span class="c1"># which should be types as Callable[[int, int], None], cannot be parsed by mypy.</span>
 <span class="c1"># For this reason, we ignore the error here, and rely on the tests to catch any</span>
 <span class="c1"># inconsistencies.</span>
-<div class="viewcode-block" id="Poromechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.Poromechanics">[docs]</a><span class="k">class</span> <span class="nc">Poromechanics</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
+<div class="viewcode-block" id="Poromechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.poromechanics.html#porepy.models.poromechanics.Poromechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Poromechanics</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
     <span class="n">EquationsPoromechanics</span><span class="p">,</span>
     <span class="n">VariablesPoromechanics</span><span class="p">,</span>
     <span class="n">ConstitutiveLawsPoromechanics</span><span class="p">,</span>
@@ -553,12 +603,13 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">ModelGeometry</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">DataSavingMixin</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the coupling of mass and momentum balance in a mixed-dimensional porous</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the coupling of mass and momentum balance in a mixed-dimensional porous</span>
 <span class="sd">    medium.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">pass</span></div>
+
 </pre></div>
 
            </div>

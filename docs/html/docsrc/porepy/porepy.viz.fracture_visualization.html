@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.viz.fracture_visualization module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.fracture_visualization.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.fracture_visualization.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.viz.html">porepy.viz package</a></li>
       <li class="breadcrumb-item active">porepy.viz.fracture_visualization module</li>
@@ -275,28 +275,28 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.viz.fracture_visualization">
-<span id="porepy-viz-fracture-visualization-module"></span><h1>porepy.viz.fracture_visualization module<a class="headerlink" href="#module-porepy.viz.fracture_visualization" title="Permalink to this heading"></a></h1>
+<span id="porepy-viz-fracture-visualization-module"></span><h1>porepy.viz.fracture_visualization module<a class="headerlink" href="#module-porepy.viz.fracture_visualization" title="Link to this heading"></a></h1>
 <p>Visualization tools for fracture networks and wells. Plots 1d fractures as lines in a
 2d domain using pyplot. Also plots wells as points.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.viz.fracture_visualization.plot_fractures">
-<span class="sig-name descname"><span class="pre">plot_fractures</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colortag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/fracture_visualization.html#plot_fractures"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.fracture_visualization.plot_fractures" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">plot_fractures</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colortag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/fracture_visualization.html#plot_fractures"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.fracture_visualization.plot_fractures" title="Link to this definition"></a></dt>
 <dd><p>Plot 2d fractures as lines in a domain.</p>
 <p>The function is primarily intended for data exploration.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">dims</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">npt</span></code>) – Coordinates of the fracture endpoints.</p></li>
-<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">dims</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n_edges</span></code>) – Indices of fracture start and
+<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">dims</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">npt</span></code>) – Coordinates of the fracture endpoints.</p></li>
+<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">dims</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n_edges</span></code>) – Indices of fracture start and
 endpoints.</p></li>
-<li><p><strong>domain</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary,</span> <span class="pre">optional</span></code>) – Domain size. Should contain fields xmin, xmax, ymin,
+<li><p><strong>domain</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>, <em>optional</em>) – Domain size. Should contain fields xmin, xmax, ymin,
 ymax. If not given a bounding box is computed</p></li>
-<li><p><strong>colortag</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">dim</span> <span class="pre">n_edges,</span> <span class="pre">optional</span></code>) – Colorcoding for fractures
+<li><p><strong>colortag</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">dim</span> <span class="pre">n_edges</span></code>, <em>optional</em>) – Colorcoding for fractures
 (e.g. by fracture family). If provided, different colors will be
 asign to the different families. Defaults to all fractures being
 black.</p></li>
-<li><p><strong>ax</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">matplotlib.axes.Axes,</span> <span class="pre">optional</span></code>) – If not given an axis, an axis will be created.</p></li>
-<li><p><strong>kwargs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – <p>Keyword arguments passed on to matplotlib.
+<li><p><strong>ax</strong> (<a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.html#matplotlib.axes.Axes" title="(in Matplotlib v3.10.3)"><code class="xref py py-class docutils literal notranslate"><span class="pre">matplotlib.axes.Axes</span></code></a>, <em>optional</em>) – If not given an axis, an axis will be created.</p></li>
+<li><p><strong>kwargs</strong> (<em>optional</em>) – <p>Keyword arguments passed on to matplotlib.
 fig_id: figure id
 dpi:
 plot: Boolean flag determining whether the plot is drawn to canvas
@@ -312,40 +312,36 @@ save: Boolean flag determining whether the figure is saved</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The axis the fractures are plotted in</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://matplotlib.org/stable/api/axes_api.html#matplotlib.axes.Axes" title="(in Matplotlib v3.6.3)">matplotlib.axes.Axes</a></p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>ValueError if axis and figure id are provided both</strong> – </p></li>
-<li><p><strong>ValueError if keywords dpi and ax are provided both</strong> – </p></li>
-</ul>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.html#matplotlib.axes.Axes" title="(in Matplotlib v3.10.3)">matplotlib.axes.Axes</a></p>
 </dd>
 </dl>
+<p>:raises ValueError if axis` and <code class="xref py py-class docutils literal notranslate"><span class="pre">figure</span> <span class="pre">id</span> <span class="pre">are</span> <span class="pre">provided</span> <span class="pre">both:</span>
+<span class="pre">:raises</span> <span class="pre">ValueError</span> <span class="pre">if</span> <span class="pre">keywords</span> <span class="pre">dpi</span></code> and :py:class:<a href="#id1"><span class="problematic" id="id2">`</span></a>ax are provided both:</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.viz.fracture_visualization.plot_wells">
-<span class="sig-name descname"><span class="pre">plot_wells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">d</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colortag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/fracture_visualization.html#plot_wells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.fracture_visualization.plot_wells" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">plot_wells</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">d</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colortag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/fracture_visualization.html#plot_wells"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.fracture_visualization.plot_wells" title="Link to this definition"></a></dt>
 <dd><p>Plot 2d wells as points in a domain.</p>
 <p>The function is primarily intended for data exploration.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>d</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Domain size. Should contain fields xmin, xmax, ymin,
+<li><p><strong>d</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Domain size. Should contain fields xmin, xmax, ymin,
 ymax.</p></li>
-<li><p><strong>w</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">dims</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">npt</span></code>) – Coordinates of the wells.</p></li>
-<li><p><strong>colortag</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">dim</span> <span class="pre">n_w,</span> <span class="pre">optional</span></code>) – Colorcoding for wells.
+<li><p><strong>w</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">dims</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">npt</span></code>) – Coordinates of the wells.</p></li>
+<li><p><strong>colortag</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">dim</span> <span class="pre">n_w</span></code>, <em>optional</em>) – Colorcoding for wells.
 If provided, different colors will be asign to the different wells.
 Defaults to all wells being black.</p></li>
 <li><p><strong>kwargs</strong> – Keyword arguments passed on to matplotlib.
 plot: Boolean flag determining wether the figure is plotted</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>NotImplementedError if more than 6 colors are requested</strong> – </p>
 </dd>
 </dl>

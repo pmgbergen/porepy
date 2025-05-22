@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.time_step_control module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.time_step_control.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.time_step_control.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
       <li class="breadcrumb-item active">porepy.numerics.time_step_control module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.time_step_control">
-<span id="porepy-numerics-time-step-control-module"></span><h1>porepy.numerics.time_step_control module<a class="headerlink" href="#module-porepy.numerics.time_step_control" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-time-step-control-module"></span><h1>porepy.numerics.time_step_control module<a class="headerlink" href="#module-porepy.numerics.time_step_control" title="Link to this heading"></a></h1>
 <p>This module contains a routine for iteration-based time-stepping control.</p>
 <p>The algorithm is heavily inspired by [1], which was later used in [2].</p>
 <dl class="simple">
@@ -373,11 +373,11 @@ INCREASE counter that keeps track of number of recomputing attempts</p>
 </div></blockquote>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TimeManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">schedule</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constant_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt_min_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_optimal_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(4,</span> <span class="pre">7)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_relax_factors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.7,</span> <span class="pre">1.3)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recomp_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recomp_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TimeManager</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">schedule</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constant_dt</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt_min_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_optimal_range</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(4,</span> <span class="pre">7)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iter_relax_factors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.7,</span> <span class="pre">1.3)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recomp_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recomp_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_info</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Parent class for iteration-based time-stepping control routine.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>schedule</strong> (<em>ArrayLike</em>) – <p>Array-like object containing the target times for the simulation.
 Unless a constant time step is prescribed, the time-stepping algorithm will adapt
@@ -394,15 +394,15 @@ True</cite> and <cite>dt_init = 2</cite> are: [0, 2] and np.array([0, 4, 6, 10])
 INVALID inputs for <cite>constant_dt = True</cite> and <cite>dt_init = 2</cite> are [0, 3] and
 np.array([0, 4, 5, 10]).</p>
 </p></li>
-<li><p><strong>dt_init</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – Initial time step. The initial time step is required to be positive and
+<li><p><strong>dt_init</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em>) – Initial time step. The initial time step is required to be positive and
 less or equal than the final simulation time.</p></li>
-<li><p><strong>constant_dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Whether to treat the time step as constant or not.
+<li><p><strong>constant_dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Whether to treat the time step as constant or not.
 If True, then the time-stepping control algorithm is effectively bypassed. The
 algorithm will NOT adapt the time step in any situation, even if the user
 attempts to recompute the solution. Nevertheless, the attributes such as
 scheduled times will still be accessible, provided <cite>dt_init</cite> and <cite>schedule</cite> are
 compatible.</p></li>
-<li><p><strong>dt_min_max</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em><em>, </em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em><em>]</em><em>]</em>) – <p>Minimum and maximum permissible time steps.
+<li><p><strong>dt_min_max</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em><em>, </em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em><em>]</em><em>]</em>) – <p>Minimum and maximum permissible time steps.
 If None, then the minimum time step is set to 0.1% of the final simulation time
 and the maximum time step is set to 10% of the final simulation time. If given,
 then the first and second elements of the tuple corresponds to the minimum and
@@ -415,24 +415,24 @@ dt_min_max[1] * iter_relax_factors[0] &gt; dt_min_max[0].</p>
 </div></blockquote>
 <p>Note that in practical applications, these conditions are usually met.</p>
 </p></li>
-<li><p><strong>iter_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Maximum number of iterations.</p></li>
-<li><p><strong>iter_optimal_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – Optimal iteration range.
+<li><p><strong>iter_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Maximum number of iterations.</p></li>
+<li><p><strong>iter_optimal_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>]</em>) – Optimal iteration range.
 The first and second elements of the tuple correspond to the lower and upper
 endpoints of the optimal iteration range.</p></li>
-<li><p><strong>iter_relax_factors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – Relaxation factors.
+<li><p><strong>iter_relax_factors</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em>) – Relaxation factors.
 The first and second elements of the tuple corresponds to the under-relaxation and
 over-relaxation factors, respectively. We require the under-relaxation factor
 to be strictly lower than one, whereas the over-relaxation factor is required to
 be strictly greater than one. Note that the values of <cite>iter_relax_factors</cite> must be
 selected such that they avoid oscillations in combination with <cite>dt_min_max</cite>. Refer
 to the documentation of <cite>dt_min_max</cite> for the explicit condition to be satisfied.</p></li>
-<li><p><strong>recomp_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Failed-to-converge solution recomputation factor.
+<li><p><strong>recomp_factor</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Failed-to-converge solution recomputation factor.
 Factor by which the time step will be multiplied in case the solution must be
 recomputed. We require <cite>recomp_factor</cite> to be strictly less than one.</p></li>
-<li><p><strong>recomp_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Failed-to-converge maximum recomputation attempts. The maximum allowable
+<li><p><strong>recomp_max</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Failed-to-converge maximum recomputation attempts. The maximum allowable
 number of consecutive recomputation attempts.</p></li>
-<li><p><strong>not.</strong> (<em>print_info. Whether to print on-the-fly time-stepping information or</em>) – </p></li>
-<li><p><strong>print_info</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>not.</strong> (<em>print_info. Whether to print on-the-fly time-stepping information or</em>)</p></li>
+<li><p><strong>print_info</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -457,179 +457,203 @@ print(time_manager)</p>
 </div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.dt">
-<span class="sig-name descname"><span class="pre">dt</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.dt" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dt</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.dt" title="Link to this definition"></a></dt>
 <dd><p>Time step.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.dt_init">
-<span class="sig-name descname"><span class="pre">dt_init</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.dt_init" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dt_init</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.dt_init" title="Link to this definition"></a></dt>
 <dd><p>Initial time step.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.dt_min_max">
-<span class="sig-name descname"><span class="pre">dt_min_max</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.dt_min_max" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dt_min_max</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.dt_min_max" title="Link to this definition"></a></dt>
 <dd><p>Min and max time steps.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple[Union[int,</span> <span class="pre">float],</span> <span class="pre">Union[int,</span> <span class="pre">float]]</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple[Union[int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">float]</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Union[int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">float]]</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.is_constant">
-<span class="sig-name descname"><span class="pre">is_constant</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.is_constant" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_constant</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.is_constant" title="Link to this definition"></a></dt>
 <dd><p>Constant time step flag.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.iter_max">
-<span class="sig-name descname"><span class="pre">iter_max</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.iter_max" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">iter_max</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.iter_max" title="Link to this definition"></a></dt>
 <dd><p>Maximum number of iterations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.iter_optimal_range">
-<span class="sig-name descname"><span class="pre">iter_optimal_range</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.iter_optimal_range" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">iter_optimal_range</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.iter_optimal_range" title="Link to this definition"></a></dt>
 <dd><p>Optimal iteration range.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple[int,</span> <span class="pre">int]</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple[int</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">int]</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.iter_relax_factors">
-<span class="sig-name descname"><span class="pre">iter_relax_factors</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.iter_relax_factors" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">iter_relax_factors</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.iter_relax_factors" title="Link to this definition"></a></dt>
 <dd><p>Relaxation factors.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple[float,</span> <span class="pre">float]</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple[float</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">float]</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.recomp_factor">
-<span class="sig-name descname"><span class="pre">recomp_factor</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.recomp_factor" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">recomp_factor</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.recomp_factor" title="Link to this definition"></a></dt>
 <dd><p>Recomputation factor. Strictly lower than one.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.recomp_max">
-<span class="sig-name descname"><span class="pre">recomp_max</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.recomp_max" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">recomp_max</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.recomp_max" title="Link to this definition"></a></dt>
 <dd><p>Maximum number of recomputation attempts.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.schedule">
-<span class="sig-name descname"><span class="pre">schedule</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.schedule" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">schedule</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.schedule" title="Link to this definition"></a></dt>
 <dd><p>List of scheduled times including initial and final times.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>ArrayLike</p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">ArrayLike</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.time">
-<span class="sig-name descname"><span class="pre">time</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.time" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.time" title="Link to this definition"></a></dt>
 <dd><p>Current time.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.time_final">
-<span class="sig-name descname"><span class="pre">time_final</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.time_final" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_final</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.time_final" title="Link to this definition"></a></dt>
 <dd><p>Final simulation time.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.time_init">
-<span class="sig-name descname"><span class="pre">time_init</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.time_init" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_init</span></span><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.time_init" title="Link to this definition"></a></dt>
 <dd><p>Initial simulation time.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_schedule_in_simulated_times</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">schedule</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sim_times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.is_schedule_in_simulated_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times" title="Link to this definition"></a></dt>
+<dd><p>Checks if <code class="docutils literal notranslate"><span class="pre">schedule</span></code> is a proper subset of <code class="docutils literal notranslate"><span class="pre">sim_times</span></code> for given tolerances</p>
+<p>Reference: <a class="reference external" href="https://github.com/numpy/numpy/issues/7784#issuecomment-848036186">https://github.com/numpy/numpy/issues/7784#issuecomment-848036186</a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>schedule</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – First array.</p></li>
+<li><p><strong>sim_times</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – Second array.</p></li>
+<li><p><strong>rtol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Relative tolerance.</p></li>
+<li><p><strong>atol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Absolute tolerance.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if all times in <code class="docutils literal notranslate"><span class="pre">schedule</span></code> intersect the elements of <code class="docutils literal notranslate"><span class="pre">sim_times</span></code> with
+relative tolerance <code class="docutils literal notranslate"><span class="pre">rtol</span></code> and absolute tolerance <a href="#id1"><span class="problematic" id="id2">``</span></a>atol`. False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.compute_time_step">
-<span class="sig-name descname"><span class="pre">compute_time_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recompute_solution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.compute_time_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.compute_time_step" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_time_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recompute_solution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.compute_time_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.compute_time_step" title="Link to this definition"></a></dt>
 <dd><p>Determine next time step based on the previous number of iterations.</p>
 <p>See also Algorithm Overview and Algorithm Workflow from the module documentation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>iterations</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – Number of non-linear iterations. In time-dependent simulations,
+<li><p><strong>iterations</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – Number of non-linear iterations. In time-dependent simulations,
 this typically represents the number of iterations for a given time step.
 A warning is raised if <cite>iterations</cite> is given when <cite>recompute_solution = True</cite>
 or <cite>constant_dt = True</cite>.</p></li>
-<li><p><strong>recompute_solution</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Whether the solution needs to be recomputed or not. If True,
+<li><p><strong>recompute_solution</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Whether the solution needs to be recomputed or not. If True,
 then the time step is multiplied by <cite>recomp_factor</cite>. If False, then the time
 step will be tuned accordingly.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Next time step if time &lt; final_time. None, otherwise.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> | None</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.increase_time">
-<span class="sig-name descname"><span class="pre">increase_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.increase_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.increase_time" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">increase_time</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.increase_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.increase_time" title="Link to this definition"></a></dt>
 <dd><p>Increase simulation time by the current time step.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -637,35 +661,11 @@ step will be tuned accordingly.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.increase_time_index">
-<span class="sig-name descname"><span class="pre">increase_time_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.increase_time_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.increase_time_index" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">increase_time_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.increase_time_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.increase_time_index" title="Link to this definition"></a></dt>
 <dd><p>Increase time index counter by one.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_schedule_in_simulated_times</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">schedule</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sim_times</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/time_step_control.html#TimeManager.is_schedule_in_simulated_times"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times" title="Permalink to this definition"></a></dt>
-<dd><p>Checks if <code class="docutils literal notranslate"><span class="pre">schedule</span></code> is a proper subset of <code class="docutils literal notranslate"><span class="pre">sim_times</span></code> for given tolerances</p>
-<p>Reference: <a class="reference external" href="https://github.com/numpy/numpy/issues/7784#issuecomment-848036186">https://github.com/numpy/numpy/issues/7784#issuecomment-848036186</a></p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>schedule</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – First array.</p></li>
-<li><p><strong>sim_times</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – Second array.</p></li>
-<li><p><strong>rtol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Relative tolerance.</p></li>
-<li><p><strong>atol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Absolute tolerance.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>True if all times in <code class="docutils literal notranslate"><span class="pre">schedule</span></code> intersect the elements of <code class="docutils literal notranslate"><span class="pre">sim_times</span></code> with
-relative tolerance <code class="docutils literal notranslate"><span class="pre">rtol</span></code> and absolute tolerance <a href="#id1"><span class="problematic" id="id2">``</span></a>atol`. False otherwise.</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>

@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.refinement module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.refinement.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.refinement.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.refinement module</li>
@@ -275,14 +275,14 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.refinement">
-<span id="porepy-grids-refinement-module"></span><h1>porepy.grids.refinement module<a class="headerlink" href="#module-porepy.grids.refinement" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-refinement-module"></span><h1>porepy.grids.refinement module<a class="headerlink" href="#module-porepy.grids.refinement" title="Link to this heading"></a></h1>
 <p>This module contains various methods to refine a grid.</p>
 <p>It furthermore contains classes to define sequences of refined grids, and a factory
 class to generate sets of refined grids.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.refinement.GridSequenceFactory">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GridSequenceFactory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">network</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#GridSequenceFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.GridSequenceFactory" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GridSequenceFactory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">network</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#GridSequenceFactory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.GridSequenceFactory" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>Factory class to generate a set of refined grids.</p>
 <p>To define new refinement types, inherit from this class and override the
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">_generate()</span></code> method.</p>
@@ -305,10 +305,10 @@ These are passed on the <code class="docutils literal notranslate"><span class="
 <p class="rubric">Acknowledgements</p>
 <p>The design idea and the majority of the code was contributed to by Haakon Ervik.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>network</strong> (<em>Union</em><em>[</em><em>pp.FractureNetwork2d</em><em>, </em><em>pp.FractureNetwork3d</em><em>]</em>) – Define the domain that is to be discretized.</p></li>
-<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – <p>Parameter dictionary. See above for more details on admissible keywords.</p>
+<li><p><strong>params</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – <p>Parameter dictionary. See above for more details on admissible keywords.</p>
 <p>Note that entries for every keyword are <strong>required</strong> and will raise an error
 if not available.</p>
 </p></li>
@@ -317,12 +317,12 @@ if not available.</p>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.refinement.GridSequenceFactory.close">
-<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#GridSequenceFactory.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.GridSequenceFactory.close" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#GridSequenceFactory.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.GridSequenceFactory.close" title="Link to this definition"></a></dt>
 <dd><p>Method for finalizing <code class="docutils literal notranslate"><span class="pre">gmsh</span></code>.</p>
 <p><code class="docutils literal notranslate"><span class="pre">gmsh</span></code> will be informed that it should be finalized. Final method to be called
 when the iteration is going to be stopped.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -330,7 +330,7 @@ when the iteration is going to be stopped.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.refinement.GridSequenceFactory.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.refinement.GridSequenceFactory.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.refinement.GridSequenceFactory.dim" title="Link to this definition"></a></dt>
 <dd><p>Dimension of the fracture network.</p>
 </dd></dl>
 
@@ -338,15 +338,15 @@ when the iteration is going to be stopped.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.refinement.GridSequenceIterator">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GridSequenceIterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">factory</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#GridSequenceIterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.GridSequenceIterator" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GridSequenceIterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">factory</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#GridSequenceIterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.GridSequenceIterator" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Iterator for generating successively refined grids by the use of a grid factory.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="#porepy.grids.refinement.GridSequenceFactory" title="porepy.grids.refinement.GridSequenceFactory"><code class="xref py py-class docutils literal notranslate"><span class="pre">GridSequenceFactory</span></code></a></p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>factory</strong> (<a class="reference internal" href="#porepy.grids.refinement.GridSequenceFactory" title="porepy.grids.refinement.GridSequenceFactory"><em>GridSequenceFactory</em></a>) – Factory class for generating set of refined grids.</p>
 </dd>
 </dl>
@@ -354,29 +354,29 @@ when the iteration is going to be stopped.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.refinement.distort_grid_1d">
-<span class="sig-name descname"><span class="pre">distort_grid_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#distort_grid_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.distort_grid_1d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">distort_grid_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fixed_nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#distort_grid_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.distort_grid_1d" title="Link to this definition"></a></dt>
 <dd><p>Randomly distort internal nodes in a 1d grid.</p>
 <p>The boundary nodes are left untouched, and the perturbations will not perturb the
 topology of the mesh.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The grid that will be perturbed. Modifications will happen in place.</p></li>
-<li><p><strong>ratio</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=0.1</span></code></p>
+<li><p><strong>ratio</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=0.1</span></code></p>
 <p>Perturbation ratio. A node can be moved at most half the distance in towards
 any of its neighboring nodes. The ratio will multiply the chosen distortion.
 Should be less than 1 to preserve grid topology.</p>
 </p></li>
-<li><p><strong>fixed_nodes</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>fixed_nodes</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Index of nodes to keep fixed under distortion. Boundary nodes will always be
 fixed, even if not explicitly included as fixed_node.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The grid, but with distorted nodes.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a></p>
 </dd>
 </dl>
@@ -384,21 +384,21 @@ fixed, even if not explicitly included as fixed_node.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.refinement.refine_grid_1d">
-<span class="sig-name descname"><span class="pre">refine_grid_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#refine_grid_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.refine_grid_1d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">refine_grid_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#refine_grid_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.refine_grid_1d" title="Link to this definition"></a></dt>
 <dd><p>Refine the cells in a 1D grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The 1D grid that is to be refined.</p></li>
-<li><p><strong>ratio</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=2</span></code></p>
+<li><p><strong>ratio</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=2</span></code></p>
 <p>Refinement level.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A new, more refined, grid.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a></p>
 </dd>
 </dl>
@@ -406,7 +406,7 @@ fixed, even if not explicitly included as fixed_node.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.refinement.refine_triangle_grid">
-<span class="sig-name descname"><span class="pre">refine_triangle_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#refine_triangle_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.refine_triangle_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">refine_triangle_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#refine_triangle_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.refine_triangle_grid" title="Link to this definition"></a></dt>
 <dd><p>Uniform refinement of triangular grids.</p>
 <p>All cells are split into four subcells by combining existing nodes and face centers.</p>
 <div class="admonition note">
@@ -416,47 +416,47 @@ as well. The loop over face combinations extends straightforwardly, but
 obtaining the node in the corner defined by faces may be a bit tricky.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.simplex.html#porepy.grids.simplex.TriangleGrid" title="porepy.grids.simplex.TriangleGrid"><em>TriangleGrid</em></a>) – The triangle grid that is to be refined.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A 2-tuple containing</p>
 <dl class="simple">
 <dt><a class="reference internal" href="porepy.grids.simplex.html#porepy.grids.simplex.TriangleGrid" title="porepy.grids.simplex.TriangleGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">TriangleGrid</span></code></a>:</dt><dd><p>New grid, with <code class="docutils literal notranslate"><span class="pre">nd+2</span></code> times as many cells as <code class="docutils literal notranslate"><span class="pre">g</span></code>.</p>
 </dd>
 </dl>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.num_cells*(nd+2),)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(g.num_cells*(nd+2),)</span></code></p>
 <blockquote>
 <div><p>Mapping from new to old cells.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference internal" href="porepy.grids.simplex.html#porepy.grids.simplex.TriangleGrid" title="porepy.grids.simplex.TriangleGrid">porepy.grids.simplex.TriangleGrid</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference internal" href="porepy.grids.simplex.html#porepy.grids.simplex.TriangleGrid" title="porepy.grids.simplex.TriangleGrid"><em>TriangleGrid</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.refinement.remesh_1d">
-<span class="sig-name descname"><span class="pre">remesh_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#remesh_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.remesh_1d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">remesh_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/refinement.html#remesh_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.refinement.remesh_1d" title="Link to this definition"></a></dt>
 <dd><p>Create a new 1d mesh covering the same domain as an old one.</p>
 <p>The new grid is equi-spaced, and there is no guarantee that the nodes in the old and
 new grids are coinciding. Use with care, in particular for grids with internal
 boundaries.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g_old</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – 1d grid to be replaced/remeshed.</p></li>
-<li><p><strong>num_nodes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Number of nodes in the new grid.</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">optional</span></code>) – Tolerance used to compare node coordinates (for mapping of
+<li><p><strong>num_nodes</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number of nodes in the new grid.</p></li>
+<li><p><strong>tol</strong> (<em>optional</em>) – Tolerance used to compare node coordinates (for mapping of
 boundary conditions). Defaults to <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The new grid that covers the same domain as g_old.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a></p>
 </dd>
 </dl>

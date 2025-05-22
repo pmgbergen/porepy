@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.match_grids module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.match_grids.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.match_grids.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.match_grids module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.match_grids">
-<span id="porepy-grids-match-grids-module"></span><h1>porepy.grids.match_grids module<a class="headerlink" href="#module-porepy.grids.match_grids" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-match-grids-module"></span><h1>porepy.grids.match_grids module<a class="headerlink" href="#module-porepy.grids.match_grids" title="Link to this heading"></a></h1>
 <p>This module contains various functions to find overlaps between grid cells.</p>
 <p>The module is primarily intended for replacing individual grids in the
 mixed-dimensional grid. It is called mostly inside
@@ -283,24 +283,24 @@ mixed-dimensional grid. It is called mostly inside
 <p>That is, the methods herein should as a rule not be invoked directly.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.match_grids.match_1d">
-<span class="sig-name descname"><span class="pre">match_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#match_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.match_1d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">match_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#match_1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.match_1d" title="Link to this definition"></a></dt>
 <dd><p>Obtain mappings between the cells of non-matching 1D grids.</p>
 <p>The overlapping is identified as a sparse matrix which maps from cells in the old to
 the new grid.</p>
 <p>It is assumed that the two grids are aligned, with common start and endpoints.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>new_g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Target grid for the mapping. Should have dimension 1.</p></li>
 <li><p><strong>old_g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Original grid. Should have dimension 1.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Tolerance used to filter away false overlaps caused by
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Tolerance used to filter away false overlaps caused by
 numerical errors. Should be scaled relative to the cell size.</p></li>
-<li><p><strong>scaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><em>Literal</em></a><em>[</em><em>'averaged'</em><em>, </em><em>'integrated'</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code>.</p>
+<li><p><strong>scaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><em>Literal</em></a><em>[</em><em>'averaged'</em><em>, </em><em>'integrated'</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code>.</p>
 <p>Control weights of the returned matrix, see return values for specification.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Mapping from the cells in the old to the new grid.</p>
 <p>The values in the matrix depend on the parameter <code class="docutils literal notranslate"><span class="pre">scaling</span></code>.</p>
 <p>If set to ‘averaged’, a mapping fit for intensive quantities (e.g., pressure) is
@@ -311,32 +311,32 @@ sum is 1).</p>
 overlap. Overlaps with areas less than the parameter <code class="docutils literal notranslate"><span class="pre">tol</span></code> will be ignored.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)"><em>csr_matrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)"><em>csr_matrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.match_grids.match_2d">
-<span class="sig-name descname"><span class="pre">match_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#match_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.match_2d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">match_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">old_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#match_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.match_2d" title="Link to this definition"></a></dt>
 <dd><p>Match two simplex tessellations to identify overlapping cells.</p>
 <p>The overlaps are identified as a sparse matrix which maps from cells in the old to
 the new grid.</p>
 <p>It is assumed that the two grids are aligned, with common start and endpoints.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>new_g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Target grid for the mapping. Should have dimension 2.</p></li>
 <li><p><strong>old_g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Original grid. Should have dimension 2.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Tolerance used to filter away false overlaps caused by
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Tolerance used to filter away false overlaps caused by
 numerical errors. Should be scaled relative to the cell size.</p></li>
-<li><p><strong>scaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><em>Literal</em></a><em>[</em><em>'averaged'</em><em>, </em><em>'integrated'</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>scaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><em>Literal</em></a><em>[</em><em>'averaged'</em><em>, </em><em>'integrated'</em><em>] </em><em>| </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Control weights of the returned matrix, see return values for specification.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Mapping from the cells in the old to the new grid.</p>
 <p>The values in the matrix depends on the parameter scaling.</p>
 <p>If set to ‘averaged’, a mapping fit for intensive quantities (e.g., pressure)
@@ -347,15 +347,15 @@ sum is 1).</p>
 overlap; overlaps with areas less than the parameter tol will be ignored.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)"><em>csr_matrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)"><em>csr_matrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.match_grids.match_grids_along_1d_mortar">
-<span class="sig-name descname"><span class="pre">match_grids_along_1d_mortar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_new</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#match_grids_along_1d_mortar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.match_grids_along_1d_mortar" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">match_grids_along_1d_mortar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_new</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#match_grids_along_1d_mortar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.match_grids_along_1d_mortar" title="Link to this definition"></a></dt>
 <dd><p>Match the faces of two 2D grids along a 1D mortar grid.</p>
 <p>The function identifies faces on the 1D segment specified by the MortarGrid, and
 finds the area weights of the matched faces. Both sides of the mortar grid are taken
@@ -367,32 +367,32 @@ care of.</p>
 by right multiplication.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mg</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – MortarGrid that specifies the target 1D line. Must be of dimension 1.</p></li>
 <li><p><strong>g_new</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – New 2D grid. Should have faces split along the 1D line.</p></li>
 <li><p><strong>g_old</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Old 2D grid. The mappings in mg from mortar to
 primary should be set for this grid.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Tolerance used in comparison of geometric quantities.</p></li>
-<li><p><strong>scaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><em>Literal</em></a><em>[</em><em>'averaged'</em><em>, </em><em>'integrated'</em><em>]</em>) – Control weights of the returned matrix, see return
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Tolerance used in comparison of geometric quantities.</p></li>
+<li><p><strong>scaling</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><em>Literal</em></a><em>[</em><em>'averaged'</em><em>, </em><em>'integrated'</em><em>]</em>) – Control weights of the returned matrix, see return
 values of <a class="reference internal" href="#porepy.grids.match_grids.match_2d" title="porepy.grids.match_grids.match_2d"><code class="xref py py-func docutils literal notranslate"><span class="pre">match_2d()</span></code></a> for specification.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the matching procedure goes wrong.</p>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the matching procedure goes wrong.</p>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Mapping from the new to the old grid.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)"><em>csr_matrix</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.15.3)"><em>csr_matrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.match_grids.mdg_refinement">
-<span class="sig-name descname"><span class="pre">mdg_refinement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mdg_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nested'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#mdg_refinement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.mdg_refinement" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mdg_refinement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mdg_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nested'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#mdg_refinement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.mdg_refinement" title="Link to this definition"></a></dt>
 <dd><p>Wrapper for <code class="docutils literal notranslate"><span class="pre">'coarse_fine_cell_mapping'</span></code> in the grid data dictionaries
 to construct mapping for grids in mixed-dimensional grid.</p>
 <p>Adds a data dictionary entry to each grid in mdg.
@@ -408,19 +408,19 @@ possible.</p>
 <p>No node prop is added to the reference grids in mdg_ref.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – Coarse mixed-dimensional grid.</p></li>
 <li><p><strong>mdg_ref</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – Refined mixed-dimensional grid.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
 <p>Tolerance for point_in_poly* -methods</p>
 </p></li>
-<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.11)"><em>Literal</em></a><em>[</em><em>'nested'</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default='nested'</span></code></p>
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Literal" title="(in Python v3.13)"><em>Literal</em></a><em>[</em><em>'nested'</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default='nested'</span></code></p>
 <p>Refinement mode. <code class="docutils literal notranslate"><span class="pre">'nested'</span></code> corresponds to refinement by splitting.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -428,7 +428,7 @@ possible.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.grids.match_grids.structured_refinement">
-<span class="sig-name descname"><span class="pre">structured_refinement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point_in_poly_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#structured_refinement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.structured_refinement" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">structured_refinement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_ref</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point_in_poly_tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/match_grids.html#structured_refinement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.match_grids.structured_refinement" title="Link to this definition"></a></dt>
 <dd><p>Construct a mapping between cells of a grid and its refined version.</p>
 <p>Assuming a regular and a refined mesh, where the refinement is executed by
 splitting.
@@ -437,30 +437,30 @@ coarse grid.</p>
 <p class="rubric">Acknowledgement</p>
 <p>The code was contributed by Haakon Ervik.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Coarse grid.</p></li>
 <li><p><strong>g_ref</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Refined grid.</p></li>
-<li><p><strong>point_in_poly_tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
+<li><p><strong>point_in_poly_tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
 <p>Tolerance for <code class="xref py py-func docutils literal notranslate"><span class="pre">point_in_polyhedron()</span></code>.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.11)"><strong>AssertionError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">g_ref</span></code> has more cells than <code class="docutils literal notranslate"><span class="pre">g</span></code> or if they are of unequal
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.13)"><strong>AssertionError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">g_ref</span></code> has more cells than <code class="docutils literal notranslate"><span class="pre">g</span></code> or if they are of unequal
     dimension.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.11)"><strong>AssertionError</strong></a> – Depending on the dimension of <code class="docutils literal notranslate"><span class="pre">g</span></code>, a certain number of nodes
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.13)"><strong>AssertionError</strong></a> – Depending on the dimension of <code class="docutils literal notranslate"><span class="pre">g</span></code>, a certain number of nodes
     must be available.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.11)"><strong>AssertionError</strong></a> – If any cell in the finer grid is not contained in exactly one
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#AssertionError" title="(in Python v3.13)"><strong>AssertionError</strong></a> – If any cell in the finer grid is not contained in exactly one
     cell of the coarser grid.</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Column major sparse matrix mapping from coarse to fine cells.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><em>csc_matrix</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)"><em>csc_matrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>

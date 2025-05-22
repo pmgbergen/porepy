@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.fv_elliptic &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/fv_elliptic.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/fv_elliptic.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.fv.fv_elliptic</li>
       <li class="wy-breadcrumbs-aside">
@@ -274,25 +274,27 @@
 <span></span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Module contains superclass for mpfa and tpfa.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">warnings</span> <span class="kn">import</span> <span class="n">warn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="FVElliptic"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic">[docs]</a><span class="k">class</span> <span class="nc">FVElliptic</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">EllipticDiscretization</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Superclass for finite volume discretizations of the elliptic equation.</span>
+<div class="viewcode-block" id="FVElliptic">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FVElliptic</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">EllipticDiscretization</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Superclass for finite volume discretizations of the elliptic equation.</span>
 
 <span class="sd">    Should not be used by itself, instead use a subclass that implements an</span>
 <span class="sd">    actual discretization method. Known subclasses are Tpfa and Mpfa.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">):</span>
 
         <span class="c1"># Identify which parameters to use:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
@@ -311,8 +313,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">vector_source_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;vector_source&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bound_pressure_vector_source_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;bound_pressure_vector_source&quot;</span>
 
-<div class="viewcode-block" id="FVElliptic.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="FVElliptic.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): A grid.</span>
@@ -323,10 +327,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="FVElliptic.extract_pressure"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.extract_pressure">[docs]</a>    <span class="k">def</span> <span class="nf">extract_pressure</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.extract_pressure">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.extract_pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_pressure</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">solution_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Extract the pressure part of a solution.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract the pressure part of a solution.</span>
 <span class="sd">        The method is trivial for finite volume methods, with the pressure</span>
 <span class="sd">        being the only primary variable.</span>
 
@@ -343,10 +350,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">solution_array</span></div>
 
-<div class="viewcode-block" id="FVElliptic.extract_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.extract_flux">[docs]</a>    <span class="k">def</span> <span class="nf">extract_flux</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.extract_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.extract_flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_flux</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">solution_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Extract the flux related to a solution.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract the flux related to a solution.</span>
 
 <span class="sd">        The flux is computed from the discretization and the given pressure solution.</span>
 
@@ -371,10 +381,13 @@
 
         <span class="k">return</span> <span class="n">flux</span> <span class="o">*</span> <span class="n">solution_array</span> <span class="o">+</span> <span class="n">bound_flux</span> <span class="o">*</span> <span class="n">bc_val</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of a second</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of a second</span>
 <span class="sd">        order elliptic equation.</span>
 
 <span class="sd">        Args:</span>
@@ -391,8 +404,11 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix for a discretization of a second order elliptic equation</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix for a discretization of a second order elliptic equation</span>
 <span class="sd">        using a FV method.</span>
 
 <span class="sd">        Args:</span>
@@ -416,8 +432,11 @@
 
         <span class="k">return</span> <span class="n">M</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the right-hand side for a discretization of a second order elliptic</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the right-hand side for a discretization of a second order elliptic</span>
 <span class="sd">        equation using a finite volume method.</span>
 
 <span class="sd">        Args:</span>
@@ -454,7 +473,10 @@
 
         <span class="k">return</span> <span class="n">val</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_int_bound_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_flux">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_int_bound_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">,</span>
         <span class="n">data</span><span class="p">,</span>
@@ -466,7 +488,7 @@
         <span class="n">self_ind</span><span class="p">,</span>
         <span class="n">use_secondary_proj</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal boundary, manifested as a</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal boundary, manifested as a</span>
 <span class="sd">        flux boundary condition.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -524,16 +546,19 @@
             <span class="n">bound_flux</span> <span class="o">=</span> <span class="n">hf2f</span> <span class="o">*</span> <span class="n">bound_flux</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">bound_flux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
 <span class="sd">            sub-face boundary condition but only a face-wise mortar?&quot;&quot;&quot;</span>
             <span class="p">)</span>
 
         <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">div</span> <span class="o">*</span> <span class="n">bound_flux</span> <span class="o">*</span> <span class="n">proj</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_int_bound_source"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_source">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_source</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_int_bound_source">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_source</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data_edge</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a source term.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -575,7 +600,10 @@
 
         <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_trace"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_trace">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_trace">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_trace">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_pressure_trace</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">,</span>
         <span class="n">data</span><span class="p">,</span>
@@ -589,7 +617,7 @@
         <span class="n">assemble_matrix</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">assemble_rhs</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -667,10 +695,13 @@
                 <span class="n">vector_source</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;vector_source&quot;</span><span class="p">)</span>
                 <span class="n">rhs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">vector_source_discr</span> <span class="o">*</span> <span class="n">vector_source</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_trace_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_trace_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_trace_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_trace_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_pressure_trace_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data_edge</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span><span class="p">,</span> <span class="n">use_secondary_proj</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the rhs contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the rhs contribution from an internal</span>
 <span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
 
 <span class="sd">        For details, see self.assemble_int_bound_pressure_trace()</span>
@@ -729,10 +760,13 @@
             <span class="n">vector_source</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;vector_source&quot;</span><span class="p">)</span>
             <span class="n">rhs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">vector_source_discr</span> <span class="o">*</span> <span class="n">vector_source</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_trace_between_interfaces"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_trace_between_interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace_between_interfaces</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_trace_between_interfaces">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_trace_between_interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_pressure_trace_between_interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data_grid</span><span class="p">,</span> <span class="n">proj_primary</span><span class="p">,</span> <span class="n">proj_secondary</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
 
 <span class="sd">        Args:</span>
@@ -771,10 +805,13 @@
             <span class="o">*</span> <span class="n">proj_secondary</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_cell"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_cell">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_cell</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.assemble_int_bound_pressure_cell">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.assemble_int_bound_pressure_cell">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_pressure_cell</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">intf</span><span class="p">,</span> <span class="n">data_edge</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a condition on the cell pressure.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -815,10 +852,13 @@
 
         <span class="n">cc</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="n">self_ind</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span></div>
 
-<div class="viewcode-block" id="FVElliptic.enforce_neumann_int_bound"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.enforce_neumann_int_bound">[docs]</a>    <span class="k">def</span> <span class="nf">enforce_neumann_int_bound</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FVElliptic.enforce_neumann_int_bound">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic.enforce_neumann_int_bound">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">enforce_neumann_int_bound</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="n">data_edge</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">self_ind</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Enforce Neumann boundary conditions on a given system matrix.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Enforce Neumann boundary conditions on a given system matrix.</span>
 
 <span class="sd">        The method is void for finite volume approaches, but is implemented</span>
 <span class="sd">        to be compatible with the general framework.</span>
@@ -829,11 +869,15 @@
 <span class="sd">            matrix (scipy.sparse.matrix): Discretization matrix to be modified.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Operation is void for finite volume methods</span>
-        <span class="k">pass</span></div></div>
+        <span class="k">pass</span></div>
+</div>
 
 
-<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability">[docs]</a><span class="k">class</span> <span class="nc">EllipticDiscretizationZeroPermeability</span><span class="p">(</span><span class="n">FVElliptic</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Specialized discretization for domains with zero tangential permeability.</span>
+
+<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EllipticDiscretizationZeroPermeability</span><span class="p">(</span><span class="n">FVElliptic</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Specialized discretization for domains with zero tangential permeability.</span>
 
 <span class="sd">    Intended usage is to impose full continuity conditions between domains of higher</span>
 <span class="sd">    dimensions separated by a lower-dimensional domain (think two intersecting</span>
@@ -850,8 +894,10 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Formal discretization method - nothing to do here.</span>
 
 <span class="sd">        Args</span>
@@ -862,8 +908,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble system matrix. Will be zero matrix of appropriate size.</span>
+
+<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble system matrix. Will be zero matrix of appropriate size.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            g (Grid): Computational grid, with geometry fields computed.</span>
@@ -875,8 +924,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">sd</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">sd</span><span class="p">)))</span></div>
 
-<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble right hand side vector. Will be zero vector of appropriate size.</span>
+
+<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble right hand side vector. Will be zero vector of appropriate size.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            g (Grid): Computational grid, with geometry fields computed.</span>
@@ -889,10 +941,13 @@
 
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">sd</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_int_bound_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_int_bound_flux">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_int_bound_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_int_bound_flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">data_edge</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span><span class="p">,</span> <span class="n">use_secondary_proj</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal boundary, manifested as a</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal boundary, manifested as a</span>
 <span class="sd">        flux boundary condition.</span>
 
 <span class="sd">        This method should not be used for the zero-permeability case; it would</span>
@@ -920,14 +975,17 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;This class should not be used as a</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;This class should not be used as a</span>
 <span class="sd">                                  higher-dimensional discretization&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_int_bound_pressure_trace"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_int_bound_pressure_trace">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_pressure_trace</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EllipticDiscretizationZeroPermeability.assemble_int_bound_pressure_trace">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.EllipticDiscretizationZeroPermeability.assemble_int_bound_pressure_trace">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_pressure_trace</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">data_edge</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span><span class="p">,</span> <span class="n">use_secondary_proj</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a condition on the boundary pressure.</span>
 
 <span class="sd">        This method should not be used for the zero-permeability case; it would</span>
@@ -955,9 +1013,11 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;This class should not be used as a</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;This class should not be used as a</span>
 <span class="sd">                                  higher-dimensional discretization&quot;&quot;&quot;</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+</div>
+
 </pre></div>
 
            </div>

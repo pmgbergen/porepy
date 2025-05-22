@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.gmsh_interface module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.gmsh_interface.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.gmsh_interface.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.gmsh_interface module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.gmsh_interface">
-<span id="porepy-fracs-gmsh-interface-module"></span><h1>porepy.fracs.gmsh_interface module<a class="headerlink" href="#module-porepy.fracs.gmsh_interface" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-gmsh-interface-module"></span><h1>porepy.fracs.gmsh_interface module<a class="headerlink" href="#module-porepy.fracs.gmsh_interface" title="Link to this heading"></a></h1>
 <p>Functionality to interface with Gmsh, mainly by translating information from a PorePy
 format to that used by the Gmsh Python API. For examples on how that can be used, see
 FractureNetwork2d and FractureNetwork3d.</p>
@@ -294,117 +294,117 @@ FractureNetwork2d and FractureNetwork3d.</p>
 </dl>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData1d">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshData1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshData1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData1d" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshData1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshData1d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData1d" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_GmshData</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>mesh_size</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>lines</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>physical_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>physical_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>mesh_size</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>lines</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>physical_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>physical_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData1d.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData1d.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData1d.dim" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData2d">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshData2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshData2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData2d" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshData2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshData2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData2d" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_GmshData</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>mesh_size</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>lines</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>physical_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>physical_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>mesh_size</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>lines</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>physical_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>physical_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData2d.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData2d.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData2d.dim" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData3d">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshData3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygons</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[np.ndarray]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygon_tags</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_surfaces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines_in_surface</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[list[int]]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshData3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshData3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mesh_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'np.ndarray'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_lines</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygons</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[np.ndarray]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polygon_tags</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">physical_surfaces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'dict[int,</span> <span class="pre">Tags]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lines_in_surface</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'list[list[int]]'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'int'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshData3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">_GmshData</span></code></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>mesh_size</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>lines</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>physical_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>physical_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>polygons</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em>) – </p></li>
-<li><p><strong>polygon_tags</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>physical_surfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>porepy.fracs.gmsh_interface.Tags</em></a><em>]</em>) – </p></li>
-<li><p><strong>lines_in_surface</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>mesh_size</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>lines</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>physical_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>physical_lines</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>polygons</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>)</p></li>
+<li><p><strong>polygon_tags</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>physical_surfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><em>Tags</em></a><em>]</em>)</p></li>
+<li><p><strong>lines_in_surface</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData3d.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.dim" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData3d.lines_in_surface">
-<span class="sig-name descname"><span class="pre">lines_in_surface</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.lines_in_surface" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">lines_in_surface</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.lines_in_surface" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData3d.physical_surfaces">
-<span class="sig-name descname"><span class="pre">physical_surfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><span class="pre">porepy.fracs.gmsh_interface.Tags</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.physical_surfaces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">physical_surfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><span class="pre">Tags</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.physical_surfaces" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData3d.polygon_tags">
-<span class="sig-name descname"><span class="pre">polygon_tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><span class="pre">porepy.fracs.gmsh_interface.Tags</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.polygon_tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">polygon_tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#porepy.fracs.gmsh_interface.Tags" title="porepy.fracs.gmsh_interface.Tags"><span class="pre">Tags</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.polygon_tags" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshData3d.polygons">
-<span class="sig-name descname"><span class="pre">polygons</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.polygons" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">polygons</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshData3d.polygons" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshWriter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GmshWriter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Interface to Gmsh’s python API.</p>
 <p>The geometry specification (in the form of a GmshData object) is converted to a
 model (in the Gmsh sense) upon initiation of a GmshWriter. A mesh can then be
 constructed either by the method generate, or by directly working with the
 gmsh api in a client script.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>data</strong> (<em>Union</em><em>[</em><a class="reference internal" href="#porepy.fracs.gmsh_interface.GmshData2d" title="porepy.fracs.gmsh_interface.GmshData2d"><em>GmshData2d</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.GmshData3d" title="porepy.fracs.gmsh_interface.GmshData3d"><em>GmshData3d</em></a><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>Union</em><em>[</em><a class="reference internal" href="#porepy.fracs.gmsh_interface.GmshData2d" title="porepy.fracs.gmsh_interface.GmshData2d"><em>GmshData2d</em></a><em>, </em><a class="reference internal" href="#porepy.fracs.gmsh_interface.GmshData3d" title="porepy.fracs.gmsh_interface.GmshData3d"><em>GmshData3d</em></a><em>]</em>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshWriter.define_geometry">
-<span class="sig-name descname"><span class="pre">define_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter.define_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.define_geometry" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">define_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter.define_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.define_geometry" title="Link to this definition"></a></dt>
 <dd><p>Feed the geometry specified in self._data to gmsh.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -412,7 +412,7 @@ gmsh api in a client script.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshWriter.generate">
-<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_geo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter.generate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.generate" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">generate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_geo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter.generate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.generate" title="Link to this definition"></a></dt>
 <dd><p>Make gmsh generate a mesh and write it to specified mesh size.</p>
 <p>The mesh is generated from the geometry specified in gmsh.model.</p>
 <p>NOTE: We have experienced issues relating to memory leakages in gmsh which
@@ -421,23 +421,23 @@ In these situation, best practice seems to be not to finalize gmsh after
 mesh generation (set finalize=False, but rather clear the gmsh model by setting
 clear_gmsh=True), and finalize gmsh from the outside.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of the file. The suffix ‘.msh’ is added if necessary.</p></li>
-<li><p><strong>ndim</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Dimension of the grid to be made. If not specified, the
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of the file. The suffix ‘.msh’ is added if necessary.</p></li>
+<li><p><strong>ndim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Dimension of the grid to be made. If not specified, the
 dimension of the data used to initialize this GmshWriter will be used.</p></li>
-<li><p><strong>write_geo</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – If True, the geometry will be written before meshing.
+<li><p><strong>write_geo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>optional</em>) – If True, the geometry will be written before meshing.
 The name of the file will be file_name.geo_unrolled. Defaults to False.</p></li>
-<li><p><strong>clear_gmsh</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – If True, the function gmsh.clear() is called after
+<li><p><strong>clear_gmsh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>optional</em>) – If True, the function gmsh.clear() is called after
 mesh generation. This will delete the geometry from gmsh.</p></li>
-<li><p><strong>finalize</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – If True (default), the finalize method of the gmsh
+<li><p><strong>finalize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>optional</em>) – If True (default), the finalize method of the gmsh
 module is called after mesh generation. If set to False, gmsh should be
 finalized by a direct call to gmsh.finalize(); note however that if this
 is done, Gmsh cannot be accessed either from the outside or by an
 instance of the GmshWriter class before gmsh.initialize() is called.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -445,13 +445,13 @@ instance of the GmshWriter class before gmsh.initialize() is called.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshWriter.set_gmsh_options">
-<span class="sig-name descname"><span class="pre">set_gmsh_options</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter.set_gmsh_options"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.set_gmsh_options" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_gmsh_options</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">options</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#GmshWriter.set_gmsh_options"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.set_gmsh_options" title="Link to this definition"></a></dt>
 <dd><p>Set Gmsh options. See Gmsh documentation for choices available.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>options</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Options to set. Keys should be recognizable for Gmsh.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>options</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Options to set. Keys should be recognizable for Gmsh.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -459,154 +459,154 @@ instance of the GmshWriter class before gmsh.initialize() is called.</p></li>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.GmshWriter.gmsh_initialized">
-<span class="sig-name descname"><span class="pre">gmsh_initialized</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.gmsh_initialized" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">gmsh_initialized</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.GmshWriter.gmsh_initialized" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PhysicalNames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#PhysicalNames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PhysicalNames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#PhysicalNames"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
 <p>String-based tags used to assign physical names (Gmsh jargon) to classes
 of objects in a mixed-dimensional geometry.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.AUXILIARY_LINE">
-<span class="sig-name descname"><span class="pre">AUXILIARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.AUXILIARY_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">AUXILIARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.AUXILIARY_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.AUXILIARY_PLANE">
-<span class="sig-name descname"><span class="pre">AUXILIARY_PLANE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.AUXILIARY_PLANE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">AUXILIARY_PLANE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.AUXILIARY_PLANE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN">
-<span class="sig-name descname"><span class="pre">DOMAIN</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_LINE">
-<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_POINT">
-<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_SURFACE">
-<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_SURFACE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_SURFACE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_SURFACE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.DOMAIN_BOUNDARY_SURFACE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE">
-<span class="sig-name descname"><span class="pre">FRACTURE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_BOUNDARY_LINE">
-<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_BOUNDARY_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_BOUNDARY_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_BOUNDARY_POINT">
-<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_BOUNDARY_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_BOUNDARY_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_CONSTRAINT_INTERSECTION_POINT">
-<span class="sig-name descname"><span class="pre">FRACTURE_CONSTRAINT_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_CONSTRAINT_INTERSECTION_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_CONSTRAINT_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_CONSTRAINT_INTERSECTION_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_INTERSECTION_LINE">
-<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_INTERSECTION_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_INTERSECTION_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_INTERSECTION_POINT">
-<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_INTERSECTION_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_INTERSECTION_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_TIP">
-<span class="sig-name descname"><span class="pre">FRACTURE_TIP</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_TIP" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_TIP</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.PhysicalNames.FRACTURE_TIP" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#Tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Tags</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/gmsh_interface.html#Tags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
 <p>Numerical tags used to identify special objects in a mixed-dimensional
 geometry. These may be mapped to the string-based tag system used in Gmsh
 (see PhysicalNames)</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.AUXILIARY_LINE">
-<span class="sig-name descname"><span class="pre">AUXILIARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.AUXILIARY_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">AUXILIARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.AUXILIARY_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.AUXILIARY_PLANE">
-<span class="sig-name descname"><span class="pre">AUXILIARY_PLANE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.AUXILIARY_PLANE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">AUXILIARY_PLANE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.AUXILIARY_PLANE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_LINE">
-<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_POINT">
-<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_SURFACE">
-<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_SURFACE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_SURFACE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DOMAIN_BOUNDARY_SURFACE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.DOMAIN_BOUNDARY_SURFACE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE">
-<span class="sig-name descname"><span class="pre">FRACTURE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE_BOUNDARY_LINE">
-<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_BOUNDARY_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_BOUNDARY_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE_BOUNDARY_POINT">
-<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_BOUNDARY_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_BOUNDARY_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_BOUNDARY_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT">
-<span class="sig-name descname"><span class="pre">FRACTURE_CONSTRAINT_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_CONSTRAINT_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_CONSTRAINT_INTERSECTION_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE_INTERSECTION_LINE">
-<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_INTERSECTION_LINE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_LINE</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_INTERSECTION_LINE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE_INTERSECTION_POINT">
-<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_INTERSECTION_POINT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_INTERSECTION_POINT</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_INTERSECTION_POINT" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.FRACTURE_TIP">
-<span class="sig-name descname"><span class="pre">FRACTURE_TIP</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_TIP" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FRACTURE_TIP</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.FRACTURE_TIP" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.gmsh_interface.Tags.NEUTRAL">
-<span class="sig-name descname"><span class="pre">NEUTRAL</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.NEUTRAL" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">NEUTRAL</span></span><a class="headerlink" href="#porepy.fracs.gmsh_interface.Tags.NEUTRAL" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>

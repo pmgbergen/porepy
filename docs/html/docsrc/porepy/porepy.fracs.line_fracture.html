@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.line_fracture module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.line_fracture.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.line_fracture.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.line_fracture module</li>
@@ -275,60 +275,60 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.line_fracture">
-<span id="porepy-fracs-line-fracture-module"></span><h1>porepy.fracs.line_fracture module<a class="headerlink" href="#module-porepy.fracs.line_fracture" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-line-fracture-module"></span><h1>porepy.fracs.line_fracture module<a class="headerlink" href="#module-porepy.fracs.line_fracture" title="Link to this heading"></a></h1>
 <p>Contains classes representing fractures of 1D, i.e. manifolds of dimension 1 embedded in 2D.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">LineFracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">LineFracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sort_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.fracs.fracture.html#porepy.fracs.fracture.Fracture" title="porepy.fracs.fracture.Fracture"><code class="xref py py-class docutils literal notranslate"><span class="pre">Fracture</span></code></a></p>
 <p>A class representing linear fracture in 2D.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>points</strong> (<em>ArrayLike</em>) – </p></li>
-<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – </p></li>
-<li><p><strong>sort_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>points</strong> (<em>ArrayLike</em>)</p></li>
+<li><p><strong>index</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>sort_points</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.compute_centroid">
-<span class="sig-name descname"><span class="pre">compute_centroid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.compute_centroid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.compute_centroid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_centroid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.compute_centroid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.compute_centroid" title="Link to this definition"></a></dt>
 <dd><p>Method for computing the centroid of the fracture.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Array containing the 2D coordinates of the centroid.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.compute_normal">
-<span class="sig-name descname"><span class="pre">compute_normal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.compute_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.compute_normal" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_normal</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.compute_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.compute_normal" title="Link to this definition"></a></dt>
 <dd><p>Method computing normal vectors of the fracture</p>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>numpy.ndarray(2 x 1)</dt><dd><p>Normal vector of the fracture.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.length">
-<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.length" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">length</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.length" title="Link to this definition"></a></dt>
 <dd><p>Compute length of the fracture.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Fracture length as a float.</p>
 </dd>
 </dl>
@@ -336,26 +336,26 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.local_coordinates">
-<span class="sig-name descname"><span class="pre">local_coordinates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.local_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.local_coordinates" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">local_coordinates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.local_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.local_coordinates" title="Link to this definition"></a></dt>
 <dd><p>Method for computing the 1d vertex coordinates in a local system.</p>
 <p>The first coordinate is set at x=0, the second at x=self.length().</p>
 <section id="id1">
-<h2>Returns<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>numpy.ndarray(1 x 2)</dt><dd><p>The coordinates of the two vertices in the single local dimension.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.sort_points">
-<span class="sig-name descname"><span class="pre">sort_points</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.sort_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.sort_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sort_points</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/line_fracture.html#LineFracture.sort_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.sort_points" title="Link to this definition"></a></dt>
 <dd><p>Sort the vertices.</p>
 <p>For fractures defined by a two-vertex line segment, sorting is trivial.
 Returns
@@ -365,45 +365,10 @@ numpy.ndarray(dtype=int)</p>
 <div><p>The indices corresponding to the sorting.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.center">
-<span class="sig-name descname"><span class="pre">center</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">np.ndarray</span></em><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.center" title="Permalink to this definition"></a></dt>
-<dd><p>Centroid of the fracture <cite>(shape=(nd, ))</cite>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.index">
-<span class="sig-name descname"><span class="pre">index</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.index" title="Permalink to this definition"></a></dt>
-<dd><p>Index of fracture.</p>
-<p>Intended use in <a class="reference internal" href="porepy.fracs.fracture_network_2d.html#porepy.fracs.fracture_network_2d.FractureNetwork2d" title="porepy.fracs.fracture_network_2d.FractureNetwork2d"><code class="xref py py-class docutils literal notranslate"><span class="pre">FractureNetwork2d</span></code></a>
-and <a class="reference internal" href="porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="porepy.fracs.fracture_network_3d.FractureNetwork3d"><code class="xref py py-class docutils literal notranslate"><span class="pre">FractureNetwork3d</span></code></a>. Exact use is
-not clear (several fractures can be given same index), use with care.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.normal">
-<span class="sig-name descname"><span class="pre">normal</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">np.ndarray</span></em><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.normal" title="Permalink to this definition"></a></dt>
-<dd><p>Normal vector <cite>(shape=(nd, ))</cite>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.orig_pts">
-<span class="sig-name descname"><span class="pre">orig_pts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">np.ndarray</span></em><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.orig_pts" title="Permalink to this definition"></a></dt>
-<dd><p>Original fracture vertices <cite>(shape=(nd, num_points))</cite>.</p>
-<p>The original points are kept in case the fracture geometry is modified.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.fracs.line_fracture.LineFracture.pts">
-<span class="sig-name descname"><span class="pre">pts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">np.ndarray</span></em><a class="headerlink" href="#porepy.fracs.line_fracture.LineFracture.pts" title="Permalink to this definition"></a></dt>
-<dd><p>Fracture vertices (shape=(nd, num_points)), stored in the implemented order.</p>
-<p>Note that the <code class="docutils literal notranslate"><span class="pre">points</span></code> passed to init will mutate.</p>
 </dd></dl>
 
 </dd></dl>

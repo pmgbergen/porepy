@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.fracture_network_3d module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.fracture_network_3d.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.fracture_network_3d.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.fracture_network_3d module</li>
@@ -275,59 +275,59 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.fracture_network_3d">
-<span id="porepy-fracs-fracture-network-3d-module"></span><h1>porepy.fracs.fracture_network_3d module<a class="headerlink" href="#module-porepy.fracs.fracture_network_3d" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-fracture-network-3d-module"></span><h1>porepy.fracs.fracture_network_3d module<a class="headerlink" href="#module-porepy.fracs.fracture_network_3d" title="Link to this heading"></a></h1>
 <p>A module for representation and manipulations of fractures and fracture sets.</p>
 <p>The model relies heavily on functions in the computational geometry library.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FractureNetwork3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fractures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_checks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FractureNetwork3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fractures</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_checks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Collection of Fractures with geometrical information. Facilitates
 computation of intersections of the fracture. Also incorporates the
 bounding box of the domain. To ensure
 that all fractures lie within the box, call impose_external_boundary()
 _after_ all fractures have been specified.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>fractures</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><em>PlaneFracture</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>domain</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>run_checks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>fractures</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><em>PlaneFracture</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>domain</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><em>np.ndarray</em><em>]</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>run_checks</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d._fractures">
-<span class="sig-name descname"><span class="pre">_fractures</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d._fractures" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">_fractures</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d._fractures" title="Link to this definition"></a></dt>
 <dd><p>All fractures forming the network.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">Fracture</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Fracture</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections">
-<span class="sig-name descname"><span class="pre">intersections</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">intersections</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections" title="Link to this definition"></a></dt>
 <dd><p>All known intersections in the
 network.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">Intersection</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">Intersection</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.has_checked_intersections">
-<span class="sig-name descname"><span class="pre">has_checked_intersections</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.has_checked_intersections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">has_checked_intersections</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.has_checked_intersections" title="Link to this definition"></a></dt>
 <dd><p>If True, the intersection finder
 method has been run. Useful in meshing algorithms to avoid
 recomputing known information.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code></p>
 </dd>
 </dl>
@@ -335,10 +335,10 @@ recomputing known information.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.tol">
-<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.tol" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.tol" title="Link to this definition"></a></dt>
 <dd><p>Geometric tolerance used in computations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code></p>
 </dd>
 </dl>
@@ -346,11 +346,11 @@ recomputing known information.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.domain">
-<span class="sig-name descname"><span class="pre">domain</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.domain" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">domain</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.domain" title="Link to this definition"></a></dt>
 <dd><p>External bounding box. See
 impose_external_boundary() for details.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code></p>
 </dd>
 </dl>
@@ -358,10 +358,10 @@ impose_external_boundary() for details.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.tags">
-<span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.tags" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tags</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.tags" title="Link to this definition"></a></dt>
 <dd><p>Tags used on Fractures and subdomain boundaries.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code></p>
 </dd>
 </dl>
@@ -369,11 +369,11 @@ impose_external_boundary() for details.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_min">
-<span class="sig-name descname"><span class="pre">mesh_size_min</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_min" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mesh_size_min</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_min" title="Link to this definition"></a></dt>
 <dd><p>Mesh size parameter, minimum mesh size to be
 sent to gmsh. Set by insert_auxiliary_points().</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code></p>
 </dd>
 </dl>
@@ -381,11 +381,11 @@ sent to gmsh. Set by insert_auxiliary_points().</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_frac">
-<span class="sig-name descname"><span class="pre">mesh_size_frac</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_frac" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mesh_size_frac</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_frac" title="Link to this definition"></a></dt>
 <dd><p>Mesh size parameter. Ideal mesh size, fed to
 gmsh. Set by insert_auxiliary_points().</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code></p>
 </dd>
 </dl>
@@ -393,11 +393,11 @@ gmsh. Set by insert_auxiliary_points().</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_bound">
-<span class="sig-name descname"><span class="pre">mesh_size_bound</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_bound" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mesh_size_bound</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh_size_bound" title="Link to this definition"></a></dt>
 <dd><p>Mesh size parameter. Boundary mesh size, fed to
 gmsh. Set by insert_auxiliary_points().</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code></p>
 </dd>
 </dl>
@@ -405,12 +405,12 @@ gmsh. Set by insert_auxiliary_points().</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.auxiliary_points_added">
-<span class="sig-name descname"><span class="pre">auxiliary_points_added</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.auxiliary_points_added" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">auxiliary_points_added</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.auxiliary_points_added" title="Link to this definition"></a></dt>
 <dd><p>Mesh size parameter. If True,
 extra points have been added to Fracture geometry to facilitate
 mesh size tuning.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code></p>
 </dd>
 </dl>
@@ -418,12 +418,12 @@ mesh size tuning.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.decomposition">
-<span class="sig-name descname"><span class="pre">decomposition</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.decomposition" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">decomposition</span></span><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.decomposition" title="Link to this definition"></a></dt>
 <dd><p>Splitting of network, accounting for
 fracture intersections etc. Necessary pre-processing before
 meshing. Added by split_intersections().</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code></p>
 </dd>
 </dl>
@@ -431,12 +431,12 @@ meshing. Added by split_intersections().</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.add">
-<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.add" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.add" title="Link to this definition"></a></dt>
 <dd><p>Add a fracture to the network.</p>
 <p>The fracture will be assigned a new index, higher than the maximum
 value currently found in the network.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>f</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Fracture</span></code>) – Fracture to be added.</p>
 </dd>
 </dl>
@@ -444,12 +444,12 @@ value currently found in the network.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.bounding_box">
-<span class="sig-name descname"><span class="pre">bounding_box</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.bounding_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.bounding_box" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bounding_box</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.bounding_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.bounding_box" title="Link to this definition"></a></dt>
 <dd><p>Obtain bounding box for fracture network.</p>
 <p>The box is defined by the external boundary, if imposed, or if not by
 the maximal extent of the fractures in each direction.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p><dl class="simple">
 <dt>dictionary with fields ‘xmin’, ‘xmax’, ‘ymin’, ‘ymax’, ‘zmin’,</dt><dd><p>’zmax’</p>
 </dd>
@@ -461,16 +461,16 @@ the maximal extent of the fractures in each direction.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.close_points">
-<span class="sig-name descname"><span class="pre">close_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.close_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.close_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">close_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dist</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.close_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.close_points" title="Link to this definition"></a></dt>
 <dd><p>In the set of points used to describe the fractures (after
 decomposition), find pairs that are closer than a certain distance.
 Intended use: Debugging.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>dist</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code>) – Threshold distance, all points closer than this will
 be reported.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Each tuple contain indices of a set of close</dt><dd><p>points, and the distance between the points. The list is not
 symmetric; if (a, b) is a member, (b, a) will not be.</p>
@@ -478,7 +478,7 @@ symmetric; if (a, b) is a member, (b, a) will not be.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>List of tuples</p>
 </dd>
 </dl>
@@ -486,13 +486,13 @@ symmetric; if (a, b) is a member, (b, a) will not be.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.copy" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.copy" title="Link to this definition"></a></dt>
 <dd><p>Create deep copy of the network.</p>
 <p>The method will create a deep copy of all fractures, as well as the domain, of
 the network. Note that if the fractures have had extra points imposed as part
 of a meshing procedure, these will be included in the copied fractures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.FractureNetwork3d.</p>
 </dd>
 </dl>
@@ -500,7 +500,7 @@ of a meshing procedure, these will be included in the copied fractures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.find_intersections">
-<span class="sig-name descname"><span class="pre">find_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_orig_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.find_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.find_intersections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">find_intersections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_orig_points</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.find_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.find_intersections" title="Link to this definition"></a></dt>
 <dd><p>Find intersections between fractures in terms of coordinates.</p>
 <p>The intersections are stored in the attribute self.Intersections.</p>
 <p>Handling of the intersections (splitting into non-intersecting
@@ -513,8 +513,8 @@ reliability of the methods. If intersections outside the bounding box
 are of interest, these can be found by setting the parameter
 use_orig_points to True.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>use_orig_points</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – Whether to use the original
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>use_orig_points</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <em>optional</em>) – Whether to use the original
 fracture description in the search for intersections. Defaults
 to False. If True, all fractures will have their attribute p
 reset to their original value.</p>
@@ -524,14 +524,14 @@ reset to their original value.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.fracture_to_plane">
-<span class="sig-name descname"><span class="pre">fracture_to_plane</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frac_num</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.fracture_to_plane"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.fracture_to_plane" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">fracture_to_plane</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frac_num</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.fracture_to_plane"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.fracture_to_plane" title="Link to this definition"></a></dt>
 <dd><p>Project fracture vertexes and intersection points to the natural
 plane of the fracture.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>frac_num</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of fracture.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>frac_num</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of fracture.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>2d coordinates of the fracture vertexes.
 np.ndarray (2xn_isect): 2d coordinates of fracture intersection</p>
 <blockquote>
@@ -549,7 +549,7 @@ np.ndarray, 3x1. 3d coordinates of the fracture center.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray (2xn_pt)</p>
 </dd>
 </dl>
@@ -557,22 +557,22 @@ np.ndarray, 3x1. 3d coordinates of the fracture center.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.fractures_of_points">
-<span class="sig-name descname"><span class="pre">fractures_of_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.fractures_of_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.fractures_of_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">fractures_of_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.fractures_of_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.fractures_of_points" title="Link to this definition"></a></dt>
 <dd><p>For a given point, find all fractures that refer to it, either as
 vertex or as internal.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>indices of fractures, one list item per point.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a> of <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.impose_external_boundary">
-<span class="sig-name descname"><span class="pre">impose_external_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.impose_external_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.impose_external_boundary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">impose_external_boundary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_box</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">area_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.impose_external_boundary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.impose_external_boundary" title="Link to this definition"></a></dt>
 <dd><p>Set an external boundary for the fracture set.</p>
 <dl class="simple">
 <dt>There are two permissible data formats for the domain boundary:</dt><dd><ol class="arabic simple">
@@ -594,7 +594,7 @@ Fracture.orig_points.</p>
 <p>Fractures that are completely outside the bounding box will be deleted
 from the fracture set.</p>
 <section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
 <p>domain (dictionary or list of np.ndarray): See above for description.
 keep_box (bool, optional): If True (default), the bounding surfaces will be</p>
 <blockquote>
@@ -614,7 +614,7 @@ should be sufficient for all regular usage.</p>
 </div></blockquote>
 </section>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>np.array: Mapping from old to new fractures, referring to the fractures in</dt><dd><p>self._fractures before and after imposing the external boundary.
 The mapping does not account for the boundary fractures added to the
@@ -623,7 +623,7 @@ end of the fracture array (if keep_box) is True.</p>
 </dl>
 </section>
 <section id="raises">
-<h2>Raises<a class="headerlink" href="#raises" title="Permalink to this heading"></a></h2>
+<h2>Raises<a class="headerlink" href="#raises" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>ValueError</dt><dd><p>If the FractureNetwork contains no fractures and no domain was passed
 to this method.</p>
@@ -631,34 +631,34 @@ to this method.</p>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>domain</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>keep_box</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
-<li><p><strong>area_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>clear_gmsh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
-<li><p><strong>finalize_gmsh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>domain</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>] </em><em>| </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>keep_box</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
+<li><p><strong>area_threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>clear_gmsh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
+<li><p><strong>finalize_gmsh</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections_of_fracture">
-<span class="sig-name descname"><span class="pre">intersections_of_fracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frac</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.intersections_of_fracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections_of_fracture" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">intersections_of_fracture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frac</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.intersections_of_fracture"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections_of_fracture" title="Link to this definition"></a></dt>
 <dd><p>Get all known intersections for a fracture.</p>
 <p>If called before find_intersections(), the returned list will be empty.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>, </em><a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><em>PlaneFracture</em></a><em>]</em>) – A fracture in the network</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>frac</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><a class="reference internal" href="porepy.fracs.plane_fracture.html#porepy.fracs.plane_fracture.PlaneFracture" title="porepy.fracs.plane_fracture.PlaneFracture"><em>PlaneFracture</em></a>) – A fracture in the network</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array of intersections</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (Intersection)</p>
 </dd>
 </dl>
@@ -666,45 +666,45 @@ to this method.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh">
-<span class="sig-name descname"><span class="pre">mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_geo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags_to_transfer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.mesh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">write_geo</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tags_to_transfer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finalize_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clear_gmsh</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.mesh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh" title="Link to this definition"></a></dt>
 <dd><p>Mesh the fracture network, and generate a mixed-dimensional grid.</p>
 <p>The mesh itself is generated by Gmsh.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mesh_args</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Should contain fields ‘mesh_size_frac’, ‘mesh_size_min’,
+<li><p><strong>mesh_args</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Should contain fields ‘mesh_size_frac’, ‘mesh_size_min’,
 which represent the ideal mesh size at the fracture, and the
 minimum mesh size passed to gmsh. Can also contain
 ‘mesh_size_bound’, which gives the far-field (boundary) mesh
 size.</p></li>
-<li><p><strong>dfn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, a DFN mesh (of the network, but not
+<li><p><strong>dfn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <em>optional</em>) – If True, a DFN mesh (of the network, but not
 the surrounding matrix) is created.</p></li>
-<li><p><strong>file_name</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str,</span> <span class="pre">optional</span></code>) – <p>Name of file used to communicate with gmsh.</p>
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>optional</em>) – <p>Name of file used to communicate with gmsh.</p>
 <p>defaults to gmsh_frac_file. The gmsh configuration file will be
 file_name.geo, while the mesh is dumped to file_name.msh.</p>
 </p></li>
 <li><p><strong>constraints</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Index list of elements in the fracture list that
 should be treated as constraints in meshing, but not added as separate
 fracture grids (no splitting of nodes etc.).</p></li>
-<li><p><strong>write_geo</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool,</span> <span class="pre">optional</span></code>) – If True (default), the gmsh configuration
+<li><p><strong>write_geo</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>, <em>optional</em>) – If True (default), the gmsh configuration
 will be written to a .geo_unrolled file.</p></li>
-<li><p><strong>tags_to_transfer</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">strings,</span> <span class="pre">optional</span></code>) – Tags, in self.tags to be
+<li><p><strong>tags_to_transfer</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">strings</span></code>, <em>optional</em>) – Tags, in self.tags to be
 transferred to the fracture grids. Provisional functionality.</p></li>
 <li><p><strong>finalize_gmsh</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>) – If True (default), the port to Gmsh is closed when
 meshing is completed. On repeated invocations of Gmsh in the same Python
 session, a memory leak in Gmsh may cause reduced performance (written
 spring 2021). In these cases, it may be better to finalize gmsh externally
 to this class. See also clear_gmsh.</p></li>
-<li><p><strong>clear_gmsh</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, the geometry representation in gmsh
+<li><p><strong>clear_gmsh</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <em>optional</em>) – If True, the geometry representation in gmsh
 is deleted when meshing is completed. This is of use only if finalize_gmsh
 is set to False, in which case it may be desirable to delete the old
 geometry before adding a new one. Defaults to False.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Mixed-dimensional mesh.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid">MixedDimensionalGrid</a></p>
 </dd>
 </dl>
@@ -712,52 +712,52 @@ geometry before adding a new one. Defaults to False.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.num_frac">
-<span class="sig-name descname"><span class="pre">num_frac</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.num_frac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.num_frac" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_frac</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.num_frac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.num_frac" title="Link to this definition"></a></dt>
 <dd><p>Get number of fractures in the network, not counting planes on
 the domain boundary.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Number of network fractures.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.prepare_for_gmsh">
-<span class="sig-name descname"><span class="pre">prepare_for_gmsh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.prepare_for_gmsh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.prepare_for_gmsh" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">prepare_for_gmsh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mesh_args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">constraints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.prepare_for_gmsh"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.prepare_for_gmsh" title="Link to this definition"></a></dt>
 <dd><p>Process network intersections and write a gmsh .geo configuration file,
 ready to be processed by gmsh.</p>
 <p>NOTE: Consider using the mesh() function instead to get a ready MixedDimensionalGrid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mesh_args</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Should contain fields ‘mesh_size_frac’, ‘mesh_size_min’,
+<li><p><strong>mesh_args</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Should contain fields ‘mesh_size_frac’, ‘mesh_size_min’,
 which represent the ideal mesh size at the fracture, and the
 minimum mesh size passed to gmsh. Can also contain
 ‘mesh_size_bound’, which gives the far-field (boundary) mesh
 size.</p></li>
-<li><p><strong>dfn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, a DFN mesh (of the network, but not
+<li><p><strong>dfn</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <em>optional</em>) – If True, a DFN mesh (of the network, but not
 the surrounding matrix) is created.</p></li>
 <li><p><strong>constraints</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Index list of elements in the fracture list that
 should be treated as constraints in meshing, but not added as separate
 fracture grids (no splitting of nodes etc.).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Name of .geo file.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)">str</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)">str</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.split_intersections">
-<span class="sig-name descname"><span class="pre">split_intersections</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.split_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.split_intersections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">split_intersections</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.split_intersections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.split_intersections" title="Link to this definition"></a></dt>
 <dd><p>Based on the fracture network, and their known intersections, decompose
 the fractures into non-intersecting sub-polygons. These can
 subsequently be exported to gmsh.</p>
@@ -766,7 +766,7 @@ subsequently be exported to gmsh.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.to_csv">
-<span class="sig-name descname"><span class="pre">to_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.to_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_csv" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">to_csv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">domain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.to_csv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_csv" title="Link to this definition"></a></dt>
 <dd><p>Save the 3d network on a csv file with comma , as separator.
 Note: the file is overwritten if present.
 The format is
@@ -779,7 +779,7 @@ The format is
 P0_X, P0_Y, P0_Z, …,PN_X, PN_Y, PN_Z</p></li>
 </ul>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>file_name</strong> – name of the file</p></li>
 <li><p><strong>domain</strong> – (optional) the bounding box of the problem</p></li>
@@ -790,20 +790,20 @@ P0_X, P0_Y, P0_Z, …,PN_X, PN_Y, PN_Z</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.to_fab">
-<span class="sig-name descname"><span class="pre">to_fab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.to_fab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_fab" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">to_fab</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.to_fab"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_fab" title="Link to this definition"></a></dt>
 <dd><p>Save the 3d network on a fab file, as specified by FracMan.</p>
 <p>The filter is based on the .fab-files needed at the time of writing, and
 may not cover all options available.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – File name.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – File name.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.fracs.fracture_network_3d.FractureNetwork3d.to_file">
-<span class="sig-name descname"><span class="pre">to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.to_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_file" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">to_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/fracture_network_3d.html#FractureNetwork3d.to_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_file" title="Link to this definition"></a></dt>
 <dd><p>Export the fracture network to file.</p>
 <p>The file format is given as an kwarg, by default vtu will be used. The writing is
 outsourced to meshio, thus the file format should be supported by that package.</p>
@@ -813,15 +813,15 @@ of intersections.</p>
 possible to export additional data, as specified by the
 keyword-argument data.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of the target file.</p></li>
-<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary,</span> <span class="pre">optional</span></code>) – Data associated with the fractures.
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of the target file.</p></li>
+<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>, <em>optional</em>) – Data associated with the fractures.
 The values in the dictionary should be numpy arrays. 1d and 3d
 data is supported. Fracture numbers are always exported.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>

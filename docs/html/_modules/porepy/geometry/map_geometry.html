@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.geometry.map_geometry &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/geometry/map_geometry.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/geometry/map_geometry.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.geometry.map_geometry</li>
       <li class="wy-breadcrumbs-aside">
@@ -272,19 +272,21 @@
              
   <h1>Source code for porepy.geometry.map_geometry</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Collection of functions related to geometry mappings, rotations etc.&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="force_point_collinearity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.force_point_collinearity">[docs]</a><span class="k">def</span> <span class="nf">force_point_collinearity</span><span class="p">(</span>
+<div class="viewcode-block" id="force_point_collinearity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.force_point_collinearity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">force_point_collinearity</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Given a set of points, return them aligned on a line.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a set of points, return them aligned on a line.</span>
 
 <span class="sd">    Useful to enforce collinearity for almost collinear points. The order of the points</span>
 <span class="sd">    remain the same.</span>
@@ -312,7 +314,10 @@
     <span class="k">return</span> <span class="n">pts</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dist</span><span class="p">)</span> <span class="o">+</span> <span class="n">pts</span><span class="p">[:,</span> <span class="n">end</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">*</span> <span class="n">dist</span></div>
 
 
-<div class="viewcode-block" id="map_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.map_grid">[docs]</a><span class="k">def</span> <span class="nf">map_grid</span><span class="p">(</span>
+
+<div class="viewcode-block" id="map_grid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.map_grid">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">map_grid</span><span class="p">(</span>
     <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
     <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
     <span class="n">R</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -324,7 +329,7 @@
     <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]],</span>
     <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
 <span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Map a grid to a local coordinate system.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Map a grid to a local coordinate system.</span>
 
 <span class="sd">    If a 2d or a 1d grid is passed, the function returns the cell_centers,</span>
 <span class="sd">    face_normals, and face_centers using local coordinates. If a 3d grid is</span>
@@ -409,10 +414,13 @@
     <span class="k">return</span> <span class="n">cell_centers</span><span class="p">,</span> <span class="n">face_normals</span><span class="p">,</span> <span class="n">face_centers</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">nodes</span></div>
 
 
-<div class="viewcode-block" id="sort_points_on_line"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.sort_points_on_line">[docs]</a><span class="k">def</span> <span class="nf">sort_points_on_line</span><span class="p">(</span>
+
+<div class="viewcode-block" id="sort_points_on_line">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.sort_points_on_line">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">sort_points_on_line</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Return the indexes of the point according to their position on a line.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the indexes of the point according to their position on a line.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        pts: ``shape=(3, np)``</span>
@@ -446,7 +454,10 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="n">active_dim</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="project_points_to_line"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.project_points_to_line">[docs]</a><span class="k">def</span> <span class="nf">project_points_to_line</span><span class="p">(</span>
+
+<div class="viewcode-block" id="project_points_to_line">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.project_points_to_line">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_points_to_line</span><span class="p">(</span>
     <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
     <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
@@ -454,7 +465,7 @@
     <span class="nb">int</span><span class="p">,</span>
     <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">]],</span>
 <span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Project a set of colinear points onto a line.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project a set of colinear points onto a line.</span>
 
 <span class="sd">    The points should be co-linear such that a 1d description is meaningful.</span>
 
@@ -521,14 +532,17 @@
     <span class="k">return</span> <span class="n">sorted_coord</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">active_dimension</span><span class="p">,</span> <span class="n">sort_ind</span></div>
 
 
-<div class="viewcode-block" id="project_plane_matrix"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.project_plane_matrix">[docs]</a><span class="k">def</span> <span class="nf">project_plane_matrix</span><span class="p">(</span>
+
+<div class="viewcode-block" id="project_plane_matrix">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.project_plane_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_plane_matrix</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
     <span class="n">normal</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">,</span>
     <span class="n">reference</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">check_planar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Project the points on a plane using local coordinates.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project the points on a plane using local coordinates.</span>
 
 <span class="sd">    The projected points are computed by a dot product.</span>
 
@@ -579,12 +593,15 @@
     <span class="k">return</span> <span class="n">rotation_matrix</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">vect</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="project_line_matrix"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.project_line_matrix">[docs]</a><span class="k">def</span> <span class="nf">project_line_matrix</span><span class="p">(</span>
+
+<div class="viewcode-block" id="project_line_matrix">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.project_line_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">project_line_matrix</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
     <span class="n">tangent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">reference</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Project the points on a line using local coordinates.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Project the points on a line using local coordinates.</span>
 
 <span class="sd">    The projected points are computed by a dot product.</span>
 
@@ -634,10 +651,13 @@
     <span class="k">return</span> <span class="n">rotation_matrix</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="n">vect</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="rotation_matrix"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.rotation_matrix">[docs]</a><span class="k">def</span> <span class="nf">rotation_matrix</span><span class="p">(</span>
+
+<div class="viewcode-block" id="rotation_matrix">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.rotation_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rotation_matrix</span><span class="p">(</span>
     <span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">vect</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Compute the rotation matrix about a vector by an angle using the matrix form of</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the rotation matrix about a vector by an angle using the matrix form of</span>
 <span class="sd">    Rodrigues&#39; formula.</span>
 
 <span class="sd">    Parameters:</span>
@@ -669,11 +689,14 @@
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="normal_matrix"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.normal_matrix">[docs]</a><span class="k">def</span> <span class="nf">normal_matrix</span><span class="p">(</span>
+
+<div class="viewcode-block" id="normal_matrix">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.normal_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">normal_matrix</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">normal</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Compute the normal projection matrix of a plane.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the normal projection matrix of a plane.</span>
 
 <span class="sd">    The algorithm assume that the points lie on a plane. Three non-aligned points are</span>
 <span class="sd">    required.</span>
@@ -710,11 +733,14 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">tensordot</span><span class="p">(</span><span class="n">normal</span><span class="p">,</span> <span class="n">normal</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">axes</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="tangent_matrix"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.tangent_matrix">[docs]</a><span class="k">def</span> <span class="nf">tangent_matrix</span><span class="p">(</span>
+
+<div class="viewcode-block" id="tangent_matrix">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.tangent_matrix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tangent_matrix</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">normal</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Compute the tangential projection matrix of a plane.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the tangential projection matrix of a plane.</span>
 
 <span class="sd">    The algorithm assume that the points lie on a plane. Three non-aligned points are</span>
 <span class="sd">    required.</span>
@@ -745,10 +771,13 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">normal_matrix</span><span class="p">(</span><span class="n">pts</span><span class="p">,</span> <span class="n">normal</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="compute_normal"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.compute_normal">[docs]</a><span class="k">def</span> <span class="nf">compute_normal</span><span class="p">(</span>
+
+<div class="viewcode-block" id="compute_normal">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.compute_normal">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_normal</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Compute the normal of a set of points.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the normal of a set of points.</span>
 
 <span class="sd">    The sign of the normal is arbitrary The algorithm assumes that the points lie on a</span>
 <span class="sd">    plane. Three non-aligned points are needed. If the points are almost collinear, the</span>
@@ -825,10 +854,13 @@
     <span class="k">return</span> <span class="n">normal</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">normal</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="compute_normals_1d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.compute_normals_1d">[docs]</a><span class="k">def</span> <span class="nf">compute_normals_1d</span><span class="p">(</span>
+
+<div class="viewcode-block" id="compute_normals_1d">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.compute_normals_1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_normals_1d</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Compute the normals of a set of points aligned along a 1d line.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the normals of a set of points aligned along a 1d line.</span>
 
 <span class="sd">    The sign and direction of the two normal vectors are arbitrary. The algorithm</span>
 <span class="sd">    assumes that the points lie on a line.</span>
@@ -859,10 +891,13 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="s2">&quot;1,2,0&quot;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">rotation_matrix</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">t</span><span class="p">),</span> <span class="n">n</span><span class="p">)]</span></div>
 
 
-<div class="viewcode-block" id="compute_tangent"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.compute_tangent">[docs]</a><span class="k">def</span> <span class="nf">compute_tangent</span><span class="p">(</span>
+
+<div class="viewcode-block" id="compute_tangent">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.map_geometry.html#porepy.geometry.map_geometry.compute_tangent">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">compute_tangent</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span> <span class="n">check</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-    <span class="sd">&quot;&quot;&quot;Compute a tangent vector of a set of points that are aligned along a 1d line.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a tangent vector of a set of points that are aligned along a 1d line.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        pts: ``shape=(3, np)``</span>
@@ -887,6 +922,7 @@
     <span class="k">if</span> <span class="n">check</span><span class="p">:</span>
         <span class="k">assert</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">tangent</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">tangent</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">tangent</span><span class="p">)</span></div>
+
 </pre></div>
 
            </div>

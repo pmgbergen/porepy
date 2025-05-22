@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.geometry &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/geometry.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/geometry.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.geometry</li>
       <li class="wy-breadcrumbs-aside">
@@ -274,36 +274,40 @@
 <span></span><span class="sd">&quot;&quot;&quot;Geometry definition for simulation setup.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="ModelGeometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry">[docs]</a><span class="k">class</span> <span class="nc">ModelGeometry</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This class provides geometry related methods and information for a simulation</span>
+<div class="viewcode-block" id="ModelGeometry">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ModelGeometry</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This class provides geometry related methods and information for a simulation</span>
 <span class="sd">    model.&quot;&quot;&quot;</span>
 
     <span class="c1"># Define attributes to be assigned later</span>
     <span class="n">fracture_network</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork2d</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork3d</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Representation of fracture network including intersections.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Representation of fracture network including intersections.&quot;&quot;&quot;</span>
     <span class="n">well_network</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">WellNetwork3d</span>
-    <span class="sd">&quot;&quot;&quot;Well network.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Well network.&quot;&quot;&quot;</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span>
-    <span class="sd">&quot;&quot;&quot;Mixed-dimensional grid. Set by the method :meth:`set_md_grid`.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixed-dimensional grid. Set by the method :meth:`set_md_grid`.&quot;&quot;&quot;</span>
     <span class="n">domain_bounds</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
-    <span class="sd">&quot;&quot;&quot;Box-shaped domain. Set by the method :meth:`set_md_grid`.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Box-shaped domain. Set by the method :meth:`set_md_grid`.&quot;&quot;&quot;</span>
     <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Set by the method :meth:`set_geometry`&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ambient dimension of the problem. Set by the method :meth:`set_geometry`&quot;&quot;&quot;</span>
     <span class="n">units</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span>
-    <span class="sd">&quot;&quot;&quot;Unit system.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Unit system.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ModelGeometry.set_geometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.set_geometry">[docs]</a>    <span class="k">def</span> <span class="nf">set_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Define geometry and create a mixed-dimensional grid.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ModelGeometry.set_geometry">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.set_geometry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define geometry and create a mixed-dimensional grid.&quot;&quot;&quot;</span>
         <span class="c1"># Create fracture network and mixed-dimensional grid</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">set_fracture_network</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">set_md_grid</span><span class="p">()</span>
@@ -311,12 +315,18 @@
         <span class="c1"># If fractures are present, it is advised to call</span>
         <span class="n">pp</span><span class="o">.</span><span class="n">contact_conditions</span><span class="o">.</span><span class="n">set_projections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.set_fracture_network"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.set_fracture_network">[docs]</a>    <span class="k">def</span> <span class="nf">set_fracture_network</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assign fracture network class.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ModelGeometry.set_fracture_network">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.set_fracture_network">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_fracture_network</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign fracture network class.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fracture_network</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork2d</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.mesh_arguments"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.mesh_arguments">[docs]</a>    <span class="k">def</span> <span class="nf">mesh_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Mesh arguments for md-grid creation.</span>
+
+<div class="viewcode-block" id="ModelGeometry.mesh_arguments">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.mesh_arguments">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mesh_arguments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mesh arguments for md-grid creation.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            mesh_args: Dictionary of meshing arguments compatible with</span>
@@ -326,8 +336,11 @@
         <span class="n">mesh_args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">return</span> <span class="n">mesh_args</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.set_md_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.set_md_grid">[docs]</a>    <span class="k">def</span> <span class="nf">set_md_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create the mixed-dimensional grid.</span>
+
+<div class="viewcode-block" id="ModelGeometry.set_md_grid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.set_md_grid">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_md_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create the mixed-dimensional grid.</span>
 
 <span class="sd">        A unit square grid with no fractures is assigned by default if</span>
 <span class="sd">        self.fracture_network contains no fractures. Otherwise, the network&#39;s mesh</span>
@@ -360,10 +373,13 @@
             <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">domain_bounds</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">from_points</span><span class="p">(</span><span class="n">domain</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.subdomains_to_interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.subdomains_to_interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">subdomains_to_interfaces</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ModelGeometry.subdomains_to_interfaces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.subdomains_to_interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomains_to_interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">codims</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Interfaces neighbouring any of the subdomains.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Interfaces neighbouring any of the subdomains.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: Subdomains for which to find interfaces.</span>
@@ -384,10 +400,13 @@
                     <span class="n">interfaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">sort_interfaces</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.interfaces_to_subdomains"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.interfaces_to_subdomains">[docs]</a>    <span class="k">def</span> <span class="nf">interfaces_to_subdomains</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ModelGeometry.interfaces_to_subdomains">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.interfaces_to_subdomains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interfaces_to_subdomains</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Subdomain neighbours of interfaces.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subdomain neighbours of interfaces.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            interfaces: List of interfaces for which to find subdomains.</span>
@@ -405,7 +424,10 @@
                     <span class="n">subdomains</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">sort_subdomains</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.wrap_grid_attribute"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.wrap_grid_attribute">[docs]</a>    <span class="k">def</span> <span class="nf">wrap_grid_attribute</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ModelGeometry.wrap_grid_attribute">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.wrap_grid_attribute">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrap_grid_attribute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">grids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">],</span>
         <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -413,7 +435,7 @@
         <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">inverse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Wrap a grid attribute as an ad matrix.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap a grid attribute as an ad matrix.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            grids: List of grids on which the property is defined.</span>
@@ -490,8 +512,11 @@
         <span class="n">ad_matrix</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Matrix wrapping attribute </span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">grids</span><span class="p">)</span><span class="si">}</span><span class="s2"> grids&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">ad_matrix</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.basis"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.basis">[docs]</a>    <span class="k">def</span> <span class="nf">basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return a cell-wise basis for all subdomains.</span>
+
+<div class="viewcode-block" id="ModelGeometry.basis">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.basis">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">basis</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a cell-wise basis for all subdomains.</span>
 
 <span class="sd">        The basis is represented as a list of matrices, each of which represents a</span>
 <span class="sd">        basis function. The individual matrices have shape ``Nc * dim, Nc`` where ``Nc``</span>
@@ -530,8 +555,11 @@
         <span class="c1"># Stack the basis functions horizontally</span>
         <span class="k">return</span> <span class="n">basis</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.e_i"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.e_i">[docs]</a>    <span class="k">def</span> <span class="nf">e_i</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return a cell-wise basis function in a specified dimension.</span>
+
+<div class="viewcode-block" id="ModelGeometry.e_i">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.e_i">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">e_i</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">GridLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a cell-wise basis function in a specified dimension.</span>
 
 <span class="sd">        It is assumed that the grids are embedded in a space of dimension dim and</span>
 <span class="sd">        aligned with the coordinate axes, that is, the reference space of the grid.</span>
@@ -592,9 +620,12 @@
         <span class="n">mat</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">kron</span><span class="p">(</span><span class="n">sps</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">num_cells</span><span class="p">),</span> <span class="n">e_i</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span></div>
 
+
     <span class="c1"># Local basis related methods</span>
-<div class="viewcode-block" id="ModelGeometry.tangential_component"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.tangential_component">[docs]</a>    <span class="k">def</span> <span class="nf">tangential_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the tangential component of a vector field.</span>
+<div class="viewcode-block" id="ModelGeometry.tangential_component">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.tangential_component">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tangential_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the tangential component of a vector field.</span>
 
 <span class="sd">        The tangential space is defined according to the local coordinates of the</span>
 <span class="sd">        subdomains, with the tangential space defined by the first `self.nd` components</span>
@@ -624,8 +655,11 @@
         <span class="n">op</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;tangential_component&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">op</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.normal_component"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.normal_component">[docs]</a>    <span class="k">def</span> <span class="nf">normal_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the normal component of a vector field.</span>
+
+<div class="viewcode-block" id="ModelGeometry.normal_component">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.normal_component">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normal_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the normal component of a vector field.</span>
 
 <span class="sd">        The normal space is defined according to the local coordinates of the</span>
 <span class="sd">        subdomains, with the normal space defined by final component, e.g., number</span>
@@ -652,8 +686,11 @@
         <span class="n">e_n</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;normal_component&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">e_n</span><span class="o">.</span><span class="n">T</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.local_coordinates"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.local_coordinates">[docs]</a>    <span class="k">def</span> <span class="nf">local_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Ad wrapper around tangential_normal_projections for fractures.</span>
+
+<div class="viewcode-block" id="ModelGeometry.local_coordinates">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.local_coordinates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">local_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Ad wrapper around tangential_normal_projections for fractures.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains for which to compute the local coordinates.</span>
@@ -683,8 +720,11 @@
             <span class="n">local_coord_proj</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">local_coord_proj</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.subdomain_projections"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.subdomain_projections">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">SubdomainProjections</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the projection operators for all subdomains in md-grid.</span>
+
+<div class="viewcode-block" id="ModelGeometry.subdomain_projections">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.subdomain_projections">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_projections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">SubdomainProjections</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the projection operators for all subdomains in md-grid.</span>
 
 <span class="sd">        The projection operators restrict or prolong a dim-dimensional quantity from the</span>
 <span class="sd">        full set of subdomains to any subset. Projection operators are constructed once</span>
@@ -708,52 +748,82 @@
             <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">proj</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">proj</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.domain_boundary_sides"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.domain_boundary_sides">[docs]</a>    <span class="k">def</span> <span class="nf">domain_boundary_sides</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-        <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-    <span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain indices of grid faces on the different parts of the domain boundary.</span>
 
-<span class="sd">        It is assumed the domain is box shaped.</span>
+<div class="viewcode-block" id="ModelGeometry.domain_boundary_sides">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.domain_boundary_sides">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">domain_boundary_sides</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1e-10</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">DomainSides</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain indices of the faces lying on the sides of the domain boundaries.</span>
 
-<span class="sd">        TODO: Update this from develop before merging.</span>
+<span class="sd">        The method is primarily intended for box-shaped domains. However, it can also be</span>
+<span class="sd">        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)</span>
+<span class="sd">        provided `tol` is tuned accordingly.</span>
+
 <span class="sd">        Parameters:</span>
-<span class="sd">            g: Grid for which to obtain the boundary faces.</span>
+<span class="sd">            sd: Subdomain grid.</span>
+<span class="sd">            tol: Tolerance used to determine whether a face center lies on a boundary side.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            NamedTuple containing the domain boundary sides. Available attributes are:</span>
+
+<span class="sd">                - all_bf (np.ndarray of int): indices of the boundary faces.</span>
+<span class="sd">                - east (np.ndarray of bool): flags of the faces lying on the East side.</span>
+<span class="sd">                - west (np.ndarray of bool): flags of the faces lying on the West side.</span>
+<span class="sd">                - north (np.ndarray of bool): flags of the faces lying on the North side.</span>
+<span class="sd">                - south (np.ndarray of bool): flags of the faces lying on the South side.</span>
+<span class="sd">                - top (np.ndarray of bool): flags of the faces lying on the Top side.</span>
+<span class="sd">                - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.</span>
+
+<span class="sd">        Examples:</span>
+
+<span class="sd">            .. code:: python</span>
+
+<span class="sd">                model = pp.SinglePhaseFlow({})</span>
+<span class="sd">                model.prepare_simulation()</span>
+<span class="sd">                sd = model.mdg.subdomains()[0]</span>
+<span class="sd">                sides = model.domain_boundary_sides(sd)</span>
+<span class="sd">                # Access north faces using index or name is equivalent:</span>
+<span class="sd">                north_by_index = sides[3]</span>
+<span class="sd">                north_by_name = sides.north</span>
+<span class="sd">                assert all(north_by_index == north_by_name)</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-10</span>
+        <span class="c1"># Get domain boundary sides</span>
         <span class="n">box</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain_bounds</span>
-        <span class="n">east</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">box</span><span class="p">[</span><span class="s2">&quot;xmax&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">tol</span>
-        <span class="n">west</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">box</span><span class="p">[</span><span class="s2">&quot;xmin&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">tol</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">north</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">east</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">box</span><span class="p">[</span><span class="s2">&quot;xmax&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tol</span>
+        <span class="n">west</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">box</span><span class="p">[</span><span class="s2">&quot;xmin&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tol</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">north</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
             <span class="n">south</span> <span class="o">=</span> <span class="n">north</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">north</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">box</span><span class="p">[</span><span class="s2">&quot;ymax&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">tol</span>
-            <span class="n">south</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">box</span><span class="p">[</span><span class="s2">&quot;ymin&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">tol</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">nd</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="n">top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+            <span class="n">north</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">box</span><span class="p">[</span><span class="s2">&quot;ymax&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tol</span>
+            <span class="n">south</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">box</span><span class="p">[</span><span class="s2">&quot;ymin&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tol</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
             <span class="n">bottom</span> <span class="o">=</span> <span class="n">top</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">top</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">box</span><span class="p">[</span><span class="s2">&quot;zmax&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">tol</span>
-            <span class="n">bottom</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">box</span><span class="p">[</span><span class="s2">&quot;zmin&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">tol</span>
-        <span class="n">all_bf</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">get_boundary_faces</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">all_bf</span><span class="p">,</span> <span class="n">east</span><span class="p">,</span> <span class="n">west</span><span class="p">,</span> <span class="n">north</span><span class="p">,</span> <span class="n">south</span><span class="p">,</span> <span class="n">top</span><span class="p">,</span> <span class="n">bottom</span></div>
+            <span class="n">top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">box</span><span class="p">[</span><span class="s2">&quot;zmax&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tol</span>
+            <span class="n">bottom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">box</span><span class="p">[</span><span class="s2">&quot;zmin&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&lt;=</span> <span class="n">tol</span>
+        <span class="n">all_bf</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">get_boundary_faces</span><span class="p">()</span>
 
-<div class="viewcode-block" id="ModelGeometry.internal_boundary_normal_to_outwards"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.internal_boundary_normal_to_outwards">[docs]</a>    <span class="k">def</span> <span class="nf">internal_boundary_normal_to_outwards</span><span class="p">(</span>
+        <span class="c1"># Create a namedtuple to store the arrays</span>
+        <span class="n">domain_sides</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">bounding_box</span><span class="o">.</span><span class="n">DomainSides</span><span class="p">(</span>
+            <span class="n">all_bf</span><span class="p">,</span> <span class="n">east</span><span class="p">,</span> <span class="n">west</span><span class="p">,</span> <span class="n">north</span><span class="p">,</span> <span class="n">south</span><span class="p">,</span> <span class="n">top</span><span class="p">,</span> <span class="n">bottom</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">domain_sides</span></div>
+
+
+<div class="viewcode-block" id="ModelGeometry.internal_boundary_normal_to_outwards">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.internal_boundary_normal_to_outwards">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">internal_boundary_normal_to_outwards</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain a vector for flipping normal vectors on internal boundaries.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain a vector for flipping normal vectors on internal boundaries.</span>
 
 <span class="sd">        For a list of subdomains, check if the normal vector on internal boundaries</span>
 <span class="sd">        point into the internal interface (e.g., into the fracture), and if so, flip the</span>
@@ -800,15 +870,18 @@
         <span class="n">sign_flipper</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;Flip_normal_vectors&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">sign_flipper</span></div>
 
-<div class="viewcode-block" id="ModelGeometry.outwards_internal_boundary_normals"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.outwards_internal_boundary_normals">[docs]</a>    <span class="k">def</span> <span class="nf">outwards_internal_boundary_normals</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ModelGeometry.outwards_internal_boundary_normals">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.geometry.html#porepy.models.geometry.ModelGeometry.outwards_internal_boundary_normals">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">outwards_internal_boundary_normals</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">unitary</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute outward normal vectors on internal boundaries.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute outward normal vectors on internal boundaries.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            interfaces: List of interfaces.</span>
 <span class="sd">            unitary: If True, return unit vectors, i.e. normalize by face area.</span>
 
@@ -888,7 +961,9 @@
             <span class="n">outwards_normals</span> <span class="o">=</span> <span class="n">cell_volumes_inv_nd</span> <span class="o">*</span> <span class="n">outwards_normals</span>
             <span class="n">outwards_normals</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;unitary_outwards_internal_boundary_normals&quot;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">outwards_normals</span></div></div>
+        <span class="k">return</span> <span class="n">outwards_normals</span></div>
+</div>
+
 </pre></div>
 
            </div>

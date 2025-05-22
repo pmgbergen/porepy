@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.structured module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.structured.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.structured.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.structured module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.structured">
-<span id="porepy-grids-structured-module"></span><h1>porepy.grids.structured module<a class="headerlink" href="#module-porepy.grids.structured" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-structured-module"></span><h1>porepy.grids.structured module<a class="headerlink" href="#module-porepy.grids.structured" title="Link to this heading"></a></h1>
 <p>Module containing classes for structured grids.</p>
 <p class="rubric">Acknowledgement</p>
 <p>The implementation of structured grids is in practice a translation of the
@@ -284,18 +284,18 @@ corresponding functions found in the
 developed by SINTEF ICT.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.structured.CartGrid">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CartGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/structured.html#CartGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.structured.CartGrid" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CartGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/structured.html#CartGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.structured.CartGrid" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.grids.structured.TensorGrid" title="porepy.grids.structured.TensorGrid"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorGrid</span></code></a></p>
 <p>Representation of a 2D or 3D Cartesian grid.</p>
 <p>The name <code class="docutils literal notranslate"><span class="pre">'CartGrid'</span></code> is assigned to each instance.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>nx</strong> – <p>Number of cells in each direction (x, y or z).</p>
+<li><p><strong>nx</strong> (<em>np.ndarray</em>) – <p>Number of cells in each direction (x, y or z).</p>
 <p>Should be 1d, 2d or 3d.
 1d grids can also be specified by a scalar.</p>
 </p></li>
-<li><p><strong>physdims</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>physdims</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>np.ndarray</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Physical dimensions in each direction.</p>
 <p>Can be given as an array with up to 3 entries (for each dimension).</p>
 <p>Can also be given as a dictionary with keys</p>
@@ -311,187 +311,12 @@ will be of unit size.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
-</dd>
 </dl>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.cell_centers">
-<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.cell_centers" title="Permalink to this definition"></a></dt>
-<dd><p>An array containing column-wise the centers of all cells with
-<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
-<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.cell_faces">
-<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.cell_faces" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
-cells to faces bordering respective cell.</p>
-<p>Matrix elements have value +-1, where + corresponds to the face normal vector
-being outwards.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.cell_volumes">
-<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.cell_volumes" title="Permalink to this definition"></a></dt>
-<dd><p>An array containing column-wise the volumes per cell with
-<code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
-<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.dim" title="Permalink to this definition"></a></dt>
-<dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.face_areas">
-<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.face_areas" title="Permalink to this definition"></a></dt>
-<dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
-Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.face_centers">
-<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.face_centers" title="Permalink to this definition"></a></dt>
-<dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
-Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.face_nodes">
-<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.face_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
-faces to nodes spanning respective face.</p>
-<p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To use <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code> later, the field
-<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code> should store the nodes of each face sorted.
-<code class="docutils literal notranslate"><span class="pre">face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]</span></code>
-are the nodes of face i, which should be ordered counter-clockwise.</p>
-<p>By counter-clockwise we mean as seen from cell <code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">-1</span></code>.</p>
-<p>Equivalently the nodes will be clockwise as seen from cell
-<code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">1</span></code>.</p>
-<p>Note that operations on the face_nodes matrix
-(such as converting it to a csr-matrix) may change the ordering of
-the nodes (<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code>),
-which will break <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</div>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.face_normals">
-<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.face_normals" title="Permalink to this definition"></a></dt>
-<dd><p>An array containing column-wise normal vectors of all faces with
-<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
-<p>See also <a class="reference internal" href="#porepy.grids.structured.CartGrid.cell_faces" title="porepy.grids.structured.CartGrid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
-<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.frac_num">
-<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.frac_num" title="Permalink to this definition"></a></dt>
-<dd><p>Index of the fracture the grid corresponds to. Take
-value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.frac_pairs">
-<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.frac_pairs" title="Permalink to this definition"></a></dt>
-<dd><p>Indices of faces that are geometrically coinciding, but
-lay on different side of a lower-dimensional grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.global_point_ind">
-<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.global_point_ind" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
-assigned during processing of mixed-dimensional grids created by gmsh.</p>
-<p>Used to identify points that are geometrically equal, though on different grids.</p>
-<p>Could potentially be used to identify such geometrically equal points at a
-later stage, but there is no guarantee that this will work.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.history">
-<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.history" title="Permalink to this definition"></a></dt>
-<dd><p>Information on the formation of the grid, such as the
-constructor, computations of geometry etc.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.name" title="Permalink to this definition"></a></dt>
-<dd><p>Name assigned to this grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.nodes">
-<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.nodes" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
-coordinates column-wise.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.num_cells">
-<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.num_cells" title="Permalink to this definition"></a></dt>
-<dd><p>Number of cells in the grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.num_faces">
-<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.num_faces" title="Permalink to this definition"></a></dt>
-<dd><p>Number of faces in the grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.num_nodes">
-<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.num_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>Number of nodes in the grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.parent_cell_ind">
-<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.parent_cell_ind" title="Permalink to this definition"></a></dt>
-<dd><p>Index of parent the cell in the parent grid for grids that have refined
-sub-grids or are sub-grids of larger grids.</p>
-<p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.periodic_face_map">
-<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.periodic_face_map" title="Permalink to this definition"></a></dt>
-<dd><p>Index of periodic boundary faces,
-<code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
-<p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
-face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
-This attribute is set with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_periodic_map()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.tags">
-<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.tags" title="Permalink to this definition"></a></dt>
-<dd><p>Tags allow to mark subdomains of interest.</p>
-<p>The default tags are used to mark fractures, tips and domain boundaries.
-Tags are used for nodes, as well as faces.
-User tags can be provided in the constructor.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.CartGrid.well_num">
-<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.CartGrid.well_num" title="Permalink to this definition"></a></dt>
-<dd><p>Index of the well associated to the grid. Takes a value in
-<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TensorGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/structured.html#TensorGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.structured.TensorGrid" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TensorGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/structured.html#TensorGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.structured.TensorGrid" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></p>
 <p>Representation of a grid formed by a tensor product of line point
 distributions.</p>
@@ -500,200 +325,25 @@ parent class.</p>
 <p>The resulting grid is 1D or 2D or 3D, depending on the number of
 coordinate lines are provided.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> – Node coordinates in x-direction.</p></li>
-<li><p><strong>y</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – Node coordinates in x-direction.</p></li>
+<li><p><strong>y</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Node coordinates in y-direction. If None, the created grid will be 1D.</p>
 </p></li>
-<li><p><strong>z</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>z</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Node coordinates in z-direction. If None, the created grid will be 2D.</p>
 </p></li>
-<li><p><strong>name</strong> – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Name for the grid. If None, the grid will be called <code class="docutils literal notranslate"><span class="pre">'TensorGrid'</span></code>.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">Grid</a></p>
-</dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.cart_dims">
-<span class="sig-name descname"><span class="pre">cart_dims</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.cart_dims" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cart_dims</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.cart_dims" title="Link to this definition"></a></dt>
 <dd><p>The resulting dimensions of the of the underlying Cartesian grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.cell_centers">
-<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.cell_centers" title="Permalink to this definition"></a></dt>
-<dd><p>An array containing column-wise the centers of all cells with
-<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_cells)</span></code>.</p>
-<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.cell_faces">
-<span class="sig-name descname"><span class="pre">cell_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.cell_faces" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_faces,</span> <span class="pre">num_cells)</span></code> representing the map from
-cells to faces bordering respective cell.</p>
-<p>Matrix elements have value +-1, where + corresponds to the face normal vector
-being outwards.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.cell_volumes">
-<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.cell_volumes" title="Permalink to this definition"></a></dt>
-<dd><p>An array containing column-wise the volumes per cell with
-<code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
-<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.dim" title="Permalink to this definition"></a></dt>
-<dd><p>Grid dimension. Should be in <code class="docutils literal notranslate"><span class="pre">{0,</span> <span class="pre">1,</span> <span class="pre">2,</span> <span class="pre">3}</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.face_areas">
-<span class="sig-name descname"><span class="pre">face_areas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.face_areas" title="Permalink to this definition"></a></dt>
-<dd><p>Areas of all faces <code class="docutils literal notranslate"><span class="pre">(shape=(num_cells,))</span></code>.
-Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.face_centers">
-<span class="sig-name descname"><span class="pre">face_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.face_centers" title="Permalink to this definition"></a></dt>
-<dd><p>Centers of all faces. <code class="docutils literal notranslate"><span class="pre">(shape=(ambient_dimension,</span> <span class="pre">num_faces))</span></code>.
-Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.face_nodes">
-<span class="sig-name descname"><span class="pre">face_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><span class="pre">csc_matrix</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.face_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,</span> <span class="pre">num_faces)</span></code> representing the map from
-faces to nodes spanning respective face.</p>
-<p>Assumes the nodes of each face are ordered according to the right-hand rule.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To use <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code> later, the field
-<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code> should store the nodes of each face sorted.
-<code class="docutils literal notranslate"><span class="pre">face_nodes.indices[face_nodes.indptr[i]:face_nodes.indptr[i+1]]</span></code>
-are the nodes of face i, which should be ordered counter-clockwise.</p>
-<p>By counter-clockwise we mean as seen from cell <code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">-1</span></code>.</p>
-<p>Equivalently the nodes will be clockwise as seen from cell
-<code class="docutils literal notranslate"><span class="pre">cell_faces[i,:]</span> <span class="pre">==</span> <span class="pre">1</span></code>.</p>
-<p>Note that operations on the face_nodes matrix
-(such as converting it to a csr-matrix) may change the ordering of
-the nodes (<code class="docutils literal notranslate"><span class="pre">face_nodes.indices</span></code>),
-which will break <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</div>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.face_normals">
-<span class="sig-name descname"><span class="pre">face_normals</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.face_normals" title="Permalink to this definition"></a></dt>
-<dd><p>An array containing column-wise normal vectors of all faces with
-<code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimenaion,</span> <span class="pre">num_faces)</span></code>.</p>
-<p>See also <a class="reference internal" href="#porepy.grids.structured.TensorGrid.cell_faces" title="porepy.grids.structured.TensorGrid.cell_faces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cell_faces</span></code></a>.</p>
-<p>Available after calling <code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.frac_num">
-<span class="sig-name descname"><span class="pre">frac_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.frac_num" title="Permalink to this definition"></a></dt>
-<dd><p>Index of the fracture the grid corresponds to. Take
-value <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">...)</span></code> if the grid corresponds to a fracture, -1 if not.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.frac_pairs">
-<span class="sig-name descname"><span class="pre">frac_pairs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.frac_pairs" title="Permalink to this definition"></a></dt>
-<dd><p>Indices of faces that are geometrically coinciding, but
-lay on different side of a lower-dimensional grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.global_point_ind">
-<span class="sig-name descname"><span class="pre">global_point_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.global_point_ind" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(num_nodes,)</span></code> containing indices of each point,
-assigned during processing of mixed-dimensional grids created by gmsh.</p>
-<p>Used to identify points that are geometrically equal, though on different grids.</p>
-<p>Could potentially be used to identify such geometrically equal points at a
-later stage, but there is no guarantee that this will work.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.history">
-<span class="sig-name descname"><span class="pre">history</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.history" title="Permalink to this definition"></a></dt>
-<dd><p>Information on the formation of the grid, such as the
-constructor, computations of geometry etc.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.name" title="Permalink to this definition"></a></dt>
-<dd><p>Name assigned to this grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.nodes">
-<span class="sig-name descname"><span class="pre">nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.nodes" title="Permalink to this definition"></a></dt>
-<dd><p>An array with <code class="docutils literal notranslate"><span class="pre">shape=(ambient_dimension,</span> <span class="pre">num_nodes)</span></code> containing node
-coordinates column-wise.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.num_cells">
-<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.num_cells" title="Permalink to this definition"></a></dt>
-<dd><p>Number of cells in the grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.num_faces">
-<span class="sig-name descname"><span class="pre">num_faces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.num_faces" title="Permalink to this definition"></a></dt>
-<dd><p>Number of faces in the grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.num_nodes">
-<span class="sig-name descname"><span class="pre">num_nodes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.num_nodes" title="Permalink to this definition"></a></dt>
-<dd><p>Number of nodes in the grid.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.parent_cell_ind">
-<span class="sig-name descname"><span class="pre">parent_cell_ind</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.parent_cell_ind" title="Permalink to this definition"></a></dt>
-<dd><p>Index of parent the cell in the parent grid for grids that have refined
-sub-grids or are sub-grids of larger grids.</p>
-<p>Defaults to a mapping to its own index with <code class="docutils literal notranslate"><span class="pre">shape=(num_cells,)</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.periodic_face_map">
-<span class="sig-name descname"><span class="pre">periodic_face_map</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.periodic_face_map" title="Permalink to this definition"></a></dt>
-<dd><p>Index of periodic boundary faces,
-<code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">num_periodic_faces),</span> <span class="pre">dtype=int)</span></code>.</p>
-<p>Face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[0,</span> <span class="pre">i]</span></code> is periodic with
-face index <code class="docutils literal notranslate"><span class="pre">periodic_face_map[1,</span> <span class="pre">i]</span></code>.
-This attribute is set with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_periodic_map()</span></code>.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.tags">
-<span class="sig-name descname"><span class="pre">tags</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">numpy.ndarray</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.tags" title="Permalink to this definition"></a></dt>
-<dd><p>Tags allow to mark subdomains of interest.</p>
-<p>The default tags are used to mark fractures, tips and domain boundaries.
-Tags are used for nodes, as well as faces.
-User tags can be provided in the constructor.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.grids.structured.TensorGrid.well_num">
-<span class="sig-name descname"><span class="pre">well_num</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.structured.TensorGrid.well_num" title="Permalink to this definition"></a></dt>
-<dd><p>Index of the well associated to the grid. Takes a value in
-<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1,</span> <span class="pre">..)</span></code> if the grid corresponds to a well, -1 if not.</p>
 </dd></dl>
 
 </dd></dl>

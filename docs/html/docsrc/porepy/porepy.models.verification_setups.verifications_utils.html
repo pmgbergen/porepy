@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.verification_setups.verifications_utils module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.verification_setups.verifications_utils.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.verification_setups.verifications_utils.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.verification_setups.html">porepy.models.verification_setups package</a></li>
@@ -275,51 +275,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="module-porepy.models.verification_setups.verifications_utils">
-<span id="porepy-models-verification-setups-verifications-utils-module"></span><h1>porepy.models.verification_setups.verifications_utils module<a class="headerlink" href="#module-porepy.models.verification_setups.verifications_utils" title="Permalink to this heading"></a></h1>
-<p>This module contains utility functions for verification setups.</p>
-<dl class="py class">
-<dt class="sig sig-object py" id="porepy.models.verification_setups.verifications_utils.VerificationUtils">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VerificationUtils</span></span><a class="reference internal" href="../../_modules/porepy/models/verification_setups/verifications_utils.html#VerificationUtils"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.verification_setups.verifications_utils.VerificationUtils" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>This class collects utility methods commonly used in verification setups.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The class is intended to be used as a Mixin, such as the capabilities of
-another class (typically setup or solution storage classes) can be extended.</p>
-</div>
-<dl class="py method">
-<dt class="sig sig-object py" id="porepy.models.verification_setups.verifications_utils.VerificationUtils.relative_l2_error">
-<span class="sig-name descname"><span class="pre">relative_l2_error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">true_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">approx_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_scalar</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_cc</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/verification_setups/verifications_utils.html#VerificationUtils.relative_l2_error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.verification_setups.verifications_utils.VerificationUtils.relative_l2_error" title="Permalink to this definition"></a></dt>
-<dd><p>Compute discrete L2-error.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>grid</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>) – Either a subdomain grid or a mortar grid.</p></li>
-<li><p><strong>true_array</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – Array containing the true values of a given variable.</p></li>
-<li><p><strong>approx_array</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – Array containing the approximate values of a given variable.</p></li>
-<li><p><strong>is_scalar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Whether the variable is a scalar quantity. Use <code class="docutils literal notranslate"><span class="pre">False</span></code> for
-vector quantities. For example, <code class="docutils literal notranslate"><span class="pre">is_scalar=True</span></code> for pressure, whereas
-<code class="docutils literal notranslate"><span class="pre">is_scalar=False</span></code> for displacement.</p></li>
-<li><p><strong>is_cc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Whether the variable is associated to cell centers. Use <code class="docutils literal notranslate"><span class="pre">False</span></code>
-for variables associated to face centers. For example, <code class="docutils literal notranslate"><span class="pre">is_cc=True</span></code>
-for pressures, whereas <code class="docutils literal notranslate"><span class="pre">is_scalar=False</span></code> for subdomain fluxes.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Discrete relative L2-error between the true and approximated arrays.</p>
-</dd>
-<dt class="field-odd">Raises</dt>
-<dd class="field-odd"><p><strong>ValueError if a mortar grid is given and is_cc=False.</strong> – </p>
-</dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)">float</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
+  <section id="porepy-models-verification-setups-verifications-utils-module">
+<h1>porepy.models.verification_setups.verifications_utils module<a class="headerlink" href="#porepy-models-verification-setups-verifications-utils-module" title="Link to this heading"></a></h1>
 </section>
 
 

@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.bc &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/bc.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/bc.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.params.bc</li>
       <li class="wy-breadcrumbs-aside">
@@ -277,30 +277,34 @@
 <span class="sd">The classes identify faces of a grid which have Dirichlet, Neumann and Robin type</span>
 <span class="sd">boundary conditions. There is one class for scalar problems and one for nd-vectors.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="AbstractBoundaryCondition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.AbstractBoundaryCondition">[docs]</a><span class="k">class</span> <span class="nc">AbstractBoundaryCondition</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="AbstractBoundaryCondition">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.AbstractBoundaryCondition">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AbstractBoundaryCondition</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This is an abstract class that include the shared functionality of the</span>
 <span class="sd">    boundary conditions</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">is_neu</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-    <span class="sd">&quot;&quot;&quot;Element i is true if face i has been assigned a Neumann condition.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Element i is true if face i has been assigned a Neumann condition.&quot;&quot;&quot;</span>
     <span class="n">is_dir</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-    <span class="sd">&quot;&quot;&quot;Element i is true if face i has been assigned a Dirichlet condition.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Element i is true if face i has been assigned a Dirichlet condition.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="AbstractBoundaryCondition.copy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.AbstractBoundaryCondition.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="AbstractBoundaryCondition.copy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.AbstractBoundaryCondition.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Create a deep copy of the boundary condition.</span>
 
 <span class="sd">        Returns:</span>
@@ -322,8 +326,11 @@
         <span class="n">bc</span><span class="o">.</span><span class="n">bf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bf</span>
         <span class="k">return</span> <span class="n">bc</span></div>
 
-<div class="viewcode-block" id="AbstractBoundaryCondition.internal_to_dirichlet"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.AbstractBoundaryCondition.internal_to_dirichlet">[docs]</a>    <span class="k">def</span> <span class="nf">internal_to_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Change the boundary condition to Dirichlet on all internal faces.</span>
+
+<div class="viewcode-block" id="AbstractBoundaryCondition.internal_to_dirichlet">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.AbstractBoundaryCondition.internal_to_dirichlet">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">internal_to_dirichlet</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Change the boundary condition to Dirichlet on all internal faces.</span>
 
 <span class="sd">        Useful for mixed-dimensional deformation problems, where the interface variable</span>
 <span class="sd">        is displacement, corresponding to a Dirichlet condition on the internal faces.</span>
@@ -334,11 +341,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">frac_face</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;fracture_faces&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_neu</span><span class="p">[:,</span> <span class="n">frac_face</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="p">[:,</span> <span class="n">frac_face</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span></div></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="p">[:,</span> <span class="n">frac_face</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span></div>
+</div>
 
 
-<div class="viewcode-block" id="BoundaryCondition"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.BoundaryCondition">[docs]</a><span class="k">class</span> <span class="nc">BoundaryCondition</span><span class="p">(</span><span class="n">AbstractBoundaryCondition</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class to store information on boundary conditions for problems of a single</span>
+
+<div class="viewcode-block" id="BoundaryCondition">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.BoundaryCondition">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryCondition</span><span class="p">(</span><span class="n">AbstractBoundaryCondition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class to store information on boundary conditions for problems of a single</span>
 <span class="sd">    variable.</span>
 
 <span class="sd">    The BCs are specified by face number, and can have type Dirichlet, Neumann</span>
@@ -358,13 +369,13 @@
 <span class="sd">            face i has been assigned a Robin condition.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">faces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor for BoundaryCondition.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructor for BoundaryCondition.</span>
 
 <span class="sd">        The conditions are specified by face numbers. Faces that do not get an</span>
 <span class="sd">        explicit condition will have Neumann conditions assigned.</span>
@@ -422,7 +433,7 @@
             <span class="k">if</span> <span class="n">faces</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">faces</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sd">&quot;&quot;&quot;When giving logical faces, the size of</span>
+<span class="w">                        </span><span class="sd">&quot;&quot;&quot;When giving logical faces, the size of</span>
 <span class="sd">                                        array must match number of faces&quot;&quot;&quot;</span>
                     <span class="p">)</span>
                 <span class="n">faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">faces</span><span class="p">)</span>
@@ -459,10 +470,10 @@
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Boundary should be Dirichlet, Neumann or Robin&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">num_cond</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_neu</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_rob</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Boundary condition for scalar problem in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="s2"> dimensions</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Boundary condition for scalar problem in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2"> dimensions</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Grid has </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="si">}</span><span class="s2"> faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Conditions set for </span><span class="si">{</span><span class="n">num_cond</span><span class="si">}</span><span class="s2"> faces, out of which &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_internal</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> are internal boundaries.</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -489,8 +500,11 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="BoundaryConditionVectorial"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.BoundaryConditionVectorial">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionVectorial</span><span class="p">(</span><span class="n">AbstractBoundaryCondition</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="BoundaryConditionVectorial">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.BoundaryConditionVectorial">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryConditionVectorial</span><span class="p">(</span><span class="n">AbstractBoundaryCondition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class to store information on boundary conditions for problems with vector variables</span>
 <span class="sd">    (e.g. momentum conservation).</span>
 
@@ -525,13 +539,13 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">faces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Constructor for BoundaryConditionVectorial.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constructor for BoundaryConditionVectorial.</span>
 
 <span class="sd">        The conditions are specified by face numbers. Faces that do not get an</span>
 <span class="sd">        explicit condition will have Neumann conditions assigned.</span>
@@ -590,7 +604,7 @@
         <span class="n">basis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">basis</span><span class="p">,</span> <span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="s2">&quot;F&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Boundary condition for vectorial problem in </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2"> dimensions</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Conditions set for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">bf</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> faces, out of which &quot;</span>
@@ -622,25 +636,27 @@
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="p">[:,</span> <span class="n">not_bound</span><span class="p">]):</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Dirichlet conditions set on &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="p">[:,</span> <span class="n">not_bound</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> non-boundary faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="p">[:,</span><span class="w"> </span><span class="n">not_bound</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> non-boundary faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_neu</span><span class="p">[:,</span> <span class="n">not_bound</span><span class="p">]):</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Neumann conditions set on &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_neu</span><span class="p">[:,</span> <span class="n">not_bound</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> non-boundary faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_neu</span><span class="p">[:,</span><span class="w"> </span><span class="n">not_bound</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> non-boundary faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">is_rob</span><span class="p">[:,</span> <span class="n">not_bound</span><span class="p">]):</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Robin conditions set on &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_rob</span><span class="p">[:,</span> <span class="n">not_bound</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> non-boundary faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">is_rob</span><span class="p">[:,</span><span class="w"> </span><span class="n">not_bound</span><span class="p">]</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> non-boundary faces.</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="BoundaryConditionVectorial.set_bc"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.BoundaryConditionVectorial.set_bc">[docs]</a>    <span class="k">def</span> <span class="nf">set_bc</span><span class="p">(</span>
+<div class="viewcode-block" id="BoundaryConditionVectorial.set_bc">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.BoundaryConditionVectorial.set_bc">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_bc</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">faces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">cond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Define a single boundary condition.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define a single boundary condition.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            faces (np.ndarray, optional): Boolean array determining which face is</span>
@@ -660,7 +676,7 @@
             <span class="k">if</span> <span class="n">faces</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="nb">bool</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">faces</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sd">&quot;&quot;&quot;When giving logical faces, the size of</span>
+<span class="w">                        </span><span class="sd">&quot;&quot;&quot;When giving logical faces, the size of</span>
 <span class="sd">                                        array must match number of faces&quot;&quot;&quot;</span>
                     <span class="p">)</span>
                 <span class="n">faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">faces</span><span class="p">)</span>
@@ -684,13 +700,17 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">is_neu</span><span class="p">[:,</span> <span class="n">faces</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">False</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">is_dir</span><span class="p">[:,</span> <span class="n">faces</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">False</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown boundary condition </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div></div>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown boundary condition </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="face_on_side"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.face_on_side">[docs]</a><span class="k">def</span> <span class="nf">face_on_side</span><span class="p">(</span>
+
+<div class="viewcode-block" id="face_on_side">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.bc.html#porepy.params.bc.face_on_side">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">face_on_side</span><span class="p">(</span>
     <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">side</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">],</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Find faces on specified sides of a subdomain.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find faces on specified sides of a subdomain.</span>
 
 <span class="sd">    It is assumed that the grid forms a box in 2d or 3d.</span>
 
@@ -740,6 +760,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown face side&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">faces</span></div>
+
 </pre></div>
 
            </div>

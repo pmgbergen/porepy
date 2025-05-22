@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.time_derivatives module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.time_derivatives.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.time_derivatives.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
@@ -276,7 +276,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.ad.time_derivatives">
-<span id="porepy-numerics-ad-time-derivatives-module"></span><h1>porepy.numerics.ad.time_derivatives module<a class="headerlink" href="#module-porepy.numerics.ad.time_derivatives" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-ad-time-derivatives-module"></span><h1>porepy.numerics.ad.time_derivatives module<a class="headerlink" href="#module-porepy.numerics.ad.time_derivatives" title="Link to this heading"></a></h1>
 <p>The module contains functionality for time-differentiation of operator trees.</p>
 <dl class="simple">
 <dt>The module contains the following functions:</dt><dd><p>dt: Take the time derivative of an operator tree (first-order approximation).
@@ -285,7 +285,7 @@ time_increment: Find the time increment of an operator tree.</p>
 </dl>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.ad.time_derivatives.dt">
-<span class="sig-name descname"><span class="pre">dt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/time_derivatives.html#dt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.time_derivatives.dt" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/time_derivatives.html#dt"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.time_derivatives.dt" title="Link to this definition"></a></dt>
 <dd><p>Approximate the time-derivative of an operator tree.</p>
 <p>This time derivative is obtained by taking a first-order finite difference.</p>
 <p>The operator tree at the previous time step is created as a shallow copy, and will
@@ -294,17 +294,17 @@ are evaluated at the previous time step.</p>
 <p>If the time-dependent quantity q is already evaluated at the previous time step, its
 derivative will be defined as (q(time=n-1) - q(time=n-1)) / dt = 0.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>op</strong> (<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a>) – Operator tree to be differentiated.</p></li>
 <li><p><strong>dt</strong> – Size of time step.</p></li>
-<li><p><strong>time_step</strong> (<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Scalar" title="porepy.numerics.ad.operators.Scalar"><em>Scalar</em></a>) – </p></li>
+<li><p><strong>time_step</strong> (<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Scalar" title="porepy.numerics.ad.operators.Scalar"><em>Scalar</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A first-order approximation of the time derivative of op.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
@@ -312,16 +312,16 @@ derivative will be defined as (q(time=n-1) - q(time=n-1)) / dt = 0.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.ad.time_derivatives.time_increment">
-<span class="sig-name descname"><span class="pre">time_increment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/time_derivatives.html#time_increment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.time_derivatives.time_increment" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_increment</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">op</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/time_derivatives.html#time_increment"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.time_derivatives.time_increment" title="Link to this definition"></a></dt>
 <dd><p>Find the time increment of an operator tree.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>op</strong> (<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a>) – Operator tree for which we need the time increment.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The difference of the operator tree now and at the previous time step.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>

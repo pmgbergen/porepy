@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.thermoporomechanics &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/thermoporomechanics.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/thermoporomechanics.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.thermoporomechanics</li>
       <li class="wy-breadcrumbs-aside">
@@ -288,17 +288,19 @@
 <span class="sd">    - Stefansson et al, 2021, https://doi.org/10.1016/j.cma.2021.114122</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">energy_balance</span> <span class="k">as</span> <span class="n">energy</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">fluid_mass_balance</span> <span class="k">as</span> <span class="n">mass</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">momentum_balance</span> <span class="k">as</span> <span class="n">momentum</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">poromechanics</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">energy_balance</span> <span class="k">as</span> <span class="n">energy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">fluid_mass_balance</span> <span class="k">as</span> <span class="n">mass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">momentum_balance</span> <span class="k">as</span> <span class="n">momentum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">poromechanics</span>
 
 
-<div class="viewcode-block" id="ConstitutiveLawsThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.ConstitutiveLawsThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">ConstitutiveLawsThermoporomechanics</span><span class="p">(</span>
+<div class="viewcode-block" id="ConstitutiveLawsThermoporomechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.ConstitutiveLawsThermoporomechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConstitutiveLawsThermoporomechanics</span><span class="p">(</span>
     <span class="c1"># Combined effects</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">DisplacementJumpAperture</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">BiotCoefficient</span><span class="p">,</span>
@@ -322,13 +324,15 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FracturedSolid</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FrictionBound</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the coupling of energy, mass and momentum balance to obtain</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the coupling of energy, mass and momentum balance to obtain</span>
 <span class="sd">    thermoporomechanics equations.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ConstitutiveLawsThermoporomechanics.stress"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.ConstitutiveLawsThermoporomechanics.stress">[docs]</a>    <span class="k">def</span> <span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Thermo-poromechanical stress operator.</span>
+<div class="viewcode-block" id="ConstitutiveLawsThermoporomechanics.stress">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.ConstitutiveLawsThermoporomechanics.stress">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Thermo-poromechanical stress operator.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            subdomains: List of subdomains where the stress is defined.</span>
@@ -344,18 +348,24 @@
             <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_stress</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">traction</span><span class="o">.</span><span class="n">set_name</span><span class="p">(</span><span class="s2">&quot;thermo_poro_mechnical_stress&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">traction</span></div></div>
+        <span class="k">return</span> <span class="n">traction</span></div>
+</div>
 
 
-<div class="viewcode-block" id="EquationsThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.EquationsThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">EquationsThermoporomechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="EquationsThermoporomechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.EquationsThermoporomechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EquationsThermoporomechanics</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">EnergyBalanceEquations</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="p">,</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines energy, mass and momentum balance equations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines energy, mass and momentum balance equations.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="EquationsThermoporomechanics.set_equations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.EquationsThermoporomechanics.set_equations">[docs]</a>    <span class="k">def</span> <span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the equations for the poromechanics problem.</span>
+<div class="viewcode-block" id="EquationsThermoporomechanics.set_equations">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.EquationsThermoporomechanics.set_equations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the equations for the poromechanics problem.</span>
 
 <span class="sd">        Call all parent classes&#39; set_equations methods.</span>
 
@@ -365,18 +375,24 @@
         <span class="c1"># more transparent.</span>
         <span class="n">energy</span><span class="o">.</span><span class="n">EnergyBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+        <span class="n">momentum</span><span class="o">.</span><span class="n">MomentumBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="VariablesThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.VariablesThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">VariablesThermoporomechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="VariablesThermoporomechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.VariablesThermoporomechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VariablesThermoporomechanics</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">VariablesEnergyBalance</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="p">,</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance variables.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines mass and momentum balance variables.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="VariablesThermoporomechanics.create_variables"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.VariablesThermoporomechanics.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the variables for the poromechanics problem.</span>
+<div class="viewcode-block" id="VariablesThermoporomechanics.create_variables">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.VariablesThermoporomechanics.create_variables">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the variables for the poromechanics problem.</span>
 
 <span class="sd">        Call all parent classes&#39; set_variables methods.</span>
 
@@ -384,15 +400,19 @@
         <span class="c1"># Energy balance and its parent mass balance</span>
         <span class="n">energy</span><span class="o">.</span><span class="n">VariablesEnergyBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+        <span class="n">momentum</span><span class="o">.</span><span class="n">VariablesMomentumBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="BoundaryConditionsThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.BoundaryConditionsThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsThermoporomechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="BoundaryConditionsThermoporomechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.BoundaryConditionsThermoporomechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryConditionsThermoporomechanics</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">BoundaryConditionsEnergyBalance</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">BoundaryConditionsSinglePhaseFlow</span><span class="p">,</span>
     <span class="n">poromechanics</span><span class="o">.</span><span class="n">BoundaryConditionsMechanicsTimeDependent</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines energy, mass and momentum balance boundary conditions.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines energy, mass and momentum balance boundary conditions.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        The mechanical boundary conditions are differentiated wrt time in the div_u term.</span>
@@ -402,13 +422,16 @@
 <span class="sd">    &quot;&quot;&quot;</span></div>
 
 
-<div class="viewcode-block" id="SolutionStrategyThermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.SolutionStrategyThermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyThermoporomechanics</span><span class="p">(</span>
+
+<div class="viewcode-block" id="SolutionStrategyThermoporomechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.SolutionStrategyThermoporomechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolutionStrategyThermoporomechanics</span><span class="p">(</span>
     <span class="n">poromechanics</span><span class="o">.</span><span class="n">SolutionStrategyTimeDependentBCs</span><span class="p">,</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">SolutionStrategyEnergyBalance</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">SolutionStrategySinglePhaseFlow</span><span class="p">,</span>
     <span class="n">momentum</span><span class="o">.</span><span class="n">SolutionStrategyMomentumBalance</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combines mass and momentum balance solution strategies.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combines mass and momentum balance solution strategies.</span>
 
 <span class="sd">    This class has an extended diamond structure inheritance, i.e., all parent classes</span>
 <span class="sd">    inherit from :class:`~porepy.models.solution_strategy.SolutionStrategy`. The user</span>
@@ -420,8 +443,10 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="SolutionStrategyThermoporomechanics.set_discretization_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.SolutionStrategyThermoporomechanics.set_discretization_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set parameters for the subproblems and the combined problem.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SolutionStrategyThermoporomechanics.set_discretization_parameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.SolutionStrategyThermoporomechanics.set_discretization_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_discretization_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set parameters for the subproblems and the combined problem.&quot;&quot;&quot;</span>
         <span class="c1"># Set parameters for the subproblems.</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_discretization_parameters</span><span class="p">()</span>
 
@@ -434,7 +459,9 @@
                 <span class="p">{</span>
                     <span class="s2">&quot;biot_alpha&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">solid</span><span class="o">.</span><span class="n">biot_coefficient</span><span class="p">(),</span>  <span class="c1"># TODO: Rename in Biot</span>
                 <span class="p">},</span>
-            <span class="p">)</span></div></div>
+            <span class="p">)</span></div>
+</div>
+
 
 
 <span class="c1"># Note that we ignore a mypy error here. There are some inconsistencies in the method</span>
@@ -445,7 +472,9 @@
 <span class="c1"># which should be types as Callable[[int, int], None], cannot be parsed by mypy.</span>
 <span class="c1"># For this reason, we ignore the error here, and rely on the tests to catch any</span>
 <span class="c1"># inconsistencies.</span>
-<div class="viewcode-block" id="Thermoporomechanics"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.Thermoporomechanics">[docs]</a><span class="k">class</span> <span class="nc">Thermoporomechanics</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
+<div class="viewcode-block" id="Thermoporomechanics">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.thermoporomechanics.html#porepy.models.thermoporomechanics.Thermoporomechanics">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Thermoporomechanics</span><span class="p">(</span>  <span class="c1"># type: ignore[misc]</span>
     <span class="n">SolutionStrategyThermoporomechanics</span><span class="p">,</span>
     <span class="n">EquationsThermoporomechanics</span><span class="p">,</span>
     <span class="n">VariablesThermoporomechanics</span><span class="p">,</span>
@@ -454,10 +483,11 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">ModelGeometry</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">DataSavingMixin</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the coupling of energy, mass and momentum balance in a</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the coupling of energy, mass and momentum balance in a</span>
 <span class="sd">    mixed-dimensional porous medium.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span></div>
+
 </pre></div>
 
            </div>

@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.operators &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/operators.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/operators.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.ad.operators</li>
       <li class="wy-breadcrumbs-aside">
@@ -273,23 +273,23 @@
   <h1>Source code for porepy.numerics.ad.operators</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot; Implementation of wrappers for Ad representations of several operators.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">numbers</span>
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">EnumMeta</span>
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">overload</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span><span class="p">,</span> <span class="n">EnumMeta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">count</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">overload</span>
 
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
-<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">_ad_utils</span>
-<span class="kn">from</span> <span class="nn">.forward_mode</span> <span class="kn">import</span> <span class="n">Ad_array</span><span class="p">,</span> <span class="n">initAdArrays</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">_ad_utils</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.forward_mode</span><span class="w"> </span><span class="kn">import</span> <span class="n">Ad_array</span><span class="p">,</span> <span class="n">initAdArrays</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;Operator&quot;</span><span class="p">,</span>
@@ -304,16 +304,18 @@
 <span class="n">GridLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
 
 
-<span class="k">def</span> <span class="nf">_get_shape</span><span class="p">(</span><span class="n">mat</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Get shape of a numpy.ndarray or the Jacobian of Ad_array&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_shape</span><span class="p">(</span><span class="n">mat</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get shape of a numpy.ndarray or the Jacobian of Ad_array&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">mat</span><span class="o">.</span><span class="n">jac</span><span class="o">.</span><span class="n">shape</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span>
 
 
-<div class="viewcode-block" id="Operator"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator">[docs]</a><span class="k">class</span> <span class="nc">Operator</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Parent class for all AD operators.</span>
+<div class="viewcode-block" id="Operator">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Operator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parent class for all AD operators.</span>
 
 <span class="sd">    Objects of this class are not meant to be initiated directly, rather the various</span>
 <span class="sd">    subclasses should be used. Instances of this class will still be created when</span>
@@ -338,13 +340,13 @@
         <span class="s2">&quot;Operations&quot;</span><span class="p">,</span>
         <span class="p">[</span><span class="s2">&quot;void&quot;</span><span class="p">,</span> <span class="s2">&quot;add&quot;</span><span class="p">,</span> <span class="s2">&quot;sub&quot;</span><span class="p">,</span> <span class="s2">&quot;mul&quot;</span><span class="p">,</span> <span class="s2">&quot;div&quot;</span><span class="p">,</span> <span class="s2">&quot;evaluate&quot;</span><span class="p">,</span> <span class="s2">&quot;approximate&quot;</span><span class="p">,</span> <span class="s2">&quot;pow&quot;</span><span class="p">],</span>
     <span class="p">)</span>
-    <span class="sd">&quot;&quot;&quot;Object representing all supported operations by the operator class.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Object representing all supported operations by the operator class.</span>
 
 <span class="sd">    Used to construct the operator tree and identify Operator.Operations.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -352,14 +354,14 @@
         <span class="n">tree</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tree</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">interfaces</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">interfaces</span>
-        <span class="sd">&quot;&quot;&quot;List of interfaces on which the operator is defined, passed at instantiation.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of interfaces on which the operator is defined, passed at instantiation.</span>
 
 <span class="sd">        Will be empty for operators not associated with specific interfaces.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span> <span class="k">if</span> <span class="n">subdomains</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">subdomains</span>
-        <span class="sd">&quot;&quot;&quot;List of subdomains on which the operator is defined, passed at instantiation.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of subdomains on which the operator is defined, passed at instantiation.</span>
 
 <span class="sd">        Will be empty for operators not associated with specific subdomains.</span>
 
@@ -371,22 +373,22 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">(</span><span class="n">tree</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;The name given to this variable.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name given to this variable.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
 
-    <span class="k">def</span> <span class="nf">_set_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tree</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">tree</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">tree</span> <span class="o">=</span> <span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">void</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">tree</span> <span class="o">=</span> <span class="n">tree</span>
 
-    <span class="k">def</span> <span class="nf">_set_subdomains_or_interfaces</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_subdomains_or_interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;For operators which are defined for either subdomains or interfaces but not both.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;For operators which are defined for either subdomains or interfaces but not both.</span>
 
 <span class="sd">        Check that exactly one of subdomains and interfaces is given and assign to the</span>
 <span class="sd">        operator. The unspecified grid-like type will also be set as an attribute, i.e.</span>
@@ -409,8 +411,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
 
-<div class="viewcode-block" id="Operator.is_leaf"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.is_leaf">[docs]</a>    <span class="k">def</span> <span class="nf">is_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Check if this operator is a leaf in the tree-representation of an expression.</span>
+<div class="viewcode-block" id="Operator.is_leaf">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.is_leaf">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if this operator is a leaf in the tree-representation of an expression.</span>
 
 <span class="sd">        Note that this implies that the method ``parse()`` is expected to be implemented.</span>
 
@@ -420,8 +424,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span></div>
 
-<div class="viewcode-block" id="Operator.set_name"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.set_name">[docs]</a>    <span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Reset this object&#39;s name originally passed at instantiation.</span>
+
+<div class="viewcode-block" id="Operator.set_name">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.set_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset this object&#39;s name originally passed at instantiation.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            name: the new name to be assigned.</span>
@@ -429,8 +436,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span></div>
 
-<div class="viewcode-block" id="Operator.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return an operator that represents the value of this operator at the previous</span>
+
+<div class="viewcode-block" id="Operator.previous_timestep">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.previous_timestep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an operator that represents the value of this operator at the previous</span>
 <span class="sd">        timestep.</span>
 
 <span class="sd">        The operator tree at the previous time step is created as a shallow copy, and will</span>
@@ -446,8 +456,8 @@
         <span class="c1"># by traversing the underlying graph, and set all time-dependent objects to be</span>
         <span class="c1"># evaluated at the previous time step.</span>
 
-        <span class="k">def</span> <span class="nf">_traverse_tree</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">Operator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Operator</span><span class="p">:</span>
-            <span class="sd">&quot;&quot;&quot;Helper function which traverses an operator tree by recursion.&quot;&quot;&quot;</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_traverse_tree</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">Operator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Operator</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Helper function which traverses an operator tree by recursion.&quot;&quot;&quot;</span>
 
             <span class="n">children</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span>
 
@@ -508,8 +518,11 @@
 
         <span class="k">return</span> <span class="n">prev_time</span></div>
 
-<div class="viewcode-block" id="Operator.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Translate the operator into a numerical expression.</span>
+
+<div class="viewcode-block" id="Operator.parse">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Translate the operator into a numerical expression.</span>
 
 <span class="sd">        Subclasses that represent atomic operators (leaves in a tree-representation of</span>
 <span class="sd">        an operator) should override this method to return e.g. a number, an array or a</span>
@@ -526,8 +539,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;This type of operator cannot be parsed right away&quot;</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_parse_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;TODO: Currently, there is no prioritization between the operations; for</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">Operator</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;TODO: Currently, there is no prioritization between the operations; for</span>
 <span class="sd">        some reason, things just work. We may need to make an ordering in which the</span>
 <span class="sd">        operations should be carried out. It seems that the strategy of putting on</span>
 <span class="sd">        hold until all children are processed works, but there likely are cases where</span>
@@ -601,7 +615,7 @@
                 <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;adding&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
         <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">sub</span><span class="p">:</span>
             <span class="c1"># To subtract we need two objects</span>
@@ -624,7 +638,7 @@
                 <span class="k">return</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;subtracting&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
         <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">mul</span><span class="p">:</span>
             <span class="c1"># To multiply we need two objects</span>
@@ -665,7 +679,7 @@
 
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;multiplying&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
         <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">div</span><span class="p">:</span>
             <span class="c1"># Some care is needed here, to account for cases where item in the results</span>
@@ -725,7 +739,7 @@
                 <span class="k">return</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
                 <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_error_message</span><span class="p">(</span><span class="s2">&quot;raising to a power&quot;</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
         <span class="k">elif</span> <span class="n">tree</span><span class="o">.</span><span class="n">op</span> <span class="o">==</span> <span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">evaluate</span><span class="p">:</span>
             <span class="c1"># This is a function, which should have at least one argument</span>
@@ -744,13 +758,13 @@
                     <span class="c1"># TODO specify what can go wrong here (Exception type)</span>
                     <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;Ad parsing: Error evaluating operator function:</span><span class="se">\n</span><span class="s2">&quot;</span>
                     <span class="n">msg</span> <span class="o">+=</span> <span class="n">func_op</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">exc</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
                 <span class="k">return</span> <span class="n">Ad_array</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">jac</span><span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Should not happen&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_get_error_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_error_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tree</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="c1"># Helper function to format error message</span>
         <span class="n">msg_0</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
         <span class="n">msg_1</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">_parse_readable</span><span class="p">()</span>
@@ -774,8 +788,8 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">msg</span>
 
-    <span class="k">def</span> <span class="nf">_parse_readable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_readable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Make a human-readable error message related to a parsing error.</span>
 <span class="sd">        NOTE: The exact formatting should be considered work in progress,</span>
 <span class="sd">        in particular when it comes to function evaluation.</span>
@@ -829,7 +843,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">child_str</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">operator_str</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">child_str</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">)&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_ravel_scipy_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_ravel_scipy_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
         <span class="c1"># In some cases, parsing may leave what is essentially an array, but with the</span>
         <span class="c1"># format of a scipy matrix. This must be converted to a numpy array before</span>
         <span class="c1"># moving on.</span>
@@ -845,11 +859,13 @@
             <span class="p">):</span>
                 <span class="n">results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
 
-<div class="viewcode-block" id="Operator.viz"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.viz">[docs]</a>    <span class="k">def</span> <span class="nf">viz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Draws a visualization of the operator tree that has this operator as its root.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Operator.viz">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.viz">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">viz</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Draws a visualization of the operator tree that has this operator as its root.&quot;&quot;&quot;</span>
         <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
 
-        <span class="k">def</span> <span class="nf">parse_subgraph</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Operator</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">parse_subgraph</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="n">Operator</span><span class="p">):</span>
             <span class="n">G</span><span class="o">.</span><span class="n">add_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">return</span>
@@ -864,12 +880,15 @@
         <span class="n">nx</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">with_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
 
+
     <span class="c1">### Operator discretization ---------------------------------------------------------------</span>
     <span class="c1"># TODO this is specific to discretizations and should not be done here</span>
     <span class="c1"># let the EquationSystem do this by calling respective util methods</span>
 
-<div class="viewcode-block" id="Operator.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Perform discretization operation on all discretizations identified in</span>
+<div class="viewcode-block" id="Operator.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform discretization operation on all discretizations identified in</span>
 <span class="sd">        the tree of this operator, using data from mdg.</span>
 
 <span class="sd">        IMPLEMENTATION NOTE: The discretizations was identified at initialization of</span>
@@ -881,18 +900,19 @@
         <span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_discretizations</span><span class="p">()</span>
         <span class="n">_ad_utils</span><span class="o">.</span><span class="n">discretize_from_list</span><span class="p">(</span><span class="n">unique_discretizations</span><span class="p">,</span> <span class="n">mdg</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_identify_discretizations</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_identify_discretizations</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="s2">&quot;_ad_utils.MergedOperator&quot;</span><span class="p">,</span> <span class="n">GridLike</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Perform a recursive search to find all discretizations present in the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform a recursive search to find all discretizations present in the</span>
 <span class="sd">        operator tree. Uniquify the list to avoid double computations.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">all_discr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_identify_subtree_discretizations</span><span class="p">([])</span>
         <span class="k">return</span> <span class="n">_ad_utils</span><span class="o">.</span><span class="n">uniquify_discretization_list</span><span class="p">(</span><span class="n">all_discr</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_identify_subtree_discretizations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">discr</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Recursive search in the tree of this operator to identify all discretizations</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_identify_subtree_discretizations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">discr</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Recursive search in the tree of this operator to identify all discretizations</span>
 <span class="sd">        represented in the operator.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -908,12 +928,14 @@
 
     <span class="c1">### Operator parsing ----------------------------------------------------------------------</span>
 
-<div class="viewcode-block" id="Operator.evaluate"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span>
+<div class="viewcode-block" id="Operator.evaluate">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Operator.evaluate">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">system_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span> <span class="o">|</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span>
         <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>  <span class="c1"># TODO ensure the operator always returns an AD array</span>
-        <span class="sd">&quot;&quot;&quot;Evaluate the residual and Jacobian matrix for a given state.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the residual and Jacobian matrix for a given state.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            system_manager: Used to represent the problem. Will be used</span>
@@ -1037,12 +1059,13 @@
 
         <span class="k">return</span> <span class="n">eq</span></div>
 
-    <span class="k">def</span> <span class="nf">_identify_variables</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_identify_variables</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">system_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span> <span class="o">|</span> <span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">,</span>
         <span class="n">var</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Identify all variables in this operator.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Identify all variables in this operator.&quot;&quot;&quot;</span>
         <span class="c1"># 1. Get all variables present in this operator.</span>
         <span class="c1"># The variable finder is implemented in a special function, aimed at recursion</span>
         <span class="c1"># through the operator tree.</span>
@@ -1123,8 +1146,8 @@
 
         <span class="k">return</span> <span class="n">inds</span><span class="p">,</span> <span class="n">variable_ids</span><span class="p">,</span> <span class="n">prev_time</span><span class="p">,</span> <span class="n">prev_iter</span>
 
-    <span class="k">def</span> <span class="nf">_find_subtree_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Method to recursively look for Variables (or MixedDimensionalVariables) in an</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_find_subtree_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Variable</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to recursively look for Variables (or MixedDimensionalVariables) in an</span>
 <span class="sd">        operator tree.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># The variables should be located at leaves in the tree. Traverse the tree</span>
@@ -1159,10 +1182,10 @@
 
     <span class="c1">### Special methods -----------------------------------------------------------------------</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Operator with no name&quot;</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1170,42 +1193,42 @@
         <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; formed by </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">op</span><span class="si">}</span><span class="s2"> with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tree</span><span class="o">.</span><span class="n">children</span><span class="p">)</span><span class="si">}</span><span class="s2"> children.&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;* operator&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">div</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;/ operator&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;+ operator&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;- operator&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__add__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="c1"># consider the expression a-b. right-subtraction means self == b</span>
         <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="c1"># we need to change the order here since a-b != b-a</span>
         <span class="n">children</span> <span class="o">=</span> <span class="p">[</span><span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span><span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">sub</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;- operator&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__pow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__pow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="n">children</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_other</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Operator</span><span class="p">(</span>
             <span class="n">tree</span><span class="o">=</span><span class="n">Tree</span><span class="p">(</span><span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="o">.</span><span class="n">pow</span><span class="p">,</span> <span class="n">children</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;** operator&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_parse_other</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_other</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="p">,</span> <span class="n">Scalar</span><span class="p">(</span><span class="n">other</span><span class="p">)]</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
@@ -1221,8 +1244,11 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cannot parse </span><span class="si">{</span><span class="n">other</span><span class="si">}</span><span class="s2"> as an AD operator&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="Matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Matrix">[docs]</a><span class="k">class</span> <span class="nc">Matrix</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Ad representation of a sparse matrix.</span>
+
+<div class="viewcode-block" id="Matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Matrix">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Matrix</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ad representation of a sparse matrix.</span>
 
 <span class="sd">    For dense matrices, use :class:`Array` instead.</span>
 
@@ -1235,23 +1261,25 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mat</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_mat</span> <span class="o">=</span> <span class="n">mat</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span>
-        <span class="sd">&quot;&quot;&quot;Shape of the wrapped matrix.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shape of the wrapped matrix.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Matrix with shape </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> elements&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Matrix &quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Matrix.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Matrix.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
+<div class="viewcode-block" id="Matrix.parse">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Matrix.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The wrapped matrix.</span>
@@ -1259,18 +1287,25 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mat</span></div>
 
-<div class="viewcode-block" id="Matrix.transpose"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Matrix.transpose">[docs]</a>    <span class="k">def</span> <span class="nf">transpose</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns an AD operator representing the transposed matrix.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Matrix.transpose">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Matrix.transpose">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transpose</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns an AD operator representing the transposed matrix.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mat</span><span class="o">.</span><span class="n">transpose</span><span class="p">())</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">T</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Shorthand for transpose.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">T</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Matrix&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shorthand for transpose.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="Array"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Array">[docs]</a><span class="k">class</span> <span class="nc">Array</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;AD representation of a constant numpy array.</span>
+
+<div class="viewcode-block" id="Array">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Array">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Array</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;AD representation of a constant numpy array.</span>
 
 <span class="sd">    For sparse matrices, use :class:`Matrix` instead.</span>
 <span class="sd">    For time-dependent arrays see :class:`TimeDependentArray`.</span>
@@ -1283,8 +1318,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Construct an Ad representation of a numpy array.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct an Ad representation of a numpy array.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            values: Numpy array to be represented.</span>
@@ -1293,27 +1328,33 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="o">=</span> <span class="n">values</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Wrapped numpy array of size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Array&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Array.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Array.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
+<div class="viewcode-block" id="Array.parse">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Array.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The wrapped array.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span></div>
+</div>
 
 
-<div class="viewcode-block" id="TimeDependentArray"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.TimeDependentArray">[docs]</a><span class="k">class</span> <span class="nc">TimeDependentArray</span><span class="p">(</span><span class="n">Array</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;An Ad-wrapper around a time-dependent numpy array.</span>
+
+<div class="viewcode-block" id="TimeDependentArray">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.TimeDependentArray">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TimeDependentArray</span><span class="p">(</span><span class="n">Array</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An Ad-wrapper around a time-dependent numpy array.</span>
 
 <span class="sd">    The array is tied to a MixedDimensionalGrid, and is distributed among the data</span>
 <span class="sd">    dictionaries associated with subdomains and interfaces.</span>
@@ -1345,7 +1386,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">subdomains</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1385,7 +1426,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">previous_timestep</span>
-        <span class="sd">&quot;&quot;&quot;If True, the array will be evaluated using ``data[pp.STATE]``</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;If True, the array will be evaluated using ``data[pp.STATE]``</span>
 <span class="sd">        (data being the data dictionaries for subdomains and interfaces).</span>
 
 <span class="sd">        If False, ``data[pp.STATE][pp.ITERATE]`` is used.</span>
@@ -1394,8 +1435,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
 
-<div class="viewcode-block" id="TimeDependentArray.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.TimeDependentArray.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeDependentArray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="TimeDependentArray.previous_timestep">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.TimeDependentArray.previous_timestep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimeDependentArray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            This array represented at the previous time step.</span>
 
@@ -1409,8 +1452,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">,</span> <span class="n">previous_timestep</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="TimeDependentArray.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.TimeDependentArray.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Convert this array into numerical values.</span>
+
+<div class="viewcode-block" id="TimeDependentArray.parse">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.TimeDependentArray.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert this array into numerical values.</span>
 
 <span class="sd">        The numerical values will be picked from the representation of the array in</span>
 <span class="sd">        ``data[pp.STATE][pp.ITERATE]`` (where data is the data dictionary of the subdomains</span>
@@ -1446,7 +1492,8 @@
             <span class="c1"># Special case: No grids. Return an empty array.</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Wrapped time-dependent array with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_interface_array</span><span class="p">:</span>
@@ -1459,8 +1506,11 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="Scalar"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Scalar">[docs]</a><span class="k">class</span> <span class="nc">Scalar</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Ad representation of a scalar.</span>
+
+<div class="viewcode-block" id="Scalar">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Scalar">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Scalar</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ad representation of a scalar.</span>
 
 <span class="sd">    This is a shallow wrapper around a real scalar. It may be useful to combine</span>
 <span class="sd">    the scalar with other types of Ad objects.</span>
@@ -1472,31 +1522,37 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_value</span> <span class="o">=</span> <span class="n">value</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Wrapped scalar with value </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_value</span><span class="si">}</span><span class="s2">&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Scalar&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Scalar.parse"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Scalar.parse">[docs]</a>    <span class="k">def</span> <span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
+<div class="viewcode-block" id="Scalar.parse">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Scalar.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;See :meth:`Operator.parse`.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The wrapped number.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value</span></div>
+</div>
 
 
-<div class="viewcode-block" id="Variable"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable">[docs]</a><span class="k">class</span> <span class="nc">Variable</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;AD operator representing a variable defined on a single grid or mortar grid.</span>
+
+<div class="viewcode-block" id="Variable">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Variable</span><span class="p">(</span><span class="n">Operator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;AD operator representing a variable defined on a single grid or mortar grid.</span>
 
 <span class="sd">    For combinations of variables on different subdomains, see :class:`MergedVariable`.</span>
 
@@ -1523,7 +1579,7 @@
     <span class="c1"># value of the id has no particular meaning.</span>
     <span class="n">_ids</span> <span class="o">=</span> <span class="n">count</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">ndof</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;cells&quot;</span><span class="p">,</span> <span class="s2">&quot;faces&quot;</span><span class="p">,</span> <span class="s2">&quot;nodes&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">],</span>
@@ -1537,16 +1593,16 @@
         <span class="c1">### PUBLIC</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">previous_timestep</span>
-        <span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous time step.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous time step.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">previous_iteration</span>
-        <span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous iteration.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous iteration.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">Variable</span><span class="o">.</span><span class="n">_ids</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;ID counter. Used to identify variables during operator parsing.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ID counter. Used to identify variables during operator parsing.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">original_variable</span><span class="p">:</span> <span class="n">Variable</span>
-        <span class="sd">&quot;&quot;&quot;The original variable, if this variable is a copy of another variable.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The original variable, if this variable is a copy of another variable.</span>
 
 <span class="sd">        This attribute is used by the methods :meth:`Variable.previous_timestep` and</span>
 <span class="sd">        :meth:`Variable.previous_iteration` to keep a link to the original variable.</span>
@@ -1572,17 +1628,19 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">tags</span> <span class="k">if</span> <span class="n">tags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GridLike</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;The grid or mortar grid on which this variable is defined.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GridLike</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The grid or mortar grid on which this variable is defined.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_g</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;A dictionary of tags associated with this variable.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A dictionary of tags associated with this variable.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tags</span>
 
-<div class="viewcode-block" id="Variable.size"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns the total number of dofs this variable has.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Variable.size">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.size">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the total number of dofs this variable has.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">):</span>
             <span class="c1"># This is a mortar grid. Assume that there are only cell dofs</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cells</span>
@@ -1594,8 +1652,11 @@
                 <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">num_nodes</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nodes</span>
             <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Variable.set_name"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.set_name">[docs]</a>    <span class="k">def</span> <span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Variable.set_name">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.set_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Raises:</span>
 <span class="sd">            RuntimeError: Variables must not be re-named once defined,</span>
 <span class="sd">                since the name is used as an identifier.</span>
@@ -1603,8 +1664,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Cannot rename operators representing a variable.&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Variable.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return a representation of this variable on the previous time step.</span>
+
+<div class="viewcode-block" id="Variable.previous_timestep">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.previous_timestep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a representation of this variable on the previous time step.</span>
 
 <span class="sd">        If the variable is already a representation of the previous time step, the</span>
 <span class="sd">        method returns itself.</span>
@@ -1627,8 +1691,11 @@
         <span class="n">new_var</span><span class="o">.</span><span class="n">original_variable</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">return</span> <span class="n">new_var</span></div>
 
-<div class="viewcode-block" id="Variable.previous_iteration"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.previous_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Variable.previous_iteration">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.Variable.previous_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Variable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            A representation of this variable on the previous time iteration,</span>
 <span class="sd">            with its ``prev_iter`` attribute set to ``True``.</span>
@@ -1644,7 +1711,8 @@
         <span class="n">new_var</span><span class="o">.</span><span class="n">original_variable</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">return</span> <span class="n">new_var</span></div>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Variable </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> with id </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">):</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; on interface </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -1662,8 +1730,11 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="MixedDimensionalVariable"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable">[docs]</a><span class="k">class</span> <span class="nc">MixedDimensionalVariable</span><span class="p">(</span><span class="n">Variable</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Ad representation of a collection of variables that individually live on separate</span>
+
+<div class="viewcode-block" id="MixedDimensionalVariable">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MixedDimensionalVariable</span><span class="p">(</span><span class="n">Variable</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ad representation of a collection of variables that individually live on separate</span>
 <span class="sd">    subdomains or interfaces, but treated jointly in the mixed-dimensional sense.</span>
 
 <span class="sd">    Conversion of the variables into numerical value should be done with respect to the</span>
@@ -1675,27 +1746,27 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Variable</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 
         <span class="c1">### PUBLIC</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span> <span class="o">=</span> <span class="n">variables</span>
-        <span class="sd">&quot;&quot;&quot;List of sub-variables passed at instantiation, each defined on a separate</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of sub-variables passed at instantiation, each defined on a separate</span>
 <span class="sd">        domain.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">Variable</span><span class="o">.</span><span class="n">_ids</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;ID counter. Used to identify variables during operator parsing.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;ID counter. Used to identify variables during operator parsing.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_time</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous time step.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous time step.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">prev_iter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous iteration.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flag indicating if the variable represents the state at the previous iteration.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">original_variable</span><span class="p">:</span> <span class="n">MixedDimensionalVariable</span>
-        <span class="sd">&quot;&quot;&quot;The original variable, if this variable is a copy of another variable.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The original variable, if this variable is a copy of another variable.</span>
 
 <span class="sd">        This attribute is used by the methods :meth:`Variable.previous_timestep` and</span>
 <span class="sd">        :meth:`Variable.previous_iteration` to keep a link to the original variable.</span>
@@ -1725,8 +1796,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_tree</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">copy_common_sub_tags</span><span class="p">()</span>
 
-<div class="viewcode-block" id="MixedDimensionalVariable.copy_common_sub_tags"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.copy_common_sub_tags">[docs]</a>    <span class="k">def</span> <span class="nf">copy_common_sub_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Copy any shared tags from the sub variables to this variable.</span>
+<div class="viewcode-block" id="MixedDimensionalVariable.copy_common_sub_tags">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.copy_common_sub_tags">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy_common_sub_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Copy any shared tags from the sub variables to this variable.</span>
 
 <span class="sd">        Only tags with identical values are copied. Thus, the md variable can &quot;trust&quot; that</span>
 <span class="sd">        its tags are consistent with all sub variables.</span>
@@ -1749,9 +1822,10 @@
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">GridLike</span><span class="p">]:</span>  <span class="c1"># type: ignore[override]</span>
-        <span class="sd">&quot;&quot;&quot;A tuple of all domains on which the atomic sub-variables are defined.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">GridLike</span><span class="p">]:</span>  <span class="c1"># type: ignore[override]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A tuple of all domains on which the atomic sub-variables are defined.&quot;&quot;&quot;</span>
         <span class="n">domains</span> <span class="o">=</span> <span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">domain</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">]</span>
         <span class="c1"># Verify that all domains of of the same type</span>
         <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">domains</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">all</span><span class="p">(</span>
@@ -1759,13 +1833,18 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">domains</span>
 
-<div class="viewcode-block" id="MixedDimensionalVariable.size"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.size">[docs]</a>    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns the total size of the mixed-dimensional variable</span>
+<div class="viewcode-block" id="MixedDimensionalVariable.size">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.size">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the total size of the mixed-dimensional variable</span>
 <span class="sd">        by summing the sizes of sub-variables.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">sum</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">size</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sub_vars</span><span class="p">])</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalVariable.previous_timestep"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.previous_timestep">[docs]</a>    <span class="k">def</span> <span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalVariable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return a representation of this mixed-dimensional variable on the previous</span>
+
+<div class="viewcode-block" id="MixedDimensionalVariable.previous_timestep">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.previous_timestep">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">previous_timestep</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalVariable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a representation of this mixed-dimensional variable on the previous</span>
 <span class="sd">        time step.</span>
 
 <span class="sd">        If the md-variable is already defined on the previous time step, return itself.</span>
@@ -1785,8 +1864,11 @@
         <span class="n">new_var</span><span class="o">.</span><span class="n">original_variable</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">return</span> <span class="n">new_var</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalVariable.previous_iteration"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.previous_iteration">[docs]</a>    <span class="k">def</span> <span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalVariable</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return a representation of this mixed-dimensional variable on the previous</span>
+
+<div class="viewcode-block" id="MixedDimensionalVariable.previous_iteration">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.previous_iteration">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">previous_iteration</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalVariable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a representation of this mixed-dimensional variable on the previous</span>
 <span class="sd">        iteration.</span>
 
 <span class="sd">        Returns:</span>
@@ -1801,8 +1883,11 @@
         <span class="n">new_var</span><span class="o">.</span><span class="n">original_variable</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">return</span> <span class="n">new_var</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalVariable.copy"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MixedDimensionalVariable&quot;</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Copy the mixed-dimensional variable.</span>
+
+<div class="viewcode-block" id="MixedDimensionalVariable.copy">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.operators.html#porepy.numerics.ad.MixedDimensionalVariable.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;MixedDimensionalVariable&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Copy the mixed-dimensional variable.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A shallow copy should be sufficient here; the attributes are not expected to</span>
@@ -1811,7 +1896,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_variables</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">(</span>
                 <span class="s2">&quot;Mixed-dimensional variable defined on an empty list of &quot;</span>
@@ -1832,8 +1918,9 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<span class="k">class</span> <span class="nc">Tree</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Simple implementation of a Tree class. Used to represent combinations of</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Tree</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple implementation of a Tree class. Used to represent combinations of</span>
 <span class="sd">    Ad operators.</span>
 
 <span class="sd">    References:</span>
@@ -1846,7 +1933,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">operation</span><span class="p">:</span> <span class="n">Operator</span><span class="o">.</span><span class="n">Operations</span><span class="p">,</span>
         <span class="n">children</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1859,13 +1946,13 @@
             <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">children</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">add_child</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">add_child</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Adds a child to this instance.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_child</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Operator</span><span class="p">,</span> <span class="n">Ad_array</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Adds a child to this instance.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
 
 
 <span class="nd">@overload</span>
-<span class="k">def</span> <span class="nf">_ad_wrapper</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ad_wrapper</span><span class="p">(</span>
     <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">as_array</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">False</span><span class="p">],</span>
     <span class="n">size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1876,7 +1963,7 @@
 
 
 <span class="nd">@overload</span>
-<span class="k">def</span> <span class="nf">_ad_wrapper</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ad_wrapper</span><span class="p">(</span>
     <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">as_array</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">True</span><span class="p">],</span>
     <span class="n">size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1885,13 +1972,13 @@
     <span class="o">...</span>
 
 
-<span class="k">def</span> <span class="nf">_ad_wrapper</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ad_wrapper</span><span class="p">(</span>
     <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">as_array</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
     <span class="n">size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span> <span class="o">|</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Create ad array or diagonal matrix.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create ad array or diagonal matrix.</span>
 
 <span class="sd">    Utility method.</span>
 
@@ -1920,12 +2007,12 @@
         <span class="k">return</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Matrix</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">wrap_as_ad_array</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">wrap_as_ad_array</span><span class="p">(</span>
     <span class="n">vals</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">number</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Wrap a number or array as ad array.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap a number or array as ad array.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        vals: Values to be wrapped. Floats are broadcast to an np array.</span>
@@ -1939,12 +2026,12 @@
     <span class="k">return</span> <span class="n">_ad_wrapper</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">wrap_as_ad_matrix</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">wrap_as_ad_matrix</span><span class="p">(</span>
     <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">number</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
     <span class="n">size</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Matrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Wrap a number or array as ad matrix.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Wrap a number or array as ad matrix.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        vals: Values to be wrapped. Floats are broadcast to an np array.</span>

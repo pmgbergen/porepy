@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.utils module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.utils.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.utils.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.utils module</li>
@@ -275,25 +275,25 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.utils">
-<span id="porepy-fracs-utils-module"></span><h1>porepy.fracs.utils module<a class="headerlink" href="#module-porepy.fracs.utils" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-utils-module"></span><h1>porepy.fracs.utils module<a class="headerlink" href="#module-porepy.fracs.utils" title="Link to this heading"></a></h1>
 <p>Frontend utility functions related to fractures and their meshing.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.utils.fracture_length_2d">
-<span class="sig-name descname"><span class="pre">fracture_length_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/utils.html#fracture_length_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.utils.fracture_length_2d" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">fracture_length_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/utils.html#fracture_length_2d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.utils.fracture_length_2d" title="Link to this definition"></a></dt>
 <dd><p>Find the length of 2D fracture traces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n_pts</span></code>) – Coordinates of start and endpoints of
+<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">2</span> <span class="pre">x</span> <span class="pre">n_pts</span></code>) – Coordinates of start and endpoints of
 fractures.</p></li>
-<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarary,</span> <span class="pre">2</span> <span class="pre">x</span> <span class="pre">n_fracs</span></code>) – Indices of start and endpoint of
+<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarary</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">2</span> <span class="pre">x</span> <span class="pre">n_fracs</span></code>) – Indices of start and endpoint of
 fractures, referring to columns in pts.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Length of each fracture.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray, length n_fracs</p>
 </dd>
 </dl>
@@ -301,23 +301,23 @@ fractures, referring to columns in pts.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.utils.uniquify_points">
-<span class="sig-name descname"><span class="pre">uniquify_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/utils.html#uniquify_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.utils.uniquify_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">uniquify_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/utils.html#uniquify_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.utils.uniquify_points" title="Link to this definition"></a></dt>
 <dd><p>Uniquify a set of points by merging almost coinciding coordinates.</p>
 <p>Also update fractures, and remove edges that consist of a single point
 (either after the points were merged, or because the input was a point
 edge).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarary,</span> <span class="pre">n_dim</span> <span class="pre">x</span> <span class="pre">n_pts</span></code>) – Coordinates of start and endpoints of
+<li><p><strong>pts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarary</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">n_dim</span> <span class="pre">x</span> <span class="pre">n_pts</span></code>) – Coordinates of start and endpoints of
 the fractures.</p></li>
-<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">n</span> <span class="pre">x</span> <span class="pre">n_fracs</span></code>) – Indices of start and endpoint of
+<li><p><strong>edges</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">n</span> <span class="pre">x</span> <span class="pre">n_fracs</span></code>) – Indices of start and endpoint of
 fractures, referring to columns in pts. Should contain at least two
 rows; additional rows representing fracture tags are also accepted.</p></li>
 <li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">double</span></code>) – Tolerance used for merging points.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>Unique point array.
 np.ndarray (2 x n_fracs_update): Updated start and endpoints of</p>
 <blockquote>
@@ -329,7 +329,7 @@ np.ndarray (2 x n_fracs_update): Updated start and endpoints of</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray (n_dim x n_pts_unique)</p>
 </dd>
 </dl>

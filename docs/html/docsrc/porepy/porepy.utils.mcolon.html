@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.mcolon module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.mcolon.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.mcolon.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
       <li class="breadcrumb-item active">porepy.utils.mcolon module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.mcolon">
-<span id="porepy-utils-mcolon-module"></span><h1>porepy.utils.mcolon module<a class="headerlink" href="#module-porepy.utils.mcolon" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-mcolon-module"></span><h1>porepy.utils.mcolon module<a class="headerlink" href="#module-porepy.utils.mcolon" title="Link to this heading"></a></h1>
 <p>Efficient numpy.arange for arrays of start and end indices.</p>
 <dl class="simple">
 <dt>Acknowledgements:</dt><dd><p>The functions are a python translation of the corresponding matlab
@@ -285,7 +285,7 @@ by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .</p>
 </dl>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.utils.mcolon.mcolon">
-<span class="sig-name descname"><span class="pre">mcolon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hi</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/mcolon.html#mcolon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.mcolon.mcolon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mcolon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lo</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hi</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/mcolon.html#mcolon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.mcolon.mcolon" title="Link to this definition"></a></dt>
 <dd><p>Expansion of np.arange(a, b) for arrays a and b.</p>
 <p>The code is equivalent to the following (less efficient) loop:
 arr = np.empty(0)
@@ -294,14 +294,14 @@ for l, h in zip(lo, hi):</p>
 <div><p>arr = np.hstack((arr, np.arange(l, h, 1)))</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>lo</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">int</span></code>) – Lower bounds of the arrays to be created.</p></li>
-<li><p><strong>hi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">int</span></code>) – Upper bounds of the arrays to be created. The
+<li><p><strong>lo</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Lower bounds of the arrays to be created.</p></li>
+<li><p><strong>hi</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Upper bounds of the arrays to be created. The
 elements in hi will <em>not</em> be included in the resulting array.</p></li>
-<li><p><strong>both</strong> (<em>lo and hi should either have 1</em><em> or </em><em>n elements. If their size are</em>) – </p></li>
-<li><p><strong>one</strong> (<em>larger than</em>) – </p></li>
-<li><p><strong>length.</strong> (<em>they should have the same</em>) – </p></li>
+<li><p><strong>both</strong> (<em>lo and hi should either have 1</em><em> or </em><em>n elements. If their size are</em>)</p></li>
+<li><p><strong>one</strong> (<em>larger than</em>)</p></li>
+<li><p><strong>length.</strong> (<em>they should have the same</em>)</p></li>
 </ul>
 </dd>
 </dl>

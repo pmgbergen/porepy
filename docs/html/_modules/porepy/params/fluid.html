@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.fluid &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/fluid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/fluid.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.params.fluid</li>
       <li class="wy-breadcrumbs-aside">
@@ -278,25 +278,27 @@
 <span class="sd">Note that thermal expansion coefficients are linear (m/mK) for rocks, but</span>
 <span class="sd">volumetric (m^3/m^3K) for fluids.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="UnitFluid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid">[docs]</a><span class="k">class</span> <span class="nc">UnitFluid</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Mother of all fluids, with properties equal 1.</span>
+<div class="viewcode-block" id="UnitFluid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UnitFluid</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mother of all fluids, with properties equal 1.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        COMPRESSIBILITY: fluid compressibility</span>
 <span class="sd">        BULK: bulk modulus</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initialization of unit fluid.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialization of unit fluid.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta_ref (float, optional): reference temperature in Celsius.</span>
@@ -309,8 +311,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">COMPRESSIBILITY</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">pp</span><span class="o">.</span><span class="n">PASCAL</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">BULK</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">COMPRESSIBILITY</span>
 
-<div class="viewcode-block" id="UnitFluid.thermal_expansion"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.thermal_expansion">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delta_theta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.</span>
+<div class="viewcode-block" id="UnitFluid.thermal_expansion">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.thermal_expansion">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delta_theta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            delta_theta (float): temperature increment in Celsius.</span>
@@ -320,8 +324,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mi">1</span></div>
 
-<div class="viewcode-block" id="UnitFluid.density"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns fluid density with unit: kg / m^3.</span>
+
+<div class="viewcode-block" id="UnitFluid.density">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.density">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns fluid density with unit: kg / m^3.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float): temperature in Celsius.</span>
@@ -331,8 +338,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mi">1</span></div>
 
-<div class="viewcode-block" id="UnitFluid.thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns thermal conductivity with unit : W / m K.</span>
+
+<div class="viewcode-block" id="UnitFluid.thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns thermal conductivity with unit : W / m K.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius</span>
@@ -342,8 +352,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mi">1</span></div>
 
-<div class="viewcode-block" id="UnitFluid.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns specific heat capacity with  units: J / kg K.</span>
+
+<div class="viewcode-block" id="UnitFluid.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns specific heat capacity with  units: J / kg K.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius</span>
@@ -353,8 +366,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mi">1</span></div>
 
-<div class="viewcode-block" id="UnitFluid.dynamic_viscosity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.dynamic_viscosity">[docs]</a>    <span class="k">def</span> <span class="nf">dynamic_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns dynamic viscosity with unit: Pa s.</span>
+
+<div class="viewcode-block" id="UnitFluid.dynamic_viscosity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.dynamic_viscosity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dynamic_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns dynamic viscosity with unit: Pa s.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius</span>
@@ -364,10 +380,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mi">1</span></div>
 
-<div class="viewcode-block" id="UnitFluid.hydrostatic_pressure"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.hydrostatic_pressure">[docs]</a>    <span class="k">def</span> <span class="nf">hydrostatic_pressure</span><span class="p">(</span>
+
+<div class="viewcode-block" id="UnitFluid.hydrostatic_pressure">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.UnitFluid.hydrostatic_pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hydrostatic_pressure</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns hydrostatic pressure in Pa.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns hydrostatic pressure in Pa.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            depth (float): depth in meters</span>
@@ -377,11 +396,15 @@
 <span class="sd">            float: hydrostatic pressure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">depth</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">GRAVITY_ACCELERATION</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">ATMOSPHERIC_PRESSURE</span></div></div>
+        <span class="k">return</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">depth</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">GRAVITY_ACCELERATION</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">ATMOSPHERIC_PRESSURE</span></div>
+</div>
 
 
-<div class="viewcode-block" id="Water"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water">[docs]</a><span class="k">class</span> <span class="nc">Water</span><span class="p">(</span><span class="n">UnitFluid</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+
+<div class="viewcode-block" id="Water">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Water</span><span class="p">(</span><span class="n">UnitFluid</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">theta_ref</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">theta_ref</span> <span class="o">=</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">CELSIUS</span>
         <span class="k">else</span><span class="p">:</span>
@@ -390,8 +413,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">COMPRESSIBILITY</span> <span class="o">=</span> <span class="mf">4e-10</span> <span class="o">/</span> <span class="n">pp</span><span class="o">.</span><span class="n">PASCAL</span>  <span class="c1"># Moderate dependency on theta</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">BULK</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">COMPRESSIBILITY</span>
 
-<div class="viewcode-block" id="Water.thermal_expansion"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.thermal_expansion">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delta_theta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.</span>
+<div class="viewcode-block" id="Water.thermal_expansion">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.thermal_expansion">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delta_theta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns thermal expansion with unit m^3 / m^3 K, i.e. volumetric.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            delta_theta (float): temperature increment in Celsius.</span>
@@ -405,8 +430,11 @@
             <span class="o">+</span> <span class="mf">1.09</span> <span class="o">*</span> <span class="mf">1e-8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">delta_theta</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Water.density"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns fluid density with unit: kg / m^3.</span>
+
+<div class="viewcode-block" id="Water.density">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.density">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns fluid density with unit: kg / m^3.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float): temperature in Celsius.</span>
@@ -420,8 +448,11 @@
         <span class="n">rho_0</span> <span class="o">=</span> <span class="mf">999.8349</span> <span class="o">*</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">KILOGRAM</span> <span class="o">/</span> <span class="n">pp</span><span class="o">.</span><span class="n">METER</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">rho_0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">thermal_expansion</span><span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">theta_0</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Water.thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns thermal conductivity with unit : W / m K.</span>
+
+<div class="viewcode-block" id="Water.thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns thermal conductivity with unit : W / m K.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius</span>
@@ -438,8 +469,11 @@
             <span class="o">+</span> <span class="mf">6.71</span> <span class="o">*</span> <span class="mf">1e-9</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Water.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns specific heat capacity with  units: J / kg K.</span>
+
+<div class="viewcode-block" id="Water.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns specific heat capacity with  units: J / kg K.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius</span>
@@ -451,8 +485,11 @@
             <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">theta_ref</span>
         <span class="k">return</span> <span class="mi">4245</span> <span class="o">-</span> <span class="mf">1.841</span> <span class="o">*</span> <span class="n">theta</span></div>
 
-<div class="viewcode-block" id="Water.dynamic_viscosity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.dynamic_viscosity">[docs]</a>    <span class="k">def</span> <span class="nf">dynamic_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns dynamic viscosity with unit: Pa s.</span>
+
+<div class="viewcode-block" id="Water.dynamic_viscosity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.dynamic_viscosity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dynamic_viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns dynamic viscosity with unit: Pa s.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius</span>
@@ -467,10 +504,13 @@
         <span class="n">mu_0</span> <span class="o">=</span> <span class="mf">2.414</span> <span class="o">*</span> <span class="mf">1e-5</span> <span class="o">*</span> <span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">PASCAL</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">SECOND</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">mu_0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mf">247.8</span> <span class="o">/</span> <span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="mf">140.0</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Water.hydrostatic_pressure"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.hydrostatic_pressure">[docs]</a>    <span class="k">def</span> <span class="nf">hydrostatic_pressure</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Water.hydrostatic_pressure">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.fluid.html#porepy.params.fluid.Water.hydrostatic_pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">hydrostatic_pressure</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns hydrostatic pressure in Pa.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns hydrostatic pressure in Pa.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            depth (float): depth in meters</span>
@@ -480,7 +520,9 @@
 <span class="sd">            float: hydrostatic pressure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">rho</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">density</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">depth</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">GRAVITY_ACCELERATION</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">ATMOSPHERIC_PRESSURE</span></div></div>
+        <span class="k">return</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">depth</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">GRAVITY_ACCELERATION</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">ATMOSPHERIC_PRESSURE</span></div>
+</div>
+
 </pre></div>
 
            </div>

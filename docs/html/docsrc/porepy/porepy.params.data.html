@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.data module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.params.data.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.params.data.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.params.html">porepy.params package</a></li>
       <li class="breadcrumb-item active">porepy.params.data module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.params.data">
-<span id="porepy-params-data-module"></span><h1>porepy.params.data module<a class="headerlink" href="#module-porepy.params.data" title="Permalink to this heading"></a></h1>
+<span id="porepy-params-data-module"></span><h1>porepy.params.data module<a class="headerlink" href="#module-porepy.params.data" title="Link to this heading"></a></h1>
 <p>Contains class for storing data / parameters associated with a grid.</p>
 <p>At present, the Parameters class is a simple wrapper around a dictionary.</p>
 <p>The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an
@@ -331,8 +331,8 @@ variable is stored in</p>
 <p>data[pp.STATE][keyword][“bc_values”].</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.params.data.Parameters">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keywords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dictionaries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keywords</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dictionaries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></a></p>
 <p>Class to store all physical parameters used by solvers.</p>
 <p>The intention is to provide a unified way of passing around parameters, and
 also circumvent the issue of using a solver for multiple physical
@@ -343,56 +343,56 @@ with under the keyword it has been assigned.</p>
 <p>The parameter class is a thin wrapper around a dictionary. This dictionary contains
 one sub-dictionary for each keyword.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>pp.Grid</em><em>, </em><em>pp.MortarGrid</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>keywords</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>dictionaries</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>grid</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>pp.Grid</em><em>, </em><em>pp.MortarGrid</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>keywords</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
+<li><p><strong>dictionaries</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>]</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.data.Parameters.expand_scalars">
-<span class="sig-name descname"><span class="pre">expand_scalars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_vals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">defaults</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.expand_scalars"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.expand_scalars" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">expand_scalars</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_vals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">defaults</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.expand_scalars"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.expand_scalars" title="Link to this definition"></a></dt>
 <dd><p>Expand parameters assigned as a single scalar to n_vals arrays.
 Used e.g. for parameters which may be heterogeneous in space (cellwise),
 but are often homogeneous and assigned as a scalar.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>n_vals</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Size of the expanded arrays. E.g. g.num_cells</p></li>
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The parameter keyword.</p></li>
+<li><p><strong>n_vals</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Size of the expanded arrays. E.g. g.num_cells</p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The parameter keyword.</p></li>
 <li><p><strong>parameters</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list[str]</span></code>) – List of parameters.</p></li>
-<li><p><strong>defaults</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list,</span> <span class="pre">optional</span></code>) – List of default values, one for each parameter.
+<li><p><strong>defaults</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>, <em>optional</em>) – List of default values, one for each parameter.
 If not set, no default values will be provided and an error
 will ensue if one of the listed parameters is not present in
 the dictionary. This avoids assigning None to unset mandatory
 parameters.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.data.Parameters.modify_parameters">
-<span class="sig-name descname"><span class="pre">modify_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.modify_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.modify_parameters" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">modify_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.modify_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.modify_parameters" title="Link to this definition"></a></dt>
 <dd><p>Modify the values of some parameters of a given keyword.</p>
 <p>Usage: Ensure consistent parameter updates, see set_from_other. Does not work
 on Numbers.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Keyword addressing the physical process.</p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Keyword addressing the physical process.</p></li>
 <li><p><strong>parameters</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list[str]</span></code>) – List of (existing) parameters to be updated.</p></li>
-<li><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – List of new values. There are implicit assumptions on the values;
+<li><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – List of new values. There are implicit assumptions on the values;
 in particular that the type and length of the new and old values agree,
 see modify_variable.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -400,18 +400,18 @@ see modify_variable.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.data.Parameters.overwrite_shared_parameters">
-<span class="sig-name descname"><span class="pre">overwrite_shared_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.overwrite_shared_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.overwrite_shared_parameters" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">overwrite_shared_parameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.overwrite_shared_parameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.overwrite_shared_parameters" title="Link to this definition"></a></dt>
 <dd><p>Updates the given parameter for all keywords.</p>
 <p>Brute force method to ensure a parameter is updated/overwritten for all
 keywords where they are defined.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>parameters</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list[str]</span></code>) – List of (existing) parameters to be overwritten.</p></li>
-<li><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – List of new values (bool, scalars, arrays etc.).</p></li>
+<li><p><strong>values</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – List of new values (bool, scalars, arrays etc.).</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -419,23 +419,23 @@ keywords where they are defined.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.data.Parameters.set_from_other">
-<span class="sig-name descname"><span class="pre">set_from_other</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword_add</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword_get</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.set_from_other"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.set_from_other" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_from_other</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword_add</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword_get</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.set_from_other"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.set_from_other" title="Link to this definition"></a></dt>
 <dd><p>Add parameters from existing values for a different keyword.</p>
 <p>Typical usage: Ensure parameters like aperture and porosity are consistent
 between keywords, by making reference the same object. Subsequent calls to
 modify_parameters should update the parameters for both keywords. Note that this
 will not work for Numbers, which are immutable in Python.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword_add</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The keyword to whose dictionary the parameters are to be
+<li><p><strong>keyword_add</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The keyword to whose dictionary the parameters are to be
 added.</p></li>
-<li><p><strong>keyword_get</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The keyword from whose dictionary the parameters are to be</p></li>
-<li><p><strong>obtained.</strong> – </p></li>
-<li><p><strong>parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – List of parameters (accessed via strings) to be set.</p></li>
+<li><p><strong>keyword_get</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The keyword from whose dictionary the parameters are to be</p></li>
+<li><p><strong>obtained.</strong></p></li>
+<li><p><strong>parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – List of parameters (accessed via strings) to be set.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -443,19 +443,19 @@ added.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.data.Parameters.update_dictionaries">
-<span class="sig-name descname"><span class="pre">update_dictionaries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dictionaries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.update_dictionaries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.update_dictionaries" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_dictionaries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keywords</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dictionaries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#Parameters.update_dictionaries"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.Parameters.update_dictionaries" title="Link to this definition"></a></dt>
 <dd><p>Update the dictionaries corresponding to some keywords.</p>
 <p>Use either the dictionaries OR the property_ids / values.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keywords</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – list of n_phys strings addressing different physical processes.</p></li>
-<li><p><strong>dictionaries</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">dictionaries,</span> <span class="pre">optional</span></code>) – list of n_phys dictionaries with
+<li><p><strong>keywords</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a>) – list of n_phys strings addressing different physical processes.</p></li>
+<li><p><strong>dictionaries</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <code class="xref py py-class docutils literal notranslate"><span class="pre">dictionaries</span></code>, <em>optional</em>) – list of n_phys dictionaries with
 the properties to be updated. If not provided, empty dictionaries are used
 for all keywords.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -475,40 +475,40 @@ dicts = [{‘porosity’: 0.3 * ones, ‘density’: 42 * ones},</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.add_discretization_matrix_keyword">
-<span class="sig-name descname"><span class="pre">add_discretization_matrix_keyword</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dictionary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#add_discretization_matrix_keyword"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.add_discretization_matrix_keyword" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_discretization_matrix_keyword</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dictionary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#add_discretization_matrix_keyword"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.add_discretization_matrix_keyword" title="Link to this definition"></a></dt>
 <dd><p>Ensure presence of sub-dictionaries.</p>
 <p>Specific method ensuring that there is a sub-dictionary for discretization matrices,
 and that this contains a sub-sub-dictionary for the given key. Called previous to
 discretization matrix storage in discretization operators (e.g. the storage of
 “flux” by the Tpfa().discretize function).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dictionary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Main dictionary, typically stored on a subdomain.</p></li>
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The keyword used for linking parameters and discretization operators.</p></li>
+<li><p><strong>dictionary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Main dictionary, typically stored on a subdomain.</p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – The keyword used for linking parameters and discretization operators.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Matrix dictionary of discretization matrices.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.add_nonpresent_dictionary">
-<span class="sig-name descname"><span class="pre">add_nonpresent_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dictionary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#add_nonpresent_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.add_nonpresent_dictionary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_nonpresent_dictionary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dictionary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#add_nonpresent_dictionary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.add_nonpresent_dictionary" title="Link to this definition"></a></dt>
 <dd><p>Check if key is in the dictionary, if not add it with an empty dictionary.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dictionary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Dictionary to be updated.</p></li>
-<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Keyword to be added to the dictionary if missing.</p></li>
+<li><p><strong>dictionary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Dictionary to be updated.</p></li>
+<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Keyword to be added to the dictionary if missing.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -516,63 +516,63 @@ discretization matrix storage in discretization operators (e.g. the storage of
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.initialize_data">
-<span class="sig-name descname"><span class="pre">initialize_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">specified_parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#initialize_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.initialize_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">initialize_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">specified_parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#initialize_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.initialize_data" title="Link to this definition"></a></dt>
 <dd><p>Initialize a data dictionary for a single keyword.</p>
 <p>The initialization consists of adding a parameter dictionary and initializing a
 matrix dictionary in the proper fields of data. If there is a Parameters object
 in data, the new keyword is added using the update_dictionaries method.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span> <span class="pre">or</span> <span class="pre">pp.MortarGrid</span></code>) – Grid to which data should be attached.</p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – String identifying the parameters.</p></li>
-<li><p><strong>specified_parameters</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict,</span> <span class="pre">optional</span></code>) – A dictionary with specified parameters, defaults
+<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MortarGrid</span></code>) – Grid to which data should be attached.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – String identifying the parameters.</p></li>
+<li><p><strong>specified_parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>, <em>optional</em>) – A dictionary with specified parameters, defaults
 to empty dictionary.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The filled dictionary.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.initialize_default_data">
-<span class="sig-name descname"><span class="pre">initialize_default_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">specified_parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#initialize_default_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.initialize_default_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">initialize_default_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">specified_parameters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#initialize_default_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.initialize_default_data" title="Link to this definition"></a></dt>
 <dd><p>Initialize a data dictionary for a single keyword.</p>
 <p>The initialization consists of adding a parameter dictionary and initializing a
 matrix dictionary in the proper fields of data. Default data are added for a certain
 set of “basic” parameters, depending on the type chosen.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span> <span class="pre">or</span> <span class="pre">pp.MortarGrid</span></code>) – Grid to which data should be attached.</p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
-<li><p><strong>parameter_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Which type of parameters to use for the default assignment.
+<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MortarGrid</span></code>) – Grid to which data should be attached.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
+<li><p><strong>parameter_type</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Which type of parameters to use for the default assignment.
 Must be one of the following: “flow”, “transport” and “mechanics”.</p></li>
-<li><p><strong>specified_parameters</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict,</span> <span class="pre">optional</span></code>) – A dictionary with specified parameters,
+<li><p><strong>specified_parameters</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>, <em>optional</em>) – A dictionary with specified parameters,
 overriding the default values. Defaults to an empty dictionary (only default
 values).</p></li>
 <li><p><strong>keyword</strong> – String to identify the parameters. Defaults to the
 parameter type.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>KeyError if an unknown parameter type is passed.</strong> – </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.modify_variable">
-<span class="sig-name descname"><span class="pre">modify_variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#modify_variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.modify_variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">modify_variable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#modify_variable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.modify_variable" title="Link to this definition"></a></dt>
 <dd><p>Changes the value (not id) of the stored parameter.</p>
 <p>Mutes the value of a variable to new_value. Note that this method cannot be
 extended to cover Numbers, as these are immutable in Python.
@@ -586,67 +586,65 @@ np.ndarray, the arrays should have the same shape, and new_value must be</p>
 </div></blockquote>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>variable</strong> – The variable.</p></li>
 <li><p><strong>new_value</strong> – The new value to be assigned to the variable.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError if the variable is a number.</strong> – </p></li>
-<li><p><strong>NotImplementedError if a variable</strong><strong> of </strong><strong>unknown type is passed.</strong> – </p></li>
-</ul>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>TypeError if the variable is a number.</strong> – </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
+<p>:raises NotImplementedError if a variable` of :py:class:<a href="#id1"><span class="problematic" id="id2">`</span></a>unknown type is passed.:</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.set_iterate">
-<span class="sig-name descname"><span class="pre">set_iterate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iterate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#set_iterate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.set_iterate" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_iterate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iterate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#set_iterate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.set_iterate" title="Link to this definition"></a></dt>
 <dd><p>Initialize or update an iterate dictionary.</p>
 <p>Same as set_state for subfield pp.ITERATE
 Also checks whether pp.STATE field is set, and adds it if not, see set_state.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
-<li><p><strong>iterate</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict,</span> <span class="pre">Optional</span></code>) – A dictionary with the state, set to an empty dictionary if
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
+<li><p><strong>iterate</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Optional</span></code>) – A dictionary with the state, set to an empty dictionary if
 not provided.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The filled dictionary.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.data.set_state">
-<span class="sig-name descname"><span class="pre">set_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#set_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.set_state" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/data.html#set_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.data.set_state" title="Link to this definition"></a></dt>
 <dd><p>Initialize or update a state dictionary.</p>
 <p>The initialization consists of adding a state dictionary in the proper field of the
 data dictionary. If there is a state dictionary in data, the new state is added
 using the update method of dictionaries.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
-<li><p><strong>state</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dict,</span> <span class="pre">Optional</span></code>) – A dictionary with the state, set to an empty dictionary if
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Outer data dictionary, to which the parameters will be added.</p></li>
+<li><p><strong>state</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Optional</span></code>) – A dictionary with the state, set to an empty dictionary if
 not provided.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The filled dictionary.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)">dict</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a></p>
 </dd>
 </dl>
 </dd></dl>
