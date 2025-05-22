@@ -928,7 +928,7 @@ class SolutionStrategy(pp.PorePyModel):
             raise TypeError("Input matrix must be a sparse matrix")
         if A.shape[0] == 0 or A.shape[1] == 0:
             raise ValueError("Matrix cannot be empty")
-        assert A.shape[0] == A.shade[1], f"Matrix must be square, got shape {A.shape}"
+        assert A.shape[0] == A.shape[1], f"Matrix must be square, got shape {A.shape}"
         
         # Find non-zero entries in the sparse matrix
         rows, cols, _ = sps.find(A)
