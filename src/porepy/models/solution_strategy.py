@@ -15,6 +15,7 @@ from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
+import networkx as nx 
 
 import porepy as pp
 
@@ -764,6 +765,11 @@ class SolutionStrategy(pp.PorePyModel):
                 self.primary_variables,
                 inverter=self.schur_complement_inverter,
             )
+            # self.linear_system = self.equation_system.assemble_schur_complement_system(
+            #     self.primary_equations,
+            #     self.primary_variables,
+            #     inverter=self.invert_non_diagonal_matrix,
+            # )
         else:
             self.linear_system = self.equation_system.assemble()
 
@@ -885,6 +891,130 @@ class SolutionStrategy(pp.PorePyModel):
             return inv_A
 
         return inverter
+    
+    def generate_block_permutations(self, A: sps.csr_matrix) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute row and column permutations to transform a non-diagonal block matrix into
+        block-diagonal form by analyzing its sparsity pattern.
+
+        The method constructs a bipartite graph representing the matrix's non-zero structure,
+        where equations and variables are connected if the corresponding matrix entry is non-zero.
+        The connected components of this graph then define the blocks in the permuted matrix.
+
+        Parameters:
+            A: square sparse matrix of size (n, n)
+
+        Returns:
+            row_perm: row indices for the row permutation, so that rows of A are grouped block-wise.
+                The i-th element gives the original row index that should appear in position i.
+            col_perm: column indices for the column permutation,
+                following the same convention as row_perm.
+            block_size: array containing the size of each diagonal block in the
+                permuted matrix. The sum of block sizes equals the matrix dimension.
+
+        Raises:
+            TypeError: If input A is not a sparse matrix.
+            ValueError: If matrix A is empty.
+
+        Notes:
+            - The function assumes that the matrix is square or rectangular with consistent
+            equation-variable relationships.
+            - The permutations returned are such that applying them to the original matrix
+            as A[row_perm, :][:, col_perm] would give a block-diagonal matrix.
+            - Each block in the resulting matrix corresponds to a connected component in
+            the bipartite graph representation.
+        """
+        # input validation
+        if not isinstance(A, sps.spmatrix):
+            raise TypeError("Input matrix must be a sparse matrix")
+        if A.shape[0] == 0 or A.shape[1] == 0:
+            raise ValueError("Matrix cannot be empty")
+        assert A.shape[0] == A.shade[1], f"Matrix must be square, got shape {A.shape}"
+        
+        # Find non-zero entries in the sparse matrix
+        rows, cols, _ = sps.find(A)
+
+        # Build bipartite graph: connect equation_i to variable_j if A[i,j] ≠ 0
+        G = nx.Graph()
+        for i, j in zip(rows, cols):
+            G.add_edge(f"eq_{i}", f"var_{j}")
+
+        # Find connected components
+        components = list(nx.connected_components(G))
+
+        # if matrix is already block-diagonal
+        if len(components) == 1:
+            n = A.shape[0]
+            return (np.arange(n), np.arange(n), np.array([n], dtype=np.int32))
+
+        # Collect row and column indices per component
+        block_sizes = []
+        block_row_indices = []
+        block_col_indices = []
+
+        # Extract permutations and sub-block sizes
+        for comp in components:
+            eqs = sorted(int(n[3:]) for n in comp if n.startswith("eq_"))
+            vars_ = sorted(int(n[4:]) for n in comp if n.startswith("var_"))
+            
+            # each block must be square
+            assert len(eqs) == len(vars_), (
+                f"Block mismatch: {len(eqs)} eqs vs {len(vars_)} vars"
+            )
+            block_sizes.append(len(eqs))
+            block_row_indices.extend(eqs)
+            block_col_indices.extend(vars_)
+
+        # final permutations: flattening all component-wise ordered indices
+        row_perm = np.array(block_row_indices, dtype=int)
+        col_perm = np.array(block_col_indices, dtype=int)
+
+        # verify we've covered all equations and variables
+        assert len(block_row_indices) == A.shape[0], "Not all equations were assigned to blocks"
+        assert len(block_col_indices) == A.shape[1], "Not all variables were assigned to blocks"
+
+        return (row_perm, col_perm, np.array(block_sizes).astype(np.int32))
+    
+
+    def invert_non_diagonal_matrix(self, A: sps.csr_matrix) -> sps.csr_matrix:
+        """Compute A^{-1} by
+            1) permuting non-diagonal block matrix A to block-diagonal form,
+            2) inverting each diagonal block, and
+            3) undoing the permutations to get the inverse of the original matrix.
+
+        Parameters:
+            A: A square sparse matrix of shape (num_eqs, num_vars) whose sparsity pattern
+                splits into disjoint diagonal blocks after a suitable row/col permutations.
+
+        Returns:
+            A_inv: The inverse of A.
+        """
+
+        # find the permutations that makes A block-diagonal
+        row_perm_idxs, col_perm_idxs, block_sizes = self.generate_block_permutations(A)
+        row_slicer = pp.matrix_operations.ArraySlicer(
+            range_indices=row_perm_idxs,range_size=A.shape[0]
+        )
+        col_slicer = pp.matrix_operations.ArraySlicer(
+            domain_indices=col_perm_idxs,domain_size=A.shape[1]
+        )
+
+        # apply permutations to transform A into diagonal block
+        # A_block_diag = P_row @ A @ P_col
+        A_block_diag = row_slicer @ (col_slicer.T @ A.T).T
+
+        # compute the inverse of each block in place
+        inv_A_block_diag = pp.matrix_operations.invert_diagonal_blocks(
+            A_block_diag, block_sizes, method="numba"
+        ) 
+
+        # undo the permutations to obtain the inverse of the original matrix
+        # A^{-1} = P_col A_block_diag^{-1} P_row
+        inv_row_slicer = row_slicer.T
+        inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
+
+        return inv_A
+    
+
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
