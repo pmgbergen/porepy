@@ -16,7 +16,7 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = True
+FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -26,7 +26,7 @@ EXPORT_SCHEDULED_TIME_ONLY: bool = False
 the scheduled times."""
 ANALYSIS_MODE: bool = False
 """Uses the Analysis mixin to store some additional values to inspect convergence."""
-NO_COMPILATION: bool = False
+DISABLE_COMPILATION: bool = False
 """For disabling numba compilation and faster start of simulation."""
 
 
@@ -42,7 +42,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
 
-if NO_COMPILATION:
+if DISABLE_COMPILATION:
     import os
 
     os.environ["NUMBA_DISABLE_JIT"] = "1"
@@ -75,7 +75,7 @@ class _FlowConfiguration(pp.PorePyModel):
     for in- and outflow."""
 
     # Mesh size.
-    _h_MESH: float = 4.0
+    _h_MESH: float = 2.0
     # 4.        308 cells
     # 2.        1204 cells
     # 1.        4636 cells
@@ -1156,7 +1156,7 @@ class BoundaryConditions(_FlowConfiguration):
         return self.bc_type_darcy_flux(sd)
 
     def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if FRACTIONAL_FLOW:
+        if cf.is_fractional_flow(self):
             return self.bc_type_fourier_flux(sd)
         else:
             return self.bc_type_darcy_flux(sd)
@@ -1293,6 +1293,59 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
         return np.dot(residual, residual) / 2
 
 
+class Permeability(pp.PorePyModel):
+    """Custom permeability with a slightly lower permability around the wells and a
+    constant permeability of 1 in the wells."""
+
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return pp.constitutive_laws.DimensionDependentPermeability.permeability(
+            self,  # type:ignore[arg-type]
+            subdomains,
+        )
+
+    def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Matrix permeability with a higher permeability with factor 1e3 around the
+        wells."""
+        assert len(subdomains) == 1, "Expecting only 1 grid or matrix permeability."
+
+        sd = subdomains[0]
+        N = sd.num_cells
+        K_vals = np.ones(N) * self.solid.permeability
+        l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
+
+        K_vals[sd.cell_centers[0] < l] *= 1e3
+        K_vals[sd.cell_centers[0] > r] *= 1e3
+        K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
+            K_vals, name="base_matrix_permeability"
+        )
+
+        if cf.is_fractional_flow(self):
+            K_ *= self.total_mass_mobility(subdomains)
+
+        K = self.isotropic_second_order_tensor(subdomains, K_)
+        K.set_name("matrix_permeability")
+        return K
+
+    def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return self.intersection_permeability(subdomains)
+
+    def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Base permeability of wells is 1."""
+        N = sum([sd.num_cells for sd in subdomains])
+        K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
+            1.0, size=N, name="base_well_permeability"
+        )
+
+        if cf.is_fractional_flow(self):
+            K_ *= self.total_mass_mobility(subdomains)
+
+        K = self.isotropic_second_order_tensor(subdomains, K_)
+        K.set_name("well_permeability")
+        return K
+
+
 # region Model class assembly
 # mypy: disable-error-code="type-abstract"
 model_class: type[pp.PorePyModel]
@@ -1314,6 +1367,7 @@ model_class = create_local_model_class(
         FluidMixture,
         AdjustedWellModel2D,
         PointWells2D,
+        Permeability,
     ],
 )
 
@@ -1326,8 +1380,8 @@ model_class = create_local_model_class(
 # ]
 time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
-max_iterations = 35 if FRACTIONAL_FLOW else 30
-newton_tol = 1e-6
+max_iterations = 40 if FRACTIONAL_FLOW else 30
+newton_tol = 2e-5
 newton_tol_increment = 1e-6
 
 time_manager = pp.TimeManager(
@@ -1335,7 +1389,7 @@ time_manager = pp.TimeManager(
     dt_init=10 * pp.MINUTE,
     dt_min_max=(pp.MINUTE, 30 * pp.DAY),
     iter_max=max_iterations,
-    iter_optimal_range=(17, 29) if FRACTIONAL_FLOW else (12, 24),
+    iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (12, 22),
     iter_relax_factors=(0.8, 2.0),
     recomp_factor=0.6,
     recomp_max=15,
@@ -1364,7 +1418,7 @@ flash_params: dict[Any, Any] = {
         "npipm_u2": 10,
         "npipm_eta": 0.5,
     },
-    "global_iteration_stride": 2 if FRACTIONAL_FLOW else 3,
+    "global_iteration_stride": 3,
 }
 flash_params.update(phase_property_params)
 
