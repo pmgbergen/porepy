@@ -16,7 +16,7 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = False
+FRACTIONAL_FLOW: bool = True
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -1326,8 +1326,8 @@ model_class = create_local_model_class(
 # ]
 time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
-max_iterations = 30
-newton_tol = 1e-5
+max_iterations = 35 if FRACTIONAL_FLOW else 30
+newton_tol = 1e-6
 newton_tol_increment = 1e-6
 
 time_manager = pp.TimeManager(
@@ -1335,7 +1335,7 @@ time_manager = pp.TimeManager(
     dt_init=10 * pp.MINUTE,
     dt_min_max=(pp.MINUTE, 30 * pp.DAY),
     iter_max=max_iterations,
-    iter_optimal_range=(12, 24),
+    iter_optimal_range=(17, 29) if FRACTIONAL_FLOW else (12, 24),
     iter_relax_factors=(0.8, 2.0),
     recomp_factor=0.6,
     recomp_max=15,
@@ -1364,7 +1364,7 @@ flash_params: dict[Any, Any] = {
         "npipm_u2": 10,
         "npipm_eta": 0.5,
     },
-    "global_iteration_stride": 3,
+    "global_iteration_stride": 2 if FRACTIONAL_FLOW else 3,
 }
 flash_params.update(phase_property_params)
 
