@@ -263,15 +263,15 @@ class DimensionReduction(pp.PorePyModel):
             sd_dim = [sd for sd in subdomains if sd.dim == dim]
             if len(sd_dim) == 0:
                 continue
-            aperture_local = self.aperture(sd_dim)
-            specific_volume_local = aperture_local ** Scalar(self.nd - dim)
-            specific_volume_global = (
-                subdomain_projection.cell_prolongation(sd_dim) @ specific_volume_local
+            a_loc = self.aperture(sd_dim)
+            specific_volume_loc = a_loc ** Scalar(self.nd - dim)
+            specific_volume_glob = (
+                subdomain_projection.cell_prolongation(sd_dim) @ specific_volume_loc
             )
             if specific_volume is None:
-                specific_volume = specific_volume_global
+                specific_volume = specific_volume_glob
             else:
-                specific_volume = specific_volume + specific_volume_global
+                specific_volume = specific_volume + specific_volume_glob
 
         specific_volume.set_name("specific_volume")
 
