@@ -27,7 +27,9 @@ import shutil
 from pathlib import Path
 from typing import Any, Optional
 
+
 import numpy as np
+import scipy.sparse as sps
 import pytest
 
 import porepy as pp
@@ -466,3 +468,56 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
+
+# ---------------------------------------------------------------------
+# Tests for block‐permutation and inversion in SolutionStrategy
+# ---------------------------------------------------------------------
+def test_generate_block_permutations():
+    """
+    Test that generate_block_permutations correctly identifies the 4 diagonal
+    blocks in a 2-cell, 3-variable/equation-per-cell system and returns the expected
+    row/column permutations and block sizes.
+    """
+
+    # Build a 6×6 non-diagonal block matrix for 2 cells (each with 3 eqns/vars)
+    A = sps.csr_matrix(np.array([
+        [1, 0, 2, 0, 0, 0], # cell 0, var types 0,1,2
+        [0, 1, 0, 3, 0, 0], # cell 1, var types 0,1,2
+        [1, 0, 4, 0, 0, 0],
+        [0, 1, 0, 5, 0, 0],
+        [0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 1]  
+    ]),dtype=np.float64)
+
+    strategy = pp.SolutionStrategy({})
+    row_perm, col_perm, block_sizes = strategy.generate_block_permutations(A)
+
+    # Expect four blocks: two blocks of size 2 (for vars 0&1 on each cell),
+    # and two singleton blocks (for var type 2 on each cell)
+    assert list(block_sizes) == [2, 2, 1, 1]
+
+    # The permutations  groups eqns/vars by cell:
+    assert list(row_perm) == [0, 2, 1, 3, 4, 5]
+    assert list(col_perm) == [0, 2, 1, 3, 4, 5]
+
+def test_invert_non_diagonal_matrix():
+    """Test that invert_non_diagonal_matrix correctly inverts a block-structured
+    sparse matrix by permuting to block-diagonal, inverting each block, and
+    undoing the permutations.
+    """
+
+    A = sps.csr_matrix(np.array([
+        [1, 0, 2, 0, 0, 0],
+        [0, 1, 0, 3, 0, 0],
+        [1, 0, 4, 0, 0, 0],
+        [0, 1, 0, 5, 0, 0],
+        [0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 1]
+    ]),dtype=np.float64)
+
+    strategy = pp.SolutionStrategy({})
+    A_inv = strategy.invert_non_diagonal_matrix(A)
+
+    # Verify that A * A_inv is the identity matrix
+    I = A.dot(A_inv).toarray()
+    assert np.allclose(I, np.eye(6))
