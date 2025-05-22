@@ -1,4 +1,4 @@
-"""   PorePy.
+"""PorePy.
 
 Root directory for the PorePy package. Contains the following sub-packages:
 
@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -62,9 +62,10 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
-    point_in_polyhedron_test,
+    point_in_polyhedron,
     half_space,
     domain,
+    sort_points,
 )
 from porepy.geometry.domain import Domain
 
@@ -83,7 +84,8 @@ from porepy.params.data import (
 
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
-
+from porepy.applications.material_values import reference_values
+from porepy.applications.material_values import numerical_values
 
 # Grids
 from porepy.grids.grid import Grid
@@ -102,6 +104,7 @@ from porepy.utils import adtree
 from porepy.utils.tangential_normal_projection import (
     TangentialNormalProjection,
     set_local_coordinate_projections,
+    sides_of_fracture,
 )
 
 # Fractures
@@ -147,6 +150,9 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
     ConformingFracturePropagation,
 )
 
+# The protocol must be imported before anything related to models.
+from porepy.models.protocol import PorePyModel
+
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
@@ -171,38 +177,61 @@ from porepy.numerics.time_step_control import TimeManager
 from porepy import models
 from porepy.models.abstract_equations import (
     BalanceEquation,
+    LocalElimination,
     VariableMixin,
 )
 from porepy.models.boundary_condition import BoundaryConditionMixin
+from porepy.models.initial_condition import InitialConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
-from porepy.models.material_constants import (
-    FluidConstants,
-    SolidConstants,
-    MaterialConstants,
-)
-
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
 
+# composite subpackage
+from . import compositional
+from porepy.compositional.materials import (
+    FluidComponent,
+    SolidConstants,
+    NumericalConstants,
+    Constants,
+    ReferenceVariableValues,
+)
+from porepy.compositional.base import Component, Phase, Fluid
+from porepy.compositional.compositional_mixins import FluidMixin
+
 # "Primary" models
-from porepy.models import fluid_mass_balance, momentum_balance
+from porepy.models import (
+    energy_balance,
+    fluid_mass_balance,
+    momentum_balance,
+    contact_mechanics,
+)
 
 # "Secondary" models inheriting from primary models
 from porepy.models import (
     poromechanics,
-    energy_balance,
     mass_and_energy_balance,
     thermoporomechanics,
+    fracture_damage,
 )
+
+# need to import compositional flow after mass_and_energy
+from porepy.models import compositional_flow
+
+# Full model classes.
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
+from porepy.models.contact_mechanics import ContactMechanics
 from porepy.models.thermoporomechanics import Thermoporomechanics
 from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
+from porepy.models.compositional_flow import (
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
+)
 
 
 # Visualization
@@ -214,14 +243,8 @@ from porepy.viz.solver_statistics import SolverStatistics
 # Modules
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
-from porepy.grids import coarsening, partition, refinement
+from porepy.grids import partition, refinement
 from porepy.numerics import displacement_correlation
-from porepy.utils.default_domains import (
-    CubeDomain,
-    SquareDomain,
-    UnitSquareDomain,
-    UnitCubeDomain,
-)
 
 # Applications
 from porepy.applications.md_grids import (
@@ -233,6 +256,3 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
-
-# composite subpackage
-from . import compositional

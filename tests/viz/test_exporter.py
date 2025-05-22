@@ -17,19 +17,22 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Generator
+import scipy.sparse as sps
 
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.models import Thermoporomechanics
 from porepy.applications.test_utils.vtk import (
     PathLike,
     compare_pvd_files,
     compare_vtu_files,
 )
+from porepy.applications.test_utils.grids import polytop_grid_2d, polytop_grid_3d
 from porepy.fracs.utils import pts_edges_to_linefractures
 from tests.models.test_poromechanics import NonzeroFractureGapPoromechanics
-from porepy.applications.test_utils.models import Thermoporomechanics
 
 # Globally store location of reference files
 FOLDER_REFERENCE = (
@@ -58,7 +61,7 @@ class SingleSubdomain:
 
 
 @pytest.fixture
-def setup() -> ExporterTestSetup:
+def setup() -> Generator[ExporterTestSetup, Any, Any]:
     """Method to deliver a setup to all tests, and remove any temporary directory."""
 
     # Setup
@@ -79,17 +82,9 @@ def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
 
     """
 
-    # Construct 2d polytopal grid
-    sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
-    sd_polytop_2d.compute_geometry()
-    pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
-
-    # Construct 3d polytopal grid
-    sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
-    sd_polytop_3d.compute_geometry()
-    pp.coarsening.generate_coarse_grid(
-        sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
-    )
+    # Construct polytopal grids in 2d and 3d
+    sd_polytop_2d = polytop_grid_2d()
+    sd_polytop_3d = polytop_grid_3d()
 
     # Define the collection of subdomains
     subdomains: list[SingleSubdomain] = [
@@ -150,7 +145,6 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
         sd,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         [("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)],
@@ -180,7 +174,6 @@ def test_import_state_from_vtu_single_subdomains(
         sd,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
 
     # Define keys (here corresponding to all data stored in the vtu file to pass the
@@ -298,7 +291,6 @@ def test_mdg(setup: ExporterTestSetup):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
@@ -341,7 +333,6 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
 
     # Assume the following has been run for a previous simulation
@@ -422,7 +413,6 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
@@ -533,7 +523,6 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         [
@@ -580,6 +569,7 @@ def test_constant_data(setup: ExporterTestSetup):
         g,
         setup.file_name,
         setup.folder,
+        export_constants_separately=True,
     )
     # Add additional constant data (cell centers)
     save.add_constant_data([(g, "cc", g.cell_centers)], data_pt=[("x", g.nodes[0, :])])
@@ -696,7 +686,6 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "specific_storage": 4e-1,  # [Pa^-1]
             "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
             "thermal_expansion": 9.6e-2,  # [K^-1]
-            "temperature": 2,  # [K]
         }
         nontrivial_fluid = {
             "compressibility": 1e-1,  # [Pa^-1], isentropic compressibility
@@ -705,8 +694,10 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "thermal_conductivity": 0.5,  # [kg m^-3]
             "thermal_expansion": 2.068e-1,  # [K^-1]
             "viscosity": 1.002e-1,  # [Pa s], absolute viscosity
-            "pressure": 1,  # [Pa]
-            "temperature": 2,  # [K]
+        }
+        nontrivial_reference_values = {
+            "pressure": 1.0,  # [Pa]
+            "temperature": 2.0,  # [K]
         }
 
         model_params = {
@@ -715,9 +706,12 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "file_name": file_name,
             "folder_name": setup.folder,
             "material_constants": {
-                "solid": pp.SolidConstants(nontrivial_solid),
-                "fluid": pp.FluidConstants(nontrivial_fluid),
+                "solid": pp.SolidConstants(**nontrivial_solid),
+                "fluid": pp.FluidComponent(**nontrivial_fluid),
             },
+            "reference_variable_values": pp.ReferenceVariableValues(
+                **nontrivial_reference_values
+            ),
         }
         model = TailoredThermoporomechanics(params=model_params)
         pp.run_time_dependent_model(model)

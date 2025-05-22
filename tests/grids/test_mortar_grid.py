@@ -10,6 +10,7 @@ The module contains the following groups of tests:
 A further description is given for each of the groups of tests.
 
 """
+
 import os
 import pickle
 
@@ -59,7 +60,8 @@ logic:
 
 The tests are made up of the following functions:
     - A set of functions to test indivdiual replacement operations.
-    - A helper function _create_2d_mdg, which creates a 2d domain with a single fracture.
+    - A helper function _create_2d_mdg, which creates a 2d domain with a single
+        fracture.
     - A helper function _replace_2d_grid_fetch_projections, which replaces the 2d grid
         in the domain and fetches the projections between the old and the new grid.
 
@@ -67,7 +69,8 @@ The tests are made up of the following functions:
 
 
 def test_2d_domain_replace_2d_grid_by_identical_copy():
-    """Copy the higher dimensional grid and replace. The mapping should stay the same."""
+    """Copy the higher dimensional grid and replace. The mapping should stay the
+    same."""
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
     # Copy the highest-dimensional grid
@@ -364,7 +367,7 @@ def test_2d_domain_replace_2d_grid_with_permuted_and_perturbed_nodes():
 
 
 def _create_2d_mdg(
-    size: list[int, int]
+    size: list[int, int],
 ) -> tuple[pp.MixedDimensionalGrid, pp.Grid, sps.spmatrix]:
     """Helper function to create a 2d md grid with a single interface.
 
@@ -611,7 +614,8 @@ def test_3d_domain_without_1d_grid_replace_2d_grid_with_finer_perturbed_grid():
     go = mdg.subdomains(dim=2)[0]
     mdg.replace_subdomains_and_interfaces({go: gn})
 
-    # Fetch the mortar mappings again. There is no 1d grid, thus the mappings to 1d are None
+    # Fetch the mortar mappings again. There is no 1d grid, thus the mappings to 1d are
+    # None
     _, _, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(mdg)
 
     # The known projection matrix, from secondary to one of the mortar grids.
@@ -705,7 +709,7 @@ def test_3d_domain_replace_2d_grid_with_finer_perturbed_grid():
 
 
 def _compare_3d_mortar_projections(
-    projections: list[tuple[np.ndarray | sps.spmatrix, np.ndarray | sps.spmatrix]]
+    projections: list[tuple[np.ndarray | sps.spmatrix, np.ndarray | sps.spmatrix]],
 ):
     """Helper method to compare two sets of mortar projections."""
     # Loop over projections
@@ -769,7 +773,8 @@ def _get_3d_mortar_projections(mdg: pp.MixedDimensionalGrid):
 
 
 def _create_3d_mdg(pert: bool = False, include_1d: bool = True):
-    """Set up a mixed-dimensional grid based on parameters given in the test function."""
+    """Set up a mixed-dimensional grid based on parameters given in the test
+    function."""
     if include_1d:
         sd_3 = _grid_3d(include_1d=include_1d, pert=pert)
         sd_2 = _grid_2d_two_cells(include_1d=include_1d, pert=pert)
@@ -875,6 +880,8 @@ def _grid_3d(include_1d: bool, pert: bool) -> pp.Grid:
             n[2, 9] = 2
 
     cell_volumes = 1 / 6 * np.ones(cell_centers.shape[1])
+    # Set arbitrary values for face areas. We do not use them in the tests.
+    face_areas = np.ones(face_nodes.shape[1])
 
     # Create a grid
     g = pp.Grid(
@@ -888,7 +895,9 @@ def _grid_3d(include_1d: bool, pert: bool) -> pp.Grid:
     g.face_normals = face_normals
     g.cell_centers = cell_centers
     g.cell_volumes = cell_volumes
+    g.face_areas = face_areas
     g.global_point_ind = np.arange(n.shape[1])
+    g.face_centers = (n[:, fn[0]] + n[:, fn[1]] + n[:, fn[2]]) / 3
     if include_1d:
         g.tags["fracture_faces"][[3, 7, 11, 15]] = True
     else:
@@ -945,6 +954,8 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
     face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
     cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # Set arbitrary values for face areas. We do not use them in the tests.
+    face_areas = np.ones(face_nodes.shape[1])
 
     # Create a grid
     g = pp.Grid(
@@ -958,6 +969,8 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
     g.face_normals = face_normals
     g.cell_centers = cell_centers
     g.cell_volumes = cell_volumes
+    g.face_areas = face_areas
+    g.face_centers = (n[:, fn[0]] + n[:, fn[1]]) / 2
     g.global_point_ind = 1 + np.arange(n.shape[1])
     if include_1d:
         g.tags["fracture_faces"][[2, 3]] = True
@@ -981,8 +994,8 @@ def _grid_2d_four_cells(
             n[2, 2] = 2
             n[2, 6] = 2
             if move_interior_point:
-                # To make the midpoint (x, z) = (0.5, 0.5) stay on the line between
-                # (0, 0) and [the newly moved to] (1, 2), we need to update the coordinates
+                # To make the midpoint (x, z) = (0.5, 0.5) stay on the line between (0,
+                # 0) and [the newly moved to] (1, 2), we need to update the coordinates
                 # of points 3 and 7.
                 n[2, 3] = 1
                 n[2, 7] = 1
@@ -995,8 +1008,6 @@ def _grid_2d_four_cells(
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-
-        cell_volumes = 1 / 4 * np.ones(4)
 
     else:  # Do not inculde 1d
         n = np.array(
@@ -1052,6 +1063,8 @@ def _grid_2d_four_cells(
 
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
     cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # Set arbitrary values for face areas. We do not use them in the tests.
+    face_areas = np.ones(face_nodes.shape[1])
 
     g = pp.Grid(
         nodes=n,
@@ -1062,8 +1075,10 @@ def _grid_2d_four_cells(
     )
     # Assign additional fields to ensure we are in full control of the grid geometry
     g.face_normals = face_normals
+    g.face_areas = face_areas
     g.cell_centers = cell_centers
     g.cell_volumes = cell_volumes
+    g.face_centers = (n[:, fn[0]] + n[:, fn[1]]) / 2
     g.global_point_ind = 10 + np.arange(n.shape[1])
 
     if include_1d:

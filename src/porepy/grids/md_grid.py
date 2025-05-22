@@ -448,7 +448,8 @@ class MixedDimensionalGrid:
             raise ValueError("Grid already defined in MixedDimensionalGrid")
 
         for sd in ng:
-            # Add the grid to the dictionary of subdomains with an empty data dictionary.
+            # Add the grid to the dictionary of subdomains with an empty data
+            # dictionary.
             self._subdomain_data[sd] = {}
 
         # Generate boundary grids for each subdomain.
@@ -525,6 +526,7 @@ class MixedDimensionalGrid:
            sd: The subdomain to be removed.
 
         """
+
         # Delete from the subdomain list.
         del self._subdomain_data[sd]
 
@@ -698,7 +700,7 @@ class MixedDimensionalGrid:
     def replace_subdomains_and_interfaces(
         self,
         sd_map: Optional[dict[pp.Grid, pp.Grid]] = None,
-        intf_map: Optional[
+        interface_map: Optional[
             dict[
                 pp.MortarGrid,
                 Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
@@ -713,7 +715,7 @@ class MixedDimensionalGrid:
 
                 Mapping between the old and new grids. Keys are the old
                 grids, and values are the new grids.
-            intf_map: ``default=None``
+            interface_map: ``default=None``
 
                 Mapping between the old mortar grid and new (side grids of the) mortar
                 grid. Keys are the old mortar grids, and values are dictionaries with
@@ -738,8 +740,8 @@ class MixedDimensionalGrid:
         # projections will be updated twice.
 
         # refine the mortar grids when specified
-        if intf_map is not None:
-            for intf_old, intf_new in intf_map.items():
+        if interface_map is not None:
+            for intf_old, intf_new in interface_map.items():
                 # Update the mortar grid. The update_mortar function in class MortarGrid
                 # performs the update in place, thus the mortar grid will not be
                 # modified in the mixed-dimensional grid itself (thus no changes to
@@ -785,6 +787,7 @@ class MixedDimensionalGrid:
                 self._boundary_grid_data[bg_new] = self._boundary_grid_data[bg_old]
                 self._subdomain_to_boundary_grid[sd_new] = bg_new
                 # Compute the projections to the new boundary grid.
+                bg_new.compute_geometry()
                 bg_new.set_projections()
                 del self._boundary_grid_data[bg_old]
                 del self._subdomain_to_boundary_grid[sd_old]
@@ -887,6 +890,7 @@ class MixedDimensionalGrid:
             The total number of mortar cells of the grid bucket.
 
         """
+
         if cond is None:
             cond = lambda g: True
         return np.sum(  # type: ignore
@@ -975,7 +979,7 @@ class MixedDimensionalGrid:
                 for sd in self.subdomains(dim=dim):
                     num_sd += 1
                     nc += sd.num_cells
-                s += f"{num_sd} grids of dimension {dim}" f" with in total {nc} cells\n"
+                s += f"{num_sd} grids of dimension {dim} with in total {nc} cells\n"
         if self.num_interfaces() > 0:
             for dim in range(self.dim_max(), self.dim_min(), -1):
                 num_intf = 0

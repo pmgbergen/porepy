@@ -1,5 +1,5 @@
 """This module contains (frontend) utility functions related to fractures and their
-meshing. """
+meshing."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def uniquify_points(
     """
 
     # uniquify points based on coordinates
-    p_unique, _, o2n = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
+    p_unique, _, o2n = pp.array_operations.uniquify_point_set(pts, tol=tol)
     # update edges
     e_unique_p = np.vstack((o2n[edges[:2]], edges[2:]))
 

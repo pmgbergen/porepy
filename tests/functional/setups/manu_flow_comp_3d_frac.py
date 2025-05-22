@@ -3,8 +3,7 @@ This module contains a code verification implementation for a manufactured solut
 the three-dimensional, compressible, single-phase flow with a single, fully embedded
 vertical fracture in the middle of the domain.
 
-The exact solution was obtained by extending the solution from the incompressible
-case as given in Appendix D.2 from [1].
+The exact solution is presented in Section 6.1 from [1].
 
 In particular, we have added a pressure-dependent density which obeys the following
 constitutive relationship:
@@ -19,11 +18,12 @@ fluid compressibility.
 
 References:
 
-    - [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
-      (2022). A posteriori error estimates for hierarchical mixed-dimensional
-      elliptic equations. Journal of Numerical Mathematics.
+    - [1] Stefansson, I., Varela, J., Keilegavlen, E., & Berre, I. (2024). Flexible and
+      rigorous numerical modelling of multiphysics processes in fractured porous
+      media using PorePy. Results in Applied Mathematics, 21, 100428.
 
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,7 +31,7 @@ import sympy as sym
 
 import porepy as pp
 from tests.functional.setups.manu_flow_comp_2d_frac import (
-    ManuCompFlowSetup2d,
+    ManuCompFlowModel2d,
     ManuCompSolutionStrategy2d,
 )
 from tests.functional.setups.manu_flow_incomp_frac_3d import (
@@ -40,17 +40,20 @@ from tests.functional.setups.manu_flow_incomp_frac_3d import (
 
 
 class ManuCompExactSolution3d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup):
-        # Model setup
-        self.setup = setup
+    def __init__(self, model: pp.PorePyModel):
+        self.model = model
 
-        # Retrieve material constant from the setup
-        rho_0 = self.setup.fluid.density()  # [kg * m^-3]  Reference fluid density
-        p_0 = self.setup.fluid.pressure()  # [Pa] Reference fluid pressure
-        c_f = self.setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = self.setup.solid.porosity()  # [-] Reference porosity
+        # Retrieve material constant from the model
+        # [kg * m^-3]  Reference fluid density
+        rho_0 = self.model.fluid.reference_component.density
+        # [Pa] Reference fluid pressure
+        p_0 = self.model.reference_variable_values.pressure
+        # [Pa^-1]  Fluid compressibility
+        c_f = self.model.fluid.reference_component.compressibility
+        # [-] Reference porosity
+        phi_0 = self.model.solid.porosity
 
         # Symbolic variables
         x, y, z, t = sym.symbols("x y z t")
@@ -184,13 +187,13 @@ class ManuCompExactSolution3d:
         assert where in ["cc", "fc", "bg"]
 
         # Retrieve coordinates
-        sd = self.setup.mdg.subdomains()[0]
+        sd = self.model.mdg.subdomains()[0]
         if where == "cc":
             x = sd.cell_centers
         elif where == "fc":
             x = sd.face_centers
         else:
-            bg = self.setup.mdg.subdomain_to_boundary_grid(sd)
+            bg = self.model.mdg.subdomain_to_boundary_grid(sd)
             assert bg is not None
             x = bg.cell_centers
 
@@ -455,7 +458,7 @@ class ManuCompExactSolution3d:
         # Cell centers and volumes
         cc = intf.cell_centers
         vol = intf.cell_volumes
-        # face_area = self.setup.mdg.subdomains()[1].face_areas[0]
+        # face_area = self.model.mdg.subdomains()[1].face_areas[0]
 
         # Lambdify expression
         lmbda_fun = sym.lambdify((y, z, t), self.q_intf, "numpy")
@@ -467,13 +470,13 @@ class ManuCompExactSolution3d:
 
     def matrix_boundary_pressure(
         self,
-        bg_matrix: pp.BoundaryGrid,
+        bg: pp.BoundaryGrid,
         time: pp.number,
     ) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            bg_matrix: Boundary grid of the matrix.
+            bg: Boundary grid of the matrix.
             time: time in seconds.
 
         Returns:
@@ -485,14 +488,14 @@ class ManuCompExactSolution3d:
         x, y, z, t = sym.symbols("x y z t")
 
         # Get list of face indices
-        fc = bg_matrix.cell_centers
+        fc = bg.cell_centers
         face_idx = self.get_region_indices(where="bg")
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z, t), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(bg_matrix.num_cells)
+        p_bf = np.zeros(bg.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1], fc[2], time) * idx
 
@@ -501,7 +504,7 @@ class ManuCompExactSolution3d:
 
 # -----> Solution strategy
 class ManuCompSolutionStrategy3d(ManuCompSolutionStrategy2d):
-    """Modified solution strategy for the verification setup."""
+    """Modified solution strategy for the verification model."""
 
     exact_sol: ManuCompExactSolution3d
     """Exact solution object."""
@@ -520,11 +523,11 @@ class ManuCompSolutionStrategy3d(ManuCompSolutionStrategy2d):
 
 
 # -----> Mixer
-class ManuCompFlowSetup3d(  # type: ignore[misc]
+class ManuCompFlowModel3d(  # type: ignore[misc]
     SingleEmbeddedVerticalPlaneFracture,
     ManuCompSolutionStrategy3d,
-    ManuCompFlowSetup2d,
+    ManuCompFlowModel2d,
 ):
     """
-    Mixer class for the 3d compressible flow setup with a single fracture.
+    Mixer class for the 3d compressible flow model with a single fracture.
     """

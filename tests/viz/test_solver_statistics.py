@@ -1,11 +1,12 @@
-""" Tests of functionality of :class:`~porepy.viz.solver_statistics.SolverStatistics`."""
+"""Tests of functionality of :class:`~porepy.viz.solver_statistics.SolverStatistics`."""
 
 import porepy as pp
 from porepy.applications.test_utils.models import Poromechanics
 
 
 def test_solver_statistic_attributes():
-    """Runs default Poromechanics simulation and tests availability of solver statistics."""
+    """Runs default Poromechanics simulation and tests availability of solver
+    statistics."""
     model = Poromechanics()
     pp.run_time_dependent_model(model)
 

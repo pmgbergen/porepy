@@ -12,17 +12,18 @@ Reference:
       103759. https://doi.org/10.1016/j.advwatres.2020.103759
 
 """
+
+from typing import Literal
+
 import numpy as np
 import pytest
 
 import porepy as pp
-
+from porepy.applications.test_utils.benchmarks import EffectivePermeability
 from porepy.examples.flow_benchmark_3d_case_3 import (
     FlowBenchmark3dCase3Model,
     solid_constants,
 )
-from porepy.applications.test_utils.benchmarks import EffectivePermeability
-from typing import Literal
 
 
 class ModelWithEffectivePermeability(
@@ -39,7 +40,7 @@ def flux_discretization(request) -> Literal["tpfa", "mpfa"]:
 
 @pytest.fixture(scope="module")
 def model(
-    flux_discretization: Literal["tpfa", "mpfa"]
+    flux_discretization: Literal["tpfa", "mpfa"],
 ) -> ModelWithEffectivePermeability:
     """Run the benchmark model with the coarsest mesh resolution.
 
@@ -53,6 +54,7 @@ def model(
     model_params = {
         "material_constants": {"solid": solid_constants},
         "flux_discretization": flux_discretization,
+        "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
     pp.run_time_dependent_model(model)
@@ -73,7 +75,9 @@ def test_effective_tangential_permeability_values(model) -> None:
 
     """
     for sd in model.mdg.subdomains():
-        val = model.effective_tangential_permeability([sd]).value(model.equation_system)
+        val = model.equation_system.evaluate(
+            model.effective_tangential_permeability([sd])
+        )
         if sd.dim == 3:
             np.testing.assert_array_almost_equal(val, 1.0)
         elif sd.dim == 2:
@@ -96,7 +100,9 @@ def test_effective_normal_permeability_values(model) -> None:
 
     """
     for intf in model.mdg.interfaces():
-        val = model.effective_normal_permeability([intf]).value(model.equation_system)
+        val = model.equation_system.evaluate(
+            model.effective_normal_permeability([intf])
+        )
         if intf.dim == 2:
             np.testing.assert_array_almost_equal(val, 2e6)
         else:  # intf.dim == 1

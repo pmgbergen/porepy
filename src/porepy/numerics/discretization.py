@@ -1,4 +1,4 @@
-""" Module contains the abstract superclass for all discretizations."""
+"""Module contains the abstract superclass for all discretizations."""
 
 import abc
 from typing import Dict, Union
@@ -55,10 +55,9 @@ class Discretization(abc.ABC):
         """Partial update of discretization.
 
         Intended use is when the discretization should be updated, e.g. because of
-        changes in parameters, grid geometry or grid topology, and it is not
-        desirable to recompute the discretization on the entire grid. A typical case
-        will be when the discretization operation is costly, and only a minor update
-        is necessary.
+        changes in parameters, grid geometry or grid topology, and it is not desirable
+        to recompute the discretization on the entire grid. A typical case will be when
+        the discretization operation is costly, and only a minor update is necessary.
 
         The updates can generally come as a combination of two forms:
             1) The discretization on part of the grid should be recomputed.
@@ -66,9 +65,9 @@ class Discretization(abc.ABC):
                numbering of unknowns has changed, and the discretization should be
                reorder accordingly.
 
-        By default, this method will simply forward the call to the standard
-        discretize method. Discretization methods that wants a tailored approach
-        should override the standard implementation.
+        By default, this method will simply forward the call to the standard discretize
+        method. Discretization methods that wants a tailored approach should override
+        the standard implementation.
 
         Information on the basis for the update should be stored in a field
 
@@ -81,24 +80,24 @@ class Discretization(abc.ABC):
         define cells, faces and nodes that have been modified (either parameters,
         geometry or topology), and should be rediscretized. It is up to the
         discretization method to implement the change necessary by this modification.
-        Note that depending on the computational stencil of the discretization method,
-        a grid quantity may be rediscretized even if it is not marked as modified.
-        The dictionary could further have keys:
+        Note that depending on the computational stencil of the discretization method, a
+        grid quantity may be rediscretized even if it is not marked as modified. The
+        dictionary could further have keys:
 
             cell_index_map, face_index_map, node_index_map
 
-        these should specify sparse matrices that maps old to new indices. If not provided,
-        unit mappings should be assumed, that is, no changes to the grid topology are
-        accounted for.
+        these should specify sparse matrices that maps old to new indices. If not
+        provided, unit mappings should be assumed, that is, no changes to the grid
+        topology are accounted for.
 
-        It is up to the caller to specify which parts of the grid to recompute, and
-        how to update the numbering of degrees of freedom. If the discretization
-        method does not provide a tailored implementation for update, it is not
-        necessary to provide this information.
+        It is up to the caller to specify which parts of the grid to recompute, and how
+        to update the numbering of degrees of freedom. If the discretization method does
+        not provide a tailored implementation for update, it is not necessary to provide
+        this information.
 
         Parameters:
-            g (pp.Grid): Grid to be rediscretized.
-            data (dictionary): With discretization parameters.
+            g: Grid to be rediscretized.
+            data: With discretization parameters.
 
         """
         # Default behavior is to discretize everything

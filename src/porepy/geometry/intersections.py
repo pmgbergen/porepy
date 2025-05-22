@@ -35,9 +35,6 @@ def segments_2d(
 
     a line segment is returned instead of an intersection point.
 
-    Todo:
-        This function can be replaced by a call to :meth:`segments_3d`.
-
     Example:
         >>> segments_2d([0, 0], [1, 1], [0, 1], [1, 0])
         array([[ 0.5],
@@ -801,13 +798,13 @@ def polygons_3d(
 
                     # Uniquify the intersection points found on this segment of main.
                     # If more than one, the intersection is on the boundary of main.
-                    tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
+                    tmp_unique_isect, *rest = pp.array_operations.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_main = True
 
-                isect, *rest = pp.utils.setmembership.uniquify_point_set(isect, tol=tol)
+                isect, *rest = pp.array_operations.uniquify_point_set(isect, tol=tol)
 
                 if isect.shape[1] == 0:
                     # The polygons share a plane, but no intersections
@@ -1005,14 +1002,14 @@ def polygons_3d(
                             isect = np.hstack((isect, loc_isect))
                             tmp_isect = np.hstack((tmp_isect, loc_isect))
 
-                    tmp_unique_isect, *rest = pp.utils.setmembership.uniquify_point_set(
+                    tmp_unique_isect, *rest = pp.array_operations.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
 
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_other = True
 
-                isect, *rest = pp.utils.setmembership.uniquify_point_set(isect, tol=tol)
+                isect, *rest = pp.array_operations.uniquify_point_set(isect, tol=tol)
 
                 seg_vert_main_0 = (0, "not implemented for shared planes")
                 seg_vert_main_1 = (0, "not implemented for shared planes")
@@ -1593,7 +1590,7 @@ def segments_polyhedron(
     extra_pts.fill(np.empty((3, 0)))
     for face in poly:
         # the face vertices need to be sorted
-        sort_ind = pp.utils.sort_points.sort_point_plane(face, np.average(face, axis=1))
+        sort_ind = pp.sort_points.sort_point_plane(face, np.average(face, axis=1))
         # compute if the current face intersect the segments
         is_inside, pts = segments_polygon(start, end, face[:, sort_ind], tol=tol)
         for i in np.flatnonzero(is_inside):
@@ -1729,12 +1726,6 @@ def triangulations(
     # to other cell shapes. This would require more general data structures, but should
     # not be too much of an effort.
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
-
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        pass
 
     n_1 = t_1.shape[1]
     n_2 = t_2.shape[1]
@@ -1893,13 +1884,6 @@ def surface_tessellations(
 
     # local imports
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
-
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        # Nothing to do here, but this may be slow.
-        pass
 
     def _min_max_coord(coord):
         # Convenience function to get max and minimum coordinates for a set of polygons
@@ -2075,7 +2059,9 @@ def surface_tessellations(
                 is_ccw = np.array(
                     [
                         pp.geometry_property_checks.is_ccw_polyline(
-                            start[:, i], middle[:, i], end[:, i]  # type:ignore
+                            start[:, i],  # type: ignore
+                            middle[:, i],  # type: ignore
+                            end[:, i],  # type:ignore
                         )
                         for i in range(poly.shape[1])  # type:ignore
                     ]
@@ -2349,7 +2335,7 @@ def split_intersecting_segments_2d(
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
 
-        unique_all_pt, ia, ib = pp.utils.setmembership.uniquify_point_set(all_pt, tol)
+        unique_all_pt, ia, ib = pp.array_operations.uniquify_point_set(all_pt, tol)
 
         # Data structure for storing the split edges.
         new_edge = np.empty((e.shape[0], 0), dtype=int)
@@ -2389,8 +2375,8 @@ def split_intersecting_segments_2d(
         # Keep the old tags before uniquifying
         tags = new_edge[2:].copy().ravel()
         # Uniquify.
-        _, edge_map, all_2_unique = pp.utils.setmembership.unique_columns_tol(
-            new_edge[:2].astype(int), tol
+        _, edge_map, all_2_unique = np.unique(
+            new_edge[:2].astype(int), axis=1, return_index=True, return_inverse=True
         )
         tag_info = (tags, all_2_unique)
 
@@ -2717,7 +2703,7 @@ def _intersect_pairs(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
         return np.empty((2, 0))
     else:
         # Do the intersection
-        _, ind = pp.utils.setmembership.ismember_rows(p1, p2)
+        _, ind = pp.array_operations.ismember_columns(p1, p2)
         pairs = p2[:, ind]
 
         # First sort the pairs themselves

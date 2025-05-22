@@ -2,10 +2,21 @@
 in an instance of a PorePy model. The proper implementations of these methods can be
 found in various classes within the models directiory.
 
+Note that the protocol framework is accessed by static type checkes only!
+
+Warning:
+    For developers:
+
+    Do not bring the ``typing.Protocol`` class in any form into the mixin framework
+    of PorePy! Use it exclusively in ``if``-sections for ``typing.TYPE_CHECKING``.
+
+    Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined
+    with multiple inheritance and mixing.
+
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -15,7 +26,8 @@ import scipy.sparse as sps
 # and returns None.
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
-    class PorePyModel(Protocol):
+    # NOTE See Warning in module docstring before attempting anything here.
+    class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
 else:
@@ -63,6 +75,9 @@ else:
             four Cartesian cells.
 
             """
+
+        def set_well_network(self) -> None:
+            """Assign well network class :attr:`well_network`."""
 
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
@@ -183,7 +198,7 @@ else:
 
         def basis(
             self, grids: Sequence[pp.GridLike], dim: int
-        ) -> list[pp.ad.SparseArray]:
+        ) -> list[pp.ad.Projection]:
             """Return a cell-wise basis for all subdomains.
 
             The basis is represented as a list of matrices, each of which represents a
@@ -208,14 +223,14 @@ else:
                 dim: Dimension of the basis.
 
             Returns:
-                List of pp.ad.SparseArrayArray, each of which represents a basis
+                List of pp.ad.SparseArray, each of which represents a basis
                 function.
 
             """
 
         def e_i(
             self, grids: Sequence[pp.GridLike], *, i: int, dim: int
-        ) -> pp.ad.SparseArray:
+        ) -> pp.ad.Projection:
             """Return a cell-wise basis function in a specified dimension.
 
             It is assumed that the grids are embedded in a space of dimension dim and
@@ -242,8 +257,7 @@ else:
                 dim: Dimension of the functions.
 
             Returns:
-                pp.ad.SparseArray: Ad representation of a matrix with the basis
-                functions as columns.
+                Ad projection that represents a basis function.
 
             Raises:
                 ValueError: If i is larger than dim - 1.
@@ -268,7 +282,7 @@ else:
 
             """
 
-        def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+        def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Projection:
             """Compute the normal component of a vector field.
 
             The normal space is defined according to the local coordinates of the
@@ -285,9 +299,9 @@ else:
                 subdomains: List of grids on which the vector field is defined.
 
             Returns:
-                Matrix extracting normal component of the vector field and expressing it
-                in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
-                `Nc` is the total number of cells in the subdomains.
+                Projection extracting normal component of the vector field and
+                expressing it in normal basis. The size of the projection is `(Nc, Nc *
+                self.nd)`, where `Nc` is the total number of cells in the subdomains.
 
             """
 
@@ -360,10 +374,10 @@ else:
                     model = pp.SinglePhaseFlow({})
                     model.prepare_simulation()
                     sd = model.mdg.subdomains()[0]
-                    sides = model.domain_boundary_sides(sd)
+                    domain_sides = model.domain_boundary_sides(sd)
                     # Access north faces using index or name is equivalent:
-                    north_by_index = sides[3]
-                    north_by_name = sides.north
+                    north_by_index = domain_sides[3]
+                    north_by_name = domain_sides.north
                     assert all(north_by_index == north_by_name)
 
             """
@@ -421,9 +435,9 @@ else:
         ) -> pp.ad.Operator:
             """Specific volume [m^(nd-d)].
 
-            For subdomains, the specific volume is the cross-sectional area/volume of the
-            cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
-            volume is inherited from the higher-dimensional subdomain neighbor.
+            For subdomains, the specific volume is the cross-sectional area/volume of
+            the cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the
+            specific volume is inherited from the higher-dimensional subdomain neighbor.
 
             See also:
                 :meth:aperture.
@@ -464,8 +478,8 @@ else:
 
             Returns:
                 3d isotropic permeability, with nonzero values on the diagonal and zero
-                values elsewhere. K is a second order tensor having 3^2 entries per cell,
-                represented as an array of length 9*nc. The values are ordered as
+                values elsewhere. K is a second order tensor having 3^2 entries per
+                cell, represented as an array of length 9*nc. The values are ordered as
                     Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
 
             """
@@ -492,19 +506,24 @@ else:
         params: dict
         """Dictionary of parameters."""
         units: pp.Units
-        """Units of the model.
+        """Units of the model provided in ``params['units']``."""
+        reference_variable_values: pp.ReferenceVariableValues
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
 
-        See also :meth:`set_units`.
+        Reference values can be provided through ``params['reference_values']``.
 
         """
-        fluid: pp.FluidConstants
-        """Fluid constants.
+        solid: pp.SolidConstants
+        """Solid constants. Can be provided through
+        ``params['material_constants']['solid']``.
 
         See also :meth:`set_materials`.
 
         """
-        solid: pp.SolidConstants
-        """Solid constants.
+        numerical: pp.NumericalConstants
+        """Numerical constants. Can be provided through
+        ``params['material_constants']['numerical']``.
 
         See also :meth:`set_materials`.
 
@@ -517,6 +536,21 @@ else:
         """Time step as an automatic differentiation scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
+        results: list[Any]
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
+
+        def __init__(self, params: Optional[dict] = None):
+            """Initialize the solution strategy.
+
+            The solution strategy is the only mixin in a model with a constructor,
+            taking all the model parameters and storing them as an attribute for further
+            steps.
+
+            Parameters:
+                params: Parameters for the solution strategy. Defaults to None.
+
+            """
 
         @property
         def time_step_indices(self) -> np.ndarray:
@@ -541,6 +575,12 @@ else:
 
             """
 
+        def prepare_simulation(self) -> None:
+            """Run at the start of simulation. Used for initialization etc."""
+
+        def after_simulation(self) -> None:
+            """Run at the end of simulation. Can be used for cleanup etc."""
+
         def _is_time_dependent(self) -> bool:
             """Specifies whether the Model problem is time-dependent.
 
@@ -549,24 +589,128 @@ else:
 
             """
 
+        def _is_nonlinear_problem(self) -> bool:
+            """Specifies whether the Model problem is nonlinear.
+
+            Returns:
+                bool: True if the problem is nonlinear, False otherwise.
+
+            """
+
+        def _is_reference_phase_eliminated(self) -> bool:
+            """Returns True if ``params['eliminate_reference_phase'] == True`.
+            Defaults to True."""
+
+        def _is_reference_component_eliminated(self) -> bool:
+            """Returns True if ``params['eliminate_reference_component'] == True`.
+            Defaults to True."""
+
+        def before_nonlinear_iteration(self) -> None:
+            """Method to be called at the start of every non-linear iteration.
+
+            Possible usage is to update non-linear parameters, discretizations etc.
+
+            """
+
+        def after_nonlinear_convergence(self) -> None:
+            """Method to be called after every non-linear iteration.
+
+            Possible usage is to distribute information on the solution, visualization,
+            etc.
+
+            """
+
+        def set_nonlinear_discretizations(self) -> None:
+            """Set the list of nonlinear discretizations.
+
+            This method is called before the discretization is performed. It is intended
+            to be used to set the list of nonlinear discretizations.
+
+            """
+
+        def solve_linear_system(self) -> np.ndarray:
+            """Solve linear system.
+
+            Default method is a direct solver. The linear solver is chosen in the
+            initialize_linear_solver of this model. Implemented options are
+                - scipy.sparse.spsolve with and without call to umfpack
+                - pypardiso.spsolve
+
+            See also:
+                :meth:`initialize_linear_solver`
+
+            Returns:
+                np.ndarray: Solution vector.
+
+            """
+
+    class FluidProtocol(Protocol):
+        """This protocol provides declarations of methods defined in the
+        :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
+
+        fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]]
+        """Fluid object.
+
+        See also :meth:`create_fluid`.
+
+        """
+
+        def create_fluid(self) -> None:
+            """Create the :attr:`fluid` object based on the default or user-provided
+            context of components and phases.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_components`
+
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_phase_configuration` respectively.
+
+            """
+
+        def assign_thermodynamic_properties_to_phases(self) -> None:
+            """Assigns callable properties to the dynamic phase objects, after the
+            fluid and all variables are defined.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                assign_thermodynamic_properties_to_phases`.
+
+            """
+
+        def dependencies_of_phase_properties(
+            self, phase: pp.Phase
+        ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+            """Returns the Callables representing variables, on which the thermodynamic
+            properties of phases depend.
+
+            For a more detailed explanation, see :meth:`~porepy.compositional.
+            compositional_mixins.dependencies_of_phase_properties.`
+
+            """
+
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
-            """Perturbation of a variable from its reference value.
+        def perturbation_from_reference(
+            self, variable_name: str, grids: list[pp.Grid]
+        ) -> pp.ad.Operator:
+            """Perturbation of some quantity ``name`` from its reference value.
 
-            The parameter :code:`variable_name` should be the name of a variable so that
-            :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-            calls. These methods will be provided by mixin classes; normally this will
-            be a subclass of :class:`VariableMixin`.
+            The parameter ``name`` should be the name of a mixed-in method, returning an
+            AD operator for given ``grids``.
 
-            The returned operator will be of the form
-            :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
+            ``name`` should also be defined in the model's :attr:`reference_values`.
+
+            This method calls the model method with given ``name`` on given ``grids`` to
+            create an operator ``A``. It then fetches the respective reference value and
+            wraps it into an AD scalar ``A_0``. The return value is an operator
+            ``A - A_0``.
 
             Parameters:
-                variable_name: Name of the variable.
-                grids: List of subdomain or interface grids on which the variable is
+                name: Name of the quantity to be perturbed from a reference value.
+                grids: List of subdomain or interface grids on which the quantity is
                     defined.
 
             Returns:
@@ -575,8 +719,8 @@ else:
             """
 
         def create_variables(self) -> None:
-            """Assign primary variables to subdomains and interfaces of the mixed-
-            dimensional grid."""
+            """Introduce variables to subdomains and interfaces of the mixed-dimensional
+            grid."""
 
     class BoundaryConditionProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to
@@ -642,6 +786,44 @@ else:
             Note:
                 One can use the convenience method `update_boundary_condition` for each
                 boundary condition value.
+
+            """
+
+        def update_boundary_condition(
+            self,
+            name: str,
+            function: Callable[[pp.BoundaryGrid], np.ndarray],
+        ) -> None:
+            """This method is the unified procedure of updating a boundary condition.
+
+            It shifts the boundary condition values in time and stores the current
+            iterate data (current time step) as the most recent previous time step data.
+            Next, it evaluates the boundary condition values for the new time step and
+            stores them in the iterate data.
+
+            Parameters:
+                name: Name of the operator defined on the boundary.
+                function: A callable that provides the boundary condition values on a
+                    given boundary grid.
+
+            """
+
+    class InitialConditionProtocol(Protocol):
+        """This protocol declares the interfaces to methods related to the
+        initialization of values for a model."""
+
+        def initial_condition(self) -> None:
+            """Interface method for the solution strategy to be called to set initial
+            values for all variables.
+
+            Calls the methods :meth:`set_initial_values_primary_variables`.
+
+            Can be overridden to set other initial conditions after a super-call.
+
+            Important:
+                The user must set initial values at ``iterate_index=0``. The solution
+                strategy copies said values by default to all other indices in order to
+                get a runable model.
 
             """
 
@@ -757,13 +939,82 @@ else:
 
             """
 
+    class CachedMethodProtocol(Protocol):
+        """This protocol provides the declarations of methods that have been decorated
+        with @pp.ad.cached_method, and that are not decleared in the other protocols.
+        """
+
+        # This is a workaround for a technical issue: While the decorated methods should
+        # keep their original signature, by use of functools.wraps, it was impossible to
+        # make mypy realize what is the signature of the decorated method. EK's
+        # suspicion is that this has to do with the combination of mixins and
+        # decorators, but this is just a hunch.
+
+        def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+            """Displacement jump on fracture-matrix interfaces.
+
+            Parameters:
+                subdomains: List of subdomains where the displacement jump is defined.
+                    Should be fracture subdomains.
+
+            Returns:
+                Operator for the displacement jump.
+
+            Raises:
+                AssertionError: If the subdomains are not fractures, i.e. have dimension
+                    `nd - 1`.
+
+            """
+
+        def elastic_displacement_jump(
+            self, subdomains: list[pp.Grid]
+        ) -> pp.ad.Operator:
+            """The elastic component of the displacement jump [m].
+
+            The elastic displacement jump is composed of a tangential and normal
+            component, each implementing a relation between displacement jumps, contact
+            tractions and stiffness. The relation may or may not be linear.
+
+            Parameters:
+                subdomains: List of fracture subdomains.
+
+            Returns:
+                Operator representing the elastic displacement jump.
+
+            """
+            pass
+
+        def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            """Discretization of Darcy's law.
+
+            Note:
+                The fluid mobility is not included in the Darcy flux. This is because we
+                discretize it with an upstream scheme. This means that the fluid
+                mobility may have to be included when using the flux in a transport
+                equation. The units of the Darcy flux are [m^2 / s].
+
+            Parameters:
+                domains: List of domains where the Darcy flux is defined.
+
+            Raises:
+                ValueError if the domains are a mixture of grids and boundary grids.
+
+            Returns:
+                Face-wise Darcy flux in cubic meters per second.
+
+            """
+            pass
+
     class PorePyModel(
         BoundaryConditionProtocol,
+        InitialConditionProtocol,
         EquationProtocol,
         VariableProtocol,
+        FluidProtocol,
         ModelGeometryProtocol,
         DataSavingProtocol,
         SolutionStrategyProtocol,
+        CachedMethodProtocol,
         Protocol,
     ):
         """This protocol declares the core, physics-agnostic functionality of

@@ -18,21 +18,17 @@ from __future__ import annotations
 Define unified keywords used throughout the software.
 """
 
-# Used in data dictionary to identify discretization objects internally to a
-# grid or mortar grid
+# Used in data dictionary to identify discretization objects internally to a grid or
+# mortar grid.
 DISCRETIZATION = "discretization"
 
-# Used in data dictionary to identify discretization objects on couplings
-# between grids and mortar grids
-COUPLING_DISCRETIZATION = "coupling_discretization"
-
-# Used in data dictionary to declare and keep track of primary variables
+# Used in data dictionary to declare and keep track of primary variables.
 PRIMARY_VARIABLES = "primary_variables"
 
-# Used in data dictionary to store parameters for discretizations
+# Used in data dictionary to store parameters for discretizations.
 PARAMETERS = "parameters"
 
-# Used in data dictionary to store computed discretization matrices
+# Used in data dictionary to store computed discretization matrices.
 DISCRETIZATION_MATRICES = "discretization_matrices"
 
 # Used in data dictionary to store the system state, e.g. primary variables.
@@ -63,11 +59,6 @@ GRAM = 1e-3 * KILOGRAM
 
 # Length
 METER = 1.0
-# IS: I suggest we remove this, and use the standard SI unit. After all, writing
-# pp.MILLI * pp.METER is not that much more cumbersome than pp.MILLIMETER.
-CENTIMETER = CENTI * METER
-MILLIMETER = MILLI * METER
-KILOMETER = KILO * METER
 
 # Pressure related quantities
 DARCY = 9.869233e-13
@@ -79,10 +70,9 @@ ATMOSPHERIC_PRESSURE = 101325 * PASCAL
 
 
 GRAVITY_ACCELERATION = 9.80665 * METER / SECOND**2
+# Force
+NEWTON = KILOGRAM * METER / SECOND**2
 
-# Temperature
-CELSIUS = 1.0
-KELVIN = 1.0
 
 # Energy
 JOULE = 1.0
@@ -93,15 +83,34 @@ MOLE = 1.0
 # Angle
 RADIAN = 1.0
 
+# Temperature
+CELSIUS = 1.0
+KELVIN = 1.0
 
-# IS: These should be moved and renamed using lower case
-def CELSIUS_to_KELVIN(celsius: float) -> float:
+DEGREE = 3.141592653589793 / 180.0 * RADIAN
+
+
+def Celsius_to_Kelvin(celsius: float) -> float:
+    """Convert Celsius to Kelvin.
+
+    Parameters:
+        celsius: Temperature in Celsius.
+
+    Returns:
+        float: Temperature in Kelvin.
+
+    """
     return celsius + 273.15
 
 
-def KELVIN_to_CELSIUS(kelvin: float) -> float:
+def Kelvin_to_Celsius(kelvin: float) -> float:
+    """Convert Kelvin to Celsius.
+
+    Parameters:
+        kelvin: Temperature in Kelvin.
+
+    Returns:
+        float: Temperature in Celsius.
+
+    """
     return kelvin - 273.15
-
-
-# Force
-NEWTON = KILOGRAM * METER / SECOND**2

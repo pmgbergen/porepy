@@ -50,7 +50,7 @@ The content of this package is organized as follows:
     lower-dimensional spaces. The module also provides functions for computing normal
     and tangential vectors for point clouds.
 
-    :mod:`~porepy.geometry.point_in_polyhedron_test` contains a helper class for testing
+    :mod:`~porepy.geometry.point_in_polyhedron` contains a helper class for testing
     if a point is contained in a (non-convex) polygon.
 
 """

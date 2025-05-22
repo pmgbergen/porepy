@@ -2,6 +2,7 @@
 match_grids_1d() is tested.
 
 """
+
 import numpy as np
 import scipy.sparse as sps
 
@@ -57,7 +58,8 @@ def test_match_grids_1d_reversed_node_order():
 
 
 def test_match_grids_1d_complex():
-    """Define more complex grids, by combining two simple grids, and test the mappings."""
+    """Define more complex grids, by combining two simple grids, and test the
+    mappings."""
 
     def _create_combined_grid(g1, g2):
         # Helper function to create a combined grid from two grids.

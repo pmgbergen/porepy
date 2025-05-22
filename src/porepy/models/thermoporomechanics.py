@@ -1,7 +1,8 @@
-r"""Coupling of energy, mass and momentum balance to obtain thermoporomechanics equations.
+r"""Coupling of energy, mass and momentum balance to obtain thermoporomechanics
+equations.
 
-The module only contains what is needed for the coupling, the three individual subproblems
-are defined elsewhere.
+The module only contains what is needed for the coupling, the three individual
+subproblems are defined elsewhere.
 
 The main changes to the equations are achieved by changing the constitutive laws for
 porosity and stress. The former aquires a pressure and temperature dependency and an
@@ -24,10 +25,6 @@ from typing import Callable, Union
 
 import porepy as pp
 
-from . import energy_balance as energy
-from . import fluid_mass_balance as mass
-from . import momentum_balance as momentum
-
 
 class ConstitutiveLawsThermoporomechanics(
     # Combined effects
@@ -39,7 +36,6 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     # Energy subproblem
     pp.constitutive_laws.SecondOrderTensorUtils,
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
@@ -54,6 +50,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.CharacteristicTractionFromDisplacement,
     pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
@@ -61,10 +58,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.CoulombFrictionBound,
     pp.constitutive_laws.DisplacementJump,
 ):
-    """Class for the coupling of energy, mass and momentum balance to obtain
-    thermoporomechanics equations.
-
-    """
+    """Class for combined constitutive laws for thermoporomechanics."""
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermo-poromechanical stress operator.
@@ -87,49 +81,43 @@ class ConstitutiveLawsThermoporomechanics(
 
 
 class EquationsThermoporomechanics(
-    energy.EnergyBalanceEquations,
-    mass.MassBalanceEquations,
-    momentum.MomentumBalanceEquations,
+    pp.energy_balance.TotalEnergyBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
+    pp.momentum_balance.MomentumBalanceEquations,
+    pp.contact_mechanics.ContactMechanicsEquations,
 ):
-    """Combines energy, mass and momentum balance equations."""
+    """Combines energy, mass and momentum balance equations and
+    contact mechanics equations. Adaptation is made to the body
+    force taking into account solid and fluid."""
 
-    def set_equations(self):
-        """Set the equations for the poromechanics problem.
+    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Body force integrated over the subdomain cells.
 
-        Call all parent classes' set_equations methods.
+        Parameters:
+            subdomains: List of subdomains where the body force is defined.
+
+        Returns:
+            Operator for the body force [kg*m*s^-2].
 
         """
-        # Call all super classes' set_equations methods. Do this explicitly (calling the
-        # methods of the super classes directly) instead of using super() since this is
-        # more transparent.
-        energy.EnergyBalanceEquations.set_equations(self)
-        mass.MassBalanceEquations.set_equations(self)
-        momentum.MomentumBalanceEquations.set_equations(self)
+        return self.volume_integral(
+            self.gravity_force(subdomains, "bulk"), subdomains, dim=self.nd
+        )
 
 
 class VariablesThermoporomechanics(
-    energy.VariablesEnergyBalance,
-    mass.VariablesSinglePhaseFlow,
-    momentum.VariablesMomentumBalance,
+    pp.energy_balance.VariablesEnergyBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.momentum_balance.VariablesMomentumBalance,
+    pp.contact_mechanics.ContactTractionVariable,
 ):
-    """Combines mass and momentum balance variables."""
-
-    def create_variables(self):
-        """Set the variables for the poromechanics problem.
-
-        Call all parent classes' set_variables methods.
-
-        """
-        # Energy balance and its parent mass balance
-        energy.VariablesEnergyBalance.create_variables(self)
-        mass.VariablesSinglePhaseFlow.create_variables(self)
-        momentum.VariablesMomentumBalance.create_variables(self)
+    """Combines energy, mass, momentum and contact mechanics balance variables."""
 
 
 class BoundaryConditionsThermoporomechanics(
-    energy.BoundaryConditionsEnergyBalance,
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.energy_balance.BoundaryConditionsEnergyBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines energy, mass and momentum balance boundary conditions.
 
@@ -141,12 +129,23 @@ class BoundaryConditionsThermoporomechanics(
     """
 
 
-class SolutionStrategyThermoporomechanics(
-    energy.SolutionStrategyEnergyBalance,
-    mass.SolutionStrategySinglePhaseFlow,
-    momentum.SolutionStrategyMomentumBalance,
+class InitialConditionsThermoporomechanics(
+    pp.energy_balance.InitialConditionsEnergy,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.momentum_balance.InitialConditionsMomentumBalance,
+    pp.contact_mechanics.InitialConditionsContactTraction,
 ):
-    """Combines mass and momentum balance solution strategies.
+    """Combines initial conditions for energy, mass and momentum balance and contact
+    mechanics and associated primary variables."""
+
+
+class SolutionStrategyThermoporomechanics(
+    pp.energy_balance.SolutionStrategyEnergyBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
+    pp.contact_mechanics.SolutionStrategyContactMechanics,
+):
+    """Combines solution strategies for thermoporomechanics.
 
     This class has an extended diamond structure inheritance, i.e., all parent classes
     inherit from :class:`~porepy.models.solution_strategy.SolutionStrategy`. The user
@@ -195,17 +194,18 @@ class SolutionStrategyThermoporomechanics(
                 self.solid_thermal_expansion_tensor([sd])
             )
             scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mappings
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mappings
+            )
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
         # Super calls method in mass and energy balance. Momentum balance has no
         # nonlinear discretizations.
         super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a re-discretization
-        # of the diffusive flux in subdomains where the aperture changes.
+        # Aperture changes render permeability variable. This requires a
+        # re-discretization of the diffusive flux in subdomains where the aperture
+        # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
             self.darcy_flux_discretization(subdomains).flux(),
@@ -215,6 +215,10 @@ class SolutionStrategyThermoporomechanics(
         self.add_nonlinear_discretization(
             self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
+
+    def _is_nonlinear_problem(self) -> bool:
+        """The thermoporomechanics model is nonlinear."""
+        return True
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
@@ -230,7 +234,9 @@ class Thermoporomechanics(  # type: ignore[misc]
     EquationsThermoporomechanics,
     VariablesThermoporomechanics,
     BoundaryConditionsThermoporomechanics,
+    InitialConditionsThermoporomechanics,
     ConstitutiveLawsThermoporomechanics,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

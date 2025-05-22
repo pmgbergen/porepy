@@ -7,13 +7,14 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional, cast
+from typing import Literal, Optional, Union, cast
 
 import numpy as np
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.grids import mortar_grid
 
 from . import domains, fracture_sets
 
@@ -24,6 +25,7 @@ def square_with_orthogonal_fractures(
     fracture_indices: list[int],
     fracture_endpoints: Optional[list[np.ndarray]] = None,
     size: pp.number = 1,
+    non_matching: bool = False,
     **meshing_kwargs,
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """Create a mixed-dimensional grid for a square domain with up to two orthogonal
@@ -39,8 +41,16 @@ def square_with_orthogonal_fractures(
             x coordinate of fracture two. Should have the same length as
             fracture_indices. If not provided, the endpoints will be set to [0, 1].
         size: Side length of square.
+        non_matching: If True, the fracture and 1d interface grids are refined to
+            generate a generally non-matching grid.
         **meshing_kwargs: Keyword arguments for meshing as used by
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
+
+            If non_matching is True, the following additional arguments are also used:
+            - fracture_refinement_ratio: Refinement ratio for the fracture grids.
+                Defaults to 2.
+            - interface_refinement_ratio: Refinement ratio for the mortar grids.
+                Defaults to 2.
 
     Returns:
         Tuple containing a:
@@ -70,6 +80,95 @@ def square_with_orthogonal_fractures(
         FractureNetwork2d, pp.create_fracture_network(fractures, domain)
     )
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
+
+    # If a non-matching grid is requested, we refine the fracture and interface grids in
+    # the if-block below. However, if there are no fractures, we skip this step.
+    if non_matching and len(fracture_indices) > 0:
+        # Get the mesh refinement ratios for the fracture and interface grids.
+        fracture_refinement_ratio: int = meshing_kwargs.get(
+            "fracture_refinement_ratio", 2
+        )
+        interface_refinement_ratio: int = meshing_kwargs.get(
+            "interface_refinement_ratio", 2
+        )
+
+        # For the fracture grids, we can use the pp.refinement.refine_grid_1d function
+        # to refine the grid. For the interface grids, the simplest way of refining is
+        # to create a new mixed-dimensional grid with the same geometry, but with the
+        # mesh size reduced by the specified ratio (interface_refinement_ratio), and
+        # then map the new grids to the old ones.
+
+        # Change the mesh size arguments. Provided interface_refinement_ratio > 1, this
+        # will lead to a finer mesh than the one used to generate the old mdg.
+        if grid_type == "simplex":
+            # Loop over all the possible meshing arguments for the simplex grid, as
+            # specified by pp.create_mdg. Decrease the mesh size with the specified
+            # ratio.
+            for key in [
+                "cell_size",
+                "mesh_size_frac",
+                "mesh_size_min",
+                "mesh_size_bound",
+            ]:
+                if key in meshing_args:
+                    meshing_args[key] = meshing_args[key] / interface_refinement_ratio
+        elif grid_type == "cartesian":
+            # Loop over all the possible meshing arguments for the Cartesian grid.
+            # Refine.
+            for key in ["cell_size", "cell_size_x", "cell_size_y"]:
+                if key in meshing_args:
+                    meshing_args[key] = meshing_args[key] / interface_refinement_ratio
+        elif grid_type == "tensor_grid":
+            # This should also be possible to implement, but has not been prioritized.
+            raise NotImplementedError("Tensor grid not implemented yet.")
+
+        # Refine the fracture grids.
+        old_fracture_grids = mdg.subdomains(dim=1)
+        new_fracture_grids = [
+            pp.refinement.refine_grid_1d(g=old_grid, ratio=fracture_refinement_ratio)
+            for old_grid in old_fracture_grids
+        ]
+        # Create a mapping between the old and new fracture grids.
+        grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
+
+        # Create a new mdg for the same domain, but with a modified mesh size.
+        mdg_new, _ = square_with_orthogonal_fractures(
+            grid_type,
+            meshing_args,
+            fracture_indices,
+            fracture_endpoints,
+            size,
+            non_matching=False,
+        )
+
+        interface_map: dict[
+            pp.MortarGrid,
+            Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
+        ] = {}
+        # Loop over all the interfaces in the new grid. Find its corresponding interface
+        # in the old grid, and update the interface map. There is no point in updating
+        # the 0d mortar, since there is no room for refinement.
+        for intf in mdg_new.interfaces(dim=1):
+            # Then, for each interface, we fetch the secondary grid which belongs to it.
+            _, g_sec_new = mdg_new.interface_to_subdomain_pair(intf)
+
+            # We then loop through all the interfaces in the original grid (recipient).
+            for intf_old in mdg.interfaces(dim=1):
+                # Fetch the secondary grid of the interface in the old grid.
+                _, g_sec_old = mdg.interface_to_subdomain_pair(intf_old)
+
+                # Checking the fracture number of the secondary grid in the old mdg. If
+                # they are the same, i.e., if the fractures are the same ones, we update
+                # the interface map.
+                if g_sec_old.frac_num == g_sec_new.frac_num:
+                    interface_map.update({intf_old: intf})
+
+        # Finally replace the subdomains and interfaces in the original
+        # mixed-dimensional grid.
+        mdg.replace_subdomains_and_interfaces(
+            sd_map=grid_map, interface_map=interface_map
+        )
+
     return mdg, fracture_network
 
 
@@ -150,17 +249,17 @@ def seven_fractures_one_L_intersection(
 
 
 def benchmark_regular_2d(
-    meshing_args: dict, is_coarse: bool = False, **meshing_kwargs
+    meshing_args: dict, **meshing_kwargs
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """
-    Create a grid bucket for a domain containing the network introduced as example 2 of
-    Berre et al. 2018: Benchmarks for single-phase flow in fractured porous media.
+    Create a MixedDimensionalGrid for a domain containing the network introduced as
+    example 2 of Berre et al. 2018: Benchmarks for single-phase flow in fractured porous
+    media.
 
     Parameters:
         meshing_args: Dictionary containing at least "mesh_size_frac". If the optional
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
             set by utils.set_mesh_sizes.
-        is_coarse: If True, coarsen the grid by volume.
         **meshing_kwargs: Keyword arguments for meshing as used by
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
@@ -182,8 +281,6 @@ def benchmark_regular_2d(
     )
     mdg = pp.create_mdg("simplex", meshing_args, fracture_network, **meshing_kwargs)
 
-    if is_coarse:
-        pp.coarsening.coarsen(mdg, "by_volume")
     return mdg, fracture_network
 
 
@@ -198,16 +295,16 @@ def benchmark_3d_case_3(
         direct way of prescribing meshing arguments.
 
     Reference:
-        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
-        E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
-        three-dimensional fractured porous media. Advances in Water Resources, 147,
-        103759.
+        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D.,
+        Keilegavlen, E., ... & Zulian, P. (2021). Verification benchmarks for
+        single-phase flow in three-dimensional fractured porous media. Advances in Water
+        Resources, 147, 103759.
 
     Parameters:
         refinement_level: An integer denoting the level of refinement. Use `0` to
-            generate a mixed-dimensional grid with approximately 30K 3D cells,
-            `1` for 140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells.
-            Default is `0`.
+            generate a mixed-dimensional grid with approximately 30K 3D cells, `1` for
+            140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells. Default is
+            `0`.
 
     Returns:
         Tuple containing a:

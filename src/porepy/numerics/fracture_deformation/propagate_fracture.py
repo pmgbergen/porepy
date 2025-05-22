@@ -38,10 +38,8 @@ def propagate_fractures(
         The face_cells mapping between them
         Their respective face tags.
     Also adds the following to subdomain data dictionaries:
-        new_cells and new_faces tags, for use in e.g. local discretization
-        updates.
-        partial_update, a boolean flag indicating that the grids have been
-        updated.
+        new_cells and new_faces tags, for use in e.g. local discretization updates.
+        partial_update, a boolean flag indicating that the grids have been updated.
 
     """
 
@@ -66,9 +64,9 @@ def propagate_fractures(
     # the higher-dimensional grid
     data_primary["partial_update"] = False
 
-    # Initialize mapping between old and new faces for sd_primary. We will store the updates
-    # from splitting related to each lower-dimensional grid, and then merge towards the
-    # end; the split data may be handy for debugging
+    # Initialize mapping between old and new faces for sd_primary. We will store the
+    # updates from splitting related to each lower-dimensional grid, and then merge
+    # towards the end; the split data may be handy for debugging
     face_map_h: List[sps.spmatrix] = [
         sps.dia_matrix(
             (np.ones(sd_primary.num_faces), 0),
@@ -228,12 +226,13 @@ def propagate_fractures(
             shape=(sd_secondary.num_cells, n_old_cells_l),
         ).tocsr()
 
-        # These can be stored directly - there should be no more changes for sd_secondary
+        # These can be stored directly - there should be no more changes for
+        # sd_secondary
         data_secondary["face_index_map"] = face_map_l
         data_secondary["cell_index_map"] = cell_map_l
 
-        # For sd_primary we construct the map of faces for the splitting of this sd_secondary
-        # and append it to the list of face_maps
+        # For sd_primary we construct the map of faces for the splitting of this
+        # sd_secondary and append it to the list of face_maps
 
         # The size of the next map should be compatible with the number of faces in
         # the previous map.
@@ -375,7 +374,8 @@ def _update_mortar_grid(
         d_e["face_cells"],
         face_duplicate_ind=other_side_new,
     )
-    # Update old grid with values from the new one. This is similar to redoing initialization.
+    # Update old grid with values from the new one. This is similar to redoing
+    # initialization.
     fields = ["side_grids", "sides", "num_cells", "cell_volumes", "cell_centers"]
     for field in fields:
         setattr(intf, field, getattr(mg_new, field))
@@ -546,7 +546,7 @@ def _update_connectivity_fracture_grid(
 
         # Find the nodes' place among the active higher-dimensional nodes, that is,
         # nodes that will be split
-        in_unique_nodes = pp.utils.setmembership.ismember_rows(
+        in_unique_nodes = pp.array_operations.ismember_columns(
             local_nodes_h, nodes_h, sort=False
         )[1]
 
@@ -564,17 +564,16 @@ def _update_connectivity_fracture_grid(
         # Faces are defined by one node in 1d and two in 2d. This requires
         # dimension-dependent treatment:
         if sd_secondary.dim == 2:
-            # Sort nodes clockwise (!)
-            # ASSUMPTION: This assumes that the new cell is star-shaped with respect to the
-            # local cell center. This should be okay.
-            map_to_sorted = pp.utils.sort_points.sort_point_plane(
+            # Sort nodes clockwise (!) ASSUMPTION: This assumes that the new cell is
+            # star-shaped with respect to the local cell center. This should be okay.
+            map_to_sorted = pp.sort_points.sort_point_plane(
                 local_pts, local_cell_center
             )
             sorted_nodes_l = local_nodes_l[map_to_sorted]
             sorted_nodes_h = local_nodes_h[map_to_sorted]
 
-            # Define the faces of the new cell c (size: 2 x faces_per_cell_l). "Duplicate"
-            # of the higher dimension used for tag identification.
+            # Define the faces of the new cell c (size: 2 x faces_per_cell_l).
+            # "Duplicate" of the higher dimension used for tag identification.
             faces_l = np.vstack(
                 (sorted_nodes_l, np.append(sorted_nodes_l[1:], sorted_nodes_l[0]))
             )
@@ -583,7 +582,7 @@ def _update_connectivity_fracture_grid(
             )
 
         else:
-            # Faces and nodes are 1:1, but ismember_rows (below) requires 2d array
+            # Faces and nodes are 1:1, but ismember_columns (below) requires 2d array
             faces_l = np.atleast_2d(local_nodes_l)
             local_faces_h = np.atleast_2d(local_nodes_h)
 
@@ -593,7 +592,7 @@ def _update_connectivity_fracture_grid(
 
         # Check which faces exist in sd_secondary already, either from before propgation
         # or from previous runs through current loop:
-        (exist, existing_faces_l) = pp.utils.setmembership.ismember_rows(
+        (exist, existing_faces_l) = pp.array_operations.ismember_columns(
             faces_l, all_faces_l
         )
         # The existing faces are no longer tips (but internal).
@@ -624,9 +623,9 @@ def _update_connectivity_fracture_grid(
             sd_primary.tags["domain_boundary_nodes"][fi], axis=0
         )
         sd_secondary.tags["tip_faces"][new_face_indices_l] = ~domain_boundary_faces
-        sd_secondary.tags["domain_boundary_faces"][
-            new_face_indices_l
-        ] = domain_boundary_faces
+        sd_secondary.tags["domain_boundary_faces"][new_face_indices_l] = (
+            domain_boundary_faces
+        )
 
         # Expand array of face-nodes in sd_secondary
         all_faces_l = np.append(all_faces_l, faces_l[:, ~exist], axis=1)
@@ -776,9 +775,9 @@ def _update_nodes_fracture_grid(
     # Global index of nodes to split
     unique_global_nodes = sd_primary.global_point_ind[unique_nodes_h]
 
-    # Some of the nodes of the face to be split will be in sd_secondary already (as tip nodes)
-    # Find which are present, and which should be added
-    # NOTE: This comparison must be done in terms of global_point_ind
+    # Some of the nodes of the face to be split will be in sd_secondary already (as tip
+    # nodes) Find which are present, and which should be added NOTE: This comparison
+    # must be done in terms of global_point_ind
     are_old_global_nodes_in_l = np.isin(
         unique_global_nodes, sd_secondary.global_point_ind
     )
@@ -802,7 +801,7 @@ def _update_nodes_fracture_grid(
 
     # Find index of the updated nodes in sd_secondary that belong to the split faces
     # Order preserving find:
-    unique_nodes_l = pp.utils.setmembership.ismember_rows(
+    unique_nodes_l = pp.array_operations.ismember_columns(
         unique_global_nodes, sd_secondary.global_point_ind, sort=False
     )[1]
 

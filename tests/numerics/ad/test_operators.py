@@ -1,20 +1,14 @@
 """Test collection for Ad representations of several operators.
 
 Checks performed include the following:
-    test_elementary_operations: Checks are made to ensure that basic arithmetic operations
-        are performed correctly;
+    test_elementary_operations: Checks are made to ensure that basic arithmetic
+        operations are performed correctly;
     test_copy_operator_tree: Testing of functionality under copy.copy and deepcopy;
     test_elementary_wrappers: Test wrapping of fields (scalars, arrays and matrices);
     test_ad_variable_creation: The generation of variables should ensure that copies and
         newly created variables are returned in the expected manner;
-    test_ad_variable_evaluation: Variable wrappers are tested as expected under evaluation
-    test_time_differentiation: Covers the pp.ad.dt operator;
-    test_subdomain_projections: Operators for restriction and prolongation are checked for
-        both faces and cells;
-    test_mortar_projections: Projections between mortar grids and subdomain grids;
-    test_boundary_grid_projection:  Tests are conducted on the boundary projection
-        operator and its inverse;
-    test_trace and test_divergence: Operators for discrete traces and divergences
+    test_ad_variable_evaluation: Variable wrappers are tested as expected under
+    evaluation test_time_differentiation: Covers the pp.ad.dt operator;
     test_ad_discretization_class: test for AD discretizations;
     test_arithmetic_operations_on_ad_objects: Basic Ad operators combined with standard
         arithmetic operations are tested.
@@ -35,10 +29,9 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
-_operations = pp.ad.operators.Operator.Operations
+_operations = pp.ad.operators.Operations
 
 operators = [
     ("+", _operations.add),
@@ -117,33 +110,41 @@ def test_copy_operator_tree():
         {"cell_size": 0.2},
         fracture_indices=[1],
     )
-    eq_system = pp.ad.EquationSystem(mdg)
-    eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
-    eq_system.set_variable_values(
-        np.zeros(eq_system.num_dofs()), iterate_index=0, time_step_index=0
+    equation_system = pp.ad.EquationSystem(mdg)
+    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system.set_variable_values(
+        np.zeros(equation_system.num_dofs()), iterate_index=0, time_step_index=0
     )
 
     # In their initial state, all operators should have the same values
-    assert np.allclose(c.value(eq_system), c_copy.value(eq_system))
-    assert np.allclose(c.value(eq_system), c_deepcopy.value(eq_system))
+    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
+    assert np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
     # Increase the value of the scalar. This should have no effect, since the scalar
     # wrapps an immutable, see comment in pp.ad.Scalar
     a_val += 1
-    assert np.allclose(c.value(eq_system), c_copy.value(eq_system))
-    assert np.allclose(c.value(eq_system), c_deepcopy.value(eq_system))
+    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
+    assert np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
     # Increase the value of the Scalar. This will be seen by the copy, but not the
     # deepcopy.
     a._value += 1
-    assert np.allclose(c.value(eq_system), c_copy.value(eq_system))
-    assert not np.allclose(c.value(eq_system), c_deepcopy.value(eq_system))
+    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
+    assert not np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
     # Next increase the values in the array. This changes the shallow copy, but not the
     # deep one.
     b_arr += 1
-    assert np.allclose(c.value(eq_system), c_copy.value(eq_system))
-    assert not np.allclose(c.value(eq_system), c_deepcopy.value(eq_system))
+    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
+    assert not np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
@@ -247,9 +248,9 @@ def test_ad_operator_unary_minus_parsing():
     mat2 = sps.csr_matrix(np.random.rand(3))
     sp_array1 = pp.ad.SparseArray(mat1)
     sp_array2 = pp.ad.SparseArray(mat2)
-    eqsys = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
+    equation_system = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
-    assert np.allclose(op._parse_operator(-op, eqsys, None).data, -(mat1 + mat2).data)
+    assert np.allclose(equation_system.evaluate(-op, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():
@@ -369,7 +370,8 @@ def test_time_dependent_array():
 
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
-    1) Fetching the same variable twice should get the same variable (same attribute id).
+    1) Fetching the same variable twice should get the same variable (same attribute
+        id).
     2) Fetching the same mixed-dimensional variable twice should result in objects with
        different id attributes, but point to the same underlying variable.
 
@@ -382,12 +384,12 @@ def test_ad_variable_creation():
         {"cell_size": 0.2},
         fracture_indices=[1],
     )
-    eq_system = pp.ad.EquationSystem(mdg)
-    eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system = pp.ad.EquationSystem(mdg)
+    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
 
-    var_1 = eq_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
-    var_2 = eq_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
-    var_3 = eq_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_min()))[0]
+    var_1 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
+    var_2 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_max()))[0]
+    var_3 = equation_system.get_variables(["foo"], mdg.subdomains(dim=mdg.dim_min()))[0]
 
     # Fetching the same variable twice should give the same variable (idetified by the
     # variable id)
@@ -396,8 +398,8 @@ def test_ad_variable_creation():
     assert var_1.id != var_3.id
 
     # Fetch mixed-dimensional variable representations of the same variables
-    mvar_1 = eq_system.md_variable("foo", mdg.subdomains(dim=mdg.dim_max()))
-    mvar_2 = eq_system.md_variable("foo", mdg.subdomains(dim=mdg.dim_max()))
+    mvar_1 = equation_system.md_variable("foo", mdg.subdomains(dim=mdg.dim_max()))
+    mvar_2 = equation_system.md_variable("foo", mdg.subdomains(dim=mdg.dim_max()))
 
     # The two mixed-dimensional variables should have different ids
     assert mvar_2.id != mvar_1.id
@@ -429,7 +431,7 @@ def test_ad_variable_evaluation():
     """Test that the values of Ad variables are as expected under evalutation
     (translation from the abstract Ad framework to forward mode).
 
-    Boththe atomic and mixed-dimensional variables are tested. The tests cover both the
+    Both the atomic and mixed-dimensional variables are tested. The tests cover both the
     current values of the variables (pp.ITERATE), and their values at previous
     iterations and time steps.
 
@@ -464,7 +466,7 @@ def test_ad_variable_evaluation():
         if d.data.size > 0:
             assert np.max(np.abs(d.data)) < 1e-10
 
-    eq_system = pp.EquationSystem(mdg)
+    equation_system = pp.EquationSystem(mdg)
     # First create a variable on the subdomains. The number of dofs is different for the
     # different subdomains.
     # NOTE: The order of creation is a bit important here: We will iterate of the
@@ -472,23 +474,23 @@ def test_ad_variable_evaluation():
     # The order of creation should therefore be consistent with the order of iteration.
     # It should be possible to avoid this by using dof-indices of the subdomains, but EK
     # cannot wrap his head around this at the moment (it is Friday afternoon).
-    eq_system.create_variables(
+    equation_system.create_variables(
         var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
     )
-    eq_system.create_variables(
+    equation_system.create_variables(
         var, dof_info={"cells": 2}, subdomains=mdg.subdomains(dim=1)
     )
-    eq_system.create_variables(
+    equation_system.create_variables(
         var, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=0)
     )
-    eq_system.create_variables(
+    equation_system.create_variables(
         var2, dof_info={"cells": 1}, subdomains=mdg.subdomains(dim=2)
     )
     # Next create interface variables.
-    eq_system.create_variables(
+    equation_system.create_variables(
         mortar_var, dof_info={"cells": 2}, interfaces=mdg.interfaces(dim=1)
     )
-    eq_system.create_variables(
+    equation_system.create_variables(
         mortar_var, dof_info={"cells": 1}, interfaces=mdg.interfaces(dim=0)
     )
 
@@ -547,15 +549,15 @@ def test_ad_variable_evaluation():
         iterate_map[intf] = val_iterate
 
     # Manually assemble state and iterate
-    true_state = np.zeros(eq_system.num_dofs())
-    true_iterate = np.zeros(eq_system.num_dofs())
+    true_state = np.zeros(equation_system.num_dofs())
+    true_iterate = np.zeros(equation_system.num_dofs())
 
     # Also a state array that differs from the stored iterates
-    double_iterate = np.zeros(eq_system.num_dofs())
+    double_iterate = np.zeros(equation_system.num_dofs())
 
-    for v in eq_system.variables:
+    for v in equation_system.variables:
         g = v.domain
-        inds = eq_system.dofs_of([v])
+        inds = equation_system.dofs_of([v])
         if v.name == var2:
             true_state[inds] = state_map_2[g]
             true_iterate[inds] = iterate_map_2[g]
@@ -572,48 +574,59 @@ def test_ad_variable_evaluation():
     ]
 
     # Generate mixed-dimensional variables via the EquationSystem.
-    var_ad = eq_system.md_variable(var, subdomains)
+    var_ad = equation_system.md_variable(var, subdomains)
 
     # Check equivalence between the two approaches to generation.
 
     # Check that the state is correctly evaluated.
     inds_var = np.hstack(
-        [eq_system.dofs_of(eq_system.get_variables([var], [g])) for g in subdomains]
+        [
+            equation_system.dofs_of(equation_system.get_variables([var], [g]))
+            for g in subdomains
+        ]
     )
-    assert np.allclose(true_iterate[inds_var], var_ad.value(eq_system, true_iterate))
+    assert np.allclose(
+        true_iterate[inds_var], equation_system.evaluate(var_ad, state=true_iterate)
+    )
 
     # Check evaluation when no state is passed to the parser, and information must
     # instead be glued together from the MixedDimensionalGrid
-    assert np.allclose(true_iterate[inds_var], var_ad.value(eq_system))
+    assert np.allclose(true_iterate[inds_var], equation_system.evaluate(var_ad))
 
     # Evaluate the equation using the double iterate
     assert np.allclose(
-        2 * true_iterate[inds_var], var_ad.value(eq_system, double_iterate)
+        2 * true_iterate[inds_var],
+        equation_system.evaluate(var_ad, state=double_iterate),
     )
 
     # Represent the variable on the previous time step. This should be a numpy array
     prev_var_ad = var_ad.previous_timestep()
-    prev_evaluated = prev_var_ad.value(eq_system)
+    prev_evaluated = equation_system.evaluate(prev_var_ad)
     assert isinstance(prev_evaluated, np.ndarray)
     assert np.allclose(true_state[inds_var], prev_evaluated)
 
     # Also check that state values given to the ad parser are ignored for previous
     # values
-    assert np.allclose(prev_evaluated, prev_var_ad.value(eq_system, double_iterate))
+    assert np.allclose(
+        prev_evaluated, equation_system.evaluate(prev_var_ad, state=double_iterate)
+    )
 
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
     # Form an edge variable, evaluate this
     interfaces = [intf for intf in mdg.interfaces()]
     variable_interfaces = [
-        eq_system.md_variable(mortar_var, [intf]) for intf in interfaces
+        equation_system.md_variable(mortar_var, [intf]) for intf in interfaces
     ]
 
     interface_inds = np.hstack(
-        [eq_system.dofs_of([var]) for var in variable_interfaces]
+        [equation_system.dofs_of([var]) for var in variable_interfaces]
     )
     interface_values = np.hstack(
-        [var.value(eq_system, true_iterate) for var in variable_interfaces]
+        [
+            equation_system.evaluate(var, state=true_iterate)
+            for var in variable_interfaces
+        ]
     )
     assert np.allclose(
         true_iterate[interface_inds],
@@ -622,17 +635,23 @@ def test_ad_variable_evaluation():
 
     # Finally, test a single variable; everything should work then as well
     g = mdg.subdomains(dim=2)[0]
-    v1 = eq_system.get_variables([var], [g])[0]
-    v2 = eq_system.get_variables([var2], [g])[0]
+    v1 = equation_system.get_variables([var], [g])[0]
+    v2 = equation_system.get_variables([var2], [g])[0]
 
-    ind1 = eq_system.dofs_of(eq_system.get_variables([var], [g]))
-    ind2 = eq_system.dofs_of(eq_system.get_variables([var2], [g]))
+    ind1 = equation_system.dofs_of(equation_system.get_variables([var], [g]))
+    ind2 = equation_system.dofs_of(equation_system.get_variables([var2], [g]))
 
-    assert np.allclose(true_iterate[ind1], v1.value(eq_system, true_iterate))
-    assert np.allclose(true_iterate[ind2], v2.value(eq_system, true_iterate))
+    assert np.allclose(
+        true_iterate[ind1], equation_system.evaluate(v1, state=true_iterate)
+    )
+    assert np.allclose(
+        true_iterate[ind2], equation_system.evaluate(v2, state=true_iterate)
+    )
 
     v1_prev = v1.previous_timestep()
-    assert np.allclose(true_state[ind1], v1_prev.value(eq_system, true_iterate))
+    assert np.allclose(
+        true_state[ind1], equation_system.evaluate(v1_prev, state=true_iterate)
+    )
 
 
 @pytest.mark.parametrize("prev_time", [True, False])
@@ -643,15 +662,17 @@ def test_ad_variable_prev_time_and_iter(prev_time):
         {"cell_size": 0.5},
         fracture_indices=[1],
     )
-    eqsys = pp.ad.EquationSystem(mdg)
+    equation_system = pp.ad.EquationSystem(mdg)
 
     # Integer to test the depth of prev _*, could be a test parameter, but no need
     depth = 4
     var_name = "foo"
     vec = np.ones(mdg.num_subdomain_cells())
 
-    eqsys.create_variables(var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains())
-    var = eqsys.md_variable(var_name)
+    equation_system.create_variables(
+        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
+    )
+    var = equation_system.md_variable(var_name)
 
     # Starting point is time step index is None, iterate index is 0
     # (current time and iter)
@@ -659,7 +680,7 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     assert var.iterate_index == 0
 
     # For AD to work, we need at least values at iterate_index = 0
-    eqsys.set_variable_values(vec * 0.0, [var], iterate_index=0)
+    equation_system.set_variable_values(vec * 0.0, [var], iterate_index=0)
 
     # Test configuration dependent on whether prev iter or prev time is tested.
     # Code is analogous
@@ -684,21 +705,21 @@ def test_ad_variable_prev_time_and_iter(prev_time):
 
     # Set values except for the last step. The current value is set above
     for i in range(depth - 1):
-        eqsys.set_variable_values(vec * i, [var], **{index_key: i})
+        equation_system.set_variable_values(vec * i, [var], **{index_key: i})
 
     # Evaluating the last step, should raise a key error because no values set
     with pytest.raises(KeyError):
         var_prev = getattr(var, get_prev_key)(steps=depth)
-        _ = var_prev.value(eqsys)
+        _ = equation_system.evaluate(var_prev)
 
     # Evaluate prev var and check that the values are what they're supposed to be.
     for i in range(depth - 1):
         var_i = getattr(var, get_prev_key)(steps=i + 1)
-        val_i = var_i.value(eqsys)
+        val_i = equation_system.evaluate(var_i)
         assert np.allclose(val_i, i)
 
         # prev var has no Jacobian
-        ad_i = var_i.value_and_jacobian(eqsys)
+        ad_i = var_i.value_and_jacobian(equation_system)
         assert np.all(ad_i.jac.toarray() == 0.0)
 
     # Test creating with explicit stepping and recursive stepping
@@ -712,8 +733,8 @@ def test_ad_variable_prev_time_and_iter(prev_time):
         vars_rec.append(var_i)
 
     assert len(vars_exp) == len(vars_rec)
-    vals_exp = [v.value(eqsys) for v in vars_exp]
-    vals_rec = [v.value(eqsys) for v in vars_rec]
+    vals_exp = [equation_system.evaluate(v) for v in vars_exp]
+    vals_rec = [equation_system.evaluate(v) for v in vars_rec]
 
     for v_e, v_r in zip(vals_exp, vals_rec):
         assert np.allclose(v_e, v_r)
@@ -745,7 +766,9 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     [["foo"], ["foo", "bar"]],
 )
 def test_variable_combinations(grids, variables):
-    """Test combinations of variables, and mixed-dimensional variables, on different grids.
+    """Test combinations of variables, and mixed-dimensional variables, on different
+    grids.
+
     The main check is if Jacobian matrices are of the right size.
     """
     # Make MixedDimensionalGrid, populate with necessary information
@@ -760,37 +783,37 @@ def test_variable_combinations(grids, variables):
             pp.set_solution_values(name=var, values=vals, data=data, time_step_index=0)
 
     # Ad boilerplate
-    eq_system = pp.ad.EquationSystem(mdg)
+    equation_system = pp.ad.EquationSystem(mdg)
     for var in variables:
-        eq_system.create_variables(var, {"cells": 1}, mdg.subdomains())
-        eq_system.set_variable_values(
+        equation_system.create_variables(var, {"cells": 1}, mdg.subdomains())
+        equation_system.set_variable_values(
             np.random.rand(mdg.num_subdomain_cells()),
             [var],
             time_step_index=0,
             iterate_index=0,
         )
     # Standard Ad variables
-    ad_vars = eq_system.get_variables()
+    ad_vars = equation_system.get_variables()
     # Merge variables over all grids
-    merged_vars = [eq_system.md_variable(var, grids) for var in variables]
+    merged_vars = [equation_system.md_variable(var, grids) for var in variables]
 
     # First check of standard variables. If this fails, something is really wrong
     for sd in grids:
         data = mdg.subdomain_data(sd)
         for var in ad_vars:
             if sd == var.domain:
-                expr = var.value_and_jacobian(eq_system)
+                expr = var.value_and_jacobian(equation_system)
                 # Check that the size of the variable is correct
                 values = pp.get_solution_values(
                     name=var.name, data=data, time_step_index=0
                 )
                 assert np.allclose(expr.val, values)
                 # Check that the Jacobian matrix has the right number of columns
-                assert expr.jac.shape[1] == eq_system.num_dofs()
+                assert expr.jac.shape[1] == equation_system.num_dofs()
 
     # Next, check that mixed-dimensional variables are handled correctly.
     for var in merged_vars:
-        expr = var.value_and_jacobian(eq_system)
+        expr = var.value_and_jacobian(equation_system)
         vals = []
         for sub_var in var.sub_vars:
             data = mdg.subdomain_data(sub_var.domain)
@@ -800,7 +823,7 @@ def test_variable_combinations(grids, variables):
             vals.append(values)
 
         assert np.allclose(expr.val, np.hstack([v for v in vals]))
-        assert expr.jac.shape[1] == eq_system.num_dofs()
+        assert expr.jac.shape[1] == equation_system.num_dofs()
 
     # Finally, check that the size of the Jacobian matrix is correct when combining
     # variables (this will cover both variables and mixed-dimensional variable with the
@@ -816,8 +839,8 @@ def test_variable_combinations(grids, variables):
                 # The variable must be projected to the full set of grid for addition
                 # to be meaningful. This requires a bit of work.
                 sv_size = np.array([sv.size for sv in mv.sub_vars])
-                mv_grids = [sv._g for sv in mv.sub_vars]
-                ind = mv_grids.index(var._g)
+                mv_grids = [sv._grid for sv in mv.sub_vars]
+                ind = mv_grids.index(var._grid)
                 offset = np.hstack((0, np.cumsum(sv_size)))[ind]
                 rows = offset + np.arange(nc)
                 P = pp.ad.SparseArray(
@@ -825,9 +848,9 @@ def test_variable_combinations(grids, variables):
                 )
 
                 eq = eq = mv + P @ var
-                expr = eq.value_and_jacobian(eq_system)
+                expr = eq.value_and_jacobian(equation_system)
                 # Jacobian matrix size is set according to the dof manager,
-                assert expr.jac.shape[1] == eq_system.num_dofs()
+                assert expr.jac.shape[1] == equation_system.num_dofs()
 
 
 def test_time_differentiation():
@@ -895,57 +918,57 @@ def test_time_differentiation():
             name="foobar", values=vals_it, data=intf_data, iterate_index=0
         )
 
-    eq_system = pp.ad.EquationSystem(mdg)
-    eq_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
+    equation_system = pp.ad.EquationSystem(mdg)
+    equation_system.create_variables("foo", {"cells": 1}, mdg.subdomains())
     # The time step, represented as a scalar.
     ts = 2
     time_step = pp.ad.Scalar(ts)
 
     # Differentiate the variable on the highest-dimensional subdomain
     sd = mdg.subdomains(dim=mdg.dim_max())[0]
-    var_1 = eq_system.get_variables(["foo"], [sd])[0]
+    var_1 = equation_system.get_variables(["foo"], [sd])[0]
     dt_var_1 = pp.ad.dt(var_1, time_step)
-    assert np.allclose(dt_var_1.value(eq_system), 2)
+    assert np.allclose(equation_system.evaluate(dt_var_1), 2)
 
     # Also test the time difference function
     diff_var_1 = pp.ad.time_increment(var_1)
-    assert np.allclose(diff_var_1.value(eq_system), 2 * ts)
+    assert np.allclose(equation_system.evaluate(diff_var_1), 2 * ts)
 
     # Differentiate the time dependent array residing on the subdomain
     array = pp.ad.TimeDependentDenseArray(name="bar", domains=[sd])
     dt_array = pp.ad.dt(array, time_step)
-    assert np.allclose(dt_array.value(eq_system), -0.5)
+    assert np.allclose(equation_system.evaluate(dt_array), -0.5)
 
     # Combine the parameter array and the variable. This is a test that operators that
     # are not leaves are differentiated correctly.
     var_array = var_1 * array
     dt_var_array = pp.ad.dt(var_array, time_step)
-    assert np.allclose(dt_var_array.value(eq_system), 2.5)
+    assert np.allclose(equation_system.evaluate(dt_var_array), 2.5)
     # Also test the time increment function
     diff_var_array = pp.ad.time_increment(var_array)
-    assert np.allclose(diff_var_array.value(eq_system), 2.5 * ts)
+    assert np.allclose(equation_system.evaluate(diff_var_array), 2.5 * ts)
 
     # For good measure, add one more level of combination.
     var_array_2 = var_array + var_array
     dt_var_array = pp.ad.dt(var_array_2, time_step)
-    assert np.allclose(dt_var_array.value(eq_system), 5)
+    assert np.allclose(equation_system.evaluate(dt_var_array), 5)
 
     # Also do a test of the mixed-dimensional variable.
-    mvar = eq_system.md_variable("foo", [sd])
+    mvar = equation_system.md_variable("foo", [sd])
 
     dt_mvar = pp.ad.dt(mvar, time_step)
-    assert np.allclose(dt_mvar.value(eq_system)[: sd.num_cells], 2)
-    assert np.allclose(dt_mvar.value(eq_system)[sd.num_cells :], 0.5)
+    assert np.allclose(equation_system.evaluate(dt_mvar)[: sd.num_cells], 2)
+    assert np.allclose(equation_system.evaluate(dt_mvar)[sd.num_cells :], 0.5)
 
     # Test the time increment function
     diff_mvar = pp.ad.time_increment(mvar)
-    assert np.allclose(diff_mvar.value(eq_system)[: sd.num_cells], 2 * ts)
-    assert np.allclose(diff_mvar.value(eq_system)[sd.num_cells :], ts)
+    assert np.allclose(equation_system.evaluate(diff_mvar)[: sd.num_cells], 2 * ts)
+    assert np.allclose(equation_system.evaluate(diff_mvar)[sd.num_cells :], ts)
 
     # Make a combined operator with the mixed-dimensional variable, test this.
     dt_mvar = pp.ad.dt(mvar * mvar, time_step)
-    assert np.allclose(dt_mvar.value(eq_system)[: sd.num_cells], 4)
-    assert np.allclose(dt_mvar.value(eq_system)[sd.num_cells :], 0.5)
+    assert np.allclose(equation_system.evaluate(dt_mvar)[: sd.num_cells], 4)
+    assert np.allclose(equation_system.evaluate(dt_mvar)[sd.num_cells :], 0.5)
 
 
 def geometry_information(
@@ -968,384 +991,6 @@ def geometry_information(
     return n_cells, n_faces, n_mortar_cells
 
 
-@pytest.fixture
-def mdg():
-    """Provide a mixed-dimensional grid for the tests."""
-    fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-    md_grid = pp.meshing.cart_grid(fracs, np.array([2, 2]))
-    return md_grid
-
-
-@pytest.mark.integtest
-@pytest.mark.parametrize("scalar", [True, False])
-def test_subdomain_projections(mdg, scalar):
-    """Test of subdomain projections. Both face and cell restriction and prolongation.
-
-    Test three specific cases:
-        1. Projections generated by passing a md-grid and a list of grids are identical
-        2. All projections for all grids (individually) in a simple md-grid.
-        3. Combined projections for list of grids.
-
-    """
-    proj_dim = 1 if scalar else mdg.dim_max()
-    n_cells, n_faces, _ = geometry_information(mdg, proj_dim)
-
-    subdomains = mdg.subdomains()
-    proj = pp.ad.SubdomainProjections(subdomains=subdomains, dim=proj_dim)
-
-    cell_start = np.cumsum(
-        np.hstack((0, np.array([sd.num_cells for sd in subdomains])))
-    )
-    face_start = np.cumsum(
-        np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
-    )
-
-    # Helper method to get indices for sparse matrices
-    def _mat_inds(nc, nf, grid_ind, dim, cell_start, face_start):
-        cell_inds = np.arange(cell_start[grid_ind], cell_start[grid_ind + 1])
-        face_inds = np.arange(face_start[grid_ind], face_start[grid_ind + 1])
-
-        data_cell = np.ones(nc * dim)
-        row_cell = np.arange(nc * dim)
-        data_face = np.ones(nf * dim)
-        row_face = np.arange(nf * dim)
-        col_cell = pp.fvutils.expand_indices_nd(cell_inds, dim)
-        col_face = pp.fvutils.expand_indices_nd(face_inds, dim)
-        return row_cell, col_cell, data_cell, row_face, col_face, data_face
-
-    # Test projection of one fracture at a time for the full set of grids
-    for sd in subdomains:
-        ind = _list_ind_of_grid(subdomains, sd)
-
-        nc, nf = sd.num_cells, sd.num_faces
-
-        num_rows_cell = nc * proj_dim
-        num_rows_face = nf * proj_dim
-
-        row_cell, col_cell, data_cell, row_face, col_face, data_face = _mat_inds(
-            nc, nf, ind, proj_dim, cell_start, face_start
-        )
-
-        known_cell_proj = sps.coo_matrix(
-            (data_cell, (row_cell, col_cell)), shape=(num_rows_cell, n_cells)
-        ).tocsr()
-        known_face_proj = sps.coo_matrix(
-            (data_face, (row_face, col_face)), shape=(num_rows_face, n_faces)
-        ).tocsr()
-
-        assert _compare_matrices(proj.cell_restriction([sd]), known_cell_proj)
-        assert _compare_matrices(proj.cell_prolongation([sd]), known_cell_proj.T)
-        assert _compare_matrices(proj.face_restriction([sd]), known_face_proj)
-        assert _compare_matrices(proj.face_prolongation([sd]), known_face_proj.T)
-
-    # Project between the full grid and both 1d grids (to combine two grids)
-    g1, g2 = mdg.subdomains(dim=1)
-    rc1, cc1, dc1, rf1, cf1, df1 = _mat_inds(
-        g1.num_cells,
-        g1.num_faces,
-        _list_ind_of_grid(subdomains, g1),
-        proj_dim,
-        cell_start,
-        face_start,
-    )
-    rc2, cc2, dc2, rf2, cf2, df2 = _mat_inds(
-        g2.num_cells,
-        g2.num_faces,
-        _list_ind_of_grid(subdomains, g2),
-        proj_dim,
-        cell_start,
-        face_start,
-    )
-
-    # Adjust the indices of the second grid, we will stack the matrices.
-    rc2 += rc1.size
-    rf2 += rf1.size
-    num_rows_cell = (g1.num_cells + g2.num_cells) * proj_dim
-    num_rows_face = (g1.num_faces + g2.num_faces) * proj_dim
-
-    known_cell_proj = sps.coo_matrix(
-        (np.hstack((dc1, dc2)), (np.hstack((rc1, rc2)), np.hstack((cc1, cc2)))),
-        shape=(num_rows_cell, n_cells),
-    ).tocsr()
-    known_face_proj = sps.coo_matrix(
-        (np.hstack((df1, df2)), (np.hstack((rf1, rf2)), np.hstack((cf1, cf2)))),
-        shape=(num_rows_face, n_faces),
-    ).tocsr()
-
-    assert _compare_matrices(proj.cell_restriction([g1, g2]), known_cell_proj)
-    assert _compare_matrices(proj.cell_prolongation([g1, g2]), known_cell_proj.T)
-    assert _compare_matrices(proj.face_restriction([g1, g2]), known_face_proj)
-    assert _compare_matrices(proj.face_prolongation([g1, g2]), known_face_proj.T)
-
-
-@pytest.mark.integtest
-@pytest.mark.parametrize("scalar", [True, False])
-def test_mortar_projections(mdg, scalar):
-    # Test of mortar projections between mortar grids and standard subdomain grids.
-
-    # Define the dimension of the field being projected
-    proj_dim = 1 if scalar else mdg.dim_max()
-
-    # Collect geometrical and grid objects
-    n_cells, n_faces, n_mortar_cells = geometry_information(mdg, proj_dim)
-
-    g0 = mdg.subdomains(dim=2)[0]
-    g1, g2 = mdg.subdomains(dim=1)
-    g3 = mdg.subdomains(dim=0)[0]
-
-    intf01 = mdg.subdomain_pair_to_interface((g0, g1))
-    intf02 = mdg.subdomain_pair_to_interface((g0, g2))
-
-    intf13 = mdg.subdomain_pair_to_interface((g1, g3))
-    intf23 = mdg.subdomain_pair_to_interface((g2, g3))
-
-    # Compute reference projection matrices
-    face_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_faces for g in mdg.subdomains()])))
-    )
-    cell_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([g.num_cells for g in mdg.subdomains()])))
-    )
-    mortar_start = proj_dim * np.cumsum(
-        np.hstack((0, np.array([m.num_cells for m in mdg.interfaces()])))
-    )
-
-    f0 = np.hstack(
-        (
-            sparse_array_to_row_col_data(
-                intf01.mortar_to_primary_int(nd=proj_dim), True
-            )[0],
-            sparse_array_to_row_col_data(
-                intf02.mortar_to_primary_int(nd=proj_dim), True
-            )[0],
-        )
-    )
-    f1 = sparse_array_to_row_col_data(intf13.mortar_to_primary_int(nd=proj_dim), True)[
-        0
-    ]
-    f2 = sparse_array_to_row_col_data(intf23.mortar_to_primary_int(nd=proj_dim), True)[
-        0
-    ]
-
-    c0 = sparse_array_to_row_col_data(
-        intf01.mortar_to_secondary_int(nd=proj_dim), True
-    )[0]
-    c1 = sparse_array_to_row_col_data(
-        intf02.mortar_to_secondary_int(nd=proj_dim), True
-    )[0]
-    c2 = np.hstack(
-        (
-            sparse_array_to_row_col_data(
-                intf13.mortar_to_secondary_int(nd=proj_dim), True
-            )[0],
-            sparse_array_to_row_col_data(
-                intf23.mortar_to_secondary_int(nd=proj_dim), True
-            )[0],
-        )
-    )
-
-    m0 = sparse_array_to_row_col_data(
-        intf01.mortar_to_secondary_int(nd=proj_dim), True
-    )[1]
-    m1 = sparse_array_to_row_col_data(
-        intf02.mortar_to_secondary_int(nd=proj_dim), True
-    )[1]
-    m2 = sparse_array_to_row_col_data(
-        intf13.mortar_to_secondary_int(nd=proj_dim), True
-    )[1]
-    m3 = sparse_array_to_row_col_data(
-        intf23.mortar_to_secondary_int(nd=proj_dim), True
-    )[1]
-
-    # collect destination indexes
-    face_ixd = np.hstack(
-        tuple([f_idx + face_start[i] for i, f_idx in enumerate([f0, f1, f2])])
-    )
-    cell_ixd = np.hstack(
-        tuple([c_idx + cell_start[i + 1] for i, c_idx in enumerate([c0, c1, c2])])
-    )
-    mort_ixd = np.hstack(
-        tuple([m_idx + mortar_start[i] for i, m_idx in enumerate([m0, m1, m2, m3])])
-    )
-
-    proj_known_higher = sps.coo_matrix(
-        (np.ones(n_mortar_cells), (face_ixd, np.arange(n_mortar_cells))),
-        shape=(n_faces, n_mortar_cells),
-    ).tocsr()
-
-    proj_known_lower = sps.coo_matrix(
-        (np.ones(n_mortar_cells), (cell_ixd, mort_ixd)), shape=(n_cells, n_mortar_cells)
-    ).tocsr()
-
-    # Also test block matrices for the sign of mortar projections.
-    # This is a diagonal matrix with first -1, then 1.
-    # If this test fails, something is fundamentally wrong.
-    vals = np.array([])
-    for intf in mdg.interfaces():
-        sz = int(np.round(intf.num_cells / 2) * proj_dim)
-        vals = np.hstack((vals, -np.ones(sz), np.ones(sz)))
-
-    known_sgn_mat = sps.dia_matrix((vals, 0), shape=(n_mortar_cells, n_mortar_cells))
-
-    # Compute the object being tested
-    proj = pp.ad.MortarProjections(
-        subdomains=mdg.subdomains(), interfaces=mdg.interfaces(), mdg=mdg, dim=proj_dim
-    )
-
-    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_int)
-    assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_avg)
-    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_int)
-    assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_avg)
-    assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
-    assert _compare_matrices(known_sgn_mat, proj.sign_of_mortar_sides)
-
-
-@pytest.mark.integtest
-@pytest.mark.parametrize("scalar", [True, False])
-def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
-    """Three main functionalities being tested:
-    1) That we can create a boundary projection operator with the correct size and items.
-    2) Specifically that the top-dimensional grid and one of the fracture grids
-       contribute to the boundary projection operator, while the third has a projection
-       matrix with zero rows.
-    3) Projection from a subdomain to a boundary is consistent with its reverse.
-
-    """
-    proj_dim = 1 if scalar else mdg.dim_max()
-    _, num_faces, _ = geometry_information(mdg, proj_dim)
-    num_cells = sum([bg.num_cells for bg in mdg.boundaries()]) * proj_dim
-
-    g_0 = mdg.subdomains(dim=2)[0]
-    g_1, g_2 = mdg.subdomains(dim=1)
-    # Compute geometry for the mixed-dimensional grid. This is needed for
-    # boundary projection operator.
-    mdg.compute_geometry()
-    projection = pp.ad.BoundaryProjection(mdg, mdg.subdomains(), proj_dim)
-    # Obtaining sparse matrices from the AD Operators.
-    subdomain_to_boundary = projection.subdomain_to_boundary.parse(mdg)
-    boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
-    # Check sizes.
-    assert subdomain_to_boundary.shape == (num_cells, num_faces)
-    assert boundary_to_subdomain.shape == (num_faces, num_cells)
-
-    # Check that the projection matrix for the top-dimensional grid is non-zero.
-    # The matrix has eight boundary faces.
-    ind0 = 0
-    ind1 = g_0.num_faces * proj_dim
-    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 8 * proj_dim
-    # Check that the projection matrix for the first fracture is non-zero. Since the
-    # fracture touches the boundary on two sides, we expect two non-zero rows.
-    ind0 = ind1
-    ind1 += g_1.num_faces * proj_dim
-    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
-    # Check that the projection matrix for the second fracture is non-zero.
-    ind0 = ind1
-    ind1 += g_2.num_faces * proj_dim
-    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
-    # The projection matrix for the intersection should be zero.
-    ind0 = ind1
-    assert np.sum(subdomain_to_boundary[:, ind0:]) == 0
-
-    # Make second projection on subset of grids.
-    subdomains = [g_0, g_1]
-    projection = pp.ad.grid_operators.BoundaryProjection(mdg, subdomains, proj_dim)
-    num_faces = proj_dim * (g_0.num_faces + g_1.num_faces)
-    num_cells = proj_dim * sum(
-        [mdg.subdomain_to_boundary_grid(sd).num_cells for sd in subdomains]
-    )
-    # Obtaining sparse matrices from the AD Operators.
-    subdomain_to_boundary = projection.subdomain_to_boundary.parse(mdg)
-    boundary_to_subdomain = projection.boundary_to_subdomain.parse(mdg)
-    # Check sizes.
-    assert subdomain_to_boundary.shape == (num_cells, num_faces)
-    assert boundary_to_subdomain.shape == (num_faces, num_cells)
-
-    # Check that the projection matrix for the top-dimensional grid is non-zero.
-    # Same sizes as above.
-    ind0 = 0
-    ind1 = g_0.num_faces * proj_dim
-    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 8 * proj_dim
-    ind0 = ind1
-    ind1 += g_1.num_faces * proj_dim
-    assert np.sum(subdomain_to_boundary[:, ind0:ind1]) == 2 * proj_dim
-
-    # Check that subdomain_to_boundary and boundary_to_subdomain are consistent.
-    assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
-
-
-@pytest.mark.integtest
-# Geometry based operators
-def test_trace(mdg: pp.MixedDimensionalGrid):
-    """Test Trace operator.
-
-    Parameters:
-        mdg: Mixed-dimensional grid.
-
-    This test is not ideal. It follows the implementation of Trace relatively closely,
-    but nevertheless provides some coverage, especially if Trace is carelessly changed.
-    The test constructs the expected md trace and inv_trace matrices and compares them
-    to the ones of Trace. Also checks that an error is raised if a non-scalar trace is
-    constructed (not implemented).
-    """
-    # The operator should work on any subset of mdg.subdomains.
-    subdomains = mdg.subdomains(dim=1)
-
-    # Construct expected matrices
-    traces, inv_traces = list(), list()
-    # No check on this function here.
-    # TODO: A separate unit test might be appropriate.
-    cell_projections, face_projections = pp.ad.grid_operators._subgrid_projections(
-        subdomains, dim=1
-    )
-    for sd in subdomains:
-        local_block = np.abs(sd.cell_faces.tocsr())
-        traces.append(local_block * cell_projections[sd].T)
-        inv_traces.append(local_block.T * face_projections[sd].T)
-
-    # Compare to operator class
-    op = pp.ad.Trace(subdomains)
-    _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
-    _compare_matrices(op.inv_trace, sps.bmat([[m] for m in inv_traces]))
-
-    # As of the writing of this test, Trace is not implemented for vector values.
-    # If it is ever extended, the test should be extended accordingly (e.g. parametrized with
-    # dim=[1, 2]).
-    with pytest.raises(NotImplementedError):
-        pp.ad.Trace(subdomains, dim=2)
-
-
-@pytest.mark.integtest
-@pytest.mark.parametrize("dim", [1, 4])
-def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
-    """Test Divergence.
-
-    Parameters:
-        mdg: Mixed-dimensional grid.
-        dim: Dimension of vector field to which Divergence is applied.
-
-    This test is not ideal. It follows the implementation of Divergence relatively
-    closely, but nevertheless provides some coverage. Frankly, there is not much more to
-    do than comparing against the expected matrices, unless one wants to add more
-    integration-type tests e.g. evaluating combinations with other ad entities.
-
-    """
-    # The operator should work on any subset of mdg.subdomains.
-    subdomains = mdg.subdomains(dim=2) + mdg.subdomains(dim=0)
-
-    # Construct expected matrix
-    divergences = list()
-    for sd in subdomains:
-        # Kron does no harm if dim=1
-        local_block = sps.kron(sd.cell_faces.tocsr().T, sps.eye(dim))
-        divergences.append(local_block)
-
-    # Compare to operators parsed value
-    op = pp.ad.Divergence(subdomains)
-    val = op.parse(mdg)
-    _compare_matrices(val, sps.block_diag(divergences))
-
-
-@pytest.mark.integtest
 def test_ad_discretization_class():
     # Test of the parent class for all AD discretizations (pp.ad.Discretization)
 
@@ -1380,42 +1025,21 @@ def test_ad_discretization_class():
     # Assign a value to the discretization matrix, with the right key
     for vi, sd in enumerate(subdomains):
         data = mdg.subdomain_data(sd)
-        data[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
+        data[pp.DISCRETIZATION_MATRICES] = {
+            key: {"foobar": sps.csr_matrix(known_val[vi])}
+        }
 
     # Same with submatrix
     for vi, sd in enumerate(sub_list):
         data = mdg.subdomain_data(sd)
         data[pp.DISCRETIZATION_MATRICES].update(
-            {sub_key: {"foobar": known_sub_val[vi]}}
+            {sub_key: {"foobar": sps.csr_matrix(known_sub_val[vi])}}
         )
 
     # Compare values under parsing. Note we need to pick out the diagonal, due to the
     # way parsing makes block matrices.
     assert np.allclose(known_val, discr_ad.foobar().parse(mdg).diagonal())
     assert np.allclose(known_sub_val, sub_discr_ad.foobar().parse(mdg).diagonal())
-
-
-## Below are helpers for tests of the Ad wrappers.
-def _compare_matrices(m1, m2):
-    if isinstance(m1, pp.ad.SparseArray):
-        m1 = m1._mat
-    if isinstance(m2, pp.ad.SparseArray):
-        m2 = m2._mat
-    if m1.shape != m2.shape:
-        return False
-    d = m1 - m2
-    if d.data.size > 0:
-        if np.max(np.abs(d.data)) > 1e-10:
-            return False
-    return True
-
-
-def _list_ind_of_grid(subdomains, g):
-    for i, gl in enumerate(subdomains):
-        if g == gl:
-            return i
-
-    raise ValueError("grid is not in list")
 
 
 class _MockDiscretization:
@@ -1447,11 +1071,15 @@ def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
         return array
 
 
-def _get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
+def _get_sparse_array(
+    wrapped: bool, use_csr_matrix: bool
+) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
     """Helper to set a sparse array (scipy sparse array). Expected values in the test
     are hardcoded with respect to this value. The array is either returned as-is, or
     wrapped as an Ad SparseArray."""
-    mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).astype(float)
+    inner = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
+    mat = mat.astype(float)
     if wrapped:
         return pp.ad.SparseArray(mat)
     else:
@@ -1491,9 +1119,9 @@ def _get_ad_array(
         mdg = pp.MixedDimensionalGrid()
         mdg.add_subdomains([g])
 
-        eq_system = pp.ad.EquationSystem(mdg)
-        eq_system.create_variables("foo", subdomains=[g])
-        var = eq_system.variables[0]
+        equation_system = pp.ad.EquationSystem(mdg)
+        equation_system.create_variables("foo", subdomains=[g])
+        var = equation_system.variables[0]
         d = mdg.subdomain_data(g)
 
         pp.set_solution_values(
@@ -1502,7 +1130,7 @@ def _get_ad_array(
         pp.set_solution_values(name="foo", values=variable_val, data=d, iterate_index=0)
         mat = pp.ad.SparseArray(jac)
 
-        return mat @ var, eq_system
+        return mat @ var, equation_system
 
     else:
         ad_arr = pp.ad.AdArray(expression_val, jac)
@@ -1551,7 +1179,7 @@ def _expected_value(
         except ValueError:
             assert op in ["@"]
             return False
-    elif isinstance(var_1, float) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, float) and isinstance(var_2, (sps.spmatrix, sps.sparray)):
         try:
             # This should fail for all operations expect from multiplication.
             val = eval(f"var_1 {op} var_2")
@@ -1567,13 +1195,15 @@ def _expected_value(
             return False
     elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
         return eval(f"var_1 {op} var_2")
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, np.ndarray) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         try:
             return eval(f"var_1 {op} var_2")
         except TypeError:
             assert op in ["/", "**"]
             return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, float):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(var_2, float):
         if op == "**":
             # SciPy has implemented a limited version matrix powers to scalars, but not
             # with a satisfactory flexibility. If we try to evaluate the expression, it
@@ -1588,7 +1218,9 @@ def _expected_value(
             return val
         except (ValueError, NotImplementedError):
             return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, np.ndarray):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
+        var_2, np.ndarray
+    ):
         if op == "**":
             # SciPy has implemented a limited version matrix powers to numpy arrays, but
             # not with a satisfactory flexibility. If we try to evaluate the expression,
@@ -1601,10 +1233,12 @@ def _expected_value(
             assert op in ["**"]
             return False
 
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         try:
             return eval(f"var_1 {op} var_2")
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, NotImplementedError):
             assert op in ["**"]
             return False
 
@@ -1813,13 +1447,23 @@ def _expected_value(
             )
             return pp.ad.AdArray(val, jac)
 
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         return False
     elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
         # This combination is only allowed for matrix-vector products (op = "@")
         if op == "@":
             val = var_1 * var_2.val
             jac = var_1 * var_2.jac
+            return pp.ad.AdArray(val, jac)
+        else:
+            return False
+    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.AdArray):
+        # This combination is only allowed for matrix-vector products (op = "@")
+        if op == "@":
+            val = var_1 @ var_2.val
+            jac = var_1 @ var_2.jac
             return pp.ad.AdArray(val, jac)
         else:
             return False
@@ -1904,11 +1548,16 @@ def _expected_value(
             return pp.ad.AdArray(val, jac)
         elif op == "@":
             return False
+    else:
+        raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
 
-@pytest.mark.integtest
-@pytest.mark.parametrize("var_1", ["scalar", "dense", "sparse", "ad"])
-@pytest.mark.parametrize("var_2", ["scalar", "dense", "sparse", "ad"])
+@pytest.mark.parametrize(
+    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+)
+@pytest.mark.parametrize(
+    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+)
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
 @pytest.mark.parametrize("wrapped", [True, False])
 def test_arithmetic_operations_on_ad_objects(
@@ -1952,8 +1601,10 @@ def test_arithmetic_operations_on_ad_objects(
             return _get_scalar(do_wrap)
         elif v == "dense":
             return _get_dense_array(do_wrap)
-        elif v == "sparse":
-            return _get_sparse_array(do_wrap)
+        elif v == "sparse_matrix":
+            return _get_sparse_array(do_wrap, use_csr_matrix=True)
+        elif v == "sparse_array":
+            return _get_sparse_array(do_wrap, use_csr_matrix=False)
         elif v == "ad":
             return _get_ad_array(do_wrap)
         else:
@@ -1974,13 +1625,13 @@ def test_arithmetic_operations_on_ad_objects(
     # can generate a new one and pass it as a formality.
     if wrapped:
         if var_1 == "ad":
-            v1, eq_system = v1
+            v1, equation_system = v1
         elif var_2 == "ad":
             # The case of both v1 and v2 being Ad variables is dealt with below.
-            v2, eq_system = v2
+            v2, equation_system = v2
         else:
             mdg = pp.MixedDimensionalGrid()
-            eq_system = pp.ad.EquationSystem(mdg)
+            equation_system = pp.ad.EquationSystem(mdg)
     if var_1 == "ad" and var_2 == "ad":
         # For the case of two ad variables, they should be associated with the
         # same EquationSystem, or else parsing will fail. We could have set v1 =
@@ -1999,12 +1650,12 @@ def test_arithmetic_operations_on_ad_objects(
 
     def _compare(v1, v2):
         # Helper function to compare two evaluated objects.
-        assert type(v1) == type(v2)
+        assert type(v1) is type(v2)
         if isinstance(v1, float):
             assert np.isclose(v1, v2)
         elif isinstance(v1, np.ndarray):
             assert np.allclose(v1, v2)
-        elif isinstance(v1, sps.spmatrix):
+        elif isinstance(v1, (sps.spmatrix, sps.sparray)):
             assert np.allclose(v1.toarray(), v2.toarray())
         elif isinstance(v1, pp.ad.AdArray):
             assert np.allclose(v1.val, v2.val)
@@ -2015,9 +1666,21 @@ def test_arithmetic_operations_on_ad_objects(
     # not a surprize (variable expected is False).
     if wrapped:
         try:
+            # The idea here is to test evaluation on the deepest level, i.e., the method
+            # _evaluate_single in the AdParser. This is the method that actually
+            # translates an expression into a numerical value. An error here signifies
+            # that something is wrong with the parsing itself. Note that testing of the
+            # frontend evaluation is done below (calls to equation_system.value()), as
+            # well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
-            val = expression._evaluate(eq_system)
+            state = pp.ad.initAdArrays(
+                [equation_system.get_variable_values(time_step_index=0)]
+            )[0]
+            val = equation_system._ad_parser._evaluate_single(
+                expression, state, equation_system
+            )
         except (TypeError, ValueError, NotImplementedError):
+            # The variable e is not used here, but it is invaluable for debugging.
             assert not expected
             return
     else:
@@ -2040,12 +1703,12 @@ def test_arithmetic_operations_on_ad_objects(
 
     if wrapped:
         if not multidimensional:
-            val_jac = expression.value_and_jacobian(eq_system)
-            val = expression.value(eq_system)
+            val_jac = equation_system.evaluate(expression, derivative=True)
+            val = equation_system.evaluate(expression)
             assert np.all(val_jac.val == val)
         else:
             with pytest.raises(NotImplementedError):
-                expression.value_and_jacobian(eq_system)
+                equation_system.evaluate(expression, derivative=True)
 
 
 @pytest.mark.parametrize(
@@ -2071,7 +1734,8 @@ def test_arithmetic_operations_on_ad_objects(
                 model.interface_darcy_flux_variable, model.mdg.interfaces()
             ),
         ],
-        # Some randomly selected operators: Leaves and trees in the Ad operator graph sense.
+        # Some randomly selected operators: Leaves and trees in the Ad operator graph
+        # sense.
         lambda model: [
             model.ad_time_step,
             model.permeability(model.mdg.subdomains()),
@@ -2141,3 +1805,138 @@ def test_hashing_sparse_array(two_spmatrices):
     """
     m1, m2 = [pp.ad.SparseArray(mat) for mat in two_spmatrices]
     assert hash(m1) != hash(m2)
+
+
+class MockModelForCacheTesting:
+    """A mock model for testing the caching of methods.
+
+    The class has a number of methods with different signatures, all of which are
+    decorated with @pp.ad.cached_method. The methods increment a counter each time the
+    actual method body is executed (but *not* when the cache decorater reroutes the
+    call), and return the current value of the counter.
+    """
+
+    def __init__(self):
+        self._operator_cache = {}
+        self._no_args_counter = 0
+        self._one_arg_counter = 0
+        self._two_args_counter = 0
+        self._list_arg_counter = 0
+        self._kwarg_counter = 0
+        self._arg_and_kwarg_counter = 0
+
+    @pp.ad.cached_method
+    def method_with_no_arguments(self):
+        self._no_args_counter += 1
+        return self._no_args_counter
+
+    @pp.ad.cached_method
+    def method_with_one_arg(self, foo: int):
+        self._one_arg_counter += 1
+        return self._one_arg_counter
+
+    @pp.ad.cached_method
+    def method_with_two_args(self, foo: int, bar: int):
+        self._two_args_counter += 1
+        return self._two_args_counter
+
+    @pp.ad.cached_method
+    def method_with_list_arg(self, foo: list[int]):
+        self._list_arg_counter += 1
+        return self._list_arg_counter
+
+    @pp.ad.cached_method
+    def method_with_kwargs(self, *, foo: int = 1):
+        self._kwarg_counter += 1
+        return self._kwarg_counter
+
+    @pp.ad.cached_method
+    def method_with_arg_and_kwarg(self, foo: int, *, bar: int = 1):
+        self._arg_and_kwarg_counter += 1
+        return self._arg_and_kwarg_counter
+
+
+class InheritedMockModel(MockModelForCacheTesting):
+    def method_with_no_arguments(self):
+        # A method with no caching at all.
+        return 0
+
+    def method_with_one_arg(self, foo: int):
+        # A method that forwards the call to the parent class, which is cached.
+        return super().method_with_one_arg(foo)
+
+
+def test_operator_method_caching():
+    model = MockModelForCacheTesting()
+
+    # The model with no argument should be called once, then have its result cached.
+    for _ in range(2):
+        assert model.method_with_no_arguments() == 1
+
+    # The model with a single argument should have its counter incremented each time it
+    # is called with a different argument. When later called with the same argument, the
+    # return should be the same as at the original call.
+    for _ in range(2):
+        assert model.method_with_one_arg(1) == 1
+    assert model.method_with_one_arg(3) == 2
+    assert model.method_with_one_arg(1) == 1
+
+    # The model with two arguments should have its counter incremented each time it is
+    # called with at least one argument not seen before. When later called with the same
+    # arguments, the return should be the same as at the original call.
+    for _ in range(2):
+        assert model.method_with_two_args(1, 2) == 1
+    assert model.method_with_two_args(3, 4) == 2
+    assert model.method_with_two_args(1, 3) == 3
+    assert model.method_with_two_args(2, 2) == 4
+    assert model.method_with_two_args(1, 2) == 1
+    # With the current implementation, passing the same arguments, but as keyword
+    # arguments should trigger a new evaluation, but then the cache should be used.
+    assert model.method_with_two_args(foo=1, bar=2) == 5
+    assert model.method_with_two_args(foo=1, bar=2) == 5
+    # When the keywords are passed in the opposite order, they will be found in the
+    # cache.
+    assert model.method_with_two_args(bar=2, foo=1) == 5
+
+    # The model with a list argument should have its counter incremented each time it is
+    # called with a different list argument. When later called with the same list
+    # argument, the return should be the same as at the original call.
+    for _ in range(2):
+        assert model.method_with_list_arg([1, 2]) == 1
+    assert model.method_with_list_arg([3, 4]) == 2
+    assert model.method_with_list_arg([1, 2]) == 1
+
+    # The model with a keyword argument should have its counter incremented each time it
+    # is called with a different keyword argument. When later called with the same
+    # keyword argument, the return should be the same as at the original call.
+    for _ in range(2):
+        assert model.method_with_kwargs(foo=1) == 1
+    assert model.method_with_kwargs(foo=2) == 2
+    assert model.method_with_kwargs(foo=1) == 1
+
+    # Test method with a positional argument and a keyword argument.
+    for _ in range(2):
+        assert model.method_with_arg_and_kwarg(1, bar=2) == 1
+    assert model.method_with_arg_and_kwarg(3, bar=4) == 2
+    assert model.method_with_arg_and_kwarg(1, bar=2) == 1
+
+    # Also test that the cache works for inherited classes.
+    inherited_model = InheritedMockModel()
+
+    for _ in range(2):
+        # A method with no caching should behave the same time every time it is called.
+        assert inherited_model.method_with_no_arguments() == 0
+
+    # Test a method that forwards the call to the parent class, which is cached. The
+    # behavior should be identical to the test of the parent class.
+    for _ in range(2):
+        assert inherited_model.method_with_one_arg(1) == 1
+    assert inherited_model.method_with_one_arg(3) == 2
+    assert inherited_model.method_with_one_arg(1) == 1
+
+    # Test a method that is not overridden in the inherited class. The behavior should
+    # be identical to the test of the parent class.
+    for _ in range(2):
+        assert inherited_model.method_with_list_arg([1, 2]) == 1
+    assert inherited_model.method_with_list_arg([3, 4]) == 2
+    assert inherited_model.method_with_list_arg([1, 2]) == 1

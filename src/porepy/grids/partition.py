@@ -18,8 +18,8 @@ available methods.
 
 from __future__ import annotations
 
-import warnings
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -43,7 +43,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     try:
         import pymetis
     except ImportError:
-        warnings.warn("Could not import pymetis. Partitioning by metis will not work.")
+        warn("Could not import pymetis. Partitioning by metis will not work.")
         raise ImportError("Cannot partition by pymetis")
 
     # Connection map between cells
@@ -523,9 +523,9 @@ def _extract_submatrix(
             Mapping from global to local row number.
 
     """
-    if mat.getformat() != "csc":
+    if mat.format != "csc":
         raise ValueError("To extract columns from a matrix, it must be csc")
-    sub_mat = pp.matrix_operations.slice_mat(mat, ind)
+    sub_mat = pp.matrix_operations.slice_sparse_matrix(mat, ind)
     cols = sub_mat.indptr
     data = sub_mat.data
     unique_rows, rows_sub = np.unique(sub_mat.indices, return_inverse=True)
@@ -822,6 +822,8 @@ def partition_grid(
             Each element contains the global indices of the local nodes.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warn(msg, DeprecationWarning)
 
     sub_grid: list[pp.Grid] = []
     face_map_list: list[np.ndarray] = []

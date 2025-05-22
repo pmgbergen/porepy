@@ -4,6 +4,7 @@ Created on Mon Mar 26 10:12:47 2018
 
 @author: eke001
 """
+
 import numpy as np
 import pytest
 
@@ -122,7 +123,8 @@ def test_uniquify_points_delete_point_edge():
 
 
 class Test_pts_edges_to_linefractures:
-    """This class is a collection of tests of the function pts_edges_to_linefractures."""
+    """This class is a collection of tests of the function
+    pts_edges_to_linefractures."""
 
     @pytest.mark.parametrize(
         "fracs_edges_points",

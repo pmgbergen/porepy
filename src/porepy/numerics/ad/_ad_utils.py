@@ -27,6 +27,7 @@ Classes:
 
 from __future__ import annotations
 
+import warnings
 from abc import ABCMeta
 from typing import Any, Optional
 
@@ -41,7 +42,10 @@ from .forward_mode import AdArray
 
 
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
-    """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
+    """Concatenates a sequence of AD arrays into a single AD Array along a specified
+    axis."""
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
 
@@ -145,7 +149,6 @@ def wrap_discretization(
     # Loop over all identified terms, assign a MergedOperator to non-coupling terms,
     # while postponing the treatment of coupling terms.
     for discretization_key in discretization_term_key:
-
         operators[discretization_key] = {}
 
         # Fetch all physics keywords associated with this discretization term. The
@@ -238,9 +241,8 @@ def uniquify_discretization_list(
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
-            # If this has been encountered before, we add subdomains not earlier associated
-            # with this discretization to the existing list.
-            # of subdomains.
+            # If this has been encountered before, we add subdomains not earlier
+            # associated with this discretization to the existing list. of subdomains.
             # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
             for g in discr.subdomains:
@@ -250,7 +252,8 @@ def uniquify_discretization_list(
                 if e not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(e)
         else:
-            # Take note we have now encountered this discretization and parameter keyword.
+            # Take note we have now encountered this discretization and parameter
+            # keyword.
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
@@ -273,22 +276,23 @@ def discretize_from_list(
     discretization.
     """
     for discr in discretizations:
-        # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
+        # discr is a discretization (on node or interface in the MixedDimensionalGrid
+        # sense)
 
         # Loop over all subdomains (or MixedDimensionalGrid edges), do discretization.
-        for g in discretizations[discr]:
-            if isinstance(g, pp.MortarGrid):
-                data = mdg.interface_data(g)  # type:ignore
-                g_primary, g_secondary = mdg.interface_to_subdomain_pair(g)
+        for grid in discretizations[discr]:
+            if isinstance(grid, pp.MortarGrid):
+                data = mdg.interface_data(grid)  # type:ignore
+                g_primary, g_secondary = mdg.interface_to_subdomain_pair(grid)
                 d_primary = mdg.subdomain_data(g_primary)
                 d_secondary = mdg.subdomain_data(g_secondary)
                 discr.discretize(
-                    g_primary, g_secondary, g, d_primary, d_secondary, data
+                    g_primary, g_secondary, grid, d_primary, d_secondary, data
                 )
             else:
-                data = mdg.subdomain_data(g)
+                data = mdg.subdomain_data(grid)
                 try:
-                    discr.discretize(g, data)
+                    discr.discretize(grid, data)
                 except NotImplementedError:
                     # This will likely be GradP and other Biot discretizations
                     pass
@@ -524,12 +528,6 @@ class MergedOperator(operators.Operator):
 
     """
 
-    def _key(self) -> str:
-        return (
-            f"(merged_op, discretization_matrix_key={self._discretization_matrix_key},"
-            f" physics_key={self._physics_key}, domains={[d.id for d in self.domains]})"
-        )
-
     def __init__(
         self,
         discr: pp.discretization_type,
@@ -571,6 +569,21 @@ class MergedOperator(operators.Operator):
     def __str__(self) -> str:
         return f"{self._name}({self._physics_key}).{self._discretization_matrix_key}"
 
+    def _key(self) -> str:
+        # Mypy occasionally (but not always, sigh) complains that it cannot
+        # self._cached_key determine the type of self._cached_key, despite it being
+        # decleared as an Optional[str] in the class definition.
+        if self._cached_key is None:  # type: ignore[has-type]
+            domain_ids = [domain.id for domain in self.domains]
+            s = f"(Merged_operator, name={self.name}, domains={domain_ids})"
+            s += f", discretization_matrix_key={self._discretization_matrix_key}"
+            s += f", physics_key={self._physics_key}"
+            if self._inner_physics_key is not None:
+                s += f", inner_physics_key={self._inner_physics_key}"
+
+            self._cached_key = s
+        return self._cached_key
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """Convert a merged operator into a sparse matrix by concatenating
         discretization matrices.
@@ -594,12 +607,12 @@ class MergedOperator(operators.Operator):
 
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity.
-        for g in self.domains:
+        for grid in self.domains:
             # Get data dictionary for either grid or interface
-            if isinstance(g, pp.MortarGrid):
-                data = mdg.interface_data(g)
-            elif isinstance(g, pp.Grid):
-                data = mdg.subdomain_data(g)
+            if isinstance(grid, pp.MortarGrid):
+                data = mdg.interface_data(grid)
+            elif isinstance(grid, pp.Grid):
+                data = mdg.subdomain_data(grid)
             else:
                 s = "Did not expect a discretization defined on a BoundaryGrid."
                 raise ValueError(s)
@@ -618,9 +631,24 @@ class MergedOperator(operators.Operator):
             mat.append(local_mat)
 
         if all([isinstance(m, np.ndarray) for m in mat]):
-            # TODO: EK is almost sure this never happens, but leave this check for now.
+            # EK is almost sure this never happens, but leave this check for now.
             raise NotImplementedError("")
 
         else:
             # This is a standard discretization; wrap it in a diagonal sparse matrix.
-            return sps.block_diag(mat, format="csr")
+
+            if all([m.format == "dia" for m in mat]):
+                # If all matrices are of dia-format, we can try to use a special method
+                # for forming a sparse dia matrix from the blocks. This is more
+                # efficient than the below csr-based method. However, the matrices can
+                # only be nonzero along their main diagonal. This condition does not
+                # hold true for all dia-matrices, so there is a chance a ValueError may
+                # be raised. If so, we let it pass and fall back to the csr-based
+                # method.
+                try:
+                    return pp.matrix_operations.sparse_dia_from_sparse_blocks(mat)
+                except ValueError:
+                    # Use the csr-based method below.
+                    pass
+
+            return pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)

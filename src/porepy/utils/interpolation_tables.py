@@ -1,4 +1,4 @@
-""" The module contains interpolation tables, intended for use in function
+"""The module contains interpolation tables, intended for use in function
 evaluations. Specifically, the motivation is to facilitate the parametrization
 framework described in
 
@@ -772,13 +772,13 @@ class AdaptiveInterpolationTable(InterpolationTable):
         s = f"Adaptive interpolation table in {self._param_dim} dimensions.\n"
         s += f"The table stores function values in {self._pt.shape[1]} points.\n"
         if self._pt.size != 0 and self._values.size != 0:
-            s += "The minimum coordinates in each dimension (possibly combining multiple "
-            s += "coordinates) are: \n \n \t"
+            s += "The minimum coordinates in each dimension (possibly combining "
+            s += "multiple coordinates) are: \n \n \t"
             for dim in range(self._param_dim):
                 s += f"{dim}: {self._pt[dim].min()}, "
             s = s[:-2] + "\n \n"
-            s += "The maximum coordinates in each dimension (possibly combining multiple "
-            s += "coordinates) are: \n \n \t"
+            s += "The maximum coordinates in each dimension (possibly combining "
+            s += "multiple coordinates) are: \n \n \t"
             for dim in range(self._param_dim):
                 s += f"{dim}: {self._pt[dim].max()}, "
             s = s[:-2] + "\n \n"

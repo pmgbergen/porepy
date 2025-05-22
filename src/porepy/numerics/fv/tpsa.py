@@ -171,8 +171,8 @@ class Tpsa:
         # Deal with rotation variable being 1d if g.dim == 2, 3d if g.dim == 3
         >>> num_rot_face = nf if g.dim == 2 else 3 * nf
         >>> num_rot_cell = nc if g.dim == 2 else 3 * nc
-        >>> div_scalar = pp.fvutils.scalar_divergence(g)
-        >>> div_vector = pp.fvutils.vector_divergence(g)
+        >>> div_scalar = g.divergence(dim=1)
+        >>> div_vector = g.divergence(dim=3)
         >>> div_rot = div_scalar if g.dim == 2 else div_vec
 
         >>> matrices = data[pp.DISCRETIZATION_MATRICES][key]
@@ -259,7 +259,6 @@ class Tpsa:
     """
 
     def __init__(self, keyword: str) -> None:
-
         self.keyword: str = keyword
         """Keyword used to identify the parameter dictionary."""
 
@@ -677,9 +676,7 @@ class Tpsa:
                 )
                 + t_shear_rob  # Contribution from Robin boundary conditions.
             )
-        ).reshape(
-            (nd, nf), order="F"
-        )  #
+        ).reshape((nd, nf), order="F")
 
         # Discretize the stress-displacement relation.
         stress, bound_stress = self._vector_laplace_matrices(
@@ -783,7 +780,7 @@ class Tpsa:
             z = np.zeros(nf)
             Rn_data = np.array([[z, n[2], -n[1]], [-n[2], z, n[0]], [n[1], -n[0], z]])
 
-            Rn_hat = pp.matrix_operations.csr_matrix_from_blocks(
+            Rn_hat = pp.matrix_operations.csr_matrix_from_dense_blocks(
                 Rn_data.ravel("F"), nd, nf
             )
             Rn_bar = Rn_hat
@@ -1228,7 +1225,7 @@ class Tpsa:
             rob_weight = np.vstack((rob_weight, bnd_disp.robin_weight[2, 2]))
 
         # Nd version of the faces with Robin boundary conditions.
-        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
+        rob_boundary_faces_expanded = pp.array_operations.expand_indices_nd(
             np.arange(nf), nd
         ).reshape((nd, nf), order="F")[bnd_disp.is_rob]
         rob_weights_boundary_faces = rob_weight[bnd_disp.is_rob]
@@ -1388,8 +1385,8 @@ class Tpsa:
         fi, ci, sgn = sparse_array_to_row_col_data(sd.cell_faces)
 
         # Expand face and cell indices to construct nd discretization matrices.
-        fi_expanded = fvutils.expand_indices_nd(fi, nd)
-        ci_expanded = fvutils.expand_indices_nd(ci, nd)
+        fi_expanded = pp.array_operations.expand_indices_nd(fi, nd)
+        ci_expanded = pp.array_operations.expand_indices_nd(ci, nd)
         # For vector quantities, we need fi repeated nd times, do this once and for all
         # here.
         sgn_nd = np.repeat(sgn, nd)

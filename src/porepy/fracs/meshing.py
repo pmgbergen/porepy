@@ -19,7 +19,6 @@ from porepy.fracs import split_grid, structured
 from porepy.grids import mortar_grid
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import mcolon
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +239,9 @@ def _tag_faces(grids, check_highest_dim=True):
 
     # Assume only one grid of highest dimension
     if check_highest_dim:
-        assert len(grids[0]) == 1, "Must be exactly" "1 grid of dim: " + str(len(grids))
+        assert len(grids[0]) == 1, "There must be exactly 1 grid of dim: " + str(
+            len(grids)
+        )
 
     for g_h in np.atleast_1d(grids[0]):
         bnd_faces = g_h.get_all_boundary_faces()
@@ -280,7 +281,9 @@ def _tag_faces(grids, check_highest_dim=True):
                 # We find the global nodes of all boundary faces
                 bnd_faces_l = g.get_all_boundary_faces()
                 indptr = g.face_nodes.indptr
-                fn_loc = mcolon.mcolon(indptr[bnd_faces_l], indptr[bnd_faces_l + 1])
+                fn_loc = pp.array_operations.expand_index_pointers(
+                    indptr[bnd_faces_l], indptr[bnd_faces_l + 1]
+                )
                 nodes_loc = g.face_nodes.indices[fn_loc]
                 # Convert to global numbering
                 nodes_glb = g.global_point_ind[nodes_loc]
@@ -354,7 +357,7 @@ def _tag_faces(grids, check_highest_dim=True):
         true_tip = np.intersect1d(may_be_tip, occurs_once)
 
         # Take the intersection between tip nodes and the nodes in this fracture.
-        _, local_true_tip = pp.utils.setmembership.ismember_rows(
+        _, local_true_tip = pp.array_operations.ismember_columns(
             true_tip, g_h.global_point_ind
         )
         tip_tag = np.zeros(g_h.num_nodes, dtype=bool)
@@ -364,7 +367,7 @@ def _tag_faces(grids, check_highest_dim=True):
         g_h.tags["node_is_fracture_tip"] = tip_tag
 
         on_any_tip = np.where(np.bincount(global_node_as_fracture_tip) > 0)[0]
-        _, local_any_tip = pp.utils.setmembership.ismember_rows(
+        _, local_any_tip = pp.array_operations.ismember_columns(
             on_any_tip, g_h.global_point_ind
         )
         tip_of_a_fracture = np.zeros_like(tip_tag)
@@ -435,30 +438,30 @@ def _assemble_mdg(
         # faces of the higher-dimensional grid. If this face-cell intersection is
         # non-empty, there is a coupling will be made between the higher and
         # lower-dimensional grid, and the face-to-cell relation will be saved.
-        for hsd in subdomains[dim]:
+        for subdomains_of_dim in subdomains[dim]:
             # We have to specify the number of nodes per face to generate a matrix of
             # the nodes of each face.
-            n_per_face = _nodes_per_face(hsd)
+            n_per_face = _nodes_per_face(subdomains_of_dim)
 
             # Get the face-node relation for the higher-dimensional grid, stored with
             # one column per face
-            fn_loc = hsd.face_nodes.indices.reshape(
-                (n_per_face, hsd.num_faces), order="F"
+            fn_loc = subdomains_of_dim.face_nodes.indices.reshape(
+                (n_per_face, subdomains_of_dim.num_faces), order="F"
             )
             # Convert to global numbering
-            fn = hsd.global_point_ind[fn_loc]
+            fn = subdomains_of_dim.global_point_ind[fn_loc]
             fn = np.sort(fn, axis=0)
 
             # Get a cell-node relation for the lower-dimensional grids. It turns out
             # that to do the intersection between the node groups is costly (mainly
-            # because the call to ismember_rows below does a unique over all
+            # because the call to ismember_columns below does a unique over all
             # faces-nodes in the higher-dimensional grid). To save a lot of time,
             # we first group cell-nodes for all lower- dimensional grids,
             # do the intersection once, and then process the results.
 
             # The treatment of the lower-dimensional grids is a bit special for point
             # grids (else below)
-            if hsd.dim > 1:
+            if subdomains_of_dim.dim > 1:
                 # Data structure for cell-nodes
                 cn = []
                 # Number of cells per grid. Will be used to define offsets for
@@ -490,7 +493,7 @@ def _assemble_mdg(
 
             # Find intersection between cell-node and face-nodes. Node nede to sort
             # along 0-axis, we know we've done that above.
-            is_mem, cell_2_face = pp.utils.setmembership.ismember_rows(
+            is_mem, cell_2_face = pp.array_operations.ismember_columns(
                 cn_all, fn, sort=False
             )
             # Now, for each lower-dimensional grid, either all of none of the cells
@@ -530,10 +533,10 @@ def _assemble_mdg(
                         np.ones(loc_mem.size, dtype=bool),
                         (np.arange(loc_mem.size), cell_2_face[ind]),
                     ),
-                    shape=(lsd.num_cells, hsd.num_faces),
+                    shape=(lsd.num_cells, subdomains_of_dim.num_faces),
                 )
                 # Add the pairing of subdomains and the cell-face map to the list
-                sd_pair_to_face_cell_map[(hsd, lsd)] = face_cell_map
+                sd_pair_to_face_cell_map[(subdomains_of_dim, lsd)] = face_cell_map
 
     return mdg, sd_pair_to_face_cell_map
 
@@ -558,7 +561,7 @@ def create_interfaces(
 
     # loop on all the subdomain pairs and create the mortar grids
     for sd_pair, face_cells in sd_pair_to_face_cell_map.items():
-        sd_h, sd_l = sd_pair
+        sd_primary, sd_secondary = sd_pair
 
         # face_cells.indices gives mappings into the lower dimensional cells. Count
         # the number of occurrences for each cell.
@@ -577,12 +580,12 @@ def create_interfaces(
         if np.all(num_sides > 1):
             # we are in a two sides situation
             side_g = {
-                mortar_sides.LEFT_SIDE: sd_l.copy(),
-                mortar_sides.RIGHT_SIDE: sd_l.copy(),
+                mortar_sides.LEFT_SIDE: sd_secondary.copy(),
+                mortar_sides.RIGHT_SIDE: sd_secondary.copy(),
             }
         else:
             # the tag name is just a place-holder we assume left side
-            side_g = {mortar_sides.LEFT_SIDE: sd_l.copy()}
-        mg = mortar_grid.MortarGrid(sd_l.dim, side_g, face_cells)
+            side_g = {mortar_sides.LEFT_SIDE: sd_secondary.copy()}
+        mg = mortar_grid.MortarGrid(sd_secondary.dim, side_g, face_cells)
 
         mdg.add_interface(mg, sd_pair, face_cells)

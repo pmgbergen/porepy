@@ -1,6 +1,7 @@
 import numpy as np
 
 import porepy as pp
+from warnings import warn
 
 
 class Graph:
@@ -26,6 +27,13 @@ class Graph:
     """
 
     def __init__(self, node_connections):
+        # The Graph class is deprecated. The only known usage is when the function
+        # fracs.split_grid.duplicate_nodes is called with the argument offset > 0.
+        # That function will be either be updated or deprecated in a future version, and
+        # the Graph class will not be deleted until a resolution has been made for
+        # duplicate_nodes.
+        warn("This class is deprecated and will be removed in a future version.")
+
         if node_connections.getformat() != "csr":
             self.node_connections = node_connections.tocsr()
         else:
@@ -47,7 +55,7 @@ class Graph:
             else:
                 return
         raise RuntimeWarning(
-            "number of regions can not be greater than " "number of nodes"
+            "number of regions can not be greater than number of nodes"
         )
 
     def bfs(self, start, color):

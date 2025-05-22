@@ -131,16 +131,16 @@ class ConformingFracturePropagation(FracturePropagation):
                     sd_secondary, intf, data_primary, data_secondary, data_intf
                 )
 
-                # Determine whether the fracture should propagate based on computed SIFs,
-                # tag faces in the lower-dimensional grid that should be split (that is,
-                # find the parts of the fracture tips that should move).
+                # Determine whether the fracture should propagate based on computed
+                # SIFs, tag faces in the lower-dimensional grid that should be split
+                # (that is, find the parts of the fracture tips that should move).
                 self._propagation_criterion(data_secondary)
 
                 # Determine the propagation angle based on SIFs
                 self._angle_criterion(data_secondary)
 
-                # Determine faces to split in the higher-dimensional grid, that is, where
-                # the fracture should grow.
+                # Determine faces to split in the higher-dimensional grid, that is,
+                # where the fracture should grow.
                 self._pick_propagation_faces(
                     sd_primary, sd_secondary, data_primary, data_secondary, data_intf
                 )
@@ -170,8 +170,8 @@ class ConformingFracturePropagation(FracturePropagation):
         data_intf: dict,
     ) -> None:
         """
-        Compute stress intensity factors by displacement correlation based on
-        the solution of the previous iterate.
+        Compute stress intensity factors by displacement correlation based on the
+        solution of the previous iterate.
 
         Parameters
         ----------
@@ -189,13 +189,13 @@ class ConformingFracturePropagation(FracturePropagation):
         -------
         None.
 
-        Stores the stress intensity factors in data_secondary under the name "SIFs". The value
-        is an self.nd times self.num_faces np.ndarray.
+        Stores the stress intensity factors in data_secondary under the name "SIFs". The
+        value is an self.nd times self.num_faces np.ndarray.
 
         """
 
-        # NOTE: self.mechanics_parameter_key is expected to come from the model with which
-        # this class is assumed to be combined.
+        # NOTE: self.mechanics_parameter_key is expected to come from the model with
+        # which this class is assumed to be combined.
         parameters_secondary: dict[str, Any] = data_secondary[pp.PARAMETERS][
             self.mechanics_parameter_key  # type: ignore
         ]
@@ -302,7 +302,9 @@ class ConformingFracturePropagation(FracturePropagation):
         # f = -2*(1-poisson)/np.sqrt(2*np.pi)/mu
         # f =2/(1+poisson)/np.sqrt(2*np.pi)/mu
         # for i in [1,0]:
-        #     print((3*d_u[i,0]-d_u[i,1])/((3*np.sqrt(2)-np.sqrt(6))*np.sqrt(2*rm[0])*f))
+        #     print(
+        #         (3*d_u[i,0]-d_u[i,1])/((3*np.sqrt(2)-np.sqrt(6))*np.sqrt(2*rm[0])*f)
+        #     )
         if dim == 3:
             K[2] = np.sqrt(2 * np.pi / rm) * np.divide(mu, 4) * d_u[2, :]
         return K
@@ -404,7 +406,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Fracture grid.
         d : dict
             The grid's data dictionary.
@@ -496,16 +498,16 @@ class ConformingFracturePropagation(FracturePropagation):
             sd_secondary.face_nodes[:, faces_secondary]
         )
 
-        # Obtain the global index of all nodes.
-        # NOTE: For algorithms that introduce new geometric points (not including points that
-        # are split to represent a new fracture, but algorithms that do mesh adaptation will
-        # be impacted), the global_point_ind must be kept updated so that it gives a unique
-        # mapping between points that coincide in the geometry (e.g. the two sides of a
+        # Obtain the global index of all nodes. NOTE: For algorithms that introduce new
+        # geometric points (not including points that are split to represent a new
+        # fracture, but algorithms that do mesh adaptation will be impacted), the
+        # global_point_ind must be kept updated so that it gives a unique mapping
+        # between points that coincide in the geometry (e.g. the two sides of a
         # fracture, and the corresponding point on the fracture).
         global_nodes = sd_secondary.global_point_ind[nodes_secondary]
 
-        # Prepare for checking intersection. indata_secondary is used to reconstruct non-unique
-        # nodes later.
+        # Prepare for checking intersection. indata_secondary is used to reconstruct
+        # non-unique nodes later.
         global_nodes, indata_secondary = np.unique(global_nodes, return_inverse=True)
         # Find sd_primary indices of unique global nodes
         _, nodes_primary, *_ = np.intersect1d(
@@ -517,8 +519,9 @@ class ConformingFracturePropagation(FracturePropagation):
             nodes_primary[indata_secondary], (nd - 1, faces_secondary.size), order="F"
         )
 
-        # IMPLEMENTATION NOTE: No attempt at vectorization: Too many pitfalls. In particular,
-        # the number of candidate faces is unknown and may differ between the nodes.
+        # IMPLEMENTATION NOTE: No attempt at vectorization: Too many pitfalls. In
+        # particular, the number of candidate faces is unknown and may differ between
+        # the nodes.
 
         # Data structure for storing which faces in sd_primary should be split
         faces_primary = np.empty(faces_secondary.shape, dtype=int)
@@ -661,27 +664,27 @@ class ConformingFracturePropagation(FracturePropagation):
                 raise ValueError("Grid dimension should be 1, 2 or 3")
             return faces
 
-        # For an edge (corresponding to a fracture tip in sd_secondary), find its neighboring
-        # faces in sd_primary
+        # For an edge (corresponding to a fracture tip in sd_secondary), find its
+        # neighboring faces in sd_primary
         candidate_faces = faces_of_edge(sd_primary, edge_primary)
 
         # Exclude faces that are on a fracture
         are_fracture = sd_primary.tags["fracture_faces"][candidate_faces]
         candidate_faces = candidate_faces[np.logical_not(are_fracture)]
 
-        # Make sure splitting of a candidate does not lead to self-intersection.
-        # This is done by checking that none of the face's edges is an "internal
-        # fracture edge", i.e. that if it lies on a fracture, it is on a tip.
+        # Make sure splitting of a candidate does not lead to self-intersection. This is
+        # done by checking that none of the face's edges is an "internal fracture edge",
+        # i.e. that if it lies on a fracture, it is on a tip.
         #
-        # IMPLEMENTATION NOTE: The below tests form an attempt to keep a reasonable fracture
-        # geometry for general fractures. For general fracture geometries, this is difficult,
-        # and the below code can not be trusted to give good results (and neither did other
-        # attempts on implementing such quality checks). For such problems, the best option
-        # may be remeshing.
+        # IMPLEMENTATION NOTE: The below tests form an attempt to keep a reasonable
+        # fracture geometry for general fractures. For general fracture geometries, this
+        # is difficult, and the below code can not be trusted to give good results (and
+        # neither did other attempts on implementing such quality checks). For such
+        # problems, the best option may be remeshing.
         #
         # IMPLEMENTATION NOTE: For the special case of tensile fracturing along lines or
-        # planes that are represented in the grid geometry, the below lines can be dropped
-        # (but they should not do any harm either).
+        # planes that are represented in the grid geometry, the below lines can be
+        # dropped (but they should not do any harm either).
         for f in candidate_faces:
             # Obtain all edges:
             local_nodes = sd_primary.face_nodes[:, f].nonzero()[0]
@@ -690,10 +693,10 @@ class ConformingFracturePropagation(FracturePropagation):
             # Faces are defined by one node in 1d and two in 2d. This requires
             # dimension dependent treatment:
             if sd_primary.dim == 3:
-                # Sort nodes clockwise (!)
-                # ASSUMPTION: This assumes that the new cell is star-shaped with respect to the
-                # local cell center. This should be okay.
-                map_to_sorted = pp.utils.sort_points.sort_point_plane(
+                # Sort nodes clockwise (!) ASSUMPTION: This assumes that the new cell is
+                # star-shaped with respect to the local cell center. This should be
+                # okay.
+                map_to_sorted = pp.sort_points.sort_point_plane(
                     pts, sd_primary.face_centers[:, f]
                 )
                 sorted_nodes = local_nodes[map_to_sorted]
@@ -722,8 +725,8 @@ class ConformingFracturePropagation(FracturePropagation):
                     if sd_secondary.dim == 1:
                         face_secondary = nodes_secondary
                     if sd_secondary.dim == 2:
-                        # Care has to be taken since we don't know whether nodes_secondary
-                        # actually correspond to a face in sd_secondary.
+                        # Care has to be taken since we don't know whether
+                        # nodes_secondary actually correspond to a face in sd_secondary.
                         f_0 = sd_secondary.face_nodes[nodes_secondary[0]].nonzero()[1]
                         f_1 = sd_secondary.face_nodes[nodes_secondary[1]].nonzero()[1]
                         face_secondary = np.intersect1d(f_0, f_1)

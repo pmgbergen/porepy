@@ -6,6 +6,7 @@ Content:
     - Test of meshing.
 
 """
+
 from collections import namedtuple
 
 import numpy as np
@@ -236,11 +237,11 @@ def test_mesh_size_determination():
     # Two of the domain corners are close enough to the fracture to have their mesh size
     # modified from the default boundary value.
     origin = np.zeros((3, 1))
-    _, ind = pp.utils.setmembership.ismember_rows(origin, decomp["points"])
+    _, ind = pp.array_operations.ismember_columns(origin, decomp["points"])
     mesh_size_known[ind] = np.sqrt(3)
 
     corner = np.array([5, 0, 0]).reshape((3, 1))
-    _, ind = pp.utils.setmembership.ismember_rows(corner, decomp["points"], sort=False)
+    _, ind = pp.array_operations.ismember_columns(corner, decomp["points"], sort=False)
     mesh_size_known[ind] = np.sqrt(2)
 
     assert np.all(np.isclose(mesh_size, mesh_size_known))
@@ -288,7 +289,8 @@ def check_mdg(
     expected_num_1d_grids=0,
     expected_num_0d_grids=0,
 ):
-    """Validate the generated mixed-dimensional grid based on the expected grid properties.
+    """Validate the generated mixed-dimensional grid based on the expected grid
+    properties.
 
     Parameters:
         mdg: Grid to be validated

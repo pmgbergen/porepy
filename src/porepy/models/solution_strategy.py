@@ -7,23 +7,21 @@ keep them separate, to avoid breaking existing code (legacy models).
 
 from __future__ import annotations
 
-import abc
 import logging
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC, PorePyModel):
+class SolutionStrategy(pp.PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
 
@@ -48,19 +46,39 @@ class SolutionStrategy(abc.ABC, PorePyModel):
 
         default_params.update(params)
         self.params = default_params
+        """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status = False
-
+        """Whether the non-linear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        """List of non-linear discretizations, to be updated in every iteration.
+
+        See also :meth:`add_nonlinear_discretization`.
+
+        """
         self.units = params.get("units", pp.Units())
+        """Units of the model provided in ``params['units']``."""
+        # get default or user-provided reference values
+        reference_values: pp.ReferenceVariableValues = params.get(
+            "reference_variable_values", pp.ReferenceVariableValues()
+        )
+        # Ensure the reference values are in the right units
+        reference_values = reference_values.to_units(self.units)
+        self.reference_variable_values = reference_values
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
+
+        Reference values can be provided through ``params['reference_values']``.
+
+        """
 
         self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
-
+        """Time manager for the simulation."""
         self.restart_options = params.get(
             "restart_options",
             {
@@ -92,8 +110,23 @@ class SolutionStrategy(abc.ABC, PorePyModel):
                 # assumed to address the last time step in times_file.
             },
         )
-
+        """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
+        """Time step as an automatic differentiation scalar."""
+        self.results: list[Any] = []
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
+
+        self._operator_cache: dict[Any, pp.ad.Operator] = {}
+        """Cache for storing the result of methods that return Ad operators. This is
+        used to avoid re-construction of the same operator multiple times, but does not
+        affect evaluation of the operator.
+
+        An operator is added to the cache by adding the decorator @pp.ad.cache_operator
+        to the method that returns the operator. It is considered good practice to use
+        the cache sparingly, and only for operators that have been shown to be expensive
+        to construct.
+        """
 
         self.set_solver_statistics()
 
@@ -112,7 +145,18 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
+        # After fluid and variables are defined, we can define the secondary quantities
+        # like fluid properties (which depend on variables). Creating fluid and
+        # variables before defining secondary thermodynamic properties is critical in
+        # the case where properties depend on some fractions. since the callables for
+        # secondary variables are dynamically created during create_variables, as
+        # opposed to e.g. pressure or temperature.
+        self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        self.initialize_previous_iterate_and_time_step_values()
+
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
         self.set_equations()
 
@@ -124,6 +168,26 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # Export initial condition
         self.save_data_time_step()
 
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
+        """Method to be called after initial values are set at ``iterate_index=0`` in
+        the mixins for initial conditions.
+
+        This methods copies respective values to all other iterate and time step indices
+        to finalize the initialization procedure.
+
+        """
+        val = self.equation_system.get_variable_values(iterate_index=0)
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(
+                val,
+                iterate_index=iterate_index,
+            )
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
+
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
         if not hasattr(self, "equation_system"):
@@ -132,26 +196,26 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_discretization_parameters(self) -> None:
         """Set parameters for the discretization.
 
-        This method is called before the discretization is performed. It is
-        intended to be used to set parameters for the discretization, such as
-        the permeability, the porosity, etc.
+        This method is called before the discretization is performed. It is intended to
+        be used to set parameters for the discretization, such as the permeability, the
+        porosity, etc.
 
         """
 
     def set_solver_statistics(self) -> None:
         """Set the solver statistics object.
 
-        This method is called at initialization. It is intended to be used to
-        set the solver statistics object(s). Currently, the solver statistics
-        object is related to nonlinearity only. Statistics on other parts of the
-        solution process, such as linear solvers, may be added in the future.
+        This method is called at initialization. It is intended to be used to set the
+        solver statistics object(s). Currently, the solver statistics object is related
+        to nonlinearity only. Statistics on other parts of the solution process, such as
+        linear solvers, may be added in the future.
 
         Raises:
             ValueError: If the solver statistics object is not a subclass of
                 pp.SolverStatistics.
 
         """
-        # Retrieve the value with a default of pp.SolverStatistics
+        # Retrieve the value with a default of pp.SolverStatistics.
         statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
@@ -163,32 +227,12 @@ class SolutionStrategy(abc.ABC, PorePyModel):
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
 
-    def initial_condition(self) -> None:
-        """Set the initial condition for the problem.
-
-        For each solution index stored in ``self.time_step_indices`` and
-        ``self.iterate_indices`` a zero initial value will be assigned.
-
-        """
-        val = np.zeros(self.equation_system.num_dofs())
-        for time_step_index in self.time_step_indices:
-            self.equation_system.set_variable_values(
-                val,
-                time_step_index=time_step_index,
-            )
-
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
-
-        # Initialize time dependent ad arrays, including those for boundary values.
-        self.update_time_dependent_ad_arrays()
-
     @property
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
-        Index 0 corresponds to the most recent time step with the know solution, 1 -
-        to the previous time step, etc.
+        Index 0 corresponds to the most recent time step with the know solution, 1 to
+        the previous time step, etc.
 
         Returns:
             An array of the indices of which time step solutions will be stored,
@@ -244,32 +288,69 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_materials(self):
         """Set material parameters.
 
-        In addition to adjusting the units (see ::method::set_units), materials are
-        defined through ::class::pp.Material and the constants passed when initializing
-        the materials. For most purposes, a user needs only pass the desired parameter
-        values in params["material_constants"] when initializing a solution strategy,
-        and should not need to modify the material classes. However, if a user wishes to
-        modify to e.g. provide additional material parameters, this can be done by
-        passing modified material classes in params["fluid"] and params["solid"].
+        Searches for entries in ``params['material_constants']`` with keys ``'fluid'``
+        and ``'solid'`` for respective material constant instances. If not found,
+        default materials are instantiated.
+
+        Provides the :attr:`solid` material constants as an attribute to the model, as
+        well as the :attr:`fluid` object by calling :attr:`create_fluid`.
+
+        By default, a 1-phase, 1-component fluid is created based on the fluid component
+        provided in ``params['material_constants']``.
 
         """
-        # Default values
-        constants = {}
-        constants.update(self.params.get("material_constants", {}))
-        # Use standard models for fluid and solid constants if not provided.
-        if "fluid" not in constants:
-            constants["fluid"] = pp.FluidConstants()
-        if "solid" not in constants:
-            constants["solid"] = pp.SolidConstants()
+        # User provided values, if any.
+        constants = cast(
+            dict[str, pp.Constants], self.params.get("material_constants", {})
+        )
+        # If the user provided material constants, assert they are in dictionary form
+        assert isinstance(constants, dict), (
+            "model.params['material_constants'] must be a dictionary."
+        )
 
-        # Loop over all constants objects (fluid, solid), and set units.
-        for name, const in constants.items():
-            # Check that the object is of the correct type
-            assert isinstance(const, pp.models.material_constants.MaterialConstants)
-            # Impose the units passed to initialization of the model.
-            const.set_units(self.units)
-            # This is where the constants (fluid, solid) are actually set as attributes
-            setattr(self, name, const)
+        # Use standard models for fluid, solid and numerical constants if not provided.
+        # Otherwise get the given constants.
+        solid = cast(
+            pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
+        )
+        fluid = cast(
+            pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
+        )
+        numerical = cast(
+            pp.NumericalConstants,
+            constants.get("numerical", pp.NumericalConstants(name="numerical")),
+        )
+
+        # Sanity check that users did not pass anything unexpected.
+        assert isinstance(solid, pp.SolidConstants), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.SolidConstants}"
+        )
+        assert isinstance(fluid, pp.FluidComponent), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.FluidComponent}"
+        )
+
+        # Converting to units of simulation.
+        fluid = fluid.to_units(self.units)
+        solid = solid.to_units(self.units)
+        numerical = numerical.to_units(self.units)
+
+        # Set the solid for the model.
+        # NOTE this will change with the generalization of the solid
+        self.solid = solid
+
+        # Set the numerical constants for the model.
+        self.numerical = numerical
+
+        # Store the fluid component to be accessible by the FluidMixin for creating the
+        # default fluid object of the model
+        if "material_constants" not in self.params:
+            self.params["material_constants"] = {"fluid": fluid}
+        else:
+            # by logic, params['material_constants'] is ensured to be a dict
+            self.params["material_constants"]["fluid"] = fluid
+        self.create_fluid()
 
     def discretize(self) -> None:
         """Discretize all terms."""
@@ -378,15 +459,18 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             self.time_manager.compute_time_step(
                 iterations=self.nonlinear_solver_statistics.num_iteration
             )
+        self.update_solution(solution)
 
+        self.convergence_status = True
+        self.save_data_time_step()
+
+    def update_solution(self, solution: np.ndarray) -> None:
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
-        self.convergence_status = True
-        self.save_data_time_step()
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
@@ -414,7 +498,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def check_convergence(
         self,
         nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
+        residual: Optional[np.ndarray],
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
@@ -423,7 +507,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         Parameters:
             nonlinear_increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
-            obtained solution vector.
+                obtained solution vector. Potentially None, if not needed.
             reference_residual: Reference residual vector of non-linear system,
                 evaluated for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
@@ -466,8 +550,14 @@ class SolutionStrategy(abc.ABC, PorePyModel):
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
             # Check convergence requiring both the increment and residual to be small.
-            converged_inc = nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            converged_res = residual_norm < nl_params["nl_convergence_tol_res"]
+            converged_inc = (
+                nl_params["nl_convergence_tol"] is np.inf
+                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                nl_params["nl_convergence_tol_res"] is np.inf
+                or residual_norm < nl_params["nl_convergence_tol_res"]
+            )
             converged = converged_inc and converged_res
             diverged = False
 
@@ -479,19 +569,21 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         return converged, diverged
 
     def compute_residual_norm(
-        self, residual: np.ndarray, reference_residual: np.ndarray
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
     ) -> float:
         """Compute the residual norm for a nonlinear iteration.
 
         Parameters:
             residual: Residual of current iteration.
             reference_residual: Reference residual value (initial residual expected),
-                allowing for definiting relative criteria.
+                allowing for defining relative criteria.
 
         Returns:
-            float: Residual norm.
+            float: Residual norm; np.nan if the residual is None.
 
         """
+        if residual is None:
+            return np.nan
         residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
         return residual_norm
 
@@ -616,6 +708,16 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         """
         return True
 
+    def _is_reference_phase_eliminated(self) -> bool:
+        """Returns True if ``params['eliminate_reference_phase'] == True`.
+        Defaults to True."""
+        return bool(self.params.get("eliminate_reference_phase", True))
+
+    def _is_reference_component_eliminated(self) -> bool:
+        """Returns True if ``params['eliminate_reference_component'] == True`.
+        Defaults to True."""
+        return bool(self.params.get("eliminate_reference_component", True))
+
     def update_time_dependent_ad_arrays(self) -> None:
         """Update the time dependent arrays before a new time step.
 
@@ -625,8 +727,17 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         """
         self.update_all_boundary_conditions()
 
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
 
-class ContactIndicators(PorePyModel):
+        Returns:
+            List of keywords for the Darcy flux values.
+
+        """
+        return []
+
+
+class ContactIndicators(pp.PorePyModel):
     """Class for computing contact indicators used for tailored line search.
 
     This functionality is experimental and may be subject to change.
@@ -647,9 +758,6 @@ class ContactIndicators(PorePyModel):
 
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact mechanics numerical constant."""
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Displacement jump operator."""
 
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""
@@ -687,7 +795,9 @@ class ContactIndicators(PorePyModel):
             # Base variable values from all fracture subdomains.
             all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
             scale_op = self.contact_traction_estimate(all_subdomains)
-            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            scale = self.compute_traction_norm(
+                cast(np.ndarray, self.equation_system.evaluate(scale_op))
+            )
             ind = ind / pp.ad.Scalar(scale)
         return ind
 
@@ -736,10 +846,8 @@ class ContactIndicators(PorePyModel):
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-        )
-        tangential_sum = t_t + c_num @ u_t_increment
+        basis_sum = pp.ad.sum_projection_list(tangential_basis)
+        tangential_sum = t_t + (basis_sum @ c_num_as_scalar) * u_t_increment
 
         max_arg_1 = f_norm(tangential_sum)
         max_arg_1.set_name("norm_tangential")
@@ -754,11 +862,13 @@ class ContactIndicators(PorePyModel):
             # Base on all fracture subdomains
             all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
             scale_op = self.contact_traction_estimate(all_subdomains)
-            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            scale = self.compute_traction_norm(
+                cast(np.ndarray, self.equation_system.evaluate(scale_op))
+            )
             ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
-    def contact_traction_estimate(self, subdomains: list[pp.Grid]):
+    def contact_traction_estimate(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Estimate the magnitude of contact traction.
 
         Parameters:

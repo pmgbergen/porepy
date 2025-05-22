@@ -11,6 +11,7 @@ Content:
     - Gravity related tests.
 
 """
+
 import abc
 import random
 from math import pi
@@ -502,7 +503,8 @@ def grid_and_discretization_matrices_partial():
     """Return a grid and the corresponding mpfa discretization matrices.
 
     Used throughout the partial discretization tests. Note that these tests don't use
-    div, which is therefore not returned as opposed to _grid_and_discretization_matrices.
+    div, which is therefore not returned as opposed to
+    _grid_and_discretization_matrices.
     """
     g, perm, bound = xpfa_tests._setup_cart_2d(np.array([5, 5]), np.array([]))
     _, flux, bound_flux, vector_source = _discretization_matrices(g, perm, bound)
@@ -958,7 +960,7 @@ class TestMpfaPressureReconstructionMatrices:
             g, k, bc, eta=0, inverter="python"
         )
 
-        div = pp.fvutils.scalar_divergence(g)
+        div = g.divergence(dim=1)
 
         P = sps.linalg.spsolve(div * flux, -div * bound_flux * p_b)
 
@@ -993,7 +995,7 @@ class TestMpfaPressureReconstructionMatrices:
             g, k, bc, eta=0, inverter="python"
         )
 
-        div = pp.fvutils.scalar_divergence(g)
+        div = g.divergence(dim=1)
 
         P = sps.linalg.spsolve(div * flux, -div * bound_flux * p_b.ravel("F"))
 
@@ -1024,7 +1026,7 @@ class TestMpfaPressureReconstructionMatrices:
             g, k, bc, eta=0, inverter="python"
         )
 
-        div = pp.fvutils.scalar_divergence(g)
+        div = g.divergence(dim=1)
 
         hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=g)
         P = sps.linalg.spsolve(div * hf2f * flux, -div * hf2f * bound_flux * p_b)
@@ -1157,7 +1159,7 @@ class TestRobinBoundaryCondition:
             g, k, bnd, inverter="python"
         )
 
-        div = pp.fvutils.scalar_divergence(g)
+        div = g.divergence(dim=1)
 
         rob_ex = [robin_weight * 0.25, robin_weight * 0.75, 1, 1]
         u_bound = np.zeros(g.num_faces)
@@ -1182,14 +1184,15 @@ class TestRobinBoundaryCondition:
     def solve_robin(
         self, g, k, bnd, robin_weight, p_bound, rob_bound, dir_ind, rob_ind, p_ex, u_ex
     ):
-        """Helper function to solve the Robin problem and compare to reference values."""
+        """Helper function to solve the Robin problem and compare to reference
+        values."""
         bnd.robin_weight = robin_weight * np.ones(g.num_faces)
 
         flux, bound_flux, *_ = pp.Mpfa("flow")._flux_discretization(
             g, k, bnd, inverter="python"
         )
 
-        div = pp.fvutils.scalar_divergence(g)
+        div = g.divergence(dim=1)
 
         u_bound = np.zeros(g.num_faces)
         u_bound[dir_ind] = p_bound

@@ -1,4 +1,5 @@
 """Testing the graph implementation, number of regions and region coloring."""
+
 import numpy as np
 import pytest
 from scipy import sparse as sps

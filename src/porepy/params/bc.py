@@ -17,9 +17,8 @@ import porepy as pp
 
 
 class AbstractBoundaryCondition(ABC):
-    """
-    This is an abstract class that include the shared functionality of the
-    boundary conditions
+    """This is an abstract class that include the shared functionality of the boundary
+    conditions.
     """
 
     is_neu: np.ndarray
@@ -32,7 +31,8 @@ class AbstractBoundaryCondition(ABC):
         Create a deep copy of the boundary condition.
 
         Returns:
-            AbstractBoundaryCondition: A deep copy of self. All attributes will also be copied.
+            AbstractBoundaryCondition: A deep copy of self. All attributes will also be
+            copied.
 
         """
         # We don't call the init since we don't have access to the grid.
@@ -69,8 +69,8 @@ class BoundaryCondition(AbstractBoundaryCondition):
     """Class to store information on boundary conditions for problems of a single
     variable.
 
-    The BCs are specified by face number, and can have type Dirichlet, Neumann
-    or Robin. For details on default values etc. see constructor.
+    The BCs are specified by face number, and can have type Dirichlet, Neumann or Robin.
+    For details on default values etc. see constructor.
 
     Attributes:
         num_faces (int): Number of faces in the grid of the subdomain
@@ -97,26 +97,28 @@ class BoundaryCondition(AbstractBoundaryCondition):
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Args:
-            sd (pp.Grid): Subdomain for which boundary conditions are set.
-            faces (np.ndarray): Faces for which conditions are assigned.
-            cond (list of str or str): Conditions on the faces, in the same order as
-                used in faces. Should be as long as faces. The list elements
-                should be one of "dir", "neu", "rob".
+        Parameters:
+            sd: Subdomain for which boundary conditions are set.
+            faces: Faces for which conditions are assigned.
+            cond: Conditions on the faces, in the same order as used in faces. Should be
+                as long as faces. The list elements should be "dir", "neu" or "rob".
 
         Raises:
-            ValueError if faces are a boolean array with size not matching the number of faces.
-            ValueError if internal faces are marked
-            ValueError if the numbers of boundary condition types and faces are not matching
-            ValueError if another keyword is used as for the boundary condition type than
-                "dir", "neu" or "rob"
+            ValueError if faces are a boolean array with size not matching the number of
+                faces.
+            ValueError if internal faces are marked.
+            ValueError if the numbers of boundary condition types and faces are not
+                matching.
+            ValueError if another keyword is used as for the boundary condition type
+                than "dir", "neu" or "rob".
 
         Example:
             # Assign Dirichlet conditions on the left side of a subdomain; implicit
             # Neumann conditions on the rest
             sd = CartGrid([2, 2])
-            west_face = bc.face_on_side(sd, 'west')
-            bound_cond = BoundaryCondition(sd, faces=west_face, cond=['dir', 'dir'])
+            west_faces = sd.face_centers[0] < 1e-8
+            bound_cond = BoundaryCondition(sd, faces=west_faces, cond='dir')
+
         """
 
         self.num_faces: int = sd.num_faces
@@ -137,11 +139,11 @@ class BoundaryCondition(AbstractBoundaryCondition):
         # By default, all faces are Neumann.
         self.is_neu[self.bf] = True
 
-        # Set robin weight
+        # Set Robin weight.
         self.robin_weight: np.ndarray = np.ones(sd.num_faces)
-        # Basis is mostly here to be consistent with vectorial. If changing the
-        # basis to -1 it should be possible to define inflow as positive, but this
-        # has not been tested
+        # Basis is mostly here to be consistent with vectorial. If changing the basis to
+        # -1 it should be possible to define inflow as positive, but this has not been
+        # tested.
         self.basis: np.ndarray = np.ones(sd.num_faces)
 
         if faces is not None:
@@ -222,19 +224,19 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
     Class to store information on boundary conditions for problems with vector variables
     (e.g. momentum conservation).
 
-    The BCs are specified by face number and assigned to the single
-    component, and can have type Dirichlet, Neumann or Robin.
+    The BCs are specified by face number and assigned to the single component, and can
+    have type Dirichlet, Neumann or Robin.
 
     The Robin condition is defined by
         sigma*n + alpha * u = G
-    where alpha is defined by the attribute self.robin_weight
+    where alpha is defined by the attribute self.robin_weight.
 
-    The boundary conditions are applied in the basis given by the attribute
-    self.basis (defaults to the coordinate system). The basis is defined face-wise,
-    and the boundary condition should be given in the coordinates of these bases.
+    The boundary conditions are applied in the basis given by the attribute self.basis
+    (defaults to the coordinate system). The basis is defined face-wise, and the
+    boundary condition should be given in the coordinates of these bases.
 
-    For description of attributes, parameters and constructors,
-    refer to the above class BoundaryCondition.
+    For description of attributes, parameters and constructors, refer to the above class
+    BoundaryCondition.
 
     NOTE: sd.dim > 1 for the procedure to make sense
 
@@ -264,12 +266,12 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Args:
-            sd (pp.Grid): For which boundary conditions are set.
-            faces (np.ndarray, optional): Faces for which conditions are assigned.
-            cond (list of str or str, optional): Conditions on the faces, in the same order
-                as used in faces. Should be as long as faces. To set uniform condition
-                in all spatial directions for a face, use 'dir', 'neu', or 'rob'
+        Parameters:
+            sd: For which boundary conditions are set.
+            faces: Faces for which conditions are assigned.
+            cond: Conditions on the faces, in the same order as used in faces. Should be
+                as long as faces. To set uniform condition in all spatial directions for
+                a face, use 'dir', 'neu', or 'rob'
 
                 NOTE: For more general combinations of boundary conditions, it is
                 recommended to first construct a BoundaryConditionVectorial object,
@@ -280,9 +282,10 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
             # Assign Dirichlet conditions on the left side of a grid; implicit
             # Neumann conditions on the rest
             sd = pp.CartGrid([2, 2])
-            west_face = pp.bc.face_on_side(sd, 'west')
-            bound_cond = pp.BoundaryConditionVectorial(sd, faces=west_face, cond=['dir',
-                                                                                 'dir'])
+            west_faces = sd.face_centers[0] < 1e-8
+            bound_cond = pp.BoundaryConditionVectorial(
+                sd, faces=west_faces, cond='dir'
+            )
 
         Example:
             Assign Dirichlet condition in the x-direction, Robin in the z-direction.
@@ -314,9 +317,9 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         #  Default robin weights
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        self.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
+        self.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), order="F")
         basis = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        self.basis = np.reshape(basis, (sd.dim, sd.dim, sd.num_faces), "F")
+        self.basis = np.reshape(basis, (sd.dim, sd.dim, sd.num_faces), order="F")
 
     def __repr__(self) -> str:
         s = (
@@ -370,17 +373,19 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
     ) -> None:
         """Define a single boundary condition.
 
-        Args:
+        Parameters:
             faces (np.ndarray, optional): Boolean array determining which face is
                 considered.
             cond (str or list of str, optional): Boundary condition type
 
         Raises:
-            ValueError if faces are a boolean array with size not matching the number of faces.
-            ValueError if internal faces are marked
-            ValueError if the numbers of boundary condition types and faces are not matching
-            ValueError if another keyword is used as for the boundary condition type than
-                "dir", "neu" or "rob"
+            ValueError if faces are a boolean array with size not matching the number of
+                faces.
+            ValueError if internal faces are marked.
+            ValueError if the numbers of boundary condition types and faces are not
+                matching.
+            ValueError if another keyword is used as for the boundary condition type
+            than "dir", "neu" or "rob".
         """
         if faces is not None:
             # Validate arguments
@@ -394,7 +399,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                 faces = np.argwhere(faces)
 
             if not np.all(np.isin(faces, self.bf)):
-                raise ValueError("Give boundary condition only on the boundary")
+                raise ValueError("Give boundary condition only on the boundary.")
             if isinstance(cond, str):
                 cond = [cond] * faces.size
             if faces.size != len(cond):
@@ -423,24 +428,22 @@ def face_on_side(
     It is assumed that the grid forms a box in 2d or 3d.
 
     The faces are specified by one of two type of keywords: (xmin / west),
-    (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
-    (zmax / top).
+    (xmax / east), (ymin / south), (ymax / north), (zmin, bottom), (zmax / top).
 
-    Args:
-        sd (pp.Grid): Subdomain for which we want to find faces.
-        side (str, or list of str): Sides for which we want to find the
-            boundary faces.
-        tol (float): Geometric tolerance for deciding whether a face
-            lays on the boundary. Defaults to 1e-8.
+    Parameters:
+        sd: Subdomain for which we want to find faces.
+        side: Sides for which we want to find the boundary faces.
+        tol: Geometric tolerance for deciding whether a face lays on the boundary.
 
     Returns:
         list of arrays: Outer list has one element per element in side (same
-            ordering). Arrays contain global indices of faces laying on
-            that side.
+            ordering). Arrays contain global indices of faces laying on that side.
 
     Raises:
-        ValueError if not supported keyword is used to identify a boundary part
+        ValueError if not supported keyword is used to identify a boundary part.
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
     if isinstance(side, str):
         side = [side]
 

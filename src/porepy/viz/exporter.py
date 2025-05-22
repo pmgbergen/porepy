@@ -17,6 +17,8 @@ import numpy as np
 
 import porepy as pp
 
+import warnings
+
 # Object type to store data to export.
 Field = namedtuple("Field", ["name", "values"])
 
@@ -76,7 +78,7 @@ class Exporter:
             export_constants_separately (boolean): controlling whether
                 constant data is exported in separate files, which may be of
                 interest when exporting large data sets (in particular of constant
-                data) for many time steps (default True); note, however, that the
+                data) for many time steps (default False); note, however, that the
                 mesh is exported to each vtu file, which may also require
                 significant amount of storage.
 
@@ -142,7 +144,7 @@ class Exporter:
         """Flag controlling whether data is stored in binary format."""
 
         self._export_constants_separately: bool = kwargs.pop(
-            "export_constants_separately", True
+            "export_constants_separately", False
         )
         """Flag controlling whether constant data is exported to a separate file."""
 
@@ -551,8 +553,8 @@ class Exporter:
             data: subdomain and interface data, prescribed through strings, or tuples
                 of subdomains/interfaces, keys and values. If not provided, only
                 geometrical information is exported.
-            data_pt: point subdomain and interface data, prescribed through strings, or tuples
-                of subdomains/interfaces, keys and values. If not provided only
+            data_pt: point subdomain and interface data, prescribed through strings, or
+                tuples of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
 
                 NOTE: The user has to make sure that each unique key has associated
@@ -601,8 +603,8 @@ class Exporter:
             data: subdomain and interface data, prescribed through strings, or tuples
                 of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
-            data_pt: point subdomain and interface data, prescribed through strings, or tuples
-                of subdomains/interfaces, keys and values. If not provided only
+            data_pt: point subdomain and interface data, prescribed through strings, or
+                tuples of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
 
                 NOTE: The user has to make sure that each unique key has associated
@@ -707,8 +709,8 @@ class Exporter:
                 subdomain_data[key_sd] = value.copy()
             for key_intf, value in self._constant_interface_data.items():
                 interface_data[key_intf] = value.copy()
-            # Append constant subdomain and interface data point to the standard containers
-            # for subdomain and interface data.
+            # Append constant subdomain and interface data point to the standard
+            # containers for subdomain and interface data.
             for key_sd, value in self._constant_subdomain_data_pt.items():
                 subdomain_data_pt[key_sd] = value.copy()
             for key_intf, value in self._constant_interface_data_pt.items():
@@ -794,7 +796,7 @@ class Exporter:
                 self._exported_timesteps_constants[i] for i in indices
             ]
 
-        # Setup file name and check whether it already exists in storage
+        # Set up file name and check whether it already exists in storage.
         pvd_file: Path = Path(
             self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
         )
@@ -920,9 +922,10 @@ class Exporter:
 
         Parameters:
             data: data provided by the user in the form of strings and/or tuples of
-            subdomains/interfaces.
+                subdomains/interfaces.
             num_entities: type of data that should be processed: cell type by using
-                the (default) flag "num_cells" and node type by using the flag "num_nodes".
+                the (default) flag "num_cells" and node type by using the flag
+                "num_nodes".
 
         Returns:
             Subdomain and interface data decomposed and brought into unified format.
@@ -968,7 +971,7 @@ class Exporter:
             if not value.size == num_dofs and not (
                 len(value.shape) > 1 and value.shape[1] == num_dofs
             ):
-                value = np.reshape(value, (-1, num_dofs), "F")
+                value = np.reshape(value, (-1, num_dofs), order="F")
 
             return value
 
@@ -1082,6 +1085,11 @@ class Exporter:
                     data with given key.
 
             """
+            msg = (
+                """This functionality is deprecated and will be removed in a """
+                """future version."""
+            )
+            warnings.warn(msg, DeprecationWarning)
 
             # Implementation of isinstance(data_pt, tuple[list[pp.Grid], str]).
             isinstance_tuple_subdomains_str = list(map(type, data_pt)) == [
@@ -1159,6 +1167,11 @@ class Exporter:
                     with given key.
 
             """
+            msg = (
+                """This functionality is deprecated and will be removed in a """
+                """future version."""
+            )
+            warnings.warn(msg, DeprecationWarning)
 
             # Implementation of isinstance(t, tuple[list[pp.MortarGrid], str]).
             isinstance_tuple_interfaces_str = list(map(type, data_pt)) == [
@@ -1284,7 +1297,6 @@ class Exporter:
                     with given key.
 
             """
-
             # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
             isinstance_tuple_interface_str_array = list(map(type, data_pt)) == [
                 pp.MortarGrid,
@@ -1335,6 +1347,11 @@ class Exporter:
                     subdomain.
 
             """
+            msg = (
+                """This functionality is deprecated and will be removed in a """
+                """future version."""
+            )
+            warnings.warn(msg, DeprecationWarning)
 
             # Implementation if isinstance(data_pt, tuple[str, np.ndarray].
             isinstance_tuple_str_array = list(map(type, data)) == [str, np.ndarray]
@@ -1586,7 +1603,8 @@ class Exporter:
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _, key in data]))
         keys.sort()
-        # Collect unique keys for the point data, and for unique sorting, sort by alphabet
+        # Collect unique keys for the point data, and for unique sorting, sort
+        # alphabetically.
         keys_pt = list(set([key for _, key in data_pt]))
         keys_pt.sort()
 
@@ -1913,7 +1931,7 @@ class Exporter:
             meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Determine cell types based on number of nodes.
-            num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
+            num_nodes_per_cell = grid.cell_nodes().count_nonzero(axis=0)
 
             # Loop over all available cell types and group cells of one type.
             g_cell_map = dict()
@@ -2002,9 +2020,7 @@ class Exporter:
                     # Sort faces for each cell such that they form a chain. Use a
                     # function compiled with Numba. This step is the bottleneck of
                     # this routine.
-                    cfn = pp.utils.sort_points.sort_multiple_point_pairs(cfn).astype(
-                        int
-                    )
+                    cfn = pp.sort_points.sort_multiple_point_pairs(cfn).astype(int)
 
                     # For each cell pick the sorted nodes such that they form a chain
                     # and thereby define the connectivity, i.e., skip every second row.
@@ -2061,7 +2077,7 @@ class Exporter:
         for grid in grids:
             # The number of faces per cell wil be later used to determining
             # the cell types
-            num_faces_per_cell = np.unique(grid.cell_faces.getnnz(axis=0))
+            num_faces_per_cell = np.unique(grid.cell_faces.count_nonzero(axis=0))
 
             if num_faces_per_cell.shape[0] == 1:
                 n = num_faces_per_cell[0]
@@ -2387,7 +2403,7 @@ class Exporter:
 
             # Categorize all polyhedron cells by their number of nodes. Each category
             # will be treated separately allowing for using fitting datastructures.
-            num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
+            num_nodes_per_cell = grid.cell_nodes().count_nonzero(axis=0)
 
             g_cell_map = dict()
 

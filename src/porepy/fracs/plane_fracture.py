@@ -12,7 +12,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 import porepy as pp
-from porepy.utils import setmembership
 
 from .fracture import Fracture
 
@@ -129,7 +128,7 @@ class PlaneFracture(Fracture):
             )
         )
         self.pts = np.hstack((self.pts, p))
-        self.pts, _, _ = setmembership.unique_columns_tol(self.pts, tol=tol)
+        self.pts, _, _ = pp.array_operations.uniquify_point_set(self.pts, tol=tol)
 
         # Sort points to counter-clockwise
         mask = self.sort_points()
@@ -167,16 +166,7 @@ class PlaneFracture(Fracture):
             self.orig_pts = self.pts
 
     def is_convex(self) -> bool:
-        """See parent class docs.
-
-        Todo:
-            If a hanging node is inserted at a segment, this may slightly
-            violate convexity due to rounding errors. It should be possible to
-            write an algorithm that accounts for this. First idea: Project
-            point onto line between points before and after, if the projection
-            is less than a tolerance, it is okay.
-
-        """
+        """See parent class docs."""
         if self.pts.shape[1] == 3:
             # A triangle is always convex
             return True

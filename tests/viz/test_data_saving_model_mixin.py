@@ -1,23 +1,29 @@
 """Tests of functionality found within data_saving_model_mixin.py.
 
 The following is covered:
-* Test that only the specified exported times are exported.
+
+- Test that only the specified exported times are exported.
+- Test that the physical times are exported, and that there is a match between the
+  specified schedule and all exported files.
 
 """
 
+import json
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
 import numpy as np
+import pytest
 
 import porepy as pp
-from porepy.models.momentum_balance import MomentumBalance
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.models.momentum_balance import MomentumBalance
 
-import pytest
 
-
-class DataSavingModelMixinSetup(SquareDomainOrthogonalFractures, MomentumBalance):
-    """Model setup for testing."""
+class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
+    """Model for testing data saving."""
 
     def write_pvd_and_vtu(self) -> None:
         """Logger for the times that are exported.
@@ -58,7 +64,7 @@ def test_export_chosen_times(times_to_export):
         "times_to_export": times_to_export,
     }
 
-    model = DataSavingModelMixinSetup(model_params)
+    model = DataSavingModelMixinModel(model_params)
     model.exported_times = []
     pp.run_time_dependent_model(model)
 
@@ -68,3 +74,68 @@ def test_export_chosen_times(times_to_export):
         assert np.allclose(model.exported_times, times_to_export)
     else:
         assert np.allclose(model.exported_times, np.sort(times_to_export))
+
+
+@pytest.mark.parametrize(
+    "times_to_export, expected_times",
+    [
+        (
+            None,
+            [0.0, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25],
+        ),
+        ([0.0, 0.1, 0.2], [0.0, 0.1, 0.2]),
+    ],
+)
+def test_exported_times_consistency_with_files(times_to_export, expected_times):
+    """Verify consistency between exported times and visualization files.
+
+    The test ensures that:
+        * Exported times match the times listed in the `times.json` file.
+        * Exported times align with the timesteps in the `data.pvd` file.
+        * The correct number of visualization files are generated.
+    """
+    folder_name = "viz_test_data_saving"
+    time_steps = 10
+    tf = 0.25
+    dt = tf / time_steps
+
+    time_manager = pp.TimeManager(
+        schedule=[0.0, tf],
+        dt_init=dt,
+        constant_dt=True,
+    )
+
+    params = {
+        "time_manager": time_manager,
+        "times_to_export": times_to_export,
+        "folder_name": folder_name,
+    }
+
+    model = pp.SinglePhaseFlow(params)
+    pp.run_time_dependent_model(model)
+
+    # Read times.json to get time data.
+    times_file = Path(folder_name) / "times.json"
+    with open(times_file, "r") as f:
+        times_data = json.load(f)
+
+    # Compare exported times with the times in times.json.
+    assert np.allclose(model.time_manager.exported_times, times_data["time"])
+
+    # Compare exported times with the expected times.
+    assert np.allclose(model.time_manager.exported_times, expected_times)
+
+    # Check that the correct number of files are exported.
+    # Parse the PVD file
+    pvd_file = Path(folder_name) / "data.pvd"
+    tree = ET.parse(pvd_file)
+    root = tree.getroot()
+
+    # Extract unique timesteps.
+    timesteps = set()
+    for dataset in root.findall(".//DataSet"):
+        timestep = dataset.get("timestep")
+        timesteps.add(float(timestep))
+
+    # Compare unique timesteps with times.json.
+    assert np.allclose(sorted(timesteps), times_data["time"])

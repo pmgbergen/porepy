@@ -1,5 +1,5 @@
-""" Tests of methods from porepy.grids.partition.
-"""
+"""Tests of methods from porepy.grids.partition."""
+
 import numpy as np
 import pytest
 
@@ -230,7 +230,8 @@ class TestExtractSubgrid:
         g.nodes = g.nodes + 0.2 * np.random.random((g.dim, g.nodes.shape[1]))
         g.compute_geometry()
 
-        # Pick out cells (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 2), (1, 0, 2)
+        # Pick out cells (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 2),
+        # (1, 0, 2)
         c = np.array([0, 1, 4, 12, 24, 25])
 
         h, sub_f, sub_n = pp.partition.extract_subgrid(g, c)

@@ -56,7 +56,7 @@ def perturb_grid(g, rate, dx):
 
 
 def create_grid_mpfa_mpsa_reproduce_known_values(
-    grid_type: Literal["cart", "simplex"]
+    grid_type: Literal["cart", "simplex"],
 ) -> tuple[pp.Grid, pp.Grid]:
     """Create grids for the tests that mpfa and mpsa reproduce known values.
 
@@ -121,7 +121,9 @@ def create_grid_mpfa_mpsa_reproduce_known_values(
     node_ind = g.face_nodes.indices
     # Nodes of faces on the boundary
     bnd_nodes = node_ind[
-        pp.utils.mcolon.mcolon(node_ptr[bnd_face], node_ptr[bnd_face + 1])
+        pp.array_operations.expand_index_pointers(
+            node_ptr[bnd_face], node_ptr[bnd_face + 1]
+        )
     ]
     g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
     g.compute_geometry()
@@ -170,7 +172,8 @@ def _test_laplacian_stencil_cart_2d(discr_matrices_func):
 
 
 def _test_laplacian_stensil_cart_2d_periodic_bcs(discr_matrices_func):
-    """Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian stencil."""
+    """Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian
+    stencil."""
 
     # Structured Cartesian grid and permeability. We need tailored BC object.
     g, perm, _ = _setup_cart_2d(np.array([3, 3]))
@@ -282,7 +285,7 @@ def set_params_and_discretize_gravity(g, ambient_dim, method, periodic=False):
     vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
         discr.vector_source_matrix_key
     ]
-    div = pp.fvutils.scalar_divergence(g)
+    div = g.divergence(dim=1)
     return flux, vector_source, div
 
 
@@ -822,7 +825,7 @@ class XpfaBoundaryPressureTests:
 
 
 def test_split_discretization_into_subproblems(
-    discr_class: Union[pp.Mpfa, pp.Mpsa, pp.Biot]
+    discr_class: Union[pp.Mpfa, pp.Mpsa, pp.Biot],
 ):
     """Test that the discretization matrices produced by Mpxa are the same if they
     are split into subproblems or not.

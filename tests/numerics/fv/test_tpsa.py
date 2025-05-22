@@ -1,18 +1,20 @@
 """Tests for the Tpsa discretization. Contains two sets of tests:
-    1. TestTpsaTailoredGrid is a class that defines a cell of two grids and verifies the
-       discretization matrices for the Tpsa discretization. Both interior cells and all
-       types of boundary conditions are tested.
-    2. Various other tests that probe different aspects of the Tpsa discretization.
-       These are not grouped in a class, but are individual tests.
+1. TestTpsaTailoredGrid is a class that defines a cell of two grids and verifies the
+   discretization matrices for the Tpsa discretization. Both interior cells and all
+   types of boundary conditions are tested.
+2. Various other tests that probe different aspects of the Tpsa discretization.
+   These are not grouped in a class, but are individual tests.
 
 """
 
-from typing import Optional, Literal
-import pytest
-import porepy as pp
-import numpy as np
-import scipy.sparse as sps
 from copy import deepcopy
+from typing import Literal, Optional
+
+import numpy as np
+import pytest
+import scipy.sparse as sps
+
+import porepy as pp
 
 KEYWORD = "mechanics"
 """Module level keyword which identifies the placement of parameters and discretization
@@ -295,7 +297,7 @@ class TestTpsaTailoredGrid:
         c_c2f_avg_0 = 1 - c2f_avg_0
         c_c2f_avg_6 = 1 - c2f_avg_6
 
-        # Discretization of the boundary condition. 
+        # Discretization of the boundary condition.
         bound_stress = np.zeros((4, 14))
         bound_stress[0, 0] = -stress_0
         bound_stress[1, 1] = -stress_0
@@ -514,7 +516,9 @@ class TestTpsaTailoredGrid:
             "bound_displacement_cell": bound_displacement_cell,
             "bound_displacement_face": bound_displacement_face,
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+            "bound_displacement_solid_pressure_cell": (
+                bound_displacement_solid_pressure_cell
+            ),
         }
 
         self._compare_matrices(matrices, known_values)
@@ -550,10 +554,6 @@ class TestTpsaTailoredGrid:
         bc_rot.is_rob[:] = False
 
         matrices = _discretize_get_matrices(self.g, self.data)
-
-        d_0_x_bound = rw_0_x
-        d_0_y_bound = rw_0_y
-        d_6_bound = rw_6
 
         # Shorthand for the shear modulus divided by the cell to face distance.
         mu_0_d = self.mu_0 / self.d_0_0
@@ -732,7 +732,7 @@ class TestTpsaTailoredGrid:
             "bound_displacement_cell": bound_displacement_cell,
             "bound_displacement_face": bound_displacement_face,
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,  # noqa
         }
 
         self._compare_matrices(matrices, known_values)
@@ -911,7 +911,7 @@ class TestTpsaTailoredGrid:
             # Neither the rotation variable nor the solid pressure contribute to the
             # boundary displacement for Dirichlet faces.
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,  # noqa
         }
 
         self._compare_matrices(matrices, known_values)
@@ -1022,7 +1022,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     east boundary.
 
     Parameters:
-        g: Grid object. driving_bc_type: Type of boundary condition to apply. 
+        g: Grid object. driving_bc_type: Type of boundary condition to apply.
         tensile: If True, the boundary conditions are reversed, such that the force is
             tensile, rather than compressive.
 
@@ -1266,14 +1266,11 @@ def _assemble_matrices(
 
     """
     # Deal with the different dimensions of the rotation variable.
-    if g.dim == 2:
-        n_rot_face = g.num_faces
-        n_rot_cell = g.num_cells
-        div_rot = pp.fvutils.scalar_divergence(g)
-    else:
-        n_rot_face = g.num_faces * g.dim
-        n_rot_cell = g.num_cells * g.dim
-        div_rot = pp.fvutils.vector_divergence(g)
+    rot_dim = g.dim if g.dim == 3 else 1
+
+    n_rot_face = g.num_faces * rot_dim
+    n_rot_cell = g.num_cells * rot_dim
+    div_rot = g.divergence(dim=rot_dim)
 
     flux = sps.block_array(
         [
@@ -1314,9 +1311,9 @@ def _assemble_matrices(
 
     div = sps.block_diag(
         [
-            pp.fvutils.vector_divergence(g),
+            g.divergence(dim=g.dim),
             div_rot,
-            pp.fvutils.scalar_divergence(g),
+            g.divergence(dim=1),
         ],
         format="csr",
     )
@@ -1397,7 +1394,6 @@ def _set_bc_by_direction(
     """
 
     face_ind = g.get_all_boundary_faces()
-    nf = face_ind.size
 
     # Find the faces on the boundary in each direction.
     domain = pp.domain.domain_sides_from_grid(g)
@@ -1405,10 +1401,10 @@ def _set_bc_by_direction(
     # easy to insert values in the correct order.
     bc_str = np.zeros(g.num_faces, dtype="object")
 
-    directions = ['south', 'east', 'north', 'west']
+    directions = ["south", "east", "north", "west"]
     types = [type_south, type_east, type_north, type_west]
     if g.dim == 3:
-        directions += ['bottom', 'top']
+        directions += ["bottom", "top"]
         types += [type_bottom, type_top]
 
     for direction, bc_type in zip(directions, types):
@@ -1434,9 +1430,9 @@ def _set_bc_by_direction(
     d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
     bc_val = np.zeros((g.dim, g.num_faces))
-    bc_val[1, np.where(getattr(domain, 'south'))[0]] = 0.1
-    bc_val[0, np.where(getattr(domain, 'east'))[0]] = -0.1
+    bc_val[1, np.where(getattr(domain, "south"))[0]] = 0.1
+    bc_val[0, np.where(getattr(domain, "east"))[0]] = -0.1
     if g.dim == 3:
-        bc_val[2, np.where(getattr(domain, 'bottom'))[0]] = 0.1
+        bc_val[2, np.where(getattr(domain, "bottom"))[0]] = 0.1
 
     return bc_val

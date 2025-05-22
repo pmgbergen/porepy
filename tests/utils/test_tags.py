@@ -6,6 +6,7 @@ mixed dimensional grids and fractured/non-fractured domains.
 The tests have been developed gradually, and are not coherent, but should give
 reasonable coverage.
 """
+
 import numpy as np
 import pytest
 
@@ -38,7 +39,8 @@ def _compare_tip_nodes(g, known_tips):
 
 
 def test_node_is_fracture_tip_2d():
-    # Test that nodes in the highest dimensional grids are correctly labeled as tip nodes
+    # Test that nodes in the highest dimensional grids are correctly labeled as tip
+    # nodes
 
     f1 = np.array([[1, 3], [2, 2]])
     f2 = np.array([[1, 3], [3, 3]])
@@ -56,8 +58,8 @@ def test_node_is_fracture_tip_2d():
 
     sd = mdg.subdomains(dim=2)[0]
 
-    # Base comparison on coordinates (safe on Cartesian grids), then we don't have to deal
-    # with changing node indices
+    # Base comparison on coordinates (safe on Cartesian grids), then we don't have to
+    # deal with changing node indices
     known_tips = np.array([[1, 1, 3, 3], [2, 3, 3, 1], [0, 0, 0, 0]])
 
     _compare_tip_nodes(sd, known_tips)
