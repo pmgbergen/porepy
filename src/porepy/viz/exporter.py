@@ -17,6 +17,8 @@ import numpy as np
 
 import porepy as pp
 
+import warnings
+
 # Object type to store data to export.
 Field = namedtuple("Field", ["name", "values"])
 
@@ -76,7 +78,7 @@ class Exporter:
             export_constants_separately (boolean): controlling whether
                 constant data is exported in separate files, which may be of
                 interest when exporting large data sets (in particular of constant
-                data) for many time steps (default True); note, however, that the
+                data) for many time steps (default False); note, however, that the
                 mesh is exported to each vtu file, which may also require
                 significant amount of storage.
 
@@ -142,7 +144,7 @@ class Exporter:
         """Flag controlling whether data is stored in binary format."""
 
         self._export_constants_separately: bool = kwargs.pop(
-            "export_constants_separately", True
+            "export_constants_separately", False
         )
         """Flag controlling whether constant data is exported to a separate file."""
 
@@ -1083,6 +1085,11 @@ class Exporter:
                     data with given key.
 
             """
+            msg = (
+                """This functionality is deprecated and will be removed in a """
+                """future version."""
+            )
+            warnings.warn(msg, DeprecationWarning)
 
             # Implementation of isinstance(data_pt, tuple[list[pp.Grid], str]).
             isinstance_tuple_subdomains_str = list(map(type, data_pt)) == [
@@ -1160,6 +1167,11 @@ class Exporter:
                     with given key.
 
             """
+            msg = (
+                """This functionality is deprecated and will be removed in a """
+                """future version."""
+            )
+            warnings.warn(msg, DeprecationWarning)
 
             # Implementation of isinstance(t, tuple[list[pp.MortarGrid], str]).
             isinstance_tuple_interfaces_str = list(map(type, data_pt)) == [
@@ -1285,7 +1297,6 @@ class Exporter:
                     with given key.
 
             """
-
             # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
             isinstance_tuple_interface_str_array = list(map(type, data_pt)) == [
                 pp.MortarGrid,
@@ -1336,6 +1347,11 @@ class Exporter:
                     subdomain.
 
             """
+            msg = (
+                """This functionality is deprecated and will be removed in a """
+                """future version."""
+            )
+            warnings.warn(msg, DeprecationWarning)
 
             # Implementation if isinstance(data_pt, tuple[str, np.ndarray].
             isinstance_tuple_str_array = list(map(type, data)) == [str, np.ndarray]
