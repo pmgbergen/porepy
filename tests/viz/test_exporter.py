@@ -387,7 +387,7 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     save.write_pvd(append=True)
 
     # Check that newly exported vtu files and reference files are the same.
-    for appendix in ["1", "2", "mortar_1"]:
+    for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}_000002.vtu",
             f"{setup.folder_reference}/restart/grid_{appendix}_000002.vtu",
