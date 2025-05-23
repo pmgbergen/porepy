@@ -76,7 +76,7 @@ class SubcellTopology:
             (np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
             shape=(face_ind.max() + 1, face_ind.size),
         )
-        nodes_duplicated = sd.face_nodes * M
+        nodes_duplicated = sd.face_nodes @ M
         nodes_duplicated = nodes_duplicated.indices
 
         face_nodes_indptr = sd.face_nodes.indptr
@@ -85,7 +85,7 @@ class SubcellTopology:
         sub_face_mat = sps.csc_matrix(
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
         )
-        sub_faces = sub_face_mat * M
+        sub_faces = sub_face_mat @ M
         sub_faces = (sub_faces.data - 1).astype(int)
 
         # If the grid has periodic faces the topology of the subcells are changed.
@@ -102,11 +102,13 @@ class SubcellTopology:
             # sd.periodic_face_map.
             if not np.allclose(sorted_left, sd.periodic_face_map[0]):
                 raise NotImplementedError(
-                    "Can not create subcell topology for periodic faces that are not sorted"
+                    """Can not create subcell topology for periodic faces that are not
+                    sorted"""
                 )
             if not np.allclose(sorted_right, sd.periodic_face_map[1]):
                 raise NotImplementedError(
-                    "Can not create subcell topology for periodic faces that are not sorted"
+                    """Can not create subcell topology for periodic faces that are not
+                    sorted"""
                 )
             left_subfaces = np.where(
                 np.isin(faces_duplicated, sd.periodic_face_map[0])
@@ -114,9 +116,9 @@ class SubcellTopology:
             right_subfaces = np.where(
                 np.isin(faces_duplicated, sd.periodic_face_map[1])
             )[0]
-            # We loose the ordering of sd.per map using np.isin. But since we have assumed
-            # sd.periodic_face_map[0] and sd.periodic_face_map[1] to be sorted, we can easily
-            # retrive the ordering by this trick:
+            # We loose the ordering of sd.per map using np.isin. But since we have
+            # assumed sd.periodic_face_map[0] and sd.periodic_face_map[1] to be sorted,
+            # we can easily retrive the ordering by this trick:
             left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
             right_subfaces = right_subfaces[
                 np.argsort(faces_duplicated[right_subfaces])
@@ -124,9 +126,9 @@ class SubcellTopology:
 
             # The right subface nodes should be equal to the left subface nodes. We
             # also have to change the nodes of any other subface that has a node that
-            # is on the rigth boundary.
+            # is on the right boundary.
             for i in range(right_subfaces.size):
-                # We loop over each righ subface and find all other nodes that has the
+                # We loop over each right subface and find all other nodes that have the
                 # same index as the right node. These node indices are swapped with the
                 # corresponding left node index.
                 nodes_duplicated = np.where(
@@ -149,8 +151,8 @@ class SubcellTopology:
         self.num_cno = self.cno.max() + 1
         self.num_nodes = self.nno.max() + 1
         # If we have periodic faces, the subface indices might have gaps. E.g., if
-        # subface 4 is mapped to subface 1, the index 4 is not included into subfno.
-        # The following code will then subtract 1 from all subface indices larger than 4.
+        # subface 4 is mapped to subface 1, the index 4 is not included into subfno. The
+        # following code will then subtract 1 from all subface indices larger than 4.
         _, Ia, Ic = np.unique(self.subfno, return_index=True, return_inverse=True)
         self.subfno = (
             self.subfno - np.cumsum(np.diff(np.r_[-1, self.subfno[Ia]]) - 1)[Ic]
@@ -197,9 +199,9 @@ class SubcellTopology:
             sps.matrix, size (self.subfno_unique.size x something)
         """
 
-        sgn = self.sd.cell_faces[self.fno, self.cno].A
-        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
-        return pair_over_subfaces * other
+        sgn = np.asarray(self.sd.cell_faces[self.fno, self.cno]).ravel()
+        pair_over_subfaces = sps.coo_matrix((sgn, (self.subfno, self.subhfno)))
+        return pair_over_subfaces @ other
 
     def pair_over_subfaces_nd(self, other):
         """nd-version of pair_over_subfaces, see above."""
@@ -228,15 +230,16 @@ def compute_dist_face_cell(sd, subcell_topology, eta, return_paired=True):
     On the boundary, eta is set to zero, thus the continuity point is at the
     face center
 
-    Args:
+    Parameters:
         sd: Grid
         subcell_topology: Of class subcell topology in this module
         eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
             the vertex. If eta is given as a scalar this value will be applied to
             all subfaces except the boundary faces, where eta=0 will be enforced.
             If the length of eta equals the number of subfaces, eta[i] will be used
-            in the computation of the continuity point of the subface s_t.subfno_unique[i].
-            Note that eta=0 at the boundary is ONLY enforced for scalar eta.
+            in the computation of the continuity point of the subface
+            s_t.subfno_unique[i]. Note that eta=0 at the boundary is ONLY enforced for
+            scalar eta.
 
     Returns
         sps.csr() matrix representation of vectors. Size sd.nf x (sd.nc * sd.nd)
@@ -556,50 +559,9 @@ def remove_nonlocal_contribution(
         None: DESCRIPTION.
 
     """
-    eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
+    eliminate_ind = pp.array_operations.expand_indices_nd(raw_ind, nd)
     for mat in args:
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
-
-
-def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
-    """Expand indices from scalar to vector form.
-
-    Examples:
-    >>> i = np.array([0, 1, 3])
-    >>> expand_indices_nd(i, 2)
-    (array([0, 1, 2, 3, 6, 7]))
-
-    >>> expand_indices_nd(i, 3, "C")
-    (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
-
-    Parameters:
-        ind: Indices to be expanded.
-        nd: Dimension of the vector.
-        order: Order of the expansion. "F" for Fortran, "C" for C. Default is "F".
-
-    Returns:
-        np.ndarray: Expanded indices.
-
-    """
-    if nd == 1:
-        return ind
-    dim_inds = np.arange(nd)
-    dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
-    new_ind = nd * ind + dim_inds
-    new_ind = new_ind.ravel(order)
-    return new_ind
-
-
-def expand_indices_incr(ind, dim, increment):
-    # Convenience method for duplicating a list, with a certain increment
-
-    # Duplicate rows
-    ind_nd = np.tile(ind, (dim, 1))
-    # Add same increment to each row (0*incr, 1*incr etc.)
-    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
-    # Back to row vector
-    ind_new = ind_incr.reshape(-1, order="F")
-    return ind_new
 
 
 def adjust_eta_length(
@@ -631,7 +593,7 @@ def adjust_eta_length(
     assert np.unique(num_nodes_per_face).size == 1
     expansion_index = num_nodes_per_face[0]
 
-    indices = expand_indices_nd(l2g_faces, expansion_index)
+    indices = pp.array_operations.expand_indices_nd(l2g_faces, expansion_index)
     loc_eta = np.array([eta[i] for i in indices])
     return loc_eta
 
@@ -661,8 +623,8 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
         subfno = s_t.subfno_unique
         if nd is None:
             nd = sd.dim
-    hfi = expand_indices_nd(subfno, nd)
-    hf = expand_indices_nd(fno, nd)
+    hfi = pp.array_operations.expand_indices_nd(subfno, nd)
+    hf = pp.array_operations.expand_indices_nd(fno, nd)
     hf2f = sps.coo_matrix(
         (np.ones(hf.size), (hf, hfi)), shape=(hf.max() + 1, hfi.max() + 1)
     ).tocsr()
@@ -688,7 +650,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
     num_cells = cell_index.max() + 1
 
     rows = sub_cell_index.ravel("F")
-    cols = expand_indices_nd(cell_index, nd)
+    cols = pp.array_operations.expand_indices_nd(cell_index, nd)
     vals = np.ones(rows.size)
     mat = sps.coo_matrix(
         (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells * nd)
@@ -803,11 +765,11 @@ def scalar_tensor_vector_prod(
 
 class ExcludeBoundaries:
     """Wrapper class to store mappings needed in the finite volume discretizations.
-    The original use for this class was for exclusion of equations that are
-    redundant due to the presence of boundary conditions, hence the name. The use of
-    this class has increased to also include linear transformation that can be applied
-    to the subfaces before the exclusion operator. This will typically be a rotation matrix,
-    so that the boundary conditions can be specified in an arbitary coordinate system.
+    The original use for this class was for exclusion of equations that are redundant
+    due to the presence of boundary conditions, hence the name. The use of this class
+    has increased to also include linear transformation that can be applied to the
+    subfaces before the exclusion operator. This will typically be a rotation matrix, so
+    that the boundary conditions can be specified in an arbitrary coordinate system.
 
     The systems being set up in mpfa (and mpsa) describe continuity of flux and
     potential (respectively stress and displacement) on all sub-faces. For the boundary
@@ -818,17 +780,22 @@ class ExcludeBoundaries:
 
     """
 
-    def __init__(self, subcell_topology, bound, nd):
+    def __init__(
+        self,
+        subcell_topology: SubcellTopology,
+        bound: pp.BoundaryCondition | pp.BoundaryConditionVectorial,
+        nd: int,
+    ):
         """
         Define mappings to exclude boundary subfaces/components with Dirichlet,
         Neumann or Robin conditions. If bound.bc_type=="scalar" we assign one
         component per subface, while if bound.bc_type=="vector" we assign nd
         components per subface.
 
-        Args:
-            subcell_topology (pp.SubcellTopology)
-            bound (pp.BoundaryCondition / pp.BoundaryConditionVectorial)
-            nd (int)
+        Parameters:
+            subcell_topology: A subcell topology object.
+            bound: A boundary condition object.
+            nd: An integer representing the number of dimensions.
 
         Attributes:
             basis_matrix: sps.csc_matrix, mapping from all subfaces/components to all
@@ -836,22 +803,24 @@ class ExcludeBoundaries:
                 operator for the functions self.exlude...(other, transform),
                 if transform==True.
             robin_weight: sps.csc_matrix, mapping from all subfaces/components to all
-                subfaces/components. Gives the weight that is applied to the displacement in
-                the Robin condition.
-            exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those having
-                pressure continuity
-            exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those having
-                flux continuity
-            exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to those
-                having both pressure and flux continuity (i.e., Robin + internal)
-            exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to those
-                not having Neumann or Robin conditions (i.e., Dirichlet + internal)
-            exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to those
-                not having Robin or Dirichlet conditions (i.e., Neumann + internal)
-            exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to internal
-                subfaces/components.
-            keep_neu: sps.csc_matrix, mapping from all subfaces/components to only Neumann
-                subfaces/components.
+                subfaces/components. Gives the weight that is applied to the
+                displacement in the Robin condition.
+            exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those
+                having pressure continuity.
+            exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those
+                having flux continuity.
+            exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to
+                those having both pressure and flux continuity (i.e., Robin + internal).
+            exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to
+                those not having Neumann or Robin conditions (i.e., Dirichlet +
+                internal).
+            exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to
+                those not having Robin or Dirichlet conditions (i.e., Neumann +
+                internal).
+            exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to
+                internal subfaces/components.
+            keep_neu: sps.csc_matrix, mapping from all subfaces/components to only
+                Neumann subfaces/components.
             keep_rob: sps.csc_matrix, mapping from all subfaces/components to only Robin
                 subfaces/components.
         """
@@ -898,8 +867,8 @@ class ExcludeBoundaries:
 
     def _linear_transformation(self, loc_trans):
         """
-        Creates a global linear transformation matrix from a set of local matrices.
-        The global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.
+        Creates a global linear transformation matrix from a set of local matrices. The
+        global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.
         The loc_trans matrices are given per sub-face and is a mapping from a nd vector
         on each subface to a nd vector on each subface. (If self.bc_type="scalar" nd=1
         is enforced). The loc_trans is a (nd, nd, num_subfno_unique) matrix where
@@ -1530,7 +1499,10 @@ def map_subgrid_to_grid(
         face_map = sps.csr_matrix(
             (
                 np.ones(num_faces_loc * nd),
-                (expand_indices_nd(loc_faces, nd), np.arange(num_faces_loc * nd)),
+                (
+                    pp.array_operations.expand_indices_nd(loc_faces, nd),
+                    np.arange(num_faces_loc * nd),
+                ),
             ),
             shape=(sd.num_faces * nd, num_faces_loc * nd),
         )
@@ -1538,7 +1510,10 @@ def map_subgrid_to_grid(
         cell_map = sps.csr_matrix(
             (
                 np.ones(num_cells_loc * nd),
-                (np.arange(num_cells_loc * nd), expand_indices_nd(loc_cells, nd)),
+                (
+                    np.arange(num_cells_loc * nd),
+                    pp.array_operations.expand_indices_nd(loc_cells, nd),
+                ),
             ),
             shape=(num_cells_loc * nd, sd.num_cells * nd),
         )
@@ -1687,52 +1662,11 @@ def partial_discretization(
     )
 
     # Account for dof offset for mechanical problem
-    affected_faces = expand_indices_nd(affected_faces, dof_multiplier)
+    affected_faces = pp.array_operations.expand_indices_nd(
+        affected_faces, dof_multiplier
+    )
 
     pp.matrix_operations.zero_rows(data[kw1], affected_faces)
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux
-
-
-def restrict_fourth_order_tensor_to_subgrid(
-    tensor: pp.FourthOrderTensor, loc_cells: np.ndarray
-) -> pp.FourthOrderTensor:
-    """Extract a fourth order tensor for a subgrid.
-
-    Parameters:
-        tensor: Constitutive law for the original grid.
-        loc_cells: Index of cells of the original grid from which the new constitutive
-            law should be picked.
-
-    Returns:
-        Fourth order tensor for the specified subset of cells.
-
-    """
-    # Copy stiffness tensor, and restrict to local cells
-    loc_tensor = tensor.copy()
-    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
-    # Also restrict the lambda and mu fields; we will copy the stiffness tensors
-    # later.
-    loc_tensor.lmbda = loc_tensor.lmbda[loc_cells]
-    loc_tensor.mu = loc_tensor.mu[loc_cells]
-    return loc_tensor
-
-
-def restrict_second_order_tensor_to_subgrid(
-    tensor: pp.SecondOrderTensor, loc_cells: np.ndarray
-) -> pp.SecondOrderTensor:
-    """Extract the second-order tensor for a subgrid.
-
-    Parameters:
-        tensor: Permeability tensor for the full grid.
-        loc_cells: Indices of the cells in the subgrid.
-
-    Returns:
-        Second order tensor for the specified subset of cells.
-
-    """
-    # Copy second order tensor, and restrict to local cells
-    loc_tensor = tensor.copy()
-    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
-    return loc_tensor

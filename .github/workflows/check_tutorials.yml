@@ -38,6 +38,7 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v4
+
     
     - name: Setup Python ${{ matrix.python-version}}
       uses: actions/setup-python@v5
@@ -46,27 +47,33 @@ jobs:
         python-version: ${{ matrix.python-version}}
         architecture: x64
         cache: 'pip'
-
-    # Cache pip dependencies
-    # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      id: cache
-      with:
-        path: ${{ env.pythonLocation }}
-        key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
-
+        
+      # Cache pip dependencies
+      # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
+    # - name: Cache dependencies
+    #   uses: actions/cache@v4
+    #   id: cache
+    #   with:
+    #     path: ${{ env.pythonLocation }}
+    #     key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
+        
     - name: Install external libraries
       run: |
         # Various packages that must be installed 
         sudo apt-get install libglu1-mesa libgeos-dev libffi-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
+          
+    # Make sure pip is up to date.
+    - name: Upgrade pip
+      run: |
+        pip cache purge
+        python -m pip install -U pip
+        pip --version
 
-    # Install the requirements, including the extras needed for testing, and PorePy
+      # Install the requirements, including the extras needed for testing, and PorePy
     # itself.
     - name: Install requirements and PorePy
       run: |
-        pip install -U pip
         pip install .[testing]
         pip freeze
 

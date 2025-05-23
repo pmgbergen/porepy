@@ -144,8 +144,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
         proj = pp.ad.SubdomainProjections(subdomains, self.nd)
 
-        # Contact traction from primary grid and mortar displacements (via primary grid).
-        # Spelled out for clarity:
+        # Contact traction from primary grid and mortar displacements (via primary
+        # grid). Spelled out for clarity:
         #   1) The sign of the stress on the matrix subdomain is corrected so that all
         #      stress components point outwards from the matrix (or inwards, EK is not
         #      completely sure, but the point is the consistency).
@@ -345,8 +345,11 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin
-    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """Characteristic displacement of the problem. Normally defined in a mixin 
+    instance of either 
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or 
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 

@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import copy
+import inspect
 from collections import deque
 from enum import Enum
-from functools import reduce
+from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
-from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from warnings import warn
 
 import networkx as nx
@@ -31,7 +42,11 @@ __all__ = [
     "Scalar",
     "Variable",
     "MixedDimensionalVariable",
+    "Projection",
+    "ProjectionList",
     "sum_operator_list",
+    "sum_projection_list",
+    "cached_method",
 ]
 
 
@@ -420,7 +435,8 @@ class Operator:
         an operator) should override this method to return e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
+        of atomic operators; such operators should be evaluated by the method
+        :meth:`evaluate`.
 
         Parameters:
             mdg: Mixed-dimensional grid on which this operator is to be parsed.
@@ -432,7 +448,8 @@ class Operator:
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
     def viz(self):
-        """Draws a visualization of the operator tree that has this operator as its root."""
+        """Draws a visualization of the operator tree that has this operator as its
+        root."""
         import matplotlib.pyplot as plt
         import networkx as nx
 
@@ -560,7 +577,7 @@ class Operator:
             return AdArray(
                 ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
             )
-        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+        elif isinstance(ad, (sps.spmatrix, sps.sparray, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
             raise NotImplementedError(
@@ -888,7 +905,7 @@ class Operator:
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
             return [self, DenseArray(other)]
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             return [self, SparseArray(other)]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
@@ -1346,7 +1363,8 @@ class TimeDependentDenseArray(TimeDependentOperator):
     Attributes:
         previous_timestep: If True, the array will be evaluated using
             ``data[pp.TIME_STEP_SOLUTIONS]`` (data being the data dictionaries for
-            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
+            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is
+            used.
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
@@ -1891,6 +1909,152 @@ class MixedDimensionalVariable(Variable):
         return op
 
 
+class Projection(Operator):
+    """Wrapper class for Ad representations of projection operators."""
+
+    def __init__(
+        self,
+        domain_indices: np.ndarray,
+        range_indices: np.ndarray,
+        domain_size: int,
+        range_size: int,
+        name: Optional[str] = None,
+    ):
+        """Construct a projection operator.
+
+        Parameters:
+            domain_indices: Indices of the domain space.
+            range_indices: Indices of the range space.
+            domain_size: Size of the domain space.
+            range_size: Size of the range space.
+            name: Name of the operator. Default is None.
+
+        """
+        self._slicer: pp.matrix_operations.ArraySlicer = (
+            pp.matrix_operations.ArraySlicer(
+                domain_indices=domain_indices,
+                range_indices=range_indices,
+                range_size=range_size,
+                domain_size=domain_size,
+            )
+        )
+        super().__init__(name=name)
+
+    def transpose(self) -> Projection:
+        """Return the transpose of the operator."""
+
+        return Projection(
+            domain_indices=self._slicer.range_indices,
+            range_indices=self._slicer.domain_indices,
+            range_size=self._slicer.domain_size,
+            domain_size=self._slicer.range_size,
+            name=self.name + "transpose",
+        )
+
+    def __repr__(self) -> str:
+        s = "Projection operator"
+        if self._name is not None and len(self._name) > 0:
+            s += f" named {self._name}"
+        s += ".\n"
+        s += f"The projection maps from {self._slicer.domain_size} to "
+        s += f"{self._slicer.range_indices.size} dimensions.\n"
+        s += f"The projection maps {self._slicer.domain_indices.size} elements.\n"
+        if self._slicer._is_transposed:
+            s += "The operator is transposed."
+        return s
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            s = f"(prolongation, range_indices={self._slicer.range_indices})"
+            s += f", domain_indices={self._slicer.domain_indices}"
+            s += f", domain_size={self._slicer.domain_indices}"
+            s += f", range_size={self._slicer.range_size}"
+            if self._slicer._is_transposed:
+                s += ", transposed"
+            self._cached_key = s
+        return self._cached_key
+
+    def __getattr__(self, name: str) -> Projection:
+        if name == "T":
+            return self.transpose()
+        else:
+            raise AttributeError(f"Prolongation has no attribute {name}")
+
+    def is_transposed(self) -> bool:
+        return self._slicer._is_transposed
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> pp.matrix_operations.ArraySlicer:
+        """Convert the Ad expression into a projection operator.
+
+        Parameters:
+            mdg: Not used, but needed for compatibility with the general parsing method
+                for Operators.
+
+        Returns:
+            Projection operator.
+
+        """
+        return self._slicer
+
+
+class ProjectionList(Operator):
+    """Wrapper class for a list of projection operators that are to be summed.
+
+    This is a container for projection operators that are to be summed, see technical
+    note below. Objects of type ProjectionList can be used with matrix multiplication
+    from the left, i.e., ``P @ x``, where P is a ProjectionList and x is a vector, while
+    other operations are not supported.
+
+    Objects of this class will usually be created by invoking the method
+    `pp.ad.sum_projection_list`. Though it is possible to create ProjectionList objects
+    directly, *this is not recommended*. Should you choose to do so, be very careful
+    with the input, and verify that the AdParser treats the object correctly.
+
+    Technical note:
+        The ArraySlicer objects that underly the Projection objects cannot be combined
+        into a single object, the way one can combine projections represented as sparse
+        matrices. Thus, expressions of the type ``(P1 + P2) @ x``, where P1 and P2 are
+        projections are not directly permissible. Still, it is useful to be allowed to
+        combine projections this way.
+
+        The ProjectionList, together with its treatment in the AdParser's
+        _evaluate_single() method, offers a workaround that allows for summing (but
+        *only* summing) projection operators in the manner described in the previous
+        paragraph.
+
+    """
+
+    def __init__(self, operators: list[Projection], name: Optional[str] = None) -> None:
+        """Construct a list of projection operators.
+
+        Parameters:
+            operators: A list of projection operators to be summed. Note that other
+                operations (e.g., subtraction) are not supported.
+            name: Optional name for the projection list.
+
+        """
+        super().__init__(name=name, children=operators)
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            self._cached_key = f"(slicing_operator_list, operators={self.children})"
+        return self._cached_key
+
+    def __repr__(self) -> str:
+        return f"Slicing operator list with {len(self.children)} operators."
+
+    def parse(
+        self, mdg: pp.MixedDimensionalGrid
+    ) -> list[pp.matrix_operations.ArraySlicer]:
+        """Parsing returns a list of the underlying ArraySlicer objects."""
+        return [op.parse(mdg) for op in self.children]
+
+    def __getitem__(self, key: int) -> Projection:
+        """Enable indexing of the list. This is not needed in operational mode, but is
+        useful for testing and development."""
+        return cast(Projection, self.children[key])
+
+
 @overload
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
@@ -2004,3 +2168,179 @@ def sum_operator_list(
         result.set_name(name)
 
     return result
+
+
+def sum_projection_list(
+    # Implementation note: This cannot be list[Projection], since list items can be
+    # multiplications.
+    operators: Sequence[Operator],
+    name: Optional[str] = None,
+) -> Operator:
+    """Sum a list of projection operators.
+
+    This method should only be called if the input list to be summed consists
+    exclusively of Projection objects, or of products of precisely two Projection
+    objects that have been (matrix) multiplied. For different use cases (such as
+    summing Projection objects multiplied with other types of operators), the standard
+    sum_operator_list method should be used instead.
+
+    Parameters:
+        operators: List of projection operators to be summed.
+        name: Name of the resulting operator.
+
+    Raises:
+        ValueError: If not one of the following two cases is met:
+            1. operators is a list of one or more Projection objects.
+            2. operators is a list of one or more products of precisely two Projection
+                objects that have been (matrix) multiplied.
+
+    Returns:
+        Operator that is the sum of the input operators.
+
+    """
+    # First check if this is a sum of atomic projection operators.
+    is_projection = [isinstance(op, Projection) for op in operators]
+    if any(is_projection):
+        if not all(is_projection):
+            # This is a mix of slicing and non-slicing operators. This is not allowed.
+            raise ValueError("Cannot sum slicing and non-slicing operators.")
+        if len(operators) == 1:
+            # If there is only one operator, there is no need to put it in a list.
+            result = operators[0]
+        else:
+            # We need the list.
+            result = ProjectionList(cast(list[Projection], operators), name)
+    else:
+        # This else covers the case of one or more products of precisily two projections
+        # that have been multiplied. While more cases in principle could be covered,
+        # this is the only one that is currently relevant.
+        #
+        # NOTE TO FUTURE SELF: If it at some point becomes tempting to add more cases,
+        # consider if this is really the right approach to take, or if the approach to
+        # constructing operator trees should be revisited.
+        new_operators = []
+        for op in operators:
+            # Check that this is a case we can handle.
+            if not op.operation == Operations.matmul:
+                raise ValueError(f"Operator {op} is not a valid matmul operation.")
+            if not isinstance(op.children[0], Projection) or not isinstance(
+                op.children[1], Projection
+            ):
+                raise ValueError(
+                    f"Operator {op} does not have valid Projection children."
+                )
+
+            # The trick here is to do a local parsing of the two Projections to fetch
+            # their underlying ArraySlicer objects. Then we multiply them and set the
+            # combined slicer to the second child (because this is what works together
+            # with the way matrix ArraySlicer objects are matrix multiplied).
+            child_1 = op.children[1]
+            # We know that op.children is a projection, which does not need the md grid
+            # for parsing. Hence, sending in None is okay, despite Mypy complaining.
+            slicer_0 = op.children[0].parse(None)  # type: ignore[arg-type]
+            slicer_1 = child_1.parse(None)  # type: ignore[arg-type]
+
+            # Create a copy of the second (rightmost) slicer, since we will modify it.
+            slicer_1_copy = slicer_1.copy()
+            prod = slicer_0 @ slicer_1_copy
+            child_1._slicer = prod
+            # Child is now a representation of the combined projection.
+            new_operators.append(child_1)
+
+        if len(new_operators) == 1:
+            # No need to wrap in a list if there is only one operator.
+            result = new_operators[0]
+        else:
+            # We do need the list.
+            result = ProjectionList(new_operators, name)
+
+    return result
+
+
+def cached_method(func: Callable) -> Callable:
+    """Decorator for caching function results.
+
+    The decorator is used to cache the results of a function. The cache is stored in the
+    `_operator_cache` attribute of the class instance.
+
+    It is assumed that any arguments (both positional and keyword) to the function to be
+    decorated are either hashable, or a list. This covers all known use cases within the
+    Ad module. If an unhashable argument is passed, a warning will be given, and the
+    function will be called every time.
+
+    Known limitations:
+        - A call with a (non-keyword) argument, and call with the same argument passed
+          as a keyword argument (respectively, func(1) and func(arg=1)) will be
+          conisedered different and lead to two actual function evaluations and two
+          different items in the cache. It may be possible to extend the caching
+          mechanism (really, the way the cache key is constructed) to fix this, but
+          considering the current use cases, this is not deemed necessary.
+
+    Note:
+        This caching mechanism should not be confused with hashing of individual Ad
+        Operators, see above classes. The difference is that the present caching is
+        invoked on a method that returns an Operator, without constructing the Operator
+        itself (this can be costly). In contrast, caching of Operators is done after
+        construction, and is primarily intended for Operator evaluation.
+
+    Parameters:
+        func: The function to be cached.
+
+    Returns:
+        The decorated function.
+
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs) -> Any:
+        # We will build a key from the function name, the arguments, and the keyword
+        # arguments. To that end, we need to convert all arguments to hashable types.
+
+        # If any argument is given as a list, convert it to a tuple to make it hashable.
+        #
+        # IMPLEMENTATION NOTE: It is possible to extend the below if-else to handle more
+        # cases, but this should be done as needed. The same applies to the keyword
+        # arguments just below.
+
+        # Create a list to be converted to a tuple below. Append the arguments as they
+        # are, unless they are lists, in which case they are converted to tuples.
+        args_as_tuples = []
+        for arg in args:
+            if isinstance(arg, list):
+                args_as_tuples.append(tuple(arg))
+            else:
+                args_as_tuples.append(arg)
+
+        # The keyword arguments can be made hashable by calling frozenset, but we first
+        # need to convert any list values to tuples.
+        kwargs_as_tuples = {
+            k: tuple(v) if isinstance(v, list) else v for k, v in kwargs.items()
+        }
+        kwargs_as_frozenset = frozenset(kwargs_as_tuples.items())
+
+        # Use qualname to get the full name of the function, including the class name if
+        # the function is a method. In this way, we should avoid collisions related to
+        # inheritance.
+        try:
+            key = (func.__qualname__, tuple(args_as_tuples), kwargs_as_frozenset)
+        except Exception as e:
+            s = "Error in caching function: {}\n".format(func.__qualname__)
+            s += "This is likely due to an unhashable argument in the function call.\n"
+            s += "Instead of caching, the function will be called every time.\n"
+            s += "The error message was: {}\n".format(str(e))
+            warn(s)
+            return func(self, *args, **kwargs)
+
+        if key not in self._operator_cache:
+            self._operator_cache[key] = func(self, *args, **kwargs)
+        return self._operator_cache[key]
+
+    # For testing purposes (specifically testing of constitutive laws and other tests
+    # that dynamically adapt to method signatures), we need to be able to access the
+    # signature of the original function. Calling inspect.signature on the wrapper would
+    # return the signature of the wrapper (*args, **kwargs, see above), which is not
+    # very useful. Therefore, we copy the signature from the original function to the
+    # wrapper.
+    wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
+
+    return wrapper

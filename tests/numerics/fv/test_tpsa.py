@@ -7,12 +7,14 @@
 
 """
 
-from typing import Optional, Literal
-import pytest
-import porepy as pp
-import numpy as np
-import scipy.sparse as sps
 from copy import deepcopy
+from typing import Literal, Optional
+
+import numpy as np
+import pytest
+import scipy.sparse as sps
+
+import porepy as pp
 
 KEYWORD = "mechanics"
 """Module level keyword which identifies the placement of parameters and discretization
@@ -514,7 +516,9 @@ class TestTpsaTailoredGrid:
             "bound_displacement_cell": bound_displacement_cell,
             "bound_displacement_face": bound_displacement_face,
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+            "bound_displacement_solid_pressure_cell": (
+                bound_displacement_solid_pressure_cell
+            ),
         }
 
         self._compare_matrices(matrices, known_values)
@@ -728,7 +732,7 @@ class TestTpsaTailoredGrid:
             "bound_displacement_cell": bound_displacement_cell,
             "bound_displacement_face": bound_displacement_face,
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,  # noqa
         }
 
         self._compare_matrices(matrices, known_values)
@@ -907,7 +911,7 @@ class TestTpsaTailoredGrid:
             # Neither the rotation variable nor the solid pressure contribute to the
             # boundary displacement for Dirichlet faces.
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,  # noqa
         }
 
         self._compare_matrices(matrices, known_values)

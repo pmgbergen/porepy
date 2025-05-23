@@ -128,7 +128,7 @@ class Upwind(Discretization):
                                 supported in Ad mode.
                 """
             )
-        matrix = div * flux_mat * upwind
+        matrix = div @ flux_mat @ upwind
 
         # Assemble right-hand side.
         bc_values: np.ndarray = parameter_dictionary["bc_values"]
@@ -151,7 +151,7 @@ class Upwind(Discretization):
                 with multiple components is only supported in Ad mode.
                 """
             )
-        rhs = div * (bc_discr_neu + bc_discr_dir * flux_mat) * bc_values
+        rhs = div @ (bc_discr_neu + bc_discr_dir @ flux_mat) @ bc_values
         return matrix, rhs
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
@@ -298,7 +298,7 @@ class Upwind(Discretization):
         # For Neumann faces we need to assign the sign of the divergence, to counteract
         # multiplication with the same sign when the divergence is applied (e.g. in
         # self.assemble_matrix).
-        sgn_div = sd.divergence(dim=1).sum(axis=0).A.squeeze()
+        sgn_div = np.asarray(sd.divergence(dim=1).sum(axis=0)).squeeze()
 
         bc_discr_neu = sps.coo_matrix(
             (sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
@@ -338,7 +338,7 @@ class Upwind(Discretization):
         if cell_apertures is None:
             face_apertures = np.ones(sd.num_faces)
         else:
-            face_apertures = abs(sd.cell_faces) * cell_apertures
+            face_apertures = abs(sd.cell_faces) @ cell_apertures
             r, _, _ = sparse_array_to_row_col_data(sd.cell_faces)
             face_apertures = face_apertures / np.bincount(r)
 
@@ -609,31 +609,31 @@ class UpwindCoupling(InterfaceDiscretization):
 
         # Transport out of upper equals lambda.
         # Use integrated projection operator; the flux is an extensive quantity.
-        cc[0, 2] = inv_trace_primary * intf.mortar_to_primary_int()
+        cc[0, 2] = inv_trace_primary @ intf.mortar_to_primary_int()
 
         # Transport out of lower is -lambda.
         cc[1, 2] = -intf.mortar_to_secondary_int()
 
         # Discretisation of mortars.
         # If fluid flux(lam_flux) is positive we use the upper value as weight,
-        # i.e., T_primaryat * fluid_flux = lambda.
-        # We set cc[2, 0] = T_primaryat * fluid_flux.
+        # i.e., T_primaryat @ fluid_flux = lambda.
+        # We set cc[2, 0] = T_primaryat @ fluid_flux.
         # Use averaged projection operator for an intensive quantity.
         cc[2, 0] = (
             scaling
-            * flux
-            * upwind_primary
-            * intf.primary_to_mortar_avg()
-            * trace_primary
+            @ flux
+            @ upwind_primary
+            @ intf.primary_to_mortar_avg()
+            @ trace_primary
         )
 
         # If fluid flux is negative we use the lower value as weight,
-        # i.e., T_check * fluid_flux = lambda.
-        # We set cc[2, 1] = T_check * fluid_flux.
+        # i.e., T_check @ fluid_flux = lambda.
+        # We set cc[2, 1] = T_check @ fluid_flux.
         # Use averaged projection operator for an intensive quantity.
-        cc[2, 1] = scaling * flux * upwind_secondary * intf.secondary_to_mortar_avg()
+        cc[2, 1] = scaling @ flux @ upwind_secondary @ intf.secondary_to_mortar_avg()
 
-        # The rhs of T * fluid_flux = lambda.
+        # The rhs of T @ fluid_flux = lambda.
         # Recover the information for the grid-grid mapping.
         cc[2, 2] = -mortar_discr
 

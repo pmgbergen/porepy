@@ -364,7 +364,8 @@ class SimplePipe2D(pp.PorePyModel):
 
 
 class TracerFluid_1p:
-    """Incompressible 2-component, 1-phase fluid with unit properties (everything is 1)."""
+    """Incompressible 2-component, 1-phase fluid with unit properties (everything is
+    1)."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
         # This fluid will be used for the heuristic thermodynamic properties of the
@@ -506,7 +507,8 @@ class TracerFlowModel_1p_ff(
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
-    """Tracer flow model using the pressure equation and a fractional flow formulation."""
+    """Tracer flow model using the pressure equation and a fractional flow
+    formulation."""
 
     exact_sol: LinearTracerExactSolution1D
     results: list[LinearTracerSaveData]
@@ -633,7 +635,8 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
 
 
 class TracerFluid_3p(TracerFluid_1p):
-    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1)."""
+    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are
+    1)."""
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Formal dependency of phase properties, though never used in dummy EoS."""
@@ -646,7 +649,7 @@ class TracerFluid_3p(TracerFluid_1p):
         """Returns configs for 3 phases with same dummy EoS."""
         eos = TrivialEoS(components)
         state = pp.compositional.PhysicalState.liquid
-        return [(eos, state, "1"), (eos, state, "2"), (eos, state, "3")]
+        return [(state, "1", eos), (state, "2", eos), (state, "3", eos)]
 
     def dependencies_of_phase_properties(
         self, phase: pp.Phase

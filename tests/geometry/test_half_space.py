@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from porepy.geometry import half_space
 from porepy.applications.test_utils.arrays import compare_arrays
+from porepy.geometry import half_space
 
 
 def test_one_half_space():

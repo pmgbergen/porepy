@@ -16,16 +16,16 @@ from __future__ import annotations
 
 import copy
 import itertools
-import warnings
 from itertools import count
 from typing import Any, Optional, Union
+from warnings import warn
 
 import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import mcolon, tags
+from porepy.utils import tags
 
 
 class Grid:
@@ -452,7 +452,7 @@ class Grid:
         if not is_oriented:
             # The assumptions underlying the computation for general cells is broken.
             # Fall back to a legacy implementation which is only valid for convex cells.
-            warnings.warn(
+            warn(
                 "Orientations in face_nodes and cell_faces are inconsistent. "
                 "Fall back on an implementation that assumes all cells are convex."
             )
@@ -689,8 +689,10 @@ class Grid:
         )
 
         # Get sign of normal vectors, seen from all faces. Make sure we get a numpy
-        # ndarray, and not a matrix (.A), and that the array is 1D (squeeze)
-        orientation = np.squeeze(self.cell_faces[face_numbers, cell_numbers].A)
+        # ndarray, and not a matrix (np.asarray), and that the array is 1D (squeeze)
+        orientation = np.squeeze(
+            np.asarray(self.cell_faces[face_numbers, cell_numbers])
+        )
 
         # Get outwards pointing sub-normals for all sub-faces: We need to account for
         # both the orientation of the face, and the orientation of sub-faces relative to
@@ -734,7 +736,7 @@ class Grid:
             The value 1 indicates a connection between a cell and node column-wise.
 
         """
-        mat = (self.face_nodes * np.abs(self.cell_faces)) > 0
+        mat = (self.face_nodes @ np.abs(self.cell_faces)) > 0
         return mat
 
     def num_cell_nodes(self) -> np.ndarray:
@@ -744,7 +746,7 @@ class Grid:
             cell.
 
         """
-        return self.cell_nodes().sum(axis=0).A.ravel("F")
+        return np.asarray(self.cell_nodes().sum(axis=0)).ravel("F")
 
     def get_internal_nodes(self) -> np.ndarray:
         """
@@ -753,6 +755,9 @@ class Grid:
             internal nodes.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         internal_nodes = np.setdiff1d(
             np.arange(self.num_nodes), self.get_boundary_nodes(), assume_unique=True
         )
@@ -793,6 +798,9 @@ class Grid:
             faces.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         return np.setdiff1d(
             np.arange(self.num_faces), self.get_all_boundary_faces(), assume_unique=True
         )
@@ -804,6 +812,9 @@ class Grid:
             boundary nodes.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         return self._indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self) -> None:
@@ -864,7 +875,9 @@ class Grid:
             if faces.size > 0:
                 first = self.face_nodes.indptr[faces]
                 second = self.face_nodes.indptr[faces + 1]
-                nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
+                nodes = self.face_nodes.indices[
+                    pp.array_operations.expand_index_pointers(first, second)
+                ]
                 self.tags[node_tag][nodes] = True
 
     def cell_diameters(self, cn: Optional[sps.spmatrix] = None) -> np.ndarray:
@@ -1117,8 +1130,8 @@ class Grid:
         # Expand the indices to the correct size. The trace operator is a mapping from
         # cells to faces, so we need boundary cells in the columns and boundary faces in
         # the rows.
-        rows = pp.fvutils.expand_indices_nd(bound_faces, dim)
-        cols = pp.fvutils.expand_indices_nd(bound_cells, dim)
+        rows = pp.array_operations.expand_indices_nd(bound_faces, dim)
+        cols = pp.array_operations.expand_indices_nd(bound_cells, dim)
         trace = sps.coo_matrix(
             (np.ones(bound_faces.size * dim), (rows, cols)),
             shape=(self.num_faces * dim, self.num_cells * dim),

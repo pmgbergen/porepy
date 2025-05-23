@@ -56,7 +56,6 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
@@ -113,12 +112,6 @@ class ManuPoroMechSaveData:
 
 class ManuPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
-
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
 
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of

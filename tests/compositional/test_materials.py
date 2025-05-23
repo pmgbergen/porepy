@@ -11,14 +11,15 @@ Constitutive library tests.
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
 import porepy as pp
 
-from dataclasses import FrozenInstanceError
-
 from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
+from porepy.compositional.materials import FractureDamageSolidConstants
 
 
 # TODO remove
@@ -201,6 +202,7 @@ def test_convert_units(modify_dict, base_units):
         pp.Constants,
         pp.FluidComponent,
         pp.SolidConstants,
+        FractureDamageSolidConstants,
         FractureSolidConstants,
         pp.ReferenceVariableValues,
     ],

@@ -22,13 +22,12 @@ We consider three functional tests:
 import numpy as np
 
 import porepy as pp
-
 from porepy.examples.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
-    TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiInitialConditions,
     TerzaghiModel,
+    TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     terzaghi_fluid_constants,

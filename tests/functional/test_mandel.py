@@ -21,10 +21,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
 from porepy.examples.mandel_biot import (
-    MandelSaveData,
     MandelModel,
+    MandelSaveData,
     mandel_fluid_constants,
     mandel_solid_constants,
 )

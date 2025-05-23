@@ -55,11 +55,11 @@ def faces_to_open(
                 may differ for 2d fractures.
 
     Returns:
-        faces_nd_to_open: list (one entry for each fracture subdomain) of (possibly empty)
-            arrays of higher-dimensional faces to be split.
+        faces_nd_to_open: list (one entry for each fracture subdomain) of (possibly
+            empty) arrays of higher-dimensional faces to be split.
         sifs: list (one entry for each g_l) of the calculated stress intensity
-            factors for each of the lower-dimensional tip faces. Axes for
-            listed arrays: mode, tip face.
+            factors for each of the lower-dimensional tip faces. Axes for listed arrays:
+            mode, tip face.
 
     """
     nd = mdg.dim_max()
@@ -207,10 +207,10 @@ def identify_correlation_points(sd_primary, sd_secondary, rm, u, face_cells):
         face_cells (array): face_cells of the grid pair.
 
     Returns:
-        cells_secondary (array): Lower-dimensional cells containing the correlation
+        cells_secondary: Lower-dimensional cells containing the correlation
             point (as its cell center).
-        faces_secondary (array): The tip faces, for which the SIFs are to be estimated.
-        rm_vectors (array): Vector between centers of cells_secondary and faces_secondary.
+        faces_secondary: The tip faces, for which the SIFs are to be estimated.
+        rm_vectors: Vector between centers of cells_secondary and faces_secondary.
         actual_rm (array): Length of the above.
         normal_rm (array): Distance between the cell center and the fracture
             front (defined by the face of the fracture tip). Will differ from
@@ -354,7 +354,7 @@ def relative_displacements(
         h_1_sign = normal_primary_1_r[1]
         assert np.all(np.isclose(h_1_sign * normal_primary_1_r, np.array([0, 1, 0])))
         # Find what frac-pair the tip i corresponds to
-        j = pp.utils.setmembership.ismember_rows(
+        j = pp.array_operations.ismember_columns(
             face_pair[:, np.newaxis], sd_primary.frac_pairs
         )[1]
         d_u = np.dot(R, np.append(du_faces[:, j], np.zeros((1, 3 - sd_primary.dim))))[

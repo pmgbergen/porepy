@@ -20,7 +20,7 @@ from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
-from porepy.utils import setmembership, sort_points
+from porepy.geometry import sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
 
@@ -151,27 +151,6 @@ class FractureNetwork3d(object):
         Necessary pre-processing before meshing. Added by :meth:`split_intersections`.
 
         """
-
-    def add(self, fracture: pp.PlaneFracture) -> None:
-        """Add a fracture to the network.
-
-        The fracture will be assigned a new index, higher than the maximum value
-        currently found in the network.
-
-        Parameters:
-            fracture: Plane fracture to be added.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        ind = np.array([f.index for f in self.fractures])
-
-        if ind.size > 0:
-            fracture.set_index(np.max(ind) + 1)
-        else:
-            fracture.set_index(0)
-        self.fractures.append(fracture)
 
     def copy(self) -> FractureNetwork3d:
         """Create a deep copy of the fracture network.
@@ -755,7 +734,7 @@ class FractureNetwork3d(object):
             ind_0, ind_1 = pair
             # Find the common indices of intersection points (referring to isect)
             # and find where they are located in the array point_ind[ind_0]
-            common_ind, i0 = pp.utils.setmembership.ismember_rows(
+            common_ind, i0 = pp.array_operations.ismember_columns(
                 point_ind[ind_1], point_ind[ind_0]
             )
             # Convert from boolean indices to indices
@@ -764,7 +743,7 @@ class FractureNetwork3d(object):
             assert common_ind.size == 2
 
             # Do the same exercise with the second fracture
-            common_ind_2, i1 = pp.utils.setmembership.ismember_rows(
+            common_ind_2, i1 = pp.array_operations.ismember_columns(
                 point_ind[ind_0], point_ind[ind_1]
             )
             common_ind_2 = np.where(common_ind_2)[0]  # type: ignore[assignment]
@@ -1032,7 +1011,7 @@ class FractureNetwork3d(object):
         )
 
         # We now need to find points that occur in multiple places
-        p_unique, _, all_2_unique_p = setmembership.uniquify_point_set(
+        p_unique, _, all_2_unique_p = pp.array_operations.uniquify_point_set(
             all_p, tol=self.tol * np.sqrt(3)
         )
 
@@ -1044,8 +1023,8 @@ class FractureNetwork3d(object):
         # fractures meeting in a line.
 
         # Do a sort of edges before looking for duplicates.
-        e_unique, unique_ind_e, all_2_unique_e = setmembership.unique_columns_tol(
-            np.sort(edges, axis=0)
+        e_unique, unique_ind_e, all_2_unique_e = np.unique(
+            np.sort(edges, axis=0), axis=1, return_index=True, return_inverse=True
         )
 
         # Update the edges_2_frac map to refer to the new edges
@@ -1219,7 +1198,7 @@ class FractureNetwork3d(object):
             # Add the new points towards the end of the list.
             all_p = np.hstack((all_p, p_add_3d))
 
-            new_all_p, _, ia = setmembership.uniquify_point_set(all_p, self.tol)
+            new_all_p, _, ia = pp.array_operations.uniquify_point_set(all_p, self.tol)
 
             # Handle case where the new point is already represented in the global
             # list of points.
@@ -1248,7 +1227,7 @@ class FractureNetwork3d(object):
                 # split_intersection_segments_2d. We therefore compare the new edge
                 # to the old ones (before splitting). If found, use the old
                 # information; if not, use index as tracked by splitting.
-                is_old, old_loc_ind = setmembership.ismember_rows(
+                is_old, old_loc_ind = pp.array_operations.ismember_columns(
                     edges_new_glob[:, ei].reshape((-1, 1)), edges[:2, edges_loc_ind]
                 )
                 if is_old[0]:
@@ -1298,82 +1277,6 @@ class FractureNetwork3d(object):
         return self._uniquify_points_and_edges(
             all_p, edges, edges_2_frac, is_boundary_edge
         )
-
-    def fractures_of_points(self, pts: np.ndarray) -> list[np.ndarray]:
-        """For a given point, find all fractures that refer to it.
-
-        The point can be either a vertex or an internal point.
-
-        Parameters:
-            pts: ``shape=(3, num_points)``
-
-                Coordinates of the points for which fractures should be found.
-
-        Returns:
-            List of numpy arrays of integers. Each item, contains the indices of the
-            fractures associated to each point.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        fracs_of_points = []
-        pts = np.atleast_1d(np.asarray(pts))
-        for i in pts:
-            fracs_loc = []
-
-            # First identify edges that refer to the point
-            edge_ind = np.argwhere(
-                np.any(self.decomposition["edges"][:2] == i, axis=0)
-            ).ravel("F")
-            edges_loc = self.decomposition["edges"][:, edge_ind]
-            # Loop over all polygons. If their edges are found in edges_loc,
-            # store the corresponding fracture index
-            for poly_ind, poly in enumerate(self.decomposition["polygons"]):
-                ismem, _ = setmembership.ismember_rows(edges_loc, poly)
-                if any(ismem):
-                    fracs_loc.append(self.decomposition["polygon_frac"][poly_ind])
-            fracs_of_points.append(list(np.unique(fracs_loc)))
-
-        # Prepare for returning
-        fracs_of_points_out = [np.asarray(item) for item in fracs_of_points]
-
-        return fracs_of_points_out
-
-    def close_points(self, dist: float) -> list[tuple[int, int, float]]:
-        """Find pairs that are closer than the specified distance.
-
-        In the set of points used to describe the fractures (after decomposition),
-        find pairs that are closer than a certain distance.
-
-        This function is intended for debugging purposes.
-
-        Parameters:
-            dist: Threshold distance. All points closer than this will be reported.
-
-        Returns:
-            List of tuples, where each tuple contains indices of a set of close
-            points, and the distance between the points.
-
-            The list is not symmetric.
-            If ``(a, b)`` is a member, ``(b, a)`` will not be.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        c_points = []
-
-        pt = self.decomposition["points"]
-        for pi in range(pt.shape[1]):
-            d = pp.distances.point_pointset(pt[:, pi], pt[:, pi + 1 :])
-            ind = np.argwhere(d < dist).ravel("F")
-            for i in ind:
-                # Indices of close points, with an offset to compensate for slicing
-                # of the point cloud.
-                c_points.append((pi, i + pi + 1, d[i]))
-
-        return c_points
 
     def _verify_fractures_in_plane(
         self,
@@ -1531,8 +1434,6 @@ class FractureNetwork3d(object):
         domain: Optional[pp.Domain] = None,
         keep_box: bool = True,
         area_threshold: float = 1e-4,
-        clear_gmsh: bool = True,
-        finalize_gmsh: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Set an external boundary for the contained plane fractures.
 
@@ -1546,9 +1447,6 @@ class FractureNetwork3d(object):
 
         Fractures that are completely outside the bounding box will be deleted from
         the fracture set.
-
-        Todo:
-            ``clear_gmsh`` and ``finalize_gmsh`` are currently not used.
 
         Parameters:
             domain: ``default=None``
@@ -1875,7 +1773,7 @@ class FractureNetwork3d(object):
                 ]
             ).T
             all_edges.sort(axis=0)
-            edges, _, b = pp.utils.setmembership.unique_columns_tol(all_edges)
+            edges, b = np.unique(all_edges, axis=1, return_inverse=True)
 
             # Edges on the boundary
             essential_edge = np.where(np.bincount(b) == 1)[0]
@@ -2233,8 +2131,8 @@ class FractureNetwork3d(object):
         poly_2_line = []
         line_reverse = []
         for p in poly:
-            hit, ind = setmembership.ismember_rows(p, edges[:2], sort=False)
-            hit_reverse, ind_reverse = setmembership.ismember_rows(
+            hit, ind = pp.array_operations.ismember_columns(p, edges[:2], sort=False)
+            hit_reverse, ind_reverse = pp.array_operations.ismember_columns(
                 p[::-1], edges[:2], sort=False
             )
             assert np.all(hit + hit_reverse == 1)
@@ -2552,7 +2450,7 @@ class FractureNetwork3d(object):
                         unique_candidates,
                         _,
                         o2n,
-                    ) = pp.utils.setmembership.uniquify_point_set(candidates, self.tol)
+                    ) = pp.array_operations.uniquify_point_set(candidates, self.tol)
 
                     # Make arrays for points along the segment (originally the
                     # endpoints), and for the auxiliary points
@@ -2852,6 +2750,8 @@ class FractureNetwork3d(object):
 
         """
         # function to write a numpy matrix as string
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
 
         def to_file(p):
             return "\n\t\t".join(" ".join(map(str, x)) for x in p)

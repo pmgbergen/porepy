@@ -14,7 +14,6 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
-from porepy.utils import setmembership
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
@@ -213,7 +212,7 @@ class TestDivergenceTrace:
         # matrix. These will be identical if dim=1, but for dim > 1, there will be dim
         # boundary indices for each boundary face.
         bound_faces = self._boundary_faces(g)
-        bound_ind = pp.fvutils.expand_indices_nd(bound_faces, dim)
+        bound_ind = pp.array_operations.expand_indices_nd(bound_faces, dim)
         # The indices corresponding to internal faces are the complement of the boundary
         # indices.
         int_face_ind = np.setdiff1d(np.arange(g.num_faces * dim), bound_ind)
@@ -797,7 +796,7 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
     face_nodes = tetrahedral_grid.face_nodes.indices.reshape(
         (3, tetrahedral_grid.num_faces), order="F"
     )
-    ismem, ind_map = setmembership.ismember_rows(fn, face_nodes)
+    ismem, ind_map = pp.array_operations.ismember_columns(fn, face_nodes)
     assert np.all(ismem)
     assert np.allclose(tetrahedral_grid.face_centers[:, ind_map], fc)
     assert np.allclose(tetrahedral_grid.face_areas[ind_map], fa)

@@ -9,9 +9,8 @@ from scipy import sparse as sps
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import setmembership, tags
+from porepy.utils import tags
 from porepy.utils.graph import Graph
-from porepy.utils.mcolon import mcolon
 
 
 def split_fractures(
@@ -92,10 +91,10 @@ def split_fractures(
 
         secondary_to_primary_nodes = []
         for sd in low_dim_neigh:
-            # Enforce 64 bit to comply with ismember_rows. Was np.int32
+            # Enforce 64 bit to comply with ismember_columns. Was np.int32
             source = np.atleast_2d(sd.global_point_ind).astype(np.int64)
             target = np.atleast_2d(sd_primary.global_point_ind).astype(np.int64)
-            _, mapping = setmembership.ismember_rows(source, target)
+            _, mapping = pp.array_operations.ismember_columns(source, target)
             secondary_to_primary_nodes.append(mapping)
 
         split_nodes(sd_primary, low_dim_neigh, secondary_to_primary_nodes, offset)
@@ -362,7 +361,9 @@ def _duplicate_specific_faces(sd: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     # manipulating the CSC-format of the matrix Nodes of the target faces
     node_start = sd.face_nodes.indptr[frac_id]
     node_end = sd.face_nodes.indptr[frac_id + 1]
-    nodes = sd.face_nodes.indices[mcolon(node_start, node_end)]
+    nodes = sd.face_nodes.indices[
+        pp.array_operations.expand_index_pointers(node_start, node_end)
+    ]
 
     # Start point for the new columns. They will be appended to the matrix, thus the
     # offset of the previous size of gh.face_nodes
@@ -445,7 +446,7 @@ def _update_face_cells(
         if j == i:
             # We hit the target neighbor.
             # Pick out the part of f_c to be used with this neighbor.
-            f_c_sliced = pp.matrix_operations.slice_mat(f_c, face_id)
+            f_c_sliced = pp.matrix_operations.slice_sparse_matrix(f_c, face_id)
             # The new face-cell relations are added to the end of the matrix (since
             # the faces were added to the end of the face arrays in the
             # higher-dimensional grid). Columns (face-indices in the higher
@@ -1012,10 +1013,6 @@ def _sort_sub_list(
 
     E.g., face-node maps in CSC format, which needs conversion to CSR.
 
-    Todo:
-        Check whether the **Returns** is properly documented. Currently, it should
-        only be consider a fair guess (at best).
-
     Parameters:
         indices: An array of indices in the CSC/CSR format of sparse matrices.
         indptr: CSC/CSR format index pointer array.
@@ -1033,11 +1030,22 @@ def _sort_sub_list(
 
     """
     ix = np.zeros(indices.size, dtype=int)
+    # NOTE: Comments below are given for a CSR matrix. If the matrix is CSC, the roles
+    # of rows and columns are reversed.
+    # Loop over all rows.
     for i in range(indptr.size - 1):
+        # Indices in the sparse storage associated with the current row.
         sub_ind = slice(indptr[i], indptr[i + 1])
+        # Find the sorting indices of the columns that are non-zero for this row. This
+        # will be a 0-offset array.
         loc_ix = np.argsort(indices[sub_ind])
+        # Update the global index array. Adding indptr[i] ensures that the indices have
+        # the right offset (i.e., they start at the right place in the global index
+        # array, and not on 0).
         ix[sub_ind] = loc_ix + indptr[i]
+    # Rearrange the indices to be sorted in each row.
     indices = indices[ix]
+    # Create a mapping from the sorted indices to the original indices.
     iv = np.zeros(indices.size, dtype=int)
     iv[ix] = np.arange(indices.size)
     return indices, iv
@@ -1075,13 +1083,9 @@ def _find_cell_color(sd: pp.Grid, cells: np.ndarray) -> np.ndarray:
     c = np.sort(cells)
     # Local cell-face and face-node maps.
     assert sd.cell_faces.getformat() == "csc"
-    cell_faces = pp.matrix_operations.slice_mat(sd.cell_faces, c)
+    cell_faces = pp.matrix_operations.slice_sparse_matrix(sd.cell_faces, c)
     child_cell_ind = -np.ones(sd.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
-
-    # Create a copy of the cell-face relation, so that we can modify it at will.
-    # RB: I don't think this is necessary as slice_mat creates a copy cell_faces =
-    # cf_sub.copy()
 
     # Direction of normal vector does not matter here, only 0s and 1s
     cell_faces.data = np.abs(cell_faces.data)

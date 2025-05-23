@@ -463,7 +463,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
         Wrapping in class methods and not calling equation_system directly allows for
         easier changes of primary variables. As long as all calls to enthalpy_flux()
         accept Operators as return values, we can in theory add it as a primary variable
-        and solved mixed form. Similarly for different formulations of enthalpy instead
+        and solve mixed form. Similarly for different formulations of enthalpy instead
         of temperature.
 
     """
@@ -916,6 +916,21 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
                     iterate_index=0,
                 )
 
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(
+                sd,
+                data,
+                self.enthalpy_keyword,
+                {"darcy_flux": np.zeros(sd.num_faces)},
+            )
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(
+                intf,
+                data,
+                self.enthalpy_keyword,
+                {"darcy_flux": np.zeros(intf.num_cells)},
+            )
+
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for temperature at iterate index 0.
 
@@ -1081,7 +1096,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
     """
     operator_to_SecondOrderTensor: Callable[
-        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+        [list[pp.Grid], pp.ad.Operator, pp.number], pp.SecondOrderTensor
     ]
     """Function that returns a SecondOrderTensor provided a method returning
     permeability as a Operator. Normally provided by a mixin instance of
@@ -1132,19 +1147,33 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         interfaces (of codimension 1).
         """
         super().set_discretization_parameters()
-        for sd, data in self.mdg.subdomains(return_data=True):
+
+        # Do a join evaluation of the thermal conductivity for all subdomains, then
+        # distribute the values to individual subdomains.
+        subdomains = self.mdg.subdomains()
+        conductivity_all_cells = self.operator_to_SecondOrderTensor(
+            subdomains,
+            self.thermal_conductivity(subdomains),
+            # Fall back to thermal conductivity of reference component.
+            self.fluid.reference_component.thermal_conductivity,
+        )
+        # Compute offsets for the individual subdomains in the concatenated conductivity
+        # tensor.
+        subdomain_offsets = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            data = self.mdg.subdomain_data(sd)
+            # Extract the conductivity for the current subdomain.
+            loc_cells = np.arange(subdomain_offsets[id], subdomain_offsets[id + 1])
+            loc_conductivity = conductivity_all_cells.restrict_to_cells(loc_cells)
+
             pp.initialize_data(
                 sd,
                 data,
                 self.fourier_keyword,
                 {
                     "bc": self.bc_type_fourier_flux(sd),
-                    "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd,
-                        self.thermal_conductivity([sd]),
-                        # Fall back to thermal conductivity of reference component.
-                        self.fluid.reference_component.thermal_conductivity,
-                    ),
+                    "second_order_tensor": loc_conductivity,
                     "ambient_dimension": self.nd,
                 },
             )
@@ -1157,42 +1186,15 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 },
             )
 
-    def initial_condition(self) -> None:
-        """Add darcy flux to discretization parameter dictionaries."""
-        super().initial_condition()
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.enthalpy_keyword,
-                {"darcy_flux": np.zeros(sd.num_faces)},
-            )
-        for intf, data in self.mdg.interfaces(return_data=True):
-            pp.initialize_data(
-                intf,
-                data,
-                self.enthalpy_keyword,
-                {"darcy_flux": np.zeros(intf.num_cells)},
-            )
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
 
-    def before_nonlinear_iteration(self):
-        """Evaluate Darcy flux (super) and copy to the enthalpy flux keyword, to be used
-        in upstream weighting.
+        Returns:
+            List of keywords for the Darcy flux values. This class adds
+            :attr:`enthalpy_keyword`.
 
         """
-        # Update parameters *before* the discretization matrices are re-computed.
-        for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.equation_system.evaluate(self.well_flux([intf]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        super().before_nonlinear_iteration()
+        return super().darcy_flux_storage_keywords() + [self.enthalpy_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""

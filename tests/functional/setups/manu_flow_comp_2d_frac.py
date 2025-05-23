@@ -78,12 +78,6 @@ class ManuCompSaveData(ManuIncompSaveData):
 class ManuCompDataSaving(pp.PorePyModel):
     """Mixin class to store relevant data."""
 
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-
     exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
@@ -567,9 +561,7 @@ class ManuCompExactSolution2d:
 
         return lmbda_cc
 
-    def matrix_boundary_pressure(
-        self, bg: pp.BoundaryGrid, time: number
-    ) -> np.ndarray:
+    def matrix_boundary_pressure(self, bg: pp.BoundaryGrid, time: number) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
@@ -680,12 +672,6 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
 # -----> Solution strategy
 class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification model."""
-
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
 
     exact_sol: ManuCompExactSolution2d
     """Exact solution object."""

@@ -74,7 +74,8 @@ class Mpsa(Discretization):
 
         """
         self.keyword = keyword
-        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'."""
+        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'.
+        """
         self.stress_matrix_key = "stress"
         """Keyword used to identify the discretization matrix for the stress. Defaults
         to 'stress'."""
@@ -208,9 +209,7 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = (
-            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
-        )
+        active_constit = constit.restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -271,12 +270,8 @@ class Mpsa(Discretization):
             # Start timer for subproblem
             tic = time()
 
-            # Copy stiffness tensor, and restrict to local cells.
-            loc_c: pp.FourthOrderTensor = (
-                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
-                    active_constit, l2g_cells
-                )
-            )
+            # Restrict stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
@@ -385,7 +380,7 @@ class Mpsa(Discretization):
         )
 
         if update:
-            update_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
+            update_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
             matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
                 update_ind
             ]
@@ -510,16 +505,16 @@ class Mpsa(Discretization):
         # Assemble matrix.
         if stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
-            stress = hf2f * stress
-        matrix = div * stress
+            stress = hf2f @ stress
+        matrix = div @ stress
 
         # Assemble right-hand side.
         if bound_stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
-            bound_stress = hf2f * bound_stress
+            bound_stress = hf2f @ bound_stress
 
         bc_val = parameter_dictionary["bc_values"]
-        rhs = -div * bound_stress * bc_val + parameter_dictionary["source"]
+        rhs = -div @ bound_stress @ bc_val + parameter_dictionary["source"]
         return matrix, rhs
 
     def _stress_discretization(
@@ -726,7 +721,7 @@ class Mpsa(Discretization):
             sd, subcell_topology, eta, num_sub_cells, bound_exclusion
         )
 
-        hook_igrad = hook * igrad
+        hook_igrad = hook @ igrad
         # NOTE: This is the point where we expect to reach peak memory need.
         del hook
         # Output should be on face-level (not sub-face)
@@ -735,17 +730,17 @@ class Mpsa(Discretization):
         )
 
         # Stress discretization
-        stress = hook_igrad * rhs_cells
+        stress = hook_igrad @ rhs_cells
         # Right hand side for boundary discretization
         rhs_bound = self._create_bound_rhs(
             bound, bound_exclusion, subcell_topology, sd, subface_rhs
         )
         # Discretization of boundary values
-        bound_stress = hook_igrad * rhs_bound
+        bound_stress = hook_igrad @ rhs_bound
 
         if not subface_rhs:
-            bound_stress = hf2f * bound_stress * hf2f.T
-            stress = hf2f * stress
+            bound_stress = hf2f @ bound_stress @ hf2f.T
+            stress = hf2f @ stress
 
         # Calculate the reconstruction of dispacement at faces
         if hf_eta is None:
@@ -755,24 +750,24 @@ class Mpsa(Discretization):
             sd, subcell_topology, hf_eta
         )
 
-        hf_cell = dist_grad * igrad * rhs_cells + cell_centers
-        hf_bound = dist_grad * igrad * rhs_bound
+        hf_cell = dist_grad @ igrad @ rhs_cells + cell_centers
+        hf_bound = dist_grad @ igrad @ rhs_bound
 
         if not hf_disp:
             # hf2f sums the values, but here we need an average. For now, use simple
             # average, although area weighted values may be more accurate
-            num_subfaces = hf2f.sum(axis=1).A.ravel()
+            num_subfaces = np.asarray(hf2f.sum(axis=1)).ravel()
             scaling = sps.dia_matrix(
                 (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
             )
 
-            hf_cell = scaling * hf2f * hf_cell
-            hf_bound = scaling * hf2f * hf_bound
+            hf_cell = scaling @ hf2f @ hf_cell
+            hf_bound = scaling @ hf2f @ hf_bound
 
         # The subface displacement is given by
-        # hf_cell * u_cell_centers + hf_bound * u_bound_condition
+        # hf_cell @ u_cell_centers + hf_bound @ u_bound_condition
         if not subface_rhs:
-            hf_bound *= hf2f.T
+            hf_bound @= hf2f.T
         return stress, bound_stress, hf_cell, hf_bound
 
     def _create_inverse_gradient_matrix(
@@ -1013,9 +1008,9 @@ class Mpsa(Discretization):
 
         fno = subcell_topology.fno_unique
         subfno = subcell_topology.subfno_unique
-        sgn = sd.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique]
+        ).ravel()
 
         num_dir = np.sum(bound.is_dir)
         if not num_rob == np.sum(bound.is_rob):
@@ -1112,7 +1107,7 @@ class Mpsa(Discretization):
         # defined according to the subcell topology [fno], while areas must be drawn
         # from the grid structure, and thus go through fno
         fno_ext = np.tile(fno, nd)
-        num_face_nodes = sd.face_nodes.sum(axis=0).A.ravel("F")
+        num_face_nodes = np.asarray(sd.face_nodes.sum(axis=0)).ravel()
 
         # Coefficients in the matrix. For the Neumann boundary components we set the
         # value as seen from the outside of the domain. Note that they do not have to do
@@ -1190,9 +1185,9 @@ class Mpsa(Discretization):
         For a subcell Ks associated with cell K and node s, the displacement at a point
         x is given by
             U_Ks + G_Ks (x - x_k),
-        x_K is the cell center of cell k. The point at which we evaluate the displacement
-        is given by eta, which is equivalent to the continuity points in mpsa.
-        For an internal subface we will obtain two values for the displacement,
+        x_K is the cell center of cell k. The point at which we evaluate the
+        displacement is given by eta, which is equivalent to the continuity points in
+        mpsa. For an internal subface we will obtain two values for the displacement,
         one for each of the cells associated with the subface. The displacement given
         here is the average of the two. Note that at the continuity points the two
         displacements will by construction be equal.
@@ -1239,7 +1234,7 @@ class Mpsa(Discretization):
         avg_over_subfaces = sps.coo_matrix(
             (1 / counts[IC], (subcell_topology.subfno, subcell_topology.subhfno))
         )
-        D_g = avg_over_subfaces * D_g
+        D_g = avg_over_subfaces @ D_g
         # expand indices to x-y-z
         D_g = sps.kron(sps.eye(sd.dim), D_g)
         D_g = D_g.tocsr()
@@ -1266,7 +1261,7 @@ class Mpsa(Discretization):
         # all subfaces, etc. Change the ordering to first all variables of first cell,
         # then all variables of second cell, etc.
         P = self._row_major_to_col_major(cell_centers.shape, sd.dim, 0)
-        return P * dist_grad, P * cell_centers
+        return P @ dist_grad, P @ cell_centers
 
     # -----------------------------------------------------------------------------
     #
@@ -1285,7 +1280,7 @@ class Mpsa(Discretization):
 
         """
         nd = sd.dim
-        num_cell_nodes = sd.cell_nodes().sum(axis=1).A
+        num_cell_nodes = np.asarray(sd.cell_nodes().sum(axis=1))
 
         # Number of unknowns around a vertex: nd^2 per cell that share the vertex for
         # pressure gradients, and one per cell (cell center pressure)
@@ -1414,14 +1409,16 @@ class Mpsa(Discretization):
         # will be the contribution from the gradients. We integrate over the subface
         # and multiply by the area
         num_nodes = np.diff(sd.face_nodes.indptr)
-        sgn = sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique]
+        ).ravel()
         scaled_sgn = (
-            sgn[0]
+            sgn
             * sd.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
         )
         # pair_over_subfaces flips the sign so we flip it back
-        rob_grad = sps.kron(sps.eye(nd), sps.diags(scaled_sgn) * rob_grad)
+        rob_grad = sps.kron(sps.eye(nd), sps.diags(scaled_sgn) @ rob_grad)
         # Contribution from cell center potentials to local systems
         rob_cell = sps.coo_matrix(
             (
@@ -1432,11 +1429,11 @@ class Mpsa(Discretization):
         rob_cell = sps.kron(sps.eye(nd), rob_cell)
 
         # First do a basis transformation
-        rob_grad = bound_exclusion.basis_matrix * rob_grad
-        rob_cell = bound_exclusion.basis_matrix * rob_cell
+        rob_grad = bound_exclusion.basis_matrix @ rob_grad
+        rob_cell = bound_exclusion.basis_matrix @ rob_cell
         # And apply the robin weight in the rotated basis
-        rob_grad = bound_exclusion.robin_weight * rob_grad
-        rob_cell = bound_exclusion.robin_weight * rob_cell
+        rob_grad = bound_exclusion.robin_weight @ rob_grad
+        rob_cell = bound_exclusion.robin_weight @ rob_cell
         # Expand equations for displacement balance, and keep rows associated with
         # neumann boundary conditions. Remember we have already rotated the basis above
         rob_grad = bound_exclusion.keep_robin(rob_grad, transform=False)
@@ -1640,7 +1637,9 @@ class Mpsa(Discretization):
 
             # Distribute (relevant parts of) Hook's law on subcells This will be nd
             # rows, thus cell ci is associated with indices ci*nd+np.arange(nd)
-            sub_cell_ind = pp.fvutils.expand_indices_nd(cell_node_blocks[0], nd)
+            sub_cell_ind = pp.array_operations.expand_indices_nd(
+                cell_node_blocks[0], nd
+            )
             sym_vals = sym_dim[sub_cell_ind]
             asym_vals = asym_dim[sub_cell_ind]
 
@@ -1836,12 +1835,14 @@ class Mpsa(Discretization):
 
         """
         nd = sd.dim
-        sgn = sd.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno, subcell_topology.cno]
+        ).ravel()
 
         # Contribution from cell center potentials to local systems
         # For pressure continuity, +-1
         d_cont_cell = sps.coo_matrix(
-            (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
+            (sgn, (subcell_topology.subfno, subcell_topology.cno))
         ).tocsr()
         d_cont_cell = sps.kron(sps.eye(nd), d_cont_cell)
         # Zero contribution to stress continuity

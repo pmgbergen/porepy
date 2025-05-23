@@ -3,8 +3,8 @@ Some of these tests are sensitive to meshing or node ordering. If this turns out
 cause problems, we deactivate the corresponding asserts.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 
@@ -164,8 +164,9 @@ class TestMixedDimensionalGrids:
             self.mdg.subdomains(dim=2)[0].tags["fracture_faces"].sum()
         )
 
-        # Loop over the interfaces between fractures and matrix, fetch the projections to the 2d grid, and count the
-        # number of non-zero entries in the projection matrix.
+        # Loop over the interfaces between fractures and matrix, fetch the projections
+        # to the 2d grid, and count the number of non-zero entries in the projection
+        # matrix.
         non_zero_projection_primary = 0
         for mg in self.mdg.interfaces(dim=1):
             proj_primary = mg.mortar_to_primary_avg()

@@ -139,7 +139,7 @@ class AdParser:
                     result_list[index] = pp.ad.AdArray(
                         res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
                     )
-                elif isinstance(res, (sps.spmatrix, np.ndarray)):
+                elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
                     # matrices.
                     #
@@ -232,6 +232,13 @@ class AdParser:
                 self._cache[op] = res
                 return res
 
+        if isinstance(op, pp.ad.ProjectionList):
+            # Special case for lists of projections. These are parsed into lists of the
+            # underlying ArraySlicer. See also the handling of the resulting lists
+            # below.
+            res = [c.parse(equation_system.mdg) for c in op.children]
+            return res
+
         # This is not a leaf, but a composite operator. Parse the children and combine
         # them according to the operator.
         child_values = [
@@ -282,6 +289,27 @@ class AdParser:
 
                 # Division, power, and matrix multiplication are binary operations
                 assert len(child_values) == 2
+
+                if operation == Operations.matmul and isinstance(child_values[0], list):
+                    # This is a special case for dealing with pp.ad.PorjectionList.
+                    if all(
+                        [
+                            isinstance(c, pp.matrix_operations.ArraySlicer)
+                            for c in child_values[0]
+                        ]
+                    ):
+                        # If the first operand is a list of sliced matrices, the
+                        # operation should be performed on each of the matrices in the
+                        # list. The sum is hardcoded here, corresponding to the
+                        # assumptions underlying the use of the ProjectionList.
+                        # Generalizations are possible, but not desirable at the moment
+                        # (it risks complicating the code without clear benefits).
+                        res = sum([c @ (child_values[1]) for c in child_values[0]])
+                        return res
+                    else:
+                        raise ValueError(
+                            "Matrix multiplication not supported for this input type."
+                        )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
@@ -392,7 +420,7 @@ class AdParser:
         msg += "The second argument represents the expression:\n " + msg_1 + nl
 
         # Finally some information on sizes
-        if isinstance(results[0], sps.spmatrix):
+        if isinstance(results[0], (sps.spmatrix, sps.sparray)):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
         elif isinstance(results[0], pp.ad.AdArray):
             msg += (
@@ -402,7 +430,7 @@ class AdParser:
         elif isinstance(results[0], np.ndarray):
             msg += f"First argument is a numpy array of size {results[0].size}\n"
 
-        if isinstance(results[1], sps.spmatrix):
+        if isinstance(results[1], (sps.spmatrix, sps.sparray)):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
         elif isinstance(results[1], pp.ad.AdArray):
             msg += (

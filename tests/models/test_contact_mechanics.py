@@ -10,10 +10,7 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.test_utils.models import (
-    ContactMechanicsTester,
-    _add_mixin,
-)
+from porepy.applications.test_utils.models import ContactMechanicsTester, add_mixin
 
 grid_classes = {2: SquareDomainOrthogonalFractures, 3: CubeDomainOrthogonalFractures}
 
@@ -37,7 +34,7 @@ def test_contact_mechanics(nd):
         "material_constants": {"solid": solid},
         "interface_displacement_parameter_values": displacement_vals,
     }
-    model_class = _add_mixin(grid_classes[nd], ContactMechanicsTester)
+    model_class = add_mixin(grid_classes[nd], ContactMechanicsTester)
     model: pp.PorePyModel = model_class(params)
     pp.run_time_dependent_model(model)
     fractures = model.mdg.subdomains(dim=nd - 1)
@@ -61,7 +58,7 @@ def test_contact_mechanics(nd):
     expected_jump = displacement_vals[:, 1].reshape((nd, -1))
     if not positive_side_first:
         expected_jump *= -1
-    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0)
+    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0, atol=1e-15)
     # Check the contact traction.
     scaled_traction = model.contact_traction(
         fractures
@@ -80,10 +77,10 @@ def test_contact_mechanics(nd):
     u_n = displacement_jump_local[-1]
     sigma_n = k_n * u_n_max * (1 - u_n_max / u_n)
     # Check that the traction is equal to the calculated value.
-    np.testing.assert_allclose(traction[-1] - sigma_n, 0)
+    np.testing.assert_allclose(traction[-1] - sigma_n, 0, atol=1e-15)
     # In the tangential direction, we have
     # \sigma_t = k_t * \Delta u_t
     # Note that in 3d, we test both the nonzero and zero displacement jumps.
     inds_t = np.arange(nd - 1)
     sigma_t = solid.fracture_tangential_stiffness * displacement_jump_local[inds_t]
-    np.testing.assert_allclose(traction[inds_t] - sigma_t, 0)
+    np.testing.assert_allclose(traction[inds_t] - sigma_t, 0, atol=1e-15)

@@ -22,20 +22,16 @@ class ContactMechanicsEquations(pp.BalanceEquation):
 
     nd: int
     """Ambient dimension of the problem."""
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
-    """
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the plastic displacement jump on fracture grids. Normally defined
-    in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-    """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
+    """
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
     """
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Gap of a fracture. Normally provided by a mixin instance of
@@ -181,14 +177,12 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell. EK: mypy insists
-        # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        # individual basis vectors can be represented as projection matrices of shape
+        # (Nc * (self.nd - 1), Nc), where Nc is the total number of cells in the
+        # subdomain. The matrix representation of the sum has the same shape, but the
+        # row corresponding to each cell will be non-zero in all rows corresponding to
+        # the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # Variables: The tangential component of the contact traction and the plastic
         # displacement jump.
@@ -207,25 +201,18 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
         # The numerical constant is used to loosen the sensitivity in the transition
-        # between sticking and sliding.
-        # Expanding using only left multiplication to with scalar_to_tangential does not
-        # work for an array, unlike the operators below. Arrays need right
-        # multiplication as well.
+        # between sticking and sliding. Expanding using only left multiplication to with
+        # scalar_to_tangential does not work for an array, unlike the operators below.
+        # Arrays need right multiplication as well.
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
-        # The numerical parameter is a cell-wise scalar which must be extended to a
-        # vector quantity to be used in the equation (multiplied from the right).
-        # Spelled out, from the right: Restrict the vector quantity to one dimension in
-        # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
-        # to the full vector quantity (e_i), and sum over all all directions in the
-        # tangential plane.
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-        )
-
-        # Combine the above into expressions that enter the equation. c_num will
-        # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
-        tangential_sum = t_t + c_num @ u_t_increment
+        # The numerical parameter is a cell-wise scalar, or a single scalar common for
+        # all cells. In both cases, it must be extended to a vector quantity to be used
+        # in the equation (multiplied from the right). Do this by multiplying with the
+        # sum of the tangential basis vectors. Then take a Hadamard product with the
+        # tangential displacement jump and add to the tangential component of the
+        # contact traction to arrive at the expression that enters the equation.
+        tangential_sum = t_t + (scalar_to_tangential @ c_num_as_scalar) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -233,13 +220,8 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
-        # Remove parentheses to make the equation more readable if possible. The product
-        # between (the SparseArray) scalar_to_tangential and b_p is of matrix-vector
-        # type (thus @), and the result is then multiplied elementwise with
-        # tangential_sum.
         bp_tang = (scalar_to_tangential @ b_p) * tangential_sum
 
-        # For the use of @, see previous comment.
         maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
 
         # The characteristic function below reads "1 if (abs(b_p) < tol) else 0".
@@ -267,6 +249,7 @@ class ConstitutiveLawsContactMechanics(
     constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
     constitutive_laws.ElasticModuli,
+    constitutive_laws.CharacteristicTractionFromDisplacement,
     constitutive_laws.ElasticTangentialFractureDeformation,
 ):
     """Class for constitutive equations for contact mechanics."""
@@ -308,7 +291,8 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             interface: Single interface grid.
 
         Returns:
-            Array representing the displacement on the interface of shape (nd, num_cells).
+            Array representing the displacement on the interface of shape (nd,
+            num_cells).
 
         """
         return np.zeros((self.nd, interface.num_cells))
@@ -316,6 +300,20 @@ class InterfaceDisplacementArray(pp.PorePyModel):
     def update_time_dependent_ad_arrays(self) -> None:
         """Update values of external sources and boundary conditions."""
         super().update_time_dependent_ad_arrays()  # type: ignore[misc]
+        self.update_interface_displacement_parameter()
+
+    def update_interface_displacement_parameter(self) -> None:
+        """Update the interface displacement parameter.
+
+        This method updates the values of the time-dependentinterface displacement
+        parameter, which is used as a substitute for the displacement variable on the
+        interfaces.
+
+        The method is intended to be called at the beginning of each time step to update
+        the values of the interface displacement parameter. The values are shifted
+        backwards in time and the most recent values are set to the unknown time step.
+
+        """
 
         name = self.interface_displacement_parameter_key
         for intf, data in self.mdg.interfaces(return_data=True):
@@ -459,8 +457,11 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     """
 
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin
-    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """Characteristic displacement of the problem. Normally defined in a mixin 
+    instance of either 
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or 
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -496,13 +497,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-        # Interpretation (EK):
-        # The scaling factor should not be too large, otherwise the contact problem
-        # may be discretized wrongly. I therefore introduce a safety factor here; its
-        # value is somewhat arbitrary.
-        softening_factor = pp.ad.Scalar(self.numerical.contact_mechanics_scaling)
-
-        constant = softening_factor / self.characteristic_displacement(subdomains)
+        constant = pp.ad.Scalar(1.0) / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
         return constant
 
@@ -538,13 +533,12 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        # individual basis functions can be represented as projection matrices of size
+        # (Nc * (self.nd - 1), Nc), where Nc is # the total number of cells in the
+        # subdomain. The sum of basis vectors can likewise be represented as a matrix of
+        # the same shape, but the row corresponding to each cell will be non-zero in all
+        # rows corresponding to the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # With the active set method, the performance of the Newton solver is sensitive
         # to changes in state between sticking and sliding. To reduce the sensitivity to
@@ -570,8 +564,14 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         return characteristic
 
     def _is_nonlinear_problem(self) -> bool:
-        """The contact mechanics problem is nonlinear."""
-        return True
+        """The contact mechanics problem is nonlinear, but it may happen that this
+        method is called from a model with no fractures. In this case, we fall back to
+        the default.
+
+        """
+        if self.mdg.dim_min() < self.nd:
+            return True
+        return super()._is_nonlinear_problem()
 
 
 class ContactMechanics(

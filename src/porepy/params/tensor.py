@@ -5,12 +5,67 @@ for representation of permeability and stiffness, respectively.
 
 from __future__ import annotations
 
-from typing import Optional
+from abc import ABC, abstractmethod
+from typing import Optional, Self, cast
 
 import numpy as np
 
 
-class SecondOrderTensor(object):
+class Tensor(ABC):
+    """Class of the common parts of the second and fourth order tensors."""
+
+    values: np.ndarray
+
+    @property
+    def constitutive_parameters(self) -> list[str]:
+        """Strings for the constitutive parameters found in the tensor.
+
+        Returns:
+            A list of the constitutive parameter names.
+
+        """
+        return []
+
+    @abstractmethod
+    def copy(self) -> Self:
+        """Define a deep copy of the tensor.
+
+        Returns:
+            Tensor: New tensor with identical fields, but separate arrays (in
+                the memory sense).
+
+        """
+
+    def restrict_to_cells(self, cells: np.ndarray) -> Self:
+        """Restrict constitutive parameters to cells.
+
+        Simulation problems may be discretized either over the entire grid or over
+        sub-grids. The latter may be done e.g. for controlling maximum memory footprint,
+        meaning that the problem is divided into multiple sub-problems. In that case
+        we need to restrict the parameter tensors (pp.SecondOrderTensor and
+        pp.FourthOrderTensor) to the relevant sub-problem. This is done by passing the
+        indices of the cells within a sub-grid, such that the tensor can be restricted
+        to only those cells.
+
+        Parameters:
+            cells: Indices of the cells which the constitutive parameters should be
+                restricted to.
+
+        """
+        # Make a copy such that we do not adapt the original tensor.
+        tmp_tensor = self.copy()
+
+        # Restrict all constitutive parameters.
+        for field in tmp_tensor.constitutive_parameters:
+            vals = cast(np.ndarray, getattr(tmp_tensor, field))
+            setattr(tmp_tensor, field, vals[cells])
+
+        # Restrict the values representation of the tensor.
+        tmp_tensor.values = tmp_tensor.values[::, ::, cells]
+        return tmp_tensor
+
+
+class SecondOrderTensor(Tensor):
     """Cell-wise permeability represented.
 
     The permeability is always 3-dimensional (since the geometry is always 3D), however,
@@ -101,6 +156,60 @@ class SecondOrderTensor(object):
 
         self.values = perm
 
+    def is_diagonal(self, nd: int) -> bool:
+        """Checks if the tensor is diagonal.
+
+        Parameters:
+            nd: The dimension of the subdomain where the tensor is defined.
+
+        Returns:
+            True if the tensor is diagonal and False if it is not.
+
+        """
+        if nd == 1:
+            return True
+
+        values = self.values
+
+        # Extract off-diagonal terms.
+        kxy = np.array(values[1, 0, ::])
+        kxz = np.array(values[2, 0, ::]) if nd == 3 else np.array(0)
+        kyz = np.array(values[2, 1, ::]) if nd == 3 else np.array(0)
+
+        # Check if the off-diagonal terms are zero.
+        if np.all(kxy == 0) and np.all(kxz == 0) and np.all(kyz == 0):
+            return True
+        else:
+            return False
+
+    def is_isotropic(self, nd: int) -> bool:
+        """Checks if the tensor represents an isotropic medium.
+
+        Parameters:
+            nd: The dimension of the subdomain where the tensor is defined.
+
+        Returns:
+            True if the tensor represents an isotropic medium, False if not.
+
+        """
+        values = self.values
+        kxx = np.array(values[0, 0, ::])
+
+        if nd == 1:
+            return True
+
+        # Extract relevant terms.
+        kyy = np.array(values[1, 1, ::])
+        kzz = np.array(values[2, 2, ::]) if nd == 3 else np.array(0)
+
+        # Check if diagonal elements are equal.
+        if not np.all(kxx == kyy):
+            return False
+        if nd == 3 and not np.all(kxx == kzz):
+            return False
+
+        return self.is_diagonal(nd)
+
     def copy(self) -> SecondOrderTensor:
         """Define a deep copy of the tensor.
 
@@ -109,13 +218,12 @@ class SecondOrderTensor(object):
                 the memory sense).
         """
 
-        kxx = self.values[0, 0, :].copy()
-        kxy = self.values[1, 0, :].copy()
-        kyy = self.values[1, 1, :].copy()
-
-        kxz = self.values[2, 0, :].copy()
-        kyz = self.values[2, 1, :].copy()
-        kzz = self.values[2, 2, :].copy()
+        kxx = self.values[0, 0].copy()
+        kxy = self.values[1, 0].copy()
+        kyy = self.values[1, 1].copy()
+        kxz = self.values[2, 0].copy()
+        kyz = self.values[2, 1].copy()
+        kzz = self.values[2, 2].copy()
 
         return SecondOrderTensor(kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz)
 
@@ -140,7 +248,7 @@ class SecondOrderTensor(object):
         return self.__str__()
 
 
-class FourthOrderTensor(object):
+class FourthOrderTensor(Tensor):
     """Cell-wise representation of fourth order tensor.
 
     For each cell, there are dim^4 degrees of freedom, stored in a 3^2 * 3^2 matrix
@@ -158,7 +266,10 @@ class FourthOrderTensor(object):
     """
 
     def __init__(
-        self, mu: np.ndarray, lmbda: np.ndarray, phi: Optional[np.ndarray] = None
+        self,
+        mu: np.ndarray,
+        lmbda: np.ndarray,
+        other_fields: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
     ):
         """Constructor for fourth order tensor on Lame-parameter form.
 
@@ -179,14 +290,8 @@ class FourthOrderTensor(object):
         if mu.size != lmbda.size:
             raise ValueError("Mu and lmbda should have the same length")
 
-        if phi is None:
-            phi = 0 * mu  # Default value for phi is zero
-        elif not isinstance(phi, np.ndarray):
-            raise ValueError("Phi should be a numpy array")
-        elif not phi.ndim == 1:
-            raise ValueError("Phi should be 1-D")
-        elif phi.size != lmbda.size:
-            raise ValueError("Phi and Lmbda should have the same length")
+        if other_fields is None:
+            other_fields = {}
 
         # Save lmbda and mu, can be useful to have in some cases
         self.lmbda = lmbda
@@ -221,26 +326,25 @@ class FourthOrderTensor(object):
                 [1, 0, 0, 0, 1, 0, 0, 0, 1],
             ]
         )
-        phi_mat = np.array(
-            [
-                [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [0, 1, 1, 1, 0, 1, 1, 1, 0],
-            ]
-        )
 
-        # Expand dimensions to prepare for cell-wise representation
+        # Expand dimensions to prepare for cell-wise representation.
         mu_mat = mu_mat[:, :, np.newaxis]
         lmbda_mat = lmbda_mat[:, :, np.newaxis]
-        phi_mat = phi_mat[:, :, np.newaxis]
 
-        c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
+        # List of constitutive parameters
+        self._constitutive_parameters = ["mu", "lmbda"]
+
+        c = mu_mat * mu + lmbda_mat * lmbda
+
+        # Store the other fields. This is needed for the copy method.
+        self._other_matrices = {}
+
+        for key, (mat, field) in other_fields.items():
+            c += mat[:, :, np.newaxis] * field
+            setattr(self, key, field)
+            self._other_matrices[key] = mat
+            self._constitutive_parameters.append(key)
+
         self.values = c
         """Values of the stiffness tensor as a (3^2, 3^2, Nc) array."""
 
@@ -252,9 +356,25 @@ class FourthOrderTensor(object):
                 the memory sense).
 
         """
-        C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
+        extra_params = {}
+        for key, mat in self._other_matrices.items():
+            extra_params[key] = (mat, getattr(self, key).copy())
+
+        C = FourthOrderTensor(
+            mu=self.mu.copy(), lmbda=self.lmbda.copy(), other_fields=extra_params
+        )
         C.values = self.values.copy()
         return C
+
+    @property
+    def constitutive_parameters(self) -> list[str]:
+        """Strings for the constitutive parameters found in the fourth order tensor.
+
+        Returns:
+            A list of the constitutive parameter names.
+
+        """
+        return self._constitutive_parameters
 
     def __str__(self) -> str:
         s = f"Fourth order tensor defined on {self.values.shape[2]} cells.\n"

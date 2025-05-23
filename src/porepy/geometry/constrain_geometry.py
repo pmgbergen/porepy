@@ -193,7 +193,7 @@ def polygons_by_polyhedron(
         seg_vert = seg_vert_all[0]
 
         # Find number of unique intersection points.
-        _, mapping, _ = pp.utils.setmembership.uniquify_point_set(coord, tol)
+        _, mapping, _ = pp.array_operations.uniquify_point_set(coord, tol)
         # If there are no, or a single intersection point, we just need to test if the
         # entire polygon is inside the polyhedral.
         # A single intersection point can only be combined with a polygon fully inside
@@ -401,7 +401,7 @@ def polygons_by_polyhedron(
 
             # Consider unique intersection points; there may be repititions in cases
             # where the polyhedron has multiple parallel sides.
-            isect_coord, _, _ = pp.utils.setmembership.uniquify_point_set(
+            isect_coord, _, _ = pp.array_operations.uniquify_point_set(
                 coord[:, loc_isect_ind], tol
             )
 
@@ -483,14 +483,27 @@ def polygons_by_polyhedron(
             axis=0,
         )
         # Uniquify intersection coordinates, and update the segments
-        unique_coords, _, ib = pp.utils.setmembership.uniquify_point_set(
+        unique_coords, _, ib = pp.array_operations.uniquify_point_set(
             coord_extended, tol=tol
         )
         unique_segments = ib[segments]
+
         # Then uniquify the segments, in terms of the unique coordinates
-        unique_segments, *rest = pp.utils.setmembership.uniquify_point_set(
-            unique_segments
+
+        # Here, it is logical to call np.unique(unique_segments, axis=1). However, for
+        # historic reasons, the method uniquify_point_set was used when this code was
+        # developed. This returns the same result as np.unique(..., axis=1) would have
+        # done, but different order of the uniquified segments. The order does not
+        # impact the stability of the algorithm per se, but it may (through a long and
+        #  circuitous route) impact the order of the degrees of freedom in the final
+        # system. Specifically, in the test
+        # TestMixedDimensionalUpwinding.test_3d_2d_1d_0d there appears to be hard-coded
+        # assumptions on the dof ordering that are not met if np.unique is called below.
+        # We therefore used the uniquify_point_set method below.
+        unique_segments, *_ = pp.array_operations.uniquify_point_set(
+            unique_segments, tol=1e-10
         )
+
         # Remove point segments.
         point_segment = unique_segments[0] == unique_segments[1]
         unique_segments = unique_segments[:, np.logical_not(point_segment)]
@@ -546,13 +559,12 @@ def polygons_by_polyhedron(
                 # There should be exactly two loose ends, if not, this is really
                 # several polygons, and who knows how we ended up there.
                 assert np.sum(count == 1) == 2
-                sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(
-                    el, is_circular=False
-                )
+                sorted_pairs, _ = pp.sort_points.sort_point_pairs(el, is_circular=False)
                 inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
-                # TODO: check for hanging nodes here?
+                # There is no check for hanging nodes her. EK is not sure if that is
+                # important or not.
             else:
-                sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(el)
+                sorted_pairs, _ = pp.sort_points.sort_point_pairs(el)
 
                 # Check for hanging nodes
                 hang_ind = pp.geometry_property_checks.polygon_hanging_nodes(

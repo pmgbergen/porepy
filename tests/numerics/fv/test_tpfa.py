@@ -6,21 +6,16 @@ The tests fall into two categories:
 
 """
 
-import pytest
-
-import scipy.sparse as sps
 import numpy as np
+import pytest
+import scipy.sparse as sps
+
 import porepy as pp
-
-from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-)
 from porepy.applications.md_grids import model_geometries
+from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
-
 
 """Local utility functions."""
 
@@ -119,16 +114,8 @@ class UnitTestAdTpfaFlux(
         self._nonzero_dirichlet_face = 5
         self._dirichlet_pressure = 1683
 
-    def initial_condition(self):
-        super().initial_condition()
-        for _, data in self.mdg.subdomains(return_data=True):
-            pp.set_solution_values(
-                name=self.pressure_variable,
-                values=np.array([2, 3], dtype=float),
-                data=data,
-                iterate_index=0,
-                time_step_index=0,
-            )
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        return np.array([2, 3], dtype=float)
 
     def set_geometry(self):
         # Create the geometry through domain amd fracture set.

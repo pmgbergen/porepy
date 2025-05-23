@@ -150,6 +150,7 @@ class ModelGeometry(pp.PorePyModel):
             meshing_kwargs = {}
         return meshing_kwargs
 
+    @pp.ad.cached_method
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
     ) -> list[pp.MortarGrid]:
@@ -174,6 +175,7 @@ class ModelGeometry(pp.PorePyModel):
                     interfaces.append(intf)
         return self.mdg.sort_interfaces(interfaces)
 
+    @pp.ad.cached_method
     def interfaces_to_subdomains(
         self, interfaces: list[pp.MortarGrid]
     ) -> list[pp.Grid]:
@@ -278,12 +280,13 @@ class ModelGeometry(pp.PorePyModel):
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Projection]:
         """Return a cell-wise basis for all subdomains.
 
-        The basis is represented as a list of matrices, each of which represents a
-        basis function. The individual matrices have shape ``Nc * dim, Nc`` where
-        ``Nc`` is the total number of cells in the subdomains.
+        The basis is represented as a list of projections, each of which represents a
+        basis function. The individiual basis functions can be represented as a
+        projection matrix, of shape ``Nc * dim, Nc`` where ``Nc`` is the total number of
+        cells in the subdomains.
 
         Examples:
             To extend a cell-wise scalar to a vector field, use
@@ -303,20 +306,21 @@ class ModelGeometry(pp.PorePyModel):
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.SparseArrayArray, each of which represents a basis
+            List of pp.ad.SparseArray, each of which represents a basis
             function.
 
         """
-        # Collect the basis functions for each dimension
-        basis: list[pp.ad.SparseArray] = []
+        # Collect the basis functions for each dimension.
+        basis: list[pp.ad.Projection] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
-        # Stack the basis functions horizontally
+        # Stack the basis functions horizontally.
         return basis
 
+    @pp.ad.cached_method
     def e_i(
         self, grids: Sequence[pp.GridLike], *, i: int, dim: int
-    ) -> pp.ad.SparseArray:
+    ) -> pp.ad.Projection:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -324,15 +328,16 @@ class ModelGeometry(pp.PorePyModel):
         Moreover, the grid is assumed to be planar.
 
         Example:
-            For a grid with two cells, and with `i=1` and `dim=3`, the returned
-            basis will be (after conversion to a numpy array)
+            For a grid with two cells, and with `i=1` and `dim=3`, the returned basis
+            will be a Projection that is equivalent to applying the following projection
+            matrix:
             .. code-block:: python
                 array([[0., 0.],
-                    [1., 0.],
-                    [0., 0.],
-                    [0., 0.],
-                    [0., 1.],
-                    [0., 0.]])
+                       [1., 0.],
+                       [0., 0.],
+                       [0., 0.],
+                       [0., 1.],
+                       [0., 0.]])
 
         See also:
             :meth:`basis` for the construction of a full basis.
@@ -343,17 +348,12 @@ class ModelGeometry(pp.PorePyModel):
             dim: Dimension of the functions.
 
         Returns:
-            pp.ad.SparseArray: Ad representation of a matrix with the basis
-            functions as columns.
+            Ad projection that represents a basis function.
 
         Raises:
             ValueError: If i is larger than dim - 1.
 
         """
-        # TODO: Should we expand this to grids not aligned with the coordinate axes, and
-        # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
-        # This is not a priority for the moment, though.
-
         if dim is None:
             dim = self.nd
 
@@ -361,17 +361,21 @@ class ModelGeometry(pp.PorePyModel):
         if i >= dim:
             raise ValueError("Basis function index out of range")
 
-        # Construct a single vector, and later stack it to a matrix
-        # Collect the basis functions for each dimension
-        e_i = np.zeros((dim, 1))
-        e_i[i] = 1
         # Expand to cell-wise column vectors.
         num_cells = sum([g.num_cells for g in grids])
-        # Expand to a matrix.
-        mat = sps.kron(sps.eye(num_cells), e_i)
-        return pp.ad.SparseArray(mat)
+        range_ind = np.arange(i, dim * num_cells, dim)
+
+        slicer = pp.ad.Projection(
+            domain_indices=np.arange(num_cells),
+            range_indices=range_ind,
+            range_size=num_cells * dim,
+            domain_size=num_cells,
+        )
+
+        return slicer
 
     # Local basis related methods
+    @pp.ad.cached_method
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Compute the tangential component of a vector field.
 
@@ -394,7 +398,7 @@ class ModelGeometry(pp.PorePyModel):
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
         # secondly t_i (column vector).
-        op: pp.ad.Operator = pp.ad.sum_operator_list(
+        op: pp.ad.Operator = pp.ad.sum_projection_list(
             [
                 self.e_i(subdomains, i=i, dim=self.nd - 1)
                 @ self.e_i(subdomains, i=i, dim=self.nd).T
@@ -404,7 +408,8 @@ class ModelGeometry(pp.PorePyModel):
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+    @pp.ad.cached_method
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Projection:
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
@@ -421,8 +426,8 @@ class ModelGeometry(pp.PorePyModel):
             subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            Matrix extracting normal component of the vector field and expressing it
-            in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
+            Projection extracting normal component of the vector field and expressing it
+            in normal basis. The size of the projection is `(Nc, Nc * self.nd)`, where
             `Nc` is the total number of cells in the subdomains.
 
         """
@@ -638,6 +643,7 @@ class ModelGeometry(pp.PorePyModel):
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
+    @pp.ad.cached_method
     def outwards_internal_boundary_normals(
         self,
         interfaces: list[pp.MortarGrid],

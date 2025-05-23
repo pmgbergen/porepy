@@ -1,7 +1,8 @@
-r"""Coupling of energy, mass and momentum balance to obtain thermoporomechanics equations.
+r"""Coupling of energy, mass and momentum balance to obtain thermoporomechanics
+equations.
 
-The module only contains what is needed for the coupling, the three individual subproblems
-are defined elsewhere.
+The module only contains what is needed for the coupling, the three individual
+subproblems are defined elsewhere.
 
 The main changes to the equations are achieved by changing the constitutive laws for
 porosity and stress. The former aquires a pressure and temperature dependency and an
@@ -49,6 +50,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.CharacteristicTractionFromDisplacement,
     pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
@@ -85,7 +87,22 @@ class EquationsThermoporomechanics(
     pp.contact_mechanics.ContactMechanicsEquations,
 ):
     """Combines energy, mass and momentum balance equations and
-    contact mechanics equations."""
+    contact mechanics equations. Adaptation is made to the body
+    force taking into account solid and fluid."""
+
+    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Body force integrated over the subdomain cells.
+
+        Parameters:
+            subdomains: List of subdomains where the body force is defined.
+
+        Returns:
+            Operator for the body force [kg*m*s^-2].
+
+        """
+        return self.volume_integral(
+            self.gravity_force(subdomains, "bulk"), subdomains, dim=self.nd
+        )
 
 
 class VariablesThermoporomechanics(
@@ -114,8 +131,8 @@ class BoundaryConditionsThermoporomechanics(
 
 class InitialConditionsThermoporomechanics(
     pp.energy_balance.InitialConditionsEnergy,
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
-    pp.momentum_balance.BoundaryConditionsMomentumBalance,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.momentum_balance.InitialConditionsMomentumBalance,
     pp.contact_mechanics.InitialConditionsContactTraction,
 ):
     """Combines initial conditions for energy, mass and momentum balance and contact
@@ -186,8 +203,9 @@ class SolutionStrategyThermoporomechanics(
         # Super calls method in mass and energy balance. Momentum balance has no
         # nonlinear discretizations.
         super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a re-discretization
-        # of the diffusive flux in subdomains where the aperture changes.
+        # Aperture changes render permeability variable. This requires a
+        # re-discretization of the diffusive flux in subdomains where the aperture
+        # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
             self.darcy_flux_discretization(subdomains).flux(),
@@ -197,6 +215,10 @@ class SolutionStrategyThermoporomechanics(
         self.add_nonlinear_discretization(
             self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
+
+    def _is_nonlinear_problem(self) -> bool:
+        """The thermoporomechanics model is nonlinear."""
+        return True
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

@@ -399,7 +399,7 @@ class FractureNetwork2d:
         ]
 
         # uniquify the points
-        self._pts, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
+        self._pts, _, old_2_new = pp.array_operations.uniquify_point_set(
             self._pts, tol=self.tol
         )
         self._edges = old_2_new[self._edges]
@@ -526,7 +526,7 @@ class FractureNetwork2d:
         edges = np.vstack((edges, tags))
 
         # Ensure unique description of points
-        pts_all, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
+        pts_all, _, old_2_new = pp.array_operations.uniquify_point_set(
             points, tol=self.tol
         )
         edges[:2] = old_2_new[edges[:2]]
@@ -542,8 +542,8 @@ class FractureNetwork2d:
         # This may disturb the line tags in lines[2], but we should not be dependent
         # on those.
         li = np.sort(lines[:2], axis=0)
-        _, new_2_old, old_2_new = pp.utils.setmembership.unique_columns_tol(
-            li, tol=self.tol
+        _, new_2_old, old_2_new = np.unique(
+            li, axis=1, return_index=True, return_inverse=True
         )
         lines = lines[:, new_2_old]
 
@@ -563,7 +563,7 @@ class FractureNetwork2d:
         logger.debug("Done. Elapsed time " + str(time.time() - tm))
 
         # Ensure unique description of points
-        pts_split, _, old_2_new = pp.utils.setmembership.uniquify_point_set(
+        pts_split, _, old_2_new = pp.array_operations.uniquify_point_set(
             pts_split, tol=self.tol
         )
         lines_split[:2] = old_2_new[lines_split[:2]]
@@ -808,7 +808,7 @@ class FractureNetwork2d:
         # Special case where an edge has one point on the boundary of the domain,
         # the other outside the domain. In this case the edge should be removed. The
         # edge will have been cut so that the endpoints coincide. Look for such edges
-        _, _, n2o = pp.utils.setmembership.uniquify_point_set(p, self.tol)
+        _, _, n2o = pp.array_operations.uniquify_point_set(p, self.tol)
         reduced_edges = n2o[e]
         not_point_edge = np.diff(reduced_edges, axis=0).ravel() != 0
 
