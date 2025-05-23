@@ -221,7 +221,7 @@ class FractureNetwork2d:
             if "PYTEST_CURRENT_TEST" in os.environ:
                 # Generate a random file name, to allow tests to be run in parallel
                 # without conflicts.
-                file_name = f"gmsh_frac_file_{np.random.randint(1e8)}.msh"
+                file_name = f"gmsh_frac_file_{np.random.randint(int(1e8))}.msh"
             else:
                 # Use a standard name for the file, so that it can be inspected after
                 # the run.
