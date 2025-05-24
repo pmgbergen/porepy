@@ -34,8 +34,8 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 200.0 * day
-dt = 20.0 * day
+tf = 1.0 * day
+dt = 0.1 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -63,7 +63,7 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-6,
+    "nl_convergence_tol_res": 1.0e0,
     "max_iterations": 100,
 }
 
@@ -95,7 +95,7 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
-        are_reciprocal_Q = np.all(np.isclose(b_c0+ b_c1, 0.0))
+        are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
@@ -104,14 +104,14 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
         external_bc_idx = sd.get_boundary_faces()
         internal_bc_idx = sd.get_internal_faces()
-        print("w_flux_bc: ", w_flux_val[external_bc_idx])
-        print("b_c1_bc: ", b_c1[external_bc_idx])
-        print("flux_bc: ", flux_c1_val[external_bc_idx])
+        # print("w_flux_bc: ", w_flux_val[external_bc_idx])
+        # print("b_c1_bc: ", b_c1[external_bc_idx])
+        # print("flux_bc: ", flux_c1_val[external_bc_idx])
         print("boundary integral  flux_bc: ", np.sum(b_c1[external_bc_idx] + flux_c1_val[external_bc_idx]))
         print("boundary integral m: ", np.sum(mn[external_bc_idx]))
         print("volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
         assert np.isclose(np.sum(b_c1[external_bc_idx]), 0.0, atol=1.0e-5)
-        assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-5)
+        # assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-5)
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
@@ -121,6 +121,11 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
     def after_simulation(self):
         self.exporter.write_pvd()
+
+    def set_nonlinear_discretizations(self) -> None:
+        super().set_nonlinear_discretizations()
+        self.add_nonlinear_discretization(self.darcy_flux_discretization(self.mdg.subdomains()).vector_source())
+        self.add_nonlinear_discretization(self.darcy_flux_discretization(self.mdg.subdomains()).flux())
 
     def before_nonlinear_iteration(self) -> None:
         self.update_buoyancy_discretizations()

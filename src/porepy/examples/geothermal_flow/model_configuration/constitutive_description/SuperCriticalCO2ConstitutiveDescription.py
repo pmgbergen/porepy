@@ -233,7 +233,7 @@ class GasLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (500.0) * np.ones(nc)
+        vals = (1000.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs

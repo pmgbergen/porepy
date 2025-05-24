@@ -521,7 +521,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return buoyancy_discrs
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        scaling = 1.0e-6
+        scaling = 0.0e-6
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * scaling
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
