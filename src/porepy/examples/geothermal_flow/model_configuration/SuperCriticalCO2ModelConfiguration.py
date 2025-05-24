@@ -25,15 +25,15 @@ class BoundaryConditions(pp.PorePyModel):
     ]
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        _, outlet_idx = self.get_inlet_outlet_sides(sd)
+        _ , outlet_idx = self.get_inlet_outlet_sides(sd)
         return pp.BoundaryCondition(sd, outlet_idx, "dir")
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        _, outlet_idx = self.get_inlet_outlet_sides(sd)
+        _ , outlet_idx = self.get_inlet_outlet_sides(sd)
         return pp.BoundaryCondition(sd, outlet_idx, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        _, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         p_top = 10.0
         p = p_top * np.ones(boundary_grid.num_cells)
         p[outlet_idx] = p_top
@@ -79,7 +79,6 @@ class InitialConditions(pp.PorePyModel):
         self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
         self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
 
-
         # values: np.ndarray,
         # variables: Optional[VariableList] = None,
 
@@ -101,7 +100,7 @@ class InitialConditions(pp.PorePyModel):
     ) -> np.ndarray:
         xc = sd.cell_centers.T
         z = np.where((xc[:,1] >= 2.0) & (xc[:,1] <= 4.0), 0.7, 0.0)
-        z = np.where((xc[:, 1] >= 5.0) & (xc[:, 1] <= 7.0), 0.8, 0.0)
+        z = np.where((xc[:, 1] >= 5.5) & (xc[:, 1] <= 6.5), 1.0, 0.0)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
