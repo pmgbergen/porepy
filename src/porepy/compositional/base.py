@@ -460,26 +460,29 @@ class Phase(Generic[ComponentLike]):
         created by normalization of fractions in :attr:`extended_fraction_of`.
 
         If the flow & transport model does not include an equilibrium formulation,
-        the extended fractions are meaningless and the partialf ractions are independent
+        the extended fractions are meaningless and the partial fractions are independent
         variables instead.
 
     The class supports some generic typing to narrow down the type of components
     contained within the class, e.g. ``phase: Phase[FluidComponent] = Phase(...)``.
 
     Parameters:
-        eos: An EoS which provides means to compute physical properties of the phase.
-            Can be different for different phases.
         state: The physical state this phase represents.
         name: Given name for this phase. Used as an unique identifier and for naming
             various variables and properties.
+        eos: ``default=None``
+
+            An EoS which provides means to compute physical properties of the phase.
+            Can be different for different phases, or None if no external computations
+            are used.
 
     """
 
     def __init__(
         self,
-        eos: EquationOfState,
         state: PhysicalState,
         name: str,
+        eos: Optional[EquationOfState] = None,
     ) -> None:
         self._ref_component_index: int = 0
         """See :meth:`reference_component_index`."""
@@ -492,11 +495,11 @@ class Phase(Generic[ComponentLike]):
         To be set by the user, or by some instance of
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`
 
-        Once set, it should not be modified. Avoid multiple occurences of components.
+        Once set, it should not be modified. Avoid multiple occurrences of components.
 
         """
 
-        self.eos: EquationOfState = eos
+        self.eos: Optional[EquationOfState] = eos
         """The EoS passed at instantiation."""
 
         self.state: PhysicalState = state
@@ -545,7 +548,7 @@ class Phase(Generic[ComponentLike]):
         """
 
         self.fugacity_coefficient_of: dict[Component, ExtendedDomainFunctionType]
-        """Fugacitiy coefficients per component in this phase.
+        """Fugacity coefficients per component in this phase.
 
         Dimensionless, scalar field.
 
@@ -679,10 +682,21 @@ class Phase(Generic[ComponentLike]):
     ) -> PhaseProperties:
         """Shortcut to compute the properties calling
         :meth:`EquationOfState.compute_phase_state` of :attr:`eos` with :attr:`state` as
-        argument."""
-        return self.eos.compute_phase_properties(
-            self.state, *thermodynamic_input, params=params
-        )
+        argument.
+
+        Raises:
+            CompositionalModellingError: If this phase has no EoS assigned.
+
+        """
+        if isinstance(self.eos, EquationOfState):
+            return self.eos.compute_phase_properties(
+                self.state, *thermodynamic_input, params=params
+            )
+        else:
+            raise CompositionalModellingError(
+                f"Phase ({self.state, self.name}) has no EoS assigned for computing "
+                + "phase properties."
+            )
 
 
 PhaseLike = TypeVar("PhaseLike", bound=Phase, covariant=True)
@@ -695,7 +709,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
     The fluid (mixture) serves as a container for components and phases and contains the
     specification of the reference component and phase.
 
-    It also provides general attributes for some thermodynamic properites of a fluid,
+    It also provides general attributes for some thermodynamic properties of a fluid,
     which are required by the remaining framework. Hence this class serves as an
     interface for e.g. PDE formulations.
 

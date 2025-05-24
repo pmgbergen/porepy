@@ -238,18 +238,17 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
         )
 
         # Boundary faces flagged as dir are used for bc flash.
-        faces_for_flash = self.bc_type_equilibrium(sd).is_dir[
-            self.domain_boundary_sides(sd).all_bf
-        ]
+        flash_idx = self._boundary_equilibrium_cells(bg)
 
         # Define by default trivial values so that the system can be evaluated.
-        bg_state = self._default_boundary_state(bg)
+        # On cells not flagged for flash, add some eps to avoid division by zero.
+        bg_state = self._default_boundary_state(bg, ~flash_idx)
 
         # Perform flash on tagged faces and prolong solution to whole boundary.
-        if np.any(faces_for_flash):
+        if np.any(flash_idx):
             # The bc_values method is only called for independent components.
             feed = [
-                self.bc_values_overall_fraction(comp, bg)[faces_for_flash]
+                self.bc_values_overall_fraction(comp, bg)[flash_idx]
                 for comp in self.fluid.components
                 if self.has_independent_fraction(comp)
             ]
@@ -262,7 +261,7 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
             for k, v in equilibrium_specs.items():
                 equilibrium_specs[cast(Literal["p", "T", "h"], k)] = cast(
                     np.ndarray, v
-                )[faces_for_flash]
+                )[flash_idx]
 
             # Performing flash, asserting everything is successful.
             logger.info(
@@ -278,20 +277,20 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
                 raise ValueError(f"Boundary flash not successful on boundary {bg.id}")
 
             # Prolong solution.
-            bg_state.p[faces_for_flash] = state.p
-            bg_state.T[faces_for_flash] = state.T
-            bg_state.h[faces_for_flash] = state.h
-            bg_state.rho[faces_for_flash] = state.rho
-            bg_state.y[:, faces_for_flash] = state.y
-            bg_state.sat[:, faces_for_flash] = state.sat
+            bg_state.p[flash_idx] = state.p
+            bg_state.T[flash_idx] = state.T
+            bg_state.h[flash_idx] = state.h
+            bg_state.rho[flash_idx] = state.rho
+            bg_state.y[:, flash_idx] = state.y
+            bg_state.sat[:, flash_idx] = state.sat
 
             for j in range(self.fluid.num_phases):
-                bg_state.phases[j].h[faces_for_flash] = state.phases[j].h
-                bg_state.phases[j].rho[faces_for_flash] = state.phases[j].rho
-                bg_state.phases[j].mu[faces_for_flash] = state.phases[j].mu
-                bg_state.phases[j].kappa[faces_for_flash] = state.phases[j].kappa
-                bg_state.phases[j].phis[:, faces_for_flash] = state.phases[j].phis
-                bg_state.phases[j].x[:, faces_for_flash] = state.phases[j].x
+                bg_state.phases[j].h[flash_idx] = state.phases[j].h
+                bg_state.phases[j].rho[flash_idx] = state.phases[j].rho
+                bg_state.phases[j].mu[flash_idx] = state.phases[j].mu
+                bg_state.phases[j].kappa[flash_idx] = state.phases[j].kappa
+                bg_state.phases[j].phis[:, flash_idx] = state.phases[j].phis
+                bg_state.phases[j].x[:, flash_idx] = state.phases[j].x
 
         self.boundary_equilibrium_results[bg] = bg_state
 
@@ -319,8 +318,26 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
+    def _boundary_equilibrium_cells(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Returns a boolean array indicating which cells of the boundary grid are
+        flagged for performing equilibrium calculations.
+
+        The flags are primary used to not perform the calculations, where not required
+        and to avoid division by zero errors, where not required.
+
+        Parameters:
+            bg: A boundary grid.
+
+        Returns:
+            A boolean array with ``shape=(bg.num_cells,)``.
+
+        """
+        return self.bc_type_equilibrium(bg.parent).is_dir[
+            self.domain_boundary_sides(bg.parent).all_bf
+        ]
+
     def _default_boundary_state(
-        self, bg: pp.BoundaryGrid, eps: float = 1e-10
+        self, bg: pp.BoundaryGrid, cell_idx: np.ndarray, eps: float = 1e-10
     ) -> pp.compositional.FluidProperties:
         """Returns a fluid property instance with trivial values for a given boundary.
 
@@ -331,6 +348,7 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
 
         Parameters:
             bg: A Boundary grid.
+            cell_idx: Boolean array which cell values should be augmented with ``eps``.
             eps: ``default=1e-10``
 
                 Close-to-zero value for viscosity and partial fractions.
@@ -353,9 +371,8 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
         )
 
         for j in range(nphase):
-            bg_state.phases[j].mu = np.ones(n) * eps
-            bg_state.phases[j].dmu = np.ones_like(bg_state.phases[j].dmu) * eps
-            bg_state.phases[j].x = np.ones((ncomp, n)) * eps
+            bg_state.phases[j].mu[cell_idx] = eps
+            bg_state.phases[j].x[:, cell_idx] = eps
 
         return bg_state
 
@@ -561,9 +578,8 @@ class BoundaryConditionsCFFLE(
         fluid_props = self.boundary_equilibrium_results[bg]
         vals = np.zeros(bg.num_cells)
 
-        for j, phase_props in enumerate(zip(self.fluid.phases, fluid_props.phases)):
-            phase, props = phase_props
-            vals += props.rho * self._bc_value_phase_mobility(j, fluid_props)
+        for j, phase_props in enumerate(fluid_props.phases):
+            vals += phase_props.rho * self._bc_value_phase_mobility(j, fluid_props)
 
         return vals
 
@@ -581,43 +597,46 @@ class BoundaryConditionsCFFLE(
         fluid_props = self.boundary_equilibrium_results[bg]
         vals = np.zeros(bg.num_cells)
 
-        for j, phase_props in enumerate(zip(self.fluid.phases, fluid_props.phases)):
-            phase, props = phase_props
-            vals += props.h * props.rho * self._bc_value_phase_mobility(j, fluid_props)
+        for j, phase_props in enumerate(fluid_props.phases):
+            vals += (
+                phase_props.h
+                * phase_props.rho
+                * self._bc_value_phase_mobility(j, fluid_props)
+            )
 
         return vals
 
     def bc_values_fractional_flow_component(self, component, bg):
         """Computes the values based on the result from the boundary flash, if the flash
-        was performed for the boundary grid ``bg``.
+        was performed for the boundary grid ``bg``, and inserts it in the cells flagged
+        for the boundary equilibrium."""
 
-        Performs a super-call otherwise.
-
-        """
+        vals = super().bc_values_fractional_flow_energy(bg)
 
         if bg in self.boundary_equilibrium_results:
+            idx = self._boundary_equilibrium_cells(bg)
             component_mass_mobility = self._bc_value_component_mass_mobility(
                 component, bg
             )
             total_mass_mobility = self._bc_value_total_mass_mobility(bg)
-            return component_mass_mobility / total_mass_mobility
-        else:
-            return super().bc_values_fractional_flow_component(component, bg)
+            vals[idx] = (component_mass_mobility / total_mass_mobility)[idx]
+
+        return vals
 
     def bc_values_fractional_flow_energy(self, bg):
         """Computes the values based on the result from the boundary flash, if the flash
-        was performed for the boundary grid ``bg``.
+        was performed for the boundary grid ``bg``, and inserts it in the cells flagged
+        for the boundary equilibrium."""
 
-        Performs a super-call otherwise.
-
-        """
+        vals = super().bc_values_fractional_flow_energy(bg)
 
         if bg in self.boundary_equilibrium_results:
+            idx = self._boundary_equilibrium_cells(bg)
             advected_enthalpy = self._bc_value_advected_enthalpy(bg)
             total_mass_mobility = self._bc_value_total_mass_mobility(bg)
-            return advected_enthalpy / total_mass_mobility
-        else:
-            return super().bc_values_fractional_flow_energy(bg)
+            vals[idx] = (advected_enthalpy / total_mass_mobility)[idx]
+
+        return vals
 
 
 class InitialConditionsEquilibrium(cf.InitialConditionsCF):

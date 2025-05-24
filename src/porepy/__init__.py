@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.10.0"
+__version__ = "1.11.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -243,7 +243,7 @@ from porepy.viz.solver_statistics import SolverStatistics
 # Modules
 from porepy.fracs import utils as frac_utils
 from porepy.fracs import meshing, fracture_importer
-from porepy.grids import coarsening, partition, refinement
+from porepy.grids import partition, refinement
 from porepy.numerics import displacement_correlation
 
 # Applications

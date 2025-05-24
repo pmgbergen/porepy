@@ -17,11 +17,8 @@ from typing import TYPE_CHECKING, Callable, Protocol, Sequence
 
 import numpy as np
 
-import porepy as pp
-
 from .._core import R_IDEAL_MOL, T_REF
-from ..base import Component, Compound
-from ..materials import load_fluid_constants
+from ..base import Component
 from ..utils import safe_sum
 
 __all__ = [
@@ -33,7 +30,6 @@ __all__ = [
     "get_bip_matrix",
     "VanDerWaals_cohesion",
     "VanDerWaals_covolume",
-    "NaClBrine",
 ]
 
 
@@ -309,28 +305,3 @@ def VanDerWaals_cohesion(
             a_parts.append(2.0 * x_ij * a_ij)
 
     return safe_sum(a_parts)
-
-
-class NaClBrine(Compound, pp.FluidComponent):
-    """A compound representing water - sodium chloride brine, where water is the solvent
-    and NaCl a solute.
-
-    A special model for the cohesion correction :attr:`alpha` and BIPs are implemented,
-    see reference.
-
-    References:
-        [1] `Soereide (1992) <https://doi.org/10.1016/0378-3812(92)85105-H>`_
-
-    """
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-
-        # instantiate NaCl_ps as a solute
-        solute = load_fluid_constants(["NaCl"], "chemicals")
-        # add solute to self
-        self.pseudo_components = solute
-
-        # store NaCl for quick access
-        self.NaCl = solute
-        """Reference to the pseudo-component representing NaCl."""

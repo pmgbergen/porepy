@@ -1,4 +1,4 @@
-""" "Module containing some constant heuristic fluid property implementations and
+"""Module containing some constant heuristic fluid property implementations and
 the mixin :class:`FluidMobility`, which is required in all flow & transport problems.
 
 Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using
@@ -69,7 +69,7 @@ class FluidDensityFromPressure(pp.PorePyModel):
         )
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        """Mixin method for :class:`~porepy.compositional.compositional_mixins.
         FluidMixin` to provide a density exponential law for the fluid's phase.
 
         .. math::
@@ -141,7 +141,7 @@ class FluidDensityFromTemperature(pp.PorePyModel):
         return Scalar(val, "fluid_thermal_expansion")
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Analogous to :meth:`FluidDensityFromPressure.density_of_phase`, but using
+        """Analogous to :meth:`FluidDensityFromPressure.density_of_phase`, but using
         temperature and the thermal expansion of the reference component.
 
         .. math::

@@ -148,12 +148,17 @@ class NewtonSolver:
                     )
                     newton_step()
 
-                    solver_progressbar.update(n=1)
-                    # Ignore line being too long, because we would need an additional
-                    # variable to fix this.
-                    solver_progressbar.set_postfix_str(
-                        f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
-                    )
+                    # Do not update the progress bar if something failed during a Newton
+                    # iteration, because
+                    # ``model.nonlinear_solver_statistics.nonlinear_increment_norms``
+                    # might be empty.
+                    if not is_diverged:
+                        solver_progressbar.update(n=1)
+                        # Ignore line being too long, because we would need an
+                        # additional variable to fix this.
+                        solver_progressbar.set_postfix_str(
+                            f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
+                        )
 
                     if is_diverged:
                         # If the process finishes early, the tqdm bar needs to be
