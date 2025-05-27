@@ -960,7 +960,10 @@ class Exporter:
             if value.size == 0 and num_dofs == 0:
                 return value
             elif not value.size % num_dofs == 0:
-                # This line will raise an error if node or face data is exported.
+                # This line will raise an error if the size of the data to be exported
+                # does not match the number of degrees of freedom. As an example, this
+                # may happed if the user tries to export point data while setting
+                # num_dofs to the number of cells in the grid.
                 raise ValueError("The data array is not compatible with the grid.")
 
             # Convert to vectorial data if more data provided than grid cells available,
@@ -999,12 +1002,13 @@ class Exporter:
 
             """
 
-            # Only continue in case data is of type str
+            # Only continue in case data is of type str.
             if isinstance(data_pt, str):
                 # Identify the key provided through the data.
                 key = data_pt
 
-                # Initialize tag storing whether there exists data associated to the key
+                # Initialize tag storing whether there exists data associated to the
+                # key.
                 has_key = False
 
                 def _add_data(
@@ -1017,7 +1021,7 @@ class Exporter:
                         pp.TIME_STEP_SOLUTIONS in grid_data
                         and key in grid_data[pp.TIME_STEP_SOLUTIONS]
                     ):
-                        # Fetch data and convert to vectorial format if needed
+                        # Fetch data and convert to vectorial format if needed.
                         data_to_convert = pp.get_solution_values(
                             name=key, data=grid_data, time_step_index=0
                         )
@@ -1025,10 +1029,10 @@ class Exporter:
                             data_to_convert, self._num_dofs(grid, num_entities)
                         )
 
-                        # Add data point in correct format to the collection
+                        # Add data point in correct format to the collection.
                         export_data[(grid, key)] = value
 
-                        # Mark as success
+                        # Mark as success.
                         return True
                     else:
                         return False
@@ -1101,9 +1105,9 @@ class Exporter:
                 key = data_pt[1]
 
                 # Loop over grids and fetch the time step solutions corresponding to the
-                # key
+                # key.
                 for sd in subdomains:
-                    # Fetch the data dictionary containing the data value
+                    # Fetch the data dictionary containing the data value.
                     sd_data = self._mdg.subdomain_data(sd)
 
                     # Make sure the data exists.
@@ -1116,7 +1120,7 @@ class Exporter:
                             available on selected subdomains."""
                         )
 
-                    # Fetch data and convert to vectorial format if suitable
+                    # Fetch data and convert to vectorial format if suitable.
                     data_to_convert = pp.get_solution_values(
                         name=key, data=sd_data, time_step_index=0
                     )
@@ -1124,7 +1128,7 @@ class Exporter:
                         data_to_convert, self._num_dofs(sd, num_entities)
                     )
 
-                    # Add data point in correct format to collection
+                    # Add data point in correct format to collection.
                     subdomain_data[(sd, key)] = value
 
                 # Return updated dictionaries and indicate successful conversion.
@@ -1815,16 +1819,16 @@ class Exporter:
         Returns:
             Meshio_Geom: Points, 0d cells (as vertices), and cell ids in meshio format.
         """
-        # In 0d, each cell is a point (vertex)
+        # In 0d, each cell is a point (vertex).
         cell_type = "vertex"
         # Dictionary storing cell->nodes connectivity information. Each vertex has a
-        #  trivial connectivity to itself.
+        # trivial connectivity to itself.
         cell_to_nodes: dict[str, np.ndarray] = {cell_type: np.empty((0, 1), dtype=int)}
         # Dictionary collecting all cell ids for each cell type. Since each cell is a
         # vertex, the list of cell ids is trivial.
         cell_id: dict[str, list[int]] = {cell_type: []}
-        # In 0d, each point to be exported corresponds to a cell, as implemented in
-        # the num_dofs method.
+        # In 0d, each point to be exported corresponds to a cell, as implemented in the
+        # num_dofs method.
         num_pts = sum(self._num_dofs(grid, "num_nodes") for grid in grids)
         # Data structure for storing node coordinates of all 0d grids.
         # Each point is represented as a vertex cell in meshio format.
