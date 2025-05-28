@@ -309,7 +309,7 @@ def test_mdg(setup: ExporterTestSetup):
         data_pt=["dummy_scalar_pt", "dummy_vector_pt", "unique_dummy_scalar_pt"],
     )
     # Check that exported vtu files and reference files are the same.
-    for appendix in ["1", "2", "mortar_1"]:
+    for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
             f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
@@ -526,6 +526,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
 
     # Fetch separate subdomains
+    subdomains_0d = mdg.subdomains(dim=0)
     subdomains_1d = mdg.subdomains(dim=1)
     subdomains_2d = mdg.subdomains(dim=2)
     sd_2d = subdomains_2d[0]
@@ -538,12 +539,14 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
     )
     save.write_vtu(
         [
+            (subdomains_0d, "dummy_scalar"),
             (subdomains_1d, "dummy_scalar"),
             "dummy_vector",
             "unique_dummy_scalar",
             (sd_2d, "cc", sd_2d.cell_centers),
         ],
         data_pt=[
+            (subdomains_0d, "dummy_scalar_pt"),
             (subdomains_1d, "dummy_scalar_pt"),
             "dummy_vector_pt",
             "unique_dummy_scalar_pt",
@@ -552,7 +555,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
     )
 
     # Check that exported vtu files and reference files are the same.
-    for appendix in ["1", "2", "mortar_1"]:
+    for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
             f"{setup.folder_reference}/mdg_data_selection_grid_{appendix}.vtu",
