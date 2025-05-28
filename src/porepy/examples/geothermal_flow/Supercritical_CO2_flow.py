@@ -63,7 +63,7 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-5,
+    "nl_convergence_tol_res": 1.0e-4,
     "max_iterations": 100,
 }
 
