@@ -10,7 +10,7 @@ import numba.typed
 import numpy as np
 import pytest
 
-from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
+from porepy.compositional.compiled_flash.solvers import DEFAULT_BRENT_PARAMS, brent
 
 
 @pytest.mark.parametrize(

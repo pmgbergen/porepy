@@ -53,6 +53,25 @@ import porepy as pp
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
 
+__all__ = [
+    "generic_arg_from_fluid_state",
+    "dim_gen_arg",
+    "parse_generic_arg",
+    "assemble_generic_arg",
+    "parse_vectorized_generic_arg",
+    "assemble_vectorized_generic_arg",
+    "mass_conservation_res",
+    "mass_conservation_jac",
+    "complementary_conditions_res",
+    "complementary_conditions_jac",
+    "isofugacity_constraints_res",
+    "isofugacity_constraints_jac",
+    "first_order_constraint_res",
+    "first_order_constraint_jac",
+    "phase_mass_constraints_res",
+    "phase_mass_constraints_jac",
+]
+
 
 def generic_arg_from_fluid_state(
     flash_type: str,

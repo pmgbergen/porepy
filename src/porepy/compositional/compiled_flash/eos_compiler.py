@@ -11,14 +11,12 @@ from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, 
 import numba as nb
 import numpy as np
 
-from ._core import NUMBA_PARALLEL, PhysicalState, cfunc, typeof
-from .base import Component, EquationOfState
-from .states import PhaseProperties
-from .utils import normalize_rows
+from .._core import NUMBA_PARALLEL, PhysicalState, cfunc, typeof
+from ..base import Component, EquationOfState
+from ..states import PhaseProperties
+from ..utils import normalize_rows
 
-__all__ = [
-    "EoSCompiler",
-]
+__all__ = ["EoSCompiler"]
 
 logger = logging.getLogger(__name__)
 

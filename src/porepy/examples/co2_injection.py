@@ -13,7 +13,6 @@ Note:
 
 from __future__ import annotations
 
-
 # GENERAL MODEL CONFIGURATION
 
 FRACTIONAL_FLOW: bool = True
@@ -48,25 +47,14 @@ if DISABLE_COMPILATION:
     os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
+import porepy.models.compositional_flow as cf
+import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
 from porepy.numerics.nonlinear.anderson_acceleration import AndersonAcceleration
-from porepy.viz.solver_statistics import ExtendedSolverStatistics
-
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.DEBUG)
-
-t_0 = time.time()
-import porepy.compositional.peng_robinson as pr
-import porepy.models.compositional_flow as cf
-import porepy.models.compositional_flow_with_equilibrium as cfle
-
-compile_time = time.time() - t_0
-
 
 logger = logging.getLogger(__name__)
-
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
@@ -127,8 +115,10 @@ class FluidMixture(pp.PorePyModel):
     def get_phase_configuration(
         self, components: Sequence[pp.FluidComponent]
     ) -> Sequence[
-        tuple[pp.compositional.PhysicalState, str, pp.compositional.EoSCompiler]
+        tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
+        import porepy.compositional.peng_robinson as pr
+
         eos = pr.PengRobinsonCompiler(
             components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
         )
@@ -276,17 +266,17 @@ class SolutionStrategy(pp.PorePyModel):
             if status[0]:
                 print("\nConverged with relaxed, unified CF criteria.\n")
 
-        if ANALYSIS_MODE:
-            assert isinstance(
-                self.nonlinear_solver_statistics, ExtendedSolverStatistics
-            )
-            self.nonlinear_solver_statistics.extended_log(
-                self.time_manager.time,
-                self.time_manager.dt,
-                res_norm_per_equation=res_norm_per_eq,
-                incr_norm_per_variable=incr_norm_per_var,
-                condition_numbers=condition_numbers,
-            )
+        # if ANALYSIS_MODE:
+        #     assert isinstance(
+        #         self.nonlinear_solver_statistics, ExtendedSolverStatistics
+        #     )
+        #     self.nonlinear_solver_statistics.extended_log(
+        #         self.time_manager.time,
+        #         self.time_manager.dt,
+        #         res_norm_per_equation=res_norm_per_eq,
+        #         incr_norm_per_variable=incr_norm_per_var,
+        #         condition_numbers=condition_numbers,
+        #     )
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -1459,8 +1449,8 @@ solver_params = {
     "solver_statistics_file_name": "solver_statistics.json",
 }
 
-if ANALYSIS_MODE:
-    solver_params["nonlinear_solver_statistics"] = ExtendedSolverStatistics
+# if ANALYSIS_MODE:
+#     solver_params["nonlinear_solver_statistics"] = ExtendedSolverStatistics
 
 model_params = {
     "equilibrium_condition": EQUILIBRIUM_CONDITION,
@@ -1492,10 +1482,13 @@ model_params.update(solver_params)
 # Casting to the most complex model type for typing purposes.
 model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
 
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("porepy").setLevel(logging.DEBUG)
 t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
-compile_time += prep_sim_time
+logging.getLogger("porepy").setLevel(logging.INFO)
+
 model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
 # Defining sub system with block-diagonal form for efficient Schur complement reduction.
@@ -1515,13 +1508,11 @@ primary_variables += list(
 model.primary_equations = primary_equations
 model.primary_variables = primary_variables
 
-logging.getLogger("porepy").setLevel(logging.INFO)
 t_0 = time.time()
 pp.run_time_dependent_model(model, model_params)
 sim_time = time.time() - t_0
 
-print(f"Set-up time: {prep_sim_time} (s).")
-print(f"Approximate compilation time: {compile_time} (s).")
+print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
 print(f"Simulation run time: {sim_time / 60.0} (min).")
 
 

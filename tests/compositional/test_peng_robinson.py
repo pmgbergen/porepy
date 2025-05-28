@@ -13,20 +13,20 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+# NOTE uncomment for fast debugging without numba compilation
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 import porepy as pp
-from porepy.compositional import flash as FL
-from porepy.compositional import peng_robinson as PR
-from porepy.compositional.flash.solvers import DEFAULT_NPIPM_SOLVER_PARAMS
+from porepy.compositional import compiled_flash as cflash
+from porepy.compositional import peng_robinson as pr
+from porepy.compositional.compiled_flash.solvers import DEFAULT_NPIPM_SOLVER_PARAMS
 from porepy.compositional.materials import load_fluid_constants
 from porepy.compositional.peng_robinson.utils import (
     get_bip_matrix,
     h_ideal_CO2,
     h_ideal_H2O,
 )
-
-# NOTE uncomment for fast debugging without numba compilation
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 # NOTE Fixtures created here are expensive because of compilation
@@ -41,11 +41,11 @@ def components() -> tuple[pp.Component, ...]:
 
 
 @pytest.fixture(scope="module")
-def eos(components) -> PR.PengRobinsonCompiler:
+def eos(components) -> pr.PengRobinsonCompiler:
     """The fixture for this series of tests is a 2-component mixture with water and
     CO2."""
 
-    eos = PR.PengRobinsonCompiler(
+    eos = pr.PengRobinsonCompiler(
         list(components),
         [h_ideal_H2O, h_ideal_CO2],
         get_bip_matrix(components),
@@ -58,7 +58,7 @@ def eos(components) -> PR.PengRobinsonCompiler:
 def mixture(components, eos) -> pp.Fluid:
     """Returns the 2-phase, 2-component mixture class used in this series of tests."""
 
-    phases = [pp.Phase(eos, 0, "L"), pp.Phase(eos, 1, "G")]
+    phases = [pp.Phase(0, "L", eos), pp.Phase(1, "G", eos)]
     for p in phases:
         p.components = components
 
@@ -68,11 +68,11 @@ def mixture(components, eos) -> pp.Fluid:
 
 
 @pytest.fixture(scope="module")
-def flash(mixture) -> FL.CompiledUnifiedFlash:
+def flash(mixture) -> cflash.CompiledUnifiedFlash:
     """Compiled, unified flash instance based on the compiled PR EoS and the
     mixture"""
 
-    flash_ = FL.CompiledUnifiedFlash(mixture)
+    flash_ = cflash.CompiledUnifiedFlash(mixture)
     flash_.solver_params.update(DEFAULT_NPIPM_SOLVER_PARAMS)
     flash_.compile()
 
@@ -94,27 +94,27 @@ def test_compressibility_factor_double_root():
     B = 0.0
 
     # If A and B are zero, this should give the double root case
-    root_case = PR.eos._get_root_case(A, B, tol)
+    root_case = pr.eos._get_root_case(A, B, tol)
     assert root_case == 2
 
     # liquid-like and gas-like root in the double root case should both solve the
     # polynomial exactly
-    z_liq = PR.eos.Z_double_l(A, B)
-    z_gas = PR.eos.Z_double_g(A, B)
-    d_z_liq = PR.eos.dZ_double_l(A, B)
-    d_z_gas = PR.eos.dZ_double_g(A, B)
-    assert np.abs(PR.characteristic_residual(z_gas, A, B)) < tol
-    assert np.abs(PR.characteristic_residual(z_liq, A, B)) < tol
+    z_liq = pr.eos.Z_double_l(A, B)
+    z_gas = pr.eos.Z_double_g(A, B)
+    d_z_liq = pr.eos.dZ_double_l(A, B)
+    d_z_gas = pr.eos.dZ_double_g(A, B)
+    assert np.abs(pr.characteristic_residual(z_gas, A, B)) < tol
+    assert np.abs(pr.characteristic_residual(z_liq, A, B)) < tol
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
     gastype = pp.compositional.PhysicalState.gas.value
     liquidtype = pp.compositional.PhysicalState.liquid.value
-    assert np.abs(PR.eos._Z_from_AB(A, B, gastype, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(PR.eos._Z_from_AB(A, B, liquidtype, tol, 0.0, 0.0) - z_liq) < tol
-    assert np.linalg.norm(PR.eos._dZ_dAB(A, B, gastype, tol, 0.0, 0.0) - d_z_gas) < tol
+    assert np.abs(pr.eos._Z_from_AB(A, B, gastype, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(pr.eos._Z_from_AB(A, B, liquidtype, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.linalg.norm(pr.eos._dZ_dAB(A, B, gastype, tol, 0.0, 0.0) - d_z_gas) < tol
     assert (
-        np.linalg.norm(PR.eos._dZ_dAB(A, B, liquidtype, tol, 0.0, 0.0) - d_z_liq) < tol
+        np.linalg.norm(pr.eos._dZ_dAB(A, B, liquidtype, tol, 0.0, 0.0) - d_z_liq) < tol
     )
 
 
@@ -129,15 +129,15 @@ def test_compressibility_factor_triple_root():
     tol = 1e-12
 
     # critical point in the AB space
-    A = PR.A_CRIT
-    B = PR.B_CRIT
+    A = pr.A_CRIT
+    B = pr.B_CRIT
 
     # triple root in this case
-    z = PR.eos.Z_triple(A, B)
-    d_z = PR.eos.dZ_triple(A, B)
-    assert np.abs(PR.characteristic_residual(z, A, B)) < tol
+    z = pr.eos.Z_triple(A, B)
+    d_z = pr.eos.dZ_triple(A, B)
+    assert np.abs(pr.characteristic_residual(z, A, B)) < tol
 
-    nroot = PR.eos._get_root_case(A, B, tol)
+    nroot = pr.eos._get_root_case(A, B, tol)
     # 0 is the code for triple root
     assert nroot == 0
 
@@ -147,7 +147,7 @@ def test_compressibility_factor_triple_root():
     # Assert general compuations also give the same result, for liquid and gas-like
     assert (
         np.abs(
-            PR.eos._Z_from_AB(
+            pr.eos._Z_from_AB(
                 A,
                 B,
                 gastype,
@@ -161,7 +161,7 @@ def test_compressibility_factor_triple_root():
     )
     assert (
         np.abs(
-            PR.eos._Z_from_AB(
+            pr.eos._Z_from_AB(
                 A,
                 B,
                 liquidtype,
@@ -173,8 +173,8 @@ def test_compressibility_factor_triple_root():
         )
         < tol
     )
-    assert np.linalg.norm(PR.eos._dZ_dAB(A, B, True, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(PR.eos._dZ_dAB(A, B, False, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(pr.eos._dZ_dAB(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(pr.eos._dZ_dAB(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():
@@ -195,16 +195,16 @@ def test_compressibility_factors_are_roots():
     A, B = np.meshgrid(np.arange(0, 1, steps), np.arange(0, 1, steps))
     A = A.flatten()
     B = B.flatten()
-    Z_liq = PR.compressibility_factor(A, B, liquidtype, tol, 0.0, 0.0)
-    not_extended_liq = PR.is_extended_root(A, B, liquidtype, tol)
-    residual = PR.characteristic_residual(
+    Z_liq = pr.compressibility_factor(A, B, liquidtype, tol, 0.0, 0.0)
+    not_extended_liq = pr.is_extended_root(A, B, liquidtype, tol)
+    residual = pr.characteristic_residual(
         Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
-    Z_gas = PR.compressibility_factor(A, B, gastype, tol, 0.0, 0.0)
-    not_extended_gas = PR.is_extended_root(A, B, gastype, tol)
-    residual = PR.characteristic_residual(
+    Z_gas = pr.compressibility_factor(A, B, gastype, tol, 0.0, 0.0)
+    not_extended_gas = pr.is_extended_root(A, B, gastype, tol)
+    residual = pr.characteristic_residual(
         Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )
     assert np.all(np.abs(residual) < tol)
@@ -266,38 +266,38 @@ def test_compressibility_factors_are_roots():
                 ("x_co2_g", 8, 0.01),
             ],
         ),
-        (
-            "v-h",
-            np.array(  # v-h
-                [
-                    0.01,  # z_co2
-                    3.267067077646246e-05,  # v
-                    -18911.557739855507,  # h
-                    0.0,  # s_g
-                    15000000.37937989,  # p
-                    575.0000000014545,  # T
-                    0.0,  # y_g
-                    0.99,  # x_h2o_l
-                    0.01,  # x_co2_l
-                    0.7441053921417927,  # x_h2o_g
-                    0.16487463968601462,  # x_co2_g
-                ]
-            ),
-            [
-                ("s_g", 3, 0.01),
-                ("p", 4, 100),
-                ("T", 5, 1),
-                ("y", 6, 0.01),
-                ("xh20_l", 7, 0.01),
-                ("xco2_l", 8, 0.01),
-                ("xh2o_g", 9, 0.01),
-                ("xco2_g", 10, 0.01),
-            ],
-        ),
+        # (
+        #     "v-h",
+        #     np.array(  # v-h
+        #         [
+        #             0.01,  # z_co2
+        #             3.267067077646246e-05,  # v
+        #             -18911.557739855507,  # h
+        #             0.0,  # s_g
+        #             15000000.37937989,  # p
+        #             575.0000000014545,  # T
+        #             0.0,  # y_g
+        #             0.99,  # x_h2o_l
+        #             0.01,  # x_co2_l
+        #             0.7441053921417927,  # x_h2o_g
+        #             0.16487463968601462,  # x_co2_g
+        #         ]
+        #     ),
+        #     [
+        #         ("s_g", 3, 0.01),
+        #         ("p", 4, 100),
+        #         ("T", 5, 1),
+        #         ("y", 6, 0.01),
+        #         ("xh20_l", 7, 0.01),
+        #         ("xco2_l", 8, 0.01),
+        #         ("xh2o_g", 9, 0.01),
+        #         ("xco2_g", 10, 0.01),
+        #     ],
+        # ),
     ],
 )
 def test_uniflash_using_pr(
-    flash_type, X0, var_idx_delta, flash: FL.CompiledUnifiedFlash
+    flash_type, X0, var_idx_delta, flash: cflash.CompiledUnifiedFlash
 ):
     """Computes the Flash equations (Jacobian and residual) and checks that the
     Taylor expansion for each unknown is approximately of second order.

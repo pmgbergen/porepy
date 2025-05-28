@@ -34,8 +34,9 @@ import numpy as np
 
 import porepy as pp
 
+from ..flash import Flash
 from ..utils import _chainrule_fractional_derivatives, normalize_rows
-from .flash import Flash
+from .eos_compiler import EoSCompiler
 from .flash_initializer import FlashInitializer
 from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 from .uniflash_equations import (
@@ -134,8 +135,8 @@ class CompiledUnifiedFlash(Flash):
         """A sequence containing the physical phase state per phase."""
 
         eos = fluid.reference_phase.eos
-        assert isinstance(eos, pp.compositional.EoSCompiler)
-        self._eos: pp.compositional.EoSCompiler = eos
+        assert isinstance(eos, EoSCompiler)
+        self._eos: EoSCompiler = eos
         """Compiled EoS of the reference phase, assuming all phases have the same EoS.
         """
 
