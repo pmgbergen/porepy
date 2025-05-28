@@ -480,25 +480,25 @@ class FluidBuoyancy(pp.PorePyModel):
     darcy_flux_discretization: Callable[[list[pp.Grid]],pp.ad.MpfaA] # because it contains the div(w(rho)) term
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
-    def buoyancy_key(self, component: pp.Component) -> str:
-        return 'buoyancy_' + component.name
+    def buoyancy_key(self, phase: pp.Phase) -> str:
+        return 'buoyancy_' + phase.name
 
-    def upward_flux_array_key(self, component: pp.Component) -> str:
-        return 'upward_w_flux_' + component.name
+    def upward_flux_array_key(self, phase: pp.Phase) -> str:
+        return 'upward_w_flux_' + phase.name
 
-    def downward_flux_array_key(self, component: pp.Component) -> str:
-        return 'downward_w_flux_' + component.name
+    def downward_flux_array_key(self, phase: pp.Phase) -> str:
+        return 'downward_w_flux_' + phase.name
 
-    def upward_component_discretization(self, xi: pp.Component, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
-        discr = pp.ad.UpwindAd(self.buoyancy_key(xi), subdomains)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(xi)
-        discr._discretization.flux_array_key = self.upward_flux_array_key(xi)
+    def upward_phase_discretization(self, gamma: pp.Phase, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
+        discr = pp.ad.UpwindAd(self.buoyancy_key(gamma), subdomains)
+        discr._discretization.upwind_matrix_key = self.buoyancy_key(gamma)
+        discr._discretization.flux_array_key = self.upward_flux_array_key(gamma)
         return discr
 
-    def downward_component_discretization(self, eta: pp.Component, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
-        discr = pp.ad.UpwindAd(self.buoyancy_key(eta), subdomains)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(eta)
-        discr._discretization.flux_array_key = self.downward_flux_array_key(eta)
+    def downward_phase_discretization(self, delta: pp.Phase, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
+        discr = pp.ad.UpwindAd(self.buoyancy_key(delta), subdomains)
+        discr._discretization.upwind_matrix_key = self.buoyancy_key(delta)
+        discr._discretization.flux_array_key = self.downward_flux_array_key(delta)
         return discr
 
     def interface_upward_component_discretization(
@@ -513,15 +513,15 @@ class FluidBuoyancy(pp.PorePyModel):
 
     def buoyancy_discrezations(self, subdomains: pp.SubdomainsOrBoundaries):
         buoyancy_discrs = []
-        for component_xi in self.fluid.components:
-            for pairs in self.component_pairs_for(component_xi):
-                xi, eta = pairs
-                buoyancy_discrs.append(self.upward_component_discretization(xi, subdomains).upwind())
-                buoyancy_discrs.append(self.downward_component_discretization(eta, subdomains).upwind())
+        for phase_gamma in self.fluid.phases:
+            for pairs in self.phase_pairs_for(phase_gamma):
+                gamma, delta = pairs
+                buoyancy_discrs.append(self.upward_phase_discretization(gamma, subdomains).upwind())
+                buoyancy_discrs.append(self.downward_phase_discretization(delta, subdomains).upwind())
         return buoyancy_discrs
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        scaling = 0.0e-6
+        scaling = 1.0e-6
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * scaling
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
@@ -567,27 +567,27 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("density_driven_flux_" + density_metric.name)
         return w_flux
 
-    def component_density(
-        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-
-        name = f"component_density_{component.name}"
-        component_density = pp.ad.sum_operator_list(
-            [
-                phase.partial_fraction_of[component](domains)
-                * phase.density(domains)
-                * self.phase_mobility(phase, domains)
-                * phase.density(domains)
-                for phase in self.fluid.phases
-            ],
-            name,
-        ) / self.component_mass_mobility(component, domains)
-        return component_density
+    # def component_density(
+    #     self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    # ) -> pp.ad.Operator:
+    #
+    #     name = f"component_density_{component.name}"
+    #     component_density = pp.ad.sum_operator_list(
+    #         [
+    #             phase.partial_fraction_of[component](domains)
+    #             * phase.density(domains)
+    #             * self.phase_mobility(phase, domains)
+    #             * phase.density(domains)
+    #             for phase in self.fluid.phases
+    #         ],
+    #         name,
+    #     ) #/ self.component_mass_mobility(component, domains)
+    #     return component_density
 
     def fractionally_weighted_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         overall_rho = pp.ad.sum_operator_list([
-            self.fractional_component_mass_mobility(component, domains) * self.component_density(component,domains)
-            for component in self.fluid.components])
+            self.fractional_phase_mass_mobility(phase, domains) * phase.density(domains)
+            for phase in self.fluid.phases])
         overall_rho.set_name("fractionally_weighted_density")
         return overall_rho
 
@@ -595,70 +595,77 @@ class FluidBuoyancy(pp.PorePyModel):
 
         # This construction implies that for each component pair, there is a pair of upwinding objects
         b_fluxes = []
-        for pairs in self.component_pairs_for(component_xi):
-            xi, eta = pairs
-            rho_xi = self.component_density(xi, domains)
-            rho_eta = self.component_density(eta, domains)
-            w_flux_xi_eta = self.density_driven_flux(domains, rho_xi - rho_eta) # well-defined flux on facets
-            f_xi = self.fractional_component_mass_mobility(xi, domains)
-            f_eta = self.fractional_component_mass_mobility(eta, domains)
+        for phase in self.fluid.phases:
+            for pairs in self.phase_pairs_for(phase):
+                gamma, delta = pairs
+                rho_gamma = gamma.density(domains)
+                rho_delta = delta.density(domains)
+                w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta) # well-defined flux on facets
+                f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
+                f_delta = self.fractional_phase_mass_mobility(delta, domains)
 
-            # Verify that the domains are subdomains.
-            if not all(isinstance(d, pp.Grid) for d in domains):
-                raise ValueError("domains must consist entirely of subdomains.")
-            domains = cast(list[pp.Grid], domains)
+                # Verify that the domains are subdomains.
+                if not all(isinstance(d, pp.Grid) for d in domains):
+                    raise ValueError("domains must consist entirely of subdomains.")
+                domains = cast(list[pp.Grid], domains)
 
-            discr_xi = self.upward_component_discretization(xi, domains)
-            discr_eta = self.downward_component_discretization(eta, domains)
+                chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
+                discr_gamma = self.upward_phase_discretization(gamma, domains)
+                discr_delta = self.downward_phase_discretization(delta, domains)
 
-            # TODO: Fixed dimensional implementation. Needs md-part
-            f_xi_upwind: pp.ad.Operator = discr_xi.upwind() @ f_xi # well-defined fraction flow on facets
-            f_eta_upwind: pp.ad.Operator = discr_eta.upwind() @ f_eta # well-defined fraction flow on facets
+                # TODO: Fixed dimensional implementation. Needs md-part
+                f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ (chi_xi_gamma * f_gamma) # well-defined fraction flow on facets
+                f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
 
-            b_flux_xi_eta = (f_xi_upwind * f_eta_upwind) * w_flux_xi_eta
-            b_fluxes.append(b_flux_xi_eta)
+                b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                b_fluxes.append(b_flux_gamma_delta)
+                # print("component: ", component_xi.name)
+                # print("partial fraction of component in phase: ", "chi_" + component_xi.name + "_" + gamma.name )
+                # print("phases pair: ", (gamma.name,delta.name))
+
+
 
         b_flux = pp.ad.sum_operator_list(b_fluxes) # sum all buoyancy terms w.t. component_xi
         b_flux.set_name("component_buoyancy_" + component_xi.name)
         return b_flux
 
-    def component_pairs_for(self, component_xi: pp.Component):
-        combination_by_pairs = list(combinations(self.fluid.components, 2))
+    def phase_pairs_for(self, phase_gamma: pp.Component):
+        combination_by_pairs = list(combinations(self.fluid.phases, 2))
         selected_pairs = []
         for pairs in combination_by_pairs:
-            idx = pairs.index(component_xi)
+            idx = pairs.index(phase_gamma)
             if idx == 0:
-                component_xi, component_eta = pairs
+                phase_gamma, phase_delta = pairs
             elif idx == 1:
-                component_eta, component_xi = pairs
+                phase_delta, phase_gamma = pairs
             else:
                 continue
-            selected_pairs.append((component_xi, component_eta))
+            selected_pairs.append((phase_gamma, phase_delta))
         return selected_pairs
 
     def set_buoyancy_discretization_parameters(self):
-        for component_xi in self.fluid.components:
-            for pairs in self.component_pairs_for(component_xi):
-                xi, eta = pairs
+        for phase_gamma in self.fluid.phases:
+            for pairs in self.phase_pairs_for(phase_gamma):
+                gamma, delta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
-                    pp.initialize_data(sd,data,self.buoyancy_key(xi))
-                    pp.initialize_data(sd,data,self.buoyancy_key(eta))
+                    pp.initialize_data(sd,data,self.buoyancy_key(gamma))
+                    pp.initialize_data(sd,data,self.buoyancy_key(delta))
                     vals = np.zeros(sd.num_faces)
-                    data[pp.PARAMETERS][self.buoyancy_key(xi)].update({self.upward_flux_array_key(xi): vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(eta)].update({self.downward_flux_array_key(eta): vals})
+                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): vals})
+                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): vals})
 
     def update_buoyancy_discretizations(self):
 
-        for component_xi in self.fluid.components:
-            for pairs in self.component_pairs_for(component_xi):
-                xi, eta = pairs
+        for phase_gamma in self.fluid.phases:
+            for pairs in self.phase_pairs_for(phase_gamma):
+                gamma, delta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
                     # Computing buoyancy flux and updating it in the mobility
-                    rho_xi = self.component_density(xi, [sd])
-                    rho_eta = self.component_density(eta, [sd])
-                    vals = self.equation_system.evaluate(self.density_driven_flux([sd], rho_xi - rho_eta))
-                    data[pp.PARAMETERS][self.buoyancy_key(xi)].update({self.upward_flux_array_key(xi): +vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(eta)].update({self.downward_flux_array_key(eta): -vals})
+                    rho_gamma = gamma.density([sd])
+                    rho_delta = delta.density([sd])
+                    vals = self.equation_system.evaluate(self.density_driven_flux([sd], rho_gamma - rho_delta))
+                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
+                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=1):
                     assert False # case not implemented yet
