@@ -16,7 +16,7 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = False
+FRACTIONAL_FLOW: bool = True
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -302,7 +302,7 @@ class SolutionStrategy(pp.PorePyModel):
                     self._residual_norm_history,
                     self._residual_norm_history[-1],
                     rtol=0.0,
-                    atol=tol_res,
+                    atol=np.min((tol_res, 1e-6)),
                 )
                 and tol_res != np.inf
             )
@@ -311,7 +311,7 @@ class SolutionStrategy(pp.PorePyModel):
                     self._increment_norm_history,
                     self._increment_norm_history[-1],
                     rtol=0.0,
-                    atol=tol_inc,
+                    atol=np.min((tol_inc, 1e-6)),
                 )
                 and tol_inc != np.inf
             )
@@ -1307,18 +1307,23 @@ class Permeability(pp.PorePyModel):
 
     def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Matrix permeability with a higher permeability with factor 1e3 around the
-        wells."""
-        assert len(subdomains) == 1, "Expecting only 1 grid or matrix permeability."
+        wells in the matrix."""
 
-        sd = subdomains[0]
-        N = sd.num_cells
-        K_vals = np.ones(N) * self.solid.permeability
-        l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
+        assert len(subdomains) <= 1, "Expecting at most 1 grid as matrix."
 
-        K_vals[sd.cell_centers[0] < l] *= 1e3
-        K_vals[sd.cell_centers[0] > r] *= 1e3
+        K_vals: list[np.ndarray] = [np.zeros((0,))]
+
+        for sd in subdomains:
+            k = np.ones(sd.num_cells)
+            if sd.dim == self.nd:
+                k *= self.solid.permeability
+                l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
+                k[sd.cell_centers[0] < l] *= 1e1
+                k[sd.cell_centers[0] > r] *= 1e1
+            K_vals.append(k)
+
         K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
-            K_vals, name="base_matrix_permeability"
+            np.concatenate(K_vals), name="base_matrix_permeability"
         )
 
         if cf.is_fractional_flow(self):
@@ -1375,9 +1380,6 @@ model_class = create_local_model_class(
 
 # region Model parametrization
 
-# time_schedule = [i * pp.DAY for i in range(31)] + [
-#     i * 15 * pp.DAY for i in range(3, 49)
-# ]
 time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
 max_iterations = 40 if FRACTIONAL_FLOW else 30
@@ -1402,7 +1404,7 @@ phase_property_params = {
 }
 
 basalt_ = basalt.copy()
-basalt_["permeability"] = 1e-13
+basalt_["permeability"] = 1e-14
 material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore[arg-type]
 
 flash_params: dict[Any, Any] = {
@@ -1418,7 +1420,7 @@ flash_params: dict[Any, Any] = {
         "npipm_u2": 10,
         "npipm_eta": 0.5,
     },
-    "global_iteration_stride": 3,
+    "global_iteration_stride": 2 if FRACTIONAL_FLOW else 3,
 }
 flash_params.update(phase_property_params)
 
