@@ -68,25 +68,19 @@ class InitialConditions(pp.PorePyModel):
         # set the values to be the custom functions
         subdomains = self.mdg.subdomains()
         CO2 = self.fluid.components[1]
-        z_v = self.ic_values_overall_fraction(CO2,subdomains[0])
-        x_CO2_liq_v = np.clip(np.zeros_like(z_v), 1.0e-16, 1.0-1.0e-16)
-        x_CO2_gas_v = np.clip(np.ones_like(z_v), 1.0e-16, 1.0-1.0e-16)
+        for sd in subdomains:
+            z_v = self.ic_values_overall_fraction(CO2,sd)
+            x_CO2_liq_v = np.clip(np.zeros_like(z_v), 1.0e-16, 1.0-1.0e-16)
+            x_CO2_gas_v = np.clip(np.ones_like(z_v), 1.0e-16, 1.0-1.0e-16)
 
-        liq, gas = self.fluid.phases
-        s_gas = gas.saturation(subdomains)
-        x_CO2_liq = liq.partial_fraction_of[CO2](subdomains)
-        x_CO2_gas = gas.partial_fraction_of[CO2](subdomains)
+            liq, gas = self.fluid.phases
+            s_gas = gas.saturation([sd])
+            x_CO2_liq = liq.partial_fraction_of[CO2]([sd])
+            x_CO2_gas = gas.partial_fraction_of[CO2]([sd])
 
-        self.equation_system.set_variable_values(z_v, [s_gas], 0, 0)
-        self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
-        self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
-
-        # values: np.ndarray,
-        # variables: Optional[VariableList] = None,
-
-        # time_step_index: Optional[int] = None, -> 0
-        # iterate_index: Optional[int] = None, -> 0
-        # additive: bool = False,
+            self.equation_system.set_variable_values(z_v, [s_gas], 0, 0)
+            self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
+            self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
 
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:

@@ -120,6 +120,9 @@ class SuperCriticalCO2FlowModel(FlowModel):
         print("Time index: ", self.time_manager.time_index)
         print("")
 
+    def set_nonlinear_discretizations(self) -> None:
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
 
     def after_simulation(self):
         self.exporter.write_pvd()

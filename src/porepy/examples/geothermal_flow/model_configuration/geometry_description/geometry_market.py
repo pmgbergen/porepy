@@ -349,6 +349,18 @@ class SimpleGeometryHayekVertical2D(Geometry):
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
+    # def set_fractures(self) -> None:
+    #     points = (
+    #             np.array(
+    #                 [
+    #                     [0.0, 2.0],
+    #                     [1.0, 4.0],
+    #                 ]
+    #             ).T
+    #     )
+    #     fracs = np.array([[0, 1]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+
     def grid_type(self) -> str:
         return self.params.get("grid_type", "simplex")
 
