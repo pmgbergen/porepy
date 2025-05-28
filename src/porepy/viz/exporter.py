@@ -1838,10 +1838,9 @@ class Exporter:
         # Loop over all 0d grids.
         for grid in grids:
             # Store scaled node coordinates.
-            sl = slice(nodes_offset, nodes_offset + 1)
             # 0d Grids don't have nodes, only cells. The cell centers are used as
             # coordinates for the vertices.
-            meshio_pts[sl, :] = grid.cell_centers.T * self._length_scale
+            meshio_pts[nodes_offset, :] = grid.cell_centers.T * self._length_scale
             # Assign trivial cell-to-node connectivity for 0d cells.
             cn_indices = np.atleast_2d([0]).astype(np.int32)
             # Add to previous connectivity information.
