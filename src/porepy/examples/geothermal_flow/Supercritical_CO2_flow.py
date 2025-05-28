@@ -35,7 +35,7 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 day = 86400
 t_scale = 1.0
 tf = 300.0 * day
-dt = 1.0 * day
+dt = 10.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -79,8 +79,8 @@ class SuperCriticalCO2FlowModel(FlowModel):
         # Integrated overall mass flux on all facets
         mn = self.equation_system.evaluate(self.darcy_flux(model.mdg.subdomains()))
 
-        # w_flux_unit = self.density_driven_flux(self.mdg.subdomains(), pp.ad.Scalar(1000.0))
-        # w_flux_val = self.equation_system.evaluate(w_flux_unit)
+        w_flux_unit = self.density_driven_flux(self.mdg.subdomains(), pp.ad.Scalar(1000.0))
+        w_flux_unit_val = self.equation_system.evaluate(w_flux_unit)
         z_val = self.equation_system.get_variable_values([self.equation_system.variables[3]], time_step_index=0)
         sg_val = self.equation_system.get_variable_values([self.equation_system.variables[4]], time_step_index=0)
 
@@ -105,7 +105,7 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
         external_bc_idx = sd.get_boundary_faces()
         internal_bc_idx = sd.get_internal_faces()
-        # print("w_flux_bc: ", w_flux_val[external_bc_idx])
+        # print("w_flux_unit_val internal: ", w_flux_unit_val[internal_bc_idx])
         # print("b_c1_bc: ", b_c1[external_bc_idx])
         # print("flux_bc: ", flux_c1_val[external_bc_idx])
         print("boundary integral  flux_bc: ", np.sum(b_c1[external_bc_idx] + flux_c1_val[external_bc_idx]))
@@ -124,15 +124,9 @@ class SuperCriticalCO2FlowModel(FlowModel):
     def after_simulation(self):
         self.exporter.write_pvd()
 
-    # def set_nonlinear_discretizations(self) -> None:
-    #     super().set_nonlinear_discretizations()
-    #     self.add_nonlinear_discretization(self.darcy_flux_discretization(self.mdg.subdomains()).vector_source())
-    #     self.add_nonlinear_discretization(self.darcy_flux_discretization(self.mdg.subdomains()).flux())
-
     def before_nonlinear_iteration(self) -> None:
         self.update_buoyancy_discretizations()
         super().before_nonlinear_iteration()
-        # self.rediscretize_fluxes()
 
     def set_discretization_parameters(self) -> None:
         super().set_discretization_parameters()
@@ -141,6 +135,35 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+
+    # def mass_mobility_weighted_permeability(
+    #         self, subdomains: list[pp.Grid]
+    #     ) -> pp.ad.Operator:
+    #         n_sd = len(subdomains)
+    #         if n_sd == 0:
+    #             abs_perm = pp.wrap_as_dense_ad_array(
+    #                 self.solid.permeability,
+    #                 size=sum(sd.num_cells for sd in subdomains),
+    #                 name="absolute_permeability",
+    #             )
+    #         else:
+    #             sds_abs_perm = []
+    #             for sd in subdomains:
+    #                 sd_abs_perm = self.solid.permeability * np.ones(sum(sd.num_cells for sd in subdomains))
+    #                 xc = sd.cell_centers.T
+    #                 cell_idx = np.where(xc[:,1] > 6.9)[0]
+    #                 sd_abs_perm[cell_idx] *= 1.0e-5
+    #                 sds_abs_perm.append(sd_abs_perm)
+    #
+    #
+    #             abs_perm = pp.wrap_as_dense_ad_array(
+    #                 np.concatenate(sds_abs_perm),
+    #                 size=sum(sd.num_cells for sd in subdomains),
+    #                 name="absolute_permeability",
+    #             )
+    #         op = self.total_mass_mobility(subdomains) * abs_perm
+    #         op.set_name("isotropic_permeability")
+    #         return op
 
 
 model = SuperCriticalCO2FlowModel(params)

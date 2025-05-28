@@ -610,14 +610,18 @@ class FluidBuoyancy(pp.PorePyModel):
                 domains = cast(list[pp.Grid], domains)
 
                 chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
+
                 discr_gamma = self.upward_phase_discretization(gamma, domains)
                 discr_delta = self.downward_phase_discretization(delta, domains)
 
+                diffusive_upwind = self.mobility_discretization(domains)
+                fchi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
+
                 # TODO: Fixed dimensional implementation. Needs md-part
-                f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ (chi_xi_gamma * f_gamma) # well-defined fraction flow on facets
+                f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ f_gamma # well-defined fraction flow on facets
                 f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
 
-                b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                b_flux_gamma_delta = fchi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
                 b_fluxes.append(b_flux_gamma_delta)
                 # print("component: ", component_xi.name)
                 # print("partial fraction of component in phase: ", "chi_" + component_xi.name + "_" + gamma.name )
@@ -651,8 +655,8 @@ class FluidBuoyancy(pp.PorePyModel):
                     pp.initialize_data(sd,data,self.buoyancy_key(gamma))
                     pp.initialize_data(sd,data,self.buoyancy_key(delta))
                     vals = np.zeros(sd.num_faces)
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): vals})
+                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
+                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
 
     def update_buoyancy_discretizations(self):
 

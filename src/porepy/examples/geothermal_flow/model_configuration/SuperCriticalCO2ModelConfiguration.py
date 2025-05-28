@@ -102,7 +102,9 @@ class InitialConditions(pp.PorePyModel):
     ) -> np.ndarray:
         xc = sd.cell_centers.T
         z = np.where((xc[:,1] >= 2.0) & (xc[:,1] <= 4.0), 0.7, 0.0)
-        z = np.where((xc[:, 1] >= 6.0) & (xc[:, 1] <= 7.0), 1.0, 0.0)
+        z = (np.where((xc[:, 1] >= 5.5) & (xc[:, 1] <= 6.5), 1.0, 0.0) +
+             np.where((xc[:, 1] >= 3.5) & (xc[:, 1] <= 4.5), 1.0, 0.0) +
+             np.where((xc[:, 1] >= 1.5) & (xc[:, 1] <= 2.5), 1.0, 0.0))
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
