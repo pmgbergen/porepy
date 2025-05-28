@@ -73,7 +73,7 @@ def setup() -> Generator[ExporterTestSetup, Any, Any]:
     shutil.rmtree(full_path)
 
 
-@pytest.fixture(params=range(7))
+@pytest.fixture(params=range(8))
 def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
     """Helper for parametrization of test_single_subdomains.
 
