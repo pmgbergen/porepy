@@ -15,7 +15,7 @@ from .constitutive_description.SuperCriticalCO2ConstitutiveDescription import (
     FluidMixture,
     SecondaryEquations,
 )
-from .geometry_description.geometry_market import SimpleGeometryHayekVertical as ModelGeometry
+from .geometry_description.geometry_market import SimpleGeometryHayekVertical2D as ModelGeometry
 
 class BoundaryConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -91,7 +91,12 @@ class InitialConditions(pp.PorePyModel):
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 10.0
-        return np.ones(sd.num_cells) * p_init
+        CO2 = self.fluid.components[1]
+        s_g = self.ic_values_overall_fraction(CO2,sd)
+        xc = sd.cell_centers.T
+        rho_avg =  1000.0 *  (1.0 - s_g) + 700.0 * s_g
+        dp = rho_avg * (0.1) * 9.81 * 1.0e-6
+        return np.ones(sd.num_cells) * p_init + np.flip(np.cumsum(dp))
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         h = 1.0
@@ -102,9 +107,11 @@ class InitialConditions(pp.PorePyModel):
     ) -> np.ndarray:
         xc = sd.cell_centers.T
         z = np.where((xc[:,1] >= 2.0) & (xc[:,1] <= 4.0), 0.7, 0.0)
-        z = (np.where((xc[:, 1] >= 5.5) & (xc[:, 1] <= 6.5), 1.0, 0.0) +
-             np.where((xc[:, 1] >= 3.5) & (xc[:, 1] <= 4.5), 1.0, 0.0) +
-             np.where((xc[:, 1] >= 1.5) & (xc[:, 1] <= 2.5), 1.0, 0.0))
+        z = (np.where((xc[:, 1] >= 5.5) & (xc[:, 1] <= 6.5), 0.5, 0.0) +
+             np.where((xc[:, 1] >= 3.5) & (xc[:, 1] <= 4.5), 0.5, 0.0) +
+             np.where((xc[:, 1] >= 1.5) & (xc[:, 1] <= 2.5), 0.5, 0.0) +
+             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
+             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:

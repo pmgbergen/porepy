@@ -537,8 +537,6 @@ class FluidBuoyancy(pp.PorePyModel):
 
         if material == "fluid":
             fractionally_weighted_rho = self.fractionally_weighted_density(subdomains)
-            # Keeping the following line for quantitative verification purposes
-            # fractionally_weighted_rho = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
 
             # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
             e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
@@ -566,23 +564,6 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux = discr.vector_source() @ gravity_flux
         w_flux.set_name("density_driven_flux_" + density_metric.name)
         return w_flux
-
-    # def component_density(
-    #     self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
-    # ) -> pp.ad.Operator:
-    #
-    #     name = f"component_density_{component.name}"
-    #     component_density = pp.ad.sum_operator_list(
-    #         [
-    #             phase.partial_fraction_of[component](domains)
-    #             * phase.density(domains)
-    #             * self.phase_mobility(phase, domains)
-    #             * phase.density(domains)
-    #             for phase in self.fluid.phases
-    #         ],
-    #         name,
-    #     ) #/ self.component_mass_mobility(component, domains)
-    #     return component_density
 
     def fractionally_weighted_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         overall_rho = pp.ad.sum_operator_list([
@@ -623,9 +604,6 @@ class FluidBuoyancy(pp.PorePyModel):
 
                 b_flux_gamma_delta = fchi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
                 b_fluxes.append(b_flux_gamma_delta)
-                # print("component: ", component_xi.name)
-                # print("partial fraction of component in phase: ", "chi_" + component_xi.name + "_" + gamma.name )
-                # print("phases pair: ", (gamma.name,delta.name))
 
 
 
