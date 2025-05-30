@@ -83,13 +83,8 @@ The following solution strategy mixins are available:
   storing fluid phase properties based on the underlying EoS and using the surrogate
   operator framework. This is a proper mixin, meaning it is not inheriting from any
   solution strategy and must be used together with some solution strategy for equations.
-- :class:`SolutionStrategyNonlinearMPFA`: A mixed in strategy for re-discretizing MPFA
-  discretizations of the Darcy and Fourier flux. It is also a proper mixin, to be used
-  in combination with some other, fully functional solution strategy.
 - :class:`SolutionStrategyCF`: Combining the solution strategy for updating phase
   properties, with the strategy for fluid mass and energy balance.
-- :class:`SolutionStrategyCFF`: Like the previous strategy but with
-  :class:`SolutionStrategyNonlinearMPFA` as an additional base.
 
 The two template models, :class:`CompositionalFlowTemplate` and
 :class:`CompositionalFractionalFlowTemplate` are starting points for non-isothermal,
@@ -1510,14 +1505,20 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
     """
 
+    def update_material_properties(self) -> None:
+        """Calls :meth:`update_thermodynamic_properties_of_phases` after the
+        super-call."""
+
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
+        super().update_material_properties()  # type:ignore[safe-super]
+        self.update_thermodynamic_properties_of_phases()
+
     def update_thermodynamic_properties_of_phases(self) -> None:
-        """This method uses for each phase the underlying EoS to calculate
-        new values and derivative values of phase properties and to update them
-        them in the iterative sense, on all subdomains.
-
-        It is called in :meth:`before_nonlinear_iteration`.
-
-        """
+        """This method uses for each phase the underlying EoS to calculate new values
+        and derivative values of phase properties and to update them in the iterative
+        sense, on all subdomains."""
 
         subdomains = self.mdg.subdomains()
         ni = self.iterate_indices.size
@@ -1537,29 +1538,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
                 # Set current iterate indices of values and derivatives.
                 update_phase_properties(grid, phase, phase_props, ni)
-
-    def before_nonlinear_iteration(self) -> None:
-        """Overwrites parent methods to perform an update of phase properties before
-        performing a super-call.
-
-        This overload assumes that re-discretizations are performed in the super-call,
-        especially of upwinding and potentially the flux discretization.
-
-        Fluid properties (surrogate operators) and their values must be updated before
-        any re-discretization due to discretizations depending on these values. They
-        appear in the non-linear part of various fluxes.
-
-        The update is scoped in :meth:`update_thermodynamic_properties_of_phases`, which
-        can be customized.
-
-        """
-        self.update_thermodynamic_properties_of_phases()
-        # NOTE: Mypy complaints about trivial body of protocol.
-        # But this is a mixin. We assert it is indeed a solution strategy and proceed.
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
     def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
@@ -1582,113 +1560,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 phase.density.progress_values_in_time(subdomains, depth=nt)
             if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                 phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
-
-
-class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
-    """Solution strategy mixin for models using a non-linear MPFA flux discretization
-    which requires a re-discretization in each iteration.
-
-    An example use case is compositional flow in the fractional formulation, where the
-    total mass mobility is a non-linear, isotropic contribution of the second-order
-    tensor in the Darcy flux.
-
-    This solution strategy searches for flags ``params['rediscretize_darcy_flux']`` and
-    ``params['rediscretize_fourier_flux']`` in the model parameters, and performs the
-    re-discretization if flagged True. By default, they are assumed to be False.
-
-    The flux discretizations are performed in :meth:`before_nonlinear_iteration`
-    **before** the super-call. Note that this is critical since upwinding (which is
-    expected to be part of the super-call) must be re-discretized **after** the fluxes
-    are re-discretized.
-
-    Notes:
-
-        1. Re-discretizing the MPFA is expensive and will slow down the simulation
-           noticeably.
-        2. When mixing in this class, it must be above other, fully functional solution
-           strategies in order for the super-call to work as intended.
-
-    """
-
-    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
-    """See :class:`~porepy.models.constitutive_laws.FouriersLaw`."""
-    darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
-    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
-
-    def __init__(self, params: Optional[dict] = None) -> None:
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().__init__(params)  # type:ignore[safe-super]
-
-        self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        """Separate container for fluxes which need to be re-discretized. The separation
-        is necessary due to the re-discretization being performed at different stages
-        of the algorithm."""
-
-    def add_nonlinear_flux_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
-    ) -> None:
-        """Add an entry to the list of non-linear flux discretizations.
-
-        Parameters:
-            discretization: The nonlinear discretization to be added.
-
-        """
-        if discretization not in self._nonlinear_flux_discretizations:
-            self._nonlinear_flux_discretizations.append(discretization)
-
-    def set_nonlinear_discretizations(self) -> None:
-        """After the super-call, this method adds the
-        :meth:`fourier_flux_discretization` and the :meth:`darcy_flux_discretization`
-        to the update framework using :meth:`add_nonlinear_flux_discretization`."""
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().set_nonlinear_discretizations()  # type:ignore[safe-super]
-
-        subdomains = self.mdg.subdomains()
-
-        if self.params.get("rediscretize_fourier_flux", False):
-            self.add_nonlinear_flux_discretization(
-                self.fourier_flux_discretization(subdomains).flux()
-            )
-        if self.params.get("rediscretize_darcy_flux", False):
-            self.add_nonlinear_flux_discretization(
-                self.darcy_flux_discretization(subdomains).flux()
-            )
-
-    def rediscretize_fluxes(self) -> None:
-        """Discretizes added, nonlinear fluxes after ensuring uniqueness of
-        discretizations for efficiency reasons."""
-        # If the list is empty, fluxes are not re-discretized.
-        # The list is empty if nothing was added during set_nonlinear_discretizations.
-        if self._nonlinear_flux_discretizations:
-            tic = time.time()
-            # Get unique discretizations to save computational time, then discretize.
-            unique_discretizations = pp.ad._ad_utils.uniquify_discretization_list(
-                self._nonlinear_flux_discretizations
-            )
-            pp.ad._ad_utils.discretize_from_list(unique_discretizations, self.mdg)
-            logger.info(
-                "Re-discretized nonlinear fluxes in {} seconds".format(
-                    time.time() - tic
-                )
-            )
-
-    def before_nonlinear_iteration(self) -> None:
-        """Overloads the parent method to call :meth:`rediscretize_fluxes` before the
-        super-call.
-
-        This order is crucial since the re-discretization of upwinding is expected in
-        the super-call and the fluxes must be re-discretized before that.
-
-        """
-        self.rediscretize_fluxes()
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
 
 class SolutionStrategySchurComplement(pp.PorePyModel):
@@ -1958,33 +1829,12 @@ class SolutionStrategyCF(
       non-linear weights in the advective fluxes in mass and energy balances as closed
       terms on the boundary. The user must then provide values for the non-linear
       weights explicitly. It also uses fractional mobilities, instead of regular ones.
-      To be used with consistently discretized diffusive parts or balance equations
-      (see also :class:`SolutionStrategyNonlinearMPFA`).
+      To be used with consistently discretized diffusive parts or balance equations.
     - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
       part, it should be a string indicating the fixed state of the local phase
       equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
       qualifiers providing information about the equilibrium model, for example
       ``'unified-p-h'``.
-
-    """
-
-
-class SolutionStrategyCFF(
-    SolutionStrategyPhaseProperties,
-    SolutionStrategyNonlinearMPFA,
-    SolutionStrategySchurComplement,
-    SolutionStrategyExtendedFluidMassAndEnergy,
-):
-    """Solution strategy for compositional flow including a re-discretization of MPFA
-    for Fourier and/or Darcy flux.
-
-    It is analogous to :class:`SolutionStrategyCF`, with the addition of
-    :class:`SolutionStrategyNonlinearMPFA`.
-
-    The order of base classes is critical for the functionality to work as intended.
-    I.e., first the phase properties are updated, then the flux is re-discretized, and
-    finally other discretizations like upwinding are re-discretized via super-call to
-    the solution strategy for fluid mass and energy balance.
 
     """
 
@@ -2049,7 +1899,7 @@ class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     VariablesCF,
     BoundaryConditionsCFF,
     InitialConditionsCF,
-    SolutionStrategyCFF,
+    SolutionStrategyCF,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
