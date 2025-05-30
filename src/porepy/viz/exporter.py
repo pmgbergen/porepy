@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from pathlib import Path
@@ -16,8 +17,6 @@ import meshio
 import numpy as np
 
 import porepy as pp
-
-import warnings
 
 # Object type to store data to export.
 Field = namedtuple("Field", ["name", "values"])
