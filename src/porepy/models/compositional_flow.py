@@ -1562,70 +1562,6 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                     sd, phase, phase_props, 0, update_fugacities=equilibrium_defined
                 )
 
-    def initialize_previous_iterate_and_time_step_values(self) -> None:
-        """Attaches to the iterate and time step initialization and copies the values
-        of phase properties found at iterate index 0 to all other iterate and time step
-        indices.
-
-        This is done for all phases on all subdomains.
-
-        While iterate indices are copied for all properties, time step indices are
-        copied only for density and specific enthalpy, as they are expected in
-        accumulation terms in balance equations.
-
-        """
-        super().initialize_previous_iterate_and_time_step_values()  # type:ignore
-        ni = self.iterate_indices.size
-        nt = self.time_step_indices.size
-        equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
-        )
-
-        for sd in self.mdg.subdomains():
-            for phase in self.fluid.phases:
-                # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks to satisfy mypy, since the properties are
-                # type aliases containing some other type as well.
-                for _ in self.iterate_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        vals = phase.density.get_values_on_grid(sd, iterate_index=0)
-                        phase.density.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        vals = phase.specific_enthalpy.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.specific_enthalpy.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                        vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
-                        phase.viscosity.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                        vals = phase.thermal_conductivity.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.thermal_conductivity.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-
-                    if equilibrium_defined:
-                        for k, comp in enumerate(phase.components):
-                            phi = phase.fugacity_coefficient_of[comp]
-                            if isinstance(phi, pp.ad.SurrogateFactory):
-                                vals = phi.get_values_on_grid(sd, iterate_index=0)
-                                phi.progress_iterate_values_on_grid(vals, sd, depth=ni)
-
-                # Copy values to all time step indices.
-                for _ in self.time_step_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_values_in_time([sd], depth=nt)
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
-
 
 class InitialConditionsCF(
     # Put this on top because it overrides initial_condition.
@@ -1759,6 +1695,74 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 phase.density.progress_values_in_time(subdomains, depth=nt)
             if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                 phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
+
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
+        """Attaches to the iterate and time step initialization and copies the values
+        of phase properties found at iterate index 0 to all other iterate and time step
+        indices.
+
+        This is done for all phases on all subdomains.
+
+        While iterate indices are copied for all properties, time step indices are
+        copied only for density and specific enthalpy, as they are expected in
+        accumulation terms in balance equations.
+
+        """
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
+        super().initialize_previous_iterate_and_time_step_values()  # type:ignore
+
+        ni = self.iterate_indices.size
+        nt = self.time_step_indices.size
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
+        )
+
+        for sd in self.mdg.subdomains():
+            for phase in self.fluid.phases:
+                # Progress iterate values to all iterate indices.
+                # NOTE need the if-checks to satisfy mypy, since the properties are
+                # type aliases containing some other type as well.
+                for _ in self.iterate_indices:
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        vals = phase.density.get_values_on_grid(sd, iterate_index=0)
+                        phase.density.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        vals = phase.specific_enthalpy.get_values_on_grid(
+                            sd, iterate_index=0
+                        )
+                        phase.specific_enthalpy.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                        vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
+                        phase.viscosity.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                        vals = phase.thermal_conductivity.get_values_on_grid(
+                            sd, iterate_index=0
+                        )
+                        phase.thermal_conductivity.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+
+                    if equilibrium_defined:
+                        for k, comp in enumerate(phase.components):
+                            phi = phase.fugacity_coefficient_of[comp]
+                            if isinstance(phi, pp.ad.SurrogateFactory):
+                                vals = phi.get_values_on_grid(sd, iterate_index=0)
+                                phi.progress_iterate_values_on_grid(vals, sd, depth=ni)
+
+                # Copy values to all time step indices.
+                for _ in self.time_step_indices:
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_values_in_time([sd], depth=nt)
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
 
 
 class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
