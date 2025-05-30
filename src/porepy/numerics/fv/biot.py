@@ -29,6 +29,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from warnings import warn
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -324,8 +325,16 @@ class Biot(pp.Mpsa):
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
-        # else a full new discretization will be computed
+        # else a full new discretization will be computed.
         update: bool = parameter_dictionary.get("update_discretization", False)
+        if update:
+            # EK comment: The functionality to update discretizations has not been
+            # thoroughly tested and should be used with extreme care.
+            msg = "Discretization update is not fully tested"
+            msg += " and should be used with care.\n"
+            msg += "If you do not want to run into trouble, it is recommended to"
+            msg += " set 'update_discretization' to False in the parameter dictionary."
+            warn(msg)
 
         # The discretization can be limited to a specified set of cells, faces or nodes
         # If none of these are specified, the entire grid will be discretized.
