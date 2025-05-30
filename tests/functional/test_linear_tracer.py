@@ -88,7 +88,7 @@ def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) 
     # After the first time step, more iterations are possible because the pressure
     # must converge to its stationary profile.
     if time_index == 0:
-        assert sol_data.num_iter <= 5
+        assert sol_data.num_iter <= 2
     # After pressure converged, linear transport should converge within 1 iteration.
     # But due to Upwinding, it is sometimes 2.
     else:

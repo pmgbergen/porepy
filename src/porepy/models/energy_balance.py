@@ -1103,14 +1103,15 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
     :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
+    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         # Generic solution strategy initialization in pp.SolutionStrategy and specific
         # initialization for the fluid mass balance (variables, discretizations...)
         super().__init__(params)
 
-        # Define the energy balance
-        # Variables
+        # Define the energy balance variables.
         self.temperature_variable: str = "temperature"
         """Name of the temperature variable."""
 
@@ -1126,7 +1127,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """Name of the primary variable representing the well enthalpy flux on
         interfaces of codimension two."""
 
-        # Discretization
+        # Discretization.
         self.fourier_keyword: str = "fourier_discretization"
         """Keyword for Fourier flux term.
 
@@ -1140,13 +1141,19 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the energy problem.
 
         The parameter fields of the data dictionaries are updated for all subdomains and
-        interfaces (of codimension 1).
+        interfaces (of codimension 1). The data to be set is related to:
+
+        - The temperature diffusion, e.g., the thermal conductivity and boundary
+          conditions for the temperature. This applies to subdomains and interfaces.
+        - Boundary conditions for the conductive heat flux. This applies to subdomains
+          only.
+
         """
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         # Do a join evaluation of the thermal conductivity for all subdomains, then
         # distribute the values to individual subdomains.
@@ -1197,11 +1204,31 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         return super().darcy_flux_storage_keywords() + [self.enthalpy_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
-        """Collect discretizations for nonlinear terms."""
+        """Adds Discretizations related to the energy problem.
+
+        - The enthalpy mobility discretization and
+        - the interface enthalpy mobility discretization
+
+        are added to :meth:`nonlinear_discretizations`.
+
+        - The Fourier flux discretization
+
+        is added to :meth:`nonlinear_flux_discretizations`, if
+        ``model.params['rediscretize_fourier_flux'] == True``.
+
+        """
+
         super().set_nonlinear_discretizations()
+
+        subdomains = self.mdg.subdomains()
         self.add_nonlinear_discretization(
-            self.enthalpy_discretization(self.mdg.subdomains()).upwind(),
+            self.enthalpy_discretization(subdomains).upwind(),
         )
         self.add_nonlinear_discretization(
             self.interface_enthalpy_discretization(self.mdg.interfaces()).flux(),
         )
+
+        if self.params.get("rediscretize_fourier_flux", False):
+            self.add_nonlinear_flux_discretization(
+                self.fourier_flux_discretization(subdomains).flux()
+            )

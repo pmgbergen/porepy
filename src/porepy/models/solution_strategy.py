@@ -53,11 +53,9 @@ class SolutionStrategy(pp.PorePyModel):
         self.convergence_status = False
         """Whether the non-linear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        """List of non-linear discretizations, to be updated in every iteration.
-
-        See also :meth:`add_nonlinear_discretization`.
-
-        """
+        """See :meth:`add_nonlinear_discretization`."""
+        self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        """See :meth:`add_nonlinear_flux_discretization`."""
         self.units = params.get("units", pp.Units())
         """Units of the model provided in ``params['units']``."""
         # get default or user-provided reference values
@@ -160,7 +158,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.reset_state_from_file()
         self.set_equations()
 
-        self.set_discretization_parameters()
+        self.update_discretization_parameters()
         self.discretize()
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
@@ -192,15 +190,6 @@ class SolutionStrategy(pp.PorePyModel):
         """Create an equation_system manager on the mixed-dimensional grid."""
         if not hasattr(self, "equation_system"):
             self.equation_system = pp.ad.EquationSystem(self.mdg)
-
-    def set_discretization_parameters(self) -> None:
-        """Set parameters for the discretization.
-
-        This method is called before the discretization is performed. It is intended to
-        be used to set parameters for the discretization, such as the permeability, the
-        porosity, etc.
-
-        """
 
     def set_solver_statistics(self) -> None:
         """Set the solver statistics object.
@@ -362,30 +351,49 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
-    def rediscretize(self) -> None:
-        """Discretize nonlinear terms."""
-        tic = time.time()
-        # Uniquify to save computational time, then discretize.
-        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
-            self.nonlinear_discretizations
-        )
-        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
-        logger.debug(
-            "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
-        )
-
     @property
     def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
-        """List of nonlinear discretizations in the equation system. The discretizations
-        are recomputed  in :meth:`before_nonlinear_iteration`.
+        """List of nonlinear discretizations in the equation system.
+
+        This list encompasses discretizations other than flux discretizations, such as
+        Upwinding. It is crucial that fluxes are updated before Upwinding.
+
+        See also:
+            - :meth:`add_nonlinear_flux_discretization`
+            - :meth:`update_dependent_quantities`
+
+        Returns:
+            A list of merged operators wrapping underlying discretizations.
 
         """
         return self._nonlinear_discretizations
 
+    @property
+    def nonlinear_flux_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
+        """List of nonlinear flux discretizations in the equation system.
+
+        Not to be confused with other discretizations (:meth:`nonlinear_discretizations`
+        ).
+
+        Individual physics (flow, energy, mechanics) can add respective MPxA
+        discretizations, if the second-order tensor is not constant.
+
+        Fluxes are discretized before other discretizations, such as upwinding.
+
+        See also:
+            - :meth:`add_nonlinear_flux_discretization`
+            - :meth:`update_dependent_quantities`
+
+        Returns:
+            A list of merged operators wrapping underlying discretizations.
+
+        """
+        return self._nonlinear_flux_discretizations
+
     def add_nonlinear_discretization(
         self, discretization: pp.ad._ad_utils.MergedOperator
     ) -> None:
-        """Add an entry to the list of nonlinear discretizations.
+        """Add an entry to the list of :meth:`nonlinear_discretizations`.
 
         Parameters:
             discretization: The nonlinear discretization to be added.
@@ -396,11 +404,30 @@ class SolutionStrategy(pp.PorePyModel):
         if discretization not in self._nonlinear_discretizations:
             self._nonlinear_discretizations.append(discretization)
 
+    def add_nonlinear_flux_discretization(
+        self, discretization: pp.ad._ad_utils.MergedOperator
+    ) -> None:
+        """Add an entry to the list of :meth:`nonlinear_flux_discretizations`.
+
+        Parameters:
+            discretization: The nonlinear flux discretization to be added.
+
+        """
+        # This guardrail is very weak. However, the discretization list is uniquified
+        # before discretization, so it should not be a problem.
+        # TODO Add type check that is indeed a flux discretization?
+        if discretization not in self._nonlinear_flux_discretizations:
+            self._nonlinear_flux_discretizations.append(discretization)
+
     def set_nonlinear_discretizations(self) -> None:
-        """Set the list of nonlinear discretizations.
+        """Set the list of all nonlinear discretizations.
 
         This method is called before the discretization is performed. It is intended to
         be used to set the list of nonlinear discretizations.
+
+        See also:
+            - :meth:`add_nonlinear_discretization`
+            - :meth:`add_nonlinear_flux_discretization`
 
         """
 
@@ -408,33 +435,39 @@ class SolutionStrategy(pp.PorePyModel):
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
 
-        Possible usage is to update time-dependent parameters, discretizations etc.
+        The base method does the following:
+
+        1. Update the time step size in :attr:`ad_time_step`.
+        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
+           SolverStatistics.reset`.
+        3. Calls :meth:`update_time_dependent_ad_arrays`.
+        4. Calls :meth:`update_dependent_quantities`.
 
         """
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
-        # Update the boundary conditions to both the time step and iterate solution.
-        self.update_time_dependent_ad_arrays()
         # Empty the log in the statistics object.
         self.nonlinear_solver_statistics.reset()
+        # Update the boundary conditions to both the time step and iterate solution.
+        self.update_time_dependent_ad_arrays()
+        # Update other dependent quantities such as discretizations.
+        self.update_dependent_quantities()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
-        Possible usage is to update non-linear parameters, discretizations etc.
+        The base method only defines the method signature.
 
         """
-        # Update parameters before re-discretizing.
-        self.set_discretization_parameters()
-        # Re-discretize nonlinear terms. If none have been added to
-        # self.nonlinear_discretizations, this will be a no-op.
-        self.rediscretize()
 
     def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
-        Possible usage is to distribute information on the new trial state, visualize
-        the current approximation etc.
+        The base method does the following:
+
+        1. Shift the existing solutions backwards in the iterative sense.
+        2. Store the ``nonlinear_increment`` in the current iterate additively.
+        3. Calls :meth:`update_dependent_quantities`.
 
         Parameters:
             nonlinear_increment: The new solution, as computed by the non-linear solver.
@@ -445,9 +478,18 @@ class SolutionStrategy(pp.PorePyModel):
             values=nonlinear_increment, additive=True, iterate_index=0
         )
         self.nonlinear_solver_statistics.num_iteration += 1
+        self.update_dependent_quantities()
 
     def after_nonlinear_convergence(self) -> None:
-        """Method to be called after every non-linear iteration.
+        """Method to be called after the non-linear iterations converge.
+
+        The base method does the following:
+
+        1. Shift existing solutions backwards in time.
+        2. Saves the current iterate values as the most recent time ste values
+           (see :meth:`update_solution`).
+        3. Flags the model as converged (:attr:`convergence_status`).
+        4. Calls :meth:`save_data_time_step`.
 
         Possible usage is to distribute information on the solution, visualization, etc.
 
@@ -726,6 +768,89 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         self.update_all_boundary_conditions()
+
+    def update_dependent_quantities(self) -> None:
+        """Performs an update of dependent quantities entering the equations such as
+        fluxes, Upwind matrices, or surrogate operators.
+
+        The base method performs the following updates:
+
+        1. Update material properties (if necessary) based on the current state
+           (see :meth:`update_material_properties`).
+        2. Update discretization parameters, most crucially those entering the flux
+           discretization (see :meth:`update_discretization_parameters`).
+        3. Rediscretize the non-linear fluxes depending on above tensors
+           (see :meth:`rediscretize_fluxes`).
+        4. Evaluate and store fluxes for upstream discretizations
+           (see :meth:`update_flux_values`).
+        5. Rediscretize upstream (and possibly other) discretizations
+           (see :meth:`rediscretize`).
+
+        For a consistent evaluation of the system, this method is called in
+        :meth:`after_nonlinear_iteration` (after the global state vector changes) and in
+        :meth:`before_nonlinear_loop` (after the boundary conditions and other
+        time-dependent quantities change).
+
+        """
+        self.update_material_properties()
+        self.update_discretization_parameters()
+        self.rediscretize_fluxes()
+        self.update_flux_values()
+        self.rediscretize()
+
+    def update_material_properties(self) -> None:
+        """Method for updating fluid and solid properties, which are not taken care of
+        by the AD framework (external calculations and surrogate operators).
+
+        The base method only defines the signature and individual physics model have to
+        override this method. A super-call to trigger other physics' update is required.
+
+        """
+
+    def update_discretization_parameters(self) -> None:
+        """Method for evaluating and storing discretization parameters required for
+        discretizing fluxes and other discretizations.
+
+        This primarily involves second order tensors such as permeability and thermal
+        conductivity, or porosity.
+
+        The base method only defines the signature and individual physics model have to
+        override this method. A super-call to trigger other physics' update is required.
+
+        """
+
+    # TODO fix packaging to allow the linters detect members of _ad_utils
+    def rediscretize_fluxes(self) -> None:
+        """Discretize nonlinear fluxes."""
+        tic = time.time()
+        # Uniquify to save computational time, then discretize.
+        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+            self.nonlinear_flux_discretizations
+        )
+        if unique_discr:
+            pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+            logger.debug(
+                f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds."
+            )
+
+    def update_flux_values(self) -> None:
+        """Method for updating and storing flux values, to be used for a subsequent
+        discretization of upstream values.
+
+        The base method only defines the signature and individual physics model have to
+        override this method. A super-call to trigger other physics' update is required.
+
+        """
+
+    def rediscretize(self) -> None:
+        """Discretize nonlinear terms."""
+        tic = time.time()
+        # Uniquify to save computational time, then discretize.
+        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+            self.nonlinear_discretizations
+        )
+        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        logger.debug(f"Re-discretized nonlinear terms in {time.time() - tic} seconds.")
 
     def darcy_flux_storage_keywords(self) -> list[str]:
         """Return the keywords for which the Darcy flux values are stored.

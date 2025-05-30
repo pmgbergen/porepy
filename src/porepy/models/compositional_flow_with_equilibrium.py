@@ -1256,13 +1256,6 @@ class SolutionStrategyCFLE(
     update phase properties and secondary variables."""
 
 
-class SolutionStrategyCFFLE(
-    SolutionStrategyEquilibrium,
-    cf.SolutionStrategyCFF,
-):
-    """Analogous to :class:`SolutionstrategyCFLE`, but for fractional flow."""
-
-
 class EnthalpyBasedCFLETemplate(  # type: ignore[misc]
     EnthalpyBasedEquationsCFLE,
     cf.VariablesCF,
@@ -1283,7 +1276,6 @@ class EnthalpyBasedCFFLETemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
     InitialConditionsEquilibrium,
     BoundaryConditionsCFFLE,
-    SolutionStrategyCFFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

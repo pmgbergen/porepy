@@ -25,7 +25,7 @@ EXPORT_SCHEDULED_TIME_ONLY: bool = False
 the scheduled times."""
 ANALYSIS_MODE: bool = False
 """Uses the Analysis mixin to store some additional values to inspect convergence."""
-DISABLE_COMPILATION: bool = False
+DISABLE_COMPILATION: bool = True
 """For disabling numba compilation and faster start of simulation."""
 
 
@@ -135,7 +135,7 @@ class FluidMixture(pp.PorePyModel):
         ]
 
 
-class SolutionStrategy(pp.PorePyModel):
+class SolutionStrategy(cfle.SolutionStrategyCFLE):
     """Provides some pre- and post-processing for flash methods."""
 
     flash: pp.compositional.Flash
