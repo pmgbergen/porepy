@@ -1340,8 +1340,8 @@ class Exporter:
                 data: data tuple containing arbitrary key, and associated cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                grid_entity_type: type of data that should be processed: cell type by using
-                    the flag "cells" and node type by using the flag "nodes".
+                grid_entity_type: type of data that should be processed: cell type by
+                    using the flag "cells" and node type by using the flag "nodes".
 
             Returns:
                 Updated data containers and flag of success.
