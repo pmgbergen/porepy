@@ -2142,7 +2142,7 @@ class SolutionStrategyCFF(
 # endregion
 
 
-class CompositionalFlowTemplate(  # type: ignore[misc]
+class CompositionalFlowTemplate(  # type: ignore[misc,override]
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
@@ -2193,7 +2193,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
     """
 
 
-class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
+class CompositionalFractionalFlowTemplate(  # type: ignore[misc,override]
     ConstitutiveLawsCF,
     PrimaryEquationsCFF,
     VariablesCF,
