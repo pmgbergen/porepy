@@ -319,24 +319,16 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         residual_norm = np.linalg.norm(residual)
         return float(residual_norm)
 
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """To avoid nonphysical overall fractions due to over-shooting with large
-        time step sizes, we introduce a normalization here after the Newton increment is
-        added to the global solution vector.
-
-        """
-        super().after_nonlinear_iteration(nonlinear_increment)  # type:ignore
-
-        sds = self.mdg.subdomains()
+    def current_fluid_state(
+        self,
+        subdomains: Sequence[pp.Grid] | pp.Grid,
+        state: Optional[np.ndarray] = None,
+    ) -> pp.compositional.FluidProperties:
+        fluid_props = super().current_fluid_state(subdomains, state=state)
 
         # Normalizing feed fractions in case of overshooting
         eps = 1e-7  # binding overall fractions away from zero
-        z = np.array(
-            [
-                self.equation_system.evaluate(comp.fraction(sds))
-                for comp in self.fluid.components
-            ]
-        )
+        z = fluid_props.z.copy()
         z[z >= 1.0] = 1.0 - eps
         z[z <= 0.0] = 0.0 + eps
 
@@ -346,9 +338,11 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             if self.has_independent_fraction(comp):
                 self.equation_system.set_variable_values(
                     z_i,
-                    [comp.fraction(sds)],  # type:ignore[arg-type]
+                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
                     iterate_index=0,
                 )
+        fluid_props.z = z
+        return fluid_props
 
     def after_nonlinear_convergence(self):
         super().after_nonlinear_convergence()
