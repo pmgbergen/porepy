@@ -143,4 +143,8 @@ def compare_pvd_files(
         keys = ["part", "timestep", "file"]
     else:
         keys = ["part", "file"]
-    return _check_xml_tree_equality(tree_test, tree_ref, keys)
+
+    # Mypy v1.16 somehow surmises that the argument to _check_xml_tree_equality can
+    # be ElementTree[Element[str] | None], but it is unclear where the None comes from.
+    # Ignore this.
+    return _check_xml_tree_equality(tree_test, tree_ref, keys)  # type: ignore[arg-type]

@@ -8,7 +8,6 @@ import pytest
 import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
 
-
 coord_1 = [
     [[np.array([1])], np.array([42])],
     [[np.array([1]), np.array([0])], np.array([2, 3])],
