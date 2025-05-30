@@ -319,31 +319,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         residual_norm = np.linalg.norm(residual)
         return float(residual_norm)
 
-    def current_fluid_state(
-        self,
-        subdomains: Sequence[pp.Grid] | pp.Grid,
-        state: Optional[np.ndarray] = None,
-    ) -> pp.compositional.FluidProperties:
-        fluid_props = super().current_fluid_state(subdomains, state=state)
-
-        # Normalizing feed fractions in case of overshooting
-        eps = 1e-7  # binding overall fractions away from zero
-        z = fluid_props.z.copy()
-        z[z >= 1.0] = 1.0 - eps
-        z[z <= 0.0] = 0.0 + eps
-
-        z = pp.compositional.normalize_rows(z.T).T
-
-        for z_i, comp in zip(z, self.fluid.components):
-            if self.has_independent_fraction(comp):
-                self.equation_system.set_variable_values(
-                    z_i,
-                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-        fluid_props.z = z
-        return fluid_props
-
     def after_nonlinear_convergence(self):
         super().after_nonlinear_convergence()
         global_flash_iter = 0
@@ -420,6 +395,26 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             idx = phase.x > 1.0
             if np.any(idx):
                 phase.x[idx] = 1.0
+
+        if isinstance(subdomains, pp.Grid):
+            subdomains = [subdomains]
+
+        # Normalizing feed fractions in case of overshooting
+        eps = 1e-7  # binding overall fractions away from zero
+        z = fluid_state.z.copy()
+        z[z >= 1.0] = 1.0 - eps
+        z[z <= 0.0] = 0.0 + eps
+
+        z = pp.compositional.normalize_rows(z.T).T
+
+        for z_i, comp in zip(z, self.fluid.components):
+            if self.has_independent_fraction(comp):
+                self.equation_system.set_variable_values(
+                    z_i,
+                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
+                    iterate_index=0,
+                )
+        fluid_state.z = z
 
         return fluid_state
 
