@@ -1612,7 +1612,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         super().update_material_properties()  # type:ignore[safe-super]
         self.update_thermodynamic_properties_of_phases()
 
-    def update_thermodynamic_properties_of_phases(self, state: Optional[np.ndarray] = None) -> None:
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
         """This method uses for each phase the underlying EoS to calculate new values
         and derivative values of phase properties and to update them in the iterative
         sense, on all subdomains."""
@@ -1720,7 +1722,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         )
 
                     if equilibrium_defined:
-                        for k, comp in enumerate(phase.components):
+                        for _, comp in enumerate(phase.components):
                             phi = phase.fugacity_coefficient_of[comp]
                             if isinstance(phi, pp.ad.SurrogateFactory):
                                 vals = phi.get_values_on_grid(sd, iterate_index=0)
@@ -1977,17 +1979,12 @@ class SolutionStrategyCF(
       non-linear weights in the advective fluxes in mass and energy balances as closed
       terms on the boundary. The user must then provide values for the non-linear
       weights explicitly. It also uses fractional mobilities, instead of regular ones.
-<<<<<<< HEAD
-      To be used with consistently discretized diffusive parts or balance equations
-      (see also :class:`SolutionStrategyNonlinearMPFA`).
-=======
       To be used with consistently discretized diffusive parts or balance equations.
     - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
       part, it should be a string indicating the fixed state of the local phase
       equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
       qualifiers providing information about the equilibrium model, for example
       ``'unified-p-h'``.
->>>>>>> issue_1327
 
     """
 
