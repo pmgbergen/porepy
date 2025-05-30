@@ -1373,8 +1373,8 @@ model_class = create_local_model_class(
 time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
 max_iterations = 40 if FRACTIONAL_FLOW else 30
-newton_tol = 2e-5
-newton_tol_increment = 1e-6
+newton_tol = 1e-6
+newton_tol_increment = 5e-6
 
 time_manager = pp.TimeManager(
     schedule=time_schedule,
@@ -1540,7 +1540,7 @@ img1 = ax1.plot(
     "k-",
     times,
     cum_armijo_iter,
-    "b-",
+    "k--",
 )
 ax1.set_xscale("log")
 ax1.set_xlabel("Time [s]")
