@@ -24,12 +24,12 @@ from __future__ import annotations
 import logging
 from time import time
 from typing import Any, Literal
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from warnings import warn
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

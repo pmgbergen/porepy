@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from typing import Literal, Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
-from warnings import warn
 
 import porepy as pp
 

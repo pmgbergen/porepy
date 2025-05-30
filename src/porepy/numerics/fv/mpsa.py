@@ -13,10 +13,10 @@ from __future__ import annotations
 import logging
 from time import time
 from typing import Any, Literal, Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
-from warnings import warn
 
 import porepy as pp
 from porepy.numerics.discretization import Discretization
