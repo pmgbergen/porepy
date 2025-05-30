@@ -1155,7 +1155,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         super().update_discretization_parameters()
 
-        # Do a join evaluation of the thermal conductivity for all subdomains, then
+        # Do a joint evaluation of the thermal conductivity for all subdomains, then
         # distribute the values to individual subdomains.
         subdomains = self.mdg.subdomains()
         conductivity_all_cells = self.operator_to_SecondOrderTensor(

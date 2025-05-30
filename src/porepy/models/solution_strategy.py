@@ -486,7 +486,7 @@ class SolutionStrategy(pp.PorePyModel):
         The base method does the following:
 
         1. Shift existing solutions backwards in time.
-        2. Saves the current iterate values as the most recent time ste values
+        2. Saves the current iterate values as the most recent time step values
            (see :meth:`update_solution`).
         3. Flags the model as converged (:attr:`convergence_status`).
         4. Calls :meth:`save_data_time_step`.

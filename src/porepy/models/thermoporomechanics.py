@@ -181,7 +181,7 @@ class SolutionStrategyThermoporomechanics(
             )
 
     def set_nonlinear_discretizations(self) -> None:
-        """Adds the Darcy **and** Fourier flux discretization to
+        """Adds the Darcy and Fourier flux discretization to
         :meth:`nonlinear_flux_discretizations` due to aperture always affecting
         diffusive fluxes."""
         # Super calls method in mass and energy balance. Momentum balance has no
