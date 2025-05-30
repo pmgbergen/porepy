@@ -18,19 +18,19 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generator
-import scipy.sparse as sps
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils.grids import polytop_grid_2d, polytop_grid_3d
 from porepy.applications.test_utils.models import Thermoporomechanics
 from porepy.applications.test_utils.vtk import (
     PathLike,
     compare_pvd_files,
     compare_vtu_files,
 )
-from porepy.applications.test_utils.grids import polytop_grid_2d, polytop_grid_3d
 from porepy.fracs.utils import pts_edges_to_linefractures
 from tests.models.test_poromechanics import NonzeroFractureGapPoromechanics
 

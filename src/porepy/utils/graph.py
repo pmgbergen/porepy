@@ -1,7 +1,8 @@
+from warnings import warn
+
 import numpy as np
 
 import porepy as pp
-from warnings import warn
 
 
 class Graph:
