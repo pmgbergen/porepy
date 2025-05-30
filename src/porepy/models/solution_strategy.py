@@ -819,7 +819,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
 
-    # TODO fix packaging to allow the linters detect members of _ad_utils
     def rediscretize_fluxes(self) -> None:
         """Discretize nonlinear fluxes."""
         tic = time.time()
@@ -827,11 +826,8 @@ class SolutionStrategy(pp.PorePyModel):
         unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
             self.nonlinear_flux_discretizations
         )
-        if unique_discr:
-            pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
-            logger.debug(
-                f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds."
-            )
+        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        logger.debug(f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds.")
 
     def update_flux_values(self) -> None:
         """Method for updating and storing flux values, to be used for a subsequent
