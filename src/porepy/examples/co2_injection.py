@@ -15,7 +15,7 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = True
+FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -25,7 +25,7 @@ EXPORT_SCHEDULED_TIME_ONLY: bool = False
 the scheduled times."""
 ANALYSIS_MODE: bool = False
 """Uses the Analysis mixin to store some additional values to inspect convergence."""
-DISABLE_COMPILATION: bool = True
+DISABLE_COMPILATION: bool = False
 """For disabling numba compilation and faster start of simulation."""
 
 
@@ -63,7 +63,7 @@ class _FlowConfiguration(pp.PorePyModel):
     for in- and outflow."""
 
     # Mesh size.
-    _h_MESH: float = 2.0
+    _h_MESH: float = 1.0
     # 4.        308 cells
     # 2.        1204 cells
     # 1.        4636 cells
@@ -1362,8 +1362,8 @@ model_class = create_local_model_class(
 time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
 max_iterations = 40 if FRACTIONAL_FLOW else 30
-newton_tol = 2e-5
-newton_tol_increment = 1e-6
+newton_tol = 1e-6
+newton_tol_increment = 5e-6
 
 time_manager = pp.TimeManager(
     schedule=time_schedule,
@@ -1529,11 +1529,12 @@ img1 = ax1.plot(
     "k-",
     times,
     cum_armijo_iter,
-    "b-",
+    "k--",
 )
 ax1.set_xscale("log")
 ax1.set_xlabel("Time [s]")
 ax1.set_ylabel("Global iterations")
+ax1.set_ylim(0., 30, )
 
 color = "tab:red"
 ax2 = ax1.twinx()
