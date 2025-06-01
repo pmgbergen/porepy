@@ -17,14 +17,12 @@ from __future__ import annotations
 
 FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
-EQUILIBRIUM_CONDITION: str = "unified-p-h"
+EQUILIBRIUM_CONDITION: str = "unified-p-T"
 """Define the equilibrium condition to determin the flash type used in the solution
 procedure."""
 EXPORT_SCHEDULED_TIME_ONLY: bool = False
 """Exports all  time steps produced by the time stepping algorithm, otherwise only
 the scheduled times."""
-ANALYSIS_MODE: bool = False
-"""Uses the Analysis mixin to store some additional values to inspect convergence."""
 DISABLE_COMPILATION: bool = False
 """For disabling numba compilation and faster start of simulation."""
 
@@ -172,6 +170,11 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
 
         self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
         self._global_iter_per_time: dict[float, tuple[int, ...]] = {}
+        self._time_tracker: dict[str, list[float]] = {
+            "flash": [],
+            "assembly": [],
+            "linsolve": [],
+        }
 
     def data_to_export(self):
         data: list = super().data_to_export()
@@ -335,6 +338,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self, state: Optional[np.ndarray] = None
     ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
+        start = time.time()
         stride = int(self.params["flash_params"].get("global_iteration_stride", 3))
         for sd in self.mdg.subdomains():
             if sd not in self._cum_flash_iter_per_grid:
@@ -358,6 +362,75 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                     self,  # type:ignore[arg-type]
                     state,
                 )
+        self._time_tracker["flash"].append(time.time() - start)
+
+    def update_dependent_quantities(self):
+
+        subdomains = self.mdg.subdomains()
+
+        fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
+            subdomains
+        )
+
+        # Normalizing fractions in case of overshooting
+        eps = 1e-7  # binding overall fractions away from zero
+        z = fluid_state.z
+        z[z >= 1.0] = 1.0 - eps
+        z[z <= 0.0] = 0.0 + eps
+        z = pp.compositional.normalize_rows(z.T).T
+
+        s = fluid_state.sat
+        s[s >= 1.0] = 1.0
+        s[s <= 0.0] = 0.0
+        s = pp.compositional.normalize_rows(s.T).T
+
+        y = fluid_state.y
+        y[y >= 1.0] = 1.0
+        y[y <= 0.0] = 0.0
+        y = pp.compositional.normalize_rows(y.T).T
+
+        for z_i, comp in zip(z, self.fluid.components):
+            if self.has_independent_fraction(comp):
+                self.equation_system.set_variable_values(
+                    z_i,
+                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
+                    iterate_index=0,
+                )
+        for j, data in enumerate(zip(s, y, self.fluid.phases)):
+            s_j, y_j, phase = data
+            if self.has_independent_saturation(phase):
+                self.equation_system.set_variable_values(
+                    s_j,
+                    [phase.saturation(subdomains)],  # type:ignore[arg-type]
+                    iterate_index=0,
+                )
+            if self.has_independent_fraction(phase):
+                self.equation_system.set_variable_values(
+                    y_j,
+                    [phase.fraction(subdomains)],  # type:ignore[arg-type]
+                    iterate_index=0,
+                )
+
+            phase_state = fluid_state.phases[j]
+            x_sum = phase_state.x.sum(axis=0)
+            idx = x_sum > 1.0
+            if np.any(idx):
+                phase_state.x[:, idx] = pp.compositional.normalize_rows(phase_state.x[:, idx].T).T
+            idx = phase_state.x < 0
+            if np.any(idx):
+                phase_state.x[idx] = 0.0
+            idx = phase_state.x > 1.0
+            if np.any(idx):
+                phase_state.x[idx] = 1.0
+            for i, comp in enumerate(self.fluid.components):
+                if self.has_independent_partial_fraction(comp, phase):
+                    self.equation_system.set_variable_values(
+                        phase_state.x[i],
+                        [phase.extended_fraction_of[comp](subdomains)],
+                        iterate_index=0,
+                    )
+
+        super().update_dependent_quantities()
 
     def current_fluid_state(
         self,
@@ -370,19 +443,8 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             subdomains, state
         )
 
-        y_sum = np.sum(fluid_state.y, axis=0)
-        idx = fluid_state.y < 0
-        if np.any(idx):
-            fluid_state.y[idx] = 0.0
-        idx = fluid_state.y > 1.0
-        if np.any(idx):
-            fluid_state.y[idx] = 1.0
-        y_sum = np.sum(fluid_state.y, axis=0)
-        idx = y_sum > 1.0
-        if np.any(idx):
-            fluid_state.y[:, idx] = pp.compositional.normalize_rows(
-                fluid_state.y[:, idx].T
-            ).T
+        if isinstance(subdomains, pp.Grid):
+            subdomains = [subdomains]
 
         for phase in fluid_state.phases:
             x_sum = phase.x.sum(axis=0)
@@ -396,26 +458,45 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             if np.any(idx):
                 phase.x[idx] = 1.0
 
-        if isinstance(subdomains, pp.Grid):
-            subdomains = [subdomains]
+        # # Normalizing fractions in case of overshooting
+        # eps = 1e-7  # binding overall fractions away from zero
+        # z = fluid_state.z.copy()
+        # z[z >= 1.0] = 1.0 - eps
+        # z[z <= 0.0] = 0.0 + eps
+        # z = pp.compositional.normalize_rows(z.T).T
 
-        # Normalizing feed fractions in case of overshooting
-        eps = 1e-7  # binding overall fractions away from zero
-        z = fluid_state.z.copy()
-        z[z >= 1.0] = 1.0 - eps
-        z[z <= 0.0] = 0.0 + eps
+        # s = fluid_state.sat.copy()
+        # s[s >= 1.0] = 1.0
+        # s[s <= 0.0] = 0.0
+        # s = pp.compositional.normalize_rows(s.T).T
+        # y = fluid_state.y.copy()
+        # y[y >= 1.0] = 1.0
+        # y[y <= 0.0] = 0.0
+        # y = pp.compositional.normalize_rows(y.T).T
 
-        z = pp.compositional.normalize_rows(z.T).T
-
-        for z_i, comp in zip(z, self.fluid.components):
-            if self.has_independent_fraction(comp):
-                self.equation_system.set_variable_values(
-                    z_i,
-                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-        fluid_state.z = z
-
+        # for z_i, comp in zip(z, self.fluid.components):
+        #     if self.has_independent_fraction(comp):
+        #         self.equation_system.set_variable_values(
+        #             z_i,
+        #             [comp.fraction(subdomains)],  # type:ignore[arg-type]
+        #             iterate_index=0,
+        #         )
+        # for s_j, y_j, phase in zip(s, y, self.fluid.phases):
+        #     if self.has_independent_saturation(phase):
+        #         self.equation_system.set_variable_values(
+        #             s_j,
+        #             [phase.saturation(subdomains)],  # type:ignore[arg-type]
+        #             iterate_index=0,
+        #         )
+        #     if self.has_independent_fraction(phase):
+        #         self.equation_system.set_variable_values(
+        #             y_j,
+        #             [phase.fraction(subdomains)],  # type:ignore[arg-type]
+        #             iterate_index=0,
+        #         )
+        # fluid_state.z = z
+        # fluid_state.sat = s
+        # fluid_state.y = y
         return fluid_state
 
     def postprocess_flash(
@@ -697,6 +778,17 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             return inv_A
 
         return inverter
+
+    def assemble_linear_system(self) -> None:
+        start = time.time()
+        super().assemble_linear_system()
+        self._time_tracker["assembly"].append(time.time() - start)
+
+    def solve_linear_system(self) -> np.ndarray:
+        start = time.time()
+        sol = super().solve_linear_system()
+        self._time_tracker["linsolve"].append(time.time() - start)
+        return sol
 
 
 class PointWells2D(_FlowConfiguration):
@@ -1498,17 +1590,21 @@ model.primary_equations = primary_equations
 model.primary_variables = primary_variables
 
 t_0 = time.time()
-pp.run_time_dependent_model(model, model_params)
+try:
+    pp.run_time_dependent_model(model, model_params)
+except Exception as err:
+    print(f"SIMULATION FAILED: {err}")
+    # NOTE To avoid recomputation of time step size.
+    model.time_manager.is_constant = True
+    model.after_nonlinear_convergence()
+    model.time_manager.is_constant = False
 sim_time = time.time() - t_0
-
-print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
-print(f"Simulation run time: {sim_time / 60.0} (min).")
-
 
 # region Plots
 fig, ax1 = plt.subplots()
 
 global_iter_per_time: dict[float, tuple[int, int, int]] = model._global_iter_per_time  # type:ignore[attr-defined]
+
 
 N = len(global_iter_per_time)
 times = np.zeros(N)
@@ -1534,7 +1630,10 @@ img1 = ax1.plot(
 ax1.set_xscale("log")
 ax1.set_xlabel("Time [s]")
 ax1.set_ylabel("Global iterations")
-ax1.set_ylim(0., 30, )
+ax1.set_ylim(
+    0.0,
+    30,
+)
 
 color = "tab:red"
 ax2 = ax1.twinx()
@@ -1560,10 +1659,6 @@ nT = len(DT)
 assert nT == len(TIMES)
 Tidx = np.arange(nT)
 
-print(f"smalles time step: {np.min(DT) / 3600} hours")
-print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
-print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
-
 fig, ax1 = plt.subplots()
 
 color = "tab:red"
@@ -1584,3 +1679,23 @@ fig.tight_layout()
 fig.savefig(pathlib.Path(".\\visualization\\time_progress.png").resolve(), format="png")
 
 # endregion
+
+def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
+    return float(v.min()), float(v.mean()), float(v.max())
+
+print(f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\th={model._h_MESH}")
+print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
+print(f"Simulation run time: {sim_time / 60.0} (min).")
+print(f"smalles time step: {np.min(DT) / 3600} hours")
+print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
+print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
+print(f"global num iter (min, avg, max): {min_avg_max(newton_iter)}")
+print(f"cum. line search num iter (min, avg, max): {min_avg_max(cum_armijo_iter)}")
+avg_cum_flash_iter = cum_flash_iter / model.mdg.num_subdomain_cells()
+print(f"avg. cum. flash num iter (min, avg, max): {min_avg_max(avg_cum_flash_iter)}")
+times_assembly = np.array(model._time_tracker['assembly'])
+times_linsolve = np.array(model._time_tracker['linsolve'])
+times_flash = np.array(model._time_tracker['flash'])
+print(f"assembly time (min, avg, max): {min_avg_max(times_assembly)}")
+print(f"linsolve time (min, avg, max): {min_avg_max(times_linsolve)}")
+print(f"flash time (min, avg, max): {min_avg_max(times_flash)}")
