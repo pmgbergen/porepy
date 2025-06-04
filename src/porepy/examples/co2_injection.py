@@ -365,7 +365,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self._time_tracker["flash"].append(time.time() - start)
 
     def update_dependent_quantities(self):
-
         subdomains = self.mdg.subdomains()
 
         fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
@@ -415,7 +414,9 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             x_sum = phase_state.x.sum(axis=0)
             idx = x_sum > 1.0
             if np.any(idx):
-                phase_state.x[:, idx] = pp.compositional.normalize_rows(phase_state.x[:, idx].T).T
+                phase_state.x[:, idx] = pp.compositional.normalize_rows(
+                    phase_state.x[:, idx].T
+                ).T
             idx = phase_state.x < 0
             if np.any(idx):
                 phase_state.x[idx] = 0.0
@@ -1680,10 +1681,15 @@ fig.savefig(pathlib.Path(".\\visualization\\time_progress.png").resolve(), forma
 
 # endregion
 
+
 def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
     return float(v.min()), float(v.mean()), float(v.max())
 
-print(f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\th={model._h_MESH}")
+
+print(
+    f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
+    + "h={model._h_MESH}"
+)
 print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
 print(f"Simulation run time: {sim_time / 60.0} (min).")
 print(f"smalles time step: {np.min(DT) / 3600} hours")
@@ -1693,9 +1699,9 @@ print(f"global num iter (min, avg, max): {min_avg_max(newton_iter)}")
 print(f"cum. line search num iter (min, avg, max): {min_avg_max(cum_armijo_iter)}")
 avg_cum_flash_iter = cum_flash_iter / model.mdg.num_subdomain_cells()
 print(f"avg. cum. flash num iter (min, avg, max): {min_avg_max(avg_cum_flash_iter)}")
-times_assembly = np.array(model._time_tracker['assembly'])
-times_linsolve = np.array(model._time_tracker['linsolve'])
-times_flash = np.array(model._time_tracker['flash'])
+times_assembly = np.array(model._time_tracker["assembly"])
+times_linsolve = np.array(model._time_tracker["linsolve"])
+times_flash = np.array(model._time_tracker["flash"])
 print(f"assembly time (min, avg, max): {min_avg_max(times_assembly)}")
 print(f"linsolve time (min, avg, max): {min_avg_max(times_linsolve)}")
 print(f"flash time (min, avg, max): {min_avg_max(times_flash)}")

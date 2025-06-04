@@ -1661,7 +1661,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         assert isinstance(self, pp.SolutionStrategy), (
             "This is a mixin. Require SolutionStrategy as base."
         )
-        super().before_nonlinear_loop()  # type:ignore[safe-super]
+        super().before_nonlinear_loop()  # type:ignore[safe-super, misc]
 
         subdomains = self.mdg.subdomains()
         nt = self.time_step_indices.size
