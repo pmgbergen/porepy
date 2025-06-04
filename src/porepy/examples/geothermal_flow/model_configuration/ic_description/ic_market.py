@@ -280,7 +280,6 @@ class ICThreePhaseLowPressure(pp.PorePyModel):
         p_init = np.linspace(p_inlet, p_outlet, sd.num_cells)
         return p_init
 
-    # TODO: Implement corretly initial enthalpy for halite saturation equals 0.1 calculations.  
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         # evaluation from PTZ specs
         p = self.ic_values_pressure(sd)
