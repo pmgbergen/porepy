@@ -54,8 +54,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Whether the non-linear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
         """See :meth:`add_nonlinear_discretization`."""
-        self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        """See :meth:`add_nonlinear_flux_discretization`."""
+        self._nonlinear_diffusive_flux_discretizations: list[
+            pp.ad._ad_utils.MergedOperator
+        ] = []
+        """See :meth:`add_nonlinear_diffusive_flux_discretization`."""
         self.units = params.get("units", pp.Units())
         """Units of the model provided in ``params['units']``."""
         # get default or user-provided reference values
@@ -359,8 +361,8 @@ class SolutionStrategy(pp.PorePyModel):
         Upwinding. It is crucial that fluxes are updated before Upwinding.
 
         See also:
-            - :meth:`add_nonlinear_flux_discretization`
-            - :meth:`update_dependent_quantities`
+            - :meth:`add_nonlinear_diffusive_flux_discretization`
+            - :meth:`update_derived_quantities`
 
         Returns:
             A list of merged operators wrapping underlying discretizations.
@@ -369,7 +371,9 @@ class SolutionStrategy(pp.PorePyModel):
         return self._nonlinear_discretizations
 
     @property
-    def nonlinear_flux_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
+    def nonlinear_diffusive_flux_discretizations(
+        self,
+    ) -> list[pp.ad._ad_utils.MergedOperator]:
         """List of nonlinear flux discretizations in the equation system.
 
         Not to be confused with other discretizations (:meth:`nonlinear_discretizations`
@@ -381,14 +385,14 @@ class SolutionStrategy(pp.PorePyModel):
         Fluxes are discretized before other discretizations, such as upwinding.
 
         See also:
-            - :meth:`add_nonlinear_flux_discretization`
-            - :meth:`update_dependent_quantities`
+            - :meth:`add_nonlinear_diffusive_flux_discretization`
+            - :meth:`update_derived_quantities`
 
         Returns:
             A list of merged operators wrapping underlying discretizations.
 
         """
-        return self._nonlinear_flux_discretizations
+        return self._nonlinear_diffusive_flux_discretizations
 
     def add_nonlinear_discretization(
         self, discretization: pp.ad._ad_utils.MergedOperator
@@ -399,25 +403,38 @@ class SolutionStrategy(pp.PorePyModel):
             discretization: The nonlinear discretization to be added.
 
         """
+        discr_type = type(discretization._discr)
+        admissible_types = [pp.Upwind, pp.UpwindCoupling]
+        if discr_type not in admissible_types:
+            raise TypeError(
+                f"Expecting discretizations of type {admissible_types}."
+                f" Got {discr_type}."
+            )
         # This guardrail is very weak. However, the discretization list is uniquified
         # before discretization, so it should not be a problem.
         if discretization not in self._nonlinear_discretizations:
             self._nonlinear_discretizations.append(discretization)
 
-    def add_nonlinear_flux_discretization(
+    def add_nonlinear_diffusive_flux_discretization(
         self, discretization: pp.ad._ad_utils.MergedOperator
     ) -> None:
-        """Add an entry to the list of :meth:`nonlinear_flux_discretizations`.
+        """Add an entry to the list of :meth:`nonlinear_diffusive_flux_discretizations`.
 
         Parameters:
             discretization: The nonlinear flux discretization to be added.
 
         """
+        discr_type = type(discretization._discr)
+        admissible_types = [pp.Mpfa, pp.Tpfa, pp.Mpsa, pp.Tpsa, pp.Biot]
+        if discr_type not in admissible_types:
+            raise TypeError(
+                f"Expecting discretizations of type {admissible_types}."
+                f" Got {discr_type}."
+            )
         # This guardrail is very weak. However, the discretization list is uniquified
         # before discretization, so it should not be a problem.
-        # TODO Add type check that is indeed a flux discretization?
-        if discretization not in self._nonlinear_flux_discretizations:
-            self._nonlinear_flux_discretizations.append(discretization)
+        if discretization not in self._nonlinear_diffusive_flux_discretizations:
+            self._nonlinear_diffusive_flux_discretizations.append(discretization)
 
     def set_nonlinear_discretizations(self) -> None:
         """Set the list of all nonlinear discretizations.
@@ -427,7 +444,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         See also:
             - :meth:`add_nonlinear_discretization`
-            - :meth:`add_nonlinear_flux_discretization`
+            - :meth:`add_nonlinear_diffusive_flux_discretization`
 
         """
 
@@ -441,7 +458,7 @@ class SolutionStrategy(pp.PorePyModel):
         2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
            SolverStatistics.reset`.
         3. Calls :meth:`update_time_dependent_ad_arrays`.
-        4. Calls :meth:`update_dependent_quantities`.
+        4. Calls :meth:`update_derived_quantities`.
 
         """
         # Update time step size.
@@ -451,7 +468,7 @@ class SolutionStrategy(pp.PorePyModel):
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
         # Update other dependent quantities such as discretizations.
-        self.update_dependent_quantities()
+        self.update_derived_quantities()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -467,7 +484,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         1. Shift the existing solutions backwards in the iterative sense.
         2. Store the ``nonlinear_increment`` in the current iterate additively.
-        3. Calls :meth:`update_dependent_quantities`.
+        3. Calls :meth:`update_derived_quantities`.
 
         Parameters:
             nonlinear_increment: The new solution, as computed by the non-linear solver.
@@ -477,7 +494,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.set_variable_values(
             values=nonlinear_increment, additive=True, iterate_index=0
         )
-        self.update_dependent_quantities()
+        self.update_derived_quantities()
         self.nonlinear_solver_statistics.num_iteration += 1
 
     def after_nonlinear_convergence(self) -> None:
@@ -769,9 +786,14 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.update_all_boundary_conditions()
 
-    def update_dependent_quantities(self) -> None:
-        """Performs an update of dependent quantities entering the equations such as
-        fluxes, Upwind matrices, or surrogate operators.
+    def update_derived_quantities(self) -> None:
+        """Performs an update of derived and secondary quantities entering the
+        equations.
+
+        These updates include flux values and discretization matrices, or surrogate
+        operators which wrap externalized computations. In principle, anything not part
+        of the evaluation process in the AD framework, can be put here if it requires
+        an update for the evaluation to lead to correct values.
 
         The base method performs the following updates:
 
@@ -812,7 +834,7 @@ class SolutionStrategy(pp.PorePyModel):
         discretizing fluxes and other discretizations.
 
         This primarily involves second order tensors such as permeability and thermal
-        conductivity, or porosity.
+        conductivity.
 
         The base method only defines the signature and individual physics model have to
         override this method. A super-call to trigger other physics' update is required.
@@ -824,7 +846,7 @@ class SolutionStrategy(pp.PorePyModel):
         tic = time.time()
         # Uniquify to save computational time, then discretize.
         unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
-            self.nonlinear_flux_discretizations
+            self.nonlinear_diffusive_flux_discretizations
         )
         pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
         logger.debug(f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds.")

@@ -165,8 +165,8 @@ class SolutionStrategyPoromechanics(
 
     def set_nonlinear_discretizations(self) -> None:
         """Adds the darcy flux discretization to
-        :meth:`nonlinear_flux_discretizations` due to aperture always affecting
-        permeability."""
+        :meth:`nonlinear_diffusive_flux_discretizations` due to aperture always
+        affecting permeability."""
         # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
         # balance does not have any.
         super().set_nonlinear_discretizations()
@@ -174,7 +174,7 @@ class SolutionStrategyPoromechanics(
         # re-discretization of the diffusive flux in subdomains where the aperture
         # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_flux_discretization(
+        self.add_nonlinear_diffusive_flux_discretization(
             self.darcy_flux_discretization(subdomains).flux(),
         )
 

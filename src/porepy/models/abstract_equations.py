@@ -443,7 +443,7 @@ class LocalElimination(EquationMixin):
 
             self.update_boundary_condition(eliminatedvar.name, bc_values_prim)
 
-    def update_dependent_quantities(self) -> None:
+    def update_derived_quantities(self) -> None:
         """Attaches to the update of dependent quantities and performes an update of the
         surrogate operators.
 
@@ -454,7 +454,7 @@ class LocalElimination(EquationMixin):
 
         # Same remark as in override of update_all_boundary_conditions.
         if isinstance(self, pp.SolutionStrategy):
-            super().update_dependent_quantities()  # type:ignore[misc,safe-super]
+            super().update_derived_quantities()  # type:ignore[misc,safe-super]
         else:
             raise TypeError(
                 f"Model class {type(self)} does not have a SolutionStrategy included."

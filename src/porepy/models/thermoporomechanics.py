@@ -182,8 +182,8 @@ class SolutionStrategyThermoporomechanics(
 
     def set_nonlinear_discretizations(self) -> None:
         """Adds the Darcy and Fourier flux discretization to
-        :meth:`nonlinear_flux_discretizations` due to aperture always affecting
-        diffusive fluxes."""
+        :meth:`nonlinear_diffusive_flux_discretizations` due to aperture always
+        affecting diffusive fluxes."""
         # Super calls method in mass and energy balance. Momentum balance has no
         # nonlinear discretizations.
         super().set_nonlinear_discretizations()
@@ -191,12 +191,12 @@ class SolutionStrategyThermoporomechanics(
         # re-discretization of the diffusive flux in subdomains where the aperture
         # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_flux_discretization(
+        self.add_nonlinear_diffusive_flux_discretization(
             self.darcy_flux_discretization(subdomains).flux(),
         )
         # Aperture and porosity changes render thermal conductivity variable. This
         # requires a re-discretization of the diffusive flux.
-        self.add_nonlinear_flux_discretization(
+        self.add_nonlinear_diffusive_flux_discretization(
             self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
 

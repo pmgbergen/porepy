@@ -1213,7 +1213,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         - The Fourier flux discretization
 
-        is added to :meth:`nonlinear_flux_discretizations`, if
+        is added to :meth:`nonlinear_diffusive_flux_discretizations`, if
         ``model.params['rediscretize_fourier_flux'] == True``.
 
         """
@@ -1229,6 +1229,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         )
 
         if self.params.get("rediscretize_fourier_flux", False):
-            self.add_nonlinear_flux_discretization(
+            self.add_nonlinear_diffusive_flux_discretization(
                 self.fourier_flux_discretization(subdomains).flux()
             )

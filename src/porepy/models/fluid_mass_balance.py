@@ -1031,7 +1031,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         - The Darcy flux discretization
 
-        is added to :meth:`nonlinear_flux_discretizations`, if
+        is added to :meth:`nonlinear_diffusive_flux_discretizations`, if
         ``model.params['rediscretize_darcy_flux'] == True``.
 
         """
@@ -1046,7 +1046,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         )
 
         if self.params.get("rediscretize_darcy_flux", False):
-            self.add_nonlinear_flux_discretization(
+            self.add_nonlinear_diffusive_flux_discretization(
                 self.darcy_flux_discretization(subdomains).flux()
             )
 
