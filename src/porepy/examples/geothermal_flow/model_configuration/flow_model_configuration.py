@@ -14,7 +14,6 @@ from .constitutive_description.mixture_constitutive_description import (
     PhaseMode,
 )
 
-# TODO: The following import is only for testing, will be taking away after
 from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
 
 
@@ -368,6 +367,8 @@ class ThreePhaseFlowModelConfiguration(
 
         if len(halite_phase) != 1:
             raise ValueError("Expected exactly one halite phase.")
+        
+        max = pp.ad.Function(pp.ad.maximum, "maximum_function")
 
         # name = phase.name
         s = phase.saturation(domains)
