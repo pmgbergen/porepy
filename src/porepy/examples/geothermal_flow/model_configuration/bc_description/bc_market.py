@@ -1,14 +1,14 @@
 from typing import Callable
-
 import numpy as np
+import CoolProp.CoolProp as CP
 
 import porepy as pp
-
 from ...vtk_sampler import VTKSampler
 
 
-class BC_single_phase_high_pressure(pp.PorePyModel):
+class BCSinglePhaseHighPressure(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+    """BC Set up for Liquid phase flow"""
 
     get_inlet_outlet_sides: Callable[
         [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
@@ -18,62 +18,47 @@ class BC_single_phase_high_pressure(pp.PorePyModel):
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+ 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_inlet = 50.0
-        p_outlet = 25.0
-        xc = boundary_grid.cell_centers.T
-        dir_idx = np.argmax(np.max(xc, axis=0))
-        p_linear = (
-            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
-        )
-        p = np.array(list(map(p_linear, xc)))
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        p_inlet = 50.0e6
+        p_outlet = 25.0e6
+        p = p_outlet * np.ones(boundary_grid.num_cells)
+        p[inlet_idx] = p_inlet
+        p[outlet_idx] = p_outlet
         return p
-
+    
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        t_inlet = 623.15
-        t_outlet = 423.15
+        t_inlet = 623.15  # [K]
+        t_outlet = 423.15  # [K]
         T = t_outlet * np.ones(boundary_grid.num_cells)
         T[inlet_idx] = t_inlet
         T[outlet_idx] = t_outlet
         return T
-
+    
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p = self.bc_values_pressure(boundary_grid)
         t = self.bc_values_temperature(boundary_grid)
         z_NaCl = np.zeros_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
         return h
 
-    def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.0
-        z_inlet = 0.0
-        if component.name == "H2O":
-            z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
-            z_H2O[inlet_idx] = 1 - z_inlet
-            return z_H2O
-        else:
-            z_NaCl = z_init * np.ones(boundary_grid.num_cells)
-            z_NaCl[inlet_idx] = z_inlet
-            return z_NaCl
 
-
-class BC_single_phase_moderate_pressure(pp.PorePyModel):
-    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+class BCSinglePhaseModeratePressure(pp.PorePyModel):
+    """See parent class how to set up BC. Default is all zero and Dirichlet.
+        BC Set up for Supercritical fluid flow"""
 
     get_inlet_outlet_sides: Callable[
         [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
@@ -83,62 +68,48 @@ class BC_single_phase_moderate_pressure(pp.PorePyModel):
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_inlet = 40.0
-        p_outlet = 20.0
-        xc = boundary_grid.cell_centers.T
-        dir_idx = np.argmax(np.max(xc, axis=0))
-        p_linear = (
-            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
-        )
-        p = np.array(list(map(p_linear, xc)))
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        p_inlet = 40.0e6
+        p_outlet = 20.0e6
+        p = p_outlet * np.ones(boundary_grid.num_cells)
+        p[inlet_idx] = p_inlet
+        p[outlet_idx] = p_outlet
         return p
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        t_inlet = 723.15
-        t_outlet = 573.15
+        t_inlet = 723.15  # [K]
+        t_outlet = 573.15  # [K]
         T = t_outlet * np.ones(boundary_grid.num_cells)
         T[inlet_idx] = t_inlet
         T[outlet_idx] = t_outlet
         return T
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+
         p = self.bc_values_pressure(boundary_grid)
         t = self.bc_values_temperature(boundary_grid)
         z_NaCl = np.zeros_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
         return h
 
-    def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.0
-        z_inlet = 0.0
-        if component.name == "H2O":
-            z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
-            z_H2O[inlet_idx] = 1 - z_inlet
-            return z_H2O
-        else:
-            z_NaCl = z_init * np.ones(boundary_grid.num_cells)
-            z_NaCl[inlet_idx] = z_inlet
-            return z_NaCl
 
-
-class BC_single_phase_low_pressure(pp.PorePyModel):
+class BCSinglePhaseLowPressure(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+    """BC setup for vapour phase flow"""
 
     get_inlet_outlet_sides: Callable[
         [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
@@ -148,55 +119,265 @@ class BC_single_phase_low_pressure(pp.PorePyModel):
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
-
+    
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_inlet = 15.0
-        p_outlet = 1.0
-        xc = boundary_grid.cell_centers.T
-        dir_idx = np.argmax(np.max(xc, axis=0))
-        p_linear = (
-            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
-        )
-        p = np.array(list(map(p_linear, xc)))
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        p_inlet = 15.0e6
+        p_outlet = 1.0e6
+        p = p_outlet * np.zeros(boundary_grid.num_cells)
+        p[inlet_idx] = p_inlet
+        p[outlet_idx] = p_outlet
         return p
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        t_inlet = 773.15
-        t_outlet = 623.15
-        T = t_outlet * np.ones(boundary_grid.num_cells)
+        t_inlet = 773.15  # [K]
+        t_outlet = 623.15  # [K]
+        T = t_outlet * np.zeros(boundary_grid.num_cells)
         T[inlet_idx] = t_inlet
         T[outlet_idx] = t_outlet
         return T
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # evaluation from PTZ specs
         p = self.bc_values_pressure(boundary_grid)
         t = self.bc_values_temperature(boundary_grid)
         z_NaCl = np.zeros_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h
+
+    # def bc_values_overall_fraction(
+    #     self, 
+    #     component: pp.Component, 
+    #     boundary_grid: pp.BoundaryGrid
+    # ) -> np.ndarray:
+    #     inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
+    #     z_init = 0.0
+    #     z_inlet = 0.0
+    #     if component.name == "H2O":
+    #         z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
+    #         z_H2O[inlet_idx] = 1 - z_inlet
+    #         return z_H2O
+    #     else:
+    #         z_NaCl = z_init * np.ones(boundary_grid.num_cells)
+    #         z_NaCl[inlet_idx] = z_inlet
+    #         return z_NaCl
+    
+    # Testing
+    # def bc_values_fractional_flow_energy(
+    #     self, bg: pp.BoundaryGrid
+    # ) -> np.ndarray:
+    #     """BC values for the non-linear weight in the advective flux in the energy
+    #     balance equation, determining how much energy/enthalpy is entering the system on
+    #     some inlet faces in terms relative to the mass.
+
+    #     Parameters:
+    #         bg: A boundary grid in the mixed-dimensional grid.
+
+    #     Returns:
+    #         By default a zero array with shape ``(boundary_grid.num_cells,)``.
+
+    #     """
+    #     return np.zeros(bg.num_cells)
+
+
+class BCTwoPhaseLowPressure(pp.PorePyModel):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+    """BC Setup for long two phase liquid+vapour flow"""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        p_inlet = 4.0e6  # in Pa
+        p_outlet = 1.0e6
+        p = p_outlet * np.zeros(boundary_grid.num_cells)
+        p[inlet_idx] = p_inlet
+        p[outlet_idx] = p_outlet
+        return p
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 573.15  # [K]
+        t_outlet = 423.15  # [K]
+        T = t_outlet * np.zeros(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = np.zeros_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h
+
+
+class BCTwoPhaseHighPressure(pp.PorePyModel): 
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+    """BC Setup for short two phase liquid+vapour flow"""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        p_inlet = 20.0e6
+        p_outlet = 1.0e6
+        p = p_outlet * np.zeros(boundary_grid.num_cells)
+        p[inlet_idx] = p_inlet
+        p[outlet_idx] = p_outlet
+        return p
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 673.15  # [K]
+        t_outlet = 423.15  # [K]
+        T = t_outlet * np.zeros(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = np.zeros_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        h[2:] = 0.0
+        return h
+
+
+class BCThreePhaseLowPressure(pp.PorePyModel):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+    """BC Set up for Liquid phase flow"""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
+        return pp.BoundaryCondition(sd, facet_idx, "dir")
+  
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        p_inlet = 4.0e6
+        p_outlet = 1.0e6
+        p = p_outlet * np.zeros(boundary_grid.num_cells)
+        p[inlet_idx] = p_inlet
+        p[outlet_idx] = p_outlet
+     
+        return p
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 573.15  # [K]
+        t_outlet = 423.15  # [K]
+        T = t_outlet * np.zeros(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = self.bc_values_overall_fraction(
+            self.get_components()[1],
+            boundary_grid
+        )
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        # h = np.zeros(boundary_grid.num_cells)
+        # Compute specific enthalpy for each cell using CoolProp
+        # for i in range(boundary_grid.num_cells):
+        #     # if i == 0:
+        #     #     t_k = 573.15  # [K]
+        #     # else:
+        #     #     t_k = t[i]
+        #     if p[i] == 0:
+        #         continue
+        #     h[i] = CP.PropsSI('H', 'P', p[i], 'T', t[i], 'Water')
         return h
 
     def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+        self,
+        component: pp.Component,
+        boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.0
-        z_inlet = 0.0
+        inlet_idx, outlet_index = self.get_inlet_outlet_sides(boundary_grid)
+        z_inlet = 0.000
+        z_outlet = 0.41699537203872905
         if component.name == "H2O":
-            z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
+            z_H2O = np.zeros(boundary_grid.num_cells)
             z_H2O[inlet_idx] = 1 - z_inlet
+            z_H2O[outlet_index] = 1 - z_outlet
             return z_H2O
         else:
-            z_NaCl = z_init * np.ones(boundary_grid.num_cells)
+            z_NaCl = np.zeros(boundary_grid.num_cells)
             z_NaCl[inlet_idx] = z_inlet
+            z_NaCl[outlet_index] = z_outlet
             return z_NaCl
