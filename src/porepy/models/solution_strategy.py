@@ -760,16 +760,16 @@ class SolutionStrategy(pp.PorePyModel):
             assert self.primary_equations, (
                 "Primary row block for Schur technique not defined."
             )
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.primary_equations,
-                self.primary_variables,
-                inverter=self.schur_complement_inverter,
-            )
             # self.linear_system = self.equation_system.assemble_schur_complement_system(
             #     self.primary_equations,
             #     self.primary_variables,
-            #     inverter=self.invert_non_diagonal_matrix,
+            #     inverter=self.schur_complement_inverter,
             # )
+            self.linear_system = self.equation_system.assemble_schur_complement_system(
+                self.primary_equations,
+                self.primary_variables,
+                inverter=self.invert_non_diagonal_matrix,
+            )
         else:
             self.linear_system = self.equation_system.assemble()
 
@@ -974,6 +974,19 @@ class SolutionStrategy(pp.PorePyModel):
             block_sizes.append(len(eq_rows_in_block))
             block_row_indices.extend(eq_rows_in_block)
             block_col_indices.extend(var_cols_in_block)
+
+        used_rows = set(block_row_indices)
+        # used_cols = set(block_col_indices)
+
+        all_indices = set(range(r))
+        missing_rows = list(sorted(all_indices - used_rows))
+        # missing_cols = list(sorted(all_indices - used_cols))
+
+        # Append each missing index as a singleton 1×1 block:
+        for idx in missing_rows:
+            block_row_indices.append(idx)
+            block_col_indices.append(idx)
+            block_sizes.append(1)
 
         # Final permutations: flattening all component-wise ordered indices
         row_perm = np.array(block_row_indices, dtype=np.int32)
