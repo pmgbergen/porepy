@@ -425,7 +425,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         discr_type = type(discretization._discr)
-        admissible_types = [pp.Mpfa, pp.Tpfa, pp.Mpsa, pp.Tpsa, pp.Biot]
+        admissible_types = [pp.Mpfa, pp.Tpfa]
         if discr_type not in admissible_types:
             raise TypeError(
                 f"Expecting discretizations of type {admissible_types}."
