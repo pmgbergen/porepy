@@ -164,9 +164,22 @@ class SolutionStrategyPoromechanics(
         return True
 
     def set_nonlinear_discretizations(self) -> None:
-        """Adds the darcy flux discretization to
-        :meth:`nonlinear_diffusive_flux_discretizations` due to aperture always
-        affecting permeability."""
+        """Poromechanics rely by default on Darcy flux re-discretization, which is
+        opposite to the inherited flow model.
+
+        Important:
+            By default, the re-discretization is performed only on subdomains with
+            ``dim < nd`` due to changes in aperture!
+
+            The default behavior defined here concerns only those domains.
+            For triggering the re-discretization on all subdomains, the user must
+            set the flag ``'rediscretize_darcy_flux'`` to ``True`` explicitly, and the
+            inherited flow model will take care of it.
+
+        See also:
+            :meth:`nonlinear_diffusive_flux_discretizations`
+
+        """
         # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
         # balance does not have any.
         super().set_nonlinear_discretizations()
@@ -175,32 +188,10 @@ class SolutionStrategyPoromechanics(
         # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
 
-        if self._do_rediscretize_darcy_flux(self):
+        if self.params.get("rediscretize_darcy_flux", True):
             self.add_nonlinear_diffusive_flux_discretization(
                 self.darcy_flux_discretization(subdomains).flux(),
             )
-
-    @staticmethod
-    def _do_rediscretize_darcy_flux(model: pp.PorePyModel) -> bool:
-        """Poromechanics rely by default on Darcy flux re-discretization, which is
-        opposite to the inherited flow model.
-
-        Important:
-            By default, the re-discretization is performed only on subdomains with
-            ``dim < nd``! The default behavior defined here concerns only those domains.
-            For triggering the re-discretization on all subdomains, the user must
-            set the flag ``'rediscretize_darcy_flux'`` to ``True`` explicitly, and the
-            inherited flow model will take care of it.
-
-        Parameters:
-            model: A PorePy model.
-
-        Returns:
-            Fetches the model parameter ``'rediscretize_darcy_flux'``, with ``True``
-            being the default return value.
-
-        """
-        return bool(model.params.get("rediscretize_darcy_flux", True))
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
