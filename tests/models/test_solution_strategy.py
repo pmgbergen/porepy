@@ -569,5 +569,5 @@ def test_invert_non_diagonal_matrix(non_block_diag_matrix: dict[str, Any]):
     A_inv = strategy.invert_non_diagonal_matrix(A)
 
     # Verify that A * A_inv is the identity matrix
-    I = A.dot(A_inv).toarray()
-    assert np.allclose(I, np.eye(6))
+    approx_identity = A.dot(A_inv).toarray()
+    assert np.allclose(approx_identity, np.eye(A.shape[0]))
