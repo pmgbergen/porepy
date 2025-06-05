@@ -51,6 +51,9 @@ def plot_grid(
             cells: boolean array with length number of cells. Only plot cells c where
             cells[c]=True. Not valid for a MixedDimensionalGrid.
 
+    Raises:
+        ValueError: if the user passed neither a Grid nor a MixedDimensional grid.
+
     Example:
     # if grid is a single grid:
     cell_id = np.arange(grid.num_cells)
@@ -68,10 +71,15 @@ def plot_grid(
         plot_sd(grid, cell_value, vector_value, info, **kwargs)
 
     # Grid is a mixed-dimensional grid
-    if isinstance(grid, pp.MixedDimensionalGrid):
+    elif isinstance(grid, pp.MixedDimensionalGrid):
         assert cell_value is None or isinstance(cell_value, str)
         assert vector_value is None or isinstance(vector_value, str)
         plot_mdg(grid, cell_value, vector_value, info, **kwargs)
+
+    else:
+        raise ValueError(
+            f"You must pass either a Grid or a MixedDimensionalGrid, not {grid}."
+        )
 
 
 def save_img(
