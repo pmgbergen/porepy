@@ -174,9 +174,26 @@ class SolutionStrategyPoromechanics(
         # re-discretization of the diffusive flux in subdomains where the aperture
         # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_diffusive_flux_discretization(
-            self.darcy_flux_discretization(subdomains).flux(),
-        )
+
+        if self._do_rediscretize_darcy_flux(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(subdomains).flux(),
+            )
+
+    @staticmethod
+    def _do_rediscretize_darcy_flux(model: pp.PorePyModel) -> bool:
+        """Poromechanics rely by default on Darcy flux re-discretization, which is
+        opposite to the inherited flow model.
+
+        Parameters:
+            model: A PorePy model
+
+        Returns:
+            Fetches the model parameter ``'rediscretize_darcy_flux'``, with ``True``
+            being the default return value.
+
+        """
+        return bool(model.params.get("rediscretize_darcy_flux", True))
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

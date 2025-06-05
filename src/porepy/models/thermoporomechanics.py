@@ -191,18 +191,36 @@ class SolutionStrategyThermoporomechanics(
         # re-discretization of the diffusive flux in subdomains where the aperture
         # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_diffusive_flux_discretization(
-            self.darcy_flux_discretization(subdomains).flux(),
-        )
+
+        if pp.poromechanics.Poromechanics._do_rediscretize_darcy_flux(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(subdomains).flux(),
+            )
         # Aperture and porosity changes render thermal conductivity variable. This
         # requires a re-discretization of the diffusive flux.
-        self.add_nonlinear_diffusive_flux_discretization(
-            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
-        )
+        if self._do_rediscretize_fourier_flux(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+            )
 
     def _is_nonlinear_problem(self) -> bool:
         """The thermoporomechanics model is nonlinear."""
         return True
+
+    @staticmethod
+    def _do_rediscretize_fourier_flux(model: pp.PorePyModel) -> bool:
+        """Thermo-poromechanics rely by default on Fourier flux re-discretization, which
+        is opposite to the inherited energy model.
+
+        Parameters:
+            model: A PorePy model
+
+        Returns:
+            Fetches the model parameter ``'rediscretize_fourier_flux'``, with ``True``
+            being the default return value.
+
+        """
+        return bool(model.params.get("rediscretize_fourier_flux", True))
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

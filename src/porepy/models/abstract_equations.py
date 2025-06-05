@@ -444,11 +444,11 @@ class LocalElimination(EquationMixin):
             self.update_boundary_condition(eliminatedvar.name, bc_values_prim)
 
     def update_derived_quantities(self) -> None:
-        """Attaches to the update of dependent quantities and performes an update of the
-        surrogate operators.
+        """Attaches to the update routine and performes an update of the
+        surrogate operators, which are a derived expression for the eliminated variable.
 
-        Updates both value and derivatives for the surrogate operators used in local
-        eliminations.
+        Updates both value and derivatives for the surrogate operators, using the
+        provided functional expression.
 
         """
 
