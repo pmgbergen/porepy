@@ -925,61 +925,67 @@ class SolutionStrategy(pp.PorePyModel):
             - Each block in the resulting matrix corresponds to a connected component in
             the bipartite graph representation.
         """
-        # input validation
+        # Input validation
         if not isinstance(A, sps.spmatrix):
             raise TypeError("Input matrix must be a sparse matrix")
-        if A.shape[0] == 0 or A.shape[1] == 0:
+        r, c = A.shape
+        if r == 0 or c == 0:
             raise ValueError("Matrix cannot be empty")
-        assert A.shape[0] == A.shape[1], f"Matrix must be square, got shape {A.shape}"
+        assert r == c, f"Matrix must be square, got shape {A.shape}"
 
         # Find non-zero entries in the sparse matrix
         rows, cols, _ = sps.find(A)
 
         # Build bipartite graph: connect equation_i to variable_j if A[i,j] ≠ 0
         G = nx.Graph()
-        for i, j in zip(rows, cols):
-            G.add_edge(f"eq_{i}", f"var_{j}")
+        # Create graph edges between connected equation and variables
+        edge_list = [(int(i), int(r + j)) for i, j in zip(rows, cols)]
+        G.add_edges_from(edge_list)
 
-        # Find connected components
+        # Find connected components in G
+        # If len(components) == 1, the entire matrix is already
+        # one block (block‐diagonal with a single block).
         components = list(nx.connected_components(G))
-
-        # if matrix is already block-diagonal
         if len(components) == 1:
-            n = A.shape[0]
-            return (np.arange(n), np.arange(n), np.array([n], dtype=np.int32))
+            idx = np.arange(r, dtype=np.int32)
+            return idx, idx, np.array([r], dtype=np.int32)
 
         # Collect row and column indices per component
-        block_sizes = []
         block_row_indices = []
         block_col_indices = []
 
+        # Collect the sizes of sub-blocks
+        block_sizes = []
+
         # Extract permutations and sub-block sizes
         for comp in components:
-            eqs_ = sorted(int(n[3:]) for n in comp if n.startswith("eq_"))
-            vars_ = sorted(int(n[4:]) for n in comp if n.startswith("var_"))
+            eq_rows_in_block = [node for node in comp if node < r]
+            var_cols_in_block = [node - r for node in comp if node >= r]
 
-            # each block must be square
-            assert len(eqs_) == len(vars_), (
-                f"Block mismatch: {len(eqs_)} eqs vs {len(vars_)} vars"
-            )
-            block_sizes.append(len(eqs_))
-            block_row_indices.extend(eqs_)
-            block_col_indices.extend(vars_)
+            # Sort each list so that the permutation is deterministic:
+            eq_rows_in_block.sort()
+            var_cols_in_block.sort()
+        
+            # Sanity check: each block must be square in terms of #rows == #cols
+            if len(eq_rows_in_block) != len(var_cols_in_block):
+                raise AssertionError(
+                    f"Block mismatch: {len(eq_rows_in_block)} rows vs {len(var_cols_in_block)} cols"
+                )
+            block_sizes.append(len(eq_rows_in_block))
+            block_row_indices.extend(eq_rows_in_block)
+            block_col_indices.extend(var_cols_in_block)
 
-        # final permutations: flattening all component-wise ordered indices
-        row_perm = np.array(block_row_indices, dtype=int)
-        col_perm = np.array(block_col_indices, dtype=int)
+        # Final permutations: flattening all component-wise ordered indices
+        row_perm = np.array(block_row_indices, dtype=np.int32)
+        col_perm = np.array(block_col_indices, dtype=np.int32)
+        block_sizes = np.array(block_sizes, dtype=np.int32)
 
-        # verify we've covered all equations and variables
-        assert len(block_row_indices) == A.shape[0], (
-            "Not all equations were assigned to blocks"
-        )
-        assert len(block_col_indices) == A.shape[1], (
-            "Not all variables were assigned to blocks"
-        )
-
-        return (row_perm, col_perm, np.array(block_sizes).astype(np.int32))
-
+        # Verify we covered all rows & columns exactly once:
+        if row_perm.size != r or col_perm.size != c:
+            raise AssertionError("Not all rows/columns were assigned to blocks")
+        
+        return row_perm, col_perm, block_sizes
+    
     def invert_non_diagonal_matrix(self, A: sps.csr_matrix) -> sps.csr_matrix:
         """Compute A^{-1} by
             1) permuting non-diagonal block matrix A to block-diagonal form,
@@ -994,28 +1000,34 @@ class SolutionStrategy(pp.PorePyModel):
             A_inv: The inverse of A.
         """
 
-        # find the permutations that makes A block-diagonal
+        # Find the permutations that resolves A into block-diagonal
         row_perm_idxs, col_perm_idxs, block_sizes = self.generate_block_permutations(A)
         row_slicer = pp.matrix_operations.ArraySlicer(
-            range_indices=row_perm_idxs, range_size=A.shape[0]
+            domain_indices=row_perm_idxs
         )
         col_slicer = pp.matrix_operations.ArraySlicer(
-            domain_indices=col_perm_idxs, domain_size=A.shape[1]
+            range_indices=col_perm_idxs
         )
 
-        # apply permutations to transform A into diagonal block
+        # Apply permutations to transform A into diagonal block
         # A_block_diag = P_row @ A @ P_col
         A_block_diag = row_slicer @ (col_slicer.T @ A.T).T
 
-        # compute the inverse of each block in place
+        # Compute the inverse of each sub-block in place
         inv_A_block_diag = pp.matrix_operations.invert_diagonal_blocks(
             A_block_diag, block_sizes, method="numba"
         )
 
-        # undo the permutations to obtain the inverse of the original matrix
+        # Undo the permutations to obtain the inverse of the original matrix
         # A^{-1} = P_col A_block_diag^{-1} P_row
         inv_row_slicer = row_slicer.T
         inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
+
+        # Zero out entries below tolerance to remove numerical noise
+        # (matrix condition ~1e5–1e6, float64 machine epsilon ~1e-16)
+        treat_as_zero = np.abs(inv_A.data) < 1e-10
+        inv_A.data[treat_as_zero] = 0.0
+        inv_A.eliminate_zeros()
 
         return inv_A
 
