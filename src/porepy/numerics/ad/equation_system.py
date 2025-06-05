@@ -188,6 +188,11 @@ class EquationSystem:
 
         """
 
+        self._A_secondary_block: sps.spmatrix
+        """Store the secondary block matrix used in a schur complement procedure
+        
+        """
+
         self._variable_numbers: dict[int, int] = dict()
         """A Map between a variable's ID and its index in the system vector.
 
@@ -315,6 +320,14 @@ class EquationSystem:
         for var in self.variables:
             domains.add(var.domain)
         return list(domains)
+    
+    @property
+    def A_secondary_block(self) -> sps.spmatrix:
+        """Return the last‐assembled “secondary” block A_ss."""
+        if not hasattr(self, "_A_secondary_block"):
+            raise RuntimeError("Must call assemble_schur_complement_system(...) first.")
+        return self._A_secondary_block
+
 
     ### Variable management ------------------------------------------------------------
 
@@ -1734,7 +1747,7 @@ class EquationSystem:
 
         """
         if inverter is None:
-            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
 
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.
@@ -1838,6 +1851,9 @@ class EquationSystem:
         A_sp = A_s * primary_projection
         A_ss = A_s * secondary_projection
 
+        # Store it on the object:
+        self._A_secondary_block = A_ss
+
         # Last sanity check, if A_ss is square.
         assert A_ss.shape[0] == A_ss.shape[1]
 
@@ -1853,7 +1869,7 @@ class EquationSystem:
             b_s,
             A_sp,
             primary_projection,
-            secondary_projection,
+            secondary_projection
         )
 
         return S, rhs_S
