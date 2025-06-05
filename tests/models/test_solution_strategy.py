@@ -617,7 +617,7 @@ def test_invert_non_diagonal_matrix_on_mdg_problem():
     expr_s2.set_name("eq_s2")
     es.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
 
-    # On each interface, register 3 equations 
+    # On each interface, register 3 equations
     eq_pf = pf**2.0 - 2.0
     eq_pf.set_name("eq_p_f")
     es.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
@@ -630,26 +630,24 @@ def test_invert_non_diagonal_matrix_on_mdg_problem():
     eq_sf2.set_name("eq_s_f_2")
     es.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
 
-    # Define “primary” lists of equations & variables
-    primaryEqList = ["eq_p1", "eq_p2", "eq_p_f", "eq_s1", "eq_s2"]
-    primaryVarList = ["p1",   "p2",   "pf",   "s1",   "s2"]
+    # Define "secondary" list of equations & variables
+    secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
+    secondaryVarList = ["sf1", "sf2"]
 
     # Use a dummy initial state (zeros) for assembling the Schur complement
     dummy_state = np.zeros(es.num_dofs())
 
     strategy = pp.SolutionStrategy({})
 
-    # Apply Schur complement to eliminate sf1 and sf2
-    _, _ = es.assemble_schur_complement_system(
-        primaryEqList,
-        primaryVarList,
-        state=dummy_state,
-        inverter=strategy.invert_non_diagonal_matrix
+    # Extract the secondary block matrix
+    A_ss, _ = es.assemble(
+       equations=secondaryEqList,
+       variables=secondaryVarList,
+       state=dummy_state
     )
 
-    # Extract secondary block matrix and its inverse from the Schur complement. 
-    inv_A_ss, _, _, _, _ = es._Schur_complement
-    A_ss = es.A_secondary_block
+    # Invert the non-diagonal block matrix A_ss
+    inv_A_ss = strategy.invert_non_diagonal_matrix(A_ss)
 
     # Verify that A_ss * inv_A_ss is the identity matrix
     approx_identity = A_ss.dot(inv_A_ss).toarray()
