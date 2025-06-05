@@ -36,6 +36,7 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
+from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -571,3 +572,85 @@ def test_invert_non_diagonal_matrix(non_block_diag_matrix: dict[str, Any]):
     # Verify that A * A_inv is the identity matrix
     approx_identity = A.dot(A_inv).toarray()
     assert np.allclose(approx_identity, np.eye(A.shape[0]))
+
+
+def test_invert_non_diagonal_matrix_on_mdg_problem():
+    """
+    Construct a mixed-dimensional system (two orthogonal fractures in a Cartesian grid),
+    register variables and equations on subdomains and interfaces, then build and invert its
+    Schur-complement secondary block via block-diagonal permutations.
+    """
+    # Create a 2‐fracture “square” MD grid (Cartesian, cell size 0.5)
+    mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])
+
+    # Instantiate an EquationSystem on the MD grid
+    es = pp.ad.EquationSystem(mdg)
+
+    # Create four “subdomain” variables (p1, p2, s1, s2), one DOF per cell
+    p1 = es.create_variables(name="p1", subdomains=mdg.subdomains())
+    p2 = es.create_variables(name="p2", subdomains=mdg.subdomains())
+    s1 = es.create_variables(name="s1", subdomains=mdg.subdomains())
+    s2 = es.create_variables(name="s2", subdomains=mdg.subdomains())
+
+    # Create three “interface” variables (pf, sf1, sf2), one DOF per interface cell
+    pf = es.create_variables(name="pf",  interfaces=mdg.interfaces())
+    sf1 = es.create_variables(name="sf1", interfaces=mdg.interfaces())
+    sf2 = es.create_variables(name="sf2", interfaces=mdg.interfaces())
+
+    # Define equation‐to‐grid-entity mapping: one equation per cell, none on faces or nodes
+    eq_per_gridEntity = {"cells": 1, "faces": 0, "nodes": 0}
+
+    # On each subdomain cell, register 4 equations
+    expr_p1 = p1 + s1 * 2.0 - 1.0
+    expr_p1.set_name("eq_p1")
+    es.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
+
+    expr_p2 = p2 * 1.0 + s2 * 2.0 - 2.0
+    expr_p2.set_name("eq_p2")
+    es.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
+
+    expr_s1 = p1 * 3.0 + s1 * 1.0 - 3.0
+    expr_s1.set_name("eq_s1")
+    es.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
+
+    expr_s2 = p2 * 3.0 + s2 * 1.0 - 4.0
+    expr_s2.set_name("eq_s2")
+    es.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
+
+    # On each interface, register 3 equations 
+    eq_pf = pf**2.0 - 2.0
+    eq_pf.set_name("eq_p_f")
+    es.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
+
+    eq_sf1 = pf + sf2 + sf1 * 2.5 - 1.0
+    eq_sf1.set_name("eq_s_f_1")
+    es.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
+
+    eq_sf2 = pf + sf2 * sf1 + sf1 - 10.0
+    eq_sf2.set_name("eq_s_f_2")
+    es.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
+
+    # Define “primary” lists of equations & variables
+    primaryEqList = ["eq_p1", "eq_p2", "eq_p_f", "eq_s1", "eq_s2"]
+    primaryVarList = ["p1",   "p2",   "pf",   "s1",   "s2"]
+
+    # Use a dummy initial state (zeros) for assembling the Schur complement
+    dummy_state = np.zeros(es.num_dofs())
+
+    strategy = pp.SolutionStrategy({})
+
+    # Apply Schur complement to eliminate sf1 and sf2
+    _, _ = es.assemble_schur_complement_system(
+        primaryEqList,
+        primaryVarList,
+        state=dummy_state,
+        inverter=strategy.invert_non_diagonal_matrix
+    )
+
+    # Extract secondary block matrix and its inverse from the Schur complement. 
+    inv_A_ss, _, _, _, _ = es._Schur_complement
+    A_ss = es.A_secondary_block
+
+    # Verify that A_ss * inv_A_ss is the identity matrix
+    approx_identity = A_ss.dot(inv_A_ss).toarray()
+    assert np.allclose(approx_identity, np.eye(A_ss.shape[0]))
