@@ -340,11 +340,11 @@ class SimpleGeometryHayekVertical2D(Geometry):
     """
 
     _dist_from_ref_point: float = 0.5
-    _inlet_centre: np.ndarray = np.array([2.0, 0.0,  0.0])
-    _outlet_centre: np.ndarray = np.array([2.0, 7.0, 0.0])
+    _inlet_centre: np.ndarray = np.array([0.5, 0.0,  0.0])
+    _outlet_centre: np.ndarray = np.array([0.5, 7.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(4.0, "m")
+        x_length = self.units.convert_units(1.0, "m")
         y_length = self.units.convert_units(7.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
@@ -362,11 +362,11 @@ class SimpleGeometryHayekVertical2D(Geometry):
     #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
+        return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.5, "m")
-        cell_size_y = self.units.convert_units(0.5, "m")
+        cell_size = self.units.convert_units(0.125, "m")
+        cell_size_y = self.units.convert_units(0.125, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": cell_size_y}
         return mesh_args
 

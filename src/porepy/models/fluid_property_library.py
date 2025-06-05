@@ -602,13 +602,13 @@ class FluidBuoyancy(pp.PorePyModel):
                 discr_delta = self.downward_phase_discretization(delta, domains)
 
                 diffusive_upwind = self.mobility_discretization(domains)
-                fchi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
+                chi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
 
                 # TODO: Fixed dimensional implementation. Needs md-part
                 f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ f_gamma # well-defined fraction flow on facets
                 f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
 
-                b_flux_gamma_delta = fchi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                b_flux_gamma_delta = chi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
                 b_fluxes.append(b_flux_gamma_delta)
 
 
