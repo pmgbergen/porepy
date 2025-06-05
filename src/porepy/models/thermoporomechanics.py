@@ -212,6 +212,13 @@ class SolutionStrategyThermoporomechanics(
         """Thermo-poromechanics rely by default on Fourier flux re-discretization, which
         is opposite to the inherited energy model.
 
+        Important:
+            By default, the re-discretization is performed only on subdomains with
+            ``dim < nd``! The default behavior defined here concerns only those domains.
+            For triggering the re-discretization on all subdomains, the user must
+            set the flag ``'rediscretize_fourier_flux'`` to ``True`` explicitly, and the
+            inherited energy model will take care of it.
+
         Parameters:
             model: A PorePy model.
 

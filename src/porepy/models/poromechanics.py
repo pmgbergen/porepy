@@ -185,6 +185,13 @@ class SolutionStrategyPoromechanics(
         """Poromechanics rely by default on Darcy flux re-discretization, which is
         opposite to the inherited flow model.
 
+        Important:
+            By default, the re-discretization is performed only on subdomains with
+            ``dim < nd``! The default behavior defined here concerns only those domains.
+            For triggering the re-discretization on all subdomains, the user must
+            set the flag ``'rediscretize_darcy_flux'`` to ``True`` explicitly, and the
+            inherited flow model will take care of it.
+
         Parameters:
             model: A PorePy model.
 
