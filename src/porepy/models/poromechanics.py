@@ -186,7 +186,7 @@ class SolutionStrategyPoromechanics(
         opposite to the inherited flow model.
 
         Parameters:
-            model: A PorePy model
+            model: A PorePy model.
 
         Returns:
             Fetches the model parameter ``'rediscretize_darcy_flux'``, with ``True``

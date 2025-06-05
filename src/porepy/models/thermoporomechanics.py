@@ -213,7 +213,7 @@ class SolutionStrategyThermoporomechanics(
         is opposite to the inherited energy model.
 
         Parameters:
-            model: A PorePy model
+            model: A PorePy model.
 
         Returns:
             Fetches the model parameter ``'rediscretize_fourier_flux'``, with ``True``
