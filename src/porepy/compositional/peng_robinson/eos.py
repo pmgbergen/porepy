@@ -22,7 +22,7 @@ import numba as nb
 import numpy as np
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
-from ..eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
+from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 from . import eos_symbolic
 

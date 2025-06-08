@@ -644,6 +644,16 @@ else:
 
             """
 
+        def update_material_properties(self) -> None:
+            """Method for updating fluid and solid properties, which are not taken care
+            of by the AD framework (external calculations and surrogate operators).
+
+            The base method only defines the signature and individual physics model have
+            to override this method. A super-call to trigger other physics' update is
+            required.
+
+            """
+
     class FluidProtocol(Protocol):
         """This protocol provides declarations of methods defined in the
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""

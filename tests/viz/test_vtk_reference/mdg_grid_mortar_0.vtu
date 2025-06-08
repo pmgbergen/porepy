@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
+<!--This file was created by meshio v5.3.5-->
+<UnstructuredGrid>
+<Piece NumberOfPoints="4" NumberOfCells="4">
+<Points>
+<DataArray type="Float64" Name="Points" NumberOfComponents="3" format="binary">
+AQAAAACAAABgAAAAFAAAAA==eJxjYACBB/YMKDQMUC4OAL7nCPk=
+</DataArray>
+</Points>
+<Cells>
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAAAgAAAAEwAAAA==eJxjYIAARijNBKWZoTQAAHAABw==
+</DataArray>
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAAAgAAAAEwAAAA==eJxjZIAAJijNDKVZoDQAAMAACw==
+</DataArray>
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAAAgAAAADgAAAA==eJxjZIAARhw0AABwAAU=
+</DataArray>
+</Cells>
+<PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAAAgAAAACwAAAA==eJxjYMAPAAAgAAE=
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAABgAAAADAAAAA==eJxjYKAtAAAAYAAB
+</DataArray>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAAAgAAAAEQAAAA==eJxjYIAARgZUAOMDAABAAAM=
+</DataArray>
+<DataArray type="Float64" Name="unique_dummy_scalar_pt" format="binary">
+AQAAAACAAAAgAAAACwAAAA==eJxjYMAPAAAgAAE=
+</DataArray>
+</PointData>
+<CellData>
+<DataArray type="Int64" Name="cell_id" format="binary">
+AQAAAACAAAAgAAAAEQAAAA==eJxjYIAARgZUAOMDAABAAAM=
+</DataArray>
+<DataArray type="Float64" Name="dummy_scalar" format="binary">
+AQAAAACAAAAgAAAACwAAAA==eJxjYMAPAAAgAAE=
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="binary">
+AQAAAACAAABgAAAADAAAAA==eJxjYKAtAAAAYAAB
+</DataArray>
+<DataArray type="Int64" Name="grid_dim" format="binary">
+AQAAAACAAAAgAAAACwAAAA==eJxjYMAPAAAgAAE=
+</DataArray>
+<DataArray type="Int64" Name="interface_id" format="binary">
+AQAAAACAAAAgAAAAEQAAAA==eJxjYoAAJijNjEYDAADYAAs=
+</DataArray>
+<DataArray type="Int64" Name="is_mortar" format="binary">
+AQAAAACAAAAgAAAADgAAAA==eJxjZIAARhw0AABwAAU=
+</DataArray>
+<DataArray type="Int64" Name="mortar_side" format="binary">
+AQAAAACAAAAgAAAAEQAAAA==eJxjZIAAJijNiMYHAACQAAc=
+</DataArray>
+<DataArray type="Float64" Name="unique_dummy_scalar" format="binary">
+AQAAAACAAAAgAAAACwAAAA==eJxjYMAPAAAgAAE=
+</DataArray>
+</CellData>
+</Piece>
+</UnstructuredGrid>
+</VTKFile>

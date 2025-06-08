@@ -881,17 +881,23 @@ class SolutionStrategyEquilibrium(pp.PorePyModel):
             "Local equilibrium condition not defined in model parameters."
         )
 
-        # Import here for runtime reasons of global import
-        from porepy.compositional.flash.uniflash import CompiledUnifiedFlash
+        self.set_flash()
 
-        self.flash = CompiledUnifiedFlash(
+    def set_flash(self) -> None:
+        """Sub-routine of :meth:`set_materials` to set the flash class for equilibrium
+        calculations, after the fluid is defined."""
+
+        # Import here for runtime reasons of global import (compilation).
+        import porepy.compositional.compiled_flash as cflash
+
+        self.flash = cflash.CompiledUnifiedFlash(
             self.fluid, self.params.get("flash_params", None)
         )
 
         if self.params.get("compile", True):
-            assert isinstance(
-                self.fluid.reference_phase.eos, pp.compositional.EoSCompiler
-            ), "EoS of phases must be instance of EoSCompiler."
+            assert isinstance(self.fluid.reference_phase.eos, cflash.EoSCompiler), (
+                "EoS of phases must be instance of EoSCompiler."
+            )
             self.flash.compile(*self.params.get("flash_compiler_args", tuple()))
 
     def update_thermodynamic_properties_of_phases(
@@ -1250,13 +1256,6 @@ class SolutionStrategyCFLE(
     update phase properties and secondary variables."""
 
 
-class SolutionStrategyCFFLE(
-    SolutionStrategyEquilibrium,
-    cf.SolutionStrategyCFF,
-):
-    """Analogous to :class:`SolutionstrategyCFLE`, but for fractional flow."""
-
-
 class EnthalpyBasedCFLETemplate(  # type: ignore[misc]
     EnthalpyBasedEquationsCFLE,
     cf.VariablesCF,
@@ -1277,7 +1276,6 @@ class EnthalpyBasedCFFLETemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
     InitialConditionsEquilibrium,
     BoundaryConditionsCFFLE,
-    SolutionStrategyCFFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

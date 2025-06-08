@@ -498,7 +498,6 @@ class TracerFlowModel_1p_ff(
     MassicPressureEquations,
     pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
     pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
-    pp.compositional_flow.SolutionStrategyNonlinearMPFA,
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.constitutive_laws.MassWeightedPermeability,
     pp.constitutive_laws.DarcysLawAd,
@@ -547,6 +546,8 @@ class TrivialEoS(pp.compositional.EquationOfState):
             drho=d.copy(),
             dmu=d.copy(),
             dkappa=d.copy(),
+            phis=np.zeros((self._nc, nx)),
+            dphis=np.zeros((self._nc, nd, nx)),
         )
 
 

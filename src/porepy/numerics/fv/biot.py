@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 from time import time
 from typing import Any, Literal
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -324,8 +325,16 @@ class Biot(pp.Mpsa):
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
-        # else a full new discretization will be computed
+        # else a full new discretization will be computed.
         update: bool = parameter_dictionary.get("update_discretization", False)
+        if update:
+            # EK comment: The functionality to update discretizations has not been
+            # thoroughly tested and should be used with extreme care.
+            msg = "Discretization update is not fully tested"
+            msg += " and should be used with care.\n"
+            msg += "If you do not want to run into trouble, it is recommended to"
+            msg += " set 'update_discretization' to False in the parameter dictionary."
+            warn(msg)
 
         # The discretization can be limited to a specified set of cells, faces or nodes
         # If none of these are specified, the entire grid will be discretized.
@@ -642,8 +651,8 @@ class Biot(pp.Mpsa):
         )
 
         # Either update the discretization scheme, or store the full one
-        matrices: dict[str, dict] = sd_data[pp.DISCRETIZATION_MATRICES]
-        matrices_m: dict[str, sps.spmatrix] = matrices[self.keyword]
+        matrices: dict[str, Any] = sd_data[pp.DISCRETIZATION_MATRICES]
+        matrices_m = matrices[self.keyword]
 
         if update:
             # The faces to be updated are given by active_faces
@@ -658,27 +667,28 @@ class Biot(pp.Mpsa):
                 update_face_ind
             ]
 
-            matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = (
-                displacement_divergence[update_cell_ind]
-            )
-            matrices_m[self.bound_displacement_divergence_matrix_key][
-                update_cell_ind
-            ] = bound_displacement_divergence[update_cell_ind]
-            matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = (
-                scalar_gradient[update_face_ind]
-            )
-            matrices_m[self.consistency_matrix_key][update_cell_ind] = consistency[
-                update_cell_ind
-            ]
+            for key in coupling_keywords:
+                matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = (
+                    displacement_divergence[key][update_cell_ind]
+                )
+                matrices_m[self.bound_displacement_divergence_matrix_key][
+                    update_cell_ind
+                ] = bound_displacement_divergence[key][update_cell_ind]
+                matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = (
+                    scalar_gradient[key][update_face_ind]
+                )
+                matrices_m[self.consistency_matrix_key][update_cell_ind] = consistency[
+                    key
+                ][update_cell_ind]
+                matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
+                    bound_displacement_pressure[key][update_face_ind]
+                )
 
             matrices_m[self.bound_displacement_cell_matrix_key][update_face_ind] = (
                 bound_displacement_cell[update_face_ind]
             )
             matrices_m[self.bound_displacement_face_matrix_key][update_face_ind] = (
                 bound_displacement_face[update_face_ind]
-            )
-            matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
-                bound_displacement_pressure[update_face_ind]
             )
         else:
             matrices_m[self.stress_matrix_key] = stress
