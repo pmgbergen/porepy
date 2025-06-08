@@ -181,9 +181,22 @@ class SolutionStrategyThermoporomechanics(
             )
 
     def set_nonlinear_discretizations(self) -> None:
-        """Adds the Darcy **and** Fourier flux discretization to
-        :meth:`nonlinear_flux_discretizations` due to aperture always affecting
-        diffusive fluxes."""
+        """Thermo-poromechanics rely by default on re-discretization of Darcy and
+        Fourier flux, which is opposite to the inherited flow and energy model.
+
+        Important:
+            By default, the re-discretization is performed only on subdomains with
+            ``dim < nd`` due to changes in aperture!
+
+            The default behavior defined here concerns only those domains.
+            For triggering the re-discretization on all subdomains, the user must
+            set the flag ``'rediscretize_fourier_flux'`` to ``True`` explicitly, and the
+            inherited energy model will take care of it.
+
+        See also:
+            :meth:`nonlinear_diffusive_flux_discretizations`
+
+        """
         # Super calls method in mass and energy balance. Momentum balance has no
         # nonlinear discretizations.
         super().set_nonlinear_discretizations()
@@ -191,14 +204,17 @@ class SolutionStrategyThermoporomechanics(
         # re-discretization of the diffusive flux in subdomains where the aperture
         # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_flux_discretization(
-            self.darcy_flux_discretization(subdomains).flux(),
-        )
+
+        if self.params.get("rediscretize_darcy_flux", True):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(subdomains).flux(),
+            )
         # Aperture and porosity changes render thermal conductivity variable. This
         # requires a re-discretization of the diffusive flux.
-        self.add_nonlinear_flux_discretization(
-            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
-        )
+        if self.params.get("rediscretize_fourier_flux", True):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+            )
 
     def _is_nonlinear_problem(self) -> bool:
         """The thermoporomechanics model is nonlinear."""

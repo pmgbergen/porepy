@@ -85,8 +85,8 @@ def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) 
 
     sol_data = results[time_index]
 
-    # After the first time step, more iterations are possible because the pressure
-    # must converge to its stationary profile.
+    # If the first time step takes more iterations than the others, that is a hint that
+    # something is off in the model MRO or general order of executed methods.
     if time_index == 0:
         assert sol_data.num_iter <= 2
     # After pressure converged, linear transport should converge within 1 iteration.
