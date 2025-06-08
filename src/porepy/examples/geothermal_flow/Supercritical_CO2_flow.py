@@ -35,7 +35,7 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 day = 86400
 t_scale = 1.0
 tf = 1.0 * day
-dt = 0.05 * day
+dt = 1.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -77,9 +77,46 @@ class SuperCriticalCO2FlowModel(FlowModel):
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
         # Integrated overall mass flux on all facets
-        mn = self.equation_system.evaluate(self.darcy_flux(model.mdg.subdomains()))
+        mn = self.equation_system.evaluate(self.darcy_flux(self.mdg.subdomains()))
 
-        w_flux_unit = self.density_driven_flux(self.mdg.subdomains(), pp.ad.Scalar(1000.0))
+        kappa_liq = self.relative_permeability(phases[0],self.mdg.subdomains())
+        kappa_gas = self.relative_permeability(phases[1], self.mdg.subdomains())
+        kappa_liq_val = self.equation_system.evaluate(kappa_liq)
+        kappa_gas_val = self.equation_system.evaluate(kappa_gas)
+        assert np.all(np.isclose(kappa_liq_val + kappa_gas_val, 1))
+
+        rho_liq = phases[0].density(self.mdg.subdomains())
+        rho_gas = phases[1].density(self.mdg.subdomains())
+        rho_liq_val = self.equation_system.evaluate(rho_liq)
+        rho_gas_val = self.equation_system.evaluate(rho_gas)
+        assert np.all(np.isclose(rho_liq_val, 1000))
+        assert np.all(np.isclose(rho_gas_val, 500))
+
+        lambda_liq = self.phase_mobility(phases[0],self.mdg.subdomains())
+        lambda_gas = self.phase_mobility(phases[1], self.mdg.subdomains())
+        lambda_liq_val = self.equation_system.evaluate(lambda_liq)
+        lambda_gas_val = self.equation_system.evaluate(lambda_gas)
+
+        kappa = self.permeability(self.mdg.subdomains())
+        kappa_val = self.equation_system.evaluate(kappa)
+        lambda_t = self.total_mass_mobility(self.mdg.subdomains())
+        lambda_t_val = self.equation_system.evaluate(lambda_t)
+        assert np.all(np.isclose(lambda_t_val - (rho_liq_val * lambda_liq_val + rho_gas_val * lambda_gas_val), 0))
+
+        f_liq = self.fractional_phase_mass_mobility(phases[0], self.mdg.subdomains())
+        f_gas = self.fractional_phase_mass_mobility(phases[1], self.mdg.subdomains())
+        f_liq_val = self.equation_system.evaluate(f_liq)
+        f_gas_val = self.equation_system.evaluate(f_gas)
+        assert np.all(np.isclose(f_liq_val + f_gas_val, 1))
+
+        discr_liq = self.upward_phase_discretization(phases[0], self.mdg.subdomains())
+        discr_gas = self.downward_phase_discretization(phases[1], self.mdg.subdomains())
+        f_liq_upwind: pp.ad.Operator = discr_liq.upwind() @ f_liq  # well-defined fraction flow on facets
+        f_gas_upwind: pp.ad.Operator = discr_gas.upwind() @ f_gas  # well-defined fraction flow on facets
+        fu_liq_val = self.equation_system.evaluate(f_liq_upwind)
+        fu_gas_val = self.equation_system.evaluate(f_gas_upwind)
+
+        w_flux_unit = self.density_driven_flux(self.mdg.subdomains(), pp.ad.Scalar(1.0))
         w_flux_unit_val = self.equation_system.evaluate(w_flux_unit)
         z_val = self.equation_system.get_variable_values([self.equation_system.variables[3]], time_step_index=0)
         sg_val = self.equation_system.get_variable_values([self.equation_system.variables[4]], time_step_index=0)
@@ -105,12 +142,20 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
         external_bc_idx = sd.get_boundary_faces()
         internal_bc_idx = sd.get_internal_faces()
-        # print("w_flux_unit_val internal: ", w_flux_unit_val[internal_bc_idx])
+        print("w_flux_unit_val internal: ", w_flux_unit_val[internal_bc_idx])
+        print("w_flux_val internal: ", w_flux_val[internal_bc_idx])
+        print("fu_liq_val internal: ", fu_liq_val[internal_bc_idx])
+        print("fu_gas_val internal: ", fu_gas_val[internal_bc_idx])
+        print("b_c0 internal: ", b_c0[internal_bc_idx])
+        print("b_c1 internal: ", b_c1[internal_bc_idx])
         # print("b_c1_bc: ", b_c1[external_bc_idx])
         # print("flux_bc: ", flux_c1_val[external_bc_idx])
         print("boundary integral  flux_bc: ", np.sum(b_c1[external_bc_idx] + flux_c1_val[external_bc_idx]))
         print("boundary integral m: ", np.sum(mn[external_bc_idx]))
         print("volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
+        print("sg: ", sg_val)
+        print("lambda_t : ", lambda_t_val)
+        print("kappa: ", kappa_val.reshape(sd.num_cells,3,3))
         print("volume integral z: ", np.sum(sd.cell_volumes * z_val))
         assert np.isclose(np.sum(b_c1[external_bc_idx]), 0.0, atol=1.0e-5)
         # assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-5)

@@ -467,7 +467,7 @@ class FluidBuoyancy(pp.PorePyModel):
     ]
     """See :class:`FluidMobility`."""
 
-    fractional_component_mass_mobility: Callable[
+    fractional_phase_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`FluidMobility`."""
@@ -528,7 +528,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         scaling = 1.0e-6
-        g_constant = pp.GRAVITY_ACCELERATION
+        g_constant = 10.0 #pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2") * scaling
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
         gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
@@ -675,7 +675,7 @@ class FluidBuoyancy(pp.PorePyModel):
                     # Computing buoyancy flux and updating it in the mobility
                     rho_gamma = gamma.density([sd])
                     rho_delta = delta.density([sd])
-                    vals = self.equation_system.evaluate(self.density_driven_flux([sd], rho_gamma - rho_delta))
+                    vals = self.equation_system.evaluate(self.density_driven_flux([sd], rho_gamma - rho_delta ))
                     data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
                     data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
 

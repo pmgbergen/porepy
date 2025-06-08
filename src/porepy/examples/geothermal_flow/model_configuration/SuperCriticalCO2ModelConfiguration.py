@@ -26,11 +26,13 @@ class BoundaryConditions(pp.PorePyModel):
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         inlet_idx , outlet_idx = self.get_inlet_outlet_sides(sd)
-        return pp.BoundaryCondition(sd, np.concatenate((inlet_idx,outlet_idx)), "dir")
+        return pp.BoundaryCondition(sd, outlet_idx, "dir")
+        # return pp.BoundaryCondition(sd, np.concatenate((inlet_idx,outlet_idx)), "dir")
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         inlet_idx , outlet_idx = self.get_inlet_outlet_sides(sd)
-        return pp.BoundaryCondition(sd, np.concatenate((inlet_idx,outlet_idx)), "dir")
+        return pp.BoundaryCondition(sd, outlet_idx, "dir")
+        # return pp.BoundaryCondition(sd, np.concatenate((inlet_idx,outlet_idx)), "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
@@ -100,7 +102,7 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = np.where((xc[:,1] >= 1.0) & (xc[:,1] <= 2.0), 1.0, 0.0)
+        z = np.where((xc[:,1] >= 0.0) & (xc[:,1] <= 1.0), 1.0, 0.0)
         # z = (np.where((xc[:, 1] >= 5.5) & (xc[:, 1] <= 6.5), 0.5, 0.0) +
         #      np.where((xc[:, 1] >= 3.5) & (xc[:, 1] <= 4.5), 0.5, 0.0) +
         #      np.where((xc[:, 1] >= 1.5) & (xc[:, 1] <= 2.5), 0.5, 0.0) +
