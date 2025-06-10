@@ -25,7 +25,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Callable, cast
 
 import numpy as np
 import pytest
@@ -36,7 +36,13 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
-from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
+from ..functional.setups.linear_tracer import TracerFlowModel_3p
+from porepy.applications.md_grids.mdg_library import (
+    square_with_orthogonal_fractures,
+    cube_with_orthogonal_fractures,
+)
+from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.test_utils.models import add_mixin
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -576,12 +582,17 @@ def test_invert_permuted_block_diag_mat(non_block_diag_matrix: dict[str, Any]):
     assert np.allclose(approx_identity, np.eye(A.shape[0]))
 
 
-def test_invert_permuted_block_diag_mat_on_mdg_problem():
-    """
-    Construct a mixed-dimensional system (two orthogonal fractures in a Cartesian grid),
-    register variables and equations on subdomains and interfaces, then build and invert
-    its Schur-complement secondary block via block-diagonal permutations.
-    """
+@pytest.mark.parametrize(
+    "mdg",
+    [
+        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])[0],
+        cube_with_orthogonal_fractures("simplex", {"cell_size": 0.1}, [0, 1, 2])[0],
+    ],
+)
+def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
+    """Construct a mixed-dimensional system, register variables and equations on
+    subdomains and interfaces, then build and invert its Schur-complement secondary
+    block via block-diagonal permutations."""
     # Create a 2‐fracture “square” MD grid (Cartesian, cell size 0.5)
     mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])
 
@@ -654,3 +665,123 @@ def test_invert_permuted_block_diag_mat_on_mdg_problem():
     # Verify that A_ss * inv_A_ss is the identity matrix
     approx_identity = A_ss.dot(inv_A_ss).toarray()
     assert np.allclose(approx_identity, np.eye(A_ss.shape[0]))
+
+
+def _get_primary_equ_and_vars_cf(model: pp.PorePyModel) -> tuple[list[str], list[str]]:
+    """Returns the primary equations and variables of a CF model."""
+
+    equ_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.FluidMassBalanceEquations):
+        equ_names += [
+            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
+        equ_names += [
+            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, pp.compositional_flow.ComponentMassBalanceEquations):
+        equ_names += model.component_mass_balance_equation_names()
+
+    for n in model.equation_system.equations.keys():
+        if "_flux" in n:
+            equ_names.append(n)
+
+    var_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+        var_names += [model.pressure_variable]
+
+    if isinstance(
+        model, pp.compositional_flow.SolutionStrategyExtendedFluidMassAndEnergy
+    ):
+        var_names += [model.enthalpy_variable]
+    elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
+        var_names += [model.temperature_variable]
+
+    if isinstance(model, pp.compositional.CompositionalVariables):
+        var_names += model.overall_fraction_variables
+        var_names += model.tracer_fraction_variables
+
+    for var in model.equation_system.variables:
+        if "_flux" in var.name:
+            var_names.append(var.name)
+
+    return list(set(equ_names)), list(set(var_names))
+
+
+@pytest.mark.parametrize(
+    "test_model_class,get_primary_equs_vars",
+    [
+        (TracerFlowModel_3p, _get_primary_equ_and_vars_cf),
+    ],
+)
+@pytest.mark.parametrize(
+    "mdg",
+    [
+        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])[0],
+        cube_with_orthogonal_fractures("simplex", {"cell_size": 0.1}, [0, 1, 2])[0],
+    ],
+)
+def test_invert_permuted_block_diag_mat_on_model(
+    mdg: pp.MixedDimensionalGrid,
+    test_model_class: type[pp.PorePyModel],
+    get_primary_equs_vars: Callable[[pp.PorePyModel], tuple[list[str], list[str]]],
+):
+    """Tests the block-diagonal inverter for the secondary block of the linear system
+    of a porepy model."""
+
+    class LocalGeometry(pp.PorePyModel):
+        def create_mdg(self) -> None:
+            self.mdg = mdg
+
+        def set_domain(self) -> None:
+            self._domain = nd_cube_domain(
+                mdg.dim_max(), self.units.convert_units(1.0, "m")
+            )
+
+    model_class = add_mixin(LocalGeometry, test_model_class)
+
+    model = model_class(
+        {
+            "reduce_linear_system": True,
+            "equilibrium_type": "dummy",
+            "meshing_arguments": {
+                "cell_size": 0.1,
+            },
+        }
+    )
+    model = cast(pp.SolutionStrategy, model)
+    model.prepare_simulation()
+    prim_equs, prim_vars = get_primary_equs_vars(model)
+
+    # Set primary equations and variables to get the secondary ones for assembly of
+    # secondary block.
+    model.primary_equations = prim_equs
+    model.primary_variables = prim_vars
+
+    N = model.equation_system.dofs_of(model.secondary_variables).size
+
+    A_ss, _ = model.equation_system.assemble(
+        evaluate_jacobian=True,
+        equations=model.secondary_equations,
+        variables=model.secondary_variables,
+        state=np.ones(model.equation_system.num_dofs()),
+    )
+
+    model.generate_block_permutation(A_ss)
+    inv_A_ss = model.schur_complement_inverter()(A_ss)
+
+    # NOTE: Do not convert to dense array, 3D test case will run out of memory.
+    approx_identity = cast(sps.csr_matrix, A_ss @ inv_A_ss)
+    identity = cast(sps.csr_matrix, sps.eye(N, format="csr"))
+
+    assert (
+        np.all(approx_identity.indices == identity.indices)
+        and np.all(approx_identity.indptr == identity.indptr)
+        and np.allclose(
+            approx_identity.data,
+            np.ones(N),
+            rtol=0.0,
+            atol=1e-16,
+        )
+        and np.all(approx_identity.shape == identity.shape)
+    )
