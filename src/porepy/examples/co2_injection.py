@@ -52,7 +52,6 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
-from porepy.numerics.nonlinear.anderson_acceleration import AndersonAcceleration
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -1187,8 +1186,8 @@ class BoundaryConditions(_FlowConfiguration):
         return vals
 
 
-class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
-    """Newton solver with Armijo line search and Anderson acceleration.
+class NewtonArmijoSolver(pp.NewtonSolver):
+    """Newton solver with Armijo line search.
 
     The residual objective function is tailored to models where phase properties are
     assumed to be surrogate factories and require an update before evaluating the
@@ -1196,62 +1195,23 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
 
     """
 
-    def __init__(self, params: dict | None = None):
-        pp.NewtonSolver.__init__(self, params)
-        if params is None:
-            params = {}
-        depth = int(params.get("anderson_acceleration_depth", 3))
-        dimension = int(params["anderson_acceleration_dimension"])
-        constrain = params.get("anderson_acceleration_constrained", False)
-        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
-        AndersonAcceleration.__init__(
-            self,
-            dimension,
-            depth,
-            constrain_acceleration=constrain,
-            regularization_parameter=reg_param,
-        )
-
     def iteration(self, model: pp.PorePyModel):
-        """An iteration consists of performing the Newton step, obtaining the step size
-        from the line search, and then performing the Anderson acceleration based on
-        the iterates which are obtained using the step size."""
-
-        iteration = model.nonlinear_solver_statistics.num_iteration
-
-        dx = pp.NewtonSolver.iteration(self, model)
-
-        res_norm = np.linalg.norm(model.linear_system[1])
-
-        if self.params.get("Anderson_acceleration", False):
-            x = model.equation_system.get_variable_values(iterate_index=0)
-            x_temp = x + dx
-            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
-                try:
-                    xp1 = self.apply(x_temp, dx.copy(), iteration)
-                    if res_norm < 10.0:
-                        dx = xp1 - x
-                except Exception:
-                    logger.warning(
-                        f"Resetting Anderson acceleration at"
-                        f" T={model.time_manager.time}; i={iteration} due to failure."
-                    )
-                    self.reset()
-        alpha = self.nonlinear_line_search(model, dx)
+        """An iteration consists of performing the Newton step and obtaining the step
+        size from the line search."""
+        dx = super().iteration(model)
+        alpha = self.armijo_line_search(model, dx)
         return alpha * dx
 
-    def nonlinear_line_search(
-        self, model: pp.PorePyModel, dx: np.ndarray
-    ) -> np.ndarray:
+    def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
-        if not self.params.get("Global_line_search", False):
-            return np.ones_like(dx)
+        if not self.params.get("armijo_line_search", False):
+            return 1.0
 
         rho = float(self.params.get("armijo_line_search_weight", 0.9))
         kappa = float(self.params.get("armijo_line_search_incline", 0.4))
         N = int(self.params.get("armijo_line_search_max_iterations", 50))
 
-        pot_0 = self.residual_objective_function(model, dx, 0.0)
+        pot_0 = self.armijo_objective_function(model, dx, 0.0)
         rho_i = rho
         n = 0
 
@@ -1259,17 +1219,17 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
             n = i
             rho_i = rho**i
 
-            pot_i = self.residual_objective_function(model, dx, rho_i)
+            pot_i = self.armijo_objective_function(model, dx, rho_i)
             if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
                 break
 
         model.nonlinear_solver_statistics.num_iteration_armijo += n  # type:ignore[attr-defined]
         logger.info(f"Armijo line search determined weight: {rho_i} ({n})")
-        return rho_i * np.ones_like(dx)
+        return rho_i
 
-    def residual_objective_function(
+    def armijo_objective_function(
         self, model: pp.PorePyModel, dx: np.ndarray, weight: float
-    ) -> np.floating[Any]:
+    ) -> float:
         """The objective function to be minimized is the norm of the residual squared
         and divided by 2."""
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
@@ -1280,7 +1240,7 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
             state,
         )
         residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
-        return np.dot(residual, residual) / 2
+        return float(np.dot(residual, residual) / 2)
 
 
 class Permeability(pp.PorePyModel):
@@ -1437,15 +1397,11 @@ solver_params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "linear_solver": "scipy_sparse",
-    "Global_line_search": True,
-    "nonlinear_solver": NewtonAndersonArmijoSolver,
+    "nonlinear_solver": NewtonArmijoSolver,
+    "armijo_line_search": True,
     "armijo_line_search_weight": 0.95,
     "armijo_line_search_incline": 0.2,
     "armijo_line_search_max_iterations": 10,
-    "Anderson_acceleration": False,
-    "anderson_acceleration_depth": 3,
-    "anderson_acceleration_constrained": False,
-    "anderson_acceleration_regularization_parameter": 1e-3,
     "solver_statistics_file_name": "solver_statistics.json",
 }
 
@@ -1488,8 +1444,6 @@ t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 logging.getLogger("porepy").setLevel(logging.INFO)
-
-model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
 # Defining sub system with block-diagonal form for efficient Schur complement reduction.
 primary_equations = cf.get_primary_equations_cf(model)
