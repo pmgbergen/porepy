@@ -951,6 +951,8 @@ class SolutionStrategy(pp.PorePyModel):
         3. undoing the permutations to get the inverse of the original matrix.
 
         The permutation stored in :attr:`secondary_block_permutation` is used.
+        :func:`~porepy.numerics.linalg.matrix_operations.invert_diagonal_blocks` is used
+        as the block-diagonal inverter.
 
         Parameters:
             A: A square sparse matrix of shape (num_eqs, num_vars) whose sparsity
