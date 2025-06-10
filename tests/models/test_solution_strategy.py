@@ -767,7 +767,6 @@ def test_invert_permuted_block_diag_mat_on_model(
         state=np.ones(model.equation_system.num_dofs()),
     )
 
-    model.generate_block_permutation(A_ss)
     inv_A_ss = model.schur_complement_inverter()(A_ss)
 
     # NOTE: Do not convert to dense array, 3D test case will run out of memory.
