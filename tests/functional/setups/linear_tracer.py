@@ -513,7 +513,6 @@ class TracerFlowModel_1p_ff(
     results: list[LinearTracerSaveData]
 
     def __init__(self, params=None):
-        params["rediscretize_darcy_flux"] = True
         params["fractional_flow"] = True
         super().__init__(params)
 
@@ -522,6 +521,12 @@ class TracerFlowModel_1p_ff(
         super().set_materials()
         self.exact_sol = LinearTracerExactSolution1D(self)
         self.results: list[LinearTracerSaveData] = []
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Re-discretizes the Darcy flux on all subdomains."""
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        )
 
 
 class TrivialEoS(pp.compositional.EquationOfState):

@@ -180,41 +180,36 @@ class SolutionStrategyThermoporomechanics(
                 scalar_vector_mappings
             )
 
-    def set_nonlinear_discretizations(self) -> None:
-        """Thermo-poromechanics rely by default on re-discretization of Darcy and
-        Fourier flux, which is opposite to the inherited flow and energy model.
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """(Themo-) Poromechanics rely by default on Darcy flux re-discretization, which
+        is opposite to the inherited flow model.
 
-        Important:
-            By default, the re-discretization is performed only on subdomains with
-            ``dim < nd`` due to changes in aperture!
-
-            The default behavior defined here concerns only those domains.
-            For triggering the re-discretization on all subdomains, the user must
-            set the flag ``'rediscretize_fourier_flux'`` to ``True`` explicitly, and the
-            inherited energy model will take care of it.
-
-        See also:
-            :meth:`nonlinear_diffusive_flux_discretizations`
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
 
         """
-        # Super calls method in mass and energy balance. Momentum balance has no
-        # nonlinear discretizations.
-        super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a
-        # re-discretization of the diffusive flux in subdomains where the aperture
-        # changes.
-        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
 
-        if self.params.get("rediscretize_darcy_flux", True):
-            self.add_nonlinear_diffusive_flux_discretization(
-                self.darcy_flux_discretization(subdomains).flux(),
-            )
-        # Aperture and porosity changes render thermal conductivity variable. This
-        # requires a re-discretization of the diffusive flux.
-        if self.params.get("rediscretize_fourier_flux", True):
-            self.add_nonlinear_diffusive_flux_discretization(
-                self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
-            )
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+            ).flux(),
+        )
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Thermo-Poromechanics rely by default on Fourier flux re-discretization, which
+        is opposite to the inherited energy model.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.fourier_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd],
+            ).flux(),
+        )
 
     def _is_nonlinear_problem(self) -> bool:
         """The thermoporomechanics model is nonlinear."""
