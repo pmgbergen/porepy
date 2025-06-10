@@ -536,9 +536,9 @@ def non_block_diag_matrix(request) -> dict[str, Any]:
     return request.param
 
 
-def test_generate_block_permutations(non_block_diag_matrix: dict[str, Any]):
+def test_generate_block_permutation(non_block_diag_matrix: dict[str, Any]):
     """
-    Test that generate_block_permutations correctly identifies the 4 diagonal
+    Test that generate_block_permutation correctly identifies the 4 diagonal
     blocks in a 2-cell, 3-variable/equation-per-cell system and returns the expected
     row/column permutations and block sizes.
     """
@@ -546,9 +546,10 @@ def test_generate_block_permutations(non_block_diag_matrix: dict[str, Any]):
     # Build a 6×6 non-diagonal block matrix for 2 cells (each with 3 eqns/vars)
 
     strategy = pp.SolutionStrategy({})
-    row_perm, col_perm, block_sizes = strategy.generate_block_permutations(
-        non_block_diag_matrix["A"]
-    )
+    strategy.generate_block_permutation(non_block_diag_matrix["A"])
+    row_perm = strategy.secondary_block_permutation["row_perm_indices"]
+    col_perm = strategy.secondary_block_permutation["col_perm_indices"]
+    block_sizes = strategy.secondary_block_permutation["block_sizes"]
 
     # Expect four blocks: two blocks of size 2 (for vars 0&1 on each cell),
     # and two singleton blocks (for var type 2 on each cell)
@@ -559,26 +560,27 @@ def test_generate_block_permutations(non_block_diag_matrix: dict[str, Any]):
     assert list(col_perm) == non_block_diag_matrix["col_perm"]
 
 
-def test_invert_non_diagonal_matrix(non_block_diag_matrix: dict[str, Any]):
-    """Test that invert_non_diagonal_matrix correctly inverts a block-structured
+def test_invert_permuted_block_diag_mat(non_block_diag_matrix: dict[str, Any]):
+    """Test that invert_permuted_block_diag_mat correctly inverts a block-structured
     sparse matrix by permuting to block-diagonal, inverting each block, and
     undoing the permutations.
     """
 
     strategy = pp.SolutionStrategy({})
     A = non_block_diag_matrix["A"]
-    A_inv = strategy.invert_non_diagonal_matrix(A)
+    strategy.generate_block_permutation(A)
+    A_inv = strategy.invert_permuted_block_diag_mat(A)
 
     # Verify that A * A_inv is the identity matrix
     approx_identity = A.dot(A_inv).toarray()
     assert np.allclose(approx_identity, np.eye(A.shape[0]))
 
 
-def test_invert_non_diagonal_matrix_on_mdg_problem():
+def test_invert_permuted_block_diag_mat_on_mdg_problem():
     """
     Construct a mixed-dimensional system (two orthogonal fractures in a Cartesian grid),
-    register variables and equations on subdomains and interfaces, then build and invert its
-    Schur-complement secondary block via block-diagonal permutations.
+    register variables and equations on subdomains and interfaces, then build and invert
+    its Schur-complement secondary block via block-diagonal permutations.
     """
     # Create a 2‐fracture “square” MD grid (Cartesian, cell size 0.5)
     mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])
@@ -593,40 +595,41 @@ def test_invert_non_diagonal_matrix_on_mdg_problem():
     s2 = es.create_variables(name="s2", subdomains=mdg.subdomains())
 
     # Create three “interface” variables (pf, sf1, sf2), one DOF per interface cell
-    pf = es.create_variables(name="pf",  interfaces=mdg.interfaces())
+    pf = es.create_variables(name="pf", interfaces=mdg.interfaces())
     sf1 = es.create_variables(name="sf1", interfaces=mdg.interfaces())
     sf2 = es.create_variables(name="sf2", interfaces=mdg.interfaces())
 
-    # Define equation‐to‐grid-entity mapping: one equation per cell, none on faces or nodes
+    # Define equation‐to‐grid-entity mapping: one equation per cell.
     eq_per_gridEntity = {"cells": 1, "faces": 0, "nodes": 0}
 
     # On each subdomain cell, register 4 equations
-    expr_p1 = p1 + s1 * 2.0 - 1.0
+    Scalar = pp.ad.Scalar
+    expr_p1 = p1 + s1 * Scalar(2.0) - Scalar(1.0)
     expr_p1.set_name("eq_p1")
     es.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
 
-    expr_p2 = p2 * 1.0 + s2 * 2.0 - 2.0
+    expr_p2 = p2 * Scalar(1.0) + s2 * Scalar(2.0) - Scalar(2.0)
     expr_p2.set_name("eq_p2")
     es.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
 
-    expr_s1 = p1 * 3.0 + s1 * 1.0 - 3.0
+    expr_s1 = p1 * Scalar(3.0) + s1 * Scalar(1.0) - Scalar(3.0)
     expr_s1.set_name("eq_s1")
     es.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
 
-    expr_s2 = p2 * 3.0 + s2 * 1.0 - 4.0
+    expr_s2 = p2 * Scalar(3.0) + s2 * Scalar(1.0) - Scalar(4.0)
     expr_s2.set_name("eq_s2")
     es.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
 
     # On each interface, register 3 equations
-    eq_pf = pf**2.0 - 2.0
+    eq_pf = pf ** Scalar(2.0) - Scalar(2.0)
     eq_pf.set_name("eq_p_f")
     es.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
 
-    eq_sf1 = pf + sf2 + sf1 * 2.5 - 1.0
+    eq_sf1 = pf + sf2 + sf1 * Scalar(2.5) - Scalar(1.0)
     eq_sf1.set_name("eq_s_f_1")
     es.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
 
-    eq_sf2 = pf + sf2 * sf1 + sf1 - 10.0
+    eq_sf2 = pf + sf2 * sf1 + sf1 - Scalar(10.0)
     eq_sf2.set_name("eq_s_f_2")
     es.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
 
@@ -641,13 +644,12 @@ def test_invert_non_diagonal_matrix_on_mdg_problem():
 
     # Extract the secondary block matrix
     A_ss, _ = es.assemble(
-       equations=secondaryEqList,
-       variables=secondaryVarList,
-       state=dummy_state
+        equations=secondaryEqList, variables=secondaryVarList, state=dummy_state
     )
 
     # Invert the non-diagonal block matrix A_ss
-    inv_A_ss = strategy.invert_non_diagonal_matrix(A_ss)
+    strategy.generate_block_permutation(A_ss)
+    inv_A_ss = strategy.invert_permuted_block_diag_mat(A_ss)
 
     # Verify that A_ss * inv_A_ss is the identity matrix
     approx_identity = A_ss.dot(inv_A_ss).toarray()
