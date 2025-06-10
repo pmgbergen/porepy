@@ -151,27 +151,6 @@ class FractureNetwork3d(object):
 
         """
 
-    def add(self, fracture: pp.PlaneFracture) -> None:
-        """Add a fracture to the network.
-
-        The fracture will be assigned a new index, higher than the maximum value
-        currently found in the network.
-
-        Parameters:
-            fracture: Plane fracture to be added.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        ind = np.array([f.index for f in self.fractures])
-
-        if ind.size > 0:
-            fracture.set_index(np.max(ind) + 1)
-        else:
-            fracture.set_index(0)
-        self.fractures.append(fracture)
-
     def copy(self) -> FractureNetwork3d:
         """Create a deep copy of the fracture network.
 
@@ -1290,82 +1269,6 @@ class FractureNetwork3d(object):
         return self._uniquify_points_and_edges(
             all_p, edges, edges_2_frac, is_boundary_edge
         )
-
-    def fractures_of_points(self, pts: np.ndarray) -> list[np.ndarray]:
-        """For a given point, find all fractures that refer to it.
-
-        The point can be either a vertex or an internal point.
-
-        Parameters:
-            pts: ``shape=(3, num_points)``
-
-                Coordinates of the points for which fractures should be found.
-
-        Returns:
-            List of numpy arrays of integers. Each item, contains the indices of the
-            fractures associated to each point.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        fracs_of_points = []
-        pts = np.atleast_1d(np.asarray(pts))
-        for i in pts:
-            fracs_loc = []
-
-            # First identify edges that refer to the point
-            edge_ind = np.argwhere(
-                np.any(self.decomposition["edges"][:2] == i, axis=0)
-            ).ravel("F")
-            edges_loc = self.decomposition["edges"][:, edge_ind]
-            # Loop over all polygons. If their edges are found in edges_loc,
-            # store the corresponding fracture index
-            for poly_ind, poly in enumerate(self.decomposition["polygons"]):
-                ismem, _ = pp.array_operations.ismember_columns(edges_loc, poly)
-                if any(ismem):
-                    fracs_loc.append(self.decomposition["polygon_frac"][poly_ind])
-            fracs_of_points.append(list(np.unique(fracs_loc)))
-
-        # Prepare for returning
-        fracs_of_points_out = [np.asarray(item) for item in fracs_of_points]
-
-        return fracs_of_points_out
-
-    def close_points(self, dist: float) -> list[tuple[int, int, float]]:
-        """Find pairs that are closer than the specified distance.
-
-        In the set of points used to describe the fractures (after decomposition),
-        find pairs that are closer than a certain distance.
-
-        This function is intended for debugging purposes.
-
-        Parameters:
-            dist: Threshold distance. All points closer than this will be reported.
-
-        Returns:
-            List of tuples, where each tuple contains indices of a set of close
-            points, and the distance between the points.
-
-            The list is not symmetric.
-            If ``(a, b)`` is a member, ``(b, a)`` will not be.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        c_points = []
-
-        pt = self.decomposition["points"]
-        for pi in range(pt.shape[1]):
-            d = pp.distances.point_pointset(pt[:, pi], pt[:, pi + 1 :])
-            ind = np.argwhere(d < dist).ravel("F")
-            for i in ind:
-                # Indices of close points, with an offset to compensate for slicing
-                # of the point cloud.
-                c_points.append((pi, i + pi + 1, d[i]))
-
-        return c_points
 
     def _verify_fractures_in_plane(
         self,

@@ -45,13 +45,14 @@ def plot_grid(
             be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
             cell_value is the name (key) of the scalar field as a string.
         vector_value: Same as cell_value, but for vector fields.
-        info: add extra information to the plot. C, F, and N add cell, face and node
-            numbers, respectively. O gives a plot of the face normals. See the funtion
-            add_info.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
             alpha: transparency of cells (2d) and faces (3d)
             cells: boolean array with length number of cells. Only plot cells c where
             cells[c]=True. Not valid for a MixedDimensionalGrid.
+
+    Raises:
+        ValueError: if the user passed neither a Grid nor a MixedDimensional grid.
 
     Example:
     # if grid is a single grid:
@@ -70,10 +71,15 @@ def plot_grid(
         plot_sd(grid, cell_value, vector_value, info, **kwargs)
 
     # Grid is a mixed-dimensional grid
-    if isinstance(grid, pp.MixedDimensionalGrid):
+    elif isinstance(grid, pp.MixedDimensionalGrid):
         assert cell_value is None or isinstance(cell_value, str)
         assert vector_value is None or isinstance(vector_value, str)
         plot_mdg(grid, cell_value, vector_value, info, **kwargs)
+
+    else:
+        raise ValueError(
+            f"You must pass either a Grid or a MixedDimensionalGrid, not {grid}."
+        )
 
 
 def save_img(
@@ -98,8 +104,8 @@ def save_img(
             be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
             cell_value is the name (key) of the scalar field as a string.
         vector_value: Same as cell_value, but for vector fields.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
-            info: add extra information to the plot, see plot_grid.
             alpha: transparency of cells (2d) and faces (3d)
 
     Example:
@@ -130,7 +136,7 @@ def plot_sd(
             cells.
         vector_value: vector values, one 3d vector for each cell or for each face (see
             the _quiver function).
-        info: Which geometry information to display, see add_info.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
             fig_size: Size of figure.
             fig_num: The number of the figure.
@@ -220,7 +226,7 @@ def plot_mdg(
         cell_value: key to scalar cell values, will be represented by the color of the
             cells.
         vector_value: key to vector cell or face values.
-        info: Which geometry information to display, see add_info.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
             fig_size: Size of figure.
             fig_num: The number of the figure.

@@ -555,7 +555,7 @@ class Tpsa:
         # the Cosserat parameter is non-zero. Since the rotation variable is scalar if
         # nd == 2 and vector if nd == 3, the type of boundary condition depends on the
         # dimension.
-        bnd_rot: pp.BoundaryCondition | pp.BoundaryConditionVectorial = (
+        bnd_rot: pp.BoundaryCondition | pp.BoundaryConditionVectorial | None = (
             parameter_dictionary.get("bc_rot", None)
         )
 
@@ -841,6 +841,11 @@ class Tpsa:
             if cosserat_values is not None:
                 # In 2d, the rotation is a scalar variable and we can treat this by
                 # what is essentially a tpfa discretization.
+
+                # EK note: The Cosserat option will be purged in a future update. For
+                # now we use this assert to ensure that the Cosserat option is not used
+                # with a non-empty boundary condition.
+                assert bnd_rot is not None
 
                 t_cosserat_bnd = np.zeros(nf)
                 t_cosserat_bnd[bnd_rot.is_dir] = t_cosserat[bnd_rot.is_dir]

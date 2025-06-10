@@ -21,8 +21,10 @@ from typing import Any, Generator
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils.grids import polytop_grid_2d, polytop_grid_3d
 from porepy.applications.test_utils.models import Thermoporomechanics
 from porepy.applications.test_utils.vtk import (
     PathLike,
@@ -71,7 +73,7 @@ def setup() -> Generator[ExporterTestSetup, Any, Any]:
     shutil.rmtree(full_path)
 
 
-@pytest.fixture(params=range(7))
+@pytest.fixture(params=range(8))
 def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
     """Helper for parametrization of test_single_subdomains.
 
@@ -80,20 +82,17 @@ def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
 
     """
 
-    # Construct 2d polytopal grid
-    sd_polytop_2d = pp.StructuredTriangleGrid([2] * 2, [1] * 2)
-    sd_polytop_2d.compute_geometry()
-    pp.coarsening.generate_coarse_grid(sd_polytop_2d, [0, 1, 3, 3, 1, 1, 2, 2])
-
-    # Construct 3d polytopal grid
-    sd_polytop_3d = pp.CartGrid([3, 2, 3], [1] * 3)
-    sd_polytop_3d.compute_geometry()
-    pp.coarsening.generate_coarse_grid(
-        sd_polytop_3d, [0, 0, 1, 0, 1, 1, 0, 2, 2, 3, 2, 2, 4, 4, 4, 4, 4, 4]
-    )
+    # Construct polytopal grids in 2d and 3d
+    sd_polytop_2d = polytop_grid_2d()
+    sd_polytop_3d = polytop_grid_3d()
 
     # Define the collection of subdomains
     subdomains: list[SingleSubdomain] = [
+        # 0d grid
+        SingleSubdomain(
+            pp.PointGrid(np.zeros(3)),
+            f"{FOLDER_REFERENCE}/single_subdomain_0d.vtu",
+        ),
         # 1d grid
         SingleSubdomain(
             pp.CartGrid(3, 1),
@@ -135,6 +134,13 @@ def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
     return subdomain
 
 
+def num_nodes(g: pp.Grid | pp.MortarGrid) -> int:
+    """Return the number of nodes in a grid."""
+    if g.dim == 0:
+        return g.num_cells
+    return g.num_nodes
+
+
 def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain):
     """Test of the Exporter for single subdomains of different dimensionality and
     different grid type. Exporting of scalar and vectorial data is tested.
@@ -143,15 +149,14 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
     sd = subdomain.grid
     # Define data
     dummy_scalar = np.ones(sd.num_cells) * sd.dim
-    dummy_scalar_pt = np.ones(sd.num_nodes) * sd.dim
+    dummy_scalar_pt = np.ones(num_nodes(sd)) * sd.dim
     dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-    dummy_vector_pt = np.ones((3, sd.num_nodes)) * sd.dim
+    dummy_vector_pt = np.ones((3, num_nodes(sd))) * sd.dim
     # Export data
     save = pp.Exporter(
         sd,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         [("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)],
@@ -181,7 +186,6 @@ def test_import_state_from_vtu_single_subdomains(
         sd,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
 
     # Define keys (here corresponding to all data stored in the vtu file to pass the
@@ -236,7 +240,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.ones(sd.num_nodes) * sd.dim,
+            values=np.ones(num_nodes(sd)) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -249,7 +253,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_vector_pt",
-            values=np.ones((3, sd.num_nodes)) * sd.dim,
+            values=np.ones((3, num_nodes(sd))) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -263,7 +267,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -276,7 +280,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_vector_pt",
-            values=np.ones((3, intf.num_nodes)) * sd.dim,
+            values=np.ones((3, num_nodes(intf))) * sd.dim,
             data=intf_data,
             time_step_index=0,
         )
@@ -289,7 +293,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="unique_dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -299,14 +303,13 @@ def test_mdg(setup: ExporterTestSetup):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         data_pt=["dummy_scalar_pt", "dummy_vector_pt", "unique_dummy_scalar_pt"],
     )
     # Check that exported vtu files and reference files are the same.
-    for appendix in ["1", "2", "mortar_1"]:
+    for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
             f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
@@ -342,7 +345,6 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
 
     # Assume the following has been run for a previous simulation
@@ -390,7 +392,7 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     save.write_pvd(append=True)
 
     # Check that newly exported vtu files and reference files are the same.
-    for appendix in ["1", "2", "mortar_1"]:
+    for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}_000002.vtu",
             f"{setup.folder_reference}/restart/grid_{appendix}_000002.vtu",
@@ -423,7 +425,6 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
@@ -479,7 +480,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.ones(sd.num_nodes) * sd.dim,
+            values=np.ones(num_nodes(sd)) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -492,7 +493,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_vector_pt",
-            values=np.ones((3, sd.num_nodes)) * sd.dim,
+            values=np.ones((3, num_nodes(sd))) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -506,7 +507,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -519,12 +520,13 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="unique_dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
 
     # Fetch separate subdomains
+    subdomains_0d = mdg.subdomains(dim=0)
     subdomains_1d = mdg.subdomains(dim=1)
     subdomains_2d = mdg.subdomains(dim=2)
     sd_2d = subdomains_2d[0]
@@ -534,16 +536,17 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         [
+            (subdomains_0d, "dummy_scalar"),
             (subdomains_1d, "dummy_scalar"),
             "dummy_vector",
             "unique_dummy_scalar",
             (sd_2d, "cc", sd_2d.cell_centers),
         ],
         data_pt=[
+            (subdomains_0d, "dummy_scalar_pt"),
             (subdomains_1d, "dummy_scalar_pt"),
             "dummy_vector_pt",
             "unique_dummy_scalar_pt",
@@ -552,7 +555,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
     )
 
     # Check that exported vtu files and reference files are the same.
-    for appendix in ["1", "2", "mortar_1"]:
+    for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
             f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
             f"{setup.folder_reference}/mdg_data_selection_grid_{appendix}.vtu",
@@ -571,16 +574,17 @@ def test_constant_data(setup: ExporterTestSetup):
 
     # Define data
     dummy_scalar = np.ones(g.num_cells) * g.dim
-    dummy_scalar_pt = np.ones(g.num_nodes) * g.dim
+    dummy_scalar_pt = np.ones(num_nodes(g)) * g.dim
 
     dummy_vector = np.ones((3, g.num_cells)) * g.dim
-    dummy_vector_pt = np.ones((3, g.num_nodes)) * g.dim
+    dummy_vector_pt = np.ones((3, num_nodes(g))) * g.dim
 
     # Export data
     save = pp.Exporter(
         g,
         setup.file_name,
         setup.folder,
+        export_constants_separately=True,
     )
     # Add additional constant data (cell centers)
     save.add_constant_data([(g, "cc", g.cell_centers)], data_pt=[("x", g.nodes[0, :])])

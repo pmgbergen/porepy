@@ -1,8 +1,10 @@
 <?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
+	<DataSet group="" part="" file="grid_0_000002.vtu"/>
 	<DataSet group="" part="" file="grid_1_000002.vtu"/>
 	<DataSet group="" part="" file="grid_2_000002.vtu"/>
+	<DataSet group="" part="" file="grid_mortar_0_000002.vtu"/>
 	<DataSet group="" part="" file="grid_mortar_1_000002.vtu"/>
 </Collection>
 </VTKFile>
