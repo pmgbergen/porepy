@@ -771,7 +771,7 @@ class SolutionStrategy(pp.PorePyModel):
         """
         t_0 = time.time()
 
-        if self.params.get("reduce_linear_system", False):
+        if self._reduce_linear_system():
             assert self.primary_variables, (
                 "Primary column block for Schur technique not found."
             )
@@ -1045,11 +1045,22 @@ class SolutionStrategy(pp.PorePyModel):
             )
 
         x = np.atleast_1d(x)
-        if self.params.get("reduce_linear_system", False):
+        if self._reduce_linear_system():
             x = self.equation_system.expand_schur_complement_solution(x)
 
         logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
         return x
+
+    def _reduce_linear_system(self) -> bool:
+        """Returns the model parameter on whether the linear system should be reduced
+        via Schur complement using the defined primary and secondary equations and
+        variables.
+
+        Can be set via ``model.params['reduce_linear_system'].
+        Returns False by default.
+
+        """
+        return bool(self.params.get("reduce_linear_system", False))
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear.
