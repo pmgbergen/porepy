@@ -371,10 +371,10 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
         """
 
-    def set_discretization_parameters(self) -> None:
-        """Set discretization parameters for the simulation."""
+    def update_discretization_parameters(self) -> None:
+        """Updates the stiffness tensor and BC type for the mechanics problem."""
 
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
         for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == self.nd:
                 pp.initialize_data(

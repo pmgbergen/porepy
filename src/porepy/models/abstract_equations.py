@@ -443,18 +443,18 @@ class LocalElimination(EquationMixin):
 
             self.update_boundary_condition(eliminatedvar.name, bc_values_prim)
 
-    def before_nonlinear_iteration(self) -> None:
-        """Attaches to the non-linear iteration routines and performes an update of the
-        surrogate operators before an iteration of the non-linear solver is performed.
+    def update_derived_quantities(self) -> None:
+        """Attaches to the update routine and performes an update of the
+        surrogate operators, which are a derived expression for the eliminated variable.
 
-        Updates both value and derivatives for the surrogate operators used in local
-        eliminations.
+        Updates both value and derivatives for the surrogate operators, using the
+        provided functional expression.
 
         """
 
         # Same remark as in override of update_all_boundary_conditions.
         if isinstance(self, pp.SolutionStrategy):
-            super().before_nonlinear_iteration()  # type:ignore[safe-super]
+            super().update_derived_quantities()  # type:ignore[misc,safe-super]
         else:
             raise TypeError(
                 f"Model class {type(self)} does not have a SolutionStrategy included."
