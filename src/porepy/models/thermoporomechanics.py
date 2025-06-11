@@ -181,8 +181,7 @@ class SolutionStrategyThermoporomechanics(
             )
 
     def add_nonlinear_darcy_flux_discretization(self) -> None:
-        """(Themo-) Poromechanics rely by default on Darcy flux re-discretization, which
-        is opposite to the inherited flow model.
+        """(Themo-) Poromechanics rely by default on Darcy flux re-discretization.
 
         The re-discretization is performed only on subdomains with
         ``dim < nd`` due to changes in aperture!
@@ -197,8 +196,7 @@ class SolutionStrategyThermoporomechanics(
         )
 
     def add_nonlinear_fourier_flux_discretization(self) -> None:
-        """Thermo-Poromechanics rely by default on Fourier flux re-discretization, which
-        is opposite to the inherited energy model.
+        """Thermo-Poromechanics rely by default on Fourier flux re-discretization.
 
         The re-discretization is performed only on subdomains with
         ``dim < nd`` due to changes in aperture!

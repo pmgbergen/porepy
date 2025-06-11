@@ -164,8 +164,7 @@ class SolutionStrategyPoromechanics(
         return True
 
     def add_nonlinear_darcy_flux_discretization(self) -> None:
-        """Poromechanics rely by default on Darcy flux re-discretization, which is
-        opposite to the inherited flow model.
+        """Poromechanics rely by default on Darcy flux re-discretization.
 
         The re-discretization is performed only on subdomains with
         ``dim < nd`` due to changes in aperture!
