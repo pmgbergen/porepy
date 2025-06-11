@@ -1848,8 +1848,8 @@ def invert_permuted_block_diag_matrix(
     """
 
     # Find the permutations that resolves A into block-diagonal
-    row_slicer = pp.matrix_operations.ArraySlicer(domain_indices=row_permutation)
-    col_slicer = pp.matrix_operations.ArraySlicer(range_indices=col_permutation)
+    row_slicer = ArraySlicer(domain_indices=row_permutation)
+    col_slicer = ArraySlicer(range_indices=col_permutation)
 
     # Apply permutations to transform A into diagonal block
     # A_block_diag = P_row @ A @ P_col
