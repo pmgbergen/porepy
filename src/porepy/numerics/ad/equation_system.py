@@ -9,6 +9,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
+from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
 import porepy as pp
@@ -1734,7 +1735,7 @@ class EquationSystem:
 
         """
         if inverter is None:
-            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
+            inverter = lambda A: spsinv(A).tocsr()
 
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.

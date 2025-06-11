@@ -102,7 +102,6 @@ The steps required by users to close the models and obtain runable models are:
 from __future__ import annotations
 
 import logging
-import time
 from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
