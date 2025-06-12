@@ -339,13 +339,13 @@ class SimpleGeometryHayekVertical2D(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 0.5
-    _inlet_centre: np.ndarray = np.array([0.5, 0.0,  0.0])
-    _outlet_centre: np.ndarray = np.array([0.5, 2.0, 0.0])
+    _dist_from_ref_point: float = 0.25
+    _inlet_centre: np.ndarray = np.array([2.5, 0.0,  0.0])
+    _outlet_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(1.0, "m")
-        y_length = self.units.convert_units(2.0, "m")
+        x_length = self.units.convert_units(5.0, "m")
+        y_length = self.units.convert_units(5.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -365,8 +365,8 @@ class SimpleGeometryHayekVertical2D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
-        cell_size_y = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(0.25, "m")
+        cell_size_y = self.units.convert_units(0.25, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": cell_size_y}
         return mesh_args
 

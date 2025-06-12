@@ -68,15 +68,19 @@ class InitialConditions(pp.PorePyModel):
         CO2 = self.fluid.components[1]
         for sd in subdomains:
             z_v = self.ic_values_overall_fraction(CO2,sd)
-            x_CO2_liq_v = np.clip(np.zeros_like(z_v), 1.0e-16, 1.0-1.0e-16)
-            x_CO2_gas_v = np.clip(np.ones_like(z_v), 1.0e-16, 1.0-1.0e-16)
+            x_CO2_liq_v = np.zeros_like(z_v)
+            x_CO2_gas_v = np.ones_like(z_v)
 
             liq, gas = self.fluid.phases
             s_gas = gas.saturation([sd])
             x_CO2_liq = liq.partial_fraction_of[CO2]([sd])
             x_CO2_gas = gas.partial_fraction_of[CO2]([sd])
 
-            self.equation_system.set_variable_values(z_v, [s_gas], 0, 0)
+            rho_l = 1000.0
+            rho_v = 500.0
+            s_gas_val = (z_v * rho_l) / (z_v * rho_l + rho_v - z_v * rho_v)
+
+            self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
             self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
             self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
 
@@ -98,12 +102,11 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = np.where((xc[:,1] >= 0.0) & (xc[:,1] <= 1.0), 1.0, 0.0)
-        # z = (np.where((xc[:, 1] >= 5.5) & (xc[:, 1] <= 6.5), 0.5, 0.0) +
-        #      np.where((xc[:, 1] >= 3.5) & (xc[:, 1] <= 4.5), 0.5, 0.0) +
-        #      np.where((xc[:, 1] >= 1.5) & (xc[:, 1] <= 2.5), 0.5, 0.0) +
-        #      np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
-        #      np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
+        # z = np.where((xc[:,1] >= 0.0) & (xc[:,1] <= 1.0), 1.0, 0.0)
+        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0) +
+             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0) +
+             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
+             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:

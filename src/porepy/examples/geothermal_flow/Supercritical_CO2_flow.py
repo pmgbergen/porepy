@@ -34,8 +34,8 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 10.0 * day
-dt = 1.0 * day
+tf = 1000.0 * day
+dt = 10.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -228,10 +228,10 @@ w_flux_unit = model.density_driven_flux(model.mdg.subdomains(),pp.ad.Scalar(1.0)
 model.exporter.write_vtu()
 
 # update external solution
-xc = model.mdg.subdomains()[0].cell_centers.T
-z_v = np.where((xc[:,1] >= 0.0) & (xc[:,1] <= 1.0), 0.440636038257781, 0.559363961742219)
-model.equation_system.set_variable_values(z_v, ["z_CO2"], iterate_index = 0)
-model.equation_system.set_variable_values(z_v, ["s_gas"], iterate_index = 0)
+# xc = model.mdg.subdomains()[0].cell_centers.T
+# z_v = np.where((xc[:,1] >= 0.0) & (xc[:,1] <= 1.0), 0.440636038257781, 0.559363961742219)
+# model.equation_system.set_variable_values(z_v, ["z_CO2"], iterate_index = 0)
+# model.equation_system.set_variable_values(z_v, ["s_gas"], iterate_index = 0)
 
 tb = time.time()
 pp.run_time_dependent_model(model, params)
