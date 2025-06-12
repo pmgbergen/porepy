@@ -1852,7 +1852,7 @@ def invert_permuted_block_diag_matrix(
 
     """
 
-    # Find the permutations that resolves A into block-diagonal
+    # Find the permutations that resolves A into block-diagonal.
     row_slicer = ArraySlicer(domain_indices=row_permutation)
     col_slicer = ArraySlicer(range_indices=col_permutation)
 
@@ -1864,15 +1864,15 @@ def invert_permuted_block_diag_matrix(
     # an extra cost.
     A_block_diag = row_slicer @ (col_slicer.T @ A.T).T
 
-    # Compute the inverse of each sub-block in place
+    # Compute the inverse of each sub-block in place.
     inv_A_block_diag = invert_diagonal_blocks(A_block_diag, block_sizes, method="numba")
 
-    # Undo the permutations to obtain the inverse of the original matrix
+    # Undo the permutations to obtain the inverse of the original matrix.
     # A^{-1} = P_col A_block_diag^{-1} P_row
     inv_row_slicer = row_slicer.T
     inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
 
-    # Zero out entries below tolerance to remove numerical noise.
+    # Eliminate zero entries.
     inv_A.eliminate_zeros()
 
     return inv_A
