@@ -1841,7 +1841,6 @@ def invert_permuted_block_diag_matrix(
         row_permutation: See :func:`generate_permutation_to_block_diag_matrix`.
         col_permutation: See :func:`generate_permutation_to_block_diag_matrix`.
         block_sizes: See :func:`generate_permutation_to_block_diag_matrix`.
-        eps: ``default=1e-10``
 
             A small value to eliminate near-zero values in the inverse, which is
             returned in a sparse format. To be used if the inverted matrix is
