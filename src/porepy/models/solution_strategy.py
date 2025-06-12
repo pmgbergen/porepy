@@ -569,44 +569,63 @@ class SolutionStrategy(pp.PorePyModel):
         return converged, diverged
 
     def compute_residual_norm(
-        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
-    ) -> float:
+        self,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        equations=None,
+    ) -> np.array:
         """Compute the residual norm for a nonlinear iteration.
 
         Parameters:
             residual: Residual of current iteration.
             reference_residual: Reference residual value (initial residual expected),
                 allowing for defining relative criteria.
+            equations: Equations to compute the residual norm for. If None, all equations
+                are used.
 
         Returns:
-            float: Residual norm; np.nan if the residual is None.
+            np.array: Array of residual norms of each equation; np.nan if the residual is None.
 
         """
         if residual is None:
-            return np.nan
-        residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
-        return residual_norm
+            return np.array(np.nan)
+
+        equation_names = list(self.equation_system._parse_equations(equations).keys())
+        residuals = []
+
+        for name in equation_names:
+            eq = self.equation_system._equations[name]
+            residual = np.linalg.norm(eq.value(self.equation_system))
+            residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
+            residuals.append(residual_norm)
+
+        return np.array(residuals)
 
     def compute_nonlinear_increment_norm(
-        self, nonlinear_increment: np.ndarray
-    ) -> float:
+        self,
+        nonlinear_increment: np.ndarray,
+        variables: Optional[list[pp.ad.Variable]] = None,
+    ) -> np.array:
         """Compute the norm based on the update increment for a nonlinear iteration.
 
         Parameters:
             nonlinear_increment: Solution to the linearization.
+            variables: Variables to compute the increment norm for. If None,
+                all variables are considered.
 
         Returns:
-            float: Update increment norm.
+            np.array: Array of update increment norms for each variable.
 
         """
-        # Simple but fairly robust convergence criterions. More advanced options are
-        # e.g. considering norms for each variable and/or each grid separately,
-        # possibly using _l2_norm_cell
-        # We normalize by the size of the solution vector.
-        nonlinear_increment_norm = np.linalg.norm(nonlinear_increment) / np.sqrt(
-            nonlinear_increment.size
-        )
-        return nonlinear_increment_norm
+        increments = []
+        if variables is None:
+            variables = self.equation_system.variables
+        for variable in variables:
+            indices = self.equation_system.dofs_of([variable])
+            increment = nonlinear_increment[indices]
+            increment_norm = np.linalg.norm(increment) / np.sqrt(increment.size)
+            increments.append(increment_norm)
+        return np.array(increments)
 
     def _initialize_linear_solver(self) -> None:
         """Initialize linear solver.
