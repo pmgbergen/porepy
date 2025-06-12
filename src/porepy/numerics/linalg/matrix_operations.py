@@ -1852,7 +1852,11 @@ def invert_permuted_block_diag_matrix(
     col_slicer = ArraySlicer(range_indices=col_permutation)
 
     # Apply permutations to transform A into diagonal block
-    # A_block_diag = P_row @ A @ P_col
+    # NOTE A_block_diag = P_row @ A @ P_col
+    # But since the ArraySlicer mimics only a projection which can be applied from the
+    # left via matrix product @, we need to work with transposed matrices.
+    # The expressions are algebraically equivalent, though the transposition introduces
+    # an extra cost.
     A_block_diag = row_slicer @ (col_slicer.T @ A.T).T
 
     # Compute the inverse of each sub-block in place

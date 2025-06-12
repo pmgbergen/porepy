@@ -828,9 +828,10 @@ def non_block_diag_matrix(request) -> dict[str, Any]:
 def test_generate_permutation_to_block_diag_matrix(
     non_block_diag_matrix: dict[str, Any],
 ):
-    """Test that generate_permutation_to_block_diag_matrix correctly identifies the 4
-    diagonal blocks in a 2-cell, 3-variable/equation-per-cell system and returns the
-    expected row/column permutations and block sizes.
+    """Test that generate_permutation_to_block_diag_matrix correctly identifies the
+    blocks in the specified test cases, and that the permutation is represented in a
+    format, which compatible with the intended use cases.
+
     """
 
     row_perm, col_perm, block_sizes = (
@@ -873,8 +874,8 @@ def test_invert_permuted_block_diag_mat(non_block_diag_matrix: dict[str, Any]):
 @pytest.mark.parametrize(
     "mdg",
     [
-        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])[0],
-        cube_with_orthogonal_fractures("simplex", {"cell_size": 0.1}, [0, 1, 2])[0],
+        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1])[0],
+        cube_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1, 2])[0],
     ],
 )
 def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
@@ -882,66 +883,66 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     subdomains and interfaces, then build and invert its Schur-complement secondary
     block via block-diagonal permutations."""
 
-    # Instantiate an EquationSystem on the MD grid
-    es = pp.ad.EquationSystem(mdg)
+    # Instantiate an EquationSystem on the MD grid.
+    equation_system = pp.ad.EquationSystem(mdg)
 
-    # Create four “subdomain” variables (p1, p2, s1, s2), one DOF per cell
-    p1 = es.create_variables(name="p1", subdomains=mdg.subdomains())
-    p2 = es.create_variables(name="p2", subdomains=mdg.subdomains())
-    s1 = es.create_variables(name="s1", subdomains=mdg.subdomains())
-    s2 = es.create_variables(name="s2", subdomains=mdg.subdomains())
+    # Create four “subdomain” variables (p1, p2, s1, s2), one DOF per cell.
+    p1 = equation_system.create_variables(name="p1", subdomains=mdg.subdomains())
+    p2 = equation_system.create_variables(name="p2", subdomains=mdg.subdomains())
+    s1 = equation_system.create_variables(name="s1", subdomains=mdg.subdomains())
+    s2 = equation_system.create_variables(name="s2", subdomains=mdg.subdomains())
 
-    # Create three “interface” variables (pf, sf1, sf2), one DOF per interface cell
-    pf = es.create_variables(name="pf", interfaces=mdg.interfaces())
-    sf1 = es.create_variables(name="sf1", interfaces=mdg.interfaces())
-    sf2 = es.create_variables(name="sf2", interfaces=mdg.interfaces())
+    # Create three “interface” variables (pf, sf1, sf2), one DOF per interface cell.
+    pf = equation_system.create_variables(name="pf", interfaces=mdg.interfaces())
+    sf1 = equation_system.create_variables(name="sf1", interfaces=mdg.interfaces())
+    sf2 = equation_system.create_variables(name="sf2", interfaces=mdg.interfaces())
 
     # Define equation‐to‐grid-entity mapping: one equation per cell.
     eq_per_gridEntity = {"cells": 1, "faces": 0, "nodes": 0}
 
-    # On each subdomain cell, register 4 equations
+    # On each subdomain cell, register 4 equations.
     Scalar = pp.ad.Scalar
     expr_p1 = p1 + s1 * Scalar(2.0) - Scalar(1.0)
     expr_p1.set_name("eq_p1")
-    es.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_p1, mdg.subdomains(), eq_per_gridEntity)
 
     expr_p2 = p2 * Scalar(1.0) + s2 * Scalar(2.0) - Scalar(2.0)
     expr_p2.set_name("eq_p2")
-    es.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_p2, mdg.subdomains(), eq_per_gridEntity)
 
     expr_s1 = p1 * Scalar(3.0) + s1 * Scalar(1.0) - Scalar(3.0)
     expr_s1.set_name("eq_s1")
-    es.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_s1, mdg.subdomains(), eq_per_gridEntity)
 
     expr_s2 = p2 * Scalar(3.0) + s2 * Scalar(1.0) - Scalar(4.0)
     expr_s2.set_name("eq_s2")
-    es.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
+    equation_system.set_equation(expr_s2, mdg.subdomains(), eq_per_gridEntity)
 
-    # On each interface, register 3 equations
+    # On each interface, register 3 equations.
     eq_pf = pf ** Scalar(2.0) - Scalar(2.0)
     eq_pf.set_name("eq_p_f")
-    es.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_pf, mdg.interfaces(), eq_per_gridEntity)
 
     eq_sf1 = pf + sf2 + sf1 * Scalar(2.5) - Scalar(1.0)
     eq_sf1.set_name("eq_s_f_1")
-    es.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_sf1, mdg.interfaces(), eq_per_gridEntity)
 
     eq_sf2 = pf + sf2 * sf1 + sf1 - Scalar(10.0)
     eq_sf2.set_name("eq_s_f_2")
-    es.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
+    equation_system.set_equation(eq_sf2, mdg.interfaces(), eq_per_gridEntity)
 
-    # Define "secondary" list of equations & variables
+    # Define "secondary" list of equations & variables.
     secondaryEqList = ["eq_s_f_1", "eq_s_f_2"]
     secondaryVarList = ["sf1", "sf2"]
 
-    # Extract the secondary block matrix
-    A_ss, _ = es.assemble(
+    # Extract the secondary block matrix.
+    A_ss, _ = equation_system.assemble(
         equations=secondaryEqList,
         variables=secondaryVarList,
-        state=np.zeros(es.num_dofs()),
+        state=np.zeros(equation_system.num_dofs()),
     )
 
-    # Invert the non-diagonal block matrix A_ss
+    # Invert the non-diagonal block matrix A_ss.
     row_perm, col_perm, block_sizes = (
         matrix_operations.generate_permutation_to_block_diag_matrix(A_ss)
     )
@@ -949,6 +950,6 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
         A_ss, row_perm, col_perm, block_sizes
     )
 
-    # Verify that A_ss * inv_A_ss is the identity matrix
+    # Verify that A_ss * inv_A_ss is the identity matrix.
     approx_identity = A_ss.dot(inv_A_ss).toarray()
     assert np.allclose(approx_identity, np.eye(A_ss.shape[0]))

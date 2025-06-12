@@ -531,8 +531,8 @@ def _get_primary_equ_and_vars_cf(model: pp.PorePyModel) -> tuple[list[str], list
 @pytest.mark.parametrize(
     "mdg",
     [
-        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.1}, [0, 1])[0],
-        cube_with_orthogonal_fractures("simplex", {"cell_size": 0.1}, [0, 1, 2])[0],
+        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1])[0],
+        cube_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1, 2])[0],
     ],
 )
 def test_schur_complement_inverter_on_model(
@@ -543,6 +543,10 @@ def test_schur_complement_inverter_on_model(
     """Tests the block-diagonal inverter for the secondary block of the linear system
     of a porepy model."""
 
+    # NOTE: Depending on what which model class the tests are performed, the local
+    # geometry mixin and model parameters need adaption in order to overwrite the
+    # geometry and parametrization already contained within the tested model class.
+    # The adaption must be consistent with the mdg's the tests are performed on.
     class LocalGeometry(pp.PorePyModel):
         def create_mdg(self) -> None:
             self.mdg = mdg
@@ -552,17 +556,17 @@ def test_schur_complement_inverter_on_model(
                 mdg.dim_max(), self.units.convert_units(1.0, "m")
             )
 
+    model_params = {
+        "reduce_linear_system": True,
+        "equilibrium_type": "dummy",
+        "meshing_arguments": {
+            "cell_size": 0.1,
+        },
+    }
+
     model_class = add_mixin(LocalGeometry, test_model_class)
 
-    model = model_class(
-        {
-            "reduce_linear_system": True,
-            "equilibrium_type": "dummy",
-            "meshing_arguments": {
-                "cell_size": 0.1,
-            },
-        }
-    )
+    model = model_class(model_params)
     model = cast(pp.SolutionStrategy, model)
     model.prepare_simulation()
     prim_equs, prim_vars = get_primary_equs_vars(model)
