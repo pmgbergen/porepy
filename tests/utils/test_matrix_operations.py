@@ -778,7 +778,7 @@ def test_block_matrix_invertes_sparse_blocks(invert_backend: str):
                         [0, 0, 0, 0, 0, 1],
                     ]
                 ),
-                dtype=np.float64,
+                dtype=float,
             ),
             block_sizes=[2, 2, 1, 1],
             row_perm=[0, 2, 1, 3, 4, 5],
@@ -796,7 +796,7 @@ def test_block_matrix_invertes_sparse_blocks(invert_backend: str):
                         [0, 0, 0, 1, 0, 5],
                     ]
                 ),
-                dtype=np.float64,
+                dtype=float,
             ),
             block_sizes=[1, 1, 2, 2],
             row_perm=[0, 1, 2, 4, 3, 5],
@@ -812,7 +812,7 @@ def test_block_matrix_invertes_sparse_blocks(invert_backend: str):
                         [0, 1, 0, 0],
                     ]
                 ),
-                dtype=np.float64,
+                dtype=float,
             ),
             block_sizes=[2, 2],
             row_perm=[0, 1, 2, 3],

@@ -1822,8 +1822,7 @@ def invert_permuted_block_diag_matrix(
     A: sps.spmatrix,
     row_permutation: np.ndarray,
     col_permutation: np.ndarray,
-    block_sizes: np.ndarray,
-    eps: float = 1e-10,
+    block_sizes: np.ndarray
 ) -> sps.csr_matrix:
     """Compute :math:`A^{-1}` of a permuted block-diagonal matrix by
 
@@ -1874,8 +1873,6 @@ def invert_permuted_block_diag_matrix(
     inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
 
     # Zero out entries below tolerance to remove numerical noise.
-    treat_as_zero = np.abs(inv_A.data) < eps
-    inv_A.data[treat_as_zero] = 0.0
     inv_A.eliminate_zeros()
 
     return inv_A
