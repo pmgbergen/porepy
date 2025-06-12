@@ -557,7 +557,7 @@ def test_schur_complement_inverter_on_model(
             )
 
     model_params = {
-        "reduce_linear_system": True,
+        "apply_schur_complement_reduction": True,
         "equilibrium_type": "dummy",
         "meshing_arguments": {
             "cell_size": 0.1,
@@ -573,19 +573,33 @@ def test_schur_complement_inverter_on_model(
 
     # Set primary equations and variables to get the secondary ones for assembly of
     # secondary block.
-    model.primary_equations = prim_equs
-    model.primary_variables = prim_vars
+    model.schur_complement_primary_equations = prim_equs
+    model.schur_complement_primary_variables = prim_vars
 
-    N = model.equation_system.dofs_of(model.secondary_variables).size
-
-    A_ss, _ = model.equation_system.assemble(
-        evaluate_jacobian=True,
-        equations=model.secondary_equations,
-        variables=model.secondary_variables,
-        state=np.ones(model.equation_system.num_dofs()),
+    secondary_equs = list(
+        set(model.equation_system.equations.keys()).difference(set(prim_equs))
+    )
+    secondary_vars = list(
+        set([var.name for var in model.equation_system.variables]).difference(
+            set(prim_vars)
+        )
     )
 
-    inv_A_ss = model.schur_complement_inverter()(A_ss)
+    N = model.equation_system.dofs_of(secondary_vars).size
+    model.equation_system.set_variable_values(
+        np.ones(model.equation_system.num_dofs()), iterate_index=0, time_step_index=0
+    )
+
+    model.before_nonlinear_loop()
+    model.before_nonlinear_iteration()
+    model.assemble_linear_system()
+    inv_A_ss = model.equation_system._Schur_complement[0]
+
+    # NOTE A_ss is not stored explicitly as part of the linear system assembly.
+    A_ss, _ = model.equation_system.assemble(
+        equations=secondary_equs,
+        variables=secondary_vars,
+    )
 
     # NOTE: Do not convert to dense array, 3D test case will run out of memory.
     approx_identity = cast(sps.csr_matrix, A_ss @ inv_A_ss)

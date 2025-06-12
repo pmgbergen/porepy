@@ -198,7 +198,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
     et = compositional.get_equilibrium_type(model)
-    schur = model.params.get("reduce_linear_system", False)
+    schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
