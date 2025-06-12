@@ -6,12 +6,8 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
-from tests.compositional.test_materials import subdomains
 
 from .constitutive_description.SuperCriticalCO2ConstitutiveDescription import (
-    gas_saturation_func,
-    CO2_gas_func,
-    CO2_liq_func,
     FluidMixture,
     SecondaryEquations,
 )

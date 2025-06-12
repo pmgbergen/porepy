@@ -552,6 +552,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
 
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+    component_buoyancy: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -607,7 +612,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(component, subdomains)
+        flux = self.component_flux(component, subdomains) + self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -980,6 +985,7 @@ class ConstitutiveLawsCF(
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.FluidBuoyancy,
     # Contains the Upwind for the enthalpy flux, otherwise not required.
     # TODO Consider putting discretizations strictly outside of classes providing
     # heuristics for thermodynamic properties.

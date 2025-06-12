@@ -15,13 +15,15 @@ def gas_saturation_func(
     p, h, z_CO2 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CO2)
 
+    rho_l = 1000.0
+    rho_v = 500.0
     nc = len(thermodynamic_dependencies[0])
-    vals = z_CO2
+    vals = (z_CO2*rho_l)/(z_CO2*rho_l + rho_v - z_CO2*rho_v)
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = +1.0
+    diffs[2, :] = (rho_l*rho_v)/((z_CO2*(rho_l - rho_v) + rho_v)*(z_CO2*(rho_l - rho_v) + rho_v))
     return vals, diffs
 
 

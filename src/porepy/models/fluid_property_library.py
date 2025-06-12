@@ -480,8 +480,11 @@ class FluidBuoyancy(pp.PorePyModel):
     darcy_flux_discretization: Callable[[list[pp.Grid]],pp.ad.MpfaA] # because it contains the div(w(rho)) term
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
-    def buoyancy_key(self, phase: pp.Phase) -> str:
-        return 'buoyancy_' + phase.name
+    def upward_key(self, phase: pp.Phase) -> str:
+        return 'buoyancy_upward_' + phase.name
+
+    def downward_key(self, phase: pp.Phase) -> str:
+        return 'buoyancy_downward_' + phase.name
 
     def upward_flux_array_key(self, phase: pp.Phase) -> str:
         return 'upward_w_flux_' + phase.name
@@ -490,30 +493,30 @@ class FluidBuoyancy(pp.PorePyModel):
         return 'downward_w_flux_' + phase.name
 
     def upward_phase_discretization(self, gamma: pp.Phase, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
-        discr = pp.ad.UpwindAd(self.buoyancy_key(gamma), subdomains)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(gamma)
+        discr = pp.ad.UpwindAd(self.upward_key(gamma), subdomains)
+        discr._discretization.upwind_matrix_key = self.upward_key(gamma)
         discr._discretization.flux_array_key = self.upward_flux_array_key(gamma)
         return discr
 
     def downward_phase_discretization(self, delta: pp.Phase, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
-        discr = pp.ad.UpwindAd(self.buoyancy_key(delta), subdomains)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(delta)
+        discr = pp.ad.UpwindAd(self.downward_key(delta), subdomains)
+        discr._discretization.upwind_matrix_key = self.downward_key(delta)
         discr._discretization.flux_array_key = self.downward_flux_array_key(delta)
         return discr
 
     def interface_upward_phase_discretization(
         self, gamma: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
-        discr = pp.ad.UpwindCouplingAd(self.buoyancy_key(gamma), interfaces)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(gamma)
+        discr = pp.ad.UpwindCouplingAd(self.upward_key(gamma), interfaces)
+        discr._discretization.upwind_matrix_key = self.upward_key(gamma)
         discr._discretization.flux_array_key = self.upward_flux_array_key(gamma)
         return discr
 
     def interface_downward_phase_discretization(
         self, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
-        discr = pp.ad.UpwindCouplingAd(self.buoyancy_key(delta), interfaces)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(delta)
+        discr = pp.ad.UpwindCouplingAd(self.downward_key(delta), interfaces)
+        discr._discretization.upwind_matrix_key = self.downward_key(delta)
         discr._discretization.flux_array_key = self.downward_flux_array_key(delta)
         return discr
 
@@ -636,17 +639,17 @@ class FluidBuoyancy(pp.PorePyModel):
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
-                    pp.initialize_data(sd,data,self.buoyancy_key(gamma))
-                    pp.initialize_data(sd,data,self.buoyancy_key(delta))
+                    pp.initialize_data(sd,data,self.upward_key(gamma))
+                    pp.initialize_data(sd,data,self.downward_key(delta))
                     vals = np.zeros(sd.num_faces)
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
+                    data[pp.PARAMETERS][self.upward_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
+                    data[pp.PARAMETERS][self.downward_key(delta)].update({self.downward_flux_array_key(delta): -vals})
                 for intf, data in self.mdg.interfaces(return_data=True):
                     vals = np.zeros(intf.num_cells)
-                    pp.initialize_data(intf,data,self.buoyancy_key(gamma))
-                    pp.initialize_data(intf,data,self.buoyancy_key(delta))
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
+                    pp.initialize_data(intf,data,self.upward_key(gamma))
+                    pp.initialize_data(intf,data,self.downward_key(delta))
+                    data[pp.PARAMETERS][self.upward_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
+                    data[pp.PARAMETERS][self.downward_key(delta)].update({self.downward_flux_array_key(delta): -vals})
 
     def set_nonlinear_buoyancy_discretization(self):
         for phase_gamma in self.fluid.phases:
@@ -676,16 +679,16 @@ class FluidBuoyancy(pp.PorePyModel):
                     rho_gamma = gamma.density([sd])
                     rho_delta = delta.density([sd])
                     vals = self.equation_system.evaluate(self.density_driven_flux([sd], rho_gamma - rho_delta ))
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
+                    data[pp.PARAMETERS][self.upward_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
+                    data[pp.PARAMETERS][self.downward_key(delta)].update({self.downward_flux_array_key(delta): -vals})
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=1):
                     # Computing buoyancy flux and updating it in the mobility
                     rho_gamma = gamma.density([intf])
                     rho_delta = delta.density([intf])
                     vals = self.equation_system.evaluate(self.density_driven_flux([intf], rho_gamma - rho_delta))
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
-                    data[pp.PARAMETERS][self.buoyancy_key(delta)].update({self.downward_flux_array_key(delta): -vals})
+                    data[pp.PARAMETERS][self.upward_key(gamma)].update({self.upward_flux_array_key(gamma): +vals})
+                    data[pp.PARAMETERS][self.downward_key(delta)].update({self.downward_flux_array_key(delta): -vals})
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=2):
                     # TODO: This functionality is out of the research scope
