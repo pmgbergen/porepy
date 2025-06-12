@@ -1730,21 +1730,28 @@ def generate_permutation_to_block_diag_matrix(
 
     """
     # Input validation
-    if not isinstance(A, sps.spmatrix):
-        raise TypeError("Input matrix must be a sparse matrix")
-    r, c = A.shape
-    if r == 0 or c == 0:
-        raise ValueError("Matrix cannot be empty")
-    if not r == c:
+    if not isinstance(A, (sps.spmatrix, sps.sparray)):
+        raise TypeError("Input matrix must be a scipy sparse matrix or sparse array")
+    num_rows, num_cols = A.shape
+    if (num_rows == 0) ^ (num_cols == 0):
+        raise ValueError(
+            f"Inconsistent empty shape {A.shape}: must be (0,0) or non-empty"
+        )
+    if not num_rows == num_cols:
         raise ValueError(f"Matrix must be square, got shape {A.shape}")
 
+    # Ensure we don’t pick up stored zeros
+    A_clean = A.copy()
+    A_clean.eliminate_zeros()
+
     # Find non-zero entries in the sparse matrix
-    rows, cols, _ = sps.find(A)
+    rows, cols, _ = sps.find(A_clean)
+    idx_dtype = rows.dtype
 
     # Build bipartite graph: connect equation_i to variable_j if A[i,j] ≠ 0
     G = nx.Graph()
     # Create graph edges between connected equation and variables
-    edge_list = [(int(i), int(r + j)) for i, j in zip(rows, cols)]
+    edge_list = [(int(i), int(num_rows + j)) for i, j in zip(rows, cols)]
     G.add_edges_from(edge_list)
 
     # Annotate data structures for permutations.
@@ -1757,9 +1764,9 @@ def generate_permutation_to_block_diag_matrix(
     # one block (block‐diagonal with a single block).
     components = list(nx.connected_components(G))
     if len(components) == 1:
-        row_perm = np.arange(r, dtype=np.int32)
-        col_perm = np.arange(r, dtype=np.int32)
-        block_sizes = np.array([r], dtype=np.int32)
+        row_perm = np.arange(num_rows, dtype=idx_dtype)
+        col_perm = np.arange(num_rows, dtype=idx_dtype)
+        block_sizes = np.array([num_rows], dtype=idx_dtype)
     else:
         # Collect row and column indices per component
         block_row_indices = []
@@ -1770,8 +1777,8 @@ def generate_permutation_to_block_diag_matrix(
 
         # Extract permutations and sub-block sizes
         for comp in components:
-            eq_rows_in_block = [node for node in comp if node < r]
-            var_cols_in_block = [node - r for node in comp if node >= r]
+            eq_rows_in_block = [node for node in comp if node < num_rows]
+            var_cols_in_block = [node - num_rows for node in comp if node >= num_rows]
 
             # Sort each list so that the permutation is deterministic:
             eq_rows_in_block.sort()
@@ -1787,26 +1794,24 @@ def generate_permutation_to_block_diag_matrix(
             block_row_indices.extend(eq_rows_in_block)
             block_col_indices.extend(var_cols_in_block)
 
+        # Detect rows with no non-zero entries, as they do not appear in any graph component
+        # and would otherwise be dropped. To preserve the original matrix size,
+        # treat each all-zero row as its own 1×1 block.:
         used_rows = set(block_row_indices)
-        # used_cols = set(block_col_indices)
-
-        all_indices = set(range(r))
+        all_indices = set(range(num_rows))
         missing_rows = list(sorted(all_indices - used_rows))
-        # missing_cols = list(sorted(all_indices - used_cols))
-
-        # Append each missing index as a singleton 1×1 block:
         for idx in missing_rows:
             block_row_indices.append(idx)
             block_col_indices.append(idx)
             block_sizes_.append(1)
 
         # Final permutations: flattening all component-wise ordered indices
-        row_perm = np.array(block_row_indices, dtype=np.int32)
-        col_perm = np.array(block_col_indices, dtype=np.int32)
-        block_sizes = np.array(block_sizes_, dtype=np.int32)
+        row_perm = np.array(block_row_indices, dtype=idx_dtype)
+        col_perm = np.array(block_col_indices, dtype=idx_dtype)
+        block_sizes = np.array(block_sizes_, dtype=idx_dtype)
 
         # Verify we covered all rows & columns exactly once:
-        if row_perm.size != r or col_perm.size != c:
+        if row_perm.size != num_rows or col_perm.size != num_cols:
             raise AssertionError("Not all rows/columns were assigned to blocks")
 
     return row_perm, col_perm, block_sizes
