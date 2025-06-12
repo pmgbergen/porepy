@@ -1211,10 +1211,8 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         are added to :meth:`nonlinear_discretizations`.
 
-        - The Fourier flux discretization
-
-        is added to :meth:`nonlinear_diffusive_flux_discretizations`, if
-        ``model.params['rediscretize_fourier_flux'] == True``.
+        Calls :meth:`add_nonlinear_fourier_flux_discretization`, to add (optional)
+        nonlinear discretizations of the Fourier flux.
 
         """
 
@@ -1228,7 +1226,21 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             self.interface_enthalpy_discretization(self.mdg.interfaces()).flux(),
         )
 
-        if self.params.get("rediscretize_fourier_flux", False):
-            self.add_nonlinear_diffusive_flux_discretization(
-                self.fourier_flux_discretization(subdomains).flux()
-            )
+        self.add_nonlinear_fourier_flux_discretization()
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Method to be overridden to add the Fourier flux discretization to the
+        nonlinear update routines.
+
+        Example:
+
+            .. code:: python3
+
+                self.add_nonlinear_diffusive_flux_discretization(
+                    self.fourier_flux_discretization(self.mdg.subdomains()).flux()
+                )
+
+        This method is called as part of :meth:`set_nonlinear_discretizations`.
+        The base implementation adds nothing.
+
+        """

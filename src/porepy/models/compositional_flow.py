@@ -215,8 +215,6 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     is_ff = is_fractional_flow(model)
     et = compositional.get_local_equilibrium_condition(model)
     schur = model.params.get("reduce_linear_system", False)
-    darcy = model.params.get("rediscretize_darcy_flux", False)
-    fourier = model.params.get("rediscretize_fourier_flux", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -227,8 +225,6 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
         + f"\tEquilibrium condition: {et}\n"
         + f"\tFractional flow: {is_ff}"
         + f"\tEliminating secondary block via Schur complement: {schur}"
-        + f"\tRe-discretizing Darcy flux: {darcy}"
-        + f"\tRe-discretizing Fourier flux: {fourier}"
         + f"\tNumber of phases: {model.fluid.num_phases}\n"
         + f"\tNumber of components: {model.fluid.num_components}\n"
         + f"\tReference phase eliminated: {p_elim}\n"
@@ -327,15 +323,6 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
     well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
-
-    def set_equations(self) -> None:
-        """After the super-call, this method asserts additionally that the model is
-        using the fractional flow framework."""
-        super().set_equations()
-
-        assert self.params["rediscretize_darcy_flux"], (
-            "Model params['rediscretize_darcy_flux'] must be flagged as True."
-        )
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
@@ -1987,6 +1974,26 @@ class SolutionStrategyCF(
       ``'unified-p-h'``.
 
     """
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """If the fractional flow formulation is used, the nonlinear Darcy flux
+        discretization is added by default for all subdomains to the update routine."""
+        if is_fractional_flow(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+            )
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Compositional flow models relay on re-discretization of the
+        Fourier flux, since the thermal conductivity is presumably a nonlinear fluid
+        property.
+
+        The discretization is added by default for all subdomains to the update routine.
+
+        """
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+        )
 
 
 # endregion

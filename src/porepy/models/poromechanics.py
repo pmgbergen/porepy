@@ -163,35 +163,20 @@ class SolutionStrategyPoromechanics(
         """The coupled problem is nonlinear."""
         return True
 
-    def set_nonlinear_discretizations(self) -> None:
-        """Poromechanics rely by default on Darcy flux re-discretization, which is
-        opposite to the inherited flow model.
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Poromechanics rely by default on Darcy flux re-discretization.
 
-        Important:
-            By default, the re-discretization is performed only on subdomains with
-            ``dim < nd`` due to changes in aperture!
-
-            The default behavior defined here concerns only those domains.
-            For triggering the re-discretization on all subdomains, the user must
-            set the flag ``'rediscretize_darcy_flux'`` to ``True`` explicitly, and the
-            inherited flow model will take care of it.
-
-        See also:
-            :meth:`nonlinear_diffusive_flux_discretizations`
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
 
         """
-        # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
-        # balance does not have any.
-        super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a
-        # re-discretization of the diffusive flux in subdomains where the aperture
-        # changes.
-        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
 
-        if self.params.get("rediscretize_darcy_flux", True):
-            self.add_nonlinear_diffusive_flux_discretization(
-                self.darcy_flux_discretization(subdomains).flux(),
-            )
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+            ).flux(),
+        )
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method

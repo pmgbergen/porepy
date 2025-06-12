@@ -1029,10 +1029,8 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         are added to :meth:`nonlinear_discretizations`.
 
-        - The Darcy flux discretization
-
-        is added to :meth:`nonlinear_diffusive_flux_discretizations`, if
-        ``model.params['rediscretize_darcy_flux'] == True``.
+        Calls :meth:`add_nonlinear_darcy_flux_discretization`, to add (optional)
+        nonlinear discretizations of the Darcy flux.
 
         """
         super().set_nonlinear_discretizations()
@@ -1045,10 +1043,24 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             self.interface_mobility_discretization(self.mdg.interfaces()).flux(),
         )
 
-        if self.params.get("rediscretize_darcy_flux", False):
-            self.add_nonlinear_diffusive_flux_discretization(
-                self.darcy_flux_discretization(subdomains).flux()
-            )
+        self.add_nonlinear_darcy_flux_discretization()
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Method to be overridden to add the Darcy flux discretization to the
+        nonlinear update routines.
+
+        Example:
+
+            .. code:: python3
+
+                self.add_nonlinear_diffusive_flux_discretization(
+                    self.darcy_flux_discretization(self.mdg.subdomains()).flux()
+                )
+
+        This method is called as part of :meth:`set_nonlinear_discretizations`.
+        The base implementation adds nothing.
+
+        """
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
