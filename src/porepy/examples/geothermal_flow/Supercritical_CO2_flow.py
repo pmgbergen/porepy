@@ -34,8 +34,8 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 1000.0 * day
-dt = 10.0 * day
+tf = 400.0 * day
+dt = 1.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -63,7 +63,7 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-10,
+    "nl_convergence_tol_res": 1.0e-8,
     "max_iterations": 100,
 }
 

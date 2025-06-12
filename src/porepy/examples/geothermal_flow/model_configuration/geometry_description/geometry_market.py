@@ -339,7 +339,7 @@ class SimpleGeometryHayekVertical2D(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 0.25
+    _dist_from_ref_point: float = 0.05
     _inlet_centre: np.ndarray = np.array([2.5, 0.0,  0.0])
     _outlet_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
@@ -365,8 +365,8 @@ class SimpleGeometryHayekVertical2D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.25, "m")
-        cell_size_y = self.units.convert_units(0.25, "m")
+        cell_size = self.units.convert_units(0.05, "m")
+        cell_size_y = self.units.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": cell_size_y}
         return mesh_args
 
