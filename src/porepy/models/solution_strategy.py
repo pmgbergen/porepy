@@ -131,7 +131,7 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_variables: list[str] = []
         """See :meth:`schur_complement_primary_variables`."""
 
-        self._schur_complement_schur_complement_primary_equations: list[str] = []
+        self._schur_complement_primary_equations: list[str] = []
         """See :meth:`schur_complement_primary_equations`."""
 
         self.secondary_block_permutation: dict[
@@ -263,10 +263,17 @@ class SolutionStrategy(pp.PorePyModel):
 
     @property
     def schur_complement_primary_equations(self) -> list[str]:
-        """Names of the primary equations.
+        """Names of the primary equations for the Schur complement reduction of the
+        linear system.
 
         They define the row-block which does not contain the sub-matrix which is to be
         inverted for the Schur complement.
+
+        See also:
+
+            - :meth:`assemble_linear_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
 
         Parameters:
             names: List of equation names to be set as primary equations.
@@ -296,10 +303,17 @@ class SolutionStrategy(pp.PorePyModel):
 
     @property
     def schur_complement_primary_variables(self) -> list[str]:
-        """Names of the primary variables.
+        """Names of the primary variables for the Schur complement reduction of the
+        linear system.
 
         They define the column-block which does not contain the sub-matrix which is to
         be inverted for the Schur complement.
+
+        See also:
+
+            - :meth:`assemble_linear_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
 
         Parameters:
             names: List of variable names to be set as primary variables.
