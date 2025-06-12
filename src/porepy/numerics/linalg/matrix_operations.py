@@ -1796,7 +1796,7 @@ def generate_permutation_to_block_diag_matrix(
 
         # Detect rows with no non-zero entries, as they do not appear
         # in any graph component and would otherwise be dropped.
-        # To preserve the original matrix sizetreat each 
+        # To preserve the original matrix sizetreat each
         # all-zero row as its own 1×1 block.
         used_rows = set(block_row_indices)
         all_indices = set(range(num_rows))
