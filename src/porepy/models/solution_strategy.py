@@ -134,18 +134,6 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_equations: list[str] = []
         """See :meth:`schur_complement_primary_equations`."""
 
-        self.secondary_block_permutation: dict[
-            Literal["row_perm_indices", "col_perm_indices", "block_sizes"], np.ndarray
-        ] = {}
-        """Stores the information on the permutations in the secondary block of the
-        linear system, which is to be eliminated when
-        ``model.params['apply_schur_complement_reduction'] == True``.
-
-        Permutations generated and stored using :func:`~porepy.numerics.linalg.
-        matrix_operations.generate_permutation_to_block_diag_matrix`.
-
-        """
-
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
