@@ -1823,7 +1823,6 @@ def invert_permuted_block_diag_matrix(
     row_permutation: np.ndarray,
     col_permutation: np.ndarray,
     block_sizes: np.ndarray,
-    eps: float = 1e-10,
 ) -> sps.csr_matrix:
     """Compute :math:`A^{-1}` of a permuted block-diagonal matrix by
 
@@ -1842,7 +1841,6 @@ def invert_permuted_block_diag_matrix(
         row_permutation: See :func:`generate_permutation_to_block_diag_matrix`.
         col_permutation: See :func:`generate_permutation_to_block_diag_matrix`.
         block_sizes: See :func:`generate_permutation_to_block_diag_matrix`.
-        eps: ``default=1e-10``
 
             A small value to eliminate near-zero values in the inverse, which is
             returned in a sparse format. To be used if the inverted matrix is
@@ -1853,7 +1851,7 @@ def invert_permuted_block_diag_matrix(
 
     """
 
-    # Find the permutations that resolves A into block-diagonal
+    # Find the permutations that resolves A into block-diagonal.
     row_slicer = ArraySlicer(domain_indices=row_permutation)
     col_slicer = ArraySlicer(range_indices=col_permutation)
 
@@ -1865,17 +1863,15 @@ def invert_permuted_block_diag_matrix(
     # an extra cost.
     A_block_diag = row_slicer @ (col_slicer.T @ A.T).T
 
-    # Compute the inverse of each sub-block in place
+    # Compute the inverse of each sub-block in place.
     inv_A_block_diag = invert_diagonal_blocks(A_block_diag, block_sizes, method="numba")
 
-    # Undo the permutations to obtain the inverse of the original matrix
+    # Undo the permutations to obtain the inverse of the original matrix.
     # A^{-1} = P_col A_block_diag^{-1} P_row
     inv_row_slicer = row_slicer.T
     inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
 
-    # Zero out entries below tolerance to remove numerical noise.
-    treat_as_zero = np.abs(inv_A.data) < eps
-    inv_A.data[treat_as_zero] = 0.0
+    # Eliminate zero entries.
     inv_A.eliminate_zeros()
 
     return inv_A
