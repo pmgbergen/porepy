@@ -583,52 +583,55 @@ class FluidBuoyancy(pp.PorePyModel):
 
     def component_buoyancy(self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
 
-        # This construction implies that for each component pair, there is a pair of upwinding objects
         b_fluxes = []
-        for phase in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase):
-                gamma, delta = pairs
-                rho_gamma = gamma.density(domains)
-                rho_delta = delta.density(domains)
-                w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta) # well-defined flux on facets
-                f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
-                f_delta = self.fractional_phase_mass_mobility(delta, domains)
+        single_phase_Q = len(self.fluid.phases) == 1
+        if single_phase_Q:
+            # TODO: Find/construct a notion of md-empty operator on facets
+            b_fluxes.append(self.density_driven_flux(domains,pp.ad.Scalar(0.0)))
+        else:
+            # This construction implies that for each component pair, there is a pair of upwinding objects
+            for phase in self.fluid.phases:
+                for pairs in self.phase_pairs_for(phase):
+                    gamma, delta = pairs
+                    rho_gamma = gamma.density(domains)
+                    rho_delta = delta.density(domains)
+                    w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta) # well-defined flux on facets
+                    f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
+                    f_delta = self.fractional_phase_mass_mobility(delta, domains)
 
-                # Verify that the domains are subdomains.
-                if not all(isinstance(d, pp.Grid) for d in domains):
-                    raise ValueError("domains must consist entirely of subdomains.")
-                domains = cast(list[pp.Grid], domains)
+                    # Verify that the domains are subdomains.
+                    if not all(isinstance(d, pp.Grid) for d in domains):
+                        raise ValueError("domains must consist entirely of subdomains.")
+                    domains = cast(list[pp.Grid], domains)
 
-                chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
+                    chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
 
-                discr_gamma = self.upward_phase_discretization(gamma, domains)
-                discr_delta = self.downward_phase_discretization(delta, domains)
+                    discr_gamma = self.upward_phase_discretization(gamma, domains)
+                    discr_delta = self.downward_phase_discretization(delta, domains)
 
-                diffusive_upwind = self.mobility_discretization(domains)
-                chi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
+                    diffusive_upwind = self.mobility_discretization(domains)
+                    chi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
 
-                # TODO: Fixed dimensional implementation. Needs md-part
-                f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ f_gamma # well-defined fraction flow on facets
-                f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
+                    # TODO: Fixed dimensional implementation. Needs md-part
+                    f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ f_gamma # well-defined fraction flow on facets
+                    f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
 
-                b_flux_gamma_delta = chi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
-                b_fluxes.append(b_flux_gamma_delta)
-
-
+                    b_flux_gamma_delta = chi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                    b_fluxes.append(b_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(b_fluxes) # sum all buoyancy terms w.t. component_xi
         b_flux.set_name("component_buoyancy_" + component_xi.name)
         return b_flux
 
     def phase_pairs_for(self, phase_gamma: pp.Component):
-        combination_by_pairs = list(combinations(self.fluid.phases, 2))
+        combination_by_pairs = [pair for pair in list(combinations(self.fluid.phases, 2)) if phase_gamma in pair]
         selected_pairs = []
-        for pairs in combination_by_pairs:
-            idx = pairs.index(phase_gamma)
+        for pair in combination_by_pairs:
+            idx = pair.index(phase_gamma)
             if idx == 0:
-                phase_gamma, phase_delta = pairs
+                phase_gamma, phase_delta = pair
             elif idx == 1:
-                phase_delta, phase_gamma = pairs
+                phase_delta, phase_gamma = pair
             else:
                 continue
             selected_pairs.append((phase_gamma, phase_delta))

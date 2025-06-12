@@ -21,6 +21,7 @@ from porepy.models.compositional_flow import (
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
 )
+from porepy.models.fluid_property_library import FluidBuoyancy
 
 
 class TracerFluid:
@@ -109,6 +110,7 @@ class TracerFlowModel(  # type: ignore[misc]
     SquareDomainOrthogonalFractures,
     TracerFluid,
     CompositionalVariables,
+    FluidBuoyancy,
     ComponentMassBalanceEquations,
     TracerBC,
     TracerIC,

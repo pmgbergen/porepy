@@ -612,7 +612,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(component, subdomains) + self.component_buoyancy(component, subdomains)
+        viscous_flux = self.component_flux(component, subdomains)
+        buoyancy_flux = self.component_buoyancy(component, subdomains)
+        flux = viscous_flux + buoyancy_flux
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
