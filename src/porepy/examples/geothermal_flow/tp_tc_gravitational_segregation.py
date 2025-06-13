@@ -143,12 +143,10 @@ class LiquidEOS(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
+        
         nc = len(thermodynamic_dependencies[0])
-        vals = (1000.0) * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
+        vals = 1000.0 * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def mu_func(
         self,
@@ -157,9 +155,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
 
         nc = len(thermodynamic_dependencies[0])
         vals = (1.0e-3) * np.ones(nc) * 1.0e-6
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def h(
         self,
@@ -168,9 +164,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
 
         nc = len(thermodynamic_dependencies[0])
         vals = (2.0) * np.ones(nc) * 1.0e-6
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def kappa(
         self,
@@ -179,9 +173,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
 
         nc = len(thermodynamic_dependencies[0])
         vals = (2.0) * np.ones(nc) * 1.0e-6
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def compute_phase_properties(
         self,
@@ -190,28 +182,15 @@ class LiquidEOS(pp.compositional.EquationOfState):
         params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> pp.compositional.PhaseProperties:
 
-        p, h, z_CO2 = thermodynamic_input
-        # same for all input (number of cells)
-        assert len(p) == len(h) == len(z_CO2)
         nc = len(thermodynamic_input[0])
-
         # mass density of phase
         rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
-
         # specific enthalpy of phase
         h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
         # dynamic viscosity of phase
         mu, dmu = self.mu_func(*thermodynamic_input)  # (n,), (3, n) array
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
-
-        # Fugacity coefficients
-        # not required for this formulation, since no equilibrium equations
-        # just show-casing it here
-        phis = np.empty((2, nc))  # (2, n) array  (2 components)
-        dphis = np.empty(
-            (2, 3, nc)
-        )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
         return pp.compositional.PhaseProperties(
             state=phase_state,
@@ -223,8 +202,8 @@ class LiquidEOS(pp.compositional.EquationOfState):
             dmu=dmu,
             kappa=kappa,
             dkappa=dkappa,
-            phis=phis,
-            dphis=dphis,
+            phis=np.empty((2, nc)),
+            dphis=np.empty((2, 3, nc)),
         )
 
 
@@ -437,9 +416,9 @@ time_manager = pp.TimeManager(
 solid_constants = pp.SolidConstants(
     permeability=1.0e-14,
     porosity=0.1,
-    thermal_conductivity=2.0 * 1.0e-6,
+    thermal_conductivity=2.0,
     density=2500.0,
-    specific_heat_capacity=1000.0 * 1.0e-6,
+    specific_heat_capacity=1000.0,
 )
 material_constants = {"solid": solid_constants}
 params = {
