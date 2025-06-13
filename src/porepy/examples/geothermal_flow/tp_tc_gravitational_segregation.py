@@ -12,13 +12,17 @@ from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
 from abc import abstractmethod
 
+# define constant phase densities
+rho_l = 1000.0
+rho_g = 500.0
+
 # geometry description
 class Geometry(pp.PorePyModel):
 
     @abstractmethod
-    def get_inlet_outlet_sides(
+    def dirichlet_facets(
         self, sd: pp.Grid | pp.BoundaryGrid
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray]:
         pass
 
     @staticmethod
@@ -29,9 +33,8 @@ class Geometry(pp.PorePyModel):
 
 class ModelGeometry(Geometry):
 
-    _dist_from_ref_point: float = 1.0
-    _inlet_centre: np.ndarray = np.array([2.5, 0.0,  0.0])
-    _outlet_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
+    _sphere_radius: float = 1.0
+    _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(5.0, "m")
@@ -47,7 +50,7 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
             face_centers = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -59,13 +62,11 @@ class ModelGeometry(Geometry):
 
         def find_facets(center: np.ndarray) -> np.ndarray:
             logical = Geometry.harvest_sphere_members(
-                center, self._dist_from_ref_point, face_centers[bf_indices]
+                center, self._sphere_radius, face_centers[bf_indices]
             )
             return bf_indices[logical]
 
-        inlet_facets = find_facets(self._inlet_centre)
-        outlet_facets = find_facets(self._outlet_centre)
-        return inlet_facets, outlet_facets
+        return find_facets(self._sphere_centre)
 
 # constitutive description
 def gas_saturation_func(
@@ -75,15 +76,13 @@ def gas_saturation_func(
     p, h, z_CO2 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CO2)
 
-    rho_l = 1000.0
-    rho_v = 500.0
     nc = len(thermodynamic_dependencies[0])
-    vals = (z_CO2*rho_l)/(z_CO2*rho_l + rho_v - z_CO2*rho_v)
+    vals = (z_CO2*rho_l)/(z_CO2*rho_l + rho_g - z_CO2*rho_g)
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = (rho_l*rho_v)/((z_CO2*(rho_l - rho_v) + rho_v)*(z_CO2*(rho_l - rho_v) + rho_v))
+    diffs[2, :] = (rho_l*rho_g)/((z_CO2*(rho_l - rho_g) + rho_g)*(z_CO2*(rho_l - rho_g) + rho_g))
     return vals, diffs
 
 
@@ -112,10 +111,7 @@ def CO2_liq_func(
     nc = len(thermodynamic_dependencies[0])
     vals = np.zeros_like(z_CO2)
     vals = np.clip(vals, 1.0e-16, 1.0)
-
-    # row-wise storage of derivatives, (4, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    return vals, diffs
+    return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
 def CO2_gas_func(
@@ -127,10 +123,7 @@ def CO2_gas_func(
     nc = len(thermodynamic_dependencies[0])
     vals = np.ones_like(z_CO2)
     vals = np.clip(vals, 1.0e-16, 1.0)
-
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    return vals, diffs
+    return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 chi_functions_map = {
     "CO2_liq": CO2_liq_func,
@@ -143,9 +136,9 @@ class LiquidEOS(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        
+
         nc = len(thermodynamic_dependencies[0])
-        vals = 1000.0 * np.ones(nc)
+        vals = rho_l * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def mu_func(
@@ -215,7 +208,7 @@ class GasEOS(LiquidEOS):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (500.0) * np.ones(nc)
+        vals = rho_g * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -286,7 +279,6 @@ class SecondaryEquations(LocalElimination):
             for comp in phase:
                 check = self.has_independent_partial_fraction(comp, phase)
                 if check:
-                    print("component-phase has independent fraction: ", (comp.name, phase.name))
                     self.eliminate_locally(
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),
@@ -312,13 +304,10 @@ class BoundaryConditions(pp.PorePyModel):
     ]
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        _ , outlet_idx = self.get_inlet_outlet_sides(sd)
-        return pp.BoundaryCondition(sd, outlet_idx, "dir")
-        # return pp.BoundaryCondition(sd, np.concatenate((inlet_idx,outlet_idx)), "dir")
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        _ , outlet_idx = self.get_inlet_outlet_sides(sd)
-        return pp.BoundaryCondition(sd, outlet_idx, "dir")
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_top = 10.0
@@ -326,7 +315,6 @@ class BoundaryConditions(pp.PorePyModel):
         return p
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        _, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         h_inlet = 1.0
         h = h_inlet * np.ones(boundary_grid.num_cells)
         return h
@@ -346,19 +334,17 @@ class InitialConditions(pp.PorePyModel):
         # set the values to be the custom functions
         subdomains = self.mdg.subdomains()
         CO2 = self.fluid.components[1]
+        liq, gas = self.fluid.phases
         for sd in subdomains:
             z_v = self.ic_values_overall_fraction(CO2,sd)
             x_CO2_liq_v = np.zeros_like(z_v)
             x_CO2_gas_v = np.ones_like(z_v)
 
-            liq, gas = self.fluid.phases
             s_gas = gas.saturation([sd])
             x_CO2_liq = liq.partial_fraction_of[CO2]([sd])
             x_CO2_gas = gas.partial_fraction_of[CO2]([sd])
 
-            rho_l = 1000.0
-            rho_v = 500.0
-            s_gas_val = (z_v * rho_l) / (z_v * rho_l + rho_v - z_v * rho_v)
+            s_gas_val = (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
 
             self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
             self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
@@ -442,6 +428,7 @@ class TpTcFlowModel(FlowModel):
         super().after_nonlinear_convergence()
 
         sd = model.mdg.subdomains()[0]
+        phases = list(self.fluid.phases)
         components = list(self.fluid.components)
 
         flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
@@ -453,9 +440,8 @@ class TpTcFlowModel(FlowModel):
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
-        var_names = [var.name for var in self.equation_system.variables]
-        s_gas_idx = var_names.index("s_gas")
-        sg_val = self.equation_system.get_variable_values([self.equation_system.variables[s_gas_idx]], time_step_index=0)
+        s_gas = phases[1].saturation([sd])
+        sg_val = self.equation_system.evaluate(s_gas)
         print("volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
         assert np.isclose(np.sum(sd.cell_volumes * sg_val), 12.0, atol=1.0e-2)
 
@@ -481,20 +467,9 @@ class TpTcFlowModel(FlowModel):
         self.rediscretize()
 
 model = TpTcFlowModel(params)
-
-tb = time.time()
 model.prepare_simulation()
-te = time.time()
-print("Elapsed time prepare simulation: ", te - tb)
-print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
-print("Mixed-dimensional grid employed: ", model.mdg)
 
 # print geometry
 model.exporter.write_vtu()
 
-tb = time.time()
 pp.run_time_dependent_model(model, params)
-te = time.time()
-print("Elapsed time run_time_dependent_model: ", te - tb)
-print("Total number of DoF: ", model.equation_system.num_dofs())
-print("Mixed-dimensional grid information: ", model.mdg)
