@@ -424,8 +424,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 400.0 * day
-dt = 1.0 * day
+tf = 500.0 * day
+dt = 100.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -457,11 +457,11 @@ params = {
     "max_iterations": 100,
 }
 
-class SuperCriticalCO2FlowModel(FlowModel):
+class TpTcFlowModel(FlowModel):
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
-        
+
         sd = model.mdg.subdomains()[0]
         components = list(self.fluid.components)
 
@@ -501,7 +501,7 @@ class SuperCriticalCO2FlowModel(FlowModel):
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
-model = SuperCriticalCO2FlowModel(params)
+model = TpTcFlowModel(params)
 
 tb = time.time()
 model.prepare_simulation()
