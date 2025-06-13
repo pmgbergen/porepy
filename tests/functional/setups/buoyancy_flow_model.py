@@ -33,7 +33,7 @@ class Geometry(pp.PorePyModel):
         return np.where(r < rc, True, False)
 
 
-class ModelGeometry(Geometry):
+class ModelGeometry2D(Geometry):
     _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
@@ -303,7 +303,7 @@ class SecondaryEquations(LocalElimination):
                 phase.saturation,  # callable giving saturation on ``subdomains``
                 self.dependencies_of_phase_properties(
                     phase
-                ),  # callables giving primary variables on subdoains
+                ),  # callables giving primary variables on subdomains
                 gas_saturation_func,  # numerical function implementing correlation
                 subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
             )
@@ -451,9 +451,7 @@ class FlowModel(
         mass_conservative_Q = order_mass_loss >= self.expected_order_mass_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
         assert mass_conservative_Q
-
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
-        print("Time value: ", self.time_manager.time)
+        
         print("Time index: ", self.time_manager.time_index)
         print("")
 
@@ -493,15 +491,7 @@ class FlowModel(
                 nonlinear_increment
             )
 
-            # Residual per subsystem
-            res_idx = self.equation_system.assembled_equation_indices
-            # p_res_norm = np.linalg.norm(residual[res_idx['mass_balance_equation']])
-            # z_res_norm = np.linalg.norm(residual[res_idx['component_mass_balance_equation_CO2']])
-            # h_res_norm = np.linalg.norm(residual[res_idx['energy_balance_equation']])
-            # s_res_norm = np.linalg.norm(residual[res_idx['elimination_of_s_gas_on_grids_[0]']])
-            # t_res_norm = np.linalg.norm(residual[res_idx['elimination_of_temperature_on_grids_[0]']])
-
-            residual_norm = np.linalg.norm(residual)  # np.max([p_res_norm,z_res_norm,h_res_norm,s_res_norm,t_res_norm])
+            residual_norm = np.linalg.norm(residual)
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                     nl_params["nl_convergence_tol"] is np.inf
