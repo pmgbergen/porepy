@@ -422,7 +422,7 @@ params = {
     "max_iterations": 100,
 }
 
-class TpTcFlowModel(FlowModel):
+class TwoPTwoCModel(FlowModel):
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
@@ -466,7 +466,7 @@ class TpTcFlowModel(FlowModel):
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
-model = TpTcFlowModel(params)
+model = TwoPTwoCModel(params)
 model.prepare_simulation()
 
 # print geometry
