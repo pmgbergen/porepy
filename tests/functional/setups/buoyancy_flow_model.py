@@ -433,9 +433,8 @@ class FlowModel(
 
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
-        are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
-        print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
-        assert are_reciprocal_Q
+        buoyancy_fluxes_are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
+        assert buoyancy_fluxes_are_reciprocal_Q
 
         ic_sg_val = self.ic_values_staturation(sd)
         ref_sg_integral = np.sum(sd.cell_volumes * ic_sg_val)
@@ -445,15 +444,8 @@ class FlowModel(
         num_sg_integral = np.sum(sd.cell_volumes * sg_val)
         mass_loss = np.abs(ref_sg_integral - num_sg_integral)
         order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
-        print("ref volume integral sg: ", ref_sg_integral)
-        print("num volume integral sg: ", num_sg_integral)
-        print("Order of mass loss: ", order_mass_loss)
         mass_conservative_Q = order_mass_loss >= self.expected_order_mass_loss
-        print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
         assert mass_conservative_Q
-        
-        print("Time index: ", self.time_manager.time_index)
-        print("")
 
     def set_equations(self):
         super().set_equations()
