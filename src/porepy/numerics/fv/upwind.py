@@ -43,6 +43,22 @@ class Upwind(Discretization):
 
         """
 
+    @property
+    def upwind_matrix_key(self) -> str:
+        return self._upwind_matrix_key
+
+    @upwind_matrix_key.setter
+    def upwind_matrix_key(self, value: str) -> None:
+        self._upwind_matrix_key = value
+
+    @property
+    def flux_array_key(self) -> str:
+        return self._flux_array_key
+
+    @flux_array_key.setter
+    def flux_array_key(self, value: str) -> None:
+        self._flux_array_key = value
+
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method. In this
         case number of cells.
@@ -218,7 +234,10 @@ class Upwind(Discretization):
 
         # Get the sign of the advective flux.
         darcy_flux: np.ndarray = np.sign(parameter_dictionary[self._flux_array_key])
-        bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+
+        # Enables the creation of an upwind object even if boundary data is not externally provided.
+        bc_all_dir: pp.BoundaryCondition = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
+        bc: pp.BoundaryCondition = parameter_dictionary.get("bc", bc_all_dir)
 
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0

@@ -552,6 +552,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
 
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+    component_buoyancy: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -607,7 +612,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(component, subdomains)
+        viscous_flux = self.component_flux(component, subdomains)
+        buoyancy_flux = self.component_buoyancy(component, subdomains)
+        flux = viscous_flux + buoyancy_flux
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -980,6 +987,7 @@ class ConstitutiveLawsCF(
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.FluidBuoyancy,
     # Contains the Upwind for the enthalpy flux, otherwise not required.
     # TODO Consider putting discretizations strictly outside of classes providing
     # heuristics for thermodynamic properties.
@@ -1614,7 +1622,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 # Compute the values of variables/state functions on which the phase
                 # properties depend.
                 dep_vals = [
-                    self.equation_system.evaluate(d([grid]), state=state)
+                    self.equation_system.evaluate(d([grid]))
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
                 # Compute phase properties using the phase EoS.
