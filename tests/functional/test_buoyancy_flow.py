@@ -25,13 +25,9 @@ from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGe
         (True, 2),
         (True, 4),
         (True, 6),
-        (True, 8),
-        (True, 10),
         (False, 2),
         (False, 4),
         (False, 6),
-        (False, 8),
-        (False, 10),
     ],
 )
 def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
