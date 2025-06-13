@@ -672,7 +672,7 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
 
-    def update_buoyancy_discretizations(self):
+    def update_buoyancy_driven_fluxes(self):
 
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):

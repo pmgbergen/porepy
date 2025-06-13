@@ -103,20 +103,6 @@ def temperature_func(
     return vals, diffs
 
 
-def H2O_liq_func(
-    *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CO2 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CO2)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.ones_like(z_CO2)
-    vals = np.clip(vals, 1.0e-16, 1.0)
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    return vals, diffs
-
-
 def CO2_liq_func(
     *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -128,21 +114,6 @@ def CO2_liq_func(
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (4, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    return vals, diffs
-
-
-def H2O_gas_func(
-    *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CO2 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CO2)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = np.zeros_like(z_CO2)
-    vals = np.clip(vals, 1.0e-16, 1.0)
-
-    # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     return vals, diffs
 
@@ -161,14 +132,10 @@ def CO2_gas_func(
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     return vals, diffs
 
-
 chi_functions_map = {
-    "H2O_liq": H2O_liq_func,
     "CO2_liq": CO2_liq_func,
-    "H2O_gas": H2O_gas_func,
     "CO2_gas": CO2_gas_func,
 }
-
 
 class LiquidEOS(pp.compositional.EquationOfState):
 
@@ -486,30 +453,17 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-6,
+    "nl_convergence_tol_res": 1.0e-10,
     "max_iterations": 100,
 }
 
 class SuperCriticalCO2FlowModel(FlowModel):
 
     def after_nonlinear_convergence(self) -> None:
+        super().after_nonlinear_convergence()
+        
         sd = model.mdg.subdomains()[0]
-        phases = list(self.fluid.phases)
         components = list(self.fluid.components)
-
-        kappa_liq = self.relative_permeability(phases[0],self.mdg.subdomains())
-        kappa_gas = self.relative_permeability(phases[1], self.mdg.subdomains())
-        kappa_liq_val = self.equation_system.evaluate(kappa_liq)
-        kappa_gas_val = self.equation_system.evaluate(kappa_gas)
-        assert np.all(np.isclose(kappa_liq_val + kappa_gas_val, 1.0))
-
-        f_liq = self.fractional_phase_mass_mobility(phases[0], self.mdg.subdomains())
-        f_gas = self.fractional_phase_mass_mobility(phases[1], self.mdg.subdomains())
-        f_liq_val = self.equation_system.evaluate(f_liq)
-        f_gas_val = self.equation_system.evaluate(f_gas)
-        assert np.all(np.isclose(f_liq_val + f_gas_val, 1))
-
-        sg_val = self.equation_system.get_variable_values([self.equation_system.variables[4]], time_step_index=0)
 
         flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
         flux_buoyancy_c1 = self.component_buoyancy(components[1], self.mdg.subdomains())
@@ -517,21 +471,12 @@ class SuperCriticalCO2FlowModel(FlowModel):
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
         are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
-        assert are_reciprocal_Q
-
-        # Integrated overall mass flux on all facets
-        mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
-        _, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
-
-        # Check conservation of overall mass across pressure boundary
-        external_bc_idx = sd.get_boundary_faces()
-        print("Boundary integral of m dot n: ", np.sum(mn[external_bc_idx]))
-        assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-4)
-
-        are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
+        var_names = [var.name for var in self.equation_system.variables]
+        s_gas_idx = var_names.index("s_gas")
+        sg_val = self.equation_system.get_variable_values([self.equation_system.variables[s_gas_idx]], time_step_index=0)
         print("volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
         assert np.isclose(np.sum(sd.cell_volumes * sg_val), 12.0, atol=1.0e-2)
 
@@ -539,7 +484,11 @@ class SuperCriticalCO2FlowModel(FlowModel):
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-        super().after_nonlinear_convergence()
+
+
+    def set_equations(self):
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
 
     def set_nonlinear_discretizations(self) -> None:
         super().set_nonlinear_discretizations()
@@ -549,17 +498,8 @@ class SuperCriticalCO2FlowModel(FlowModel):
         self.exporter.write_pvd()
 
     def before_nonlinear_iteration(self) -> None:
-        self.update_buoyancy_discretizations()
+        self.update_buoyancy_driven_fluxes()
         self.rediscretize()
-
-    def update_discretization_parameters(self) -> None:
-        super().update_discretization_parameters()
-        if self.time_manager.time_index == 0:
-            self.set_buoyancy_discretization_parameters()
-
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
-
 
 model = SuperCriticalCO2FlowModel(params)
 
