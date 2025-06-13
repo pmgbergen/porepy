@@ -782,6 +782,14 @@ class SolutionStrategy(pp.PorePyModel):
         :meth:`schur_complement_primary_equations` are used to perform a Schur
         complement technique.
 
+        To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
+        EquationSystem.default_schur_complement_inverter` is used by default.
+        This inverter assumes the secondary equations to consist of non-overlapping
+        blocks (local equations, block-diagonal matrix).
+        The user can provide a custom inverter
+        ``model.params['schur_complement_inverter']``, which is a callable taking a
+        sparse matrix and returning the inverse (sparse) matrix.
+
         See Also:
 
             - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.

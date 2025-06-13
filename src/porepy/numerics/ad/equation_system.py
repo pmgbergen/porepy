@@ -1704,10 +1704,13 @@ class EquationSystem:
                 row-sense.
             primary_variables: A subset of variables specifying the primary subspace in
                 column-sense.
-            inverter (optional): Callable to compute the inverse of the matrix
-                :math:`A_{ss}`. :meth:`default_schur_complement_inverter` is used if not
-                provided.
-            state (optional): See :meth:`assemble`. Defaults to None.
+            inverter: ``default=None``
+
+                Callable to compute the inverse of the matrix :math:`A_{ss}`.
+                :meth:`default_schur_complement_inverter` is used if not provided.
+            state: ``default=None``
+
+                See :meth:`assemble`. Defaults to None.
 
         Returns:
             Tuple containing
