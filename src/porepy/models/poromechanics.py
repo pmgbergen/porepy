@@ -139,23 +139,15 @@ class SolutionStrategyPoromechanics(
 
     """
 
-    darcy_flux_discretization: Callable[
-        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
-    ]
-    """Discretization of the Darcy flux. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that defines the Biot tensor. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
             # Set the Biot coefficient.
@@ -171,17 +163,19 @@ class SolutionStrategyPoromechanics(
         """The coupled problem is nonlinear."""
         return True
 
-    def set_nonlinear_discretizations(self) -> None:
-        """Collect discretizations for nonlinear terms."""
-        # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
-        # balance does not have any.
-        super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a
-        # re-discretization of the diffusive flux in subdomains where the aperture
-        # changes.
-        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux(),
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Poromechanics rely by default on Darcy flux re-discretization.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+            ).flux(),
         )
 
 

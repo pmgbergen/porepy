@@ -942,13 +942,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
             return pp.wrap_as_dense_ad_array(bulk, name="bulk_modulus")
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
         The parent class' definitions of permeability, stiffness parameters, and the
         Biot and thermal stress tensors are owerwritten.
         """
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         x, y, z = sym.symbols("x y z")
 
