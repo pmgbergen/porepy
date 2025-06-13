@@ -102,7 +102,6 @@ The steps required by users to close the models and obtain runable models are:
 from __future__ import annotations
 
 import logging
-import time
 from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
@@ -199,7 +198,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
     et = compositional.get_equilibrium_type(model)
-    schur = model.params.get("reduce_linear_system", False)
+    schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -1549,212 +1548,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
 
-class SolutionStrategySchurComplement(pp.PorePyModel):
-    """Solution strategy mixing allowing the definition of primary variables and
-    equations in order to perform a Schur-complement elimination and expansion during
-    the solution of the linear system.
-
-    Intended use is for large models with local, algebraic equations which are secondary
-    in some sense.
-
-    Example use cases are any CF models with multiple phases and components, which
-    require either a closure in the form of constitutive equations or local equilibrium
-    conditions.
-
-    The Schur complement is defined by setting primary equations and variables. They
-    define the rows and columns respectively of the primary diagonal block, which is
-    *not* inverted for the Schur complement.
-
-    In order for the Schur complement reduction to be performed, the user must
-    provide a flag ``params['reduce_linear_system']`` in the model parameters. By
-    default this flag is False.
-
-    """
-
-    pressure_variable: str
-    enthalpy_variable: str
-
-    overall_fraction_variables: list[str]
-    tracer_fraction_variables: list[str]
-
-    component_mass_balance_equation_names: Callable[[], list[str]]
-
-    @property
-    def primary_equations(self) -> list[str]:
-        """Names of the primary equations.
-
-        They define the row-block which does not contain the sub-matrix which is to be
-        inverted for the Schur complement.
-
-        Parameters:
-            names: List of equation names to be set as primary equations.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the equations (currently) defined as primary equations.
-
-        """
-        return self._primary_equations
-
-    @primary_equations.setter
-    def primary_equations(self, names: list[str]) -> None:
-        known_equations = list(self.equation_system.equations.keys())
-        for n in names:
-            if n not in known_equations:
-                raise ValueError(f"Equation {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary equation names must be unique.")
-        # Shallow copy for safety
-        self._primary_equations = [n for n in names]
-
-    @property
-    def primary_variables(self) -> list[str]:
-        """Names of the primary variables.
-
-        They define the column-block which does not contain the sub-matrix which is to
-        be inverted for the Schur complement.
-
-        Parameters:
-            names: List of variable names to be set as primary variables.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the variables (currently) defined as primary variables.
-
-        """
-        return self._primary_variables
-
-    @primary_variables.setter
-    def primary_variables(self, names: list[str]) -> None:
-        known_variables = list(set(v.name for v in self.equation_system.variables))
-        for n in names:
-            if n not in known_variables:
-                raise ValueError(f"Variable {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary variables names must be unique.")
-        # Shallow copy for safety
-        self._primary_variables = [n for n in names]
-
-    @property
-    def secondary_equations(self) -> list[str]:
-        """The list of equation names indirectly defined as secondary.
-
-        They are given as the complement of :meth:`primary_equations` within all
-        equations found in the equation system.
-
-        Note:
-            Due to usage of Python's ``set``- operations, the resulting list may or may
-            not be in the order the equations were added to the model.
-
-        Returns:
-            A list of equation names defining the rows of the sub-matrix to be
-            inverted for the Schur complement.
-
-        """
-        all_equations = set([n for n in self.equation_system.equations.keys()])
-        return list(all_equations.difference(set(self.primary_equations)))
-
-    @property
-    def secondary_variables(self) -> list[str]:
-        """The list of variable (names) indirectly defined as secondary.
-
-        They are given as the complement of :meth:`primary_variables` within all
-        variables found in the equation system.
-
-        Note:
-            Due to usage of Python's ``set``- operations, the resulting list may or may
-            not be in the order the variables were created in the final model.
-
-        Returns:
-            A list of variable names defining the columns of the sub-matrix to be
-            inverted for the Schur complement.
-
-        """
-        all_variables = set([var.name for var in self.equation_system.variables])
-        return list(all_variables.difference(set(self.primary_variables)))
-
-    def get_primary_equations_cf(self) -> list[str]:
-        """Returns a list of primary equations assumed to be the default in the CF
-        setting.
-
-        The list includes:
-
-        1. The total mass balance equation.
-        2. Component mass balance equations for each independent component.
-        3. The total energy balance equation.
-
-        """
-        return [
-            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name(),
-            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
-        ] + self.component_mass_balance_equation_names()
-
-    def get_primary_variables_cf(self) -> list[str]:
-        """Returns a list of primary variables assumed to be the default in the CF
-        setting.
-
-        The list includes:
-
-        1. The pressure variable.
-        2. The overall fraction variables for each independent component.
-        3. The tracer fraction variables for tracers in compounds (if any).
-        4. The (specific fluid) enthalpy variable.
-
-        """
-        return (
-            [
-                self.pressure_variable,
-            ]
-            + self.overall_fraction_variables
-            + self.tracer_fraction_variables
-            + [
-                self.enthalpy_variable,
-            ]
-        )
-
-    def assemble_linear_system(self) -> None:
-        """Assemble the linearized system and store it in :attr:`linear_system`.
-
-        This method performs a Schur complement elimination.
-
-        Uses the :meth:`primary_equations` and :meth:`primary_variables` to define the
-        Schur complement.
-
-        """
-        t_0 = time.time()
-
-        if self.params.get("reduce_linear_system", False):
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.primary_equations, self.primary_variables
-            )
-        else:
-            self.linear_system = self.equation_system.assemble()
-
-        t_1 = time.time()
-        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
-
-    def solve_linear_system(self) -> np.ndarray:
-        """After calling the parent method, the global solution is calculated by Schur
-        expansion."""
-
-        # NOTE mypy complaints about trivial body of protocol.
-        # But this is a mixin. We assert it is indeed a solution strategy and proceed
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        sol = super().solve_linear_system()  # type:ignore[safe-super]
-
-        if self.params.get("reduce_linear_system", False):
-            sol = self.equation_system.expand_schur_complement_solution(sol)
-        return sol
-
-
 class SolutionStrategyExtendedFluidMassAndEnergy(
     pp.mass_and_energy_balance.SolutionStrategyFluidMassAndEnergy
 ):
@@ -1790,7 +1583,6 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
 
 class SolutionStrategyCF(
     SolutionStrategyPhaseProperties,
-    SolutionStrategySchurComplement,
     SolutionStrategyExtendedFluidMassAndEnergy,
 ):
     """Solution strategy for general compositional flow.
@@ -1849,7 +1641,7 @@ class SolutionStrategyCF(
 # endregion
 
 
-class CompositionalFlowTemplate(  # type: ignore[misc,override]
+class CompositionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
@@ -1900,7 +1692,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc,override]
     """
 
 
-class CompositionalFractionalFlowTemplate(  # type: ignore[misc,override]
+class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
