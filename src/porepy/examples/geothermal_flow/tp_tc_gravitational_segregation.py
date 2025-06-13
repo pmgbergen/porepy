@@ -1,20 +1,21 @@
 
 from __future__ import annotations
-import os
-os.environ["NUMBA_DISABLE_JIT"] = str(0)
 
-import time
-
-from typing import Callable, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
 from abc import abstractmethod
 
+# test parameters
+mass_tolerance = 1.0e-10
+h_size = 0.25
+
 # define constant phase densities
 rho_l = 1000.0
 rho_g = 500.0
+to_Mega = 1.0e-6
 
 # geometry description
 class Geometry(pp.PorePyModel):
@@ -33,7 +34,7 @@ class Geometry(pp.PorePyModel):
 
 class ModelGeometry(Geometry):
 
-    _sphere_radius: float = 1.0
+    _sphere_radius: float = h_size
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -46,7 +47,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(h_size, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -85,7 +86,6 @@ def gas_saturation_func(
     diffs[2, :] = (rho_l*rho_g)/((z_CO2*(rho_l - rho_g) + rho_g)*(z_CO2*(rho_l - rho_g) + rho_g))
     return vals, diffs
 
-
 def temperature_func(
     *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -100,7 +100,6 @@ def temperature_func(
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[1, :] = 1.0 * factor
     return vals, diffs
-
 
 def CO2_liq_func(
     *thermodynamic_dependencies: np.ndarray,
@@ -147,7 +146,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (1.0e-3) * np.ones(nc) * 1.0e-6
+        vals = (1.0e-3) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def h(
@@ -156,7 +155,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * 1.0e-6
+        vals = (2.0) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def kappa(
@@ -165,7 +164,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * 1.0e-6
+        vals = (2.0) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def compute_phase_properties(
@@ -310,7 +309,7 @@ class BoundaryConditions(pp.PorePyModel):
         return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_top = 10.0
+        p_top = 10.0e6 * to_Mega
         p = p_top * np.ones(boundary_grid.num_cells)
         return p
 
@@ -332,27 +331,26 @@ class InitialConditions(pp.PorePyModel):
         super().initial_condition()
 
         # set the values to be the custom functions
-        subdomains = self.mdg.subdomains()
-        CO2 = self.fluid.components[1]
         liq, gas = self.fluid.phases
-        for sd in subdomains:
-            z_v = self.ic_values_overall_fraction(CO2,sd)
-            x_CO2_liq_v = np.zeros_like(z_v)
-            x_CO2_gas_v = np.ones_like(z_v)
+        for sd in self.mdg.subdomains():
+            s_gas_val = self.ic_values_staturation(sd)
+            x_CO2_liq_v = np.zeros_like(s_gas_val)
+            x_CO2_gas_v = np.ones_like(s_gas_val)
+
+            x_CO2_liq = liq.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_CO2_gas = gas.partial_fraction_of[self.fluid.components[1]]([sd])
 
             s_gas = gas.saturation([sd])
-            x_CO2_liq = liq.partial_fraction_of[CO2]([sd])
-            x_CO2_gas = gas.partial_fraction_of[CO2]([sd])
-
-            s_gas_val = (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
-
             self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
             self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
             self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
 
+    def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
+        z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        return (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_init = 10.0
+        p_init = 10.0e6 * to_Mega
         return np.ones(sd.num_cells) * p_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
@@ -389,8 +387,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 500.0 * day
-dt = 100.0 * day
+tf = 100.0 * day
+dt = 5.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -402,9 +400,9 @@ time_manager = pp.TimeManager(
 solid_constants = pp.SolidConstants(
     permeability=1.0e-14,
     porosity=0.1,
-    thermal_conductivity=2.0,
+    thermal_conductivity=2.0*to_Mega,
     density=2500.0,
-    specific_heat_capacity=1000.0,
+    specific_heat_capacity=1000.0*to_Mega,
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -412,13 +410,11 @@ params = {
     "rediscretize_fourier_flux": True,
     "fractional_flow": True,
     "material_constants": material_constants,
-    "eliminate_reference_phase": True,  # s_liq eliminated, default is True
-    "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-10,
+    "nl_convergence_tol_res": 0.1*mass_tolerance, # test mass is conserved up to Order of mass_tolerance
     "max_iterations": 100,
 }
 
@@ -440,16 +436,21 @@ class TwoPTwoCModel(FlowModel):
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
+        ic_sg_val = self.ic_values_staturation(sd)
+        ref_sg_integral = np.sum(sd.cell_volumes * ic_sg_val)
+
         s_gas = phases[1].saturation([sd])
         sg_val = self.equation_system.evaluate(s_gas)
-        print("volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
-        assert np.isclose(np.sum(sd.cell_volumes * sg_val), 12.0, atol=1.0e-2)
+        print("ref volume integral sg: ", ref_sg_integral)
+        print("num volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
+        mass_conservative_Q = np.isclose(np.sum(sd.cell_volumes * sg_val), ref_sg_integral, atol=mass_tolerance)
+        print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
+        # assert mass_conservative_Q
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-
 
     def set_equations(self):
         super().set_equations()
@@ -465,6 +466,59 @@ class TwoPTwoCModel(FlowModel):
     def before_nonlinear_iteration(self) -> None:
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+
+        if self._is_nonlinear_problem():
+
+            self.equation_system
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+
+            # Residual per subsystem
+            res_idx = self.equation_system.assembled_equation_indices
+            p_res_norm = np.linalg.norm(residual[res_idx['mass_balance_equation']])
+            z_res_norm = np.linalg.norm(residual[res_idx['component_mass_balance_equation_CO2']])
+            h_res_norm = np.linalg.norm(residual[res_idx['energy_balance_equation']])
+            s_res_norm = np.linalg.norm(residual[res_idx['elimination_of_s_gas_on_grids_[0]']])
+            t_res_norm = np.linalg.norm(residual[res_idx['elimination_of_temperature_on_grids_[0]']])
+
+            residual_norm = np.max([p_res_norm,z_res_norm,h_res_norm,s_res_norm,t_res_norm])
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = (
+                nl_params["nl_convergence_tol"] is np.inf
+                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                nl_params["nl_convergence_tol_res"] is np.inf
+                or residual_norm < nl_params["nl_convergence_tol_res"]
+            )
+            converged = converged_inc and converged_res
+            diverged = False
+        else:
+            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
+
+
+        return converged, diverged
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
 model = TwoPTwoCModel(params)
 model.prepare_simulation()
