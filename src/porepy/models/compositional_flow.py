@@ -1607,9 +1607,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         super().update_material_properties()  # type:ignore[safe-super]
         self.update_thermodynamic_properties_of_phases()
 
-    def update_thermodynamic_properties_of_phases(
-        self, state: Optional[np.ndarray] = None
-    ) -> None:
+    def update_thermodynamic_properties_of_phases(self) -> None:
         """This method uses for each phase the underlying EoS to calculate new values
         and derivative values of phase properties and to update them in the iterative
         sense, on all subdomains."""
@@ -1624,7 +1622,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 # Compute the values of variables/state functions on which the phase
                 # properties depend.
                 dep_vals = [
-                    self.equation_system.evaluate(d([grid]), state=state)
+                    self.equation_system.evaluate(d([grid]))
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
                 # Compute phase properties using the phase EoS.
@@ -1644,7 +1642,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                     update_fugacities=equilibrium_defined,
                 )
 
-    def before_nonlinear_loop(self) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
 
         Phase properties expected in the accumulation term (time-derivative) include
@@ -1656,7 +1654,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         assert isinstance(self, pp.SolutionStrategy), (
             "This is a mixin. Require SolutionStrategy as base."
         )
-        super().before_nonlinear_loop()  # type:ignore[safe-super, misc]
+        super().after_nonlinear_convergence()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
         nt = self.time_step_indices.size
@@ -1678,7 +1676,11 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         accumulation terms in balance equations.
 
         """
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         super().initialize_previous_iterate_and_time_step_values()  # type:ignore
+
         ni = self.iterate_indices.size
         nt = self.time_step_indices.size
         equilibrium_defined = (
@@ -1717,7 +1719,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         )
 
                     if equilibrium_defined:
-                        for _, comp in enumerate(phase.components):
+                        for k, comp in enumerate(phase.components):
                             phi = phase.fugacity_coefficient_of[comp]
                             if isinstance(phi, pp.ad.SurrogateFactory):
                                 vals = phi.get_values_on_grid(sd, iterate_index=0)

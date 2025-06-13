@@ -31,6 +31,7 @@ from __future__ import annotations
 from typing import Callable, Sequence, cast, Union, Literal
 import numpy as np
 from itertools import combinations
+
 import porepy as pp
 
 __all__ = [
@@ -457,7 +458,6 @@ class FluidMobility(pp.PorePyModel):
         )
         frac_mob.set_name(f"fractional_phase_mass_mobility_{phase.name}")
         return frac_mob
-
 
 class FluidBuoyancy(pp.PorePyModel):
     """Class for fluid buoyancy and its discretization in flow & transport equations."""

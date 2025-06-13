@@ -156,9 +156,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             f_b=f_1,
         )
         # Safeguard against zero weights.
-        weight = np.maximum(alpha, self.min_line_search_weight)
-        logger.info(f"Global Line search determined weight: {weight}")
-        return weight * np.ones_like(dx)
+        return np.maximum(alpha, self.min_line_search_weight) * np.ones_like(dx)
 
     def recursive_weight_from_sampling(
         self,
