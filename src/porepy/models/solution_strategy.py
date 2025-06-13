@@ -797,6 +797,135 @@ class MultiphysicsNorms:
             increments.append(increment_norm)
         return np.array(increments)
 
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: np.ndarray,
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Check convergence based on increment and residual norms.
+
+        This method evaluates whether the nonlinear solution process has converged or
+        diverged by comparing the norms of the nonlinear increment and the residual to
+        specified tolerances. It maintains and updates reference norms for both
+        increments and residuals, which are used to compute relative norms for
+        convergence checks. The method also logs the maximum relative errors for
+        monitoring purposes.
+
+        Parameters:
+            nonlinear_increment: The increment in the solution variables from the
+                previous nonlinear iteration.
+            residual: The current residual vector of the nonlinear system.
+            reference_residual: Reference residual vector, typically from the initial
+                iteration or previous time step.
+            nl_params: Dictionary of nonlinear solver parameters. Is for now expected
+                to contain "nl_convergence_tol" (tolerance for the nonlinear increment
+                norm) and "nl_convergence_tol_res" (tolerance for the residual norm).
+
+        Returns:
+            A tuple with two elements. A boolean indicating whether the problem has
+            converged and a boolean indicating whether it has diverged.
+
+        """
+
+        # Array of all residual norms
+        residual_norms = self.compute_residual_norm(residual=residual)
+
+        # Array of all variable increment norms
+        nonlinear_increment_norms = self.compute_nonlinear_increment_norm(
+            nonlinear_increment
+        )
+
+        # Cache first solution as reference for relative increment norms
+        if self.nonlinear_solver_statistics.num_iteration == 1:
+            self.fixed_reference_nonlinear_increment_norms = [
+                False for _ in nonlinear_increment_norms
+            ]
+            self.reference_nonlinear_increment_norms = [
+                1.0 for _ in nonlinear_increment_norms
+            ]
+
+        # In the case of all entries in fixed_reference_nonlinear_increment_norms is
+        # False, then fetch the iterate solution as the reference. The iterate solution
+        # will be the reference for the entire time-step.
+        if not all(self.fixed_reference_nonlinear_increment_norms):
+            reference_solution = self.equation_system.get_variable_values(
+                iterate_index=0
+            )
+            reference_solution_norms = self.compute_nonlinear_increment_norm(
+                reference_solution
+            )
+        for i, fixed_reference in enumerate(
+            self.fixed_reference_nonlinear_increment_norms
+        ):
+            # In the case of a reference norm not being set, set one:
+            if not fixed_reference:
+                _norm = reference_solution_norms[i]
+                if not np.isclose(_norm, 0.0) and not np.isnan(_norm):
+                    self.reference_nonlinear_increment_norms[i] = _norm
+                    self.fixed_reference_nonlinear_increment_norms[i] = True
+
+        # A similar process as that for the increment norms/reference norms is repeated
+        # for the residual ones.
+        # Cache first non-zero residual as reference for relative residual norms.
+        if self.nonlinear_solver_statistics.num_iteration == 1:
+            self.fixed_reference_residual_norms = [False for _ in residual_norms]
+            self.reference_residual_norms = [1.0 for _ in residual_norms]
+        for i, fixed_reference in enumerate(self.fixed_reference_residual_norms):
+            if not fixed_reference:
+                _norm = residual_norms[i]
+                if not np.isclose(_norm, 0.0) and not np.isnan(_norm):
+                    self.reference_residual_norms[i] = _norm
+                    self.fixed_reference_residual_norms[i] = True
+
+        # Compute combined relative and absolute norms(?) for increments and residuals.
+        relative_increment_norms = [
+            increment_norm / (1 + reference_increment_norm)
+            for increment_norm, reference_increment_norm in zip(
+                nonlinear_increment_norms, self.reference_nonlinear_increment_norms
+            )
+        ]
+        relative_residual_norms = [
+            residual_norm / (1 + reference_residual_norm)
+            for residual_norm, reference_residual_norm in zip(
+                residual_norms, self.reference_residual_norms
+            )
+        ]
+
+        # Log the (max) relative errors
+        self.nonlinear_solver_statistics.log_error(
+            np.max(relative_increment_norms), np.max(relative_residual_norms)
+        )
+
+        # Start convergence checks
+        converged = False
+        diverged = False
+
+        tol_increment = nl_params["nl_convergence_tol"]
+        tol_residual = nl_params["nl_convergence_tol_res"]
+
+        converged_inc_list = []
+        converged_res_list = []
+
+        # Check convergence requires both the increment and residual to be small.
+        if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+            converged_inc_list = [
+                inc_norm < tol_increment for inc_norm in relative_increment_norms
+            ]
+            converged_res_list = [
+                res_norm < tol_residual for res_norm in relative_residual_norms
+            ]
+
+            # If all increments and residuals are below the respective tolerances, we
+            # consider the problem converged:
+            converged = np.all(converged_inc_list) and np.all(converged_res_list)
+
+            if converged:
+                print("Converged with both increments and residuals.")
+
+        return converged, diverged
+
 
 class ContactIndicators(pp.PorePyModel):
     """Class for computing contact indicators used for tailored line search.
