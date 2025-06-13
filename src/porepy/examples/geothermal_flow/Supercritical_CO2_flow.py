@@ -1,4 +1,4 @@
-"""Example implementing a multi-phase multi component flow of H2O-NaCl using a passive
+"""Example implementing a multiphase multicomponent flow of H2O-NaCl using a passive
 tracer constitutive model. In its full extension, the model is linear.
 
 The model relies on pressure (P), specific fluid mixture enthalpy (H), and NaCl overall
