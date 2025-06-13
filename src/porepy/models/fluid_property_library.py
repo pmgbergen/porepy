@@ -520,15 +520,6 @@ class FluidBuoyancy(pp.PorePyModel):
         discr._discretization.flux_array_key = self.downward_flux_array_key(delta)
         return discr
 
-    def buoyancy_discrezations(self, subdomains: pp.SubdomainsOrBoundaries):
-        buoyancy_discrs = []
-        for phase_gamma in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase_gamma):
-                gamma, delta = pairs
-                buoyancy_discrs.append(self.upward_phase_discretization(gamma, subdomains).upwind())
-                buoyancy_discrs.append(self.downward_phase_discretization(delta, subdomains).upwind())
-        return buoyancy_discrs
-
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2")
