@@ -34,11 +34,11 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry2D(Geometry):
-    _sphere_radius: float = 0.5
-    _sphere_centre: np.ndarray = np.array([0.5, 5.0, 0.0])
+    _sphere_radius: float = 1.0
+    _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(1.0, "m")
+        x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(5.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
@@ -72,11 +72,11 @@ class ModelGeometry2D(Geometry):
 
 class ModelGeometry3D(Geometry):
     _sphere_radius: float = 1.0
-    _sphere_centre: np.ndarray = np.array([0.5, 0.5, 5.0])
+    _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(1.0, "m")
-        y_length = self.units.convert_units(1.0, "m")
+        x_length = self.units.convert_units(5.0, "m")
+        y_length = self.units.convert_units(5.0, "m")
         z_length = self.units.convert_units(5.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length, "zmax": z_length}
         self._domain = pp.Domain(box)

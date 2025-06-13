@@ -8,7 +8,7 @@ and two components (H2O and CO2) under the influence of gravity.
 The test runs simulations in both 2D and 3D and for various mass conservation
 tolerances. It checks two primary conditions after each simulation run:
 1. Reciprocal Buoyancy Fluxes: It asserts that the buoyancy fluxes of the two
-   components are equal and opposite, which is a fundamental physical property.
+   components are equal and opposite.
 2. Mass Conservation: It verifies that the change in the total volume of the gas
    phase over the simulation time is within a specified tolerance, ensuring that the
    discretization of the buoyancy term is mass-conservative.
