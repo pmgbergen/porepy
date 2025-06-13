@@ -9,9 +9,11 @@ from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
 from abc import abstractmethod
 
 # test parameters
-mass_tolerance = 1.0e-10
-h_size = 1.0
+expected_order_mass_loss = 10
 mesh_2d_Q = False
+
+
+residual_tolerance = 10.0**(-expected_order_mass_loss)
 
 # define constant phase densities
 rho_l = 1000.0
@@ -35,7 +37,7 @@ class Geometry(pp.PorePyModel):
 
 class ModelGeometry(Geometry):
 
-    _sphere_radius: float = h_size
+    _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -48,7 +50,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(h_size, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -72,7 +74,7 @@ class ModelGeometry(Geometry):
 
 class ModelGeometry3D(Geometry):
 
-    _sphere_radius: float = h_size
+    _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -86,7 +88,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(h_size, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -424,42 +426,6 @@ class FlowModel(
     ) -> pp.ad.Operator:
         return phase.saturation(domains)
 
-
-day = 86400
-t_scale = 1.0
-tf = 500.0 * day
-dt = 50.0 * day
-time_manager = pp.TimeManager(
-    schedule=[0.0, tf],
-    dt_init=dt,
-    constant_dt=True,
-    iter_max=50,
-    print_info=True,
-)
-
-solid_constants = pp.SolidConstants(
-    permeability=1.0e-14,
-    porosity=0.1,
-    thermal_conductivity=2.0*to_Mega,
-    density=2500.0,
-    specific_heat_capacity=1000.0*to_Mega,
-)
-material_constants = {"solid": solid_constants}
-params = {
-    "rediscretize_darcy_flux": True,
-    "rediscretize_fourier_flux": True,
-    "fractional_flow": True,
-    "material_constants": material_constants,
-    "time_manager": time_manager,
-    "prepare_simulation": False,
-    "reduce_linear_system": False,
-    "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 0.1*mass_tolerance, # test mass is conserved up to Order of mass_tolerance
-    "max_iterations": 100,
-}
-
-class TwoPTwoCModel(FlowModel):
-
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
 
@@ -481,11 +447,15 @@ class TwoPTwoCModel(FlowModel):
 
         s_gas = phases[1].saturation([sd])
         sg_val = self.equation_system.evaluate(s_gas)
+        num_sg_integral = np.sum(sd.cell_volumes * sg_val)
+        mass_loss = np.abs(ref_sg_integral - num_sg_integral)
+        order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
         print("ref volume integral sg: ", ref_sg_integral)
-        print("num volume integral sg: ", np.sum(sd.cell_volumes * sg_val))
-        mass_conservative_Q = np.isclose(np.sum(sd.cell_volumes * sg_val), ref_sg_integral, atol=mass_tolerance)
+        print("num volume integral sg: ", num_sg_integral)
+        print("Order of mass loss: ", order_mass_loss)
+        mass_conservative_Q = order_mass_loss >= expected_order_mass_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
-        # assert mass_conservative_Q
+        assert mass_conservative_Q
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
@@ -499,9 +469,6 @@ class TwoPTwoCModel(FlowModel):
     def set_nonlinear_discretizations(self) -> None:
         super().set_nonlinear_discretizations()
         self.set_nonlinear_buoyancy_discretization()
-
-    def after_simulation(self):
-        self.exporter.write_pvd()
 
     def before_nonlinear_iteration(self) -> None:
         self.update_buoyancy_driven_fluxes()
@@ -539,7 +506,7 @@ class TwoPTwoCModel(FlowModel):
             s_res_norm = np.linalg.norm(residual[res_idx['elimination_of_s_gas_on_grids_[0]']])
             t_res_norm = np.linalg.norm(residual[res_idx['elimination_of_temperature_on_grids_[0]']])
 
-            residual_norm = np.max([p_res_norm,z_res_norm,h_res_norm,s_res_norm,t_res_norm])
+            residual_norm = np.linalg.norm(residual) # np.max([p_res_norm,z_res_norm,h_res_norm,s_res_norm,t_res_norm])
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                 nl_params["nl_convergence_tol"] is np.inf
@@ -553,17 +520,41 @@ class TwoPTwoCModel(FlowModel):
             diverged = False
         else:
             raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
-
-
         return converged, diverged
 
-    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+day = 86400
+t_scale = 1.0
+tf = 500.0 * day
+dt = 50.0 * day
+time_manager = pp.TimeManager(
+    schedule=[0.0, tf],
+    dt_init=dt,
+    constant_dt=True,
+    iter_max=50,
+    print_info=True,
+)
 
-model = TwoPTwoCModel(params)
+solid_constants = pp.SolidConstants(
+    permeability=1.0e-14,
+    porosity=0.1,
+    thermal_conductivity=2.0*to_Mega,
+    density=2500.0,
+    specific_heat_capacity=1000.0*to_Mega,
+)
+material_constants = {"solid": solid_constants}
+params = {
+    "rediscretize_darcy_flux": True,
+    "rediscretize_fourier_flux": True,
+    "fractional_flow": True,
+    "material_constants": material_constants,
+    "time_manager": time_manager,
+    "prepare_simulation": False,
+    "reduce_linear_system": False,
+    "nl_convergence_tol": np.inf,
+    "nl_convergence_tol_res": residual_tolerance,
+    "max_iterations": 100,
+}
+
+model = FlowModel(params)
 model.prepare_simulation()
-
-# print geometry
-model.exporter.write_vtu()
-
 pp.run_time_dependent_model(model, params)
