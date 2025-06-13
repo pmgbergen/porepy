@@ -10,7 +10,8 @@ from abc import abstractmethod
 
 # test parameters
 mass_tolerance = 1.0e-10
-h_size = 0.25
+h_size = 1.0
+mesh_2d_Q = False
 
 # define constant phase densities
 rho_l = 1000.0
@@ -41,6 +42,44 @@ class ModelGeometry(Geometry):
         x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(5.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
+        self._domain = pp.Domain(box)
+
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "cartesian")
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.units.convert_units(h_size, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size}
+        return mesh_args
+
+    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+        if isinstance(sd, pp.Grid):
+            face_centers = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            face_centers = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        boundary_faces = self.domain_boundary_sides(sd)
+        bf_indices = boundary_faces.all_bf
+
+        def find_facets(center: np.ndarray) -> np.ndarray:
+            logical = Geometry.harvest_sphere_members(
+                center, self._sphere_radius, face_centers[bf_indices]
+            )
+            return bf_indices[logical]
+
+        return find_facets(self._sphere_centre)
+
+class ModelGeometry3D(Geometry):
+
+    _sphere_radius: float = h_size
+    _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
+
+    def set_domain(self) -> None:
+        x_length = self.units.convert_units(5.0, "m")
+        y_length = self.units.convert_units(5.0, "m")
+        z_length = self.units.convert_units(5.0, "m")
+        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length,  "zmax": z_length}
         self._domain = pp.Domain(box)
 
     def grid_type(self) -> str:
@@ -372,7 +411,7 @@ class InitialConditions(pp.PorePyModel):
 
 
 class FlowModel(
-    ModelGeometry,
+    ModelGeometry if mesh_2d_Q else ModelGeometry3D,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
@@ -385,10 +424,11 @@ class FlowModel(
     ) -> pp.ad.Operator:
         return phase.saturation(domains)
 
+
 day = 86400
 t_scale = 1.0
-tf = 100.0 * day
-dt = 5.0 * day
+tf = 500.0 * day
+dt = 50.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
