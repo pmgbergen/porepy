@@ -18,7 +18,7 @@ import pytest
 import numpy as np
 import porepy as pp
 from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGeometry3D
-from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N
+from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, BuoyancyFlowModel3N
 
 @pytest.mark.parametrize(
     "mesh_2d_Q, expected_order_mass_loss",
@@ -79,13 +79,13 @@ def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
     # Combine the geometry with the main model class
     if mesh_2d_Q:
         # Define the 2D model by inheriting from ModelGeometry2D
-        class Model2D(ModelGeometry2D, BuoyancyFlowModel2N):
+        class Model2D(ModelGeometry2D, BuoyancyFlowModel3N):
             pass
 
         model = Model2D(params)
     else:
         # Define the 3D model by inheriting from ModelGeometry3D
-        class Model3D(ModelGeometry3D, BuoyancyFlowModel2N):
+        class Model3D(ModelGeometry3D, BuoyancyFlowModel3N):
             pass
 
         model = Model3D(params)

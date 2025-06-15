@@ -122,22 +122,6 @@ class ModelGeometry3D(Geometry):
 
 
 # constitutive description
-def gas_saturation_func(
-        *thermodynamic_dependencies: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CH4 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CH4)
-
-    nc = len(thermodynamic_dependencies[0])
-    vals = (z_CH4 * rho_w) / (z_CH4 * rho_w + rho_g - z_CH4 * rho_g)
-    vals = np.clip(vals, 1.0e-16, 1.0)
-
-    # row-wise storage of derivatives, (3, nc) array
-    diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = (rho_w * rho_g) / ((z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g))
-    return vals, diffs
-
-
 def temperature_func(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -153,8 +137,22 @@ def temperature_func(
     diffs[1, :] = 1.0 * factor
     return vals, diffs
 
+def gas_saturation_2N(
+        *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    p, h, z_CH4 = thermodynamic_dependencies
+    assert len(p) == len(h) == len(z_CH4)
 
-def CH4_water_func(
+    nc = len(thermodynamic_dependencies[0])
+    vals = (z_CH4 * rho_w) / (z_CH4 * rho_w + rho_g - z_CH4 * rho_g)
+    vals = np.clip(vals, 1.0e-16, 1.0)
+
+    # row-wise storage of derivatives, (3, nc) array
+    diffs = np.zeros((len(thermodynamic_dependencies), nc))
+    diffs[2, :] = (rho_w * rho_g) / ((z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g))
+    return vals, diffs
+
+def CH4_water_2N(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_CH4 = thermodynamic_dependencies
@@ -166,7 +164,7 @@ def CH4_water_func(
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
-def CH4_gas_func(
+def CH4_gas_2N(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     p, h, z_CH4 = thermodynamic_dependencies
@@ -178,9 +176,9 @@ def CH4_gas_func(
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
-chi_functions_map = {
-    "CH4_water": CH4_water_func,
-    "CH4_gas": CH4_gas_func,
+chi_functions_map_2N = {
+    "CH4_water": CH4_water_2N,
+    "CH4_gas": CH4_gas_2N,
 }
 
 
@@ -328,7 +326,7 @@ class SecondaryEquations2N(LocalElimination):
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdomains
-                gas_saturation_func,  # numerical function implementing correlation
+                gas_saturation_2N,  # numerical function implementing correlation
                 subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
             )
 
@@ -340,7 +338,7 @@ class SecondaryEquations2N(LocalElimination):
                     self.eliminate_locally(
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),
-                        chi_functions_map[comp.name + "_" + phase.name],
+                        chi_functions_map_2N[comp.name + "_" + phase.name],
                         subdomains_and_matrix,
                     )
 
@@ -656,23 +654,46 @@ class InitialConditions3N(pp.PorePyModel):
         super().initial_condition()
 
         # set the values to be the custom functions
-        liq, gas = self.fluid.phases
+        water, oil, gas = self.fluid.phases
         for sd in self.mdg.subdomains():
-            s_gas_val = self.ic_values_staturation(sd)
-            x_CH4_liq_v = np.zeros_like(s_gas_val)
-            x_CH4_gas_v = np.ones_like(s_gas_val)
-
-            x_CH4_liq = liq.partial_fraction_of[self.fluid.components[1]]([sd])
-            x_CH4_gas = gas.partial_fraction_of[self.fluid.components[1]]([sd])
-
+            s_oil_val = self.ic_values_staturation_oil(sd)
+            s_gas_val = self.ic_values_staturation_gas(sd)
+            s_oil = oil.saturation([sd])
             s_gas = gas.saturation([sd])
+            self.equation_system.set_variable_values(s_oil_val, [s_oil], 0, 0)
             self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
-            self.equation_system.set_variable_values(x_CH4_liq_v, [x_CH4_liq], 0, 0)
-            self.equation_system.set_variable_values(x_CH4_gas_v, [x_CH4_gas], 0, 0)
 
-    def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
-        z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
-        return (z_v * rho_w) / (z_v * rho_w + rho_g - z_v * rho_g)
+            x_inactive_v = np.zeros_like(s_oil_val)
+            x_active_v = np.ones_like(s_gas_val)
+
+            x_C5H12_water = oil.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_C5H12_oil = oil.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_C5H12_gas = oil.partial_fraction_of[self.fluid.components[1]]([sd])
+
+            x_CH4_water = oil.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_CH4_oil = oil.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_CH4_gas = oil.partial_fraction_of[self.fluid.components[1]]([sd])
+
+            self.equation_system.set_variable_values(x_inactive_v, [x_C5H12_water], 0, 0)
+            self.equation_system.set_variable_values(x_active_v, [x_C5H12_oil], 0, 0)
+            self.equation_system.set_variable_values(x_inactive_v, [x_C5H12_gas], 0, 0)
+
+            self.equation_system.set_variable_values(x_inactive_v, [x_CH4_water], 0, 0)
+            self.equation_system.set_variable_values(x_inactive_v, [x_CH4_oil], 0, 0)
+            self.equation_system.set_variable_values(x_active_v, [x_CH4_gas], 0, 0)
+
+
+    def ic_values_staturation_oil(self, sd: pp.Grid) -> np.ndarray:
+        z_C5H12 = self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        z_CH4 = self.ic_values_overall_fraction(self.fluid.components[2], sd)
+        so_val = (z_C5H12*rho_g*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+        return so_val
+
+    def ic_values_staturation_gas(self, sd: pp.Grid) -> np.ndarray:
+        z_C5H12 = self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        z_CH4 = self.ic_values_overall_fraction(self.fluid.components[2], sd)
+        sg_val = (z_CH4*rho_o*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+        return sg_val
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 10.0e6 * to_Mega
@@ -686,10 +707,10 @@ class InitialConditions3N(pp.PorePyModel):
             self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0) +
-             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0) +
-             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
-             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
+        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 1/3.0, 0.0) +
+             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1/3.0, 0.0) +
+             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1/3.0, 0.0) +
+             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1/3.0, 0.0))
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
