@@ -1,5 +1,6 @@
 """
-Module defining the compositional flow model for a 2-phase, 2-component system 
+Module defining the compositional flow model for n-phase, n-component system
+ n = {2,3}
 with buoyancy effects.
 """
 from __future__ import annotations
@@ -12,10 +13,22 @@ from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
 from abc import abstractmethod
 
 # define constant phase densities
-rho_l = 1000.0
-rho_g = 500.0
+rho_w = 1000.0
+rho_o = 700.0
+rho_g = 100.0
 to_Mega = 1.0e-6
 
+# Aqueous phase is constituted of H2O
+# Density: ~1000 kg/m³ (fresh water)
+
+# Oleic phase is constituted of C5H12
+# Density: ~700–900 kg/m³
+
+# Gas phase is constituted of CH4
+# Density: ~1–200 kg/m³
+
+# For simplicity we test n-phase, n-component system for N = {2,3}
+#
 
 # geometry description
 class Geometry(pp.PorePyModel):
@@ -112,24 +125,24 @@ class ModelGeometry3D(Geometry):
 def gas_saturation_func(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CO2 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CO2)
+    p, h, z_CH4 = thermodynamic_dependencies
+    assert len(p) == len(h) == len(z_CH4)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = (z_CO2 * rho_l) / (z_CO2 * rho_l + rho_g - z_CO2 * rho_g)
+    vals = (z_CH4 * rho_w) / (z_CH4 * rho_w + rho_g - z_CH4 * rho_g)
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = (rho_l * rho_g) / ((z_CO2 * (rho_l - rho_g) + rho_g) * (z_CO2 * (rho_l - rho_g) + rho_g))
+    diffs[2, :] = (rho_w * rho_g) / ((z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g))
     return vals, diffs
 
 
 def temperature_func(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CO2 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CO2)
+    p, h, z_CH4 = thermodynamic_dependencies
+    assert len(p) == len(h) == len(z_CH4)
 
     nc = len(thermodynamic_dependencies[0])
 
@@ -141,44 +154,44 @@ def temperature_func(
     return vals, diffs
 
 
-def CO2_liq_func(
+def CH4_water_func(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CO2 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CO2)
+    p, h, z_CH4 = thermodynamic_dependencies
+    assert len(p) == len(h) == len(z_CH4)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.zeros_like(z_CO2)
+    vals = np.zeros_like(z_CH4)
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
-def CO2_gas_func(
+def CH4_gas_func(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    p, h, z_CO2 = thermodynamic_dependencies
-    assert len(p) == len(h) == len(z_CO2)
+    p, h, z_CH4 = thermodynamic_dependencies
+    assert len(p) == len(h) == len(z_CH4)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = np.ones_like(z_CO2)
+    vals = np.ones_like(z_CH4)
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
 chi_functions_map = {
-    "CO2_liq": CO2_liq_func,
-    "CO2_gas": CO2_gas_func,
+    "CH4_water": CH4_water_func,
+    "CH4_gas": CH4_gas_func,
 }
 
 
-class LiquidEOS(pp.compositional.EquationOfState):
+class WaterEOS(pp.compositional.EquationOfState):
 
     def rho_func(
             self,
             *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
-        vals = rho_l * np.ones(nc)
+        vals = rho_w * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def mu_func(
@@ -235,8 +248,19 @@ class LiquidEOS(pp.compositional.EquationOfState):
             dphis=np.empty((2, 3, nc)),
         )
 
+class OilEOS(WaterEOS):
 
-class GasEOS(LiquidEOS):
+    def rho_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = rho_o * np.ones(nc)
+        # row-wise storage of derivatives, (4, nc) array
+        diffs = np.zeros((len(thermodynamic_dependencies), nc))
+        return vals, diffs
+
+class GasEOS(WaterEOS):
 
     def rho_func(
             self,
@@ -248,35 +272,35 @@ class GasEOS(LiquidEOS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-
-class FluidMixture(pp.PorePyModel):
+# Two phases Two components case
+class FluidMixture2N(pp.PorePyModel):
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
+        return pp.compositional.load_fluid_constants(["H2O", "CH4"], "chemicals")
 
     def get_phase_configuration(
             self, components: Sequence[pp.Component]
     ) -> Sequence[
         tuple[pp.compositional.EquationOfState, pp.compositional.PhysicalState, str]
     ]:
-        eos_L = LiquidEOS(components)
+        eos_W = WaterEOS(components)
         eos_G = GasEOS(components)
-        configuration_L = (pp.compositional.PhysicalState.liquid, "liq", eos_L)
+        configuration_W = (pp.compositional.PhysicalState.liquid, "water", eos_W)
         configuration_G = (pp.compositional.PhysicalState.gas, "gas", eos_G)
-        return [configuration_L, configuration_G]
+        return [configuration_W, configuration_G]
 
     def dependencies_of_phase_properties(
             self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
-        z_CO2 = [
+        z = [
             comp.fraction
             for comp in self.fluid.components
             if comp != self.fluid.reference_component
         ]
-        return [self.pressure, self.enthalpy] + z_CO2  # type:ignore[return-value]
+        return [self.pressure, self.enthalpy] + z  # type:ignore[return-value]
 
 
-class SecondaryEquations(LocalElimination):
+class SecondaryEquations2N(LocalElimination):
     dependencies_of_phase_properties: Callable[
         ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
@@ -330,7 +354,7 @@ class SecondaryEquations(LocalElimination):
 
 
 # model description
-class BoundaryConditions(pp.PorePyModel):
+class BoundaryConditions2N(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     get_inlet_outlet_sides: Callable[
@@ -356,11 +380,11 @@ class BoundaryConditions(pp.PorePyModel):
     def bc_values_overall_fraction(
             self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        z_CO2 = np.zeros(boundary_grid.num_cells)
-        return z_CO2
+        z_CH4 = np.zeros(boundary_grid.num_cells)
+        return z_CH4
 
 
-class InitialConditions(pp.PorePyModel):
+class InitialConditions2N(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def initial_condition(self) -> None:
@@ -370,20 +394,20 @@ class InitialConditions(pp.PorePyModel):
         liq, gas = self.fluid.phases
         for sd in self.mdg.subdomains():
             s_gas_val = self.ic_values_staturation(sd)
-            x_CO2_liq_v = np.zeros_like(s_gas_val)
-            x_CO2_gas_v = np.ones_like(s_gas_val)
+            x_CH4_liq_v = np.zeros_like(s_gas_val)
+            x_CH4_gas_v = np.ones_like(s_gas_val)
 
-            x_CO2_liq = liq.partial_fraction_of[self.fluid.components[1]]([sd])
-            x_CO2_gas = gas.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_CH4_liq = liq.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_CH4_gas = gas.partial_fraction_of[self.fluid.components[1]]([sd])
 
             s_gas = gas.saturation([sd])
             self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
-            self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
-            self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
+            self.equation_system.set_variable_values(x_CH4_liq_v, [x_CH4_liq], 0, 0)
+            self.equation_system.set_variable_values(x_CH4_gas_v, [x_CH4_gas], 0, 0)
 
     def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
         z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
-        return (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
+        return (z_v * rho_w) / (z_v * rho_w + rho_g - z_v * rho_g)
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 10.0e6 * to_Mega
@@ -407,7 +431,7 @@ class InitialConditions(pp.PorePyModel):
             return z * np.ones(sd.num_cells)
 
 
-class FlowModel(
+class FlowModel2N(
     FlowTemplate,
 ):
 
@@ -500,12 +524,277 @@ class FlowModel(
         return converged, diverged
 
 
-class BuoyancyFlowModel(
-    FluidMixture,
-    InitialConditions,
-    BoundaryConditions,
-    SecondaryEquations,
-    FlowModel,
+class BuoyancyFlowModel2N(
+    FluidMixture2N,
+    InitialConditions2N,
+    BoundaryConditions2N,
+    SecondaryEquations2N,
+    FlowModel2N,
+):
+    """A compositional flow model with buoyancy effects."""
+
+    pass
+
+# Three phases Three components case
+class FluidMixture3N(pp.PorePyModel):
+
+    def get_components(self) -> Sequence[pp.FluidComponent]:
+        return pp.compositional.load_fluid_constants(["H2O", "C5H12", "CH4"], "chemicals")
+
+    def get_phase_configuration(
+            self, components: Sequence[pp.Component]
+    ) -> Sequence[
+        tuple[pp.compositional.EquationOfState, pp.compositional.PhysicalState, str]
+    ]:
+        eos_L = WaterEOS(components)
+        eos_O = OilEOS(components)
+        eos_G = GasEOS(components)
+        configuration_W = (pp.compositional.PhysicalState.liquid, "water", eos_L)
+        configuration_O = (pp.compositional.PhysicalState.liquid, "oil", eos_O)
+        configuration_G = (pp.compositional.PhysicalState.gas, "gas", eos_G)
+        return [configuration_W, configuration_O, configuration_G]
+
+    def dependencies_of_phase_properties(
+            self, phase: pp.Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+        z = [
+            comp.fraction
+            for comp in self.fluid.components
+            if comp != self.fluid.reference_component
+        ]
+        return [self.pressure, self.enthalpy] + z  # type:ignore[return-value]
+
+
+class SecondaryEquations3N(LocalElimination):
+    dependencies_of_phase_properties: Callable[
+        ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
+    ]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    def set_equations(self) -> None:
+        super().set_equations()
+        subdomains = self.mdg.subdomains()
+
+        matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
+        matrix_boundary = cast(
+            pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
+        )
+        subdomains_and_matrix = subdomains + [matrix_boundary]
+
+        # liquid phase is dependent
+        rphase = self.fluid.reference_phase
+        # gas phase is independent
+        independent_phases = [p for p in self.fluid.phases if p != rphase]
+
+        for phase in independent_phases:
+            self.eliminate_locally(
+                phase.saturation,  # callable giving saturation on ``subdomains``
+                self.dependencies_of_phase_properties(
+                    phase
+                ),  # callables giving primary variables on subdomains
+                gas_saturation_func,  # numerical function implementing correlation
+                subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
+            )
+
+        ### Providing constitutive laws for partial fractions based on correlations
+        for phase in self.fluid.phases:
+            for comp in phase:
+                check = self.has_independent_partial_fraction(comp, phase)
+                if check:
+                    self.eliminate_locally(
+                        phase.partial_fraction_of[comp],
+                        self.dependencies_of_phase_properties(phase),
+                        chi_functions_map[comp.name + "_" + phase.name],
+                        subdomains_and_matrix,
+                    )
+
+        ### Provide constitutive law for temperature
+        self.eliminate_locally(
+            self.temperature,
+            self.dependencies_of_phase_properties(rphase),  # since same for all.
+            temperature_func,
+            subdomains_and_matrix,
+        )
+
+
+# model description
+class BoundaryConditions3N(pp.PorePyModel):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_top = 10.0e6 * to_Mega
+        p = p_top * np.ones(boundary_grid.num_cells)
+        return p
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        h_inlet = 1.0
+        h = h_inlet * np.ones(boundary_grid.num_cells)
+        return h
+
+    def bc_values_overall_fraction(
+            self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        z_CH4 = np.zeros(boundary_grid.num_cells)
+        return z_CH4
+
+
+class InitialConditions3N(pp.PorePyModel):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    def initial_condition(self) -> None:
+        super().initial_condition()
+
+        # set the values to be the custom functions
+        liq, gas = self.fluid.phases
+        for sd in self.mdg.subdomains():
+            s_gas_val = self.ic_values_staturation(sd)
+            x_CH4_liq_v = np.zeros_like(s_gas_val)
+            x_CH4_gas_v = np.ones_like(s_gas_val)
+
+            x_CH4_liq = liq.partial_fraction_of[self.fluid.components[1]]([sd])
+            x_CH4_gas = gas.partial_fraction_of[self.fluid.components[1]]([sd])
+
+            s_gas = gas.saturation([sd])
+            self.equation_system.set_variable_values(s_gas_val, [s_gas], 0, 0)
+            self.equation_system.set_variable_values(x_CH4_liq_v, [x_CH4_liq], 0, 0)
+            self.equation_system.set_variable_values(x_CH4_gas_v, [x_CH4_gas], 0, 0)
+
+    def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
+        z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        return (z_v * rho_w) / (z_v * rho_w + rho_g - z_v * rho_g)
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        p_init = 10.0e6 * to_Mega
+        return np.ones(sd.num_cells) * p_init
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        h = 1.0
+        return np.ones(sd.num_cells) * h
+
+    def ic_values_overall_fraction(
+            self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        xc = sd.cell_centers.T
+        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0) +
+             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0) +
+             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
+             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
+        if component.name == "H2O":
+            return (1 - z) * np.ones(sd.num_cells)
+        else:
+            return z * np.ones(sd.num_cells)
+
+
+class FlowModel3N(
+    FlowTemplate,
+):
+
+    def __init__(self, params: dict):
+        """Initializes the flow model."""
+        super().__init__(params)
+        self.expected_order_mass_loss = params.get("expected_order_mass_loss", 10)
+
+    def relative_permeability(
+            self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return phase.saturation(domains)
+
+    def after_nonlinear_convergence(self) -> None:
+        super().after_nonlinear_convergence()
+
+        sd = self.mdg.subdomains()[0]
+        phases = list(self.fluid.phases)
+        components = list(self.fluid.components)
+
+        flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
+        flux_buoyancy_c1 = self.component_buoyancy(components[1], self.mdg.subdomains())
+
+        b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
+        b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
+        buoyancy_fluxes_are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
+        assert buoyancy_fluxes_are_reciprocal_Q
+
+        ic_sg_val = self.ic_values_staturation(sd)
+        ref_sg_integral = np.sum(sd.cell_volumes * ic_sg_val)
+
+        s_gas = phases[1].saturation([sd])
+        sg_val = self.equation_system.evaluate(s_gas)
+        num_sg_integral = np.sum(sd.cell_volumes * sg_val)
+        mass_loss = np.abs(ref_sg_integral - num_sg_integral)
+        order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
+        mass_conservative_Q = order_mass_loss >= self.expected_order_mass_loss
+        assert mass_conservative_Q
+
+    def set_equations(self):
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
+
+    def set_nonlinear_discretizations(self) -> None:
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def before_nonlinear_iteration(self) -> None:
+        self.update_buoyancy_driven_fluxes()
+        self.rediscretize()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+    def check_convergence(
+            self,
+            nonlinear_increment: np.ndarray,
+            residual: Optional[np.ndarray],
+            reference_residual: np.ndarray,
+            nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+
+        if self._is_nonlinear_problem():
+
+            self.equation_system
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+
+            residual_norm = np.linalg.norm(residual)
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = (
+                    nl_params["nl_convergence_tol"] is np.inf
+                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                    nl_params["nl_convergence_tol_res"] is np.inf
+                    or residual_norm < nl_params["nl_convergence_tol_res"]
+            )
+            converged = converged_inc and converged_res
+            diverged = False
+        else:
+            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
+        return converged, diverged
+
+
+class BuoyancyFlowModel3N(
+    FluidMixture3N,
+    InitialConditions3N,
+    BoundaryConditions3N,
+    SecondaryEquations3N,
+    FlowModel3N,
 ):
     """A compositional flow model with buoyancy effects."""
 
