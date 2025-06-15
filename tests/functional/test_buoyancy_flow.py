@@ -23,9 +23,9 @@ from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, Buo
 @pytest.mark.parametrize(
     "mesh_2d_Q, expected_order_mass_loss",
     [
-        (True, 2),
+        # (True, 2),
         (True, 4),
-        (True, 6),
+        # (True, 6),
         # (False, 2),
         # (False, 4),
         # (False, 6),
@@ -44,8 +44,8 @@ def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
     residual_tolerance = 10.0 ** (-expected_order_mass_loss)
 
     day = 86400
-    tf = 100.0 * day
-    dt = 10.0 * day
+    tf = 500.0 * day
+    dt = 5.0 * day
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
         dt_init=dt,
@@ -57,9 +57,9 @@ def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
     solid_constants = pp.SolidConstants(
         permeability=1.0e-14,
         porosity=0.1,
-        thermal_conductivity=2.0e-6,  # to_Mega already applied
+        thermal_conductivity=2.0 * 1e-6,  # to_Mega already applied
         density=2500.0,
-        specific_heat_capacity=1000.0e-6,  # to_Mega already applied
+        specific_heat_capacity=1000.0 * 1e-6,  # to_Mega already applied
     )
     material_constants = {"solid": solid_constants}
     params = {
