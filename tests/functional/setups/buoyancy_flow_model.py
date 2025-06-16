@@ -14,7 +14,7 @@ from abc import abstractmethod
 
 # define constant phase densities
 rho_w = 1000.0
-rho_o = 500.0
+rho_o = 750.0
 rho_g = 500.0
 to_Mega = 1.0e-6
 
@@ -47,7 +47,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry2D(Geometry):
-    _sphere_radius: float = 0.25
+    _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -60,7 +60,7 @@ class ModelGeometry2D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.25, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -840,6 +840,8 @@ class InitialConditions3N(pp.PorePyModel):
              np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1/6.0, 0.0) +
              np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1/6.0, 0.0) +
              np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1/6.0, 0.0))
+        if component.name == "CH4":
+            z *= 0.0
         return z * np.ones(sd.num_cells)
 
 
@@ -896,6 +898,11 @@ class FlowModel3N(
         gas_mass_conservative_Q = order_gas_mass_loss >= self.expected_order_mass_loss
         mass_conservative_Q = oil_mass_conservative_Q and gas_mass_conservative_Q
         # assert mass_conservative_Q
+
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
+        print("Time value: ", self.time_manager.time)
+        print("Time index: ", self.time_manager.time_index)
+        print("")
 
     def set_equations(self):
         super().set_equations()

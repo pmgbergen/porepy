@@ -23,12 +23,12 @@ from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, Buo
 @pytest.mark.parametrize(
     "mesh_2d_Q, expected_order_mass_loss",
     [
-        # (True, 2),
+        (True, 2),
         (True, 4),
-        # (True, 6),
-        # (False, 2),
-        # (False, 4),
-        # (False, 6),
+        (True, 6),
+        (False, 2),
+        (False, 4),
+        (False, 6),
     ],
 )
 def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
@@ -44,8 +44,8 @@ def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
     residual_tolerance = 10.0 ** (-expected_order_mass_loss)
 
     day = 86400
-    tf = 500.0 * day
-    dt = 5.0 * day
+    tf = 200.0 * day
+    dt = 20.0 * day
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
         dt_init=dt,
@@ -79,13 +79,13 @@ def test_buoyancy_model(mesh_2d_Q: bool, expected_order_mass_loss: int) -> None:
     # Combine the geometry with the main model class
     if mesh_2d_Q:
         # Define the 2D model by inheriting from ModelGeometry2D
-        class Model2D(ModelGeometry2D, BuoyancyFlowModel3N):
+        class Model2D(ModelGeometry2D, BuoyancyFlowModel2N):
             pass
 
         model = Model2D(params)
     else:
         # Define the 3D model by inheriting from ModelGeometry3D
-        class Model3D(ModelGeometry3D, BuoyancyFlowModel3N):
+        class Model3D(ModelGeometry3D, BuoyancyFlowModel2N):
             pass
 
         model = Model3D(params)
