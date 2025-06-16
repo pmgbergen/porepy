@@ -1,8 +1,15 @@
 """
-Module defining the compositional flow model for n-phase, n-component system
- n = {2,3}
+Module implementing compositional flow models for multi-phase, multi-component systems
 with buoyancy effects.
+
+Supports both:
+- 2-phase, 2-component systems (e.g., water and methane)
+- 3-phase, 3-component systems (e.g., water, oil, and methane)
+
+The module defines geometry setup, equations of state, initial and boundary conditions,
+and solution procedures for compositional fluid flow problems with gravitational effects.
 """
+
 from __future__ import annotations
 
 from typing import Callable, Optional, Sequence, cast, Any
@@ -12,45 +19,70 @@ from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
 from abc import abstractmethod
 
-# define constant phase densities
-rho_w = 1000.0
-rho_o = 750.0
-rho_g = 500.0
-to_Mega = 1.0e-6
+# Constants for fluid phase densities (kg/m^3)
+rho_w = 1000.0  #: Density of water (H2O)
+rho_o = 700.0   #: Density of oil (C5H12)
+rho_g = 200.0   #: Density of gas (CH4)
 
-# Aqueous phase is constituted of H2O
-# Density: ~1000 kg/m³ (fresh water)
+# Conversion factor to Mega (1e-6)
+to_Mega = 1.0e-6  #: Unit conversion factor to Mega units
 
-# Oleic phase is constituted of C5H12
-# Density: ~700–900 kg/m³
-
-# Gas phase is constituted of CH4
-# Density: ~1–200 kg/m³
-
-# For simplicity we test n-phase, n-component system for N = {2,3}
-#
-
-# geometry description
 class Geometry(pp.PorePyModel):
+    """
+    Abstract base class defining geometry.
+
+    Subclasses must implement:
+        - dirichlet_facets: Identifies Dirichlet boundary facets on the domain.
+    """
 
     @abstractmethod
     def dirichlet_facets(
             self, sd: pp.Grid | pp.BoundaryGrid
     ) -> tuple[np.ndarray]:
+        """
+        Abstract method to select Dirichlet boundary facets.
+
+        Args:
+            sd (pp.Grid or pp.BoundaryGrid): Grid or boundary grid object
+                on which to identify Dirichlet facets.
+
+        Returns:
+            tuple[np.ndarray]: Indices of facets where Dirichlet conditions apply.
+        """
         pass
 
     @staticmethod
-    def harvest_sphere_members(xc, rc, x):
+    def harvest_sphere_members(
+            xc: np.ndarray,
+            rc: float,
+            x: np.ndarray
+    ) -> np.ndarray:
+        """
+        Select points inside a sphere defined by center and radius.
+
+        Args:
+            xc (np.ndarray): Coordinates of the sphere center.
+            rc (float): Radius of the sphere.
+            x (np.ndarray): Array of points to test.
+
+        Returns:
+            np.ndarray: Boolean mask array indicating points inside the sphere.
+        """
         dx = x - xc
         r = np.linalg.norm(dx, axis=1)
         return np.where(r < rc, True, False)
 
 
 class ModelGeometry2D(Geometry):
+    """Concrete geometry class for 2D Cartesian grid domain."""
+
     _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
+        """
+        Define a 2D squared domain.
+        """
         x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(5.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
@@ -71,6 +103,7 @@ class ModelGeometry2D(Geometry):
             face_centers = sd.cell_centers.T
         else:
             raise ValueError("Type not expected.")
+
         boundary_faces = self.domain_boundary_sides(sd)
         bf_indices = boundary_faces.all_bf
 
@@ -84,10 +117,15 @@ class ModelGeometry2D(Geometry):
 
 
 class ModelGeometry3D(Geometry):
+    """Concrete geometry class for 3D Cartesian grid domain."""
+
     _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
+        """
+        Define a 3D cubic domain.
+        """
         x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(5.0, "m")
         z_length = self.units.convert_units(5.0, "m")
@@ -109,6 +147,7 @@ class ModelGeometry3D(Geometry):
             face_centers = sd.cell_centers.T
         else:
             raise ValueError("Type not expected.")
+
         boundary_faces = self.domain_boundary_sides(sd)
         bf_indices = boundary_faces.all_bf
 
@@ -119,6 +158,189 @@ class ModelGeometry3D(Geometry):
             return bf_indices[logical]
 
         return find_facets(self._sphere_centre)
+
+
+class BaseEOS(pp.compositional.EquationOfState):
+    """
+    Base class for simplified equations of state for fluid phases.
+
+    Provides placeholder implementations of phase property functions
+    including dynamic viscosity, enthalpy, thermal conductivity, and density,
+    with methods to return values and derivatives for compositional flow.
+
+    Subclasses should override rho_func to provide phase-specific densities.
+    """
+
+    def mu_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Dynamic viscosity function.
+
+        Args:
+            thermodynamic_dependencies: Variable number of arrays representing
+                thermodynamic inputs.
+
+        Returns:
+            Tuple of viscosity values and their derivatives w.r.t. inputs.
+        """
+        nc = len(thermodynamic_dependencies[0])
+        vals = (1.0e-3) * np.ones(nc) * to_Mega
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
+    def h(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Specific enthalpy function.
+
+        Args:
+            thermodynamic_dependencies: Variable number of arrays representing
+                thermodynamic inputs.
+
+        Returns:
+            Tuple of enthalpy values and their derivatives w.r.t. inputs.
+        """
+        nc = len(thermodynamic_dependencies[0])
+        vals = (2.0) * np.ones(nc) * to_Mega
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
+    def kappa(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Thermal conductivity function.
+
+        Args:
+            thermodynamic_dependencies: Variable number of arrays representing
+                thermodynamic inputs.
+
+        Returns:
+            Tuple of conductivity values and their derivatives w.r.t. inputs.
+        """
+        nc = len(thermodynamic_dependencies[0])
+        vals = (2.0) * np.ones(nc) * to_Mega
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
+    def compute_phase_properties(
+            self,
+            phase_state: pp.compositional.PhysicalState,
+            *thermodynamic_input: np.ndarray,
+            params: Optional[Sequence[np.ndarray | float]] = None,
+    ) -> pp.compositional.PhaseProperties:
+        """
+        Compute phase properties given the current thermodynamic state.
+
+        Args:
+            phase_state (pp.compositional.PhysicalState): Physical state of the phase.
+            thermodynamic_input: Arrays of thermodynamic variables.
+            params: Optional parameters for computation.
+
+        Returns:
+            pp.compositional.PhaseProperties: Container with computed phase properties.
+        """
+        nc = len(thermodynamic_input[0])
+        rho, drho = self.rho_func(*thermodynamic_input)  # mass density and derivatives
+        h, dh = self.h(*thermodynamic_input)             # specific enthalpy and derivatives
+        mu, dmu = self.mu_func(*thermodynamic_input)     # viscosity and derivatives
+        kappa, dkappa = self.kappa(*thermodynamic_input) # thermal conductivity and derivatives
+
+        return pp.compositional.PhaseProperties(
+            state=phase_state,
+            rho=rho,
+            drho=drho,
+            h=h,
+            dh=dh,
+            mu=mu,
+            dmu=dmu,
+            kappa=kappa,
+            dkappa=dkappa,
+            phis=np.empty((2, nc)),
+            dphis=np.empty((2, 3, nc)),
+        )
+
+
+class WaterEOS(BaseEOS):
+    """
+    Equation of State for the water phase.
+
+    Implements constant density specific to water and inherits other properties
+    from BaseEOS.
+    """
+
+    def rho_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Density function for water phase (constant).
+
+        Args:
+            thermodynamic_dependencies: Variable thermodynamic inputs (ignored).
+
+        Returns:
+            Tuple of constant density array and zero derivatives.
+        """
+        nc = len(thermodynamic_dependencies[0])
+        vals = rho_w * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
+
+class OilEOS(BaseEOS):
+    """
+    Equation of State for the oil phase.
+
+    Implements constant density specific to oil and inherits other properties
+    from BaseEOS.
+    """
+
+    def rho_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Density function for oil phase (constant).
+
+        Args:
+            thermodynamic_dependencies: Variable thermodynamic inputs (ignored).
+
+        Returns:
+            Tuple of constant density array and zero derivatives.
+        """
+        nc = len(thermodynamic_dependencies[0])
+        vals = rho_o * np.ones(nc)
+        diffs = np.zeros((len(thermodynamic_dependencies), nc))
+        return vals, diffs
+
+
+class GasEOS(BaseEOS):
+    """
+    Equation of State for the gas phase.
+
+    Implements constant density specific to gas and inherits other properties
+    from BaseEOS.
+    """
+
+    def rho_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Density function for gas phase (constant).
+
+        Args:
+            thermodynamic_dependencies: Variable thermodynamic inputs (ignored).
+
+        Returns:
+            Tuple of constant density array and zero derivatives.
+        """
+        nc = len(thermodynamic_dependencies[0])
+        vals = rho_g * np.ones(nc)
+        diffs = np.zeros((len(thermodynamic_dependencies), nc))
+        return vals, diffs
 
 
 # constitutive description
@@ -181,94 +403,6 @@ chi_functions_map_2N = {
     "CH4_gas": CH4_gas_2N,
 }
 
-
-class WaterEOS(pp.compositional.EquationOfState):
-
-    def rho_func(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = rho_w * np.ones(nc)
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
-
-    def mu_func(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = (1.0e-3) * np.ones(nc) * to_Mega
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
-
-    def h(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * to_Mega
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
-
-    def kappa(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * to_Mega
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
-
-    def compute_phase_properties(
-            self,
-            phase_state: pp.compositional.PhysicalState,
-            *thermodynamic_input: np.ndarray,
-            params: Optional[Sequence[np.ndarray | float]] = None,
-    ) -> pp.compositional.PhaseProperties:
-        nc = len(thermodynamic_input[0])
-        # mass density of phase
-        rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
-        # specific enthalpy of phase
-        h, dh = self.h(*thermodynamic_input)  # (n,), (3, n) array
-        # dynamic viscosity of phase
-        mu, dmu = self.mu_func(*thermodynamic_input)  # (n,), (3, n) array
-        # thermal conductivity of phase
-        kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
-
-        return pp.compositional.PhaseProperties(
-            state=phase_state,
-            rho=rho,
-            drho=drho,
-            h=h,
-            dh=dh,
-            mu=mu,
-            dmu=dmu,
-            kappa=kappa,
-            dkappa=dkappa,
-            phis=np.empty((2, nc)),
-            dphis=np.empty((2, 3, nc)),
-        )
-
-class OilEOS(WaterEOS):
-
-    def rho_func(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = rho_o * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-class GasEOS(WaterEOS):
-
-    def rho_func(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = rho_g * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
 
 # Two phases Two components case
 class FluidMixture2N(pp.PorePyModel):
@@ -840,8 +974,6 @@ class InitialConditions3N(pp.PorePyModel):
              np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1/6.0, 0.0) +
              np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1/6.0, 0.0) +
              np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1/6.0, 0.0))
-        if component.name == "CH4":
-            z *= 0.0
         return z * np.ones(sd.num_cells)
 
 
@@ -897,12 +1029,7 @@ class FlowModel3N(
         oil_mass_conservative_Q = order_oil_mass_loss >= self.expected_order_mass_loss
         gas_mass_conservative_Q = order_gas_mass_loss >= self.expected_order_mass_loss
         mass_conservative_Q = oil_mass_conservative_Q and gas_mass_conservative_Q
-        # assert mass_conservative_Q
-
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
-        print("Time value: ", self.time_manager.time)
-        print("Time index: ", self.time_manager.time_index)
-        print("")
+        assert mass_conservative_Q
 
     def set_equations(self):
         super().set_equations()
