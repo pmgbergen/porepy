@@ -110,7 +110,7 @@ class TracerFlowModel(  # type: ignore[misc]
     SquareDomainOrthogonalFractures,
     TracerFluid,
     CompositionalVariables,
-    FluidBuoyancy,
+    pp.constitutive_laws.FluidBuoyancy,
     ComponentMassBalanceEquations,
     TracerBC,
     TracerIC,

@@ -492,6 +492,7 @@ class TracerFlowModel_1p_ff(
     TracerIC,
     TracerBC_1p,
     TracerBC_1p_ff,
+    pp.constitutive_laws.FluidBuoyancy,
     pp.compositional.CompositionalVariables,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
     pp.compositional_flow.ComponentMassBalanceEquations,
@@ -527,6 +528,11 @@ class TracerFlowModel_1p_ff(
         self.add_nonlinear_diffusive_flux_discretization(
             self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
         )
+        self.set_nonlinear_buoyancy_discretization()
+
+    def set_equations(self) -> None:
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
 
 
 class TrivialEoS(pp.compositional.EquationOfState):
@@ -877,3 +883,14 @@ class TracerFlowModel_3p(
             return enthalpy
 
         return h
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Re-discretizes the Darcy flux on all subdomains."""
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        )
+        self.set_nonlinear_buoyancy_discretization()
+
+    def set_equations(self) -> None:
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
