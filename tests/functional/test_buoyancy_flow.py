@@ -61,8 +61,8 @@ def test_buoyancy_model(
     residual_tolerance = 10.0 ** (-expected_order_mass_loss)
 
     day = 86400
-    tf = 30.0 * day
-    dt = 15.0 * day
+    tf = 3.0 * day
+    dt = 1.0 * day
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
         dt_init=dt,
@@ -89,7 +89,7 @@ def test_buoyancy_model(
         "reduce_linear_system": False,
         "nl_convergence_tol": np.inf,
         "nl_convergence_tol_res": residual_tolerance,
-        "max_iterations": 20,
+        "max_iterations": 50,
         "expected_order_mass_loss": expected_order_mass_loss,
     }
 

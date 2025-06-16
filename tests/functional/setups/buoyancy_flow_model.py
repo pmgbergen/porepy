@@ -24,6 +24,11 @@ rho_w = 1000.0  #: Density of water (H2O)
 rho_o = 700.0   #: Density of oil (C5H12)
 rho_g = 200.0   #: Density of gas (CH4)
 
+# Constants for fluid phase viscosities (Pa * second)
+mu_w = 1.0e-3  #: Viscosity of water (H2O)
+mu_o = 1.0e-4   #: Viscosity of oil (C5H12)
+mu_g = 1.0e-5   #: Viscosity of gas (CH4)
+
 # Conversion factor to Mega (1e-6)
 to_Mega = 1.0e-6  #: Unit conversion factor to Mega units
 
@@ -168,26 +173,10 @@ class BaseEOS(pp.compositional.EquationOfState):
     including dynamic viscosity, enthalpy, thermal conductivity, and density,
     with methods to return values and derivatives for compositional flow.
 
-    Subclasses should override rho_func to provide phase-specific densities.
+    Subclasses should override:
+        -rho_func to provide phase-specific density.
+        -mu_func to provide phase-viscosity.
     """
-
-    def mu_func(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Dynamic viscosity function.
-
-        Args:
-            thermodynamic_dependencies: Variable number of arrays representing
-                thermodynamic inputs.
-
-        Returns:
-            Tuple of viscosity values and their derivatives w.r.t. inputs.
-        """
-        nc = len(thermodynamic_dependencies[0])
-        vals = (1.0e-3) * np.ones(nc) * to_Mega
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def h(
             self,
@@ -280,6 +269,15 @@ class WaterEOS(BaseEOS):
         vals = rho_w * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
+    def mu_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+
+        nc = len(thermodynamic_dependencies[0])
+        vals = mu_w * np.ones(nc) * to_Mega
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
 
 class OilEOS(BaseEOS):
     """
@@ -299,6 +297,13 @@ class OilEOS(BaseEOS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
+    def mu_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = mu_o * np.ones(nc) * to_Mega
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 class GasEOS(BaseEOS):
     """
@@ -318,6 +323,79 @@ class GasEOS(BaseEOS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
+    def mu_func(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = mu_g * np.ones(nc) * to_Mega
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
+class BaseFlowModel(
+    FlowTemplate,
+):
+
+    def __init__(self, params: dict):
+        """Initializes the flow model."""
+        super().__init__(params)
+        self.expected_order_mass_loss = params.get("expected_order_mass_loss", 10)
+
+    def relative_permeability(
+            self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return phase.saturation(domains)**2
+
+    def set_equations(self):
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
+
+    def set_nonlinear_discretizations(self) -> None:
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def before_nonlinear_iteration(self) -> None:
+        self.update_buoyancy_driven_fluxes()
+        self.rediscretize()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+    def check_convergence(
+            self,
+            nonlinear_increment: np.ndarray,
+            residual: Optional[np.ndarray],
+            reference_residual: np.ndarray,
+            nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+
+        if self._is_nonlinear_problem():
+
+            self.equation_system
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+
+            residual_norm = np.linalg.norm(residual)
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = (
+                    nl_params["nl_convergence_tol"] is np.inf
+                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                    nl_params["nl_convergence_tol_res"] is np.inf
+                    or residual_norm < nl_params["nl_convergence_tol_res"]
+            )
+            converged = converged_inc and converged_res
+            diverged = False
+        else:
+            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
+        return converged, diverged
 
 # constitutive description for N=2
 def temperature_2N(
@@ -540,18 +618,8 @@ class InitialConditions2N(pp.PorePyModel):
 
 
 class FlowModel2N(
-    FlowTemplate,
+    BaseFlowModel,
 ):
-
-    def __init__(self, params: dict):
-        """Initializes the flow model."""
-        super().__init__(params)
-        self.expected_order_mass_loss = params.get("expected_order_mass_loss", 10)
-
-    def relative_permeability(
-            self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        return phase.saturation(domains)
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
@@ -578,58 +646,6 @@ class FlowModel2N(
         order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
         mass_conservative_Q = order_mass_loss >= self.expected_order_mass_loss
         assert mass_conservative_Q
-
-    def set_equations(self):
-        super().set_equations()
-        self.set_buoyancy_discretization_parameters()
-
-    def set_nonlinear_discretizations(self) -> None:
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def before_nonlinear_iteration(self) -> None:
-        self.update_buoyancy_driven_fluxes()
-        self.rediscretize()
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
-    def check_convergence(
-            self,
-            nonlinear_increment: np.ndarray,
-            residual: Optional[np.ndarray],
-            reference_residual: np.ndarray,
-            nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-
-        if self._is_nonlinear_problem():
-
-            self.equation_system
-            # nonlinear_increment based norm
-            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                nonlinear_increment
-            )
-
-            residual_norm = np.linalg.norm(residual)
-            # Check convergence requiring both the increment and residual to be small.
-            converged_inc = (
-                    nl_params["nl_convergence_tol"] is np.inf
-                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            )
-            converged_res = (
-                    nl_params["nl_convergence_tol_res"] is np.inf
-                    or residual_norm < nl_params["nl_convergence_tol_res"]
-            )
-            converged = converged_inc and converged_res
-            diverged = False
-        else:
-            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
-        return converged, diverged
 
 
 class BuoyancyFlowModel2N(
@@ -955,18 +971,8 @@ class InitialConditions3N(pp.PorePyModel):
 
 
 class FlowModel3N(
-    FlowTemplate,
+    BaseFlowModel,
 ):
-
-    def __init__(self, params: dict):
-        """Initializes the flow model."""
-        super().__init__(params)
-        self.expected_order_mass_loss = params.get("expected_order_mass_loss", 10)
-
-    def relative_permeability(
-            self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        return phase.saturation(domains)
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
@@ -1006,58 +1012,6 @@ class FlowModel3N(
         gas_mass_conservative_Q = order_gas_mass_loss >= self.expected_order_mass_loss
         mass_conservative_Q = oil_mass_conservative_Q and gas_mass_conservative_Q
         assert mass_conservative_Q
-
-    def set_equations(self):
-        super().set_equations()
-        self.set_buoyancy_discretization_parameters()
-
-    def set_nonlinear_discretizations(self) -> None:
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def before_nonlinear_iteration(self) -> None:
-        self.update_buoyancy_driven_fluxes()
-        self.rediscretize()
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
-    def check_convergence(
-            self,
-            nonlinear_increment: np.ndarray,
-            residual: Optional[np.ndarray],
-            reference_residual: np.ndarray,
-            nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-
-        if self._is_nonlinear_problem():
-
-            self.equation_system
-            # nonlinear_increment based norm
-            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                nonlinear_increment
-            )
-
-            residual_norm = np.linalg.norm(residual)
-            # Check convergence requiring both the increment and residual to be small.
-            converged_inc = (
-                    nl_params["nl_convergence_tol"] is np.inf
-                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            )
-            converged_res = (
-                    nl_params["nl_convergence_tol_res"] is np.inf
-                    or residual_norm < nl_params["nl_convergence_tol_res"]
-            )
-            converged = converged_inc and converged_res
-            diverged = False
-        else:
-            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
-        return converged, diverged
 
 
 class BuoyancyFlowModel3N(
