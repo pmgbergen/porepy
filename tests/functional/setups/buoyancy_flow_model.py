@@ -275,15 +275,7 @@ class WaterEOS(BaseEOS):
             self,
             *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Density function for water phase (constant).
 
-        Args:
-            thermodynamic_dependencies: Variable thermodynamic inputs (ignored).
-
-        Returns:
-            Tuple of constant density array and zero derivatives.
-        """
         nc = len(thermodynamic_dependencies[0])
         vals = rho_w * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -301,15 +293,7 @@ class OilEOS(BaseEOS):
             self,
             *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Density function for oil phase (constant).
 
-        Args:
-            thermodynamic_dependencies: Variable thermodynamic inputs (ignored).
-
-        Returns:
-            Tuple of constant density array and zero derivatives.
-        """
         nc = len(thermodynamic_dependencies[0])
         vals = rho_o * np.ones(nc)
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -328,22 +312,14 @@ class GasEOS(BaseEOS):
             self,
             *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Density function for gas phase (constant).
 
-        Args:
-            thermodynamic_dependencies: Variable thermodynamic inputs (ignored).
-
-        Returns:
-            Tuple of constant density array and zero derivatives.
-        """
         nc = len(thermodynamic_dependencies[0])
         vals = rho_g * np.ones(nc)
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
 
-# constitutive description
+# constitutive description for N=2
 def temperature_2N(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -667,7 +643,7 @@ class BuoyancyFlowModel2N(
 
     pass
 
-# Three phases Three components case
+# constitutive description for N=3
 def temperature_3N(
         *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
