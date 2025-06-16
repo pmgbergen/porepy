@@ -106,7 +106,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             The step length vector, one value for each degree of freedom.
 
         """
-        if not self.params.get("Global_line_search", False):
+        if not self.params.get("global_line_search", False):
             return np.ones_like(dx)
 
         def objective_function(weight):
@@ -562,7 +562,7 @@ class ConstraintLineSearch:
 
         """
         residual_weight = self.residual_line_search(model, dx)
-        if self.params.get("Local_line_search", False):
+        if self.params.get("local_line_search", False):
             return self.constraint_line_search(model, dx, residual_weight.min())
         else:
             return residual_weight
