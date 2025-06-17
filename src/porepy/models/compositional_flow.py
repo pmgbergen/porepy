@@ -212,7 +212,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = compositional.get_equilibrium_type(model)
+    et = compositional.get_local_equilibrium_condition(model)
     schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
@@ -1606,7 +1606,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         super().update_material_properties()  # type:ignore[safe-super]
         self.update_thermodynamic_properties_of_phases()
 
-    def update_thermodynamic_properties_of_phases(self) -> None:
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
         """This method uses for each phase the underlying EoS to calculate new values
         and derivative values of phase properties and to update them in the iterative
         sense, on all subdomains."""
@@ -1621,7 +1623,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 # Compute the values of variables/state functions on which the phase
                 # properties depend.
                 dep_vals = [
-                    self.equation_system.evaluate(d([grid]))
+                    self.equation_system.evaluate(d([grid]), state=state)
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
                 # Compute phase properties using the phase EoS.

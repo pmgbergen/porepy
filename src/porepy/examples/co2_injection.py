@@ -1541,8 +1541,8 @@ primary_variables += list(
     set([v.name for v in model.equation_system.variables if "flux" in v.name])
 )
 
-model.primary_equations = primary_equations
-model.primary_variables = primary_variables
+model.schur_complement_primary_equations = primary_equations
+model.schur_complement_primary_variables = primary_variables
 
 t_0 = time.time()
 try:

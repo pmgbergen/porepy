@@ -1276,6 +1276,7 @@ class EnthalpyBasedCFFLETemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
     InitialConditionsEquilibrium,
     BoundaryConditionsCFFLE,
+    SolutionStrategyCFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
