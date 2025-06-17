@@ -8,19 +8,21 @@ import logging
 
 import numpy as np
 
+from porepy.utils.ui_and_logging import (
+    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
+)
+
 # ``tqdm`` is not a dependency. Up to the user to install it.
 try:
     # Avoid some mypy trouble.
     from tqdm.autonotebook import trange  # type: ignore
 
-    from porepy.utils.ui_and_logging import (
-        logging_redirect_tqdm_with_level as logging_redirect_tqdm,
-    )
+    _IS_TQDM_AVAILABLE: bool = True
 
 except ImportError:
-    _IS_TQDM_AVAILABLE: bool = False
-else:
-    _IS_TQDM_AVAILABLE = True
+    from porepy.utils.ui_and_logging import DummyTrange
+
+    _IS_TQDM_AVAILABLE = False
 
 
 # Module-wide logger
@@ -106,26 +108,14 @@ class NewtonSolver:
                 nonlinear_increment, residual, reference_residual, self.params
             )
 
-        # Progressbars turned off or tqdm not installed:
-        if not self.progress_bar or not _IS_TQDM_AVAILABLE:
-            while (
-                model.nonlinear_solver_statistics.num_iteration
-                <= self.params["max_iterations"]
-                and not is_converged
-            ):
-                newton_step()
+        # Redirect the root logger, s.t. no logger interferes with the progressbars.
+        with logging_redirect_tqdm([logging.root]):
+            # Progressbars turned off or tqdm not installed:
+            if not self.progress_bar or not _IS_TQDM_AVAILABLE:
+                solver_progressbar = DummyTrange()
 
-                if is_diverged:
-                    # The nonlinear solver failure is handled after the loop.
-                    break
-                elif is_converged:
-                    model.after_nonlinear_convergence()
-                    break
-
-        # Progressbars turned on:
-        else:
-            # Redirect the root logger, s.t. no logger interferes with the progressbars.
-            with logging_redirect_tqdm([logging.root]):
+            # Progressbars turned on:
+            else:
                 # Initialize a progress bar. Length is the number of maximal Newton
                 # iterations.
                 solver_progressbar = trange(  # type: ignore
@@ -136,40 +126,40 @@ class NewtonSolver:
                     dynamic_ncols=True,
                 )
 
-                while (
-                    model.nonlinear_solver_statistics.num_iteration
-                    <= self.params["max_iterations"]
-                    and not is_converged
-                ):
-                    solver_progressbar.set_description_str(
-                        "Newton iteration number "
-                        + f"{model.nonlinear_solver_statistics.num_iteration + 1} of"
-                        + f" {self.params['max_iterations']}"
+            while (
+                model.nonlinear_solver_statistics.num_iteration
+                <= self.params["max_iterations"]
+                and not is_converged
+            ):
+                solver_progressbar.set_description_str(
+                    "Newton iteration number "
+                    + f"{model.nonlinear_solver_statistics.num_iteration + 1} of"
+                    + f" {self.params['max_iterations']}"
+                )
+                newton_step()
+
+                # Do not update the progress bar if something failed during a Newton
+                # iteration, because
+                # ``model.nonlinear_solver_statistics.nonlinear_increment_norms``
+                # might be empty.
+                if not is_diverged:
+                    solver_progressbar.update(n=1)
+                    # Ignore line being too long, because we would need an
+                    # additional variable to fix this.
+                    solver_progressbar.set_postfix_str(
+                        f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
                     )
-                    newton_step()
 
-                    # Do not update the progress bar if something failed during a Newton
-                    # iteration, because
-                    # ``model.nonlinear_solver_statistics.nonlinear_increment_norms``
-                    # might be empty.
-                    if not is_diverged:
-                        solver_progressbar.update(n=1)
-                        # Ignore line being too long, because we would need an
-                        # additional variable to fix this.
-                        solver_progressbar.set_postfix_str(
-                            f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
-                        )
-
-                    if is_diverged:
-                        # If the process finishes early, the tqdm bar needs to be
-                        # manually closed. See https://stackoverflow.com/a/73175351.
-                        solver_progressbar.close()
-                        # The nonlinear solver failure is handled after the loop.
-                        break
-                    elif is_converged:
-                        solver_progressbar.close()
-                        model.after_nonlinear_convergence()
-                        break
+                if is_diverged:
+                    # If the process finishes early, the tqdm bar needs to be
+                    # manually closed. See https://stackoverflow.com/a/73175351.
+                    solver_progressbar.close()
+                    # The nonlinear solver failure is handled after the loop.
+                    break
+                elif is_converged:
+                    solver_progressbar.close()
+                    model.after_nonlinear_convergence()
+                    break
 
         if not is_converged:
             model.after_nonlinear_failure()

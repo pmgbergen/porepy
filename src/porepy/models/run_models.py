@@ -7,21 +7,21 @@ from typing import Optional, Union
 
 import numpy as np
 
+import porepy as pp
+from porepy.utils.ui_and_logging import (
+    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
+)
+
 # ``tqdm`` is not a dependency. Up to the user to install it.
 try:
     # Avoid some mypy trouble.
     from tqdm.autonotebook import trange  # type: ignore
 
-    from porepy.utils.ui_and_logging import (
-        logging_redirect_tqdm_with_level as logging_redirect_tqdm,
-    )
-
+    _IS_TQDM_AVAILABLE: bool = True
 except ImportError:
-    _IS_TQDM_AVAILABLE: bool = False
-else:
-    _IS_TQDM_AVAILABLE = True
+    _IS_TQDM_AVAILABLE = False
+    from porepy.utils.ui_and_logging import DummyTrange
 
-import porepy as pp
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -105,17 +105,15 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         # step succeeded or failed.
         return solver.solve(model)
 
-    # Progressbars turned off or tqdm not installed:
-    if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
-        while not model.time_manager.final_time_reached():
-            time_step()
-
-    # Progressbars turned on:
-    else:
-        # Redirect the root logger, s.t. no logger interferes with with the
-        # progressbars.
-        with logging_redirect_tqdm([logging.root]):
-            # Time loop
+    # Redirect the root logger, s.t. no logger interferes with with the
+    # progressbars.
+    with logging_redirect_tqdm([logging.root]):
+        initial_time_step: float = model.time_manager.dt
+        # Progressbars turned off or tqdm not installed:
+        if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
+            time_progressbar = DummyTrange()
+        # Progressbars turned on:
+        else:
             # Create a time bar. The length is estimated as the timesteps predetermined
             # by the schedule and initial time step size.
             # NOTE: If e.g. adaptive time stepping results in more time steps, the time
@@ -128,7 +126,6 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
                 )
             )
 
-            initial_time_step: float = model.time_manager.dt
             time_progressbar = trange(
                 expected_timesteps,
                 desc="time loop",
@@ -136,15 +133,16 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
                 dynamic_ncols=True,
             )
 
-            while not model.time_manager.final_time_reached():
-                time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index + 1}"
-                )
-                converged: bool = time_step()
-                # If the current time step was solved, update time progressbar length by
-                # the time step size divided by the initial time step size.
-                if converged:
-                    time_progressbar.update(n=model.time_manager.dt / initial_time_step)
+        # Time loop
+        while not model.time_manager.final_time_reached():
+            time_progressbar.set_description_str(
+                f"Time step {model.time_manager.time_index + 1}"
+            )
+            converged: bool = time_step()
+            # If the current time step was solved, update time progressbar length by
+            # the time step size divided by the initial time step size.
+            if converged:
+                time_progressbar.update(n=model.time_manager.dt / initial_time_step)
 
     model.after_simulation()
 
@@ -203,16 +201,19 @@ def _run_iterative_model(model, params: dict) -> None:
             solver.solve(model)
         model.after_propagation_loop()
 
-    # Progressbars turned off or tqdm not installed:
-    if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
-        while not model.time_manager.final_time_reached():
-            time_step()
-    # Progressbars turned on:
-    else:
-        # Redirect the root logger, s.t. no logger interferes with with the
-        # progressbars.
-        with logging_redirect_tqdm([logging.root]):
-            # Time loop
+    # Redirect the root logger, s.t. no logger interferes with with the
+    # progressbars.
+    with logging_redirect_tqdm([logging.root]):
+        initial_time_step: float = model.time_manager.dt
+        # Assert that the initial time step is not zero, to avoid division by zero
+        # later on.
+        assert initial_time_step != 0, "Initial time step size must not be zero."
+
+        # Progressbars turned off or tqdm not installed:
+        if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
+            time_progressbar = DummyTrange()
+        # Progressbars turned on:
+        else:
             # Create a time bar. The length is estimated as the number of timesteps
             # predetermined by the schedule and initial time step size.
             # Note: If e.g., some manual time stepping results in more time steps, the
@@ -224,10 +225,6 @@ def _run_iterative_model(model, params: dict) -> None:
                     / model.time_manager.dt
                 )
             )
-            initial_time_step: float = model.time_manager.dt
-            # Assert that the initial time step is not zero, to avoid division by zero
-            # later on.
-            assert initial_time_step != 0
             time_progressbar = trange(
                 expected_timesteps,
                 desc="time loop",
@@ -235,14 +232,15 @@ def _run_iterative_model(model, params: dict) -> None:
                 dynamic_ncols=True,
             )
 
-            while not model.time_manager.final_time_reached():
-                time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index + 1}"
-                )
-                time_step()
-                # Update time progressbar by the time step size divided by the initial
-                # time step size.
-                time_progressbar.update(n=model._time_step / initial_time_step)
+        # Time loop
+        while not model.time_manager.final_time_reached():
+            time_progressbar.set_description_str(
+                f"Time step {model.time_manager.time_index + 1}"
+            )
+            time_step()
+            # Update time progressbar by the time step size divided by the initial
+            # time step size.
+            time_progressbar.update(n=model._time_step / initial_time_step)
 
     model.after_simulation()
 
