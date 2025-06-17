@@ -85,7 +85,6 @@ class NewtonSolver:
                 + f" {self.params['max_iterations']}"
             )
 
-            # Re-discretize the nonlinear term.
             model.before_nonlinear_iteration()
             nonlinear_increment = self.iteration(model)
             model.after_nonlinear_iteration(nonlinear_increment)
@@ -103,7 +102,7 @@ class NewtonSolver:
                 nonlinear_increment, residual, reference_residual, self.params
             )
 
-        # Redirect the root logger, s.t. no logger interferes with the progressbars.
+        # Redirect all loggers to not interfere with the progressbar.
         with logging_redirect_tqdm([logging.root]):
             # Check if the user wants a progress bar. Initialize an instance of the
             # progressbar_class, which is either :class:`~tqdm.trange` or
@@ -131,7 +130,7 @@ class NewtonSolver:
                 # Do not update the progress bar if Newton diverged. If it diverged
                 # during the first iteration,
                 # :attr:`~model.nonlinear_solver_statistics.nonlinear_increment_norms`
-                # will be empty and the following will raise an error.
+                # will be empty and the following code will raise an error.
                 if not is_diverged:
                     solver_progressbar.update(n=1)
                     # Ignore the long line; fixing it would require an extra variable.
@@ -140,10 +139,7 @@ class NewtonSolver:
                     )
 
                 if is_diverged:
-                    # If the process finishes early, the tqdm bar needs to be
-                    # manually closed. See https://stackoverflow.com/a/73175351.
-                    solver_progressbar.close()
-                    # The nonlinear solver failure is handled after the loop.
+                    # Handle nonlinear divergence outside the loop.
                     break
                 elif is_converged:
                     solver_progressbar.close()
@@ -151,6 +147,9 @@ class NewtonSolver:
                     break
 
         if not is_converged:
+            # If Newton fails, the progressbar bar needs to be
+            # manually closed. See https://stackoverflow.com/a/73175351.
+            solver_progressbar.close()
             model.after_nonlinear_failure()
 
         return is_converged

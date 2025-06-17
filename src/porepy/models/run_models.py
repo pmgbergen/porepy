@@ -202,8 +202,7 @@ def _run_iterative_model(model, params: dict) -> None:
             solver.solve(model)
         model.after_propagation_loop()
 
-    # Redirect the root logger, s.t. no logger interferes with the
-    # progressbars.
+    # Redirect all loggers to not interfere with the progressbar.
     with logging_redirect_tqdm([logging.root]):
         initial_time_step: float = model.time_manager.dt
 
