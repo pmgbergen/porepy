@@ -544,6 +544,34 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("density_driven_flux_" + density_metric.name)
         return w_flux
 
+    def interface_density_driven_flux(self,
+            interfaces: list[pp.MortarGrid],
+            density_metric: pp.ad.Operator
+    ) -> pp.ad.Operator:
+
+        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+
+        subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(
+            self.mdg, subdomain_neighbors, interfaces, dim=self.nd
+        )
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
+        gravity_flux = pp.ad.Scalar(-1) * e_n @ (density_metric * self.gravity_field(subdomain_neighbors))
+
+        intf_vector_source = (
+                projection.secondary_to_mortar_avg()
+                @ gravity_flux
+        )
+        normals_times_source = normals * intf_vector_source
+        nd_to_scalar_sum = pp.ad.sum_projection_list(
+            [e.T for e in self.basis(interfaces, dim=self.nd)]
+        )
+        w_flux = nd_to_scalar_sum @ normals_times_source
+        w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
+        return w_flux
+
     def fractionally_weighted_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         overall_rho = pp.ad.sum_operator_list([
             self.fractional_phase_mass_mobility(phase, domains) * phase.density(domains)
@@ -582,7 +610,47 @@ class FluidBuoyancy(pp.PorePyModel):
                     diffusive_upwind = self.mobility_discretization(domains)
                     chi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
 
-                    # TODO: Fixed dimensional implementation. Needs md-part
+                    f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ f_gamma # well-defined fraction flow on facets
+                    f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
+
+                    b_flux_gamma_delta = chi_xi_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                    b_fluxes.append(b_flux_gamma_delta)
+
+        b_flux = pp.ad.sum_operator_list(b_fluxes) # sum all buoyancy terms w.t. component_xi
+        b_flux.set_name("component_buoyancy_" + component_xi.name)
+        return b_flux
+
+    def component_interface_buoyancy(self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+
+        b_fluxes = []
+        single_phase_Q = len(self.fluid.phases) == 1
+        if single_phase_Q:
+            # TODO: Find/construct a notion of md-empty operator on facets
+            b_fluxes.append(self.density_driven_flux(domains,pp.ad.Scalar(0.0)))
+        else:
+            # This construction implies that for each component pair, there is a pair of upwinding objects
+            for phase in self.fluid.phases:
+                for pairs in self.phase_pairs_for(phase):
+                    gamma, delta = pairs
+                    rho_gamma = gamma.density(domains)
+                    rho_delta = delta.density(domains)
+                    w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta) # well-defined flux on facets
+                    f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
+                    f_delta = self.fractional_phase_mass_mobility(delta, domains)
+
+                    # Verify that the domains are subdomains.
+                    if not all(isinstance(d, pp.Grid) for d in domains):
+                        raise ValueError("domains must consist entirely of subdomains.")
+                    domains = cast(list[pp.Grid], domains)
+
+                    chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
+
+                    discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
+                    discr_delta = self.buoyancy_discretization(delta, gamma, domains)
+
+                    diffusive_upwind = self.mobility_discretization(domains)
+                    chi_xi_gamma_upwind: pp.ad.Operator = diffusive_upwind.upwind() @ chi_xi_gamma
+
                     f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ f_gamma # well-defined fraction flow on facets
                     f_delta_upwind: pp.ad.Operator = discr_delta.upwind() @ f_delta # well-defined fraction flow on facets
 
@@ -656,9 +724,10 @@ class FluidBuoyancy(pp.PorePyModel):
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update({self.buoyant_flux_array_key(delta, gamma): -vals})
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-                    rho_gamma = gamma.density([intf])
-                    rho_delta = delta.density([intf])
-                    vals = self.equation_system.evaluate(self.density_driven_flux([intf], rho_gamma - rho_delta))
+                    subdomain_neighbors = self.interfaces_to_subdomains([intf])
+                    rho_gamma = gamma.density(subdomain_neighbors)
+                    rho_delta = delta.density(subdomain_neighbors)
+                    vals = self.equation_system.evaluate(self.interface_density_driven_flux([intf], rho_gamma - rho_delta))
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update({self.buoyant_flux_array_key(gamma, delta): +vals})
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update({self.buoyant_flux_array_key(delta, gamma): -vals})
 

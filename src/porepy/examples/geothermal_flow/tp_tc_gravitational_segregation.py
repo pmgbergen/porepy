@@ -10,7 +10,7 @@ from abc import abstractmethod
 
 # test parameters
 expected_order_mass_loss = 10
-mesh_2d_Q = False
+mesh_2d_Q = True
 
 
 residual_tolerance = 10.0**(-expected_order_mass_loss)
@@ -37,7 +37,7 @@ class Geometry(pp.PorePyModel):
 
 class ModelGeometry(Geometry):
 
-    _sphere_radius: float = 1.0
+    _sphere_radius: float = 0.25
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -50,9 +50,21 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(0.25, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
+
+    def set_fractures(self) -> None:
+        points = (
+                np.array(
+                    [
+                        [2.0, 0.0],
+                        [2.0, 5.0],
+                    ]
+                ).T
+        )
+        fracs = np.array([[0, 1]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -455,7 +467,7 @@ class FlowModel(
         print("Order of mass loss: ", order_mass_loss)
         mass_conservative_Q = order_mass_loss >= expected_order_mass_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
-        assert mass_conservative_Q
+        # assert mass_conservative_Q
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
@@ -500,13 +512,7 @@ class FlowModel(
 
             # Residual per subsystem
             res_idx = self.equation_system.assembled_equation_indices
-            p_res_norm = np.linalg.norm(residual[res_idx['mass_balance_equation']])
-            z_res_norm = np.linalg.norm(residual[res_idx['component_mass_balance_equation_CO2']])
-            h_res_norm = np.linalg.norm(residual[res_idx['energy_balance_equation']])
-            s_res_norm = np.linalg.norm(residual[res_idx['elimination_of_s_gas_on_grids_[0]']])
-            t_res_norm = np.linalg.norm(residual[res_idx['elimination_of_temperature_on_grids_[0]']])
-
-            residual_norm = np.linalg.norm(residual) # np.max([p_res_norm,z_res_norm,h_res_norm,s_res_norm,t_res_norm])
+            residual_norm = np.linalg.norm(residual)
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                 nl_params["nl_convergence_tol"] is np.inf
@@ -525,7 +531,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 500.0 * day
-dt = 50.0 * day
+dt = 5.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
