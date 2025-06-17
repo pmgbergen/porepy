@@ -1,4 +1,4 @@
-"""This module contains functionality for logging and tqdm progressbars."""
+"""This module contains functionality for logging and tqdm progressbar_classs."""
 
 from __future__ import annotations
 
@@ -7,8 +7,14 @@ from contextlib import contextmanager
 from typing import Iterator
 
 
-class DummyTrange:
-    """Dummy class to replace ``tqdm`` when it is not installed or used."""
+class DummyProgressBar:
+    """Dummy class to replace :class:~`tqdm.trange` when it is not installed or used.
+
+    All methods of :class:`~tqdm.trange` that may be called in
+    :mod:`~porepy.numerics.nonlinearnonlinear_solvers`
+    and :mod:`~porepy.models.run_models` are replaced with empty methods.
+
+    """
 
     def __init__(self, *args, **kwargs):
         pass
@@ -36,20 +42,20 @@ class DummyTrange:
 # ``tqdm`` is not a dependency. Up to the user to install it.
 try:
     # Avoid some mypy trouble due to missing library stubs for tqdm.
-    from tqdm.autonotebook import tqdm as std_tqdm  # type: ignore
+    from tqdm.autonotebook import trange as progressbar_class  # type: ignore
     from tqdm.contrib.logging import (  # type: ignore
         _get_first_found_console_logging_handler,
         _TqdmLoggingHandler,
         logging_redirect_tqdm,
     )
 except ImportError:
-    std_tqdm = DummyTrange
+    progressbar_class = DummyProgressBar
 
 
 @contextmanager
 def logging_redirect_tqdm_with_level(
     loggers: list[logging.Logger] | None = None,
-    tqdm_class: type = std_tqdm,
+    tqdm_class: type = progressbar_class,
 ) -> Iterator[None]:
     """Extend capability of ``tqdm.contrib.logging_redirect_tqdm`` s.t. the logging
     handler level gets passed.
@@ -73,7 +79,7 @@ def logging_redirect_tqdm_with_level(
     # known (see e.g., https://github.com/tqdm/tqdm/issues/1272) but not resolved yet.
     # Development of ``tqdm`` is not very active, so it is unclear if and when this will
     # be fixed. At some point in the future, it might be advisable to switch to a
-    # different progressbar library with more active development.
+    # different progressbar_class library with more active development.
     #
     # This function provides a workaround until the issue is fixed.
     #
@@ -82,7 +88,7 @@ def logging_redirect_tqdm_with_level(
     # :meth:`_get_first_found_console_logging_handler` was imported and can be called.
 
     # If the dummy class is used, we do not need to redirect logging.
-    if tqdm_class is DummyTrange:
+    if tqdm_class is DummyProgressBar:
         yield
 
     else:

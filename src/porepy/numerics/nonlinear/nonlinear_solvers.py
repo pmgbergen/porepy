@@ -8,21 +8,10 @@ import logging
 
 import numpy as np
 
-from porepy.utils.ui_and_logging import DummyTrange
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-
-# ``tqdm`` is not a dependency. Up to the user to install it.
-try:
-    # Avoid some mypy trouble.
-    from tqdm.autonotebook import trange  # type: ignore
-
-    _IS_TQDM_AVAILABLE: bool = True
-
-except ImportError:
-    _IS_TQDM_AVAILABLE = False
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -43,6 +32,11 @@ class NewtonSolver:
         self.params = default_options
 
         self.progress_bar: bool = params.get("progressbars", False)
+        if self.progress_bar and progressbar_class is DummyProgressBar:
+            logger.warning(
+                "Progress bars are requested, but `tqdm` is not installed. The solver"
+                + " will run without progress bars."
+            )
         # Allow the position of the progress bar to be flexible, depending on whether
         # this is called inside a time loop, a time loop and an additional propagation
         # loop or inside a stationary problem (default).
@@ -72,8 +66,7 @@ class NewtonSolver:
         # Extract residual of initial guess.
         reference_residual = model.equation_system.assemble(evaluate_jacobian=False)
 
-        # Define a function that does all the work during one Newton iteration, except
-        # for everything ``tqdm`` related.
+        # Define a function that runs everything inside one Newton iteration.
         def newton_step() -> None:
             # Bind to variables in the outer function
             nonlocal nonlinear_increment
@@ -81,19 +74,22 @@ class NewtonSolver:
             nonlocal is_converged
             nonlocal is_diverged
 
-            # Logging.
             logger.info(
                 "Newton iteration number "
                 + f"{model.nonlinear_solver_statistics.num_iteration}"
                 + f" of {self.params['max_iterations']}"
             )
+            solver_progressbar.set_description_str(
+                "Newton iteration number "
+                + f"{model.nonlinear_solver_statistics.num_iteration + 1} of"
+                + f" {self.params['max_iterations']}"
+            )
 
-            # Re-discretize the nonlinear term
+            # Re-discretize the nonlinear term.
             model.before_nonlinear_iteration()
-
             nonlinear_increment = self.iteration(model)
-
             model.after_nonlinear_iteration(nonlinear_increment)
+
             if self.params["nl_convergence_tol_res"] is not np.inf:
                 # Note: The residual is extracted after the solution has been updated by
                 # the after_nonlinear_iteration() method. This is only required if the
@@ -109,42 +105,36 @@ class NewtonSolver:
 
         # Redirect the root logger, s.t. no logger interferes with the progressbars.
         with logging_redirect_tqdm([logging.root]):
-            # Progressbars turned off or tqdm not installed:
-            if not self.progress_bar or not _IS_TQDM_AVAILABLE:
-                solver_progressbar = DummyTrange()
-
-            # Progressbars turned on:
-            else:
-                # Initialize a progress bar. Length is the number of maximal Newton
-                # iterations.
-                solver_progressbar = trange(  # type: ignore
+            # Check if the user wants a progress bar. Initialize an instance of the
+            # progressbar_class, which is either :class:`~tqdm.trange` or
+            # :class:`~DummyProgressbar` in case `tqdm` is not installed.
+            if self.progress_bar:
+                # Length is the maximal number of Newton iterations.
+                solver_progressbar = progressbar_class(  # type: ignore
                     self.params["max_iterations"],
                     desc="Newton loop",
                     position=self.progress_bar_position,
                     leave=False,
                     dynamic_ncols=True,
                 )
+            # Otherwise, use a dummy progress bar.
+            else:
+                solver_progressbar = DummyProgressBar()
 
             while (
                 model.nonlinear_solver_statistics.num_iteration
                 <= self.params["max_iterations"]
                 and not is_converged
             ):
-                solver_progressbar.set_description_str(
-                    "Newton iteration number "
-                    + f"{model.nonlinear_solver_statistics.num_iteration + 1} of"
-                    + f" {self.params['max_iterations']}"
-                )
                 newton_step()
 
-                # Do not update the progress bar if something failed during a Newton
-                # iteration, because
-                # ``model.nonlinear_solver_statistics.nonlinear_increment_norms``
-                # might be empty.
+                # Do not update the progress bar if Newton diverged. If it diverged
+                # during the first iteration,
+                # :attr:`~model.nonlinear_solver_statistics.nonlinear_increment_norms`
+                # will be empty and the following will raise an error.
                 if not is_diverged:
                     solver_progressbar.update(n=1)
-                    # Ignore line being too long, because we would need an
-                    # additional variable to fix this.
+                    # Ignore the long line; fixing it would require an extra variable.
                     solver_progressbar.set_postfix_str(
                         f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
                     )
