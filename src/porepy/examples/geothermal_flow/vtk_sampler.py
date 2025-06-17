@@ -1,7 +1,7 @@
 import time
 
 import numpy as np
-import pyvista
+import pyvista  # type:ignore[import-not-found]
 
 from . import classify_points as cp
 
