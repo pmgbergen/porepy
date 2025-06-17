@@ -63,8 +63,8 @@ def logging_redirect_tqdm_with_level(
     Parameters:
         loggers: List of loggers to redirect. If not provided, the root logger is used.
         tqdm_class: The class to use for the progress bar. Defaults to
-            :class:~`tqdm.autonotebook.tqdm` or :class:~`DummyTrange` if ``tqdm`` is not
-            installed.
+            :class:~`tqdm.autonotebook.tqdm` or :class:~`DummyProgressBar` if ``tqdm``
+            is not installed.
 
     Returns:
         An iterator that redirects logging to the tqdm progress bar. The logging level
