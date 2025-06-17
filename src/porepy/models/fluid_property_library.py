@@ -519,7 +519,7 @@ class FluidBuoyancy(pp.PorePyModel):
         subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
         material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
-        if material == "fluid":
+        if material == "fluid" and self.params.get("buoyancy_on", True):
             fractionally_weighted_rho = self.fractionally_weighted_density(subdomains)
 
             # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
@@ -532,10 +532,9 @@ class FluidBuoyancy(pp.PorePyModel):
             overall_gravity_flux.set_name("overall gravity flux")
             return overall_gravity_flux
         else:
-            raise ValueError(
-                "Unsupported gravity in combination with compositional flow "
-                f"'{material}'."
-            )
+            # TODO this needs documentation and a failsafe if no other gravity mixin
+            # provided.
+            return super().gravity_force(subdomains, material)  # type:ignore
 
     def density_driven_flux(
         self, subdomains: pp.SubdomainsOrBoundaries, density_metric: pp.ad.Operator

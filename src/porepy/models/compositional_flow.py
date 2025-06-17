@@ -551,10 +551,10 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
 
-    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
     component_buoyancy: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
@@ -611,9 +611,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        viscous_flux = self.component_flux(component, subdomains)
-        buoyancy_flux = self.component_buoyancy(component, subdomains)
-        flux = viscous_flux + buoyancy_flux
+        flux = self.component_flux(component, subdomains)
+        if self.params.get("buoyancy_on", True):
+            flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
