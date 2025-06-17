@@ -8,6 +8,7 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
+from porepy.utils.ui_and_logging import DummyTrange
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
@@ -20,7 +21,6 @@ try:
     _IS_TQDM_AVAILABLE: bool = True
 except ImportError:
     _IS_TQDM_AVAILABLE = False
-    from porepy.utils.ui_and_logging import DummyTrange
 
 
 # Module-wide logger

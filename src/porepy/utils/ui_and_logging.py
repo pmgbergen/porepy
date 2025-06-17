@@ -15,7 +15,9 @@ class DummyTrange:
 
     @classmethod
     def write(cls, *args, **kwargs):
-        # TODO Perhaps we need to copy the code from tqdm.write?
+        # _TqdmLoggingHandler.emit calls this method to write messages. However, this
+        # functionality does not appear to be needed in the dummy class. Logging works
+        # fine with an empty dummy class.
         pass
 
     def update(self, *args, **kwargs):
