@@ -424,6 +424,25 @@ class SolidConstants(Constants):
 
 
 @dataclass(kw_only=True, eq=False)
+class SolidComponent(Constants, Component):
+    """Material data class for solid components.
+
+    It's designed for reactive transport problems, where we need to track the reactive minerals.
+    """
+
+    SI_units: ClassVar[dict[str, str]] = dict(
+        {
+            "density": "kg * m^-3",
+            "molar_mass": "kg * mol^-1",
+        }
+    )
+
+    density: number = 1.0
+
+    molar_mass: number = 1.0
+
+
+@dataclass(kw_only=True, eq=False)
 class FractureDamageSolidConstants(SolidConstants):
     """Solid parameters for fracture damage models."""
 
