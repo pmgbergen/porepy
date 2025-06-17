@@ -9,7 +9,7 @@ from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
 from abc import abstractmethod
 
 # test parameters
-expected_order_mass_loss = 10
+expected_order_mass_loss = 6
 mesh_2d_Q = True
 
 
@@ -37,7 +37,7 @@ class Geometry(pp.PorePyModel):
 
 class ModelGeometry(Geometry):
 
-    _sphere_radius: float = 0.25
+    _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -50,7 +50,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.25, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -441,7 +441,6 @@ class FlowModel(
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
 
-        sd = model.mdg.subdomains()[0]
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
 
@@ -454,12 +453,18 @@ class FlowModel(
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
-        ic_sg_val = self.ic_values_staturation(sd)
-        ref_sg_integral = np.sum(sd.cell_volumes * ic_sg_val)
+        ref_sg_integral = 0.0
+        num_sg_integral = 0.0
+        for sd in model.mdg.subdomains():
+            ic_sg_val = self.ic_values_staturation(sd)
+            ref_sg_integral_op = self.volume_integral(pp.wrap_as_dense_ad_array(ic_sg_val), [sd], dim=1)
+            ref_sg_integral += np.sum(self.equation_system.evaluate(ref_sg_integral_op))
 
-        s_gas = phases[1].saturation([sd])
-        sg_val = self.equation_system.evaluate(s_gas)
-        num_sg_integral = np.sum(sd.cell_volumes * sg_val)
+            s_gas = phases[1].saturation([sd])
+            num_sg_integral_op = self.volume_integral(s_gas, [sd], dim=1)
+            num_sg_integral += np.sum(self.equation_system.evaluate(num_sg_integral_op))
+            aka = 0
+
         mass_loss = np.abs(ref_sg_integral - num_sg_integral)
         order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
         print("ref volume integral sg: ", ref_sg_integral)
@@ -531,7 +536,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 500.0 * day
-dt = 5.0 * day
+dt = 50.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,

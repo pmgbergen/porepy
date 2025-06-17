@@ -549,8 +549,38 @@ class FluidBuoyancy(pp.PorePyModel):
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
             subdomains
         )
+
         w_flux = discr.vector_source() @ gravity_flux
         w_flux.set_name("density_driven_flux_" + density_metric.name)
+        return w_flux
+
+    def interface_density_driven_flux(self,
+                                      interfaces: list[pp.MortarGrid],
+                                      density_metric: pp.ad.Operator
+                                      ) -> pp.ad.Operator:
+
+        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+
+        subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(
+            self.mdg, subdomain_neighbors, interfaces, dim=self.nd
+        )
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
+        gravity_flux = pp.ad.Scalar(-1) * e_n @ (density_metric * self.gravity_field(subdomain_neighbors))
+
+        intf_vector_source = (
+                projection.secondary_to_mortar_avg()
+                @ gravity_flux
+        )
+
+        normals_times_source = normals * intf_vector_source
+        nd_to_scalar_sum = pp.ad.sum_projection_list(
+            [e.T for e in self.basis(interfaces, dim=self.nd)]
+        )
+        w_flux = self.volume_integral(self.normal_permeability(interfaces) * (nd_to_scalar_sum @ normals_times_source), interfaces,1)
+        w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
     def fractionally_weighted_density(
@@ -599,6 +629,8 @@ class FluidBuoyancy(pp.PorePyModel):
                     discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
                     diffusive_upwind = self.mobility_discretization(domains)
+
+                    # TODO: Fixed dimensional implementation. Needs md-part
                     chi_xi_gamma_upwind: pp.ad.Operator = (
                         diffusive_upwind.upwind() @ chi_xi_gamma
                     )
@@ -709,10 +741,11 @@ class FluidBuoyancy(pp.PorePyModel):
                     )
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-                    rho_gamma = gamma.density([intf])
-                    rho_delta = delta.density([intf])
+                    subdomain_neighbors = self.interfaces_to_subdomains([intf])
+                    rho_gamma = gamma.density(subdomain_neighbors)
+                    rho_delta = delta.density(subdomain_neighbors)
                     vals = self.equation_system.evaluate(
-                        self.density_driven_flux([intf], rho_gamma - rho_delta)
+                        self.interface_density_driven_flux([intf], rho_gamma - rho_delta)
                     )
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
                         {self.buoyant_flux_array_key(gamma, delta): +vals}
