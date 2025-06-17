@@ -256,8 +256,8 @@ class _MixtureDOFHandler(pp.PorePyModel):
             True, if the ``tracer`` is in the compound``, False otherwise.
 
         """
-        # if compound not in self.fluid.components:
-        #     raise ValueError(f"Compound {compound} not in fluid mixture.")
+        if compound not in self.fluid.components:
+            raise ValueError(f"Compound {compound} not in fluid mixture.")
 
         if tracer in compound.active_tracers:
             return True
@@ -1149,7 +1149,7 @@ class FluidMixin(pp.PorePyModel):
         - :meth:`fugacity_coefficient` to
           :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`
           for each component in respective phase.
-          This is only done for mixtures with a defined equilibrium condition
+          This is only done for mixtures with a defined equilibrium condition.
 
         Customization is possible in respective methods by mixing-in.
 
