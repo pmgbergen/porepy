@@ -949,6 +949,26 @@ else:
 
             """
 
+        def evaluate_and_scale(
+            self,
+            grids: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+            method_name: str,
+            units: str,
+        ) -> np.ndarray:
+            """Evaluate a method for a derived quantity and scale the result to SI units.
+
+            Parameters:
+                grids: Sequence of grids or mortar grids for which the method should be
+                    evaluated.
+                method_name: Name of the method to be evaluated.
+                units: Units of the quantity returned by the method. Should be parsable by
+                    :meth:`porepy.models.units.Units.convert_units`.
+
+            Returns:
+                Array of values for the quantity, scaled to SI units.
+
+            """
+
     class CachedMethodProtocol(Protocol):
         """This protocol provides the declarations of methods that have been decorated
         with @pp.ad.cached_method, and that are not decleared in the other protocols.
