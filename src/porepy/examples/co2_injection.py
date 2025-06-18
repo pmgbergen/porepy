@@ -15,9 +15,9 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = False
+FRACTIONAL_FLOW: bool = True
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
-EQUILIBRIUM_CONDITION: str = "unified-p-T"
+EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
 procedure."""
 EXPORT_SCHEDULED_TIME_ONLY: bool = False
@@ -25,6 +25,10 @@ EXPORT_SCHEDULED_TIME_ONLY: bool = False
 the scheduled times."""
 DISABLE_COMPILATION: bool = False
 """For disabling numba compilation and faster start of simulation."""
+USE_ADTPFA_FLUX_DISCRETIZATION: bool = False
+"""Uses the adaptive flux discretization for both Darcy and Fourier flux."""
+BUOYANCY_ON: bool = False
+"""Turn on buoyancy. NOTE: This is still under development."""
 
 
 import json
@@ -60,7 +64,7 @@ class _FlowConfiguration(pp.PorePyModel):
     for in- and outflow."""
 
     # Mesh size.
-    _h_MESH: float = 1.0
+    _h_MESH: float = 5e-1
     # 4.        308 cells
     # 2.        1204 cells
     # 1.        4636 cells
@@ -135,29 +139,10 @@ class FluidMixture(pp.PorePyModel):
 class SolutionStrategy(cfle.SolutionStrategyCFLE):
     """Provides some pre- and post-processing for flash methods."""
 
-    flash: pp.compositional.Flash
-
-    compute_nonlinear_increment_norm: Callable[[np.ndarray], float]
-
     pressure_variable: str
     temperature_variable: str
     enthalpy_variable: str
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
-    secondary_variables: list[str]
-    secondary_equations: list[str]
     fraction_in_phase_variables: list[str]
-    phase_fraction_variables: list[str]
-    isofugacity_constraint_for_component_in_phase: Callable[
-        [pp.Component, pp.Phase, Sequence[pp.Grid]],
-        pp.ad.Operator,
-    ]
-
-    _block_row_permutation: np.ndarray
-    _block_column_permutation: np.ndarray
-    _block_size: int
 
     _num_flash_iter: np.ndarray
 
@@ -193,7 +178,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         super().before_nonlinear_loop()  # type:ignore[misc]
         self._residual_norm_history.clear()
         self._increment_norm_history.clear()
-        model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
         self._cum_flash_iter_per_grid.clear()
 
     def check_convergence(
@@ -225,7 +209,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         # Additional tracking for analysis
         res_norm_per_eq = {}
         incr_norm_per_var = {}
-        condition_numbers: dict[str, float] = {}
 
         if status == (False, False):
             residuals_converged: list[bool] = []
@@ -267,18 +250,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             )
             if status[0]:
                 print("\nConverged with relaxed, unified CF criteria.\n")
-
-        # if ANALYSIS_MODE:
-        #     assert isinstance(
-        #         self.nonlinear_solver_statistics, ExtendedSolverStatistics
-        #     )
-        #     self.nonlinear_solver_statistics.extended_log(
-        #         self.time_manager.time,
-        #         self.time_manager.dt,
-        #         res_norm_per_equation=res_norm_per_eq,
-        #         incr_norm_per_variable=incr_norm_per_var,
-        #         condition_numbers=condition_numbers,
-        #     )
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -363,12 +334,12 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 )
         self._time_tracker["flash"].append(time.time() - start)
 
-    def update_dependent_quantities(self):
+    def update_derived_quantities(self):
+        """Normalizes fractional variables in the case of violation of the bound
+        [0,1]."""
         subdomains = self.mdg.subdomains()
 
-        fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
-            subdomains
-        )
+        fluid_state = self.current_fluid_state(subdomains)
 
         # Normalizing fractions in case of overshooting
         eps = 1e-7  # binding overall fractions away from zero
@@ -416,88 +387,19 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 phase_state.x[:, idx] = pp.compositional.normalize_rows(
                     phase_state.x[:, idx].T
                 ).T
-            idx = phase_state.x < 0
-            if np.any(idx):
-                phase_state.x[idx] = 0.0
-            idx = phase_state.x > 1.0
-            if np.any(idx):
-                phase_state.x[idx] = 1.0
+
+            phase_state.x[phase_state.x < 0] = 0.0
+            phase_state.x[phase_state.x > 1.0] = 1.0
+
             for i, comp in enumerate(self.fluid.components):
-                if self.has_independent_partial_fraction(comp, phase):
+                if self.has_independent_extended_fraction(comp, phase):
                     self.equation_system.set_variable_values(
                         phase_state.x[i],
                         [phase.extended_fraction_of[comp](subdomains)],
                         iterate_index=0,
                     )
 
-        super().update_dependent_quantities()
-
-    def current_fluid_state(
-        self,
-        subdomains: Sequence[pp.Grid] | pp.Grid,
-        state: Optional[np.ndarray] = None,
-    ) -> pp.compositional.FluidProperties:
-        """Method to pre-process the evaluated fractions. Normalizes the extended
-        fractions where they violate the unity constraint."""
-        fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
-            subdomains, state
-        )
-
-        if isinstance(subdomains, pp.Grid):
-            subdomains = [subdomains]
-
-        for phase in fluid_state.phases:
-            x_sum = phase.x.sum(axis=0)
-            idx = x_sum > 1.0
-            if np.any(idx):
-                phase.x[:, idx] = pp.compositional.normalize_rows(phase.x[:, idx].T).T
-            idx = phase.x < 0
-            if np.any(idx):
-                phase.x[idx] = 0.0
-            idx = phase.x > 1.0
-            if np.any(idx):
-                phase.x[idx] = 1.0
-
-        # # Normalizing fractions in case of overshooting
-        # eps = 1e-7  # binding overall fractions away from zero
-        # z = fluid_state.z.copy()
-        # z[z >= 1.0] = 1.0 - eps
-        # z[z <= 0.0] = 0.0 + eps
-        # z = pp.compositional.normalize_rows(z.T).T
-
-        # s = fluid_state.sat.copy()
-        # s[s >= 1.0] = 1.0
-        # s[s <= 0.0] = 0.0
-        # s = pp.compositional.normalize_rows(s.T).T
-        # y = fluid_state.y.copy()
-        # y[y >= 1.0] = 1.0
-        # y[y <= 0.0] = 0.0
-        # y = pp.compositional.normalize_rows(y.T).T
-
-        # for z_i, comp in zip(z, self.fluid.components):
-        #     if self.has_independent_fraction(comp):
-        #         self.equation_system.set_variable_values(
-        #             z_i,
-        #             [comp.fraction(subdomains)],  # type:ignore[arg-type]
-        #             iterate_index=0,
-        #         )
-        # for s_j, y_j, phase in zip(s, y, self.fluid.phases):
-        #     if self.has_independent_saturation(phase):
-        #         self.equation_system.set_variable_values(
-        #             s_j,
-        #             [phase.saturation(subdomains)],  # type:ignore[arg-type]
-        #             iterate_index=0,
-        #         )
-        #     if self.has_independent_fraction(phase):
-        #         self.equation_system.set_variable_values(
-        #             y_j,
-        #             [phase.fraction(subdomains)],  # type:ignore[arg-type]
-        #             iterate_index=0,
-        #         )
-        # fluid_state.z = z
-        # fluid_state.sat = s
-        # fluid_state.y = y
-        return fluid_state
+        super().update_derived_quantities()
 
     def postprocess_flash(
         self,
@@ -631,7 +533,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                     phase.fraction(sds).name, data, iterate_index=0
                 )[failed_idx][fallback_idx]
 
-            # mypy: ignore[union-attr]
             sub_state.phases[j].rho[fallback_idx] = pp.get_solution_values(
                 phase.density.name, data, iterate_index=0
             )[failed_idx][fallback_idx]
@@ -684,100 +585,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         )
 
         return sub_state
-
-    def schur_complement_inverter(self) -> Callable[[sps.spmatrix], sps.spmatrix]:
-        """Parallelized block diagonal inverter for local equilibrium equations,
-        assuming they are defined on all subdomains in each cell."""
-
-        # return super().schur_complement_inverter()
-        if not hasattr(self, "_block_permutation"):
-            # Local system size of p-h flash including saturations and phase mass
-            # constraints.
-            ncomp = self.fluid.num_components
-            nphase = self.fluid.num_phases
-            block_size: int = ncomp - 1 + ncomp * (nphase - 1) + nphase + 1 + nphase - 1
-            assert block_size == len(self.secondary_equations)
-            assert block_size == len(self.secondary_variables)
-            self._block_size = block_size
-
-            # Permutation of DOFs in porepy, assuming the order is equ1, equ2,...
-            # With an subdomain-minor order per variable.
-            N = self.mdg.num_subdomain_cells()
-            shift = np.kron(np.arange(block_size), np.ones(N))
-            stride = np.arange(N) * block_size
-            permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
-                np.int32
-            )
-            identity = np.arange(N * block_size, dtype=np.int32)
-            assert np.allclose(np.sort(permutation), identity, rtol=0.0, atol=1e-16)
-
-            self._block_row_permutation = permutation
-
-            # Above permutation can be used for both column and blocks, if there is
-            # no point grid. If there is a point grid, above permutation assembles the
-            # blocks belonging to the point grid cells already fully, due to how AD is
-            # implemented in PorePy. We then need a special column permutation, which
-            # permutes only on the those grids which are not point grids.
-            # Note that the subdomains are sorted by default ascending w.r.t. their
-            # dimension. Point grids come last
-            subdomains = self.mdg.subdomains()
-            if subdomains[-1].dim == 0:
-                non_point_grids = [g for g in subdomains if g.dim > 0]
-                sub_N = sum([g.num_cells for g in non_point_grids])
-                shift = np.kron(np.arange(block_size), np.ones(sub_N))
-                stride = np.arange(sub_N) * block_size
-                sub_permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
-                    np.int32
-                )
-                sub_identity = np.arange(sub_N * block_size, dtype=np.int32)
-                assert np.allclose(
-                    np.sort(sub_permutation), sub_identity, rtol=0.0, atol=1e-16
-                )
-                permutation = np.arange(N * block_size, dtype=np.int32)
-                permutation[: sub_N * block_size] = sub_permutation
-                self._block_column_permutation = permutation
-
-        def inverter(A: sps.csr_matrix) -> sps.csr_matrix:
-            row_perm = pp.matrix_operations.ArraySlicer(
-                range_indices=self._block_row_permutation
-            )
-            inv_col_perm = pp.matrix_operations.ArraySlicer(
-                domain_indices=self._block_row_permutation
-            )
-            if hasattr(self, "_block_column_permutation"):
-                col_perm = pp.matrix_operations.ArraySlicer(
-                    range_indices=self._block_column_permutation
-                )
-                inv_row_perm = pp.matrix_operations.ArraySlicer(
-                    domain_indices=self._block_column_permutation
-                )
-            else:
-                col_perm = row_perm
-                inv_row_perm = inv_col_perm
-
-            A_block = (col_perm @ (row_perm @ A).transpose()).transpose()
-
-            # The local p-h flash system has a size of
-            inv_A_block = pp.matrix_operations.invert_diagonal_blocks(
-                A_block,
-                (np.ones(self.mdg.num_subdomain_cells()) * self._block_size).astype(
-                    np.int32
-                ),
-                method="numba",
-            )
-
-            inv_A = (
-                inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
-            ).transpose()
-            # Because the matrix has a condition number of order 5 to 6, and we use
-            # float64 (precision order -16), the last entries are useless, if not
-            # problematic.
-            treat_as_zero = np.abs(inv_A.data) < 1e-10
-            inv_A.data[treat_as_zero] = 0.0
-            inv_A.eliminate_zeros()
-            return inv_A
-
-        return inverter
 
     def assemble_linear_system(self) -> None:
         start = time.time()
@@ -1137,6 +944,28 @@ class AdjustedWellModel2D(_FlowConfiguration):
         return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
 
 
+class BuoyancyModel(pp.PorePyModel):
+    def initial_condition(self):
+        super().initial_condition()
+        self.set_buoyancy_discretization_parameters()
+
+    def update_flux_values(self):
+        super().update_flux_values()
+        self.update_buoyancy_driven_fluxes()
+
+    def set_nonlinear_discretizations(self):
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2")
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+
 class InitialConditions(_FlowConfiguration):
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
@@ -1165,21 +994,8 @@ class InitialConditions(_FlowConfiguration):
 
 
 class BoundaryConditions(_FlowConfiguration):
-    """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
-
-    Mass flux:
-
-    - No flux conditions on top and bottom
-    - Dirichlet data (pressure, temperatyre and composition) on left and right faces
-
-    Heat flux:
-
-    - No flux on left, top, right
-    - heated bottom side (given by temperature as a Dirichlet-type BC)
-
-    Trivial Neumann conditions for fractures.
-
-    """
+    """No flow BC, with the exception of a stripe on the bottom boundary where
+    temperature Dirichlet-BC are given."""
 
     def _central_stripe(self, sd: pp.Grid) -> tuple[float, float]:
         """Returns the left and right boundary of the central, vertical stripe of the
@@ -1384,13 +1200,13 @@ class Permeability(pp.PorePyModel):
 
 
 # region Model class assembly
-# mypy: disable-error-code="type-abstract"
+# mypy: disable-error-code="type-abstract,attr-defined"
 model_class: type[pp.PorePyModel]
 
 if FRACTIONAL_FLOW:
     model_class = create_local_model_class(
         cfle.EnthalpyBasedCFFLETemplate,
-        [pp.constitutive_laws.FouriersLawAd, pp.constitutive_laws.DarcysLawAd],
+        [pp.constitutive_laws.DarcysLawAd],
     )
 else:
     model_class = cfle.EnthalpyBasedCFLETemplate
@@ -1405,8 +1221,21 @@ model_class = create_local_model_class(
         AdjustedWellModel2D,
         PointWells2D,
         Permeability,
+        # BuoyancyModel,
     ],
 )
+
+if BUOYANCY_ON:
+    model_class = create_local_model_class(model_class, [BuoyancyModel])
+
+if USE_ADTPFA_FLUX_DISCRETIZATION:
+    model_class = create_local_model_class(
+        model_class,
+        [
+            pp.constitutive_laws.DarcysLawAd,
+            pp.constitutive_laws.FouriersLawAd,
+        ],
+    )
 
 # endregion
 
@@ -1423,7 +1252,7 @@ time_manager = pp.TimeManager(
     dt_init=10 * pp.MINUTE,
     dt_min_max=(pp.MINUTE, 30 * pp.DAY),
     iter_max=max_iterations,
-    iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (12, 22),
+    iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (10, 20),
     iter_relax_factors=(0.8, 2.0),
     recomp_factor=0.6,
     recomp_max=15,
@@ -1478,6 +1307,7 @@ solver_params = {
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
+    "apply_schur_complement_reduction": True,
     "linear_solver": "scipy_sparse",
     "nonlinear_solver": NewtonArmijoSolver,
     "armijo_line_search": True,
@@ -1487,22 +1317,18 @@ solver_params = {
     "solver_statistics_file_name": "solver_statistics.json",
 }
 
-# if ANALYSIS_MODE:
-#     solver_params["nonlinear_solver_statistics"] = ExtendedSolverStatistics
 
 model_params = {
     "equilibrium_condition": EQUILIBRIUM_CONDITION,
     "has_time_dependent_boundary_equilibrium": False,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
-    "reduce_linear_system": True,
     "flash_params": flash_params,
     "fractional_flow": FRACTIONAL_FLOW,
-    "rediscretize_fourier_flux": FRACTIONAL_FLOW,
-    "rediscretize_darcy_flux": FRACTIONAL_FLOW,
     "material_constants": material_params,
     "time_manager": time_manager,
     "prepare_simulation": False,
+    "buoyancy_on": BUOYANCY_ON,
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
 }
@@ -1519,6 +1345,7 @@ model_params.update(solver_params)
 
 # Casting to the most complex model type for typing purposes.
 model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
+model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -1545,21 +1372,23 @@ model.schur_complement_primary_equations = primary_equations
 model.schur_complement_primary_variables = primary_variables
 
 t_0 = time.time()
-try:
+if "p-T" in EQUILIBRIUM_CONDITION:
+    try:
+        pp.run_time_dependent_model(model, model_params)
+    except Exception as err:
+        print(f"SIMULATION FAILED: {err}")
+        # NOTE To avoid recomputation of time step size.
+        model.time_manager.is_constant = True
+        model.after_nonlinear_convergence()
+        model.time_manager.is_constant = False
+else:
     pp.run_time_dependent_model(model, model_params)
-except Exception as err:
-    print(f"SIMULATION FAILED: {err}")
-    # NOTE To avoid recomputation of time step size.
-    model.time_manager.is_constant = True
-    model.after_nonlinear_convergence()
-    model.time_manager.is_constant = False
 sim_time = time.time() - t_0
 
 # region Plots
 fig, ax1 = plt.subplots()
 
-global_iter_per_time: dict[float, tuple[int, int, int]] = model._global_iter_per_time  # type:ignore[attr-defined]
-
+global_iter_per_time: dict[float, tuple[int, int, int]] = model._global_iter_per_time
 
 N = len(global_iter_per_time)
 times = np.zeros(N)
@@ -1605,7 +1434,6 @@ ax1.legend(img1 + img2, ["Newton", "Line Search (cum.)", "Flash (cum.)"])
 fig.tight_layout()
 fig.savefig(pathlib.Path(".\\visualization\\num_iter.png").resolve(), format="png")
 
-
 times_file = pathlib.Path("./visualization/times.json").resolve().open("r")
 times_data = json.load(times_file)
 TIMES = times_data["time"]
@@ -1642,7 +1470,8 @@ def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
 
 print(
     f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
-    + "h={model._h_MESH}"
+    + f"h={model._h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
+    + f"Buoyancy: {BUOYANCY_ON}"
 )
 print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
 print(f"Simulation run time: {sim_time / 60.0} (min).")

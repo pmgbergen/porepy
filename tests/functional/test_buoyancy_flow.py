@@ -80,13 +80,11 @@ def test_buoyancy_model(
     )
     material_constants = {"solid": solid_constants}
     params = {
-        "rediscretize_darcy_flux": True,
-        "rediscretize_fourier_flux": True,
         "fractional_flow": True,
         "material_constants": material_constants,
         "time_manager": time_manager,
         "prepare_simulation": False,
-        "reduce_linear_system": False,
+        "apply_schur_complement_reduction": False,
         "nl_convergence_tol": np.inf,
         "nl_convergence_tol_res": residual_tolerance,
         "max_iterations": 50,
