@@ -490,6 +490,12 @@ class FluidBuoyancy(pp.PorePyModel):
     def buoyant_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
         return "buoyant_flux_" + gamma.name + "_" + delta.name
 
+    def buoyancy_intf_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
+        return "buoyancy_intf_" + gamma.name + "_" + delta.name
+
+    def buoyant_intf_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
+        return "buoyant_intf_flux_" + gamma.name + "_" + delta.name
+
     def buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.UpwindAd:
@@ -501,9 +507,9 @@ class FluidBuoyancy(pp.PorePyModel):
     def interface_buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
-        discr = pp.ad.UpwindCouplingAd(self.buoyancy_key(gamma, delta), interfaces)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(gamma, delta)
-        discr._discretization.flux_array_key = self.buoyant_flux_array_key(gamma, delta)
+        discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
+        discr._discretization.upwind_matrix_key = self.buoyancy_intf_key(gamma, delta)
+        discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(gamma, delta)
         return discr
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -596,9 +602,39 @@ class FluidBuoyancy(pp.PorePyModel):
         overall_rho.set_name("fractionally_weighted_density")
         return overall_rho
 
+    def interface_buoyancy_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+
+        # If no interfaces are given, make sure to proceed with a non-empty subdomain
+        # list if relevant.
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(subdomains)
+
+        # Project the two advected entities to the interface and multiply with upstream
+        interface_flux: pp.ad.Operator = (
+            discr.upwind_primary()
+            @ mortar_projection.primary_to_mortar_avg()
+            @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary()
+            @ mortar_projection.secondary_to_mortar_avg()
+            @ advected_entity
+        )
+        return interface_flux
+
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
+
+        self.set_buoyancy_discretization_parameters()
+
         b_fluxes = []
         single_phase_Q = len(self.fluid.phases) == 1
         if single_phase_Q:
@@ -648,6 +684,39 @@ class FluidBuoyancy(pp.PorePyModel):
                         * (f_gamma_upwind * f_delta_upwind)
                         * w_flux_gamma_delta
                     )
+
+                    # HU on interfaces
+                    interfaces = self.subdomains_to_interfaces(domains, [1])
+
+                    discr_gamma_intf = self.interface_buoyancy_discretization(gamma, delta, interfaces)
+                    discr_delta_intf = self.interface_buoyancy_discretization(delta, gamma, interfaces)
+
+                    # well defined w_flux on interfaces
+                    rho_gamma = gamma.density(domains)
+                    rho_delta = delta.density(domains)
+                    w_flux_gamma_delta_intf = self.interface_density_driven_flux(interfaces, rho_gamma - rho_delta)
+
+                    f_gamma_intf = self.interface_buoyancy_flux(interfaces, f_gamma, discr_gamma_intf)
+                    f_delta_intf = self.interface_buoyancy_flux(interfaces, f_delta, discr_delta_intf)
+
+                    mortar_projection = pp.ad.MortarProjections(
+                        self.mdg, domains, interfaces, dim=1
+                    )
+
+                    f_gamma_upwind_intf = (
+                            discr_gamma.bound_transport_neu()
+                            @ mortar_projection.mortar_to_primary_int()
+                            @ f_gamma_intf * w_flux_gamma_delta_intf
+                    )
+
+                    f_delta_upwind_intf = (
+                            discr_delta.bound_transport_neu()
+                            @ mortar_projection.mortar_to_primary_int()
+                            @ f_delta_intf * w_flux_gamma_delta_intf
+                    )
+
+                    b_flux_gamma_delta_intf = (f_gamma_upwind_intf * f_delta_upwind_intf) * w_flux_gamma_delta_intf
+
                     b_fluxes.append(b_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(
@@ -688,13 +757,13 @@ class FluidBuoyancy(pp.PorePyModel):
                     )
                 for intf, data in self.mdg.interfaces(return_data=True):
                     vals = np.zeros(intf.num_cells)
-                    pp.initialize_data(intf, data, self.buoyancy_key(gamma, delta))
-                    pp.initialize_data(intf, data, self.buoyancy_key(delta, gamma))
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                        {self.buoyant_flux_array_key(gamma, delta): +vals}
+                    pp.initialize_data(intf, data, self.buoyancy_intf_key(gamma, delta))
+                    pp.initialize_data(intf, data, self.buoyancy_intf_key(delta, gamma))
+                    data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
+                        {self.buoyant_intf_flux_array_key(gamma, delta): +vals}
                     )
-                    data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                        {self.buoyant_flux_array_key(delta, gamma): -vals}
+                    data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
+                        {self.buoyant_intf_flux_array_key(delta, gamma): -vals}
                     )
 
     def set_nonlinear_buoyancy_discretization(self):

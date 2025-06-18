@@ -428,12 +428,6 @@ class UpwindCoupling(InterfaceDiscretization):
     def flux_array_key(self, value: str) -> None:
         self._flux_array_key = value
 
-    def key(self) -> str:
-        return self.keyword + "_"
-
-    def discretization_key(self):
-        return self.key() + pp.DISCRETIZATION
-
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells
 
