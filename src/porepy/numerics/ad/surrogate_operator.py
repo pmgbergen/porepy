@@ -938,6 +938,49 @@ class SurrogateFactory:
 
     # Methods to set values and derivative values on single grids
 
+    def get_values_on_grid(
+        self,
+        grid: pp.GridLike,
+        time_step_index: int | None = None,
+        iterate_index: int | None = None,
+    ) -> np.ndarray:
+        """Fetches the values stored at given time or iterate index, for given grid.
+
+        Parameters:
+            grid: Any type of grid in the mixed-dimensional domain.
+            time_step_index: Time step index from which to fetch.
+            iterate_index: Iterate index to fetch an iterate for current time.
+
+        Returns:
+            The values on the grid as a 1D numpy array.
+
+        """
+        return pp.get_solution_values(
+            self.name,
+            self._data_of(grid),
+            time_step_index=time_step_index,
+            iterate_index=iterate_index,
+        )
+
+    def get_derivatives_on_grid(self, grid: pp.GridLike) -> np.ndarray:
+        """Returns the derivatives values stored for given grid.
+
+        Since derivatives are only stored for the current time step and iterate,
+        only those can be returned.
+
+        Parameters:
+            grid: Any type of grid in the mixed-dimensional domain.
+
+        Returns:
+            The derivatives on the grid as a 2D numpy array.
+
+        """
+        return pp.get_solution_values(
+            self._name_derivatives,
+            self._data_of(grid),
+            iterate_index=0,
+        )
+
     def set_values_on_grid(self, values: np.ndarray, grid: pp.GridLike) -> None:
         """Sets the values of the expression for the current time step and iterate.
 
