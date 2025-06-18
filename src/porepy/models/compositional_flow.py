@@ -1760,8 +1760,6 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
 
 
 class SolutionStrategyCF(
-    # NOTE: The MRO order here is critical for the execution of update routines before
-    # the linear system is solved.
     SolutionStrategyPhaseProperties,
     SolutionStrategyExtendedFluidMassAndEnergy,
 ):
