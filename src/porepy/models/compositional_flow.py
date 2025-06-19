@@ -266,14 +266,13 @@ def get_primary_equations_cf(model: pp.PorePyModel) -> list[str]:
 
 
 def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
-    """Returns a list of primary variables assumed to be the default in the CF
-    setting.
+    """Returns a list of primary variables assumed to be the default in the CF setting.
 
     The list includes:
 
     1. The pressure variable.
-    2. The (specific fluid) enthalpy variable, in enthalpy-based formulations, else
-       the temperature.
+    2. The (specific fluid) enthalpy variable, in enthalpy-based formulations, else the
+       temperature.
     3. The overall fraction variables for each independent component.
     4. The tracer fraction variables for tracers in compounds (if any).
 
@@ -618,9 +617,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
-        using the :attr:`~porepy.compositional.base.Fluid.density` of the fluid
-        mixture and the component's
-        :attr:`~porepy.compositional.base.Component.fraction`
+        using the :attr:`~porepy.compositional.base.Fluid.density` of the fluid mixture
+        and the component's :attr:`~porepy.compositional.base.Component.fraction`
 
         .. math::
 
@@ -1683,8 +1681,8 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
                 # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks to satisfy mypy, since the properties are
-                # type aliases containing some other type as well.
+                # NOTE need the if-checks to satisfy mypy, since the properties are type
+                # aliases containing some other type as well.
                 for _ in self.iterate_indices:
                     if isinstance(phase.density, pp.ad.SurrogateFactory):
                         vals = phase.density.get_values_on_grid(sd, iterate_index=0)

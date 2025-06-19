@@ -965,8 +965,8 @@ class SurrogateFactory:
     def get_derivatives_on_grid(self, grid: pp.GridLike) -> np.ndarray:
         """Returns the derivatives values stored for given grid.
 
-        Since derivatives are only stored for the current time step and iterate,
-        only those can be returned.
+        Since derivatives are only stored for the current time step and iterate, only
+        those can be returned.
 
         Parameters:
             grid: Any type of grid in the mixed-dimensional domain.

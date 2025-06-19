@@ -80,12 +80,12 @@ class Flash(abc.ABC):
 
         The parameters are described in :meth:`flash`.
 
-        Determins also the equilibrium definition, the size of the (local) flash
-        problem and the number of values for vectorized input.
+        Determins also the equilibrium definition, the size of the (local) flash problem
+        and the number of values for vectorized input.
 
         Hint:
-            The returned fluid properties can be used by :meth:`flash` to fill it
-            up with results and return it to the caller of the flash.
+            The returned fluid properties can be used by :meth:`flash` to fill it up
+            with results and return it to the caller of the flash.
 
         Raises:
             AssertionError: If an insufficient amount of any provided family of
@@ -300,11 +300,11 @@ class Flash(abc.ABC):
                 If given, it must have at least values for phase fractions and
                 compositions.
 
-                It must have additionally values for temperature, for
-                a state definition where temperature is not known at equilibrium.
+                It must have additionally values for temperature, for a state definition
+                where temperature is not known at equilibrium.
 
-                It must have additionally values for pressure and saturations, for
-                state definitions where pressure is not known at equilibrium.
+                It must have additionally values for pressure and saturations, for state
+                definitions where pressure is not known at equilibrium.
             params: ``default={}``
 
                 Optional dictionary containing anything else required for custom flash
