@@ -796,17 +796,35 @@ class MultiphysicsNorms:
         self,
         nonlinear_increment: np.ndarray,
         residual: np.ndarray,
-        reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
-        """Check convergence based on increment and residual norms.
+        """Equation based convergence check for multi-physics problems.
 
         This method evaluates whether the nonlinear solution process has converged or
-        diverged by comparing the norms of the nonlinear increment and the residual to
-        specified tolerances. It maintains and updates reference norms for both
-        increments and residuals, which are used to compute relative norms for
-        convergence checks. The method also logs the maximum relative errors for
-        monitoring purposes.
+        diverged by checking the norms of all nonlinear variable increments and all
+        equation residuals. That is, the problem is considered converged only if _all_
+        nonlinear variable increments and _all_ equation residuals are small relative to
+        some tolerance:
+            * The tolerance for the nonlinear increment norm is named
+              "nl_convergence_tol" and is expected to be present in the parameter
+              dictionary.
+            * The tolerance for the residual norm is named "nl_convergence_tol_res" and
+              is also expected to be present in the parameter dictionary.
+
+        Comparison of the norms and tolerances is done in a relative sense:
+
+            norm/(1 + reference_norm) < epsilon,
+
+        and if the reference norm is zero, the norm is an absolute norm.
+
+        Reference norms are maintained and updated separately for both increments and
+        residuals as follows:
+            * The reference for the increment is chosen as the first iterate solution,
+              and is held the same for the entire time-step.
+            * The reference for the residual is chosen as the first non-zero residual
+              norm.
+
+        The method also logs the maximum relative errors for monitoring purposes.
 
         Parameters:
             nonlinear_increment: The increment in the solution variables from the
@@ -830,7 +848,8 @@ class MultiphysicsNorms:
             nonlinear_increment
         )
 
-        # Cache first solution as reference for relative increment norms
+        # Reference values for increment norms:
+        # During the first iteration, initialize bookkeeping for reference norms
         if self.nonlinear_solver_statistics.num_iteration == 1:
             self.fixed_reference_nonlinear_increment_norms = [
                 False for _ in nonlinear_increment_norms
@@ -839,9 +858,9 @@ class MultiphysicsNorms:
                 1.0 for _ in nonlinear_increment_norms
             ]
 
-        # In the case of all entries in fixed_reference_nonlinear_increment_norms is
-        # False, then fetch the iterate solution as the reference. The iterate solution
-        # will be the reference for the entire time-step.
+        # If any of the increment norms does not have a reference value (i.e., at least
+        # one element in fixed_reference_nonlinear_increment_norms is False), use the
+        # first iterate solution as the reference.
         if not all(self.fixed_reference_nonlinear_increment_norms):
             reference_solution = self.equation_system.get_variable_values(
                 iterate_index=0
@@ -849,16 +868,18 @@ class MultiphysicsNorms:
             reference_solution_norms = self.compute_nonlinear_increment_norm(
                 reference_solution
             )
+        # Assign valid reference norms where still missing
         for i, fixed_reference in enumerate(
             self.fixed_reference_nonlinear_increment_norms
         ):
-            # In the case of a reference norm not being set, set one:
             if not fixed_reference:
                 _norm = reference_solution_norms[i]
+                # Reference norms should not be zero or NaN.
                 if not np.isclose(_norm, 0.0) and not np.isnan(_norm):
                     self.reference_nonlinear_increment_norms[i] = _norm
                     self.fixed_reference_nonlinear_increment_norms[i] = True
 
+        # Reference values for residual norms:
         # A similar process as that for the increment norms/reference norms is repeated
         # for the residual ones.
         # Cache first non-zero residual as reference for relative residual norms.
@@ -872,7 +893,7 @@ class MultiphysicsNorms:
                     self.reference_residual_norms[i] = _norm
                     self.fixed_reference_residual_norms[i] = True
 
-        # Compute combined relative and absolute norms(?) for increments and residuals.
+        # Compute norms for increments and residuals.
         relative_increment_norms = [
             increment_norm / (1 + reference_increment_norm)
             for increment_norm, reference_increment_norm in zip(
