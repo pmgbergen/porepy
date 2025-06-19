@@ -762,8 +762,8 @@ class MultiphysicsNorms:
 
         for name in equation_names:
             eq = self.equation_system._equations[name]
-            residual = np.linalg.norm(eq.value(self.equation_system))
-            residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
+            r = np.linalg.norm(eq.value(self.equation_system))
+            residual_norm = np.linalg.norm(r) / np.sqrt(r.size)
             residuals.append(residual_norm)
 
         return np.array(residuals)
@@ -935,7 +935,7 @@ class MultiphysicsNorms:
 
             # If all increments and residuals are below the respective tolerances, we
             # consider the problem converged:
-            converged = np.all(converged_inc_list) and np.all(converged_res_list)
+            converged = all(converged_inc_list) and all(converged_res_list)
 
             if converged:
                 print("Converged with both increments and residuals.")
