@@ -61,6 +61,10 @@ def compare_parameters_with_expected(found: set[str], expected: set[str]) -> boo
 
 
 def test_example_params_up_to_date():
+    """Compares the first-level keys in the example_params with the parameters used in
+    the source files.
+
+    """
     directories_model_params = [
         "src/porepy/models",
         "src/porepy/viz",
