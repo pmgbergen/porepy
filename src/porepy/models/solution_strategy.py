@@ -732,6 +732,8 @@ class SolutionStrategy(pp.PorePyModel):
 class MultiphysicsNorms:
     """Class for computing norms for multiphysics models."""
 
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics for the nonlinear solver."""
     equation_system: pp.ad.EquationSystem
     """Equation system to compute norms for."""
 
