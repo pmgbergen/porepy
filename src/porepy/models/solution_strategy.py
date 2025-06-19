@@ -740,7 +740,7 @@ class MultiphysicsNorms:
         self,
         residual: Optional[np.ndarray],
         equations=None,
-    ) -> np.array:
+    ) -> np.ndarray:
         """Compute the residual norm for a nonlinear iteration.
 
         Parameters:
@@ -771,7 +771,7 @@ class MultiphysicsNorms:
         self,
         nonlinear_increment: np.ndarray,
         variables: Optional[list[pp.ad.Variable]] = None,
-    ) -> np.array:
+    ) -> np.ndarray:
         """Compute the norm based on the update increment for a nonlinear iteration.
 
         Parameters:
