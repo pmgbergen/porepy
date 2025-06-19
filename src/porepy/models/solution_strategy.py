@@ -499,7 +499,6 @@ class SolutionStrategy(pp.PorePyModel):
         self,
         nonlinear_increment: np.ndarray,
         residual: Optional[np.ndarray],
-        reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
@@ -812,9 +811,7 @@ class MultiphysicsNorms:
         Parameters:
             nonlinear_increment: The increment in the solution variables from the
                 previous nonlinear iteration.
-            residual: The current residual vector of the nonlinear system.
-            reference_residual: Reference residual vector, typically from the initial
-                iteration or previous time step.
+            residual: The current residual vector of the nonlinear system. nl_params:
             nl_params: Dictionary of nonlinear solver parameters. Is for now expected
                 to contain "nl_convergence_tol" (tolerance for the nonlinear increment
                 norm) and "nl_convergence_tol_res" (tolerance for the residual norm).

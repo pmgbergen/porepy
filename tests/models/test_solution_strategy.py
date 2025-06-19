@@ -436,7 +436,7 @@ def test_check_convergence(
         "nl_convergence_tol_res": 1e-5,
     }
     converged, diverged = check_convergence_test_model.check_convergence(
-        nonlinear_increment, residual, np.zeros(1), nl_params
+        nonlinear_increment, residual, nl_params
     )
     assert (converged, diverged) == expected
 

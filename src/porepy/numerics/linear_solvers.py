@@ -54,7 +54,7 @@ class LinearSolver:
         nonlinear_increment = model.solve_linear_system()
 
         is_converged, _ = model.check_convergence(
-            nonlinear_increment, residual, residual.copy(), self.params
+            nonlinear_increment, residual, self.params
         )
 
         if is_converged:

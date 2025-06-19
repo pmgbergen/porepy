@@ -103,7 +103,7 @@ class NewtonSolver:
                 residual = None
 
             is_converged, is_diverged = model.check_convergence(
-                nonlinear_increment, residual, reference_residual, self.params
+                nonlinear_increment, residual, self.params
             )
 
         # Progressbars turned off or tqdm not installed:

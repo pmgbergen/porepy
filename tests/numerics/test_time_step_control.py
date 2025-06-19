@@ -819,7 +819,6 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         self,
         nonlinear_increment: np.ndarray,
         residual: np.ndarray,
-        reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
         if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:

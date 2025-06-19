@@ -14,7 +14,6 @@ class NonlinearSinglePhaseFlow(SinglePhaseFlow):
         self,
         nonlinear_increment: np.ndarray,
         residual: np.ndarray,
-        reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
         """Method for checking convergence.
