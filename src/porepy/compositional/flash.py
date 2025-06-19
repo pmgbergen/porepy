@@ -102,7 +102,7 @@ class Flash(abc.ABC):
             1. The fluid state consisting of feed fractions and equilibrium state.
                If ``initial_state`` is not none, it includes the values.
             2. A string denoting the equilibrium condition.
-            3. A number denoting the size of the locall equilibrium problem (dofs).
+            3. A number denoting the size of the local equilibrium problem (dofs).
             4. A number denoting the size of the input after broadcasting.
 
         """
@@ -124,7 +124,7 @@ class Flash(abc.ABC):
         # Declaring output.
         fluid_state: pp.compositional.FluidProperties
         flash_type: Literal["p-T", "p-h", "v-T", "v-h"]
-        f_dim: int  # Dimension of flash system (unknowns & equations including NPIPM).
+        f_dim: int  # Dimension of flash system (unknowns & equations).
         NF: int  # Number of vectorized target states.
 
         if p is not None and T is not None and (h is None and v is None):
@@ -221,8 +221,8 @@ class Flash(abc.ABC):
             fluid_state.rho = 1.0 / s_1
             fluid_state.h = s_2
         else:
-            # Alert developers if something is missing, error should be cached above.
-            assert False, "Missing parsing of fluid input state"
+            # Alert developers if something is missing, error should be caught above.
+            assert False, "Missing parsing of fluid input state."
 
         # Uniformization of initial values if provided.
         if isinstance(initial_state, pp.compositional.FluidProperties):
@@ -305,7 +305,7 @@ class Flash(abc.ABC):
 
                 It must have additionally values for pressure and saturations, for state
                 definitions where pressure is not known at equilibrium.
-            params: ``default={}``
+            params: ``default=None``
 
                 Optional dictionary containing anything else required for custom flash
                 classes.
@@ -319,7 +319,7 @@ class Flash(abc.ABC):
                 temperature, the resulting volume or enthalpy values of the fluid might
                 differ slightly from the input values, due to precision and convergence
                 criterion. Extensive properties are always returned in terms of the
-                computed pressure or temperature.
+                computed intensive properties (pressure, temperature, fractions).
 
         """
         ...

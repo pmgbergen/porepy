@@ -42,7 +42,7 @@ If enabled, uses :obj:`numba.typeof`, otherwise the regular Python type.
 """
 
 cfunc: Callable[..., Callable[[Callable], Callable]]
-"""C-type decorator for Callables, depending on whether numba is enabler or not.
+"""C-type decorator for Callables, depending on whether numba is enabled or not.
 
 If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
 

@@ -492,7 +492,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     Important:
         The component mass balance equations expect the total mass balance (pressure
         equation) to be part of the system. That equation defines interface fluxes
-        between subdomains, which are used by the present class to advect components.
+        between subdomains, which are used by the present class to advected components.
 
         Also, this class relies on the Upwind discretization implemented there,
         especially on the definition of the boundary faces as either Neumann-type or
@@ -1681,8 +1681,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
                 # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks to satisfy mypy, since the properties are type
-                # aliases containing some other type as well.
+                # NOTE need the if-checks for models where different properties are
+                # modelled with mixins providing constitutive laws (not surrogate
+                # operators).
                 for _ in self.iterate_indices:
                     if isinstance(phase.density, pp.ad.SurrogateFactory):
                         vals = phase.density.get_values_on_grid(sd, iterate_index=0)
