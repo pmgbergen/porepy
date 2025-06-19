@@ -568,10 +568,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         return converged, diverged
 
-    def compute_residual_norm(
-        self,
-        residual: Optional[np.ndarray],
-    ) -> np.array:
+    def compute_residual_norm(self, residual: Optional[np.ndarray]) -> float:
         """Compute the residual norm for a nonlinear iteration.
 
         NOTE: Single physics variant.
@@ -584,13 +581,12 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         if residual is None:
-            return np.array([np.nan])
+            return np.nan
         else:
-            return np.array([np.linalg.norm(residual) / np.sqrt(residual.size)])
+            return np.linalg.norm(residual) / np.sqrt(residual.size)
 
     def compute_nonlinear_increment_norm(
-        self,
-        nonlinear_increment: np.ndarray,
+        self, nonlinear_increment: np.ndarray
     ) -> float:
         """Compute the norm based on the update increment for a nonlinear iteration.
 
@@ -600,7 +596,7 @@ class SolutionStrategy(pp.PorePyModel):
             nonlinear_increment: Solution to the linearization.
 
         Returns:
-            float: Update increment norms.
+            float: Update increment norm.
 
         """
         return np.linalg.norm(nonlinear_increment) / np.sqrt(nonlinear_increment.size)
