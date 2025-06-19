@@ -49,6 +49,7 @@ model_params = {
     },
     # Meshing
     "grid_type": "cartesian",
+    # Depending on the grid type, some subset of the meshing arguments below are used.
     "meshing_arguments": {
         # Use this one for the basic grid.
         "cell_size": units.convert_units(0.5, "m"),
@@ -90,7 +91,7 @@ model_params = {
 solver_params = {
     "prepare_simulation": True,
     "progressbars": True,  # make sure you installed tqdm
-    "progress_bar_position": 0,  # TODO: You don't want to change it.
+    "_nl_progress_bar_position": 0,  # TODO: You don't want to change it.
     "max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
     # "nl_divergence_tol": 1e5,  # TODO: This one is not used, should be deleted.
     "nl_convergence_tol": 1e-10,  # Increment norm
