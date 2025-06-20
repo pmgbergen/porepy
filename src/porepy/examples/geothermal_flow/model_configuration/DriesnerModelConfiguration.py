@@ -106,10 +106,7 @@ class InitialConditions(pp.PorePyModel):
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
         z = 0.0
-        if component.name == "H2O":
-            return (1 - z) * np.ones(sd.num_cells)
-        else:
-            return z * np.ones(sd.num_cells)
+        return z * np.ones(sd.num_cells)
 
 
 class DriesnerBrineFlowModel(  # type:ignore[misc]
@@ -141,34 +138,17 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     def vtk_sampler_ptz(self, vtk_sampler):
         self._vtk_sampler_ptz = vtk_sampler
 
-    def gravity_force(
-        self,
-        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid", "bulk"],
-    ) -> pp.ad.Operator:
-        if material == "fluid":
-            rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
-        elif material == "solid":
-            rho = self.solid_density(grids)  # type:ignore[arg-type]
-        else:
-            raise ValueError(f"Unsupported gravity force for material '{material}'.")
+    def after_simulation(self):
+        self.exporter.write_pvd()
 
-        # Keeping the following line for quantitative verification purposes
-        # rho_avg = np.sum(
-        # overall_rho.value(self.equation_system)
-        # * subdomains[0].cell_volumes)
-        # / np.sum(subdomains[0].cell_volumes
-        # )
+    def set_equations(self):
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
 
-        scaling = 1.0e-6
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2") * scaling
-        size = np.sum([g.num_cells for g in grids]).astype(int)
+    def set_nonlinear_discretizations(self) -> None:
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
 
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
-        e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
-        overall_gravity_flux = (
-            pp.ad.Scalar(-1) * e_n @ (rho * pp.wrap_as_dense_ad_array(val, size=size))
-        )
-        overall_gravity_flux.set_name("overall gravity flux")
-        return overall_gravity_flux
+    def before_nonlinear_iteration(self) -> None:
+        self.update_buoyancy_driven_fluxes()
+        self.rediscretize()

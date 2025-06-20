@@ -7,6 +7,15 @@ import numpy as np
 
 import porepy as pp
 
+
+# geometry description horizontal case
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
+    SimpleGeometryHorizontal as ModelGeometryH,
+)
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
+    SimpleGeometryVertical as ModelGeometryV,
+)
+
 # Figure 4 single with low pressure (lP) condition
 # Figure 4 single with moderate pressure (mP) condition
 # Figure 4 single with high pressure (hP) condition
@@ -23,13 +32,6 @@ from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfigurat
     DriesnerBrineFlowModel as FlowModel,
 )
 
-# geometry description horizontal case
-from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
-    SimpleGeometryHorizontal as ModelGeometryH,
-)
-from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
-    SimpleGeometryVertical as ModelGeometryV,
-)
 from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_single_phase_high_pressure as IC_hP,
 )
@@ -43,32 +45,32 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_mP"
-geometry_case = "vertical"
+geometry_case = "horizontal"
 
 final_times = {
-    "horizontal": [91250.0, 43800.0, 547500.0],
-    "vertical": [273750.0, 127750.0, 547500.0],
+    "horizontal": [91250.0, 43800.0, 547500.0], # final time [250, 120, 1500 years]
+    "vertical": [273750.0, 127750.0, 547500.0], # final time [750, 350, 1500 years]
 }
 
-day = 86400
+day_to_second = 86400
 to_Mega = 1.0e-6
 # Configuration dictionary mapping cases to their specific classes
 simulation_cases = {
     "case_hP": {
-        "tf": final_times[geometry_case][0] * day,  # final time [250 years]
-        "dt": 365.0 * day,  # final time [1 years]
+        "tf": final_times[geometry_case][0] * day_to_second,  # final time [second]
+        "dt": 365.0 * day_to_second,  # final time [second]
         "bc": BC_hP,
         "ic": IC_hP,
     },
     "case_mP": {
-        "tf": final_times[geometry_case][1] * day,  # final time [120 years]
-        "dt": 365.0 * day,  # final time [1 years]
+        "tf": final_times[geometry_case][1] * day_to_second,  # final time [second]
+        "dt": 365.0 * day_to_second,  # final time [second]
         "bc": BC_mP,
         "ic": IC_mP,
     },
     "case_lP": {
-        "tf": final_times[geometry_case][2] * day,  # final time [1500 years]
-        "dt": 365.0 * day,  # final time [1 years]
+        "tf": final_times[geometry_case][2] * day_to_second,  # final time [seconds]
+        "dt": 365.0 * day_to_second,  # final time [1 years]
         "bc": BC_lP,
         "ic": IC_lP,
     },
@@ -118,11 +120,10 @@ class GeothermalWaterFlowModel(
     ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
 ):
     def after_nonlinear_convergence(self) -> None:
-        day = 86400
-        year = 365 * day
+        second_to_year = 1.0 / (365 * day_to_second)
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
-        print("Time value (year): ", self.time_manager.time / year)
+        print("Time value (year): ", self.time_manager.time * second_to_year)
         print("Time index: ", self.time_manager.time_index)
         print("")
 
@@ -133,21 +134,6 @@ class GeothermalWaterFlowModel(
         gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
         gravity_field.set_name("gravity_field")
         return gravity_field
-
-    def after_simulation(self):
-        self.exporter.write_pvd()
-
-    def set_equations(self):
-        super().set_equations()
-        self.set_buoyancy_discretization_parameters()
-
-    def set_nonlinear_discretizations(self) -> None:
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def before_nonlinear_iteration(self) -> None:
-        self.update_buoyancy_driven_fluxes()
-        self.rediscretize()
 
 
 # Instance of the computational model
