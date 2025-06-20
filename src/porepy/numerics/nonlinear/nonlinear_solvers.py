@@ -26,7 +26,7 @@ class NewtonSolver:
             "max_iterations": 10,
             "nl_convergence_tol": 1e-10,
             "nl_convergence_tol_res": np.inf,
-            "nl_divergence_tol": 1e5,
+            "nl_divergence_tol": np.inf,
         }
         default_options.update(params)
         self.params = default_options
@@ -40,7 +40,7 @@ class NewtonSolver:
         # Allow the position of the progress bar to be flexible, depending on whether
         # this is called inside a time loop, a time loop and an additional propagation
         # loop or inside a stationary problem (default).
-        self.progress_bar_position: int = params.get("progress_bar_position", 0)
+        self.progress_bar_position: int = params.get("_nl_progress_bar_position", 0)
 
     def solve(self, model) -> bool:
         """Solve the nonlinear problem.
@@ -89,11 +89,14 @@ class NewtonSolver:
             nonlinear_increment = self.iteration(model)
             model.after_nonlinear_iteration(nonlinear_increment)
 
-            if self.params["nl_convergence_tol_res"] is not np.inf:
+            if (
+                self.params["nl_convergence_tol_res"] is not np.inf
+                or self.params["nl_divergence_tol"] is not np.inf
+            ):
                 # Note: The residual is extracted after the solution has been updated by
-                # the after_nonlinear_iteration() method. This is only required if the
-                # residual is used to check convergence, i.e., the tolerance is not
-                # np.inf.
+                # the after_nonlinear_iteration() method. This is required if the
+                # residual is used to check convergence or divergence, i.e., the
+                # tolerance of one of them is not np.inf.
                 residual = model.equation_system.assemble(evaluate_jacobian=False)
             else:
                 residual = None
