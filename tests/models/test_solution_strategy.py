@@ -425,6 +425,8 @@ def check_convergence_test_model() -> CheckConvergenceTest:
         (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
         # Case 4: Increment is nan.
         (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+        # Case 5: Residual is above divergence tolerance.
+        (np.array([1e-6, 1e-6]), np.array([2e4]), (False, True)),
     ],
 )
 def test_check_convergence(
@@ -442,6 +444,7 @@ def test_check_convergence(
     nl_params: dict[str, Any] = {
         "nl_convergence_tol": 1e-5,
         "nl_convergence_tol_res": 1e-5,
+        "nl_divergence_tol": 1e4,
     }
     converged, diverged = check_convergence_test_model.check_convergence(
         nonlinear_increment, residual, np.zeros(1), nl_params
