@@ -6,11 +6,13 @@ it stays up to date. We also enforce lowercase keys for the PorePy parameters.
 
 import os
 import re
+from pathlib import Path
 
+import porepy as pp
 from porepy.examples.example_params import model_params, solver_params
 
 
-def search_params_directory(root_dirs: list[str]) -> set[str]:
+def search_params_directory(root_dirs: list[Path]) -> set[str]:
     """Scans the files in the provided list of directories and returns the found
     parameter keys.
 
@@ -34,6 +36,7 @@ def search_params_directory(root_dirs: list[str]) -> set[str]:
 
     results: set[str] = set()
     for root_dir in root_dirs:
+        assert root_dir.exists()
         for dirpath, _, filenames in os.walk(root_dir):
             for fname in filenames:
                 if fname.endswith(".py"):
@@ -65,17 +68,15 @@ def test_example_params_up_to_date():
     the source files.
 
     """
-    directories_model_params = [
-        "src/porepy/models",
-        "src/porepy/viz",
-    ]
-    directories_solver_params = [
-        "src/porepy/numerics/nonlinear",
+    pp_path = Path(pp.__file__).parent
+    directories_params = [
+        pp_path / "models",
+        pp_path / "viz",
+        pp_path / "numerics/nonlinear",
     ]
     # There are two distinc dictionaries of parameters: for the model and for the
     # solver. There's no way to statically detect what belongs to which dict.
     # So far, we check that they exist at least somewhere.
-    directories_common = directories_model_params + directories_solver_params
     params_common = set(model_params.keys()) | set(solver_params.keys())
 
     # First, we ensure that the parameters are in lower case.
@@ -84,5 +85,5 @@ def test_example_params_up_to_date():
             f"We enforse only lower case parameters, {param}."
         )
 
-    found = search_params_directory(directories_common)
+    found = search_params_directory(directories_params)
     assert compare_parameters_with_expected(found=found, expected=params_common)
