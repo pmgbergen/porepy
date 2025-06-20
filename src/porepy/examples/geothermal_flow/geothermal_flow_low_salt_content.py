@@ -153,7 +153,7 @@ class GeothermalWaterFlowModel(
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 0
+parametric_space_ref_level = 2
 file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )
