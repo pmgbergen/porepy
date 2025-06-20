@@ -4,7 +4,8 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.models.compositional_flow import CompositionalFlowTemplate
+# from porepy.models.compositional_flow import CompositionalFlowTemplate as FlowTemplate
+from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
 
 from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
@@ -115,12 +116,17 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     InitialConditions,
     BoundaryConditions,
     SecondaryEquations,
-    CompositionalFlowTemplate,
+    FlowTemplate,
 ):
-    def relative_permeability(
-        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        return phase.saturation(domains)
+
+    def relative_permeability(self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        if phase.name == "liq":
+            sr = pp.ad.Scalar(0.3)
+            s_red = (phase.saturation(domains) - sr) / (pp.ad.Scalar(1.0) - sr)
+            kr = pp.ad.Scalar(0.5) * ((s_red**2)**0.5 + s_red)
+        else:
+            kr = phase.saturation(domains)
+        return kr
 
     @property
     def vtk_sampler(self):

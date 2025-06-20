@@ -44,7 +44,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
-case_name = "case_lP"
+case_name = "case_mP"
 geometry_case = "horizontal"
 
 final_times = {
@@ -105,8 +105,11 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
+    "rediscretize_darcy_flux": True,
+    "rediscretize_fourier_flux": True,
     "eliminate_reference_phase": True,  # s_liq eliminated, default is True
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
+    "fractional_flow": True,
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
@@ -139,7 +142,7 @@ class GeothermalWaterFlowModel(
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 2
+parametric_space_ref_level = 1
 file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )

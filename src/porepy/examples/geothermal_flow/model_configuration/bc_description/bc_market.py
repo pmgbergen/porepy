@@ -257,11 +257,6 @@ class BC_two_phase_low_pressure(pp.PorePyModel):
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         z_init = 0.0
         z_inlet = 0.0
-        if component.name == "H2O":
-            z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
-            z_H2O[inlet_idx] = 1 - z_inlet
-            return z_H2O
-        else:
-            z_NaCl = z_init * np.ones(boundary_grid.num_cells)
-            z_NaCl[inlet_idx] = z_inlet
-            return z_NaCl
+        z_NaCl = z_init * np.ones(boundary_grid.num_cells)
+        z_NaCl[inlet_idx] = z_inlet
+        return z_NaCl
