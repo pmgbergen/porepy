@@ -150,7 +150,10 @@ class Flash(abc.ABC):
                 f"Unsupported flash with state definitions {p, T, h, v}"
             )
 
-        # Broadcasting vectorized input.
+        # Each of the vectors can be scalars or numpy arrays. Add them and store in a
+        # dummy variable to determine the size of the arrays: If at least one of the #
+        # inputs is a numpy array, numpy broadcasting will ensure the result will be a
+        # numpy array of the same size.
         t = z_sum + state_1 + state_2
         if isinstance(t, np.ndarray):
             NF = t.shape[0]
