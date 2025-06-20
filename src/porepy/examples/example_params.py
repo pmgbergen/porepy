@@ -4,6 +4,8 @@ your own problem.
 
 """
 
+import numpy as np
+
 import porepy as pp
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water,
@@ -93,7 +95,7 @@ solver_params = {
     "progressbars": True,  # make sure you installed tqdm
     "_nl_progress_bar_position": 0,  # TODO: You don't want to change it.
     "max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
-    # "nl_divergence_tol": 1e5,  # TODO: This one is not used, should be deleted.
+    "nl_divergence_tol": np.inf,
     "nl_convergence_tol": 1e-10,  # Increment norm
     "nl_convergence_tol_res": 1e-10,  # Residual norm
     # Line search / Solution Strategies. These are considered "advanced" options.

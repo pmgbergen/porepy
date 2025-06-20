@@ -697,6 +697,11 @@ class SolutionStrategy(pp.PorePyModel):
                 f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
+            # # Check divergence.
+            diverged = (
+                nl_params["nl_divergence_tol"] is not np.inf
+                and residual_norm > nl_params["nl_divergence_tol"]
+            )
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                 nl_params["nl_convergence_tol"] is np.inf
@@ -707,7 +712,6 @@ class SolutionStrategy(pp.PorePyModel):
                 or residual_norm < nl_params["nl_convergence_tol_res"]
             )
             converged = converged_inc and converged_res
-            diverged = False
 
         # Log the errors (here increments and residuals)
         self.nonlinear_solver_statistics.log_error(
