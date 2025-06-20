@@ -284,24 +284,6 @@ class SecondaryEquations(LocalElimination):
         dT = np.vstack((dTdp, dTdH, dTdz))
         return T, dT
 
-    def H2O_liq_func(
-        self,
-        *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        p, h, z_NaCl = thermodynamic_dependencies
-        assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
-
-        # Partial fraction of water in liquid phase
-        X_w = 1.0 - self.vtk_sampler.sampled_could.point_data["Xl"]
-        dX_wdz = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 0]
-        dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
-        dX_wdp = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 2]
-        dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
-        X_w = np.clip(X_w, 0.0, 1.0)
-        return X_w, dX_w
-
     def NaCl_liq_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
@@ -319,24 +301,6 @@ class SecondaryEquations(LocalElimination):
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
         X_s = np.clip(X_s, 0.0, 1.0)
         return X_s, dX_s
-
-    def H2O_gas_func(
-        self,
-        *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        p, h, z_NaCl = thermodynamic_dependencies
-        assert len(p) == len(h) == len(z_NaCl)
-        par_points = np.array((z_NaCl, h, p)).T
-        self.vtk_sampler.sample_at(par_points)
-
-        # Partial fraction of water in vapor phase
-        X_w = 1.0 - self.vtk_sampler.sampled_could.point_data["Xv"]
-        dX_wdz = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 0]
-        dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
-        dX_wdp = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 2]
-        dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
-        X_w = np.clip(X_w, 0.0, 1.0)
-        return X_w, dX_w
 
     def NaCl_gas_func(
         self,
@@ -367,9 +331,7 @@ class SecondaryEquations(LocalElimination):
         subdomains_and_matrix = subdomains + [matrix_boundary]
 
         chi_functions_map = {
-            "H2O_liq": self.H2O_liq_func,
             "NaCl_liq": self.NaCl_liq_func,
-            "H2O_gas": self.H2O_gas_func,
             "NaCl_gas": self.NaCl_gas_func,
         }
 
