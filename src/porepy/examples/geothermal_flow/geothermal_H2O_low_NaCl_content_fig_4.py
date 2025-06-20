@@ -44,7 +44,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
-case_name = "case_mP"
+case_name = "case_lP"
 geometry_case = "horizontal"
 
 final_times = {
@@ -111,8 +111,8 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-9,
-    "max_iterations": 50,
+    "nl_convergence_tol_res": 1.0e-3,
+    "max_iterations": 100,
 }
 
 

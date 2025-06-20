@@ -87,8 +87,8 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-9,
-    "max_iterations": 50,
+    "nl_convergence_tol_res": 1.0e-3,
+    "max_iterations": 100,
 }
 
 
