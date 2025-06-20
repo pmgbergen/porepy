@@ -51,6 +51,7 @@ final_times = {
 }
 
 day = 86400
+to_Mega = 1.0e-6
 # Configuration dictionary mapping cases to their specific classes
 simulation_cases = {
     "case_hP": {
@@ -78,7 +79,6 @@ geometry_cases = {
     "vertical": ModelGeometryV,
 }
 
-
 tf = cast(float, simulation_cases[case_name]["tf"])
 dt = cast(float, simulation_cases[case_name]["dt"])
 BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
@@ -96,9 +96,9 @@ time_manager = pp.TimeManager(
 solid_constants = pp.SolidConstants(
     permeability=1e-15,
     porosity=0.1,
-    thermal_conductivity=2.0 * 1e-6,
+    thermal_conductivity=2.0 * to_Mega,
     density=2700.0,
-    specific_heat_capacity=880.0 * 1e-6,
+    specific_heat_capacity=880.0 * to_Mega,
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -126,17 +126,36 @@ class GeothermalWaterFlowModel(
         print("Time index: ", self.time_manager.time_index)
         print("")
 
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
     def after_simulation(self):
         self.exporter.write_pvd()
+
+    def set_equations(self):
+        super().set_equations()
+        self.set_buoyancy_discretization_parameters()
+
+    def set_nonlinear_discretizations(self) -> None:
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def before_nonlinear_iteration(self) -> None:
+        self.update_buoyancy_driven_fluxes()
+        self.rediscretize()
 
 
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 2
+parametric_space_ref_level = 0
 file_name_prefix = (
-    "src/porepy/examples/geothermal_flow/"
-    + "model_configuration/constitutive_description/driesner_vtk_files/"
+    "model_configuration/constitutive_description/driesner_vtk_files/"
 )
 file_name_phz = (
     file_name_prefix

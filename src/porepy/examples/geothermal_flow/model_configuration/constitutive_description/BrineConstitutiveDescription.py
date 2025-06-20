@@ -207,8 +207,8 @@ class FluidMixture(pp.PorePyModel):
         eos_L.vtk_sampler = self.vtk_sampler
         eos_G.vtk_sampler = self.vtk_sampler
         return [
-            (eos_L, pp.compositional.PhysicalState.liquid, "liq"),
-            (eos_G, pp.compositional.PhysicalState.gas, "gas"),
+            (pp.compositional.PhysicalState.liquid, "liq", eos_L),
+            (pp.compositional.PhysicalState.gas, "gas", eos_G),
         ]
 
     def dependencies_of_phase_properties(
