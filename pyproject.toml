@@ -30,7 +30,7 @@ dependencies = [
     "meshio",
     "networkx",
     "numba",
-    "numpy < 2.2",
+    "numpy < 2.3",
     "scipy",
     "seaborn",
     "shapely",
