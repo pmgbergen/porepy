@@ -171,3 +171,4 @@ class PhysicalState(Enum):
 
     liquid = 0
     gas = 1
+    solid = 2

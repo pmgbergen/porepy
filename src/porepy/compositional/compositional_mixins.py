@@ -1473,3 +1473,198 @@ class FluidMixin(pp.PorePyModel):
             return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
         else:
             return _no_property_function
+
+
+class SolidMixin(pp.PorePyModel):
+    """Mixin class for introducing a general solid (mixture) into a PorePy model and
+    providing it as an attribute :attr:`solid`.
+
+    Solid properties are by definition expressed through respective phase properties,
+    which can be overridden here as part of the constitutive modelling.
+
+    The following methods are factories to provide functions for phase properties:
+
+    - :meth:`density_of_phase`
+    - :meth:`specific_volume_of_phase`
+    - :meth:`thermal_conductivity_of_phase`
+
+    There is no need to modify the :attr:`solid` itself.
+
+    Important:
+        Solution strategies must follow a certain order during the set up
+        (`prepare_simulation'):
+
+        1. The solid must be created (phases and components).
+        2. The variables must be created (depending on present phases and components).
+        3. The solid properties are assigned (since they in general depend on
+            variables).
+
+    The base class provides phase properties as general
+    :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
+    To use heuristic laws in form of AD-compatible functions, override above mentioned
+    methods via mixins.
+
+    The base class also provides a default set-up in form of a 1-phase, 1-component
+    solid, based on solid component found in ``params``.
+    To modify the default set-up, provide overrides for
+
+    - :meth:`get_solid_components`
+    - :meth:`get_solid_phase_configuration`
+
+    To define the dependency of phase properties in terms of variables, see
+
+    - :meth:`dependencies_of_phase_properties`
+
+    For a more complex set-up involving phases with *different* components, see
+
+    - :meth:`set_components_in_phases`
+
+    """
+
+    def create_solid(self) -> None:
+        phases: list[Phase[pp.SolidComponent]] = []
+        components: list[pp.SolidComponent] = [c for c in self.get_solid_components()]
+
+        for config in self.get_phase_configuration(components):
+            # Configuration of phase with EoS.
+            if len(config) == 3:
+                phase_state, name, eos = config
+                assert isinstance(eos, EquationOfState), (
+                    f"Expecting an instance of `EquationOfState`, got {type(eos)}."
+                )
+            # Configuration of phase without EoS.
+            elif len(config) == 2:
+                phase_state, name = config
+                eos = None
+
+            assert phase_state in PhysicalState, (
+                f"Expecting a valid `PhysicalState`, got {phase_state}."
+            )
+            assert isinstance(name, str), (
+                f"Expecting a string as name for phase, got {type(name)}."
+            )
+
+            phases.append(Phase(phase_state, name, eos=eos))
+
+        self.set_components_in_phases(components, phases)
+
+    def get_solid_components(self) -> Sequence[pp.SolidComponent]:
+        """Method to return a list of modelled components.
+
+        The default implementation takes the user-provided or default solid component
+        found in the model ``params`` and returns a single component.
+
+        Override this method via mixin to provide a more complex component context for
+        the :attr:`solid`.
+
+        """
+        # Should be available after SolutionStrategy.set_materials()
+        # Getting the user-passed or default solid component to create the default solid
+        # component.
+        solid_constants = self.params["material_constants"]["solid"]
+        # All materials are assumed to derive from Component.
+        assert isinstance(solid_constants, Component), (
+            "model.params['material_constants']['solid'] must be of type "
+            + f"{Component}"
+        )
+        # Need to cast into SolidComponent, because of the assert statement above.
+        return [cast(pp.SolidComponent, solid_constants)]
+
+    def get_solid_phase_configuration(
+        self, components: Sequence[ComponentLike]
+    ) -> Sequence[
+        tuple[PhysicalState, str] | tuple[PhysicalState, str, EquationOfState]
+    ]:
+        return [(PhysicalState.solid, "solid")]
+
+    def set_components_in_phases(
+        self, components: Sequence[Component], phases: Sequence[Phase]
+    ) -> None:
+        """Method to implement a strategy for which components are added to which phase.
+
+        By default, the unified assumption is applied: All phases contain all
+        components.
+
+        Overwrite to do otherwise.
+
+        Important:
+            This defines how many unknowns are introduced into the system (fractions
+            of a component in a phase).
+
+        Parameters:
+            components: The list of components modelled by :meth:`get_components`.
+            phases: The list of phases modelled by :meth:`get_phases`.
+
+        """
+        for phase in phases:
+            phase.components = components
+
+    def dependencies_of_phase_properties(
+        self, phase: Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+        return []
+
+    def density_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+        """This base method returns the density of a ``phase`` as a
+        :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`,
+        if :meth:`dependencies_of_phase_properties` has a non-empty return value.
+
+        Otherwise it returns an empty function, raising an error when called
+        (missing mixin of constitutive laws).
+
+        The phase density (like all thermodynamic properties) is a dependent quantity.
+
+        Parameters:
+            phase: A phase in the :attr:`solid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
+        name = f"phase_{phase.name}_density"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
+
+    def specific_volume_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+        """The specific volume of the phase is returned as a function calling the
+        the phase density and taking the reciprocal of it.
+
+        Parameters:
+            phase: A phase in the :attr:`solid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
+
+        def volume(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            op = phase.density(domains)
+            op = op ** pp.ad.Scalar(-1.0)
+            op.set_name(f"phase_{phase.name}_specific_volume")
+            return op
+
+        return volume
+
+    def thermal_conductivity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+        """Analogous to :meth:`density_of_phase`, but for
+        :attr:`~porepy.compositional.base.Phase.thermal_conductivity` of a ``phase``.
+
+        Parameters:
+            phase: A phase in the :attr:`solid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
+        name = f"phase_{phase.name}_conductivity"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function

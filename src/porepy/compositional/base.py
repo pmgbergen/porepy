@@ -1073,3 +1073,47 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             op.set_name("fluid_thermal_conductivity")
 
         return op
+
+
+class Element:
+    """Base class for chemical elements modelled inside a mixture.
+
+    Elements inside a mixture are characterized by various scalar fields representing
+    fractions, and can go through phase transitions and appear in multiple
+    :class:`Phase`. An element is identified by the (time-dependent) :meth:`fraction`
+    of total mass/moles belonging to the component.
+
+    The fractions are assigned by the AD interface
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`, once the component
+    is added to a mixture context.
+    The element fractions are products of the formula matrix and molar fractions of the components.
+
+
+    Parameters:
+        *args: Left for reasons of inheritance.
+        **kwargs: Same as above.
+
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.name: str = str(kwargs.get("name", "unnamed_element"))
+        """Name of the element. Can be named by providing a keyword argument 'name'
+        when instantiating."""
+
+        self.atomic_number: int = kwargs.get("atomic_number", 0)
+        """Atomic number of the element, 0 is for charge."""
+        # Creating the overall molar fraction variable.
+        self.fraction: DomainFunctionType
+        """Overall fraction, or feed fraction, for this element, indicating how much
+        of the total mass or moles belong to this element.
+
+        Dimensionless, scalar field bound to the interval ``[0, 1]``. The sum of overall
+        fractions must always equal 1.
+
+        Note:
+            This is a variable in flow and transport. The feed fraction of one
+            arbitrarily chosen component can be eliminated by unity.
+
+            If there is only 1 component, this should be a wrapped scalar with value 1.
+
+        """

@@ -198,9 +198,10 @@ from porepy.compositional.materials import (
     NumericalConstants,
     Constants,
     ReferenceVariableValues,
+    SolidComponent,
 )
 from porepy.compositional.base import Component, Phase, Fluid
-from porepy.compositional.compositional_mixins import FluidMixin
+from porepy.compositional.compositional_mixins import FluidMixin, SolidMixin
 
 # "Primary" models
 from porepy.models import (

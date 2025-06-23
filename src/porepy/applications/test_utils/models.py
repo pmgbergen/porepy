@@ -22,6 +22,7 @@ class NoPhysics(  # type: ignore[misc]
     pp.BoundaryConditionMixin,
     pp.InitialConditionMixin,
     pp.FluidMixin,
+    pp.SolidMixin,
 ):
     """A model with no physics, for testing purposes.
 
