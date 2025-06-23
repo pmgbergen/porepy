@@ -201,7 +201,11 @@ from porepy.compositional.materials import (
     SolidComponent,
 )
 from porepy.compositional.base import Component, Phase, Fluid
-from porepy.compositional.compositional_mixins import FluidMixin, SolidMixin
+from porepy.compositional.compositional_mixins import (
+    FluidMixin,
+    SolidMixin,
+    ChemicalSystem,
+)
 
 # "Primary" models
 from porepy.models import (

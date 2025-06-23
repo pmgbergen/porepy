@@ -67,6 +67,7 @@ __all__ = [
     "Fluid",
     "ComponentLike",
     "PhaseLike",
+    "Solid",
 ]
 
 
@@ -1117,3 +1118,152 @@ class Element:
             If there is only 1 component, this should be a wrapped scalar with value 1.
 
         """
+
+
+class Solid(Generic[ComponentLike, PhaseLike]):
+    """General solid class managing modelled components and phases."""
+
+    def __init__(
+        self,
+        components: list[ComponentLike],
+        phases: list[PhaseLike],
+    ) -> None:
+        self._ref_component_index: int = 0
+        """See :meth:`reference_component_index`."""
+        self._components: list[ComponentLike] = []
+        """A list of components passed at instantiation."""
+        self._phases: list[PhaseLike] = []
+        """A list of phases passed at instantiation."""
+
+        # A container holding names already added, to avoid storage conflicts.
+        double_names: list[str] = []
+        # Lists of gas-like and other phases.
+        gaslike_phases: list[PhaseLike] = []
+        other_phases: list[PhaseLike] = []
+
+        for comp in components:
+            double_names.append(comp.name)
+            self._components.append(comp)
+
+        for phase in phases:
+            double_names.append(phase.name)
+            if phase.state == PhysicalState.gas:
+                gaslike_phases.append(phase)
+            else:
+                other_phases.append(phase)
+
+            if phase.num_components == 0:
+                raise CompositionalModellingError(
+                    f"Phase {phase.name} has no components assigned."
+                )
+
+        self._phases = other_phases + gaslike_phases
+
+        if len(set(double_names)) < len(self._phases) + len(self._components):
+            raise ValueError("Phases and components must have unique names each.")
+
+        # checking model assumptions
+        if len(self._components) == 0:
+            raise CompositionalModellingError("At least 1 component required")
+        if len(self._phases) == 0:
+            raise CompositionalModellingError("At least 1 phase required.")
+        if len(gaslike_phases) > 1:
+            raise CompositionalModellingError("At most 1 gas-like phase is permitted.")
+
+        # Checking no dangling components.
+        for comp in self._components:
+            its_phases = []
+            for phase in self._phases:
+                if comp in phase.components:
+                    its_phases.append(phase)
+            if len(its_phases) == 0:
+                raise CompositionalModellingError(
+                    f"Component {comp.name} not in any phase."
+                )
+
+        # NOTE by logic, length of gas-like phases can only be 1 or 0 at this point.
+        self._has_gas: bool = True if len(gaslike_phases) == 1 else False
+        """Flag indicating if a gas-like phase is present."""
+
+    def __str__(self) -> str:
+        """
+        Returns:
+            A string representation of the composition, with information about present
+            components and phases.
+
+        """
+        out = f"Solid mixture with {self.num_components} components:"
+        for component in self.components:
+            out += f"\n\t{component.name}"
+        out += f"\nand {self.num_phases} phases:"
+        for phase in self.phases:
+            out += f"\n\t{phase.name}"
+        return out
+
+    @property
+    def num_components(self) -> int:
+        """Number of components in this mixture."""
+        return len(self._components)
+
+    @property
+    def num_phases(self) -> int:
+        """Number of phases phases in this mixture."""
+        return len(self._phases)
+
+    @property
+    def components(self) -> list[ComponentLike]:
+        """
+        Returns:
+            Components in this solid mixture.
+        """
+        return [c for c in self._components]
+
+    @property
+    def phases(self) -> list[PhaseLike]:
+        """
+        Returns:
+            Phases modelled in this solid mixture.
+        """
+        return [p for p in self._phases]
+
+    @property
+    def reference_component_index(self) -> int:
+        """Returns the index of the component in :meth:`components`, which is designated
+        as the reference component.
+
+        By default, the first component (0) is designated as the reference component.
+
+        Important:
+            Changing the index of the reference component changes which mass
+            conservation equations are eliminated by unity.
+
+        Parameters:
+            index: A new index to be assigned.
+
+        Raises:
+            IndexError: If index is out of range of :meth:`components`.
+
+        Returns:
+            The index of the current component designated as the reference component.
+
+        """
+        return self._ref_component_index
+
+    @reference_component_index.setter
+    def reference_component_index(self, index: int) -> None:
+        max_index = len(self._components) - 1
+        if index < 0 or index > max_index:
+            raise IndexError(f"Component index {index} out of range [0, {max_index}].")
+        self._ref_component_index = int(index)
+
+    @property
+    def reference_phase(self) -> PhaseLike:
+        """Returns the reference phase as designated by
+        :meth:`reference_phase_index`."""
+        return self._phases[self.reference_phase_index]
+
+    @property
+    def reference_component(self) -> ComponentLike:
+        """Returns the reference component as designated by
+        :meth:`reference_component_index`."""
+        return self._components[self.reference_component_index]

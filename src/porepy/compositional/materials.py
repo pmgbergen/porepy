@@ -435,12 +435,18 @@ class SolidComponent(Constants, Component):
         {
             "density": "kg * m^-3",
             "molar_mass": "kg * mol^-1",
+            "permeability": "m^2",
+            "porosity": "-",
         }
     )
 
     density: number = 1.0
 
     molar_mass: number = 1.0
+
+    permeability: number = 1.0
+
+    porosity: number = 0.1
 
 
 @dataclass(kw_only=True, eq=False)

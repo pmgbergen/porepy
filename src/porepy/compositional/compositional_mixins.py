@@ -29,7 +29,16 @@ import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
-from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
+from .base import (
+    Component,
+    ComponentLike,
+    Compound,
+    EquationOfState,
+    Fluid,
+    Phase,
+    Solid,
+    Element,
+)
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
@@ -1525,7 +1534,7 @@ class SolidMixin(pp.PorePyModel):
         phases: list[Phase[pp.SolidComponent]] = []
         components: list[pp.SolidComponent] = [c for c in self.get_solid_components()]
 
-        for config in self.get_phase_configuration(components):
+        for config in self.get_solid_phase_configuration(components):
             # Configuration of phase with EoS.
             if len(config) == 3:
                 phase_state, name, eos = config
@@ -1546,7 +1555,8 @@ class SolidMixin(pp.PorePyModel):
 
             phases.append(Phase(phase_state, name, eos=eos))
 
-        self.set_components_in_phases(components, phases)
+        self.set_components_in_solid_phases(components, phases)
+        self.solid = Solid(components, phases)
 
     def get_solid_components(self) -> Sequence[pp.SolidComponent]:
         """Method to return a list of modelled components.
@@ -1577,7 +1587,7 @@ class SolidMixin(pp.PorePyModel):
     ]:
         return [(PhysicalState.solid, "solid")]
 
-    def set_components_in_phases(
+    def set_components_in_solid_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
     ) -> None:
         """Method to implement a strategy for which components are added to which phase.
@@ -1668,3 +1678,29 @@ class SolidMixin(pp.PorePyModel):
             return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
         else:
             return _no_property_function
+
+
+class ChemicalSystem(FluidMixin, SolidMixin):
+    def get_all_components_by_phase(self):
+        """Return a dictionary of all components grouped by phase."""
+        system_info = {}
+        self.create_solid()
+
+        # Handle fluid phases
+        for phase in self.fluid.phases:
+            system_info[phase.name] = [comp.name for comp in phase.components]
+
+        # Handle solid phases
+        for phase in self.solid.phases:
+            system_info[phase.name] = [comp.name for comp in phase.components]
+
+        return system_info
+
+    def describe(self):
+        """Prints a structured summary of the system."""
+        print("Chemical System Overview:")
+        print("--------------------------")
+        system = self.get_all_components_by_phase()
+        for phase, components in system.items():
+            print(f"Phase: {phase}")
+            print("  Components:", ", ".join(components))
