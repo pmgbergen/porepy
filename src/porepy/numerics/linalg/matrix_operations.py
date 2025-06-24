@@ -7,6 +7,7 @@ from __future__ import annotations
 import warnings
 from typing import Literal, Optional, Union, cast, overload
 
+import networkx as nx
 import numpy as np
 import scipy.sparse as sps
 
@@ -1689,3 +1690,188 @@ def sparse_array_to_row_col_data(
         return (mat_copy.row[nz_mask], mat_copy.col[nz_mask], mat_copy.data[nz_mask])
     else:
         return (mat_copy.row, mat_copy.col, mat_copy.data)
+
+
+def generate_permutation_to_block_diag_matrix(
+    A: sps.spmatrix,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute row and column permutations to transform a non-diagonal block matrix
+    into block-diagonal form by analyzing its sparsity pattern.
+
+    The method constructs a bipartite graph representing the matrix's non-zero
+    structure, where equations and variables are connected if the corresponding
+    matrix entry is non-zero. The connected components of this graph then define the
+    blocks in the permuted matrix.
+
+    Notes:
+
+        - The function assumes that the matrix is square or rectangular with consistent
+          equation-variable relationships.
+        - The permutations returned are such that applying them to the original matrix
+          as ``A[row_perm, :][:, col_perm]`` would give a block-diagonal matrix.
+        - Each block in the resulting matrix corresponds to a connected component in the
+          bipartite graph representation.
+
+    Parameters:
+        A: Square sparse matrix of shape ``(n, n)``.
+
+    Raises:
+        TypeError: If input A is not a sparse matrix.
+        ValueError: If matrix A is empty or rectangular.
+
+    Returns:
+        A 3 tuple containing integer-valued arrays
+
+        1. Indices/slice through the rows to obtain block diagonal form. The i-th
+           element gives the original row index originally at row i.
+        2. Analogous array for the columns.
+        3. Size of individual (square) blocks after the permutation. The sum of block
+           sizes equals the dimension of the input matrix.
+
+    """
+    # Input validation
+    if not isinstance(A, (sps.spmatrix, sps.sparray)):
+        raise TypeError("Input matrix must be a scipy sparse matrix or sparse array")
+    num_rows, num_cols = A.shape
+    if (num_rows == 0) ^ (num_cols == 0):
+        raise ValueError(
+            f"Inconsistent empty shape {A.shape}: must be (0,0) or non-empty"
+        )
+    if not num_rows == num_cols:
+        raise ValueError(f"Matrix must be square, got shape {A.shape}")
+
+    # Ensure we don’t pick up stored zeros
+    A_clean = A.copy()
+    A_clean.eliminate_zeros()
+
+    # Find non-zero entries in the sparse matrix
+    rows, cols, _ = sps.find(A_clean)
+    idx_dtype = rows.dtype
+
+    # Build bipartite graph: connect equation_i to variable_j if A[i,j] ≠ 0
+    G = nx.Graph()
+    # Create graph edges between connected equation and variables
+    edge_list = [(int(i), int(num_rows + j)) for i, j in zip(rows, cols)]
+    G.add_edges_from(edge_list)
+
+    # Annotate data structures for permutations.
+    row_perm: np.ndarray
+    col_perm: np.ndarray
+    block_sizes: np.ndarray
+
+    # Find connected components in G
+    # If len(components) == 1, the entire matrix is already
+    # one block (block‐diagonal with a single block).
+    components = list(nx.connected_components(G))
+    if len(components) == 1:
+        row_perm = np.arange(num_rows, dtype=idx_dtype)
+        col_perm = np.arange(num_rows, dtype=idx_dtype)
+        block_sizes = np.array([num_rows], dtype=idx_dtype)
+    else:
+        # Collect row and column indices per component
+        block_row_indices = []
+        block_col_indices = []
+
+        # Collect the sizes of sub-blocks
+        block_sizes_ = []
+
+        # Extract permutations and sub-block sizes
+        for comp in components:
+            eq_rows_in_block = [node for node in comp if node < num_rows]
+            var_cols_in_block = [node - num_rows for node in comp if node >= num_rows]
+
+            # Sort each list so that the permutation is deterministic:
+            eq_rows_in_block.sort()
+            var_cols_in_block.sort()
+
+            # Sanity check: each block must be square in terms of #rows == #cols
+            if len(eq_rows_in_block) != len(var_cols_in_block):
+                raise AssertionError(
+                    f"Block mismatch: {len(eq_rows_in_block)} rows vs "
+                    f"{len(var_cols_in_block)} cols"
+                )
+            block_sizes_.append(len(eq_rows_in_block))
+            block_row_indices.extend(eq_rows_in_block)
+            block_col_indices.extend(var_cols_in_block)
+
+        # Detect rows with no non-zero entries, as they do not appear
+        # in any graph component and would otherwise be dropped.
+        # To preserve the original matrix sizetreat each
+        # all-zero row as its own 1×1 block.
+        used_rows = set(block_row_indices)
+        all_indices = set(range(num_rows))
+        missing_rows = list(sorted(all_indices - used_rows))
+        for idx in missing_rows:
+            block_row_indices.append(idx)
+            block_col_indices.append(idx)
+            block_sizes_.append(1)
+
+        # Final permutations: flattening all component-wise ordered indices
+        row_perm = np.array(block_row_indices, dtype=idx_dtype)
+        col_perm = np.array(block_col_indices, dtype=idx_dtype)
+        block_sizes = np.array(block_sizes_, dtype=idx_dtype)
+
+        # Verify we covered all rows & columns exactly once:
+        if row_perm.size != num_rows or col_perm.size != num_cols:
+            raise AssertionError("Not all rows/columns were assigned to blocks")
+
+    return row_perm, col_perm, block_sizes
+
+
+def invert_permuted_block_diag_matrix(
+    A: sps.spmatrix,
+    row_permutation: np.ndarray,
+    col_permutation: np.ndarray,
+    block_sizes: np.ndarray,
+) -> sps.csr_matrix:
+    """Compute :math:`A^{-1}` of a permuted block-diagonal matrix by
+
+    1. permuting non-diagonal block matrix A to block-diagonal form,
+    2. inverting each diagonal block, and
+    3. undoing the permutations to get the inverse of the original matrix.
+
+    :func:`invert_diagonal_blocks` is used as the block-diagonal inverter with numba.
+    :func:`generate_permutation_to_block_diag_matrix` can be used to obtain the
+    permutation and block sizes.
+
+    Parameters:
+        A: A square sparse matrix of shape (num_eqs, num_vars) whose sparsity
+            pattern splits into non-overlapping diagonal blocks after the
+            permutation.
+        row_permutation: See :func:`generate_permutation_to_block_diag_matrix`.
+        col_permutation: See :func:`generate_permutation_to_block_diag_matrix`.
+        block_sizes: See :func:`generate_permutation_to_block_diag_matrix`.
+
+            A small value to eliminate near-zero values in the inverse, which is
+            returned in a sparse format. To be used if the inverted matrix is
+            ill-conditioned resulting in useless values.
+
+    Returns:
+        The inverse of ``A``.
+
+    """
+
+    # Find the permutations that resolves A into block-diagonal.
+    row_slicer = ArraySlicer(domain_indices=row_permutation)
+    col_slicer = ArraySlicer(range_indices=col_permutation)
+
+    # Apply permutations to transform A into diagonal block
+    # NOTE A_block_diag = P_row @ A @ P_col
+    # But since the ArraySlicer mimics only a projection which can be applied from the
+    # left via matrix product @, we need to work with transposed matrices.
+    # The expressions are algebraically equivalent, though the transposition introduces
+    # an extra cost.
+    A_block_diag = row_slicer @ (col_slicer.T @ A.T).T
+
+    # Compute the inverse of each sub-block in place.
+    inv_A_block_diag = invert_diagonal_blocks(A_block_diag, block_sizes, method="numba")
+
+    # Undo the permutations to obtain the inverse of the original matrix.
+    # A^{-1} = P_col A_block_diag^{-1} P_row
+    inv_row_slicer = row_slicer.T
+    inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
+
+    # Eliminate zero entries.
+    inv_A.eliminate_zeros()
+
+    return inv_A

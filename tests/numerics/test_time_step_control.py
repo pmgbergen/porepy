@@ -821,6 +821,10 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
+        # :meth:`NewtonSolver.solve` expects a nonempty nonlinear_increment list, so we
+        # update it with dummy values in all cases.
+        self.nonlinear_solver_statistics.log_error(0.1, 0.1)
+
         if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
             # Neither converged nor diverged
             return False, False

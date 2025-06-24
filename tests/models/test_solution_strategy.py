@@ -25,16 +25,24 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Callable, cast
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
+from ..functional.setups.linear_tracer import TracerFlowModel_3p
+from porepy.applications.md_grids.mdg_library import (
+    square_with_orthogonal_fractures,
+    cube_with_orthogonal_fractures,
+)
+from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.test_utils.models import add_mixin
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -417,6 +425,8 @@ def check_convergence_test_model() -> CheckConvergenceTest:
         (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
         # Case 4: Increment is nan.
         (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+        # Case 5: Residual is above divergence tolerance.
+        (np.array([1e-6, 1e-6]), np.array([2e4]), (False, True)),
     ],
 )
 def test_check_convergence(
@@ -434,6 +444,7 @@ def test_check_convergence(
     nl_params: dict[str, Any] = {
         "nl_convergence_tol": 1e-5,
         "nl_convergence_tol_res": 1e-5,
+        "nl_divergence_tol": 1e4,
     }
     converged, diverged = check_convergence_test_model.check_convergence(
         nonlinear_increment, residual, nl_params
@@ -466,3 +477,145 @@ def test_linear_or_nonlinear_model(params: dict):
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
     assert model._is_nonlinear_problem() == is_nonlinear
+
+
+# ---------------------------------------------------------------------
+# Tests for block‐permutation and inversion in SolutionStrategy
+# ---------------------------------------------------------------------
+
+
+def _get_primary_equ_and_vars_cf(model: pp.PorePyModel) -> tuple[list[str], list[str]]:
+    """Returns the primary equations and variables of a CF model."""
+
+    equ_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.FluidMassBalanceEquations):
+        equ_names += [
+            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
+        equ_names += [
+            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, pp.compositional_flow.ComponentMassBalanceEquations):
+        equ_names += model.component_mass_balance_equation_names()
+
+    for n in model.equation_system.equations.keys():
+        if "_flux" in n:
+            equ_names.append(n)
+
+    var_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+        var_names += [model.pressure_variable]
+
+    if isinstance(
+        model, pp.compositional_flow.SolutionStrategyExtendedFluidMassAndEnergy
+    ):
+        var_names += [model.enthalpy_variable]
+    elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
+        var_names += [model.temperature_variable]
+
+    if isinstance(model, pp.compositional.CompositionalVariables):
+        var_names += model.overall_fraction_variables
+        var_names += model.tracer_fraction_variables
+
+    for var in model.equation_system.variables:
+        if "_flux" in var.name:
+            var_names.append(var.name)
+
+    return list(set(equ_names)), list(set(var_names))
+
+
+@pytest.mark.parametrize(
+    "test_model_class,get_primary_equs_vars",
+    [
+        (TracerFlowModel_3p, _get_primary_equ_and_vars_cf),
+    ],
+)
+@pytest.mark.parametrize(
+    "mdg",
+    [
+        square_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1])[0],
+        cube_with_orthogonal_fractures("cartesian", {"cell_size": 0.25}, [0, 1, 2])[0],
+    ],
+)
+def test_schur_complement_inverter_on_model(
+    mdg: pp.MixedDimensionalGrid,
+    test_model_class: type[pp.PorePyModel],
+    get_primary_equs_vars: Callable[[pp.PorePyModel], tuple[list[str], list[str]]],
+):
+    """Tests the block-diagonal inverter for the secondary block of the linear system
+    of a porepy model."""
+
+    # NOTE: Depending on what which model class the tests are performed, the local
+    # geometry mixin and model parameters need adaption in order to overwrite the
+    # geometry and parametrization already contained within the tested model class.
+    # The adaption must be consistent with the mdg's the tests are performed on.
+    class LocalGeometry(pp.PorePyModel):
+        def create_mdg(self) -> None:
+            self.mdg = mdg
+
+        def set_domain(self) -> None:
+            self._domain = nd_cube_domain(
+                mdg.dim_max(), self.units.convert_units(1.0, "m")
+            )
+
+    model_params = {
+        "apply_schur_complement_reduction": True,
+        "equilibrium_type": "dummy",
+        "meshing_arguments": {
+            "cell_size": 0.1,
+        },
+    }
+
+    model_class = add_mixin(LocalGeometry, test_model_class)
+
+    model = model_class(model_params)
+    model = cast(pp.SolutionStrategy, model)
+    model.prepare_simulation()
+    prim_equs, prim_vars = get_primary_equs_vars(model)
+
+    # Set primary equations and variables to get the secondary ones for assembly of
+    # secondary block.
+    model.schur_complement_primary_equations = prim_equs
+    model.schur_complement_primary_variables = prim_vars
+
+    secondary_equs = list(
+        set(model.equation_system.equations.keys()).difference(set(prim_equs))
+    )
+    secondary_vars = list(
+        set([var.name for var in model.equation_system.variables]).difference(
+            set(prim_vars)
+        )
+    )
+
+    N = model.equation_system.dofs_of(secondary_vars).size
+    model.equation_system.set_variable_values(
+        np.ones(model.equation_system.num_dofs()), iterate_index=0, time_step_index=0
+    )
+
+    model.before_nonlinear_loop()
+    model.before_nonlinear_iteration()
+    model.assemble_linear_system()
+    inv_A_ss = model.equation_system._Schur_complement[0]
+
+    # NOTE A_ss is not stored explicitly as part of the linear system assembly.
+    A_ss, _ = model.equation_system.assemble(
+        equations=secondary_equs,
+        variables=secondary_vars,
+    )
+
+    # NOTE: Do not convert to dense array, 3D test case will run out of memory.
+    approx_identity = cast(sps.csr_matrix, A_ss @ inv_A_ss)
+    identity = cast(sps.csr_matrix, sps.eye(N, format="csr"))
+
+    assert (
+        np.all(approx_identity.indices == identity.indices)
+        and np.all(approx_identity.indptr == identity.indptr)
+        and np.allclose(
+            approx_identity.data,
+            np.ones(N),
+            rtol=0.0,
+            atol=1e-16,
+        )
+        and np.all(approx_identity.shape == identity.shape)
+    )

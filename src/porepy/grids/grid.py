@@ -737,7 +737,7 @@ class Grid:
 
         """
         mat = (self.face_nodes @ np.abs(self.cell_faces)) > 0
-        return mat
+        return mat.tocsc()
 
     def num_cell_nodes(self) -> np.ndarray:
         """

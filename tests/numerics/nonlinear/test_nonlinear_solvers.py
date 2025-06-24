@@ -28,6 +28,9 @@ class NonlinearSinglePhaseFlow(SinglePhaseFlow):
             < self.expected_number_of_iterations
         ):
             converged = False
+            # :meth:`NewtonSolver.solve` expects a nonempty nonlinear_increment list, so
+            # we update it with dummy values.
+            self.nonlinear_solver_statistics.log_error(0.1, 0.1)
             return converged, diverged
         converged = True
         return converged, diverged

@@ -142,10 +142,10 @@ class TimeManager:
                 dt_min_max[0] * iter_relax_factors[1] < dt_min_max[1], and dt_min_max[1]
                 * iter_relax_factors[0] > dt_min_max[0].
             Note that in practical applications, these conditions are usually met.
-        iter_max: Maximum number of iterations. iter_optimal_range: Optimal iteration
-        range.
-            The first and second elements of the tuple correspond to the lower and upper
-            endpoints of the optimal iteration range.
+        iter_max: Maximum number of iterations.
+        iter_optimal_range: Optimal iteration range. The first and second elements of
+            the tuple correspond to the lower and upper endpoints of the optimal
+            iteration range.
         iter_relax_factors: Relaxation factors.
             The first and second elements of the tuple corresponds to the
             under-relaxation and over-relaxation factors, respectively. We require the
