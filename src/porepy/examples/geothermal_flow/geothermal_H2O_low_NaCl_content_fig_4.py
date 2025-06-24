@@ -44,7 +44,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
-case_name = "case_hP"
+case_name = "case_mP"
 geometry_case = "horizontal"
 
 final_times = {
