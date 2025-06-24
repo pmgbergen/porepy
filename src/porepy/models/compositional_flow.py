@@ -1402,12 +1402,11 @@ class BoundaryConditionsCF(
 
 
 class BoundaryConditionsCFF(
-    # put on top for override of update_all_boundary_values, which includes sub-routine
-    # for fractional flow.
+    # Put on top for override of update_all_boundary_values, which includes sub-routine
+    # for fractional flow. Set values for primary variables first in order to have them
+    # for computing fractional flow values.
     BoundaryConditionsFractionalFlow,
-    pp.energy_balance.BoundaryConditionsEnthalpy,
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
-    BoundaryConditionsMulticomponent,
+    BoundaryConditionsCF,
 ):
     """Collection of BC value routines required for CF in the fractional flow
     formulation."""
