@@ -761,6 +761,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         gaslike_phases: list[PhaseLike] = []
         other_phases: list[PhaseLike] = []
 
+        self.elements: list[Element] = []
+
         for comp in components:
             double_names.append(comp.name)
             self._components.append(comp)
@@ -1104,7 +1106,7 @@ class Element:
         self.atomic_number: int = kwargs.get("atomic_number", 0)
         """Atomic number of the element, 0 is for charge."""
         # Creating the overall molar fraction variable.
-        self.fraction: DomainFunctionType
+        self.fluid_fraction: DomainFunctionType
         """Overall fraction, or feed fraction, for this element, indicating how much
         of the total mass or moles belong to this element.
 

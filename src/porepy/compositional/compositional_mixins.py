@@ -41,6 +41,9 @@ from .base import (
 )
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
+from chempy.chemistry import Species
+from chempy.util.periodic import symbols as chemical_symbols
+
 
 __all__ = [
     "get_equilibrium_type",
@@ -406,6 +409,44 @@ class _MixtureDOFHandler(pp.PorePyModel):
         else:
             return False
 
+    def has_independent_fluid_fraction(self, instance: Element) -> bool:
+        """Checks whether the ``instance`` has an independent variable for the
+        fraction of moles associated with it (
+        :attr:`~porepy.compositional.base.Element.fluid_fraction` of an element
+        )
+
+
+        Parameters:
+            instance: An element in the :attr:`fluid`.
+
+        Raises:
+            ValueError: If the ``instance`` is not in the fluid mixture.
+            TypeError: If ``instance`` is not an element.
+
+        Returns:
+            False, if there is only 1 instance (of elements) in the fluid
+            mixture, or it is the reference instance and it was eliminated.
+            Otherwise it returns True.
+
+        """
+        instances: list[Element]
+        if isinstance(instance, Element):
+            instances = list(self.fluid.elements)
+            if instance not in instances:
+                raise ValueError(f"Element {instance} not in fluid mixture.")
+            idx = instances.index(instance)
+            ref_idx = 0
+            num_instances = len(instances)
+            eliminated = True
+        else:
+            raise TypeError(f"Unknown type {type(instance)}. Expecting element.")
+
+        if (idx == ref_idx and eliminated) or num_instances == 1:
+            instance = self.fluid.reference_element
+            return False
+        else:
+            return True
+
     # Utility methods for DOFs and variables
 
     def _overall_fraction_variable(self, component: Component) -> str:
@@ -435,6 +476,10 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         """
         return f"{symbols['phase_composition']}_{component.name}_{phase.name}"
+
+    def _element_fluid_fraction_variable(self, element: Element) -> str:
+        """Returns the name of the fraction variable assigned to ``component``."""
+        return f"{symbols['element_fluid_fraction']}_{element.name}"
 
     def _fraction_factory(self, name: str) -> DomainFunctionType:
         """Factory method to create a callable representing any independent fraction
@@ -539,6 +584,17 @@ class _MixtureDOFHandler(pp.PorePyModel):
                 if append:
                     names.append(self._partial_fraction_variable(comp, phase))
 
+        return names
+
+    @property
+    def element_fluid_fraction_variables(self) -> list[str]:
+        """Names of independent element fluid fractions
+        :attr:`~porepy.compositional.base.element.fluid_fraction` variables created for this
+        model."""
+        names: list[str] = []
+        for ele in self.fluid.elements:
+            if self.has_independent_fluid_fraction(ele):
+                names.append(self._element_fluid_fraction_variable(ele))
         return names
 
 
@@ -720,6 +776,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             phase.partial_fraction_of = {}
             for comp in phase:
                 phase.partial_fraction_of[comp] = self.partial_fraction(comp, phase)
+
+        # Creation of element fluid fractions.
+        for element in self.fluid.elements:
+            element.fluid_fraction = self.element_fluid_fraction(element)
 
     def overall_fraction(
         self,
@@ -1044,6 +1104,60 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             )
         else:
             raise NotImplementedError("Missing logic for partial fractions.")
+
+        return fraction
+
+    def element_fluid_fraction(
+        self,
+        element: Element,
+    ) -> DomainFunctionType:
+        """Getter method to create a callable representing the overall fraction of an
+        element on a list of subdomains or boundaries.
+
+        Cases where the element fluid fraction is not an independent variable:
+
+        1. If there is only 1 element, the fraction is constant 1.
+        2. If the reference element fluid fraction was eliminated, it is a dependent
+           operator.
+
+        Parameters:
+            element: An element in the fluid mixture.
+
+        Returns:
+            A callable which returns the element fluid fraction for a given set of domains.
+
+        """
+
+        fraction: DomainFunctionType
+
+        # If only 1 component, the fraction is always 1.
+        if self.fluid.num_elements == 1:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(1.0, "single_element_fluid_fraction")
+
+        # NOTE: If the reference component fraction is independent, below elif-clause
+        # will be executed, instead of the next one.
+        elif self.has_independent_fraction(element):
+            fraction = self._fraction_factory(
+                self._element_fluid_fraction_variable(element)
+            )
+        elif element == self.fluid.reference_element:
+
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                e_R = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
+                    [
+                        element.fluid_fraction(domains)
+                        for element in self.fluid.elements
+                        if element != self.fluid.reference_element
+                    ]
+                )
+                e_R.set_name("reference_element_fluid_fraction_by_unity")
+                return e_R
+
+        # Should never happen.
+        else:
+            raise NotImplementedError("Missing logic for element fluid fractions.")
 
         return fraction
 
@@ -1685,22 +1799,122 @@ class ChemicalSystem(FluidMixin, SolidMixin):
         """Return a dictionary of all components grouped by phase."""
         system_info = {}
         self.create_solid()
+        species_in_phase = {}
 
         # Handle fluid phases
         for phase in self.fluid.phases:
             system_info[phase.name] = [comp.name for comp in phase.components]
+            for comp in phase.components:
+                species_in_phase[comp.name] = phase.name
 
         # Handle solid phases
         for phase in self.solid.phases:
             system_info[phase.name] = [comp.name for comp in phase.components]
-
-        return system_info
+            for comp in phase.components:
+                species_in_phase[comp.name] = phase.name
+        return system_info, species_in_phase
 
     def describe(self):
         """Prints a structured summary of the system."""
         print("Chemical System Overview:")
         print("--------------------------")
-        system = self.get_all_components_by_phase()
+        system, _ = self.get_all_components_by_phase()
         for phase, components in system.items():
             print(f"Phase: {phase}")
             print("  Components:", ", ".join(components))
+
+    def print_formula_matrix(self):
+        """Prints the formula matrix of the system."""
+        _, species_in_phase = self.get_all_components_by_phase()
+        self.species_in_phase = species_in_phase  # Save for later
+
+        # Parse each unique component name into a Species object
+        species_objs = {}
+        for name, comp in species_in_phase.items():
+            try:
+                species_objs[name] = Species.from_formula(name)
+            except Exception as e:
+                print(f"Skipping {name}: {e}")
+
+        species_names = list(species_objs.keys())
+        self.species_names = species_names
+
+        # Collect all unique element symbols
+        element_set = {
+            chemical_symbols[atomic_number - 1] if atomic_number != 0 else "Z"
+            for s in species_objs.values()
+            for atomic_number in s.composition
+        }
+        # Create a mapping from element symbol to atomic number
+        symbol_to_atomic = {s: i + 1 for i, s in enumerate(chemical_symbols)}
+        symbol_to_atomic["Z"] = 0  # Special case for charge
+
+        # Sort elements by atomic number (ascending), Z first
+        elements = sorted(
+            element_set, key=lambda el: symbol_to_atomic.get(el, float("inf"))
+        )
+
+        # Build initial matrix
+        def build_matrix(element_list):
+            matrix = []
+            for elem in element_list:
+                row = []
+                for sp in species_names:
+                    comp = species_objs[sp].composition
+                    count = 0
+                    for atomic_number, num in comp.items():
+                        if atomic_number == 0 and elem == "Z":
+                            count = num
+                        elif (
+                            atomic_number != 0
+                            and chemical_symbols[atomic_number - 1] == elem
+                        ):
+                            count = num
+                    row.append(count)
+                matrix.append(row)
+            return np.array(matrix)
+
+        matrix = build_matrix(elements)
+
+        # Make a mutable working copy of the element list
+        working_elements = elements.copy()
+        while np.linalg.matrix_rank(build_matrix(working_elements)) < len(
+            working_elements
+        ):
+            print(
+                f"Matrix is not full-rank. Current rank: {np.linalg.matrix_rank(build_matrix(working_elements))}, elements: {working_elements}"
+            )
+            if not working_elements:
+                raise ValueError(
+                    "Cannot build a full-rank formula matrix with given species."
+                )
+
+            # Prioritize removing 'Z' first, then the element with the least variability
+            if "Z" in working_elements:
+                print("Removing 'Z' (charge) row.")
+                working_elements.remove("Z")
+            else:
+                # Try removing one element at a time (e.g. the last one)
+                removed = working_elements.pop()
+                print(f"Removing element '{removed}' to improve rank.")
+
+        # Final full-rank matrix
+        matrix = build_matrix(working_elements)
+        elements = working_elements
+        self.element_names = working_elements
+        self.formula_matrix = matrix
+
+        # Print final matrix
+        print("\nFinal Formula Matrix (full-rank):")
+        header = ["Element"] + species_names
+        print("\t".join(header))
+        for i, elem in enumerate(elements):
+            row = [elem] + [str(matrix[i, j]) for j in range(len(species_names))]
+            print("\t".join(row))
+
+        self.element_objects = [
+            Element(name=el, atomic_number=(0 if el == "Z" else symbol_to_atomic[el]))
+            for el in working_elements
+        ]
+        self.fluid.elements = self.element_objects
+        self.fluid.num_elements = len(self.element_objects)

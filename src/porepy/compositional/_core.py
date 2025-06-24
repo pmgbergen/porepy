@@ -149,6 +149,7 @@ COMPOSITIONAL_VARIABLE_SYMBOLS = {
     "phase_saturation": "s",
     "phase_composition": "x",
     "tracer_fraction": "c",
+    "element_fluid_fraction": "e",
 }
 """A dictionary mapping names of variables (key) to their symbol (value), which is used
 in the compositional framework.
