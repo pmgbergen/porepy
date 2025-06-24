@@ -4,8 +4,11 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
+
 # from porepy.models.compositional_flow import CompositionalFlowTemplate as FlowTemplate
-from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
+from porepy.models.compositional_flow import (
+    CompositionalFractionalFlowTemplate as FlowTemplate,
+)
 
 from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
@@ -31,9 +34,11 @@ class BoundaryConditions(pp.PorePyModel):
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
-        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_inlet = 50.0
@@ -118,12 +123,13 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     SecondaryEquations,
     FlowTemplate,
 ):
-
-    def relative_permeability(self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def relative_permeability(
+        self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         if phase.name == "liq":
             sr = pp.ad.Scalar(0.3)
             s_red = (phase.saturation(domains) - sr) / (pp.ad.Scalar(1.0) - sr)
-            kr = pp.ad.Scalar(0.5) * ((s_red**2)**0.5 + s_red)
+            kr = pp.ad.Scalar(0.5) * ((s_red**2) ** 0.5 + s_red)
         else:
             kr = phase.saturation(domains)
         return kr
@@ -147,14 +153,14 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     def after_simulation(self):
         self.exporter.write_pvd()
 
-    def set_equations(self):
-        super().set_equations()
+    def initial_condition(self):
+        super().initial_condition()
         self.set_buoyancy_discretization_parameters()
 
-    def set_nonlinear_discretizations(self) -> None:
+    def update_flux_values(self):
+        super().update_flux_values()
+        self.update_buoyancy_driven_fluxes()
+
+    def set_nonlinear_discretizations(self):
         super().set_nonlinear_discretizations()
         self.set_nonlinear_buoyancy_discretization()
-
-    def before_nonlinear_iteration(self) -> None:
-        self.update_buoyancy_driven_fluxes()
-        self.rediscretize()

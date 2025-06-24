@@ -290,13 +290,14 @@ class SimpleGeometryVertical(Geometry):
         outlet_facets = find_facets(self._outlet_centre)
         return inlet_facets, outlet_facets
 
+
 class SimpleGeometryHayekVertical(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
     _dist_from_ref_point: float = 0.05
-    _inlet_centre: np.ndarray = np.array([0.05, 0.0,  0.0])
+    _inlet_centre: np.ndarray = np.array([0.05, 0.0, 0.0])
     _outlet_centre: np.ndarray = np.array([0.05, 7.0, 0.0])
 
     def set_domain(self) -> None:
@@ -311,7 +312,10 @@ class SimpleGeometryHayekVertical(Geometry):
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(0.1, "m")
         cell_size_y = self.units.convert_units(0.1, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": cell_size_y}
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+            "cell_size_y": cell_size_y,
+        }
         return mesh_args
 
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
@@ -334,13 +338,14 @@ class SimpleGeometryHayekVertical(Geometry):
         outlet_facets = find_facets(self._outlet_centre)
         return inlet_facets, outlet_facets
 
+
 class SimpleGeometryHayekVertical2D(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
     _dist_from_ref_point: float = 1.0
-    _inlet_centre: np.ndarray = np.array([2.5, 0.0,  0.0])
+    _inlet_centre: np.ndarray = np.array([2.5, 0.0, 0.0])
     _outlet_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -367,7 +372,10 @@ class SimpleGeometryHayekVertical2D(Geometry):
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(1.0, "m")
         cell_size_y = self.units.convert_units(1.0, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": cell_size_y}
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+            "cell_size_y": cell_size_y,
+        }
         return mesh_args
 
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:

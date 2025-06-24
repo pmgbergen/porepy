@@ -38,8 +38,8 @@ case_name = "case_lP"
 geometry_case = "horizontal"
 
 final_times = {
-    "horizontal": [91250.0], # final time [250 years]
-    "vertical": [365000.0], # final time [1000 years]
+    "horizontal": [91250.0],  # final time [250 years]
+    "vertical": [365000.0],  # final time [1000 years]
 }
 
 day_to_second = 86400
@@ -83,10 +83,6 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
-    "rediscretize_darcy_flux": True,
-    "rediscretize_fourier_flux": True,
-    "eliminate_reference_phase": True,  # s_liq eliminated, default is True
-    "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "fractional_flow": True,
     "time_manager": time_manager,
     "prepare_simulation": False,
@@ -121,7 +117,8 @@ class GeothermalWaterFlowModel(
 model = GeothermalWaterFlowModel(params)
 
 parametric_space_ref_level = 1
-file_name_prefix = (
+folder_prefix = "src/porepy/examples/geothermal_flow/"
+file_name_prefix = folder_prefix + (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )
 file_name_phz = (
@@ -152,8 +149,12 @@ te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
-model.primary_equations = pp.compositional_flow.get_primary_equations_cf(model)
-model.primary_variables = pp.compositional_flow.get_primary_variables_cf(model)
+model.schur_complement_primary_equations = (
+    pp.compositional_flow.get_primary_equations_cf(model)
+)
+model.schur_complement_primary_variables = (
+    pp.compositional_flow.get_primary_variables_cf(model)
+)
 
 # print geometry
 model.exporter.write_vtu()
@@ -169,7 +170,7 @@ grid = model.mdg.subdomains()[0]
 bc_sides = model.domain_boundary_sides(grid)
 
 # Integrated overall mass flux on all facets
-mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+mn = model.equation_system.evaluate(model.darcy_flux(model.mdg.subdomains()))
 mn = cast(np.ndarray, mn)
 
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])

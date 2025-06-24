@@ -1,11 +1,12 @@
-
 from __future__ import annotations
 
 from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
-from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
+from porepy.models.compositional_flow import (
+    CompositionalFractionalFlowTemplate as FlowTemplate,
+)
 from abc import abstractmethod
 
 # test parameters
@@ -13,20 +14,18 @@ expected_order_mass_loss = 6
 mesh_2d_Q = True
 
 
-residual_tolerance = 10.0**(-expected_order_mass_loss)
+residual_tolerance = 10.0 ** (-expected_order_mass_loss)
 
 # define constant phase densities
 rho_l = 1000.0
 rho_g = 500.0
 to_Mega = 1.0e-6
 
+
 # geometry description
 class Geometry(pp.PorePyModel):
-
     @abstractmethod
-    def dirichlet_facets(
-        self, sd: pp.Grid | pp.BoundaryGrid
-    ) -> tuple[np.ndarray]:
+    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> tuple[np.ndarray]:
         pass
 
     @staticmethod
@@ -35,8 +34,8 @@ class Geometry(pp.PorePyModel):
         r = np.linalg.norm(dx, axis=1)
         return np.where(r < rc, True, False)
 
-class ModelGeometry(Geometry):
 
+class ModelGeometry(Geometry):
     _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
@@ -55,14 +54,12 @@ class ModelGeometry(Geometry):
         return mesh_args
 
     def set_fractures(self) -> None:
-        points = (
-                np.array(
-                    [
-                        [2.0, 0.0],
-                        [2.0, 5.0],
-                    ]
-                ).T
-        )
+        points = np.array(
+            [
+                [2.0, 0.0],
+                [2.0, 5.0],
+            ]
+        ).T
         fracs = np.array([[0, 1]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
@@ -84,8 +81,8 @@ class ModelGeometry(Geometry):
 
         return find_facets(self._sphere_centre)
 
-class ModelGeometry3D(Geometry):
 
+class ModelGeometry3D(Geometry):
     _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
@@ -93,7 +90,11 @@ class ModelGeometry3D(Geometry):
         x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(5.0, "m")
         z_length = self.units.convert_units(5.0, "m")
-        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length,  "zmax": z_length}
+        box: dict[str, pp.number] = {
+            "xmax": x_length,
+            "ymax": y_length,
+            "zmax": z_length,
+        }
         self._domain = pp.Domain(box)
 
     def grid_type(self) -> str:
@@ -122,22 +123,25 @@ class ModelGeometry3D(Geometry):
 
         return find_facets(self._sphere_centre)
 
+
 # constitutive description
 def gas_saturation_func(
     *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-
     p, h, z_CO2 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CO2)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = (z_CO2*rho_l)/(z_CO2*rho_l + rho_g - z_CO2*rho_g)
+    vals = (z_CO2 * rho_l) / (z_CO2 * rho_l + rho_g - z_CO2 * rho_g)
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = (rho_l*rho_g)/((z_CO2*(rho_l - rho_g) + rho_g)*(z_CO2*(rho_l - rho_g) + rho_g))
+    diffs[2, :] = (rho_l * rho_g) / (
+        (z_CO2 * (rho_l - rho_g) + rho_g) * (z_CO2 * (rho_l - rho_g) + rho_g)
+    )
     return vals, diffs
+
 
 def temperature_func(
     *thermodynamic_dependencies: np.ndarray,
@@ -153,6 +157,7 @@ def temperature_func(
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[1, :] = 1.0 * factor
     return vals, diffs
+
 
 def CO2_liq_func(
     *thermodynamic_dependencies: np.ndarray,
@@ -177,18 +182,18 @@ def CO2_gas_func(
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
+
 chi_functions_map = {
     "CO2_liq": CO2_liq_func,
     "CO2_gas": CO2_gas_func,
 }
 
-class LiquidEOS(pp.compositional.EquationOfState):
 
+class LiquidEOS(pp.compositional.EquationOfState):
     def rho_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = rho_l * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -197,7 +202,6 @@ class LiquidEOS(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (1.0e-3) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -206,7 +210,6 @@ class LiquidEOS(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (2.0) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -215,7 +218,6 @@ class LiquidEOS(pp.compositional.EquationOfState):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (2.0) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -226,7 +228,6 @@ class LiquidEOS(pp.compositional.EquationOfState):
         *thermodynamic_input: np.ndarray,
         params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> pp.compositional.PhaseProperties:
-
         nc = len(thermodynamic_input[0])
         # mass density of phase
         rho, drho = self.rho_func(*thermodynamic_input)  # (n,), (3, n) array
@@ -253,12 +254,10 @@ class LiquidEOS(pp.compositional.EquationOfState):
 
 
 class GasEOS(LiquidEOS):
-
     def rho_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = rho_g * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -267,7 +266,6 @@ class GasEOS(LiquidEOS):
 
 
 class FluidMixture(pp.PorePyModel):
-
     def get_components(self) -> Sequence[pp.FluidComponent]:
         return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
 
@@ -279,8 +277,8 @@ class FluidMixture(pp.PorePyModel):
         eos_L = LiquidEOS(components)
         eos_G = GasEOS(components)
         configuration_L = (pp.compositional.PhysicalState.liquid, "liq", eos_L)
-        configuration_G =(pp.compositional.PhysicalState.gas, "gas", eos_G)
-        return [configuration_L,configuration_G]
+        configuration_G = (pp.compositional.PhysicalState.gas, "gas", eos_G)
+        return [configuration_L, configuration_G]
 
     def dependencies_of_phase_properties(
         self, phase: pp.Phase
@@ -294,7 +292,6 @@ class FluidMixture(pp.PorePyModel):
 
 
 class SecondaryEquations(LocalElimination):
-
     dependencies_of_phase_properties: Callable[
         ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
@@ -377,6 +374,7 @@ class BoundaryConditions(pp.PorePyModel):
         z_CO2 = np.zeros(boundary_grid.num_cells)
         return z_CO2
 
+
 class InitialConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
@@ -414,10 +412,12 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0) +
-             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0) +
-             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
-             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
+        z = (
+            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
+            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
+            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
+            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        )
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -432,7 +432,6 @@ class FlowModel(
     SecondaryEquations,
     FlowTemplate,
 ):
-
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -457,7 +456,9 @@ class FlowModel(
         num_sg_integral = 0.0
         for sd in model.mdg.subdomains():
             ic_sg_val = self.ic_values_staturation(sd)
-            ref_sg_integral_op = self.volume_integral(pp.wrap_as_dense_ad_array(ic_sg_val), [sd], dim=1)
+            ref_sg_integral_op = self.volume_integral(
+                pp.wrap_as_dense_ad_array(ic_sg_val), [sd], dim=1
+            )
             ref_sg_integral += np.sum(self.equation_system.evaluate(ref_sg_integral_op))
 
             s_gas = phases[1].saturation([sd])
@@ -506,9 +507,7 @@ class FlowModel(
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
-
         if self._is_nonlinear_problem():
-
             self.equation_system
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
@@ -530,8 +529,11 @@ class FlowModel(
             converged = converged_inc and converged_res
             diverged = False
         else:
-            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
+            raise ValueError(
+                "Gravitational segregation is nonlinear in its simpler form."
+            )
         return converged, diverged
+
 
 day = 86400
 t_scale = 1.0
@@ -548,9 +550,9 @@ time_manager = pp.TimeManager(
 solid_constants = pp.SolidConstants(
     permeability=1.0e-14,
     porosity=0.1,
-    thermal_conductivity=2.0*to_Mega,
+    thermal_conductivity=2.0 * to_Mega,
     density=2500.0,
-    specific_heat_capacity=1000.0*to_Mega,
+    specific_heat_capacity=1000.0 * to_Mega,
 )
 material_constants = {"solid": solid_constants}
 params = {

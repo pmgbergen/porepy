@@ -123,7 +123,7 @@ grid = model.mdg.subdomains()[0]
 bc_sides = model.domain_boundary_sides(grid)
 
 # Integrated overall mass flux on all facets
-mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+mn = model.equation_system.evaluate(model.darcy_flux(model.mdg.subdomains()))
 mn = cast(np.ndarray, mn)
 
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])

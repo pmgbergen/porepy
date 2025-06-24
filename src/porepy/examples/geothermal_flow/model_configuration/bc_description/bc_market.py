@@ -23,9 +23,11 @@ class BC_single_phase_high_pressure(pp.PorePyModel):
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
-        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_inlet = 50.0
@@ -88,9 +90,11 @@ class BC_single_phase_moderate_pressure(pp.PorePyModel):
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
-        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_inlet = 40.0
@@ -153,9 +157,11 @@ class BC_single_phase_low_pressure(pp.PorePyModel):
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
-        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_inlet = 15.0
@@ -218,9 +224,11 @@ class BC_two_phase_low_pressure(pp.PorePyModel):
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
-        return pp.BoundaryCondition(sd, facet_idx, "dir")
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         p_inlet = 20.0

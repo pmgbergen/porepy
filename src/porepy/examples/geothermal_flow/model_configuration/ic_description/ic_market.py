@@ -33,8 +33,8 @@ class IC_Base(pp.PorePyModel):
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        x_CO2_liq = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["Xl"],0,1.0)
-        x_CO2_gas = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["Xv"],0,1.0)
+        x_CO2_liq = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["Xl"], 0, 1.0)
+        x_CO2_gas = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["Xv"], 0, 1.0)
         return x_CO2_liq, x_CO2_gas
 
     def ic_values_gas_saturation(self, sd: pp.Grid) -> np.ndarray:
@@ -43,7 +43,7 @@ class IC_Base(pp.PorePyModel):
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
-        s_init = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["S_v"],0,1.0)
+        s_init = np.clip(self.vtk_sampler_ptz.sampled_could.point_data["S_v"], 0, 1.0)
         return s_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
@@ -54,6 +54,7 @@ class IC_Base(pp.PorePyModel):
         self.vtk_sampler_ptz.sample_at(par_points)
         h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
         return h_init
+
 
 class IC_single_phase_high_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -80,6 +81,7 @@ class IC_single_phase_high_pressure(IC_Base):
     ) -> np.ndarray:
         z = 0.0
         return z * np.ones(sd.num_cells)
+
 
 class IC_single_phase_moderate_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""

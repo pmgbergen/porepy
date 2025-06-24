@@ -509,7 +509,9 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.UpwindCouplingAd:
         discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
         discr._discretization.upwind_matrix_key = self.buoyancy_intf_key(gamma, delta)
-        discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(gamma, delta)
+        discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(
+            gamma, delta
+        )
         return discr
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -559,11 +561,9 @@ class FluidBuoyancy(pp.PorePyModel):
         w_flux.set_name("density_driven_flux_" + density_metric.name)
         return w_flux
 
-    def interface_density_driven_flux(self,
-                                      interfaces: list[pp.MortarGrid],
-                                      density_metric: pp.ad.Operator
-                                      ) -> pp.ad.Operator:
-
+    def interface_density_driven_flux(
+        self, interfaces: list[pp.MortarGrid], density_metric: pp.ad.Operator
+    ) -> pp.ad.Operator:
         normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
 
         subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
@@ -573,18 +573,24 @@ class FluidBuoyancy(pp.PorePyModel):
 
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
         e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
-        gravity_flux = pp.ad.Scalar(-1) * e_n @ (density_metric * self.gravity_field(subdomain_neighbors))
-
-        intf_vector_source = (
-                projection.secondary_to_mortar_avg()
-                @ gravity_flux
+        gravity_flux = (
+            pp.ad.Scalar(-1)
+            * e_n
+            @ (density_metric * self.gravity_field(subdomain_neighbors))
         )
+
+        intf_vector_source = projection.secondary_to_mortar_avg() @ gravity_flux
 
         normals_times_source = normals * intf_vector_source
         nd_to_scalar_sum = pp.ad.sum_projection_list(
             [e.T for e in self.basis(interfaces, dim=self.nd)]
         )
-        w_flux = self.volume_integral(self.normal_permeability(interfaces) * (nd_to_scalar_sum @ normals_times_source), interfaces,1)
+        w_flux = self.volume_integral(
+            self.normal_permeability(interfaces)
+            * (nd_to_scalar_sum @ normals_times_source),
+            interfaces,
+            1,
+        )
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
@@ -607,7 +613,6 @@ class FluidBuoyancy(pp.PorePyModel):
         advected_entity: pp.ad.Operator,
         discr: pp.ad.UpwindCouplingAd,
     ) -> pp.ad.Operator:
-
         # If no interfaces are given, make sure to proceed with a non-empty subdomain
         # list if relevant.
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -631,7 +636,6 @@ class FluidBuoyancy(pp.PorePyModel):
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-
         self.set_buoyancy_discretization_parameters()
 
         b_fluxes = []
@@ -687,34 +691,48 @@ class FluidBuoyancy(pp.PorePyModel):
                     # HU on interfaces
                     interfaces = self.subdomains_to_interfaces(domains, [1])
 
-                    discr_gamma_intf = self.interface_buoyancy_discretization(gamma, delta, interfaces)
-                    discr_delta_intf = self.interface_buoyancy_discretization(delta, gamma, interfaces)
+                    discr_gamma_intf = self.interface_buoyancy_discretization(
+                        gamma, delta, interfaces
+                    )
+                    discr_delta_intf = self.interface_buoyancy_discretization(
+                        delta, gamma, interfaces
+                    )
 
                     # well defined w_flux on interfaces
                     rho_gamma = gamma.density(domains)
                     rho_delta = delta.density(domains)
-                    w_flux_gamma_delta_intf = self.interface_density_driven_flux(interfaces, rho_gamma - rho_delta)
+                    w_flux_gamma_delta_intf = self.interface_density_driven_flux(
+                        interfaces, rho_gamma - rho_delta
+                    )
 
-                    f_gamma_intf = self.interface_buoyancy_flux(interfaces, f_gamma, discr_gamma_intf)
-                    f_delta_intf = self.interface_buoyancy_flux(interfaces, f_delta, discr_delta_intf)
+                    f_gamma_intf = self.interface_buoyancy_flux(
+                        interfaces, f_gamma, discr_gamma_intf
+                    )
+                    f_delta_intf = self.interface_buoyancy_flux(
+                        interfaces, f_delta, discr_delta_intf
+                    )
 
                     mortar_projection = pp.ad.MortarProjections(
                         self.mdg, domains, interfaces, dim=1
                     )
 
                     f_gamma_upwind_intf = (
-                            discr_gamma.bound_transport_neu()
-                            @ mortar_projection.mortar_to_primary_int()
-                            @ f_gamma_intf * w_flux_gamma_delta_intf
+                        discr_gamma.bound_transport_neu()
+                        @ mortar_projection.mortar_to_primary_int()
+                        @ f_gamma_intf
+                        * w_flux_gamma_delta_intf
                     )
 
                     f_delta_upwind_intf = (
-                            discr_delta.bound_transport_neu()
-                            @ mortar_projection.mortar_to_primary_int()
-                            @ f_delta_intf * w_flux_gamma_delta_intf
+                        discr_delta.bound_transport_neu()
+                        @ mortar_projection.mortar_to_primary_int()
+                        @ f_delta_intf
+                        * w_flux_gamma_delta_intf
                     )
 
-                    b_flux_gamma_delta_intf = (f_gamma_upwind_intf * f_delta_upwind_intf) * w_flux_gamma_delta_intf
+                    b_flux_gamma_delta_intf = (
+                        f_gamma_upwind_intf * f_delta_upwind_intf
+                    ) * w_flux_gamma_delta_intf
 
                     b_fluxes.append(b_flux_gamma_delta)
 
@@ -813,7 +831,9 @@ class FluidBuoyancy(pp.PorePyModel):
                     rho_gamma = gamma.density(subdomain_neighbors)
                     rho_delta = delta.density(subdomain_neighbors)
                     vals = self.equation_system.evaluate(
-                        self.interface_density_driven_flux([intf], rho_gamma - rho_delta)
+                        self.interface_density_driven_flux(
+                            [intf], rho_gamma - rho_delta
+                        )
                     )
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
                         {self.buoyant_flux_array_key(gamma, delta): +vals}
