@@ -328,3 +328,298 @@ class ICThreePhaseLowPressure(pp.PorePyModel):
                 sd
             )
             return 1.0 - z
+
+
+class ICLiquidPhaseLowPressure_no_wells_2D(pp.PorePyModel):
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Define an initial pressure distribution that varies linearly from
+           the inlet to the outlet of the domain.
+        """
+        # Hydrostatic pressure p=rho*g*h
+        rho = 1000.0  # In kg/m3 
+        g = 10.0  # In m/s2 (No gravity)
+        p_outlet = 0.101e6
+        cell_centers_y = sd.cell_centers[1]
+        y_max = np.max(cell_centers_y)
+        p_init = p_outlet + rho * g * (y_max - cell_centers_y)
+        return p_init
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = 1e-4 * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        t_init = 300.15  # [K] # # Note: this wont work if the minimum temperature is far above 283.15 K in the VTK file.
+        return np.ones(sd.num_cells) * t_init
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component, 
+        sd: pp.Grid
+    ) -> np.ndarray:
+        z = 1e-4
+        if component.name == "H2O":
+            return (1 - z) * np.ones(sd.num_cells)
+        else:
+            return z * np.ones(sd.num_cells)
+
+
+class ICThreePhaseLowPressure2D(pp.PorePyModel):
+    # Initial condition for a three-phase flow model in 2D with NaCl, H2O, and vapor phases.
+    # At time t=0, the model assume a constant ambient temperature, atmospheric pressure, 
+    # and an halite saturation of 0.1. 
+    # No Injection or production occurs at time t = 0.
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Define an initial pressure distribution that varies linearly from
+           the inlet to the outlet of the domain.
+        """
+        if sd.dim == 0 and "production_well" in sd.tags:
+            p_init = 0.8e6  # [Pa]
+        else:
+            # For 2D, we assume a constant pressure across the domain
+            # This is a simplification for the sake of the example
+            p_init = 1.5e6  # [Pa]
+        return np.ones(sd.num_cells) * p_init
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        if sd.dim == 0 and "injection_well" not in sd.tags:
+            z_NaCl = self._compute_z_NaCl(sd)
+        else:
+            z_NaCl = np.ones(sd.num_cells) * 0.0001
+        
+        # z_NaCl = self._compute_z_NaCl(sd)
+
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        if sd.dim == 0 and "injection_well" in sd.tags:
+            t_init = 573.15  # [K]
+        else:
+            t_init = 423.15
+        return np.ones(sd.num_cells) * t_init
+    
+    def _compute_z_NaCl(self, sd: pp.Grid) -> np.ndarray:
+        # Lazy cache creation on first call
+        if not hasattr(self, "_z_NaCl_cache"):
+            self._z_NaCl_cache = {}
+
+        if sd.id in self._z_NaCl_cache:
+            return self._z_NaCl_cache[sd.id]
+
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_low, z_high = 0.3, 0.42
+
+        z_NaCl = find_z_for_target_sh(
+            T0=t[0],
+            sh_target=0.1,
+            p_values=p,
+            sampler=self.vtk_sampler_ptz,
+            z_bounds=(z_low, z_high)
+        )
+
+        self._z_NaCl_cache[sd.id] = z_NaCl
+        return z_NaCl
+
+    def ic_values_overall_fraction_old(
+        self,
+        component: pp.Component,
+        sd: pp.Grid
+    ) -> np.ndarray:
+        
+        if sd.dim == 0 and "injection_well" not in sd.tags:
+            z_NaCl = self._compute_z_NaCl(sd)
+        else:
+            z_NaCl = np.ones(sd.num_cells) * 0.0001
+
+        if component.name == "NaCl":
+            return z_NaCl
+        elif component.name == "H2O":
+            return 1.0 - z_NaCl
+        else:
+            raise ValueError(f"Unknown component: {component.name}")
+        
+
+class ICLiquidPhaseLowPressure_wells_fracture_2D(pp.PorePyModel):
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Define an initial pressure distribution that varies linearly from
+           the inlet to the outlet of the domain.
+        """
+        p_init = 25.0e6  # Pa
+        return np.ones(sd.num_cells) * p_init
+        if sd.dim == self.mdg.dim_max():
+            _, prod_cell_indx = self._get_well_indices()
+            p = np.ones(sd.num_cells) * p_init
+            p[prod_cell_indx] = 20.0e6
+            return p
+        return np.ones(sd.num_cells) * p_init
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = 1e-4 * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        t_init = 423.15  # [K] # # Note: this wont work if the minimum temperature is far above 283.15 K in the VTK file.
+        return np.ones(sd.num_cells) * t_init
+        if sd.dim == self.mdg.dim_max():
+            inj_cell_indx, _ = self._get_well_indices()
+            T = np.ones(sd.num_cells) * t_init
+            T[inj_cell_indx] = 623.15
+            return T
+        return np.ones(sd.num_cells) * t_init
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component,
+        sd: pp.Grid
+    ) -> np.ndarray:
+        z = 1e-4
+        if component.name == "H2O":
+            return (1 - z) * np.ones(sd.num_cells)
+        else:
+            return z * np.ones(sd.num_cells)
+
+
+class ICLiquidPhaseLowPressure_Pointwells_Fracture_2D(pp.PorePyModel):
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Define an initial pressure distribution that varies linearly from
+           the inlet to the outlet of the domain.
+        """
+        # return np.ones(sd.num_cells) * self._p_INIT
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return np.ones(sd.num_cells) * self._p_PRODUCTION[0]
+        return np.ones(sd.num_cells) * self._p_INIT
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = 1e-4 * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        # return np.ones(sd.num_cells) * self._T_INIT
+        if sd.dim == 0 and "injection_well" in sd.tags:
+            return np.ones(sd.num_cells)*self._T_INJECTION[0]
+        return np.ones(sd.num_cells) * self._T_INIT
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component,
+        sd: pp.Grid
+    ) -> np.ndarray:
+        z = 1e-4
+        if component.name == "H2O":
+            return (1 - z) * np.ones(sd.num_cells)
+        else:
+            return z * np.ones(sd.num_cells)
+
+
+class ICLiquidPhaseLowPressure_Pointwells_Fracture_Salt_2D(pp.PorePyModel):
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Define an initial pressure distribution that varies linearly from
+           the inlet to the outlet of the domain.
+        """
+        return np.ones(sd.num_cells) * self._p_INIT
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return np.ones(sd.num_cells) * self._p_PRODUCTION[0]
+        return np.ones(sd.num_cells) * self._p_INIT
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = self._z_INIT["NaCl"] * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        # return np.ones(sd.num_cells) * self._T_INIT
+        if sd.dim == 0 and "injection_well" in sd.tags:
+            return np.ones(sd.num_cells)*self._T_INJECTION[0]
+        return np.ones(sd.num_cells) * self._T_INIT
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component,
+        sd: pp.Grid
+    ) -> np.ndarray:
+        """Initial composition: default to initial z."""
+        z = self._z_INIT.get(component.name, 0.0)
+        return np.full(sd.num_cells, z)
+    
+
+class ICBrineSystem2D(pp.PorePyModel):
+
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """Define an initial pressure distribution that varies linearly from
+           the inlet to the outlet of the domain.
+        """
+        return np.ones(sd.num_cells) * self._p_INIT
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return np.ones(sd.num_cells) * self._p_PRODUCTION[0]
+        return np.ones(sd.num_cells) * self._p_INIT
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        # evaluation from PTZ specs
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
+        z_NaCl = self._z_INIT["NaCl"] * np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data['H']
+        return h_init
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        # return np.ones(sd.num_cells) * self._T_INIT
+        if sd.dim == 0 and "injection_well" in sd.tags:
+            return np.ones(sd.num_cells)*self._T_INJECTION[0]
+        return np.ones(sd.num_cells) * self._T_INIT
+
+    def ic_values_overall_fraction(
+        self, component: pp.Component,
+        sd: pp.Grid
+    ) -> np.ndarray:
+        """Initial composition: default to initial z."""
+        z = self._z_INIT.get(component.name, 0.0)
+        return np.full(sd.num_cells, z)
