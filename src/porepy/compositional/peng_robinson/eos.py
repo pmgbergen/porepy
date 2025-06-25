@@ -1275,7 +1275,7 @@ class PengRobinsonCompiler(EoSCompiler):
         def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
-            prearg = np.empty((3,), dtype=np.float64)
+            prearg = np.empty((4,), dtype=np.float64)
             A = A_c(p, T, xn)
             B = B_c(p, T, xn)
 
@@ -1295,6 +1295,7 @@ class PengRobinsonCompiler(EoSCompiler):
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
             prearg[2] = _Z_from_AB(A, B, phasetype, eps_, s_e_, s_m_)
+            prearg[3] = float(phasetype)
 
             return prearg
 

@@ -25,16 +25,19 @@ import logging
 import os
 import time
 from dataclasses import asdict
-from typing import Callable, Literal, Sequence
-
-import numpy as np
+from typing import Any, Callable, Literal, Sequence, Optional
 
 # Benchmark is small, no need for JIT compilation.
 os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+import numba as nb
+import numpy as np
+
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.examples.co2_injection import NewtonArmijoSolver
-from porepy.examples.co2_injection import SolutionStrategy as FlashSolutionStrategy
+import porepy.compositional.peng_robinson as pr
+import porepy.compositional.compiled_flash.eos_compiler as eosc
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -99,7 +102,7 @@ CONFIG_VERTICAL_CASE = {
 }
 """Model configuration for the horizontal case."""
 
-CONFIG = {
+CONFIG: dict[str, dict[str, Any]] = {
     "horizontal": CONFIG_HORIZONTAL_CASE,
     "vertical": CONFIG_VERTICAL_CASE,
 }
@@ -151,6 +154,70 @@ class Pipe2D(pp.PorePyModel):
 # endregion
 
 
+class WaterEoS(pr.PengRobinsonCompiler):
+    """An equation of state for water based on Peng-Robinson, but using IAPWS-97
+    correlations to compute the transport properties viscosity and thermal conductivity.
+    """
+
+    def get_viscosity_function(self) -> eosc.ScalarFunction:
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1e-3
+            # # Liquidlike
+            # if prearg[3] < 1.0:
+            #     mu = 8e-4
+            # # Gaslike
+            # elif prearg[3] < 2.0:
+            #     mu = 3e-5
+            # else:
+            #     assert False, "Uncovered physical state in viscosity function."
+            # return mu
+
+        return mu_c
+
+    def get_viscosity_derivative_function(self) -> eosc.VectorFunction:
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def dmu_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dmu_c
+
+    def get_conductivity_function(self) -> eosc.ScalarFunction:
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1.0
+            # # Liquidlike
+            # if prearg[3] < 1.0:
+            #     kappa = 0.1
+            # # Gaslike
+            # elif prearg[3] < 2.0:
+            #     kappa = 0.08
+            # else:
+            #     assert False, "Uncovered physical state in viscosity function."
+            # return kappa
+
+        return kappa_c
+
+    def get_conductivity_derivative_function(self) -> eosc.VectorFunction:
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def dkappa_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dkappa_c
+
+
 class TwoPhaseWaterFluid(pp.PorePyModel):
     """2-component, 2-phase fluid with H2O and another component mimicking water, and a
     liquid and gas phase.
@@ -182,11 +249,7 @@ class TwoPhaseWaterFluid(pp.PorePyModel):
     ]:
         import porepy.compositional.peng_robinson as pr
 
-        eos = pr.PengRobinsonCompiler(
-            components,
-            [pr.h_ideal_H2O, pr.h_ideal_H2O],
-            np.eye(2),
-        )
+        eos = WaterEoS(components, [pr.h_ideal_H2O, pr.h_ideal_H2O], np.eye(2))
         return [
             (pp.compositional.PhysicalState.liquid, "L", eos),
             (pp.compositional.PhysicalState.gas, "G", eos),
@@ -289,10 +352,6 @@ class GeothermalWaterModel(  # type:ignore[misc]
 ):
     """Model assembly for the geothermal water benchmark."""
 
-    def update_derived_quantities(self):
-        FlashSolutionStrategy._normalize_fractions(self)
-        super().update_derived_quantities()
-
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
@@ -311,7 +370,7 @@ if __name__ == "__main__":
         dt_init=100 * pp.DAY,
         dt_min_max=(pp.DAY, 100 * pp.DAY),
         iter_max=max_iterations,
-        iter_optimal_range=(20, 30),
+        iter_optimal_range=(9, 15),
         iter_relax_factors=(0.8, 2.0),
         recomp_factor=0.6,
         recomp_max=15,
@@ -336,7 +395,8 @@ if __name__ == "__main__":
             "npipm_u2": 10,
             "npipm_eta": 0.5,
         },
-        "global_iteration_stride": 2,
+        "global_iteration_stride": 1,
+        "fallback_to_iterate": False,
     }
     flash_params.update(phase_property_params)
 
@@ -392,7 +452,7 @@ if __name__ == "__main__":
 
     model.schur_complement_primary_equations = cfle.cf.get_primary_equations_cf(model)
     model.schur_complement_primary_variables = cfle.cf.get_primary_variables_cf(model)
-    model.nonlinear_solver_statistics.num_iteration_armijo = 0
+    model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
 
     t_0 = time.time()
     pp.run_time_dependent_model(model, model_params)

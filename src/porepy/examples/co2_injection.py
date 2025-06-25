@@ -15,7 +15,16 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = True
+h_MESH: float = 5e-1
+"""Mesh size."""
+# 4.        308 cells
+# 2.        1204 cells
+# 1.        4636 cells
+# 5e-1      18,464 cells
+# 2.5e-1    73,748 cells
+# 1e-1      462,340 cells
+
+FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -62,15 +71,6 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 class _FlowConfiguration(pp.PorePyModel):
     """Helper class to bundle the configuration of pressure, temperature and mass
     for in- and outflow."""
-
-    # Mesh size.
-    _h_MESH: float = 5e-1
-    # 4.        308 cells
-    # 2.        1204 cells
-    # 1.        4636 cells
-    # 5e-1      18,464 cells
-    # 2.5e-1    73,748 cells
-    # 1e-1      462,340 cells
 
     # Initial values.
     _p_INIT: float = 20e6
@@ -329,265 +329,10 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
-                    self,  # type:ignore[arg-type]
+                    self,
                     state,
                 )
         self._time_tracker["flash"].append(time.time() - start)
-
-    def update_derived_quantities(self):
-        """Normalizes fractional variables in the case of violation of the bound
-        [0,1]."""
-        self._normalize_fractions()
-        super().update_derived_quantities()
-
-    def _normalize_fractions(self) -> None:
-        """Sub-routine to normalize the fractions."""
-        subdomains = self.mdg.subdomains()
-
-        fluid_state = self.current_fluid_state(subdomains)
-
-        # Normalizing fractions in case of overshooting
-        eps = 1e-7  # binding overall fractions away from zero
-        z = fluid_state.z
-        z[z >= 1.0] = 1.0 - eps
-        z[z <= 0.0] = 0.0 + eps
-        z = pp.compositional.normalize_rows(z.T).T
-
-        s = fluid_state.sat
-        s[s >= 1.0] = 1.0
-        s[s <= 0.0] = 0.0
-        s = pp.compositional.normalize_rows(s.T).T
-
-        y = fluid_state.y
-        y[y >= 1.0] = 1.0
-        y[y <= 0.0] = 0.0
-        y = pp.compositional.normalize_rows(y.T).T
-
-        for z_i, comp in zip(z, self.fluid.components):
-            if self.has_independent_fraction(comp):
-                self.equation_system.set_variable_values(
-                    z_i,
-                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-        for j, data in enumerate(zip(s, y, self.fluid.phases)):
-            s_j, y_j, phase = data
-            if self.has_independent_saturation(phase):
-                self.equation_system.set_variable_values(
-                    s_j,
-                    [phase.saturation(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-            if self.has_independent_fraction(phase):
-                self.equation_system.set_variable_values(
-                    y_j,
-                    [phase.fraction(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-
-            phase_state = fluid_state.phases[j]
-            x_sum = phase_state.x.sum(axis=0)
-            idx = x_sum > 1.0
-            if np.any(idx):
-                phase_state.x[:, idx] = pp.compositional.normalize_rows(
-                    phase_state.x[:, idx].T
-                ).T
-
-            phase_state.x[phase_state.x < 0] = 0.0
-            phase_state.x[phase_state.x > 1.0] = 1.0
-
-            for i, comp in enumerate(self.fluid.components):
-                if self.has_independent_extended_fraction(comp, phase):
-                    self.equation_system.set_variable_values(
-                        phase_state.x[i],
-                        [phase.extended_fraction_of[comp](subdomains)],
-                        iterate_index=0,
-                    )
-
-    def postprocess_flash(
-        self,
-        sd: pp.Grid,
-        equilibrium_results: tuple[pp.compositional.FluidProperties, np.ndarray],
-        state: Optional[np.ndarray] = None,
-    ) -> pp.compositional.FluidProperties:
-        """A post-processing where the flash is again attempted where not successful.
-
-        1. Where not successful, it attempts the flash from scratch, with
-           initialization procedure.
-           If the new attempt did not reach the desired precision (max iter), it
-           treats it as success.
-        2. Where still not successful, it falls back to the values of the previous
-           iterate.
-
-        """
-        fluid_state, success = equilibrium_results
-
-        failure = success > 0
-        equilibrium_condition = str(
-            pp.compositional.get_local_equilibrium_condition(self)
-        )
-        if np.any(failure):
-            logger.debug(
-                f"Flash from iterate state failed in {failure.sum()} cells on grid"
-                + f" {sd.id}. Performing full flash .."
-            )
-            z = [
-                self.equation_system.evaluate(comp.fraction([sd]), state=state)[failure]  # type:ignore[index]
-                for comp in self.fluid.components
-            ]
-            p = self.equation_system.evaluate(self.pressure([sd]), state=state)[failure]  # type:ignore[index]
-            h = self.equation_system.evaluate(self.enthalpy([sd]), state=state)[failure]  # type:ignore[index]
-            T = self.equation_system.evaluate(self.temperature([sd]), state=state)[
-                failure
-            ]  # type:ignore[index]
-
-            # no initial guess, and this model uses only p-h flash.
-            flash_kwargs: dict[str, Any] = {
-                "z": z,
-                "p": p,
-                "params": self.params.get("flash_params"),
-            }
-
-            if "p-h" in equilibrium_condition:
-                flash_kwargs["h"] = h
-            elif "p-T" in equilibrium_condition:
-                flash_kwargs["T"] = T
-
-            sub_state, sub_success, num_iter = self.flash.flash(**flash_kwargs)
-
-            ni = np.zeros_like(success)
-            ni[failure] = num_iter
-            self._num_flash_iter += ni
-
-            fallback = sub_success > 1
-            max_iter_reached = sub_success == 1
-            # treat max iter reached as success, and hope for the best in the PDE iter
-            sub_success[max_iter_reached] = 0
-            # fall back to previous iter values
-            if np.any(fallback):
-                logger.debug(
-                    f"Full flash failed in {fallback.sum()} cells on grid "
-                    + f"{sd.id}. Falling back to previous iterate state."
-                )
-                sub_state = self.fall_back(sd, sub_state, failure, fallback)
-                sub_success[fallback] = 0
-            # update parent state with sub state values
-            success[failure] = sub_success
-            fluid_state.T[failure] = sub_state.T
-            fluid_state.h[failure] = sub_state.h
-            fluid_state.rho[failure] = sub_state.rho
-
-            for j in range(len(fluid_state.phases)):
-                fluid_state.sat[j][failure] = sub_state.sat[j]
-                fluid_state.y[j][failure] = sub_state.y[j]
-
-                fluid_state.phases[j].x[:, failure] = sub_state.phases[j].x
-
-                fluid_state.phases[j].rho[failure] = sub_state.phases[j].rho
-                fluid_state.phases[j].h[failure] = sub_state.phases[j].h
-                fluid_state.phases[j].mu[failure] = sub_state.phases[j].mu
-                fluid_state.phases[j].kappa[failure] = sub_state.phases[j].kappa
-
-                fluid_state.phases[j].drho[:, failure] = sub_state.phases[j].drho
-                fluid_state.phases[j].dh[:, failure] = sub_state.phases[j].dh
-                fluid_state.phases[j].dmu[:, failure] = sub_state.phases[j].dmu
-                fluid_state.phases[j].dkappa[:, failure] = sub_state.phases[j].dkappa
-
-                fluid_state.phases[j].phis[:, failure] = sub_state.phases[j].phis
-                fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
-
-        # Parent method performs a check that everything is successful.
-        return super().postprocess_flash(sd, (fluid_state, success), state=state)  # type:ignore
-
-    @no_type_check
-    def fall_back(
-        self,
-        grid: pp.Grid,
-        sub_state: pp.compositional.FluidProperties,
-        failed_idx: np.ndarray,
-        fallback_idx: np.ndarray,
-    ) -> pp.compositional.FluidProperties:
-        """Falls back to previous iterate values for the fluid state, on given
-        grid."""
-        sds = [grid]
-        data = self.mdg.subdomain_data(grid)
-        equilibrium_condition = str(
-            pp.compositional.get_local_equilibrium_condition(self)
-        )
-        if "T" not in equilibrium_condition:
-            sub_state.T[fallback_idx] = pp.get_solution_values(
-                self.temperature_variable, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-        if "h" not in equilibrium_condition:
-            sub_state.h[fallback_idx] = pp.get_solution_values(
-                self.pressure_variable, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-        if "p" not in equilibrium_condition:
-            sub_state.p[fallback_idx] = pp.get_solution_values(
-                self.enthalpy_variable, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-
-        for j, phase in enumerate(self.fluid.phases):
-            if j > 0:
-                sub_state.sat[j][fallback_idx] = pp.get_solution_values(
-                    phase.saturation(sds).name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-                sub_state.y[j][fallback_idx] = pp.get_solution_values(
-                    phase.fraction(sds).name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-
-            sub_state.phases[j].rho[fallback_idx] = pp.get_solution_values(
-                phase.density.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-            sub_state.phases[j].h[fallback_idx] = pp.get_solution_values(
-                phase.specific_enthalpy.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-            sub_state.phases[j].mu[fallback_idx] = pp.get_solution_values(
-                phase.viscosity.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-            sub_state.phases[j].kappa[fallback_idx] = pp.get_solution_values(
-                phase.thermal_conductivity.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-
-            sub_state.phases[j].drho[:, fallback_idx] = pp.get_solution_values(
-                phase.density._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-            sub_state.phases[j].dh[:, fallback_idx] = pp.get_solution_values(
-                phase.specific_enthalpy._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-            sub_state.phases[j].dmu[:, fallback_idx] = pp.get_solution_values(
-                phase.viscosity._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-            sub_state.phases[j].dkappa[:, fallback_idx] = pp.get_solution_values(
-                phase.thermal_conductivity._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-
-            for i, comp in enumerate(phase):
-                sub_state.phases[j].x[i, fallback_idx] = pp.get_solution_values(
-                    phase.extended_fraction_of[comp](sds).name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-
-                sub_state.phases[j].phis[i, fallback_idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp].name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-                # NOTE numpy does some weird transpositions when dealing with 3D arrays
-                dphi = sub_state.phases[j].dphis[i]
-                dphi[:, fallback_idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp]._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, failed_idx][:, fallback_idx]
-                sub_state.phases[j].dphis[i, :, :] = dphi
-
-        # reference phase fractions and saturations must be computed, since not stored
-        sub_state.y[self.fluid.reference_phase_index, :] = 1 - np.sum(
-            sub_state.y[1:, :], axis=0
-        )
-        sub_state.sat[self.fluid.reference_phase_index, :] = 1 - np.sum(
-            sub_state.sat[1:, :], axis=0
-        )
-
-        return sub_state
 
     def assemble_linear_system(self) -> None:
         start = time.time()
@@ -599,6 +344,9 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         sol = super().solve_linear_system()
         self._time_tracker["linsolve"].append(time.time() - start)
         return sol
+
+    # def add_nonlinear_fourier_flux_discretization(self) -> None:
+    #     pass
 
 
 class PointWells2D(_FlowConfiguration):
@@ -1297,7 +1045,7 @@ if __name__ == "__main__":
     meshing_params = {
         "grid_type": "simplex",
         "meshing_arguments": {
-            "cell_size": _FlowConfiguration._h_MESH,
+            "cell_size": h_MESH,
             "cell_size_fracture": 5e-1,
         },
     }
@@ -1467,7 +1215,7 @@ if __name__ == "__main__":
 
     print(
         f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
-        + f"h={model._h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
+        + f"h={h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
         + f"Buoyancy: {BUOYANCY_ON}"
     )
     print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
