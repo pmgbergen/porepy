@@ -166,68 +166,89 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         self.set_nonlinear_buoyancy_discretization()
 
     def solve_linear_system(self) -> np.ndarray:
-        """After calling the parent method, the global solution is calculated by Schur
-        expansion."""
+        """
+        Solves the linear system of equations, analyzes residuals, and applies
+        post-processing steps to the solution.
 
-        eq_idx = self.equation_system.assembled_equation_indices
-        equation_names = list(eq_idx.keys())
-        # retrieve equations names
-        t_name = [name for name in equation_names if name.startswith("elimination_of_temperature")][0]
-        s_name = [name for name in equation_names if name.startswith("elimination_of_s_gas")][0]
-        xs_v_name = [name for name in equation_names if name.startswith("elimination_of_x_NaCl_gas")][0]
-        xs_l_name = [name for name in equation_names if name.startswith("elimination_of_x_NaCl_liq")][0]
+        Returns:
+            np.ndarray: The solution vector of the linear system.
+        """
+        # Retrieve Equation Indices
+        eq_indices = self.equation_system.assembled_equation_indices
 
-        # differential
-        p_eq_idx = eq_idx['mass_balance_equation']
-        z_eq_idx = eq_idx['component_mass_balance_equation_NaCl']
-        h_eq_idx = eq_idx['energy_balance_equation']
-        t_eq_idx = eq_idx[t_name]
-        # algebraic
-        s_eq_idx = eq_idx[s_name]
-        xs_v_eq_idx = eq_idx[xs_v_name]
-        xs_l_eq_idx = eq_idx[xs_l_name]
+        # Find equation names dynamically
+        try:
+            temp_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_temperature"))
+            s_gas_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_s_gas"))
+            x_nacl_gas_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_x_NaCl_gas"))
+            x_nacl_liq_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_x_NaCl_liq"))
+        except StopIteration as e:
+            raise KeyError(f"A required elimination equation was not found in the equation system. {e}")
 
-        tb = time.time()
-        _, res_g = self.linear_system
-        sol = super().solve_linear_system()
-        reduce_linear_system_q = self.params.get("reduce_linear_system_q", False)
-        if reduce_linear_system_q:
-            raise ValueError("Case not implemented yet.")
-        te = time.time()
-        print("Overall residual norm: ", np.linalg.norm(res_g))
-        print("Variables involving differential operators:")
-        print("Pressure residual norm: ", np.linalg.norm(res_g[p_eq_idx]))
-        print("Composition residual norm: ", np.linalg.norm(res_g[z_eq_idx]))
-        print("Enthalpy residual norm: ", np.linalg.norm(res_g[h_eq_idx]))
-        print("Temperature residual norm: ", np.linalg.norm(res_g[t_eq_idx]))
-        print("Variables involving algebraic operators:")
-        print("Saturation residual norm: ", np.linalg.norm(res_g[s_eq_idx]))
-        print("Xs_v residual norm: ", np.linalg.norm(res_g[xs_v_eq_idx]))
-        print("Xs_l residual norm: ", np.linalg.norm(res_g[xs_l_eq_idx]))
-        print("Elapsed time linear solve: ", te - tb)
-        print("")
+        # Map equation types to their corresponding indices
+        diff_eq_indices = {
+            'pressure': eq_indices['mass_balance_equation'],
+            'composition_NaCl': eq_indices['component_mass_balance_equation_NaCl'],
+            'enthalpy': eq_indices['energy_balance_equation'],
+            'temperature': eq_indices[temp_elim_name],
+        }
+        alg_eq_indices = {
+            'saturation': eq_indices[s_gas_elim_name],
+            'mass_fraction_NaCl_gas': eq_indices[x_nacl_gas_elim_name],
+            'mass_fraction_NaCl_liquid': eq_indices[x_nacl_liq_elim_name],
+        }
 
-        res_norm = np.linalg.norm(res_g)
-        p_res_norm = np.linalg.norm(res_g[p_eq_idx])
-        z_res_norm = np.linalg.norm(res_g[z_eq_idx])
-        h_res_norm = np.linalg.norm(res_g[h_eq_idx])
-        primary_res_norm = np.max([p_res_norm,z_res_norm,h_res_norm])
-        self.postprocessing_overshoots(sol)
-        eps_tol = 1.0e-4
-        p_idx = np.where(res_g[p_eq_idx] > eps_tol)[0]
-        z_idx = np.where(res_g[z_eq_idx] > eps_tol)[0]
-        h_idx = np.where(res_g[h_eq_idx] > eps_tol)[0]
-        alpha_idx = np.unique(np.concatenate([p_idx,z_idx,h_idx]))
-        self.postprocessing_thermal_overshoots(sol, alpha_idx)
+        # Solve the Linear System
+        start_time = time.time()
 
-        # if self.nonlinear_solver_statistics.num_iteration > 10:
-        dx_scale = np.max([0.05, 0.98 ** self.nonlinear_solver_statistics.num_iteration])
-        print("Searching ...")
-        print("Newton correction factor: ", dx_scale)
-        print("")
-        sol *= dx_scale
+        _, residual_vector = self.linear_system
+        solution = super().solve_linear_system()
 
-        return sol
+        if self.params.get("reduce_linear_system_q", False):
+            raise NotImplementedError("The 'reduce_linear_system_q' case is not yet implemented.")
+
+        end_time = time.time()
+
+        # Report Residuals
+        print("\n Report Residuals ")
+        print(f"Overall residual norm: {np.linalg.norm(residual_vector):.4e}")
+        print("Residual norms for differential equations:")
+        for name, indices in diff_eq_indices.items():
+            print(f"  - {name.capitalize()}: {np.linalg.norm(residual_vector[indices]):.4e}")
+
+        print("Residual norms for algebraic equations:")
+        for name, indices in alg_eq_indices.items():
+            print(f"  - {name.capitalize()}: {np.linalg.norm(residual_vector[indices]):.4e}")
+
+        print(f"Elapsed time for linear solve: {end_time - start_time:.4f} seconds\n")
+
+        # Post-processing solution overshoots
+        self.postprocessing_overshoots(solution)
+
+        # Identify indices where the residual for primary variables exceeds a tolerance
+        residual_tolerance = 1.0e-4
+        pressure_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['pressure']]) > residual_tolerance)[0]
+        composition_high_res_idx = \
+        np.where(np.abs(residual_vector[diff_eq_indices['composition_NaCl']]) > residual_tolerance)[0]
+        enthalpy_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['enthalpy']]) > residual_tolerance)[0]
+
+        # Combine unique indices for thermal overshoot post-processing
+        thermal_indices = np.unique(np.concatenate([
+            pressure_high_res_idx,
+            composition_high_res_idx,
+            enthalpy_high_res_idx
+        ]))
+        self.postprocessing_thermal_overshoots(solution, thermal_indices)
+
+        # Scale down the Newton correction if the non-linear solver is struggling
+        if self.nonlinear_solver_statistics.num_iteration > 5:
+            # The scaling factor decreases with each iteration after the 5th
+            scaling_factor = max(0.05, 0.98 ** self.nonlinear_solver_statistics.num_iteration)
+            print("Scaling Newton correction.")
+            print(f"Newton correction scale factor: {scaling_factor:.4f}\n")
+            solution *= scaling_factor
+
+        return solution
 
     def postprocessing_overshoots(self, delta_x):
 
@@ -309,10 +330,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         h_dof_idx = self.equation_system.dofs_of(['enthalpy'])
         t_dof_idx = self.equation_system.dofs_of(['temperature'])
         s_dof_idx = self.equation_system.dofs_of(['s_gas'])
-        xw_v_dof_idx = self.equation_system.dofs_of(['x_H2O_gas'])
-        xw_l_dof_idx = self.equation_system.dofs_of(['x_H2O_liq'])
-        xs_v_dof_idx = self.equation_system.dofs_of(['x_NaCl_gas'])
-        xs_l_dof_idx = self.equation_system.dofs_of(['x_NaCl_liq'])
 
         p_0 = x0[p_dof_idx]
         z_0 = x0[z_dof_idx]

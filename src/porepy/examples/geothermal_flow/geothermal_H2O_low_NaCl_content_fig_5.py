@@ -38,7 +38,7 @@ case_name = "case_lP"
 geometry_case = "horizontal"
 
 final_times = {
-    "horizontal": [91250.0],  # final time [250 years]
+    "horizontal": [73000.0],  # final time [200 years]
     "vertical": [365000.0],  # final time [1000 years]
 }
 
@@ -84,6 +84,7 @@ material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
     "fractional_flow": True,
+    "buoyancy_on": True,
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
