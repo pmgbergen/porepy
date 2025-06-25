@@ -44,7 +44,7 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
-case_name = "case_mP"
+case_name = "case_hP"
 geometry_case = "horizontal"
 
 final_times = {
@@ -140,7 +140,7 @@ model = GeothermalWaterFlowModel(params)
 
 parametric_space_ref_level = 1
 folder_prefix = "src/porepy/examples/geothermal_flow/"
-file_name_prefix = folder_prefix + (
+file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )
 file_name_phz = (
