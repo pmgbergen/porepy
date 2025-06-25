@@ -266,14 +266,13 @@ def get_primary_equations_cf(model: pp.PorePyModel) -> list[str]:
 
 
 def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
-    """Returns a list of primary variables assumed to be the default in the CF
-    setting.
+    """Returns a list of primary variables assumed to be the default in the CF setting.
 
     The list includes:
 
     1. The pressure variable.
-    2. The (specific fluid) enthalpy variable, in enthalpy-based formulations, else
-       the temperature.
+    2. The (specific fluid) enthalpy variable, in enthalpy-based formulations, else the
+       temperature.
     3. The overall fraction variables for each independent component.
     4. The tracer fraction variables for tracers in compounds (if any).
 
@@ -493,7 +492,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     Important:
         The component mass balance equations expect the total mass balance (pressure
         equation) to be part of the system. That equation defines interface fluxes
-        between subdomains, which are used by the present class to advect components.
+        between subdomains, which are used by the present class to advected components.
 
         Also, this class relies on the Upwind discretization implemented there,
         especially on the definition of the boundary faces as either Neumann-type or
@@ -625,9 +624,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
-        using the :attr:`~porepy.compositional.base.Fluid.density` of the fluid
-        mixture and the component's
-        :attr:`~porepy.compositional.base.Component.fraction`
+        using the :attr:`~porepy.compositional.base.Fluid.density` of the fluid mixture
+        and the component's :attr:`~porepy.compositional.base.Component.fraction`
 
         .. math::
 
@@ -1392,6 +1390,8 @@ class BoundaryConditionsCF(
     # Put on top for override of update_all_boundary_values, which includes sub-routine
     # for updating phase properties on boundaries.
     BoundaryConditionsPhaseProperties,
+    # Put enthalpy above BC for p,T and fractions, in case they are required to evaluate
+    # enthalpy.
     pp.energy_balance.BoundaryConditionsEnthalpy,
     pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
     BoundaryConditionsMulticomponent,
@@ -1402,12 +1402,12 @@ class BoundaryConditionsCF(
 
 
 class BoundaryConditionsCFF(
-    # put on top for override of update_all_boundary_values, which includes sub-routine
-    # for fractional flow.
+    # Put on top for override of update_all_boundary_values, which includes sub-routine
+    # for fractional flow. This way the BC values of variables and phase properties are
+    # already provided in case they are required to compute f.e. the advective weight
+    # in the energy balance equation in the FF setting.
     BoundaryConditionsFractionalFlow,
-    pp.energy_balance.BoundaryConditionsEnthalpy,
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
-    BoundaryConditionsMulticomponent,
+    BoundaryConditionsCF,
 ):
     """Collection of BC value routines required for CF in the fractional flow
     formulation."""
@@ -1691,8 +1691,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
                 # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks to satisfy mypy, since the properties are
-                # type aliases containing some other type as well.
+                # NOTE need the if-checks for models where different properties are
+                # modelled with mixins providing constitutive laws (not surrogate
+                # operators).
                 for _ in self.iterate_indices:
                     if isinstance(phase.density, pp.ad.SurrogateFactory):
                         vals = phase.density.get_values_on_grid(sd, iterate_index=0)

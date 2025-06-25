@@ -2352,12 +2352,12 @@ class Exporter:
         """
 
         try:
-            import numba
+            from numba import njit, prange
         except ImportError:
             raise ImportError("Numba not available on the system")
 
         # Just in time compilation
-        @numba.njit("b1(f8[:,:], i4[:,:])", cache=True, parallel=True)
+        @njit("b1(f8[:,:], i4[:,:])", cache=True, parallel=True)
         def _function_to_compile(nodes, cn_indices):
             """Test whether the node numbering for each cell complies with the hardcoded
             numbering used by meshio, cf. documentation of meshio.
@@ -2380,7 +2380,7 @@ class Exporter:
             correct_format = True
 
             # Test each cell separately
-            for i in numba.prange(cn_indices.shape[0]):
+            for i in prange(cn_indices.shape[0]):
                 # Assume initially that the cell is a hex
                 is_hex = True
 

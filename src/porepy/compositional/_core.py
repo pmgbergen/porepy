@@ -11,7 +11,7 @@ import os
 from enum import Enum
 from typing import Callable, TypeAlias
 
-import numba
+import numba as nb
 
 __all__ = [
     "R_IDEAL_MOL",
@@ -42,7 +42,7 @@ If enabled, uses :obj:`numba.typeof`, otherwise the regular Python type.
 """
 
 cfunc: Callable[..., Callable[[Callable], Callable]]
-"""C-type decorator for Callables, depending on whether numba is enabler or not.
+"""C-type decorator for Callables, depending on whether numba is enabled or not.
 
 If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
 
@@ -54,8 +54,8 @@ if _IS_JIT_DISABLED:
     def cfunc(*args, **kwargs):
         return lambda x: x
 else:
-    typeof = numba.typeof
-    cfunc = numba.cfunc
+    typeof = nb.typeof
+    cfunc = nb.cfunc
 
 
 NUMBA_CACHE: bool = True

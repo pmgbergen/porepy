@@ -80,12 +80,12 @@ class Flash(abc.ABC):
 
         The parameters are described in :meth:`flash`.
 
-        Determins also the equilibrium definition, the size of the (local) flash
-        problem and the number of values for vectorized input.
+        Determins also the equilibrium definition, the size of the (local) flash problem
+        and the number of values for vectorized input.
 
         Hint:
-            The returned fluid properties can be used by :meth:`flash` to fill it
-            up with results and return it to the caller of the flash.
+            The returned fluid properties can be used by :meth:`flash` to fill it up
+            with results and return it to the caller of the flash.
 
         Raises:
             AssertionError: If an insufficient amount of any provided family of
@@ -102,7 +102,7 @@ class Flash(abc.ABC):
             1. The fluid state consisting of feed fractions and equilibrium state.
                If ``initial_state`` is not none, it includes the values.
             2. A string denoting the equilibrium condition.
-            3. A number denoting the size of the locall equilibrium problem (dofs).
+            3. A number denoting the size of the local equilibrium problem (dofs).
             4. A number denoting the size of the input after broadcasting.
 
         """
@@ -121,11 +121,11 @@ class Flash(abc.ABC):
         z_sum = pp.compositional.safe_sum(z)
         assert np.all(z_sum == 1.0), "Feed fractions violate unity."
 
-        # Declaring output
+        # Declaring output.
         fluid_state: pp.compositional.FluidProperties
         flash_type: Literal["p-T", "p-h", "v-T", "v-h"]
-        f_dim: int  # Dimension of flash system (unknowns & equations including NPIPM)
-        NF: int  # number of vectorized target states
+        f_dim: int  # Dimension of flash system (unknowns & equations).
+        NF: int  # Number of vectorized target states.
 
         if p is not None and T is not None and (h is None and v is None):
             flash_type = "p-T"
@@ -150,7 +150,10 @@ class Flash(abc.ABC):
                 f"Unsupported flash with state definitions {p, T, h, v}"
             )
 
-        # broadcasting vectorized input
+        # Each of the vectors can be scalars or numpy arrays. Add them and store in a
+        # dummy variable to determine the size of the arrays: If at least one of the #
+        # inputs is a numpy array, numpy broadcasting will ensure the result will be a
+        # numpy array of the same size.
         t = z_sum + state_1 + state_2
         if isinstance(t, np.ndarray):
             NF = t.shape[0]
@@ -193,7 +196,7 @@ class Flash(abc.ABC):
         else:
             fluid_state = pp.compositional.FluidProperties()
 
-        # Uniformization of state values
+        # Uniformization of state values.
         s_1 = np.zeros(NF)
         s_2 = np.zeros(NF)
         s_1[:] = state_1
@@ -212,8 +215,8 @@ class Flash(abc.ABC):
         elif flash_type == "p-h":
             fluid_state.p = s_1
             fluid_state.h = s_2
-        # NOTE the state cannot set v, as it is always the reciprocal of rho
-        # set rho as the reciprocal of target v
+        # NOTE The state cannot set v, as it is always the reciprocal of rho
+        # set rho as the reciprocal of target v.
         elif flash_type == "v-T":
             fluid_state.rho = 1.0 / s_1
             fluid_state.T = s_2
@@ -221,19 +224,19 @@ class Flash(abc.ABC):
             fluid_state.rho = 1.0 / s_1
             fluid_state.h = s_2
         else:
-            # alert developers if something is missing, error should be catched above
-            assert False, "Missing parsing of fluid input state"
+            # Alert developers if something is missing, error should be caught above.
+            assert False, "Missing parsing of fluid input state."
 
-        # uniformization of initial values if provided
+        # Uniformization of initial values if provided.
         if isinstance(initial_state, pp.compositional.FluidProperties):
             try:
-                # molar fractions
+                # Molar fractions.
                 Y = list()
                 for j in range(nphase):
                     y = np.zeros(NF)
                     y[:] = fluid_state.y[j]
                     Y.append(y)
-                    # fractions of components in phase
+                    # Fractions of components in phase.
                     X = list()
                     for i in range(self.params["components_per_phase"][j]):
                         x = np.zeros(NF)
@@ -300,12 +303,12 @@ class Flash(abc.ABC):
                 If given, it must have at least values for phase fractions and
                 compositions.
 
-                It must have additionally values for temperature, for
-                a state definition where temperature is not known at equilibrium.
+                It must have additionally values for temperature, for a state definition
+                where temperature is not known at equilibrium.
 
-                It must have additionally values for pressure and saturations, for
-                state definitions where pressure is not known at equilibrium.
-            params: ``default={}``
+                It must have additionally values for pressure and saturations, for state
+                definitions where pressure is not known at equilibrium.
+            params: ``default=None``
 
                 Optional dictionary containing anything else required for custom flash
                 classes.
@@ -319,7 +322,7 @@ class Flash(abc.ABC):
                 temperature, the resulting volume or enthalpy values of the fluid might
                 differ slightly from the input values, due to precision and convergence
                 criterion. Extensive properties are always returned in terms of the
-                computed pressure or temperature.
+                computed intensive properties (pressure, temperature, fractions).
 
         """
         ...

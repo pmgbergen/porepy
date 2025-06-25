@@ -400,7 +400,7 @@ class EquationOfState:
                 evaluation.
 
         Returns:
-            A datastructure containing all relevant phase properties and their
+            A data structure containing all relevant phase properties and their
             derivatives w.r.t. the dependencies (``thermodynamic_input``).
 
         """

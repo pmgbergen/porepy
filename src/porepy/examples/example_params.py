@@ -85,6 +85,7 @@ model_params = {
     "schur_complement_inverter": None,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
+    "phase_property_params": None,  # See Phase.compute_properties for details.
     # Contact mechanics
     "traction_estimate_p_mean": 5.0,
     "adaptive_indicator_scaling": 1,  # Scale the indicator adaptively for robustness.
