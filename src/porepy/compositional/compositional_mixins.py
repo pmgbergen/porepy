@@ -442,7 +442,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
             raise TypeError(f"Unknown type {type(instance)}. Expecting element.")
 
         if (idx == ref_idx and eliminated) or num_instances == 1:
-            instance = self.fluid.reference_element
+            self.fluid.reference_element = instance
             return False
         else:
             return True
@@ -780,6 +780,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # Creation of element fluid fractions.
         for element in self.fluid.elements:
             element.fluid_fraction = self.element_fluid_fraction(element)
+
+        self.fluid.element_density_ratio = self.element_density_ratio()
 
     def overall_fraction(
         self,
@@ -1138,7 +1140,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         # NOTE: If the reference component fraction is independent, below elif-clause
         # will be executed, instead of the next one.
-        elif self.has_independent_fraction(element):
+        elif self.has_independent_fluid_fraction(element):
             fraction = self._fraction_factory(
                 self._element_fluid_fraction_variable(element)
             )
@@ -1160,6 +1162,38 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             raise NotImplementedError("Missing logic for element fluid fractions.")
 
         return fraction
+
+    def element_density_ratio(self) -> DomainFunctionType:
+        """
+        Compute the ratio of total element density to total species molar density.
+
+        The formula used is:
+            ratio = sum over all elements (e) and species (ξ):
+                    ratio = ∑_{e=1}^{E} ∑_{ξ=1}^{C} W[e, ξ] * z_ξ
+
+        Where:
+            - W is the fluid formula matrix (elements × species)
+            - z_ξ is the molar fraction of species ξ
+
+        Returns:
+            A single AD-compatible scalar representing the ratio.
+        """
+        W = self.fluid.fluid_formula_matrix  # shape (E, C)
+        fluid_species_names = self.fluid.fluid_species_names
+        components = self.fluid.components
+
+        # Build z vector (molar fractions) in the correct species order
+        z_dict = {
+            comp.name: comp.fraction
+            for comp in components
+            if comp.name in fluid_species_names
+        }
+        z_vector = [z_dict[name] for name in fluid_species_names]  # shape (C,)
+
+        # Compute the scalar sum
+        total = sum(sum(w * z for w, z in zip(W_row, z_vector)) for W_row in W)
+
+        return total
 
 
 class FluidMixin(pp.PorePyModel):
@@ -1798,6 +1832,7 @@ class ChemicalSystem(FluidMixin, SolidMixin):
     def get_all_components_by_phase(self):
         """Return a dictionary of all components grouped by phase."""
         system_info = {}
+        self.create_fluid()
         self.create_solid()
         species_in_phase = {}
 
@@ -1918,3 +1953,18 @@ class ChemicalSystem(FluidMixin, SolidMixin):
         ]
         self.fluid.elements = self.element_objects
         self.fluid.num_elements = len(self.element_objects)
+
+        # === Extract fluid formula matrix ===
+        fluid_species = [
+            name
+            for name in species_names
+            if self.species_in_phase[name] in [p.name for p in self.fluid.phases]
+        ]
+        fluid_indices = [species_names.index(name) for name in fluid_species]
+
+        # Extract submatrix for fluid species
+        fluid_formula_matrix = matrix[:, fluid_indices]
+
+        # Assign to self.fluid
+        self.fluid.fluid_formula_matrix = fluid_formula_matrix
+        self.fluid.fluid_species_names = fluid_species  # Optional: for reference

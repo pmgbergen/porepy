@@ -18,6 +18,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -425,7 +426,8 @@ class SolutionStrategy(pp.PorePyModel):
         else:
             # by logic, params['material_constants'] is ensured to be a dict
             self.params["material_constants"]["fluid"] = fluid
-        self.create_fluid()
+        if not hasattr(self, "fluid"):
+            self.create_fluid()
 
     def discretize(self) -> None:
         """Discretize all terms."""

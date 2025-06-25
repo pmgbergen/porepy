@@ -762,6 +762,9 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         other_phases: list[PhaseLike] = []
 
         self.elements: list[Element] = []
+        self.fluid_formula_matrix = None
+        self.fluid_species_names = []
+        self.reference_element = None
 
         for comp in components:
             double_names.append(comp.name)

@@ -1723,22 +1723,22 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
     This equation is defined on all subdomains. Due to a single pressure and interface
     flux variable, there is no need for additional equations as is the case in the
-    pressure equation. The interface flux for individual components is computed using
+    pressure equation. The interface flux for individual elements is computed using
     the total interface flux provided by the pressure equation, a respective weight and
     upwind-coupling discretization.
 
     Important:
-        The component mass balance equations expect the total mass balance (pressure
+        The element mass balance equations expect the total mass balance (pressure
         equation) to be part of the system. That equation defines interface fluxes
         between subdomains, which are used by the present class to advect components.
 
         Also, this class relies on the Upwind discretization implemented there,
         especially on the definition of the boundary faces as either Neumann-type or
         Dirichlet-type. This is for memory and sanity reasons. The alternative would be
-        to give every component mass balance the opportunity to define the advective
+        to give every element mass balance the opportunity to define the advective
         flux on the boundary (not supported).
 
-        In any case, the total fluid flux on the boundary is the sum of each component
+        In any case, the total fluid flux on the boundary is the sum of each element
         flux on the boundary (advection). For this reason, this class overrides the
         representation of the total mass flux on the boundary given by
         :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.
@@ -1796,43 +1796,43 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
     has_independent_fraction: Callable[[pp.Component], bool]
     """Provided by mixin for compositional variables."""
 
-    def _mass_balance_equation_name(self, component: pp.Component) -> str:
-        """Method returning a name to be given to the mass balance equation of a
-        component."""
-        return f"component_mass_balance_equation_{component.name}"
+    def _element_mass_balance_equation_name(self, element: pp.Element) -> str:
+        """Method returning a name to be given to the mass balance equation of an
+        element."""
+        return f"element_mass_balance_equation_{element.name}"
 
-    def component_mass_balance_equation_names(self) -> list[str]:
+    def element_mass_balance_equation_names(self) -> list[str]:
         """Returns the names of mass balance equations set by this class,
-        which are primary PDEs on all subdomains for each independent fluid component.
+        which are primary PDEs on all subdomains for each independent element of the fluid.
         """
         return [
-            self._mass_balance_equation_name(component)
-            for component in self.fluid.components
-            if self.has_independent_fraction(component)
+            self._element_mass_balance_equation_name(element)
+            for element in self.fluid.elements
+            if self.has_independent_fluid_fraction(element)
         ]
 
     def set_equations(self) -> None:
         """Set the equations for the mass balance problem.
 
-        A mass balance equation is set for all independent components on all subdomains.
+        A mass balance equation is set for all independent elements on all subdomains.
 
         """
         super().set_equations()
 
         subdomains = self.mdg.subdomains()
 
-        for component in self.fluid.components:
-            if self.has_independent_fraction(component):
-                sd_eq = self.component_mass_balance_equation(component, subdomains)
+        for element in self.fluid.elements:
+            if self.has_independent_fluid_fraction(element):
+                sd_eq = self.element_mass_balance_equation(element, subdomains)
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
-    def component_mass_balance_equation(
-        self, component: pp.Component, subdomains: list[pp.Grid]
+    def element_mass_balance_equation(  # TODO
+        self, element: pp.Element, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Mass balance equation for subdomains for a given component.
+        """Mass balance equation for subdomains for a given element.
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             subdomains: List of subdomains.
 
         Returns:
@@ -1841,23 +1841,23 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         """
         # Assemble the terms of the mass balance equation.
         accumulation = self.volume_integral(
-            self.component_mass(component, subdomains), subdomains, dim=1
+            self.element_mass(element, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(component, subdomains)
-        source = self.component_source(component, subdomains)
+        flux = self.component_flux(element, subdomains)  # TODO
+        source = self.element_source(element, subdomains)
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(self._mass_balance_equation_name(component))
+        eq.set_name(self._element_mass_balance_equation_name(element))
         return eq
 
-    def component_mass(
-        self, component: pp.Component, subdomains: list[pp.Grid]
+    def element_mass(
+        self, element: pp.Element, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        r"""Returns the accumulation term in a ``component``'s mass balance equation
+        r"""Returns the accumulation term in an ``element``'s mass balance equation
         using the :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid
         mixture and the component's
-        :attr:`~porepy.compositional.base.Component.fraction`
+        :attr:`~porepy.compositional.base.Element.fluid_fraction`
 
         .. math::
 
@@ -1866,7 +1866,7 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         in AD operator form on the given ``subdomains``.
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             subdomains: A list of subdomains on which above operator is called.
 
         Returns:
@@ -1876,9 +1876,10 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         mass_density = (
             self.porosity(subdomains)
             * self.fluid.density(subdomains)
-            * component.fraction(subdomains)
+            * element.fluid_fraction(subdomains)
+            * self.fluid.element_density_ratio(subdomains)
         )
-        mass_density.set_name(f"component_mass_{component.name}")
+        mass_density.set_name(f"element_mass_{element.name}")
         return mass_density
 
     def advection_weight_component_mass_balance(
@@ -2083,7 +2084,7 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         flux.set_name(f"well_component_flux_{component.name}")
         return flux
 
-    def component_source(
+    def element_source(
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Source term in a component's mass balance equation.

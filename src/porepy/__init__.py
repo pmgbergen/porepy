@@ -200,7 +200,7 @@ from porepy.compositional.materials import (
     ReferenceVariableValues,
     SolidComponent,
 )
-from porepy.compositional.base import Component, Phase, Fluid
+from porepy.compositional.base import Component, Phase, Fluid, Solid, Element
 from porepy.compositional.compositional_mixins import (
     FluidMixin,
     SolidMixin,
