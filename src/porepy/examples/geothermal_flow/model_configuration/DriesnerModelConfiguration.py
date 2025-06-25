@@ -226,17 +226,19 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         self.postprocessing_overshoots(solution)
 
         # Identify indices where the residual for primary variables exceeds a tolerance
-        residual_tolerance = 1.0e-4
+        residual_tolerance = 1.0
         pressure_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['pressure']]) > residual_tolerance)[0]
         composition_high_res_idx = \
         np.where(np.abs(residual_vector[diff_eq_indices['composition_NaCl']]) > residual_tolerance)[0]
         enthalpy_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['enthalpy']]) > residual_tolerance)[0]
+        temperature_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['temperature']]) > residual_tolerance)[0]
 
         # Combine unique indices for thermal overshoot post-processing
         thermal_indices = np.unique(np.concatenate([
             pressure_high_res_idx,
             composition_high_res_idx,
-            enthalpy_high_res_idx
+            enthalpy_high_res_idx,
+            temperature_high_res_idx
         ]))
         self.postprocessing_thermal_overshoots(solution, thermal_indices)
 
