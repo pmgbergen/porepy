@@ -243,6 +243,73 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     )
 
 
+def get_primary_equations_cf(model: pp.PorePyModel) -> list[str]:
+    """Returns a list of primary equations assumed to be the default in the CF
+    setting.
+
+    The list includes:
+
+    1. The total mass balance equation.
+    2. The total energy balance equation.
+    3. Component mass balance equations for each independent component.
+
+    Parameters:
+        model: A PorePy model instance.
+
+    Returns:
+        A list of equation names.
+
+    """
+    equ_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.FluidMassBalanceEquations):
+        equ_names += [
+            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
+        equ_names += [
+            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, ComponentMassBalanceEquations):
+        equ_names += model.component_mass_balance_equation_names()
+
+    return equ_names
+
+
+def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
+    """Returns a list of primary variables assumed to be the default in the CF
+    setting.
+
+    The list includes:
+
+    1. The pressure variable.
+    2. The (specific fluid) enthalpy variable, in enthalpy-based formulations, else
+       the temperature.
+    3. The overall fraction variables for each independent component.
+    4. The tracer fraction variables for tracers in compounds (if any).
+
+    Parameters:
+        model: A PorePy model instance.
+
+    Returns:
+        A list of variable names.
+
+    """
+    var_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+        var_names += [model.pressure_variable]
+
+    if isinstance(model, SolutionStrategyExtendedFluidMassAndEnergy):
+        var_names += [model.enthalpy_variable]
+    elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
+        var_names += [model.temperature_variable]
+
+    if isinstance(model, pp.compositional.CompositionalVariables):
+        var_names += model.overall_fraction_variables
+        var_names += model.tracer_fraction_variables
+
+    return var_names
+
+
 # region general PDEs.
 
 
@@ -1823,14 +1890,6 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
 
     """
 
-    pressure_variable: str
-    enthalpy_variable: str
-
-    overall_fraction_variables: list[str]
-    tracer_fraction_variables: list[str]
-
-    component_mass_balance_equation_names: Callable[[], list[str]]
-
     @property
     def primary_equations(self) -> list[str]:
         """Names of the primary equations.
@@ -1930,45 +1989,6 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
         """
         all_variables = set([var.name for var in self.equation_system.variables])
         return list(all_variables.difference(set(self.primary_variables)))
-
-    def get_primary_equations_cf(self) -> list[str]:
-        """Returns a list of primary equations assumed to be the default in the CF
-        setting.
-
-        The list includes:
-
-        1. The total mass balance equation.
-        2. Component mass balance equations for each independent component.
-        3. The total energy balance equation.
-
-        """
-        return [
-            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name(),
-            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
-        ] + self.component_mass_balance_equation_names()
-
-    def get_primary_variables_cf(self) -> list[str]:
-        """Returns a list of primary variables assumed to be the default in the CF
-        setting.
-
-        The list includes:
-
-        1. The pressure variable.
-        2. The overall fraction variables for each independent component.
-        3. The tracer fraction variables for tracers in compounds (if any).
-        4. The (specific fluid) enthalpy variable.
-
-        """
-        return (
-            [
-                self.pressure_variable,
-            ]
-            + self.overall_fraction_variables
-            + self.tracer_fraction_variables
-            + [
-                self.enthalpy_variable,
-            ]
-        )
 
     def assemble_linear_system(self) -> None:
         """Assemble the linearized system and store it in :attr:`linear_system`.
