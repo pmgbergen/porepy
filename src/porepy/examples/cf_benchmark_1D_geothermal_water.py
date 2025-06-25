@@ -24,8 +24,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections import deque
 from dataclasses import asdict
-from typing import Any, Callable, Literal, Sequence, Optional
+from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 # Benchmark is small, no need for JIT compilation.
 os.environ["NUMBA_DISABLE_JIT"] = "1"
@@ -34,10 +35,10 @@ import numba as nb
 import numpy as np
 
 import porepy as pp
+import porepy.compositional.compiled_flash.eos_compiler as eosc
+import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.examples.co2_injection import NewtonArmijoSolver
-import porepy.compositional.peng_robinson as pr
-import porepy.compositional.compiled_flash.eos_compiler as eosc
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -162,16 +163,16 @@ class WaterEoS(pr.PengRobinsonCompiler):
     def get_viscosity_function(self) -> eosc.ScalarFunction:
         @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1e-3
-            # # Liquidlike
-            # if prearg[3] < 1.0:
-            #     mu = 8e-4
-            # # Gaslike
-            # elif prearg[3] < 2.0:
-            #     mu = 3e-5
-            # else:
-            #     assert False, "Uncovered physical state in viscosity function."
-            # return mu
+            # return 1e-3
+            # Liquidlike
+            if prearg[3] < 1.0:
+                mu = 0.8e-3
+            # Gaslike
+            elif prearg[3] < 2.0:
+                mu = 0.3e-4
+            else:
+                assert False, "Uncovered physical state in viscosity function."
+            return mu
 
         return mu_c
 
@@ -191,16 +192,16 @@ class WaterEoS(pr.PengRobinsonCompiler):
     def get_conductivity_function(self) -> eosc.ScalarFunction:
         @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1.0
-            # # Liquidlike
-            # if prearg[3] < 1.0:
-            #     kappa = 0.1
-            # # Gaslike
-            # elif prearg[3] < 2.0:
-            #     kappa = 0.08
-            # else:
-            #     assert False, "Uncovered physical state in viscosity function."
-            # return kappa
+            # return 1.0
+            # Liquidlike
+            if prearg[3] < 1.0:
+                kappa = 0.6e0
+            # Gaslike
+            elif prearg[3] < 2.0:
+                kappa = 0.8e-1
+            else:
+                assert False, "Uncovered physical state in viscosity function."
+            return kappa
 
         return kappa_c
 
@@ -352,6 +353,12 @@ class GeothermalWaterModel(  # type:ignore[misc]
 ):
     """Model assembly for the geothermal water benchmark."""
 
+    def __init__(self, params: dict | None = None):
+        super().__init__(params)  # type:ignore[safe-super]
+
+        self._residual_norm_history: deque[float] = deque(maxlen=4)
+        self._increment_norm_history: deque[float] = deque(maxlen=3)
+
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
@@ -359,18 +366,166 @@ class GeothermalWaterModel(  # type:ignore[misc]
         print("Time index: ", self.time_manager.time_index)
         print("")
 
+    def data_to_export(self):
+        data: list = super().data_to_export()
+
+        for sd in self.mdg.subdomains():
+            data.append(
+                (
+                    sd,
+                    "s_L",
+                    self.equation_system.evaluate(
+                        self.fluid.phases[0].saturation([sd])
+                    ),
+                )
+            )
+
+        return data
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Flags the time step as diverged, if there is a nan in the residual."""
+        status = super().check_convergence(  # type:ignore[misc]
+            nonlinear_increment, residual, reference_residual, nl_params
+        )
+        if residual is not None:
+            if np.any(np.isnan(residual)) or np.any(np.isinf(residual)):
+                status = (False, True)
+
+        # Convergence check for individual norms, if the global residual is not yet
+        # small enough.
+        tol_res = float(self.params["nl_convergence_tol_res"])
+        tol_inc = float(self.params["nl_convergence_tol"])
+        # Relaxed tolerance for quantities loosing their physical meaning in the unified
+        # setting when a phase dissappears.
+        # Relaxed tolerance for partial fractions and isofugacity constraints.
+        # Saying variations have to drop below 1% (not significant enough to change the
+        # state)
+        tol_relaxed = 1e-2
+
+        # Additional tracking for analysis
+        res_norm_per_eq = {}
+        incr_norm_per_var = {}
+
+        if status == (False, False):
+            residuals_converged: list[bool] = []
+            increments_converged: list[bool] = []
+
+            # First, perform standard check for all equations except isofugacity
+            # constraints, and all variables except partial fractions
+            for name, eq in self.equation_system.equations.items():
+                rn = self.compute_residual_norm(
+                    cast(np.ndarray, self.equation_system.evaluate(eq)),
+                    reference_residual,
+                )
+                res_norm_per_eq[name] = rn
+
+                if "isofugacity" not in name:
+                    residuals_converged.append(rn < tol_res)
+                else:
+                    residuals_converged.append(rn < tol_relaxed)
+
+            partial_frac_vars = self.fraction_in_phase_variables
+            for var in self.equation_system.variables:
+                rn = self.compute_nonlinear_increment_norm(
+                    nonlinear_increment[self.equation_system.dofs_of([var])]
+                )
+                if var.name not in incr_norm_per_var:
+                    incr_norm_per_var[var.name] = rn
+                else:
+                    incr_norm_per_var[var.name] = np.sqrt(
+                        incr_norm_per_var[var.name] ** 2 + rn**2
+                    )
+                if var.name not in partial_frac_vars:
+                    increments_converged.append(rn < tol_inc)
+                else:
+                    increments_converged.append(rn < tol_relaxed)
+
+            status = (
+                all(residuals_converged) and all(increments_converged),
+                False,
+            )
+            if status[0]:
+                print("\nConverged with relaxed, unified CF criteria.\n")
+
+        # Keeping residual/ increment norm history and checking for stationary points.
+        self._residual_norm_history.append(
+            self.compute_residual_norm(residual, reference_residual)
+        )
+        self._increment_norm_history.append(
+            self.compute_nonlinear_increment_norm(nonlinear_increment)
+        )
+
+        if len(self._residual_norm_history) == self._residual_norm_history.maxlen:
+            residual_stationary = (
+                np.allclose(
+                    self._residual_norm_history,
+                    self._residual_norm_history[-1],
+                    rtol=0.0,
+                    atol=np.min((tol_res, 1e-6)),
+                )
+                and tol_res != np.inf
+            )
+            increment_stationary = (
+                np.allclose(
+                    self._increment_norm_history,
+                    self._increment_norm_history[-1],
+                    rtol=0.0,
+                    atol=np.min((tol_inc, 1e-6)),
+                )
+                and tol_inc != np.inf
+            )
+            if residual_stationary and increment_stationary and not status[0]:
+                print("Detected stationary point. Flagging as diverged.")
+                status = (False, True)
+
+        return status
+
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Introduced the usual fluid mass balance equations but only on grids which
+        are not production wells."""
+        eq: pp.ad.Operator = super().mass_balance_equation(subdomains)  # type:ignore[misc]
+        name = eq.name
+        # return eq
+        eq = eq + self.volume_stabilization_term(subdomains)
+        eq.set_name(name)
+        return eq
+
+    def volume_stabilization_term(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        volume_stabilization = self.fluid.density(subdomains) * pp.ad.sum_operator_list(
+            [
+                phase.fraction(subdomains) / phase.density(subdomains)
+                for phase in self.fluid.phases
+            ],
+            "fluid_specific_volume",
+        ) - self.porosity(subdomains)
+
+        volume_stabilization = self.volume_integral(
+            volume_stabilization, subdomains, dim=1
+        )
+        volume_stabilization = pp.ad.time_derivatives.dt(
+            volume_stabilization, self.ad_time_step
+        )
+        return volume_stabilization
+
 
 if __name__ == "__main__":
-    max_iterations = 40
+    max_iterations = 50
     newton_tol = 1e-6
-    newton_tol_increment = 5e-6
+    newton_tol_increment = 5 * newton_tol
 
     time_manager = pp.TimeManager(
         schedule=np.array(CONFIG[CASE]["time_schedule"]),
         dt_init=100 * pp.DAY,
+        constant_dt=False,
         dt_min_max=(pp.DAY, 100 * pp.DAY),
         iter_max=max_iterations,
-        iter_optimal_range=(9, 15),
+        iter_optimal_range=(15, 25),
         iter_relax_factors=(0.8, 2.0),
         recomp_factor=0.6,
         recomp_max=15,
@@ -395,8 +550,8 @@ if __name__ == "__main__":
             "npipm_u2": 10,
             "npipm_eta": 0.5,
         },
-        "global_iteration_stride": 1,
-        "fallback_to_iterate": False,
+        "global_iteration_stride": 5,
+        "fallback_to_iterate": True,
     }
     flash_params.update(phase_property_params)
 
@@ -409,8 +564,8 @@ if __name__ == "__main__":
         "nonlinear_solver": NewtonArmijoSolver,
         "armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
-        "armijo_line_search_incline": 0.2,
-        "armijo_line_search_max_iterations": 10,
+        "armijo_line_search_incline": 0.4,
+        "armijo_line_search_max_iterations": 30,
         "solver_statistics_file_name": "solver_statistics.json",
     }
 
@@ -442,13 +597,6 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
-
-    print(
-        "Initial vapor saturation: ",
-        model.equation_system.evaluate(
-            model.fluid.phases[1].saturation(model.mdg.subdomains())
-        ),
-    )
 
     model.schur_complement_primary_equations = cfle.cf.get_primary_equations_cf(model)
     model.schur_complement_primary_variables = cfle.cf.get_primary_variables_cf(model)
