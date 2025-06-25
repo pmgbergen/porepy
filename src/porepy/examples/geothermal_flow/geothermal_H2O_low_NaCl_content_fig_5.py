@@ -88,7 +88,7 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-6,
+    "nl_convergence_tol_res": 1.0e-2,
     "max_iterations": 100,
 }
 
@@ -118,7 +118,7 @@ model = GeothermalWaterFlowModel(params)
 
 parametric_space_ref_level = 1
 folder_prefix = "src/porepy/examples/geothermal_flow/"
-file_name_prefix = folder_prefix + (
+file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
 )
 file_name_phz = (
