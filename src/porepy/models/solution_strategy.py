@@ -1130,6 +1130,18 @@ class MultiphysicsNorms:
             converged and a boolean indicating whether it has diverged.
 
         """
+        if not self._is_nonlinear_problem():
+            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
+            # error (but a warning) is raised for singular matrices, but a nan solution
+            # is returned. We check for this.
+            diverged = bool(np.any(np.isnan(nonlinear_increment)))
+            converged: bool = not diverged
+            return converged, diverged
+
+        # First a simple check for nan values.
+        if np.any(np.isnan(nonlinear_increment)):
+            # If the solution contains nan values, we have diverged.
+            return False, True
 
         # Array of all residual norms
         residual_norms = self.compute_residual_norm(residual=residual)
