@@ -781,7 +781,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         for element in self.fluid.elements:
             element.fluid_fraction = self.element_fluid_fraction(element)
 
-        self.fluid.element_density_ratio = self.element_density_ratio()
+        self.fluid.element_density_ratio = self.element_density_ratio
 
     def overall_fraction(
         self,
@@ -1163,37 +1163,43 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         return fraction
 
-    def element_density_ratio(self) -> DomainFunctionType:
+    def element_density_ratio(
+        self, subdomains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """
-        Compute the ratio of total element density to total species molar density.
+        Evaluate the ratio of total element density to total species molar density
+        over a given set of subdomains.
 
-        The formula used is:
-            ratio = sum over all elements (e) and species (ξ):
-                    ratio = ∑_{e=1}^{E} ∑_{ξ=1}^{C} W[e, ξ] * z_ξ
+        The formula is:
+            ratio = ∑_{e=1}^{E} ∑_{ξ=1}^{C} W[e, ξ] * z_ξ(domains)
 
-        Where:
-            - W is the fluid formula matrix (elements × species)
-            - z_ξ is the molar fraction of species ξ
+        Args:
+            subdomains: The subdomains (e.g. grid cells) to evaluate on.
 
         Returns:
-            A single AD-compatible scalar representing the ratio.
+            An AD-compatible Operator evaluated over the subdomains.
         """
+        if not (hasattr(self, "fluid") and hasattr(self.fluid, "fluid_formula_matrix")):
+            raise AttributeError("Fluid or fluid_formula_matrix not initialized.")
+
         W = self.fluid.fluid_formula_matrix  # shape (E, C)
-        fluid_species_names = self.fluid.fluid_species_names
+        species_names = self.fluid.fluid_species_names
         components = self.fluid.components
 
-        # Build z vector (molar fractions) in the correct species order
-        z_dict = {
-            comp.name: comp.fraction
-            for comp in components
-            if comp.name in fluid_species_names
-        }
-        z_vector = [z_dict[name] for name in fluid_species_names]  # shape (C,)
+        # Map species name -> AD function
+        z_funcs = {comp.name: comp.fraction for comp in components}
 
-        # Compute the scalar sum
-        total = sum(sum(w * z for w, z in zip(W_row, z_vector)) for W_row in W)
+        # Evaluate z_ξ(subdomains) to get a list of Operators
+        try:
+            z_ops = [z_funcs[name](subdomains) for name in species_names]  # shape (C,)
+        except KeyError as e:
+            raise KeyError(f"Species name '{e.args[0]}' not found in fluid components.")
 
-        return total
+        # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
+        total_op = sum(sum(w * z for w, z in zip(W_row, z_ops)) for W_row in W)
+
+        total_op.set_name("element_density_ratio")
+        return total_op
 
 
 class FluidMixin(pp.PorePyModel):
