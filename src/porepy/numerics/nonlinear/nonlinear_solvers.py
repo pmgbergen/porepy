@@ -63,14 +63,10 @@ class NewtonSolver:
             time_step_index=0
         )
 
-        # Extract residual of initial guess.
-        reference_residual = model.equation_system.assemble(evaluate_jacobian=False)
-
         # Define a function that runs everything inside one Newton iteration.
         def newton_step() -> None:
             # Bind to variables in the outer function
             nonlocal nonlinear_increment
-            nonlocal reference_residual
             nonlocal is_converged
             nonlocal is_diverged
 
