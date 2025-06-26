@@ -38,7 +38,7 @@ import porepy as pp
 import porepy.compositional.compiled_flash.eos_compiler as eosc
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.examples.co2_injection import NewtonArmijoSolver
+from porepy.examples.co2_injection import NewtonArmijoAndersonSolver
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -69,8 +69,8 @@ CONFIG_HORIZONTAL_CASE = {
     "T_out": 623.15,
     "p_initial": 1e6,
     "T_initial": 623.15,
-    "time_schedule": [0.0, 3000 * pp.DAY],
-    "dt_max": pp.YEAR,
+    "time_schedule": [0.0, 500 * pp.DAY, 3000 * pp.DAY],
+    "dt_max": 500 * pp.DAY,
     # Solid properties.
     "solid": pp.SolidConstants(
         porosity=0.2,
@@ -202,7 +202,7 @@ class WaterEoS(pr.PengRobinsonCompiler):
             elif prearg[3] < 2.0:
                 kappa = 0.8e-1
             else:
-                assert False, "Uncovered physical state in viscosity function."
+                assert False, "Uncovered physical state in conductivity function."
             return kappa
 
         return kappa_c
@@ -351,6 +351,7 @@ class GeothermalWaterModel(  # type:ignore[misc]
     InitialConditions,
     TwoPhaseWaterFluid,
     Pipe2D,
+    pp.constitutive_laws.DarcysLawAd,
     cfle.EnthalpyBasedCFFLETemplate,
 ):
     """Model assembly for the geothermal water benchmark."""
@@ -488,6 +489,18 @@ class GeothermalWaterModel(  # type:ignore[misc]
 
         return status
 
+    def compute_residual_norm(
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+    ) -> float:
+        if residual is None:
+            return np.nan
+        return float(np.linalg.norm(residual))
+
+    def compute_nonlinear_increment_norm(
+        self, nonlinear_increment: np.ndarray
+    ) -> float:
+        return float(np.linalg.norm(nonlinear_increment))
+
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
         are not production wells."""
@@ -515,22 +528,50 @@ class GeothermalWaterModel(  # type:ignore[misc]
         )
         return volume_stabilization
 
+    def relative_permeability(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        s = phase.saturation(domains)
+
+        # See water gas example
+        # https://geosx-geosx.readthedocs-hosted.com/en/latest/coreComponents/constitutive/docs/BrooksCoreyRelativePermeability.html
+        liq_min = 0.02  # 0.02
+        vap_min = 0.0  # 0.015
+        s_res = pp.ad.Scalar(liq_min + vap_min)
+
+        if phase.state == pp.compositional.PhysicalState.liquid:
+            s_min = pp.ad.Scalar(liq_min)
+            k_max = pp.ad.Scalar(0.8)
+            c = pp.ad.Scalar(2.0)
+        elif phase.state == pp.compositional.PhysicalState.gas:
+            s_min = pp.ad.Scalar(vap_min)
+            k_max = pp.ad.Scalar(1.0)
+            c = pp.ad.Scalar(2.5)
+        else:
+            raise ValueError(f"Uncovered physical state {phase.state} for rel. perm.")
+
+        s_scaled = (s - s_min) / (pp.ad.Scalar(1.0) - s_res)
+        # NOTE Avoig properties of vanished phases entering the PDEs.
+        heavyside = pp.ad.Function(pp.ad.heaviside, "heavyside")(pp.ad.Scalar(0.0), s)
+        kr = k_max * s_scaled**c * heavyside
+        return kr
+
 
 if __name__ == "__main__":
     max_iterations = 50
     newton_tol = 1e-6
-    newton_tol_increment = 5 * newton_tol
+    newton_tol_increment = 1.0
 
     time_manager = pp.TimeManager(
         schedule=np.array(CONFIG[CASE]["time_schedule"]),
-        dt_init=20 * pp.DAY,
+        dt_init=pp.HOUR,
         constant_dt=False,
-        dt_min_max=(pp.DAY, CONFIG[CASE]["dt_max"]),
+        dt_min_max=(pp.HOUR, CONFIG[CASE]["dt_max"]),
         iter_max=max_iterations,
-        iter_optimal_range=(20, 30),
-        iter_relax_factors=(0.8, 2.0),
+        iter_optimal_range=(25, 35),
+        iter_relax_factors=(0.9, 1.5),
         recomp_factor=0.6,
-        recomp_max=15,
+        recomp_max=np.inf,  # type:ignore[arg-type]
         print_info=True,
         rtol=0.0,
     )
@@ -543,7 +584,7 @@ if __name__ == "__main__":
         "mode": "sequential",
         "solver": "npipm",
         "solver_params": {
-            "tolerance": 1e-8,
+            "tolerance": 1e-5,
             "max_iterations": 80,
             "armijo_rho": 0.99,
             "armijo_kappa": 0.4,
@@ -552,7 +593,7 @@ if __name__ == "__main__":
             "npipm_u2": 10,
             "npipm_eta": 0.5,
         },
-        "global_iteration_stride": 5,
+        "global_iteration_stride": 3,
         "fallback_to_iterate": True,
     }
     flash_params.update(phase_property_params)
@@ -563,12 +604,19 @@ if __name__ == "__main__":
         "nl_convergence_tol_res": newton_tol,
         "apply_schur_complement_reduction": True,
         "linear_solver": "scipy_sparse",
-        "nonlinear_solver": NewtonArmijoSolver,
+        "nonlinear_solver": NewtonArmijoAndersonSolver,
         "armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
-        "armijo_line_search_incline": 0.4,
-        "armijo_line_search_max_iterations": 30,
+        "armijo_line_search_incline": 0.2,
+        "armijo_line_search_max_iterations": 10,
+        "armijo_stop_after_residual_reaches": 1e0,
+        "anderson_acceleration": True,
+        "anderson_acceleration_depth": 3,
+        "anderson_acceleration_constrained": False,
+        "anderson_acceleration_regularization_parameter": 1e-3,
+        "anderson_start_after_residual_reaches": 1e2,
         "solver_statistics_file_name": "solver_statistics.json",
+        "flag_failure_as_diverged": True,
     }
 
     model_params = {
@@ -581,7 +629,6 @@ if __name__ == "__main__":
         "buoyancy_on": True if CASE == "vertical" else False,
         "compile": True,
         "flash_compiler_args": ("p-T", "p-h"),
-        "flag_failure_as_diverged": True,
     }
 
     if EXPORT_SCHEDULED_TIME_ONLY:
@@ -600,6 +647,8 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
+
+    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     model.schur_complement_primary_equations = cfle.cf.get_primary_equations_cf(model)
     model.schur_complement_primary_variables = cfle.cf.get_primary_variables_cf(model)

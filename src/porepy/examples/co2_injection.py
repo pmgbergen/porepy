@@ -15,7 +15,7 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-h_MESH: float = 5e-1
+h_MESH: float = 1.0
 """Mesh size."""
 # 4.        308 cells
 # 2.        1204 cells
@@ -51,6 +51,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_che
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
+from scipy.linalg import lstsq
 
 if DISABLE_COMPILATION:
     import os
@@ -835,7 +836,93 @@ class BoundaryConditions(_FlowConfiguration):
         return vals
 
 
-class NewtonArmijoSolver(pp.NewtonSolver):
+class AndersonAcceleration:
+    """Anderson acceleration as described by Walker and Ni in doi:10.2307/23074353."""
+
+    def __init__(
+        self,
+        dimension: int,
+        depth: int,
+        constrain_acceleration: bool = False,
+        regularization_parameter: float = 0.0,
+    ) -> None:
+        self._dimension = int(dimension)
+        self._depth = int(depth)
+        self._constrain_acceleration: bool = bool(constrain_acceleration)
+        self._reg_param: float = float(regularization_parameter)
+
+        # Initialize arrays for iterates.
+        self.reset()
+        self._fkm1: np.ndarray = np.zeros(self._dimension)
+        self._gkm1: np.ndarray = np.zeros(self._dimension)
+
+    def reset(self) -> None:
+        self._Fk: np.ndarray = np.zeros(
+            (self._dimension, self._depth)
+        )  # changes in increments
+        self._Gk: np.ndarray = np.zeros(
+            (self._dimension, self._depth)
+        )  # changes in fixed point applications
+
+    def apply(self, gk: np.ndarray, fk: np.ndarray, iteration: int) -> np.ndarray:
+        """Apply Anderson acceleration.
+
+        Parameters:
+            gk: application of some fixed point iteration onto approximation xk, i.e.,
+                g(xk).
+            fk: residual g(xk) - xk; in general some increment.
+            iteration: current iteration count.
+
+        Returns:
+            Modified application of fixed point approximation after acceleration, i.e.,
+            the new iterate xk+1.
+
+        """
+
+        if iteration == 0:
+            self.reset()
+
+        mk = min(iteration, self._depth)
+
+        # Apply actual acceleration (not in the first iteration).
+        if mk > 0:
+            # Build matrices of changes.
+            col = (iteration - 1) % self._depth
+            self._Fk[:, col] = fk - self._fkm1
+            self._Gk[:, col] = gk - self._gkm1
+
+            # Solve least squares problem.
+            A = self._Fk[:, 0:mk]
+            b = fk
+            if self._constrain_acceleration:
+                A = np.vstack((A, np.ones((1, self._depth))))
+                b = np.concatenate((b, np.ones(1)))
+
+            direct_solve = False
+
+            if self._reg_param > 0:
+                b = A.T @ b
+                A = A.T @ A + self._reg_param * np.eye(A.shape[1])
+                direct_solve = np.linalg.matrix_rank(A) >= A.shape[1]
+
+            if direct_solve:
+                gamma_k = np.linalg.solve(A, b)
+            else:
+                gamma_k = lstsq(A, b)[0]
+
+            # Do the mixing
+            x_k_plus_1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
+        else:
+            x_k_plus_1 = gk
+
+        # Store values for next iteration.
+        self._fkm1 = fk.copy()
+        self._gkm1 = gk.copy()
+
+        return x_k_plus_1
+
+
+class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
     """Newton solver with Armijo line search.
 
     The residual objective function is tailored to models where phase properties are
@@ -844,16 +931,61 @@ class NewtonArmijoSolver(pp.NewtonSolver):
 
     """
 
+    def __init__(self, params: dict | None = None):
+        pp.NewtonSolver.__init__(self, params)
+        if params is None:
+            params = {}
+        depth = int(params.get("anderson_acceleration_depth", 3))
+        dimension = int(params["anderson_acceleration_dimension"])
+        constrain = params.get("anderson_acceleration_constrained", False)
+        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
+        AndersonAcceleration.__init__(
+            self,
+            dimension,
+            depth,
+            constrain_acceleration=constrain,
+            regularization_parameter=reg_param,
+        )
+
     def iteration(self, model: pp.PorePyModel):
         """An iteration consists of performing the Newton step and obtaining the step
         size from the line search."""
-        dx = super().iteration(model)
+        # dx = super().iteration(model)
+        iteration = model.nonlinear_solver_statistics.num_iteration
+
+        dx = pp.NewtonSolver.iteration(self, model)
+
+        if self.params.get("anderson_acceleration", False):
+            x = model.equation_system.get_variable_values(iterate_index=0)
+            x_temp = x + dx
+            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
+                try:
+                    xp1 = self.apply(x_temp, dx.copy(), iteration)
+                    res = model.equation_system.assemble(evaluate_jacobian=False)
+                    # TODO Wrong reference residual
+                    res_norm = model.compute_residual_norm(res, res)
+                    if res_norm <= self.params.get(
+                        "anderson_start_after_residual_reaches", np.inf
+                    ):
+                        dx = xp1 - x
+                except Exception:
+                    logger.warning(
+                        f"Resetting Anderson acceleration at"
+                        f" T={model.time_manager.time}; i={iteration} due to failure."
+                    )
+                    self.reset()
+
         alpha = self.armijo_line_search(model, dx)
         return alpha * dx
 
     def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
-        if not self.params.get("armijo_line_search", False):
+        res = model.equation_system.assemble(evaluate_jacobian=False)
+        # TODO Wrong reference residual
+        res_norm = model.compute_residual_norm(res, res)
+        if not self.params.get(
+            "armijo_line_search", False
+        ) or res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0):
             return 1.0
 
         rho = float(self.params.get("armijo_line_search_weight", 0.9))
@@ -1056,11 +1188,17 @@ if __name__ == "__main__":
         "nl_convergence_tol_res": newton_tol,
         "apply_schur_complement_reduction": True,
         "linear_solver": "scipy_sparse",
-        "nonlinear_solver": NewtonArmijoSolver,
+        "nonlinear_solver": NewtonArmijoAndersonSolver,
         "armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
         "armijo_line_search_incline": 0.2,
         "armijo_line_search_max_iterations": 10,
+        "armijo_stop_after_residual_reaches": 1e0,
+        "anderson_acceleration": False,
+        "anderson_acceleration_depth": 3,
+        "anderson_acceleration_constrained": False,
+        "anderson_acceleration_regularization_parameter": 1e-3,
+        "anderson_start_after_residual_reaches": 1e2,
         "solver_statistics_file_name": "solver_statistics.json",
     }
 
@@ -1096,6 +1234,8 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
+
+    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cf.get_primary_equations_cf(model)
