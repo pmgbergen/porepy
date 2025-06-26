@@ -1030,40 +1030,39 @@ class MultiphysicsNorms:
 
     def compute_residual_norm(
         self,
-        residual: Optional[np.ndarray],
+        residual: Optional[np.ndarray] = np.empty(0),
         equations=None,
-    ) -> np.ndarray:
+    ) -> dict[str, float]:
         """Compute the residual norm for a nonlinear iteration.
 
         Parameters:
-            residual: Residual of current iteration.
-            equations: Equations to compute the residual norm for. If None, all
+            residual: Residual of current iteration (only considered if `None`).
+            equations: Equations to compute the residual norm for. If `None`, all
                 equations are used.
 
         Returns:
-            np.array: Array of residual norms of each equation; np.nan if the
+            dict: Dictionary of residual norms for each equation; np.nan if the
                 residual is None.
 
         """
         if residual is None:
-            return np.array([np.nan])
+            return {name: np.nan for name in self.equation_system._equations}
 
         equation_names = list(self.equation_system._parse_equations(equations).keys())
-        residuals = []
+        residuals = {}
 
-        for name in equation_names:
-            eq = self.equation_system._equations[name]
-            r = np.linalg.norm(eq.value(self.equation_system))
-            residual_norm = np.linalg.norm(r) / np.sqrt(r.size)
-            residuals.append(residual_norm)
+        for equation in equation_names:
+            eq = self.equation_system._equations[equation]
+            residual = np.linalg.norm(eq.value(self.equation_system))
+            residuals[equation] = np.linalg.norm(residual) / np.sqrt(residual.size)
 
-        return np.array(residuals)
+        return residuals
 
     def compute_nonlinear_increment_norm(
         self,
         nonlinear_increment: np.ndarray,
         variables: Optional[list[pp.ad.Variable]] = None,
-    ) -> np.ndarray:
+    ) -> dict[str, float]:
         """Compute the norm based on the update increment for a nonlinear iteration.
 
         Parameters:
@@ -1072,23 +1071,23 @@ class MultiphysicsNorms:
                 all variables are considered.
 
         Returns:
-            np.array: Array of update increment norms for each variable.
+            dict: Update increment norms for each variable.
 
         """
-        increments = []
+        increments = {}
         if variables is None:
             variables = self.equation_system.variables
         for variable in variables:
             indices = self.equation_system.dofs_of([variable])
             increment = nonlinear_increment[indices]
             increment_norm = np.linalg.norm(increment) / np.sqrt(increment.size)
-            increments.append(increment_norm)
-        return np.array(increments)
+            increments[variable.name] = increment_norm
+        return increments
 
     def check_convergence(
         self,
         nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
+        residual: Optional[np.ndarray],
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
         """Equation based convergence check for multi-physics problems.
@@ -1122,7 +1121,7 @@ class MultiphysicsNorms:
         Parameters:
             nonlinear_increment: The increment in the solution variables from the
                 previous nonlinear iteration.
-            residual: The current residual vector of the nonlinear system. nl_params:
+            residual: The current residual vector of the nonlinear system.
             nl_params: Dictionary of nonlinear solver parameters. Is for now expected
                 to contain "nl_convergence_tol" (tolerance for the nonlinear increment
                 norm) and "nl_convergence_tol_res" (tolerance for the residual norm).
@@ -1146,7 +1145,7 @@ class MultiphysicsNorms:
             return False, True
 
         # Array of all residual norms
-        residual_norms = self.compute_residual_norm(residual=residual)
+        residual_norms = self.compute_residual_norm(residual)
 
         # Array of all variable increment norms
         nonlinear_increment_norms = self.compute_nonlinear_increment_norm(
@@ -1156,17 +1155,17 @@ class MultiphysicsNorms:
         # Reference values for increment norms:
         # During the first iteration, initialize bookkeeping for reference norms
         if self.nonlinear_solver_statistics.num_iteration == 1:
-            self.fixed_reference_nonlinear_increment_norms = [
-                False for _ in nonlinear_increment_norms
-            ]
-            self.reference_nonlinear_increment_norms = [
-                1.0 for _ in nonlinear_increment_norms
-            ]
+            self.fixed_reference_nonlinear_increment_norms = {
+                key: False for key in nonlinear_increment_norms
+            }
+            self.reference_nonlinear_increment_norms = {
+                key: 1.0 for key in nonlinear_increment_norms
+            }
 
         # If any of the increment norms does not have a reference value (i.e., at least
         # one element in fixed_reference_nonlinear_increment_norms is False), use the
         # first iterate solution as the reference.
-        if not all(self.fixed_reference_nonlinear_increment_norms):
+        if not all(self.fixed_reference_nonlinear_increment_norms.values()):
             reference_solution = self.equation_system.get_variable_values(
                 iterate_index=0
             )
@@ -1174,47 +1173,44 @@ class MultiphysicsNorms:
                 reference_solution
             )
         # Assign valid reference norms where still missing
-        for i, fixed_reference in enumerate(
-            self.fixed_reference_nonlinear_increment_norms
-        ):
-            if not fixed_reference:
-                _norm = reference_solution_norms[i]
+        for key, is_fixed in self.fixed_reference_nonlinear_increment_norms.items():
+            if not is_fixed:
+                _norm = reference_solution_norms[key]
                 # Reference norms should not be zero or NaN.
                 if not np.isclose(_norm, 0.0) and not np.isnan(_norm):
-                    self.reference_nonlinear_increment_norms[i] = _norm
-                    self.fixed_reference_nonlinear_increment_norms[i] = True
+                    self.reference_nonlinear_increment_norms[key] = _norm
+                    self.fixed_reference_nonlinear_increment_norms[key] = True
 
         # Reference values for residual norms:
         # A similar process as that for the increment norms/reference norms is repeated
         # for the residual ones.
         # Cache first non-zero residual as reference for relative residual norms.
         if self.nonlinear_solver_statistics.num_iteration == 1:
-            self.fixed_reference_residual_norms = [False for _ in residual_norms]
-            self.reference_residual_norms = [1.0 for _ in residual_norms]
-        for i, fixed_reference in enumerate(self.fixed_reference_residual_norms):
-            if not fixed_reference:
-                _norm = residual_norms[i]
+            self.fixed_reference_residual_norms = {key: False for key in residual_norms}
+            self.reference_residual_norms = {key: 1.0 for key in residual_norms}
+        for key, is_fixed in self.fixed_reference_residual_norms.items():
+            if not is_fixed:
+                _norm = residual_norms[key]
                 if not np.isclose(_norm, 0.0) and not np.isnan(_norm):
-                    self.reference_residual_norms[i] = _norm
-                    self.fixed_reference_residual_norms[i] = True
+                    self.reference_residual_norms[key] = _norm
+                    self.fixed_reference_residual_norms[key] = True
 
         # Compute norms for increments and residuals.
-        relative_increment_norms = [
-            increment_norm / (1 + reference_increment_norm)
-            for increment_norm, reference_increment_norm in zip(
-                nonlinear_increment_norms, self.reference_nonlinear_increment_norms
-            )
-        ]
-        relative_residual_norms = [
-            residual_norm / (1 + reference_residual_norm)
-            for residual_norm, reference_residual_norm in zip(
-                residual_norms, self.reference_residual_norms
-            )
-        ]
+        relative_increment_norms = {
+            key: nonlinear_increment_norms[key]
+            / (1 + self.reference_nonlinear_increment_norms[key])
+            for key in nonlinear_increment_norms
+        }
+
+        relative_residual_norms = {
+            key: residual_norms[key] / (1 + self.reference_residual_norms[key])
+            for key in residual_norms
+        }
 
         # Log the (max) relative errors
         self.nonlinear_solver_statistics.log_error(
-            np.max(relative_increment_norms), np.max(relative_residual_norms)
+            np.max(list(relative_increment_norms.values())),
+            np.max(list(relative_residual_norms.values())),
         )
 
         # Start convergence checks
@@ -1235,17 +1231,19 @@ class MultiphysicsNorms:
             # residuals surpasses the tolerance.
             if tol_divergence is not np.inf:
                 diverged_res_list = [
-                    res_norm > tol_divergence for res_norm in relative_residual_norms
+                    res_norm > tol_divergence
+                    for res_norm in relative_residual_norms.values()
                 ]
             diverged = any(diverged_res_list)
 
             # If all increments and residuals are below the respective tolerances, we
             # consider the problem converged:
             converged_inc_list = [
-                inc_norm < tol_increment for inc_norm in relative_increment_norms
+                inc_norm < tol_increment
+                for inc_norm in relative_increment_norms.values()
             ]
             converged_res_list = [
-                res_norm < tol_residual for res_norm in relative_residual_norms
+                res_norm < tol_residual for res_norm in relative_residual_norms.values()
             ]
             converged = all(converged_inc_list) and all(converged_res_list)
 
