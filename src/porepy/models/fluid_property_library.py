@@ -456,6 +456,38 @@ class FluidMobility(pp.PorePyModel):
         frac_mob.set_name(f"fractional_phase_mass_mobility_{phase.name}")
         return frac_mob
 
+    def element_mass_mobility(
+        self, element: pp.Element, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        r"""Non-linear term in the advective flux in an element mass balance equation in the single-phase, multi-component case.
+
+
+        .. math::
+
+                 z_{e}^E  \frac{\rho_f^E}{\mu},
+
+
+        Parameters:
+            element: An element in the fluid mixture.
+            domains: A sequence of subdomains or boundary grids.
+
+        Returns:
+            Above expression in operator form.
+
+        """
+        if self.fluid.num_phases > 1:
+            raise NotImplementedError("Not implemented!")
+        else:
+            mobility = (
+                self.fluid.reference_phase.density(domains)
+                * self.phase_mobility(self.fluid.reference_phase, domains)
+                * element.fluid_fraction(domains)
+                * self.fluid.element_density_ratio(domains)
+            )
+
+        mobility.set_name(f"element_mass_mobility_{element.name}")
+        return mobility
+
 
 class ConstantViscosity(pp.PorePyModel):
     """Constant viscosity for a single-phase fluid."""

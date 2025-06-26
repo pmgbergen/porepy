@@ -443,6 +443,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    element_mass_mobility: Callable[
+        [pp.Element, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
     component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
@@ -1882,24 +1887,18 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         mass_density.set_name(f"element_mass_{element.name}")
         return mass_density
 
-    def advection_weight_component_mass_balance(
-        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    def advection_weight_element_mass_balance(
+        self, element: pp.Element, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """The non-linear weight in the advective component flux.
+        """The non-linear weight in the advective element flux.
 
-        In the standard formulation, this term represents the mass of the component,
+        In the standard formulation, this term represents the mass of the element,
         advected by the Darcy flux. The advected quantity then has the physical
         dimensions [kg * m^(-3) * Pa^(-1) * s^(-1)].
 
-        In the fractional flow formulation, it uses the ``component``'s
-        :meth:`~porepy.models.fluid_property_library.FluidMobility.
-        fractional_component_mass_mobility`, assuming the flux contains the total
-        mobility in the diffusive tensor. Creates a boundary operator, in case explicit
-        values for fractional flow BC are used.
-        The advected quantity is dimensionless in this case.
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             domains: A list of subdomains or boundaries on which the operator is called.
 
         Returns:
@@ -1909,33 +1908,26 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if is_fractional_flow(self) and all(
-            [isinstance(g, pp.BoundaryGrid) for g in domains]
-        ):
-            op = self.create_boundary_operator(
-                self.bc_data_fractional_flow_component_key(component),
-                cast(Sequence[pp.BoundaryGrid], domains),
-            )
-        elif is_fractional_flow(self):
-            op = self.fractional_component_mass_mobility(component, domains)
+        if is_fractional_flow(self):
+            raise NotImplementedError("Not implemented!")
         else:
-            op = self.component_mass_mobility(component, domains)
+            op = self.element_mass_mobility(element, domains)
 
         return op
 
-    def component_flux(
-        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    def element_flux(
+        self, element: pp.Element, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """The advective flux for the component mass balance equation.
+        """The advective flux for the element mass balance equation.
 
         Can be called on the boundary to obtain a representation of user-given Neumann
         data.
 
         See Also:
-            :meth:`advection_weight_component_mass_balance`
+            :meth:`advection_weight_element_mass_balance`
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             domains: A list of subdomains or boundaries on which the operator is called.
 
         Returns:

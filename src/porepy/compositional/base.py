@@ -765,6 +765,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         self.fluid_formula_matrix = None
         self.fluid_species_names = []
         self.reference_element = None
+        self.element_density_ratio: DomainFunctionType
 
         for comp in components:
             double_names.append(comp.name)
