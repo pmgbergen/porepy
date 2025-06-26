@@ -696,7 +696,7 @@ class SolutionStrategy(pp.PorePyModel):
                 f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
-            # # Check divergence.
+            # Check divergence.
             diverged = (
                 nl_params["nl_divergence_tol"] is not np.inf
                 and residual_norm > nl_params["nl_divergence_tol"]
@@ -1207,27 +1207,33 @@ class MultiphysicsNorms:
         converged = False
         diverged = False
 
+        tol_divergence = nl_params["nl_divergence_tol"]
         tol_increment = nl_params["nl_convergence_tol"]
         tol_residual = nl_params["nl_convergence_tol_res"]
 
+        diverged_res_list = []
         converged_inc_list = []
         converged_res_list = []
 
         # Check convergence requires both the increment and residual to be small.
         if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+            # If the divergence tolerance is not infinite, we check if any of the
+            # residuals surpasses the tolerance.
+            if tol_divergence is not np.inf:
+                diverged_res_list = [
+                    res_norm > tol_divergence for res_norm in relative_residual_norms
+                ]
+            diverged = any(diverged_res_list)
+
+            # If all increments and residuals are below the respective tolerances, we
+            # consider the problem converged:
             converged_inc_list = [
                 inc_norm < tol_increment for inc_norm in relative_increment_norms
             ]
             converged_res_list = [
                 res_norm < tol_residual for res_norm in relative_residual_norms
             ]
-
-            # If all increments and residuals are below the respective tolerances, we
-            # consider the problem converged:
             converged = all(converged_inc_list) and all(converged_res_list)
-
-            if converged:
-                print("Converged with both increments and residuals.")
 
         return converged, diverged
 
