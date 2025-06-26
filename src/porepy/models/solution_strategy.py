@@ -1053,8 +1053,8 @@ class MultiphysicsNorms:
 
         for equation in equation_names:
             eq = self.equation_system._equations[equation]
-            residual = np.linalg.norm(eq.value(self.equation_system))
-            residuals[equation] = np.linalg.norm(residual) / np.sqrt(residual.size)
+            eq_value = eq.value(self.equation_system)
+            residuals[equation] = np.linalg.norm(eq_value) / np.sqrt(eq_value.size)
 
         return residuals
 
@@ -1131,7 +1131,7 @@ class MultiphysicsNorms:
             converged and a boolean indicating whether it has diverged.
 
         """
-        if not self._is_nonlinear_problem():
+        if not self._is_nonlinear_problem:
             # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
             # error (but a warning) is raised for singular matrices, but a nan solution
             # is returned. We check for this.
