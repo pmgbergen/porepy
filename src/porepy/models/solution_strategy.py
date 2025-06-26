@@ -1025,6 +1025,8 @@ class MultiphysicsNorms:
     """Solver statistics for the nonlinear solver."""
     equation_system: pp.ad.EquationSystem
     """Equation system to compute norms for."""
+    _is_nonlinear_problem: bool
+    """Flag indicating whether the problem is nonlinear."""
 
     def compute_residual_norm(
         self,
