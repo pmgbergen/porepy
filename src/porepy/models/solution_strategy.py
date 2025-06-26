@@ -1053,7 +1053,10 @@ class MultiphysicsNorms:
 
         for equation in equation_names:
             eq = self.equation_system._equations[equation]
-            eq_value = eq.value(self.equation_system)
+            eq_value = self.equation_syste.evaluate(eq, jacobian=False)
+            assert isinstance(eq_value, np.ndarray), (
+                f"Expected equation value to be a numpy array, got {type(eq_value)}."
+            )
             residuals[equation] = np.linalg.norm(eq_value) / np.sqrt(eq_value.size)
 
         return residuals
