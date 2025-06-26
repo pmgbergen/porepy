@@ -46,7 +46,6 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 )
 
 use_schur_technique = False
-
 BASE_DIR = Path(__file__).resolve().parent  # This gives the path of this script's folder
 VTK_DIR = BASE_DIR / "model_configuration" / "constitutive_description" / "driesner_vtk_files"
 
@@ -96,22 +95,22 @@ def create_dynamic_model(BC, IC, FlowModel):
             print(f"Time value (years): {self.time_manager.time / (365 * 86400):.2f}")
             print(f"Time index: {self.time_manager.time_index}\n")
             
-
         def after_simulation(self):
             """Export results after the simulation."""
             self.exporter.write_pvd()
 
         def solve_linear_system(self):
             # TODO: -------------Debugging---------------
-            eq_idx_map = self.equation_system.assembled_equation_indices
-            eq_p_dof_idx = eq_idx_map['mass_balance_equation']
-            eq_h_dof_idx = eq_idx_map['energy_balance_equation']
+            if not use_schur_technique:
+                eq_idx_map = self.equation_system.assembled_equation_indices
+                eq_p_dof_idx = eq_idx_map['mass_balance_equation']
+                eq_h_dof_idx = eq_idx_map['energy_balance_equation']
 
-            _, res_g = self.linear_system
-            print("Overall residual norm at x_k: ", np.linalg.norm(res_g))
-            print("Pressure residual norm: ", np.linalg.norm(res_g[eq_p_dof_idx]))
-            print("Enthalpy residual norm: ", np.linalg.norm(res_g[eq_h_dof_idx]))
-            print(" ")
+                _, res_g = self.linear_system
+                print("Overall residual norm at x_k: ", np.linalg.norm(res_g))
+                print("Pressure residual norm: ", np.linalg.norm(res_g[eq_p_dof_idx]))
+                print("Enthalpy residual norm: ", np.linalg.norm(res_g[eq_h_dof_idx]))
+                print(" ")
             return super().solve_linear_system()
 
     return GeothermalSimulationFlowModel
@@ -212,32 +211,19 @@ def run_simulation(
     print(f"Total DoFs: {model.equation_system.num_dofs()}")
     print(f"Grid info: {model.mdg}")
 
-    # Retrieve grid and boundary info
-    # grid = model.mdg.subdomains()[0]
-    
-    # Compute mass flux
-    # darcy_flux = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
-    # inlet_idx, outlet_idx = model.get_inlet_outlet_sides(grid)
-    # print(f"Inflow values: {darcy_flux[inlet_idx]}")
-    # print(f"Outflow values: {darcy_flux[outlet_idx]}")
-
-    # Get the last time step's solution data
-    # pvd_file = "./visualization/data.pvd"
-    # mesh = data_util.get_last_mesh_from_pvd(pvd_file)
-
 # ------------------------------------------------------
 # Run Simulations for All Configured Cases
 # ------------------------------------------------------
 
 
 # Define file paths for VTK files used for thermodynamic property sampling
-correl_vtk_ptz_salt = VTK_DIR / "XTP_l2_original_salt.vtk"
-correl_vtk_phz_salt = VTK_DIR / "XHP_l2_original_salt.vtk"
+correl_vtk_ptz = VTK_DIR / "XTP_l2_original.vtk"
+correl_vtk_phz = VTK_DIR / "XHP_l2_original.vtk"
 
 for case_name, config in SIMULATION_CASES.items():
     run_simulation(
         case_name,
         config,
-        correl_vtk_phz=correl_vtk_phz_salt,
-        correl_vtk_ptz=correl_vtk_ptz_salt
+        correl_vtk_phz=correl_vtk_phz,
+        correl_vtk_ptz=correl_vtk_ptz
     )
