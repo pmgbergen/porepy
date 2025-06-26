@@ -69,7 +69,8 @@ CONFIG_HORIZONTAL_CASE = {
     "T_out": 623.15,
     "p_initial": 1e6,
     "T_initial": 623.15,
-    "time_schedule": [0.0, 500 * pp.DAY],
+    "time_schedule": [0.0, 3000 * pp.DAY],
+    "dt_max": pp.YEAR,
     # Solid properties.
     "solid": pp.SolidConstants(
         porosity=0.2,
@@ -93,6 +94,7 @@ CONFIG_VERTICAL_CASE = {
     "T_initial_top": 323.15,
     "T_initial_bottom": 623.15,
     "time_schedule": [0.0, 100 * pp.DAY, 200 * pp.DAY, 500 * pp.DAY],
+    "dt_max": 100 * pp.DAY,
     "solid": pp.SolidConstants(
         porosity=0.2,
         permeability=50 * pp.MILLIDARCY,
@@ -521,11 +523,11 @@ if __name__ == "__main__":
 
     time_manager = pp.TimeManager(
         schedule=np.array(CONFIG[CASE]["time_schedule"]),
-        dt_init=100 * pp.DAY,
+        dt_init=20 * pp.DAY,
         constant_dt=False,
-        dt_min_max=(pp.DAY, 100 * pp.DAY),
+        dt_min_max=(pp.DAY, CONFIG[CASE]["dt_max"]),
         iter_max=max_iterations,
-        iter_optimal_range=(15, 25),
+        iter_optimal_range=(20, 30),
         iter_relax_factors=(0.8, 2.0),
         recomp_factor=0.6,
         recomp_max=15,
@@ -579,6 +581,7 @@ if __name__ == "__main__":
         "buoyancy_on": True if CASE == "vertical" else False,
         "compile": True,
         "flash_compiler_args": ("p-T", "p-h"),
+        "flag_failure_as_diverged": True,
     }
 
     if EXPORT_SCHEDULED_TIME_ONLY:

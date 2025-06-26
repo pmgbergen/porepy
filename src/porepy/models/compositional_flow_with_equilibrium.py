@@ -1224,7 +1224,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         # failures.
         failure = success > 0
         if np.any(failure) and initial_guess_from_current_state:
-            logger.debug(
+            logger.info(
                 f"Flash from iterate state failed in {failure.sum()} cells on grid"
                 + f" {sd.id}. Performing full flash."
             )
@@ -1439,6 +1439,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         if np.all(s == 0):
             return equilibrium_results[0]
         elif self.params.get("flash_params", {}).get("fallback_to_iterate", False):  # type:ignore
+            logger.info(
+                f"Flash failed in {(s > 0).sum()} cells on grid"
+                + f" {sd.id}. Falling back to previous iterate values."
+            )
             self._fall_back_to_current_values(sd, equilibrium_results[0], s > 0)
             return equilibrium_results[0]
         else:
