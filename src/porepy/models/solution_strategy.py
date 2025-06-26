@@ -1057,7 +1057,11 @@ class MultiphysicsNorms:
             assert isinstance(eq_value, np.ndarray), (
                 f"Expected equation value to be a numpy array, got {type(eq_value)}."
             )
-            residuals[equation] = np.linalg.norm(eq_value) / np.sqrt(eq_value.size)
+            if eq_value.size == 0:
+                # If the equation value is empty, we cannot compute a norm.
+                residuals[equation] = 0.0
+            else:
+                residuals[equation] = np.linalg.norm(eq_value) / np.sqrt(eq_value.size)
 
         return residuals
 
