@@ -39,7 +39,7 @@ geometry_case = "vertical"
 
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]
-    "vertical": [365000.0],  # final time [1000 years]
+    "vertical": [2*365000.0],  # final time [1000 years]
 }
 
 day_to_second = 86400
@@ -48,7 +48,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.5 * 365.0 * day_to_second,  # final time [1 years]
+        "dt": 2.0 * 365.0 * day_to_second,  # final time [1 years]
         "bc": BC_hP,
         "ic": IC_hP,
     }
