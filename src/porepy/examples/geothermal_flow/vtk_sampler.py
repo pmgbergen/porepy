@@ -77,6 +77,19 @@ class VTKSampler:
         external_idx = np.logical_not(
             check_enclosed_points.point_data["SelectedPoints"]
         )
+        # Alternative, much faster, check of external points which avoids the use of
+        # pyvista. It is not clear if this is identical to the above (note that there is
+        # a tolerance argument in the above call which is not used here; however, if the
+        # tolerance is used in a meaningful way, it should be easy to add it here). *If*
+        # it turns out that the two methods can be made identical, we should avoid the
+        # call to pyvista.
+        is_external = self.capture_points_outside_bounds(points)
+        if any(is_external != external_idx):
+            from warnings import warn
+
+            warn(
+                "VTK sample: Mismatch between the two methods of checking external points. "
+            )
         if self.taylor_extended_q:
             self.__taylor_expansion(points, external_idx)
 
@@ -104,6 +117,7 @@ class VTKSampler:
         # this is the grid to interpolate on
         self._search_space = pyvista.read(self.file_name)  # grid with field data
         self._bc_surface = self._search_space.extract_surface()
+        self._bc_surface_bounds = self._bc_surface.bounding_box().bounds
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
@@ -112,22 +126,25 @@ class VTKSampler:
         Function to capture points lying outside the specified bounds.
         Args:
             points (numpy.ndarray): Nx3 array of points (x, y, z)
-            bounds (tuple): A 6-tuple representing the bounds 
-            (x_min, x_max, y_min, y_max, z_min, z_max)  
+            bounds (tuple): A 6-tuple representing the bounds
+                (x_min, x_max, y_min, y_max, z_min, z_max)
         Returns:
             numpy.ndarray: An array of points that lie outside the bounds
         """
-        x_min, x_max, y_min, y_max, z_min, z_max = self._search_space.bounds 
+        x_min, x_max, y_min, y_max, z_min, z_max = self._bc_surface_bounds
         # Create a mask for points that are within the bounds
         within_bounds = (
-            (points[:, 0] >= x_min) & (points[:, 0] <= x_max) &  # x bound
-            (points[:, 1] >= y_min) & (points[:, 1] <= y_max) &  # y bound
-            (points[:, 2] >= z_min) & (points[:, 2] <= z_max)    # z bound
+            (points[:, 0] >= x_min)
+            & (points[:, 0] <= x_max)  # x bound
+            & (points[:, 1] >= y_min)
+            & (points[:, 1] <= y_max)  # y bound
+            & (points[:, 2] >= z_min)
+            & (points[:, 2] <= z_max)  # z bound
         )
         # Invert the mask to get points outside the bounds
         outside_bounds = ~within_bounds
         # Return points that lie outside the bounds
-        return points[outside_bounds]
+        return outside_bounds
 
     def __map_external_points_to_surface(self, xv):
         # Get the bounds of the search space
