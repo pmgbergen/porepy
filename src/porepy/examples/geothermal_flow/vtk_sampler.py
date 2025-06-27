@@ -151,6 +151,10 @@ class VTKSampler:
         xv[:, 2] = np.clip(xv[:, 2], zmin, zmax)  # Clip z-coordinates
 
     def __taylor_expansion(self, points, external_idx):
+        glob_idx = np.nonzero(external_idx)[0]
+        if glob_idx.size == 0:
+            # If no points are outside the bounds, return early.
+            return
 
         xv = points[external_idx].copy()
         self.__map_external_points_to_surface(xv)
@@ -158,18 +162,19 @@ class VTKSampler:
         epoint_cloud = pyvista.PolyData(xv)
         sampled_could = epoint_cloud.sample(self._search_space)
         # for all the fields
-        glob_idx = np.nonzero(external_idx)[0]
-        #x = points[external_idx]
+        # x = points[external_idx]
 
-        for grad_field_name, grad in self.sampled_could.point_data.items():
-            if grad_field_name.startswith("grad_"):
-                field_name = grad_field_name.lstrip("grad_")
-                fv = sampled_could[field_name]
-                grad_fv = sampled_could[grad_field_name]
+        # Build a list of gradient field names, iterate over these and populate the
+        # extrapolated values.
+        keys = list(k for k in sampled_could.point_data if k.startswith("grad_"))
+        for grad_field_name in keys:
+            field_name = grad_field_name.lstrip("grad_")
+            fv = sampled_could[field_name]
+            grad_fv = sampled_could[grad_field_name]
 
-                # taylor expansion all at once
-                f_extrapolated = fv  # + np.sum(grad_fv * (x - xv), axis=1)
-                # update fields
-                self.sampled_could[field_name][glob_idx] = f_extrapolated
-                self.sampled_could[grad_field_name][glob_idx] = grad_fv        
+            # taylor expansion all at once
+            f_extrapolated = fv  # + np.sum(grad_fv * (x - xv), axis=1)
+            # update fields
+            self.sampled_could[field_name][glob_idx] = f_extrapolated
+            self.sampled_could[grad_field_name][glob_idx] = grad_fv
         return
