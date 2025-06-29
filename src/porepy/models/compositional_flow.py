@@ -1382,6 +1382,8 @@ class BoundaryConditionsCF(
     # Put on top for override of update_all_boundary_values, which includes sub-routine
     # for updating phase properties on boundaries.
     BoundaryConditionsPhaseProperties,
+    # Put enthalpy above BC for p,T and fractions, in case they are required to evaluate
+    # enthalpy.
     pp.energy_balance.BoundaryConditionsEnthalpy,
     pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
     BoundaryConditionsMulticomponent,
@@ -1392,12 +1394,12 @@ class BoundaryConditionsCF(
 
 
 class BoundaryConditionsCFF(
-    # put on top for override of update_all_boundary_values, which includes sub-routine
-    # for fractional flow.
+    # Put on top for override of update_all_boundary_values, which includes sub-routine
+    # for fractional flow. This way the BC values of variables and phase properties are
+    # already provided in case they are required to compute f.e. the advective weight
+    # in the energy balance equation in the FF setting.
     BoundaryConditionsFractionalFlow,
-    pp.energy_balance.BoundaryConditionsEnthalpy,
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
-    BoundaryConditionsMulticomponent,
+    BoundaryConditionsCF,
 ):
     """Collection of BC value routines required for CF in the fractional flow
     formulation."""
