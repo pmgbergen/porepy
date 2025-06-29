@@ -35,7 +35,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_lP"
-geometry_case = "vertical"
+geometry_case = "horizontal"
 
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]
@@ -83,8 +83,8 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
-    "fractional_flow": True,
-    "buoyancy_on": True,
+    "fractional_flow": False,
+    "buoyancy_on": False,
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
