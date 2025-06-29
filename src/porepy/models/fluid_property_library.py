@@ -636,7 +636,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        self.set_buoyancy_discretization_parameters()
+        # self.set_buoyancy_discretization_parameters()
 
         b_fluxes = []
         single_phase_Q = len(self.fluid.phases) == 1
@@ -740,6 +740,56 @@ class FluidBuoyancy(pp.PorePyModel):
             b_fluxes
         )  # sum all buoyancy terms w.t. component_xi
         b_flux.set_name("component_buoyancy_" + component_xi.name)
+        return b_flux
+
+    def enthalpy_buoyancy(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+
+        b_fluxes = []
+        single_phase_Q = len(self.fluid.phases) == 1
+        if single_phase_Q:
+            # TODO: Find/construct a notion of md-empty operator on facets
+            b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
+        else:
+            # This construction implies that for each component pair, there is a pair of
+            # upwinding objects.
+            for phase in self.fluid.phases:
+                for pairs in self.phase_pairs_for(phase):
+                    gamma, delta = pairs
+                    rho_gamma = gamma.density(domains)
+                    rho_delta = delta.density(domains)
+                    w_flux_gamma_delta = self.density_driven_flux(
+                        domains, rho_gamma - rho_delta
+                    )  # well-defined flux on facets
+                    f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
+                    f_delta = self.fractional_phase_mass_mobility(delta, domains)
+
+                    # Verify that the domains are subdomains.
+                    if not all(isinstance(d, pp.Grid) for d in domains):
+                        raise ValueError("domains must consist entirely of subdomains.")
+                    domains = cast(list[pp.Grid], domains)
+
+                    h_gamma = gamma.specific_enthalpy(domains)
+
+                    discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
+                    discr_delta = self.buoyancy_discretization(delta, gamma, domains)
+
+                    # TODO: Fixed dimensional implementation. Needs md-part
+                    f_gamma_upwind: pp.ad.Operator = (
+                        discr_gamma.upwind() @ (h_gamma * f_gamma)
+                    )  # well-defined fraction flow on facets
+                    f_delta_upwind: pp.ad.Operator = (
+                        discr_delta.upwind() @ f_delta
+                    )  # well-defined fraction flow on facets
+
+                    b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                    b_fluxes.append(b_flux_gamma_delta)
+
+        b_flux = pp.ad.sum_operator_list(
+            b_fluxes
+        )  # sum all buoyancy terms w.t. component_xi
+        b_flux.set_name("enthalpy_buoyancy")
         return b_flux
 
     def phase_pairs_for(self, phase: pp.Phase) -> list[tuple[pp.Phase, pp.Phase]]:

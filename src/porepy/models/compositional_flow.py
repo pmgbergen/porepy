@@ -452,11 +452,9 @@ class EnthalpyBasedEnergyBalanceEquations(
                 [
                     phase.specific_enthalpy(domains)
                     * self.fractional_phase_mass_mobility(phase, domains)
-                    # * phase.density(domains)
-                    # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-            )  # / self.total_mobility(domains)
+            )
             op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
@@ -471,11 +469,15 @@ class EnthalpyBasedEnergyBalanceEquations(
             len(subdomains) == 0
             or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
         ) and is_fractional_flow(self):
-            return self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
+            flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
-            return super().enthalpy_flux(subdomains)
+            flux = super().enthalpy_flux(subdomains)
+        buoyancy_condition: bool = self.params.get("buoyancy_on", True) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        if buoyancy_condition:
+            flux += self.enthalpy_buoyancy(subdomains)
+        return flux
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation):
