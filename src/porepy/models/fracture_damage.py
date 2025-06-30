@@ -1,5 +1,6 @@
 from functools import partial
 from typing import Callable, cast
+import abc
 
 import numpy as np
 
@@ -30,7 +31,7 @@ class DamageHistoryVariable(pp.PorePyModel):
 
         Parameters:
             subdomains: List of subdomains where the damage history is defined. Should
-            be of co-dimension one, i.e. fractures.
+                be of co-dimension one, i.e. fractures.
 
         Returns:
             Variable for nondimensionalized fracture friction damage history.
@@ -48,7 +49,7 @@ class DamageHistoryVariable(pp.PorePyModel):
 
         Parameters:
             subdomains: List of subdomains where the damage history is defined. Should
-            be of co-dimension one, i.e. fractures.
+                be of co-dimension one, i.e. fractures.
 
         Returns:
             Variable for nondimensionalized fracture dilation damage history.
@@ -103,7 +104,7 @@ class DamageHistoryVariable(pp.PorePyModel):
                 continue
             if cls is pp.SolutionStrategy:
                 continue
-            # Check if the class has its own implementation of update_solution
+            # Check if the class has its own implementation of update_solution.
             update_solution_method = cls.__dict__.get("update_solution", None)
             if update_solution_method is not None:
                 raise AssertionError(
@@ -158,13 +159,14 @@ class DamageHistoryVariable(pp.PorePyModel):
         )
 
 
-class DamageHistoryEquation(pp.PorePyModel):
+class DamageHistoryEquation(pp.PorePyModel, abc.ABC):
     """Base class for damage history equations."""
 
     friction_damage_history_equation_name = "friction_damage_history_equation"
     dilation_damage_history_equation_name = "dilation_damage_history_equation"
 
     def set_equations(self):
+        """Set the damage history equations for friction and dilation."""
         super().set_equations()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
 
@@ -229,17 +231,68 @@ class DamageHistoryEquation(pp.PorePyModel):
 
         return eq
 
+    @abc.abstractmethod
     def friction_damage_history_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Return the friction damage history equation."""
-        raise NotImplementedError("Subclass must implement this method.")
+        """Return the friction damage history equation.
 
+        Parameters:
+            subdomains: List of subdomains where the damage history is defined.
+
+        Returns:
+            Operator for the friction damage history equation.
+        """
+        pass
+
+    @abc.abstractmethod
     def dilation_damage_history_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Return the dilation damage history equation."""
-        raise NotImplementedError("Subclass must implement this method.")
+        """Return the dilation damage history equation.
+
+        Parameters:
+            subdomains: List of subdomains where the damage history is defined.
+
+        Returns:
+            Operator for the dilation damage history equation.
+        """
+        pass
+
+    def _normalized_tangential_plastic_jump(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Normalized tangential plastic jump [-].
+
+        Parameters:
+            subdomains: List of subdomains where the jump is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Normalized tangential plastic jump.
+        """
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+
+        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+
+        # Define the functions for the norm and safe power.
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        zero_tol = 1e-12 * cast(
+            float,
+            self.equation_system.evaluate(self.characteristic_displacement(subdomains)),
+        )
+        f_power = pp.ad.Function(
+            partial(pp.ad.safe_power, -1, 1 / np.sqrt(self.nd - 1), zero_tol),
+            "safe power",
+        )
+        # Compute normalized tangential displacement. First, compute the norm of the
+        # displacement jump.
+        norm_u_t = scalar_to_tangential @ f_norm(u_t)
+        # Then, normalize the jump by multiplying it by the inverse of the norm.
+        m_t = f_power(norm_u_t) * u_t
+        return m_t
 
 
 class AnisotropicHistoryEquation(DamageHistoryEquation):
@@ -324,42 +377,6 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
             self.dilation_damage_history(subdomains), dilation_integrand, subdomains
         )
 
-    def _normalized_tangential_plastic_jump(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Normalized tangential plastic jump [-].
-
-        Parameters:
-            subdomains: List of subdomains where the jump is defined. Should
-                be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Normalized tangential plastic jump.
-
-        """
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-        nd_vec_to_tangential = self.tangential_component(subdomains)
-
-        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
-        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
-
-        # Define the functions for the norm and safe power.
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        zero_tol = 1e-12 * cast(
-            float,
-            self.equation_system.evaluate(self.characteristic_displacement(subdomains)),
-        )
-        f_power = pp.ad.Function(
-            partial(pp.ad.safe_power, -1, 1 / np.sqrt(self.nd - 1), zero_tol),
-            "safe power",
-        )
-        # Compute normalized tangential displacement. First, compute the norm of the
-        # displacement jump.
-        norm_u_t = scalar_to_tangential @ f_norm(u_t)
-        # Then, normalize the jump by multiplying it by the inverse of the norm.
-        m_t = f_power(norm_u_t) * u_t
-        return m_t
-
 
 class IsotropicHistoryEquation(DamageHistoryEquation):
     """Isotropic damage history equations for both friction and dilation."""
@@ -367,7 +384,14 @@ class IsotropicHistoryEquation(DamageHistoryEquation):
     def friction_damage_history_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Isotropic friction damage history equation."""
+        """Isotropic friction damage history equation.
+
+        Parameters:
+            subdomains: List of subdomains where the damage history is defined.
+
+        Returns:
+            Operator for the isotropic friction damage history equation.
+        """
 
         def friction_integrand(
             time_step_index: int, sds: list[pp.Grid]
@@ -382,7 +406,6 @@ class IsotropicHistoryEquation(DamageHistoryEquation):
                 Tuple containing the contribution to the equation and the displacement
                 increment at the specified time step. If the displacement increment
                 is zero, the full contribution is also zero.
-
             """
             # Get displacement increment at the specified time step
             nd_vec_to_tangential = self.tangential_component(sds)
@@ -412,11 +435,29 @@ class IsotropicHistoryEquation(DamageHistoryEquation):
     def dilation_damage_history_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Isotropic dilation damage history equation."""
+        """Isotropic dilation damage history equation.
+
+        Parameters:
+            subdomains: List of subdomains where the damage history is defined.
+
+        Returns:
+            Operator for the isotropic dilation damage history equation.
+        """
 
         def dilation_integrand(
             time_step_index: int, sds: list[pp.Grid]
-        ) -> pp.ad.Operator:
+        ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
+            """Integrand for the dilation damage history equation.
+
+            Parameters:
+                time_step_index: Index of the time step. sds: List of subdomains where
+                the damage history is defined.
+
+            Returns:
+                Tuple containing the operator for the dilation damage history equation
+                at the specified time step and the displacement increment at that time
+                step.
+            """
             # Get displacement increment at the specified time step
             nd_vec_to_tangential = self.tangential_component(sds)
             u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
@@ -434,7 +475,7 @@ class IsotropicHistoryEquation(DamageHistoryEquation):
             f_norm = pp.ad.Function(
                 partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
             )
-            return f_norm(u_t_increment)
+            return f_norm(u_t_increment), u_t_increment
 
         return self._convolution_integral_equation(
             self.dilation_damage_history(subdomains), dilation_integrand, subdomains
