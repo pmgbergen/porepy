@@ -1,4 +1,4 @@
-from typing import Callable, Literal, Union, cast
+from typing import Callable, Literal, Union, cast, Optional
 
 import numpy as np
 import time
@@ -165,6 +165,14 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         super().set_nonlinear_discretizations()
         self.set_nonlinear_buoyancy_discretization()
 
+    def compute_residual_norm(
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+    ) -> float:
+        if residual is None:
+            return np.nan
+        residual_norm = np.linalg.norm(residual)
+        return residual_norm
+
     def solve_linear_system(self) -> np.ndarray:
         """
         Solves the linear system of equations, analyzes residuals, and applies
@@ -243,13 +251,26 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         ]))
         self.postprocessing_thermal_overshoots(solution, thermal_indices)
 
-        # # Scale down the Newton correction if the non-linear solver is struggling
-        # if self.nonlinear_solver_statistics.num_iteration > 5:
-        #     # The scaling factor decreases with each iteration after the 5th
-        #     scaling_factor = max(0.05, 0.98 ** self.nonlinear_solver_statistics.num_iteration)
-        #     print("Scaling Newton correction.")
-        #     print(f"Newton correction scale factor: {scaling_factor:.4f}\n")
-        #     solution *= scaling_factor
+        # Scale down the Newton correction if the non-linear solver is struggling
+        if self.nonlinear_solver_statistics.num_iteration > 0:
+            res_norm_km1 = self.nonlinear_solver_statistics.residual_norms[-1]
+            accepted_solution = self.equation_system.get_variable_values(iterate_index=0)
+            print("Scaling Newton correction with current residual norm: ", res_norm_km1)
+            for k_search in range(10):
+                scaling_factor = max(0.01, 0.9 ** (k_search))
+                self.equation_system.set_variable_values(
+                    values=accepted_solution + scaling_factor * solution, additive=False, iterate_index=0
+                )
+                self.update_derived_quantities()
+                search_res_norm = np.linalg.norm(self.equation_system.assemble(evaluate_jacobian=False))
+                if res_norm_km1 > search_res_norm:
+                    self.equation_system.set_variable_values(
+                        values=accepted_solution, additive=False, iterate_index=0
+                    )
+                    break
+                print(f"Newton correction scale factor: {scaling_factor:.4f}")
+                print(f"Search residual norm: {search_res_norm:.4f}")
+            solution *= scaling_factor
 
         return solution
 
