@@ -208,6 +208,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             raise NotImplementedError("The 'reduce_linear_system_q' case is not yet implemented.")
 
         end_time = time.time()
+        print(f"Elapsed time for linear solve: {end_time - start_time:.4f} seconds\n")
 
         # Report Residuals
         print("\n Report Residuals ")
@@ -220,7 +221,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         for name, indices in alg_eq_indices.items():
             print(f"  - {name.capitalize()}: {np.linalg.norm(residual_vector[indices]):.4e}")
 
-        print(f"Elapsed time for linear solve: {end_time - start_time:.4f} seconds\n")
+
 
         # Post-processing solution overshoots
         self.postprocessing_overshoots(solution)
@@ -242,13 +243,13 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         ]))
         self.postprocessing_thermal_overshoots(solution, thermal_indices)
 
-        # Scale down the Newton correction if the non-linear solver is struggling
-        if self.nonlinear_solver_statistics.num_iteration > 5:
-            # The scaling factor decreases with each iteration after the 5th
-            scaling_factor = max(0.05, 0.98 ** self.nonlinear_solver_statistics.num_iteration)
-            print("Scaling Newton correction.")
-            print(f"Newton correction scale factor: {scaling_factor:.4f}\n")
-            solution *= scaling_factor
+        # # Scale down the Newton correction if the non-linear solver is struggling
+        # if self.nonlinear_solver_statistics.num_iteration > 5:
+        #     # The scaling factor decreases with each iteration after the 5th
+        #     scaling_factor = max(0.05, 0.98 ** self.nonlinear_solver_statistics.num_iteration)
+        #     print("Scaling Newton correction.")
+        #     print(f"Newton correction scale factor: {scaling_factor:.4f}\n")
+        #     solution *= scaling_factor
 
         return solution
 
@@ -368,9 +369,9 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # saturation
         new_s = delta_x[s_dof_idx] + s_0
         new_s = np.clip(new_s, 0.0, 1.0)
-        idx_tp = np.where((new_s[alpha_idx] > 0.0) & (new_s[alpha_idx] < 1.0))[0]
+        idx_tp = np.where(np.abs(new_s * (1 - new_s)) > 0.0)[0]
         # Get indexes of values that are close to 0.0 or close to 1.0
-        idx_sp = np.where(np.isclose(new_s[alpha_idx], 0.0) | np.isclose(new_s[alpha_idx], 1.0))[0]
+        idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
 
         if idx_tp.size != 0:
             # correct temperature from enthalpy
@@ -393,5 +394,5 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
 
         te = time.time()
-        print("Elapsed time for postprocessing overshoots: ", te - tb)
+        print("Elapsed time for postprocessing thermal overshoots: ", te - tb)
         return

@@ -127,7 +127,7 @@ class BC_single_phase_low_pressure(BCBase):
         return T
 
 
-class BC_two_phase_low_pressure(BCBase):
+class BC_two_phase_moderate_pressure(BCBase):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -145,6 +145,29 @@ class BC_two_phase_low_pressure(BCBase):
         inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
         t_inlet = 673.15
         t_outlet = 423.15
+        T = t_outlet * np.ones(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
+
+class BC_two_phase_low_pressure(BCBase):
+    """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_inlet = 5.0
+        p_outlet = 1.0
+        xc = boundary_grid.cell_centers.T
+        dir_idx = np.argmax(np.max(xc, axis=0))
+        p_linear = (
+            lambda x: (x[dir_idx] * p_outlet + (2000.0 - x[dir_idx]) * p_inlet) / 2000.0
+        )
+        p = np.array(list(map(p_linear, xc)))
+        return p
+
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 573.15
+        t_outlet = 353.15
         T = t_outlet * np.ones(boundary_grid.num_cells)
         T[inlet_idx] = t_inlet
         T[outlet_idx] = t_outlet

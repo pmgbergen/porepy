@@ -38,7 +38,7 @@ case_name = "case_lP"
 geometry_case = "horizontal"
 
 final_times = {
-    "horizontal": [73000.0],  # final time [200 years]
+    "horizontal": [365000.0],  # final time [200 years]
     "vertical": [365000.0],  # final time [1000 years]
 }
 
@@ -48,7 +48,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 365.0 * day_to_second,  # final time [1 years]
+        "dt": 10.0 * 365.0 * day_to_second,  # final time [1 years]
         "bc": BC_hP,
         "ic": IC_hP,
     }
@@ -89,8 +89,8 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-3,
-    "max_iterations": 150,
+    "nl_convergence_tol_res": 1.0e-4,
+    "max_iterations": 200,
 }
 
 
