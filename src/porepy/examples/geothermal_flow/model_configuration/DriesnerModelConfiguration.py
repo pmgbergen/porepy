@@ -252,12 +252,12 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         self.postprocessing_thermal_overshoots(solution, thermal_indices)
 
         # Scale down the Newton correction if the non-linear solver is struggling
-        if self.nonlinear_solver_statistics.num_iteration > 0:
+        if self.nonlinear_solver_statistics.num_iteration > 5:
             res_norm_km1 = self.nonlinear_solver_statistics.residual_norms[-1]
             accepted_solution = self.equation_system.get_variable_values(iterate_index=0)
             print("Scaling Newton correction with current residual norm: ", res_norm_km1)
             for k_search in range(10):
-                scaling_factor = max(0.01, 0.9 ** (k_search))
+                scaling_factor = max(0.01, 0.98 ** (k_search))
                 self.equation_system.set_variable_values(
                     values=accepted_solution + scaling_factor * solution, additive=False, iterate_index=0
                 )
