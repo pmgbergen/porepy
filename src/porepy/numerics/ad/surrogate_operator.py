@@ -284,7 +284,6 @@ class SurrogateOperator(
 
         derivatives = np.hstack([self._fetch_data(self, g, True) for g in self.domains])
 
-        # list of jacs per dependency, assuming porepy.ad makes consistent shapes
         # NOTE: The Jacobians of individual args must be of same shape, with a
         # diagonal (identity) in some column block per arg.
         # Otherwise this operator has no way of knowing in which column to insert the
@@ -292,7 +291,6 @@ class SurrogateOperator(
         # Also, the comlete Jacobian of this operator is created by summing the
         # Jacobians of arguments, with the derivative data inserted in the diagonal
         # of the block, per argument/dependency/provided derivative value.
-        jacs: list[sps.csr_matrix] = []
 
         # Checking Jacobian shapes to assert they are consistent
         shapes = set()
@@ -304,15 +302,23 @@ class SurrogateOperator(
             + " Cannot insert provided derivative values safely."
         )
 
-        for arg, d_i in zip(args, derivatives):
-            if isinstance(arg, AdArray):
-                # The factory class asserts that the number of provided derivative
-                # values fits the size of the diagonal block.
-                jacs.append(
-                    sps.csr_matrix((d_i, arg.jac.nonzero()), shape=arg.jac.shape)
-                )
+        # Get the size of the Jacobian of the operator.
+        num_rows, num_cols = shapes.pop() if shapes else (0, 0)
+        num_args = len(args)
 
-        return sum(jacs).tocsr()
+        # By assumption, there will be one argument per row per dependency.
+        row_ptr = np.arange(0, num_args * num_rows + 1, num_args)
+
+        # Make sure all the Jacobians are CSR matrices before fetching the indices of
+        # the data.
+        csr_jacs = [arg.jac.tocsr() for arg in args if isinstance(arg, AdArray)]
+        # Stack the derivative values, then ravel them in Fortran order, so that the
+        # indices for the zeroth row comes in the first num_args places etc.
+        indices = np.vstack([jac.indices for jac in csr_jacs]).ravel("F")
+        # Do the same for the data, which is the derivative values.
+        data = np.vstack(list(derivatives)).ravel("F")
+        # Create the sparse matrix in CSR format and return it.
+        return sps.csr_matrix((data, indices, row_ptr), shape=(num_rows, num_cols))
 
 
 def _check_expected_values(
