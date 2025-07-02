@@ -118,8 +118,6 @@ class CompiledUnifiedFlash(Flash):
     ) -> None:
         super().__init__(fluid, params)
 
-        assert self.params["num_components"] >= 2, "Must have at least two phases."
-        assert self.params["num_phases"] >= 2, "Must have at least two components."
         assert set(self.params["components_per_phase"]) == set(
             [self.params["num_components"]]
         ), "Supports only unified mixtures (all components in all phases)."
@@ -502,7 +500,7 @@ class CompiledUnifiedFlash(Flash):
 
     def flash(
         self,
-        z: Sequence[np.ndarray],
+        z: Optional[Sequence[np.ndarray]] = None,
         p: Optional[np.ndarray] = None,
         T: Optional[np.ndarray] = None,
         h: Optional[np.ndarray] = None,
@@ -564,7 +562,7 @@ class CompiledUnifiedFlash(Flash):
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
         fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
-            z, p, T, h, v, initial_state
+            z=z, p=p, T=T, h=h, v=v, initial_state=initial_state
         )
         logger.debug(
             f"{NF} {flash_type} flash target state(s) parsed; "

@@ -919,10 +919,13 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
         # Normalizing fractions in case of overshooting
         eps = 1e-7  # binding overall fractions away from zero
-        z = fluid_state.z
-        z[z >= 1.0] = 1.0 - eps
-        z[z <= 0.0] = 0.0 + eps
-        z = pp.compositional.normalize_rows(z.T).T
+        if self.fluid.num_components == 1:
+            z = np.ones_like(fluid_state.z)
+        else:
+            z = fluid_state.z
+            z[z >= 1.0] = 1.0 - eps
+            z[z <= 0.0] = 0.0 + eps
+            z = pp.compositional.normalize_rows(z.T).T
 
         s = fluid_state.sat
         s[s >= 1.0] = 1.0
@@ -1349,10 +1352,13 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             pp.compositional.get_local_equilibrium_condition(self)
         )
 
-        z = [
-            self.equation_system.evaluate(comp.fraction([sd]), state=state)[failure]  # type:ignore[index]
-            for comp in self.fluid.components
-        ]
+        if self.fluid.num_components == 1:
+            z = [1.0]
+        else:
+            z = [
+                self.equation_system.evaluate(comp.fraction([sd]), state=state)[failure]  # type:ignore[index]
+                for comp in self.fluid.components
+            ]
 
         # no initial guess, and this model uses only p-h flash.
         flash_kwargs: dict[str, Any] = {

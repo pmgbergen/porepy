@@ -69,7 +69,8 @@ CONFIG_HORIZONTAL_CASE = {
     "T_out": 623.15,
     "p_initial": 1e6,
     "T_initial": 623.15,
-    "time_schedule": [0.0, 500 * pp.DAY, 3000 * pp.DAY],
+    # "time_schedule": [0.0, 500 * pp.DAY, 3000 * pp.DAY],
+    "time_schedule": [0.0, 500 * pp.DAY],
     "dt_max": 500 * pp.DAY,
     # Solid properties.
     "solid": pp.SolidConstants(
@@ -237,13 +238,7 @@ class TwoPhaseWaterFluid(pp.PorePyModel):
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        h2o = pp.compositional.load_fluid_constants(["H2O", "H2O"], "chemicals")[0]
-        ph2o_ = asdict(h2o)
-        ph2o_["name"] = "ph2o"
-        del ph2o_["constants_in_SI"]
-        del ph2o_["_initialized"]
-        ph2o = pp.FluidComponent(**ph2o_)
-        return [h2o, ph2o]
+        return pp.compositional.load_fluid_constants(["H2O"], "chemicals")
 
     def get_phase_configuration(
         self, components: Sequence[pp.FluidComponent]
@@ -252,7 +247,7 @@ class TwoPhaseWaterFluid(pp.PorePyModel):
     ]:
         import porepy.compositional.peng_robinson as pr
 
-        eos = WaterEoS(components, [pr.h_ideal_H2O, pr.h_ideal_H2O], np.eye(2))
+        eos = WaterEoS(components, [pr.h_ideal_H2O], np.zeros((1, 1)))
         return [
             (pp.compositional.PhysicalState.liquid, "L", eos),
             (pp.compositional.PhysicalState.gas, "G", eos),

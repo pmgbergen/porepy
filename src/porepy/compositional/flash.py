@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Literal, Optional, Sequence
+from typing import Literal, Optional, Sequence, cast
 
 import numpy as np
 
@@ -29,6 +29,11 @@ class Flash(abc.ABC):
         params: Optional[dict] = None,
     ) -> None:
         super().__init__()
+
+        if fluid.num_phases < 2:
+            raise pp.compositional.CompositionalModellingError(
+                f"Flash calculations require at least 2 phases, got {fluid.num_phases}."
+            )
 
         if params is None:
             params = {}
@@ -63,7 +68,7 @@ class Flash(abc.ABC):
 
     def parse_flash_input(
         self,
-        z: Sequence[np.ndarray | pp.number],
+        z: Optional[Sequence[np.ndarray | pp.number]] = None,
         p: Optional[np.ndarray | pp.number] = None,
         T: Optional[np.ndarray | pp.number] = None,
         h: Optional[np.ndarray | pp.number] = None,
@@ -110,7 +115,15 @@ class Flash(abc.ABC):
         ncomp = self.params["num_components"]
         nphase = self.params["num_phases"]
 
-        assert len(z) == ncomp, f"Expecting {ncomp} feed fractions, {len(z)} provided."
+        if z is None:
+            if ncomp == 1:
+                z = [1.0]
+            else:
+                raise ValueError(f"Expecting {ncomp} feed fractions, none given.")
+
+        z = cast(Sequence[np.ndarray | pp.number], z)
+
+        assert len(z) == ncomp, f"Expecting {ncomp} feed fractions, {len(z)} given."
 
         for i, z_ in enumerate(z):
             if np.any(z_ < 0) or np.any(z_ > 1):
@@ -273,7 +286,7 @@ class Flash(abc.ABC):
     @abc.abstractmethod
     def flash(
         self,
-        z: Sequence[np.ndarray],
+        z: Optional[Sequence[np.ndarray]] = None,
         p: Optional[np.ndarray] = None,
         T: Optional[np.ndarray] = None,
         h: Optional[np.ndarray] = None,
@@ -292,6 +305,8 @@ class Flash(abc.ABC):
             z: ``len=num_components``
 
                 A sequence of feed fractions per component.
+                The default value ``None`` is only admissible if the fluid contains only
+                1 component. The feed fraction is then assumed to be 1.
             p: Pressure at equilibrium.
             T: Temperature at equilibrium.
             h: Specific enthalpy of the fluid at equilibrium.
