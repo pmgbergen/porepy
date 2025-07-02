@@ -157,21 +157,6 @@ class IC_two_phase_moderate_pressure(IC_Base):
         t_init = 423.15
         return np.ones(sd.num_cells) * t_init
 
-    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        p = self.ic_values_pressure(sd)
-        t = self.ic_values_temperature(sd)
-        z_NaCl = np.zeros_like(p)
-        par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
-        return h_init
-
-    def ic_values_overall_fraction(
-        self, component: pp.Component, sd: pp.Grid
-    ) -> np.ndarray:
-        z = 0.0
-        return z * np.ones(sd.num_cells)
-
 class IC_two_phase_low_pressure(IC_Base):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
@@ -191,19 +176,4 @@ class IC_two_phase_low_pressure(IC_Base):
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         t_init = 353.15
         return np.ones(sd.num_cells) * t_init
-
-    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        p = self.ic_values_pressure(sd)
-        t = self.ic_values_temperature(sd)
-        z_NaCl = np.zeros_like(p)
-        par_points = np.array((z_NaCl, t, p)).T
-        self.vtk_sampler_ptz.sample_at(par_points)
-        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
-        return h_init
-
-    def ic_values_overall_fraction(
-        self, component: pp.Component, sd: pp.Grid
-    ) -> np.ndarray:
-        z = 0.0
-        return z * np.ones(sd.num_cells)
 

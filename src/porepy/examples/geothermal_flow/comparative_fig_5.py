@@ -128,7 +128,7 @@ def find_properties_by_saturation(s_ref_v, p_v, brine_sampler_phz, h_min=0.1, h_
 
     return t_final_v, h_final_v, s_gas_final_v
 
-def find_properties_by_temperature(t_ref_v, p_v, model, h_min=0.1, h_max=3.5, max_iterations=100, tolerance=1e-4):
+def find_properties_by_temperature(t_ref_v, p_v, brine_sampler_phz, h_min=0.1, h_max=3.5, max_iterations=100, tolerance=1e-4):
 
     print("--- Starting Bisection Search for Enthalpy ---")
     num_points = len(t_ref_v)

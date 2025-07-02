@@ -170,7 +170,42 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     ) -> float:
         if residual is None:
             return np.nan
-        residual_norm = np.linalg.norm(residual)
+
+        # Retrieve Equation Indices
+        eq_indices = self.equation_system.assembled_equation_indices
+
+        # Find equation names dynamically
+        try:
+            temp_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_temperature"))
+            s_gas_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_s_gas"))
+            x_nacl_gas_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_x_NaCl_gas"))
+            x_nacl_liq_elim_name = next(name for name in eq_indices if name.startswith("elimination_of_x_NaCl_liq"))
+        except StopIteration as e:
+            raise KeyError(f"A required elimination equation was not found in the equation system. {e}")
+
+        # Map equation types to their corresponding indices
+        diff_eq_indices = {
+            'pressure': eq_indices['mass_balance_equation'],
+            'composition_NaCl': eq_indices['component_mass_balance_equation_NaCl'],
+            'enthalpy': eq_indices['energy_balance_equation'],
+            'temperature': eq_indices[temp_elim_name],
+        }
+        alg_eq_indices = {
+            'saturation': eq_indices[s_gas_elim_name],
+            'mass_fraction_NaCl_gas': eq_indices[x_nacl_gas_elim_name],
+            'mass_fraction_NaCl_liquid': eq_indices[x_nacl_liq_elim_name],
+        }
+
+        res_p_norm = np.linalg.norm(residual[diff_eq_indices['pressure']])
+        res_z_norm = np.linalg.norm(residual[diff_eq_indices['composition_NaCl']])
+        res_h_norm = np.linalg.norm(residual[diff_eq_indices['enthalpy']])
+        res_t_norm = np.linalg.norm(residual[diff_eq_indices['temperature']]) / np.sqrt(len(diff_eq_indices['temperature']))
+        res_s_norm = np.linalg.norm(residual[alg_eq_indices['saturation']])
+        res_xs_v_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_gas']])
+        res_xs_l_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_liquid']])
+
+        sub_residuals = [res_p_norm, res_z_norm, res_h_norm, res_t_norm, res_s_norm, res_xs_v_norm,res_xs_l_norm]
+        residual_norm = np.max(sub_residuals)
         return residual_norm
 
     def solve_linear_system(self) -> np.ndarray:
@@ -233,6 +268,8 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         # Post-processing solution overshoots
         self.postprocessing_overshoots(solution)
+        # solution *= scaling_factor
+        # print(f"Newton correction scale factor: {scaling_factor:.4f}")
 
         # Identify indices where the residual for primary variables exceeds a tolerance
         residual_tolerance = 1.0
@@ -249,32 +286,45 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             enthalpy_high_res_idx,
             temperature_high_res_idx
         ]))
-        self.postprocessing_thermal_overshoots(solution, thermal_indices)
+        # if thermal_indices.size != 0:
+        #     self.postprocessing_thermal_overshoots(solution)
 
         # Scale down the Newton correction if the non-linear solver is struggling
-        if self.nonlinear_solver_statistics.num_iteration > 5:
-            res_norm_km1 = self.nonlinear_solver_statistics.residual_norms[-1]
-            accepted_solution = self.equation_system.get_variable_values(iterate_index=0)
-            print("Scaling Newton correction with current residual norm: ", res_norm_km1)
-            for k_search in range(10):
-                scaling_factor = max(0.01, 0.98 ** (k_search))
-                self.equation_system.set_variable_values(
-                    values=accepted_solution + scaling_factor * solution, additive=False, iterate_index=0
-                )
-                self.update_derived_quantities()
-                search_res_norm = np.linalg.norm(self.equation_system.assemble(evaluate_jacobian=False))
-                if res_norm_km1 > search_res_norm:
-                    self.equation_system.set_variable_values(
-                        values=accepted_solution, additive=False, iterate_index=0
-                    )
-                    break
-                print(f"Newton correction scale factor: {scaling_factor:.4f}")
-                print(f"Search residual norm: {search_res_norm:.4f}")
-            solution *= scaling_factor
+        # if self.nonlinear_solver_statistics.num_iteration > 5:
+        #     scaling_factor = max(0.01, 0.95 ** (self.nonlinear_solver_statistics.num_iteration))
+        #     solution *= scaling_factor
+        #     print(f"Newton correction scale factor: {scaling_factor:.4f}")
+        #
+            # res_norm_km1 = self.nonlinear_solver_statistics.residual_norms[-1]
+            # accepted_solution = self.equation_system.get_variable_values(iterate_index=0)
+            # print("Scaling Newton correction with current residual norm: ", res_norm_km1)
+            # for k_search in range(5):
+            #     scaling_factor = max(0.01, 0.95 ** (k_search))
+            #     self.equation_system.set_variable_values(
+            #         values=accepted_solution + scaling_factor * solution, additive=False, iterate_index=0
+            #     )
+            #     self.update_derived_quantities()
+            #     search_res_norm = np.linalg.norm(self.equation_system.assemble(evaluate_jacobian=False))
+            #     if res_norm_km1 > search_res_norm:
+            #         self.equation_system.set_variable_values(
+            #             values=accepted_solution, additive=False, iterate_index=0
+            #         )
+            #         break
+            #     print(f"Newton correction scale factor: {scaling_factor:.4f}")
+            #     print(f"Search residual norm: {search_res_norm:.4f}")
+            # solution *= scaling_factor
 
         return solution
 
     def postprocessing_overshoots(self, delta_x):
+
+        # Define the lambda expression
+        inside_ratio = lambda arr, min_v, max_v: 1.0 - np.mean((arr < min_v) | (arr > max_v))
+
+
+        _, _, tmin, tmax, _, _ = self.vtk_sampler_ptz.search_space.bounds
+        tmin -= self.vtk_sampler_ptz.translation_factors[1]
+        tmax -= self.vtk_sampler_ptz.translation_factors[1]
 
         zmin, zmax, hmin, hmax, pmin, pmax = self.vtk_sampler.search_space.bounds
         z_scale, h_scale, p_scale = self.vtk_sampler.conversion_factors
@@ -292,8 +342,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         h_dof_idx = self.equation_system.dofs_of(['enthalpy'])
         t_dof_idx = self.equation_system.dofs_of(['temperature'])
         s_dof_idx = self.equation_system.dofs_of(['s_gas'])
-        xw_v_dof_idx = self.equation_system.dofs_of(['x_H2O_gas'])
-        xw_l_dof_idx = self.equation_system.dofs_of(['x_H2O_liq'])
         xs_v_dof_idx = self.equation_system.dofs_of(['x_NaCl_gas'])
         xs_l_dof_idx = self.equation_system.dofs_of(['x_NaCl_liq'])
 
@@ -305,47 +353,39 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # control overshoots in:
         # pressure
         new_p = delta_x[p_dof_idx] + p_0
-        new_p = np.clip(new_p, 1.0e-3, 70.0)
+        p_scale = inside_ratio(new_p, pmin, pmax)
+        new_p = np.clip(new_p, pmin, pmax)
         delta_x[p_dof_idx] = new_p - p_0
 
         # composition
         new_z = delta_x[z_dof_idx] + z_0
-        new_z = np.clip(new_z, 0.0, 0.35)
+        z_scale = inside_ratio(new_z, 0.0, zmax)
+        new_z = np.clip(new_z, 0.0, zmax)
         delta_x[z_dof_idx] = new_z - z_0
 
         # enthalpy
         new_h = delta_x[h_dof_idx] + h_0
-        new_h = np.clip(new_h, 0.0, 4.0)
+        h_scale = inside_ratio(new_h, hmin, hmax)
+        new_h = np.clip(new_h, hmin, hmax)
         delta_x[h_dof_idx] = new_h - h_0
 
         # temperature
         new_t = delta_x[t_dof_idx] + t_0
-        new_t = np.clip(new_t, 0.0, 1273.15)
+        t_scale = inside_ratio(new_t, tmin, tmax)
+        new_t = np.clip(new_t, tmin, tmax)
         delta_x[t_dof_idx] = new_t - t_0
 
         # secondary fractions
-        for dof_idx in [s_dof_idx, xw_v_dof_idx, xw_l_dof_idx, xs_v_dof_idx, xs_l_dof_idx]:
+        for dof_idx in [s_dof_idx, xs_v_dof_idx, xs_l_dof_idx]:
             new_q = delta_x[dof_idx] + x0[dof_idx]
             new_q = np.clip(new_q, 0.0, 1.0)
             delta_x[dof_idx] = new_q - x0[dof_idx]
 
         te = time.time()
         print("Elapsed time for postprocessing overshoots: ", te - tb)
-        return
+        return np.min([p_scale,z_scale,h_scale,t_scale])
 
-    def postprocessing_thermal_overshoots(self, delta_x, alpha_idx):
-
-        if alpha_idx.size == 0:
-            return
-
-        zmin, zmax, hmin, hmax, pmin, pmax = self.vtk_sampler.search_space.bounds
-        z_scale, h_scale, p_scale = self.vtk_sampler.conversion_factors
-        zmin /= z_scale
-        zmax /= z_scale
-        hmin /= h_scale
-        hmax /= h_scale
-        pmin /= p_scale
-        pmax /= p_scale
+    def postprocessing_thermal_overshoots(self, delta_x):
 
         tb = time.time()
         x0 = self.equation_system.get_variable_values(iterate_index=0)
@@ -364,45 +404,35 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # control overshoots in:
         # pressure
         new_p = delta_x[p_dof_idx] + p_0
-        new_p = np.clip(new_p, 1.0e-3, 70.0)
         delta_x[p_dof_idx] = new_p - p_0
 
         # composition
         new_z = delta_x[z_dof_idx] + z_0
-        new_z = np.clip(new_z, 0.0, 0.35)
         delta_x[z_dof_idx] = new_z - z_0
 
         # enthalpy
         new_h = delta_x[h_dof_idx] + h_0
-        new_h = np.clip(new_h, 0.0, 4.0)
         delta_x[h_dof_idx] = new_h - h_0
 
         # temperature
         new_t = delta_x[t_dof_idx] + t_0
-        new_t = np.clip(new_t, 0.0, 1273.15)
-        delta_x[t_dof_idx] = new_t - t_0
-
-        # temperature
-        new_t = delta_x[t_dof_idx] + t_0
-        new_t = np.clip(new_t, 0.0, 1273.15)
         delta_x[t_dof_idx] = new_t - t_0
 
         # saturation
         new_s = delta_x[s_dof_idx] + s_0
-        new_s = np.clip(new_s, 0.0, 1.0)
-        idx_tp = np.where(np.abs(new_s * (1 - new_s)) > 0.0)[0]
-        # Get indexes of values that are close to 0.0 or close to 1.0
+        idx_mp = np.where(np.abs(new_s * (1 - new_s)) > 0.0)[0]
         idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
 
-        if idx_tp.size != 0:
+        if idx_mp.size != 0:
             # correct temperature from enthalpy
-            par_points = np.array((new_z[idx_tp], new_h[idx_tp], new_p[idx_tp])).T
+            par_points = np.array((new_z[idx_mp], new_h[idx_mp], new_p[idx_mp])).T
             self.vtk_sampler.sample_at(par_points)
             star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
-            delta_x[t_dof_idx[idx_tp]] = star_t - t_0[idx_tp]
+            delta_x[t_dof_idx[idx_mp]] = star_t - t_0[idx_mp]
             star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
             star_s = np.clip(star_s, 0.0, 1.0)
-            delta_x[s_dof_idx[idx_tp]] = star_s - s_0[idx_tp]
+            delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
+
         if idx_sp.size != 0:
             # correct enthalpy from temperature
             par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
