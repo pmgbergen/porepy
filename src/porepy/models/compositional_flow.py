@@ -443,10 +443,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    element_mass_mobility: Callable[
-        [pp.Element, pp.SubdomainsOrBoundaries], pp.ad.Operator
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
@@ -1079,6 +1075,20 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
 
         """
         return np.zeros(bg.num_cells)
+
+    def bc_data_element_flux_key(self, element: pp.Element) -> str:
+        r"""
+        Parameters:
+            element: An element in the :attr:`fluid`.
+
+        Returns:
+            The name under which BC data in the form of
+            :math:`\mathbf{f}\cdot\mathbf{n}` for the advective flux :math:`\mathbf{f}`
+            in :class:`ElementMassBalance` are stored in the dictionaries in the
+            :attr:`mdg`.
+
+        """
+        return f"element_flux_{element.name}"
 
 
 class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
@@ -1782,6 +1792,12 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
+    element_mass_mobility: Callable[
+        [pp.Element, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
@@ -1795,10 +1811,13 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
-    bc_data_component_flux_key: Callable[[pp.Component], str]
+    bc_data_element_flux_key: Callable[[pp.Element], str]
     """See :class:`BoundaryConditionsMulticomponent`."""
 
     has_independent_fraction: Callable[[pp.Component], bool]
+    """Provided by mixin for compositional variables."""
+
+    has_independent_fluid_fraction: Callable[[pp.Element], bool]
     """Provided by mixin for compositional variables."""
 
     def _element_mass_balance_equation_name(self, element: pp.Element) -> str:
@@ -1831,7 +1850,7 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
                 sd_eq = self.element_mass_balance_equation(element, subdomains)
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
-    def element_mass_balance_equation(  # TODO
+    def element_mass_balance_equation(
         self, element: pp.Element, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Mass balance equation for subdomains for a given element.
@@ -1848,7 +1867,7 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.element_mass(element, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(element, subdomains)  # TODO
+        flux = self.element_flux(element, subdomains)
         source = self.element_source(element, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -1940,12 +1959,10 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             if is_fractional_flow(self):
-                return self.advection_weight_component_mass_balance(
-                    component, domains
-                ) * self.darcy_flux(domains)
+                raise NotImplementedError("Not implemented!")
             else:
                 return self.create_boundary_operator(
-                    self.bc_data_component_flux_key(component),
+                    self.bc_data_element_flux_key(element),
                     cast(Sequence[pp.BoundaryGrid], domains),
                 )
 
@@ -1956,23 +1973,23 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
         flux = self.advective_flux(
             domains,
-            self.advection_weight_component_mass_balance(component, domains),
+            self.advection_weight_element_mass_balance(element, domains),
             self.mobility_discretization(domains),
-            self.boundary_component_flux(component, domains),
+            self.boundary_element_flux(element, domains),
             cast(
                 Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-                partial(self.interface_component_flux, component),
+                partial(self.interface_element_flux, element),
             ),
         )
-        flux.set_name(f"component_flux_{component.name}")
+        flux.set_name(f"element_flux_{element.name}")
         return flux
 
-    def boundary_component_flux(
-        self, component: pp.Component, domains: Sequence[pp.Grid]
+    def boundary_element_flux(
+        self, element: pp.Element, domains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
 
         Returns:
             An operator representing the combined BC data for the advective flux on the
@@ -1984,15 +2001,15 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
             subdomains=domains,
             dirichlet_operator=cast(
                 Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-                partial(self.advection_weight_component_mass_balance, component),
+                partial(self.advection_weight_element_mass_balance, element),
             ),
             neumann_operator=cast(
                 Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-                partial(self.component_flux, component),
+                partial(self.element_flux, element),
             ),
             robin_operator=None,
             bc_type=self.bc_type_fluid_flux,
-            name=f"bc_values_component_flux_{component.name}",
+            name=f"bc_values_element_flux_{element.name}",
         )
 
     def boundary_fluid_flux(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
@@ -2022,73 +2039,73 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         """
         return pp.ad.sum_operator_list(
             [
-                self.boundary_component_flux(component, subdomains)
-                for component in self.fluid.components
+                self.boundary_element_flux(element, subdomains)
+                for element in self.fluid.elements
             ],
             "bc_values_total_fluid_flux",
         )
 
-    def interface_component_flux(
-        self, component: pp.Component, interfaces: list[pp.MortarGrid]
+    def interface_element_flux(
+        self, element: pp.Element, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
-        """Interface component flux using a the interface darcy flux and
-        :meth:`advection_weight_component_mass_balance`.
+        """Interface element flux using an interface darcy flux and
+        :meth:`advection_weight_element_mass_balance`.
 
         See Also:
             :attr:`interface_advective_flux`
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             interfaces: A list of mortar grids in the :attr:`mdg` grid.
 
         Returns:
-            The interface flux of mass corresponding to the given component.
+            The interface flux of mass corresponding to the given element.
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advection_weight_component_mass_balance(component, subdomains)
+        weight = self.advection_weight_element_mass_balance(element, subdomains)
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, weight, discr)
-        flux.set_name(f"interface_component_flux_{component.name}")
+        flux.set_name(f"interface_element_flux_{element.name}")
         return flux
 
-    def well_component_flux(
-        self, component: pp.Component, interfaces: list[pp.MortarGrid]
+    def well_element_flux(
+        self, element: pp.Element, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
-        """Well component flux using a the well flux and
-        :meth:`advection_weight_component_mass_balance`.
+        """Well element flux using a the well flux and
+        :meth:`advection_weight_element_mass_balance`.
 
         See Also:
             :attr:`well_advective_flux`
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             interfaces: A list of mortar grids in the :attr:`mdg` grid.
 
         Returns:
-            The well flux of mass corresponding to the given component.
+            The well flux of mass corresponding to the given element.
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advection_weight_component_mass_balance(component, subdomains)
+        weight = self.advection_weight_element_mass_balance(element, subdomains)
         flux: pp.ad.Operator = self.well_advective_flux(interfaces, weight, discr)
-        flux.set_name(f"well_component_flux_{component.name}")
+        flux.set_name(f"well_element_flux_{element.name}")
         return flux
 
     def element_source(
-        self, component: pp.Component, subdomains: list[pp.Grid]
+        self, element: pp.Element, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Source term in a component's mass balance equation.
+        """Source term in an element's mass balance equation.
 
         Analogous to
         :meth:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.fluid_source`
-        , but using :meth:`interface_component_flux` and :meth:`well_component_flux` to
-        obtain the correct component flux accross
+        , but using :meth:`interface_element_flux` and :meth:`well_element_flux` to
+        obtain the correct element flux accross
         interfaces.
 
         Parameters:
-            component: A component in the :attr:`fluid`.
+            element: An element in the :attr:`fluid`.
             subdomains: A list of subdomains in the :attr:`mdg`.
 
         Returns:
@@ -2106,17 +2123,17 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
             self.mdg, well_subdomains, well_interfaces
         )
         subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
-        source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
-            component, interfaces
+        source = projection.mortar_to_secondary_int() @ self.interface_element_flux(
+            element, interfaces
         )
-        source.set_name(f"interface_component_flux_source_{component.name}")
+        source.set_name(f"interface_element_flux_source_{element.name}")
         well_fluxes = (
             well_projection.mortar_to_secondary_int()
-            @ self.well_component_flux(component, well_interfaces)
+            @ self.well_element_flux(element, well_interfaces)
             - well_projection.mortar_to_primary_int()
-            @ self.well_component_flux(component, well_interfaces)
+            @ self.well_element_flux(element, well_interfaces)
         )
-        well_fluxes.set_name(f"well_component_flux_source_{component.name}")
+        well_fluxes.set_name(f"well_element_flux_source_{element.name}")
         source += subdomain_projection.cell_restriction(subdomains) @ (
             subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
         )
