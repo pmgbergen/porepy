@@ -775,15 +775,22 @@ class FluidBuoyancy(pp.PorePyModel):
                     discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
                     discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
+                    diffusive_upwind = self.mobility_discretization(domains)
+
+                    # TODO: Fixed dimensional implementation. Needs md-part
+                    h_gamma_upwind: pp.ad.Operator = (
+                        diffusive_upwind.upwind() @ h_gamma
+                    )
+
                     # TODO: Fixed dimensional implementation. Needs md-part
                     f_gamma_upwind: pp.ad.Operator = (
-                        discr_gamma.upwind() @ (h_gamma * f_gamma)
+                        discr_gamma.upwind() @ f_gamma
                     )  # well-defined fraction flow on facets
                     f_delta_upwind: pp.ad.Operator = (
                         discr_delta.upwind() @ f_delta
                     )  # well-defined fraction flow on facets
 
-                    b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                    b_flux_gamma_delta = h_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
                     b_fluxes.append(b_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(

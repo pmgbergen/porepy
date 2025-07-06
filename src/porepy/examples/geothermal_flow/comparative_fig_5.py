@@ -1,12 +1,50 @@
 import pandas as pd
+import pyvista as pv
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
-figure_type = "vertical"
+figure_type = "horizontal"
 
-parametric_space_ref_level = 0
+
+def extract_cell_data(file_path: str, field_names: list) -> dict:
+    try:
+        # Read the VTU file
+        mesh = pv.read(file_path)
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+        return {}
+
+    # Get the coordinates of the cell centers
+    cell_centers = mesh.cell_centers().points
+
+    # Initialize the dictionary with cell center coordinates
+    extracted_data = {'xc': cell_centers/1000.0}
+
+    # Extract each requested field from the cell data
+    for field in field_names:
+        if field in mesh.cell_data:
+            extracted_data[field] = mesh.cell_data[field]
+        else:
+            print(
+                f"Warning: Field '{field}' not found in the cell data. Available fields: {list(mesh.cell_data.keys())}")
+
+    return extracted_data
+
+
+
+# Create the file
+vtk_file = "benchmark_figures_data/porepy_vtks/fig5_horizontal_time_idx_000200_l2_up.vtu"
+
+# 2. Specify the fields you want to extract
+fields_to_extract = ['pressure', 'temperature', 's_gas', 'enthalpy']
+
+# 3. Call the function to extract the data
+pp_data = extract_cell_data(vtk_file, fields_to_extract)
+
+parametric_space_ref_level = 2
 folder_prefix = "src/porepy/examples/geothermal_flow/"
 file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
@@ -26,6 +64,10 @@ file_name_ptz = (
 
 brine_sampler_phz = VTKSampler(file_name_phz)
 brine_sampler_phz.conversion_factors = (1.0, 1.0e3, 10.0)  # (z,h,p)
+
+brine_sampler_ptz = VTKSampler(file_name_ptz)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 10.0)  # (z,t,p)
+brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
 
 # --- 1. Load Data and Create Interpolators ---
 print("\nStep 1: Loading data and creating interpolators...")
@@ -63,6 +105,7 @@ print("\nStep 2: Resampling data on a regular grid...")
 # Define a regular distance grid with 0.1 km resolution
 resolution = 0.025
 distance_regular = np.arange(0.0, 2.0 + resolution, resolution)
+distance_xc = pp_data['xc'][:,0]
 
 # Create a new DataFrame to hold the interpolated results
 df_interpolated = pd.DataFrame({'Distance (km)': distance_regular})
@@ -189,7 +232,11 @@ t_final_v, h_final_v, s_gas_final_v = np.zeros_like(p_v), np.zeros_like(p_v), np
 
 t_final_v[sp_idx], h_final_v[sp_idx], s_gas_final_v[sp_idx] = find_properties_by_temperature(t_ref_v[sp_idx], p_v[sp_idx], brine_sampler_phz)
 t_final_v[mp_idx], h_final_v[mp_idx], s_gas_final_v[mp_idx] = find_properties_by_saturation(1.0-s_ref_v[mp_idx], p_v[mp_idx], brine_sampler_phz)
-s_liq = 1.0 - s_gas_final_v
+s_liq = s_ref_v
+
+par_points = np.array((np.zeros_like(t_ref_v), t_ref_v, p_v)).T
+brine_sampler_ptz.sample_at(par_points)
+star_h = brine_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
 
 # --- 3. Plot the Interpolated Quantities ---
 print("\nStep 3: Generating plots...")
@@ -209,30 +256,38 @@ ax1_twin = ax1.twinx()  # Create a secondary y-axis
 # Plot Temperature on the primary y-axis (left)
 color_temp = 'red'
 ax1.set_ylabel('Temperature (°C)', color=color_temp)
-ax1.plot(df_interpolated['Distance (km)'], t_final_v - 273.15, color=color_temp, marker='o',
-         linestyle='-', label='Temperature')
+ax1.plot(df_interpolated['Distance (km)'], t_ref_v - 273.15, color=color_temp,
+         linestyle='-', label='Temperature ref')
+ax1.plot(distance_xc, pp_data['temperature'] - 273.15, color=color_temp, marker='o',
+         linestyle='-', label='Temperature num')
 ax1.tick_params(axis='y', labelcolor=color_temp)
 ax1.grid(True, linestyle=':')
 
 # Plot Pressure on the secondary y-axis (right)
 color_pressure = 'blue'
 ax1_twin.set_ylabel('Pressure (MPa)', color=color_pressure)
-ax1_twin.plot(df_interpolated['Distance (km)'], df_interpolated['Pressure (MPa)'], color=color_pressure, marker='s',
-              linestyle='--', label='Pressure')
+ax1_twin.plot(df_interpolated['Distance (km)'], df_interpolated['Pressure (MPa)'], color=color_pressure,
+              linestyle='--', label='Pressure ref')
+ax1_twin.plot(distance_xc, pp_data['pressure'], color=color_pressure, marker='o',
+              linestyle='--', label='Pressure num')
 ax1_twin.tick_params(axis='y', labelcolor=color_pressure)
 
 ax2_twin = ax2.twinx()  # Create a secondary y-axis
 # Plot Pressure on the secondary y-axis (right)
 color_pressure = 'blue'
 ax2_twin.set_ylabel('Enthalpy (MJ/Kg)', color=color_pressure)
-ax2_twin.plot(df_interpolated['Distance (km)'], h_final_v, color=color_pressure, marker='s',
-              linestyle='--', label='Enthalpy')
+ax2_twin.plot(df_interpolated['Distance (km)'], h_final_v, color=color_pressure,
+              linestyle='--', label='Enthalpy ref')
+ax2_twin.plot(distance_xc, pp_data['enthalpy'], color=color_pressure, marker='o',
+              linestyle='--', label='Enthalpy num')
 ax2_twin.tick_params(axis='y', labelcolor=color_pressure)
 
 color_sat = 'green'
 ax2.set_ylabel('Liquid Saturation', color=color_sat)
-ax2.plot(df_interpolated['Distance (km)'], s_liq, color=color_sat, marker='^',
-         linestyle='-', label='Liquid Saturation')
+ax2.plot(df_interpolated['Distance (km)'], s_liq, color=color_sat,
+         linestyle='--', label='Liquid Saturation ref')
+ax2.plot(distance_xc, 1.0 - pp_data['s_gas'], color=color_sat, marker='o',
+         linestyle='--', label='Liquid Saturation num')
 ax2.tick_params(axis='y', labelcolor=color_sat)
 ax2.set_ylim(0, 1.1)
 ax2.grid(True, linestyle=':')
@@ -247,7 +302,9 @@ lines2, labels2 = ax1_twin.get_legend_handles_labels()
 ax1_twin.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
 
 # Set legend for the second plot
-ax2.legend(loc='upper right')
+lines1, labels1 = ax2.get_legend_handles_labels()
+lines2, labels2 = ax2_twin.get_legend_handles_labels()
+ax2_twin.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
 
 # Adjust layout and save the figure
 fig.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust for suptitle

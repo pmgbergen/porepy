@@ -200,7 +200,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         res_z_norm = np.linalg.norm(residual[diff_eq_indices['composition_NaCl']])
         res_h_norm = np.linalg.norm(residual[diff_eq_indices['enthalpy']])
         res_t_norm = np.linalg.norm(residual[diff_eq_indices['temperature']]) / np.sqrt(len(diff_eq_indices['temperature']))
-        res_s_norm = np.linalg.norm(residual[alg_eq_indices['saturation']])
+        res_s_norm = np.linalg.norm(residual[alg_eq_indices['saturation']]) / np.sqrt(len(alg_eq_indices['saturation']))
         res_xs_v_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_gas']])
         res_xs_l_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_liquid']])
 
@@ -286,20 +286,29 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             enthalpy_high_res_idx,
             temperature_high_res_idx
         ]))
-        # if thermal_indices.size != 0:
-        #     self.postprocessing_thermal_overshoots(solution)
+        if thermal_indices.size != 0 and self.nonlinear_solver_statistics.num_iteration < 5:
+            self.postprocessing_thermal_overshoots(solution)
 
         # Scale down the Newton correction if the non-linear solver is struggling
-        # if self.nonlinear_solver_statistics.num_iteration > 5:
-        #     scaling_factor = max(0.01, 0.95 ** (self.nonlinear_solver_statistics.num_iteration))
-        #     solution *= scaling_factor
-        #     print(f"Newton correction scale factor: {scaling_factor:.4f}")
-        #
+        if self.nonlinear_solver_statistics.num_iteration > 5:
+
+            scaling_factor = max(0.001, 0.98 ** (self.nonlinear_solver_statistics.num_iteration))
+            solution *= scaling_factor
+            print(f"Newton correction scale factor: {scaling_factor:.4f}")
+
+
+            # scaling_factor = self.armijo_line_search(solution)
+            # solution *= scaling_factor
+            # print(f"Newton correction scale factor: {scaling_factor:.4f}")
+
+
+
+
             # res_norm_km1 = self.nonlinear_solver_statistics.residual_norms[-1]
             # accepted_solution = self.equation_system.get_variable_values(iterate_index=0)
             # print("Scaling Newton correction with current residual norm: ", res_norm_km1)
-            # for k_search in range(5):
-            #     scaling_factor = max(0.01, 0.95 ** (k_search))
+            # for k_search in range(10):
+            #     scaling_factor = max(0.001, 0.9 ** (k_search))
             #     self.equation_system.set_variable_values(
             #         values=accepted_solution + scaling_factor * solution, additive=False, iterate_index=0
             #     )
@@ -424,9 +433,10 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
 
         if idx_mp.size != 0:
-            # correct temperature from enthalpy
+            # correct saturation and temperature from enthalpy
             par_points = np.array((new_z[idx_mp], new_h[idx_mp], new_p[idx_mp])).T
             self.vtk_sampler.sample_at(par_points)
+
             star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
             delta_x[t_dof_idx[idx_mp]] = star_t - t_0[idx_mp]
             star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
