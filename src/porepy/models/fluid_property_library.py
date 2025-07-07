@@ -667,26 +667,15 @@ class FluidBuoyancy(pp.PorePyModel):
                     discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
                     discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
-                    diffusive_upwind = self.mobility_discretization(domains)
-
-                    # TODO: Fixed dimensional implementation. Needs md-part
-                    chi_xi_gamma_upwind: pp.ad.Operator = (
-                        diffusive_upwind.upwind() @ chi_xi_gamma
-                    )
-
                     # TODO: Fixed dimensional implementation. Needs md-part
                     f_gamma_upwind: pp.ad.Operator = (
-                        discr_gamma.upwind() @ f_gamma
+                        discr_gamma.upwind() @ (chi_xi_gamma * f_gamma)
                     )  # well-defined fraction flow on facets
                     f_delta_upwind: pp.ad.Operator = (
                         discr_delta.upwind() @ f_delta
                     )  # well-defined fraction flow on facets
 
-                    b_flux_gamma_delta = (
-                        chi_xi_gamma_upwind
-                        * (f_gamma_upwind * f_delta_upwind)
-                        * w_flux_gamma_delta
-                    )
+                    b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
 
                     # HU on interfaces
                     interfaces = self.subdomains_to_interfaces(domains, [1])
@@ -775,22 +764,22 @@ class FluidBuoyancy(pp.PorePyModel):
                     discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
                     discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
-                    diffusive_upwind = self.mobility_discretization(domains)
+                    # diffusive_upwind = self.mobility_discretization(domains)
 
-                    # TODO: Fixed dimensional implementation. Needs md-part
-                    h_gamma_upwind: pp.ad.Operator = (
-                        diffusive_upwind.upwind() @ h_gamma
-                    )
+                    # # TODO: Fixed dimensional implementation. Needs md-part
+                    # h_gamma_upwind: pp.ad.Operator = (
+                    #     diffusive_upwind.upwind() @ h_gamma
+                    # )
 
                     # TODO: Fixed dimensional implementation. Needs md-part
                     f_gamma_upwind: pp.ad.Operator = (
-                        discr_gamma.upwind() @ f_gamma
+                        discr_gamma.upwind() @ (h_gamma * f_gamma)
                     )  # well-defined fraction flow on facets
                     f_delta_upwind: pp.ad.Operator = (
                         discr_delta.upwind() @ f_delta
                     )  # well-defined fraction flow on facets
 
-                    b_flux_gamma_delta = h_gamma_upwind * (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
+                    b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
                     b_fluxes.append(b_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(
