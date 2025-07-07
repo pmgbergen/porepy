@@ -693,7 +693,7 @@ class SolutionStrategy(pp.PorePyModel):
             )
             # Residual based norm
             residual_norm = self.compute_residual_norm(residual, reference_residual)
-            logger.debug(
+            logger.info(
                 f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
@@ -1191,3 +1191,140 @@ class ContactIndicators(pp.PorePyModel):
         p = self.params.get("traction_estimate_p_mean", 5.0)
         p_mean = np.mean(val**p, axis=0) ** (1 / p)
         return float(p_mean)
+
+
+class TractionStabilization(pp.PorePyModel):
+    """Mixin class for traction stabilization.
+
+    This class provides methods for computing the traction stabilization term and the
+    corresponding operator. It is intended to be used in models that include contact
+    mechanics.
+
+    """
+
+    traction_stabilization_keyword: str = "traction_stabilization"
+    """Keyword for the traction stabilization term in the model parameters."""
+
+    def interface_force_balance_equation(
+        self,
+        interfaces: list[pp.MortarGrid],
+    ) -> pp.ad.Operator:
+        """Add traction stabilization equations to the interface force balance.
+
+        Parameters:
+            interfaces: Fracture-matrix interfaces.
+
+        Returns:
+            Operator representing the force balance equation.
+
+        """
+        eq = super().interface_force_balance_equation(interfaces)
+        stab = self.traction_stabilization_discretizations(
+            interfaces
+        ) @ self.interface_displacement(interfaces)
+        stab.set_name("traction_stabilization_term")
+        return eq + stab
+
+    def traction_stabilization_discretizations(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.SparseArray:
+        """Discretization object for the Darcy flux term.
+
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Discretization of the Darcy flux.
+
+        """
+        if not interfaces:
+            # No traction stabilization discretization if no interfaces are defined.
+            return pp.ad.SparseArray(
+                sps.csr_matrix((0, 0)), "traction_stabilization_discretization"
+            )
+        arrays = []
+        # Loop over all interfaces and compute the traction stabilization discretization
+        # for each interface.
+        for interface in interfaces:
+            # Check if the interface is of the correct dimension for traction.
+            if interface.dim != self.nd - 1:
+                raise ValueError(
+                    f"Traction stabilization is only defined for interfaces of "
+                    f"dimension {self.nd - 1}, but got {interface.dim}."
+                )
+            # Get rotation matrix for the local coordinates of the interface.
+            sd_secondary = self.mdg.interface_to_subdomain_pair(interface)[1]
+            # Loop over all side grids of the interface and compute the traction
+            # stabilization discretization for each side grid.
+            for sg in interface.side_grids.values():
+                # Compute scalar laplace discretization.
+                discr = self.traction_stabilization_discretization(sg)
+                flux = discr._flux_discretization(
+                    sd=sg,
+                    k=self.traction_stabilization_coefficient(sg),
+                    bnd=pp.BoundaryCondition(sg),
+                    ambient_dimension=self.nd,
+                )[0]
+                # Expand to tangential components (first nd-1 entries) of the full
+                # dimension. TODO: Use array_operations?
+                dim = self.nd - 1
+                all_inds = np.reshape(
+                    np.arange(sg.num_cells * self.nd), (sg.num_cells, self.nd)
+                )
+                row_inds = all_inds[:, :dim].ravel(order="C")
+                col_inds = np.repeat(np.arange(sg.num_cells), dim)
+                scalar_to_tangential = sps.csr_matrix(
+                    (np.ones(row_inds.shape[0]), (row_inds, col_inds)),
+                    shape=(sg.num_cells * self.nd, sg.num_cells),
+                )
+                # Combine the flux and divergence operator.
+                scalar_laplacian = sg.divergence(dim=1) @ flux
+                # Rotation matrix from global to local coordinates.
+                rot = self.mdg.subdomain_data(sd_secondary)[
+                    "tangential_normal_projection"
+                ].project_tangential_normal(sg.num_cells)
+                # Compute the traction stabilization discretization. From right to
+                # left: expand to tangential components, rotate to local coordinates,
+                # apply the laplace operator, and finally rotate back to the global
+                # coordinates.
+                rot_and_expand = scalar_to_tangential.T @ rot
+                ar = rot_and_expand.T @ scalar_laplacian @ rot_and_expand
+                arrays.append(ar)
+        # Combine all arrays into a single operator for all interfaces.
+        array = pp.matrix_operations.csr_matrix_from_sparse_blocks(arrays)
+        return pp.ad.SparseArray(array, "traction_stabilization_discretization")
+
+    def traction_stabilization_coefficient(self, g: pp.Grid) -> pp.SecondOrderTensor:
+        """Compute the traction stabilization coefficient.
+
+        The coefficient is a second order tensor that is used in the traction
+        stabilization discretization. It is typically a function of the material
+        properties and the grid.
+
+        Parameters:
+            g: Grid for which the coefficient is computed.
+
+        Returns:
+            Second order tensor representing the traction stabilization coefficient.
+
+        """
+        h = np.power(g.cell_volumes, 1 / g.dim)
+        # The traction stabilization coefficient is defined as the cell size scaled
+        # by the material properties.
+        bulk = self.solid.lame_lambda + 2 / 3 * self.solid.shear_modulus
+        # The scaling factor is used to avoid significant impact on the solution and
+        # should be small.
+        eps = self.params.get("traction_stabilization_scaling", 1e-5)
+        return pp.SecondOrderTensor(eps * bulk * h)
+
+    def traction_stabilization_discretization(self, g: pp.Grid) -> pp.FVElliptic:
+        """Discretization of the traction stabilization term.
+
+        Parameters:
+            interfaces: List of interfaces where the traction stabilization is defined.
+
+        Returns:
+            Operator for the traction stabilization discretization.
+
+        """
+        return pp.Mpfa(self.traction_stabilization_keyword)
