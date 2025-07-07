@@ -126,11 +126,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
                 "Unified equilibrium models need at least to modelled phases,"
                 + f" {nphase} given."
             )
-        if ncomp < 2:
-            raise CompositionalModellingError(
-                "Unified equilibrium models require at least to components in the fluid"
-                + f" mixture, {ncomp} given."
-            )
+
         if not self._is_reference_phase_eliminated():
             warnings.warn(
                 "Unified equilibrium model included, but reference phase not"

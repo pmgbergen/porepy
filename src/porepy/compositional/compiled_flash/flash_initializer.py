@@ -235,13 +235,27 @@ def fractions_from_rr(
     else:
         K = get_K_values(p, T, x, x_p)
 
+    # NOTE If only 1 component, we do not iterate using the Rachford Rice equations.
+    # We check the K value. If they are between 0 and 1, it's liquid, if they are above
+    # 1, its vapor. If it is around 1, the vapor fraction is not determinable without
+    # energy, hence we set it to 0.5 and return.
+    if ncomp == 1:
+        N1 = 1
+
     # Starting iterations using Rachford Rice.
     for n in range(N1):
         # Solving RR for phase fractions.
         if nphase == 2:
             # Only one independent phase assumed.
             K_ = K[0]
-            if ncomp == 2:
+            if ncomp == 1:
+                if K_[0] < 1.0 - 1e-4:
+                    y_ = 0.0
+                elif K_[0] > 1.0 + 1e-4:
+                    y_ = 1.0
+                else:
+                    y_ = 0.5
+            elif ncomp == 2:
                 y_ = _rr_binary_vle_inversion(z, K_)
             else:  # TODO  efficient BRENT method (scipy.optimize.brentq)
                 raise NotImplementedError("Multicomponent RR solution not implemented.")
@@ -439,7 +453,6 @@ class FlashInitializer:
         nphase = fluid.num_phases
 
         assert nphase == 2, "Supports only 2-phase mixtures."
-        assert ncomp >= 2, "Must have at least two components."
 
         self._npnc: tuple[int, int] = (nphase, ncomp)
         """Tuple containing the number of phases and components in the fluid."""

@@ -290,8 +290,11 @@ def parse_generic_arg(
 
     # The final standard elements of the generic argument are the independent overall
     # fractions.
-    z[1:] = X_gen[-(i + ncomp - 1) : -i]
-    z[0] = 1.0 - z.sum()
+    if ncomp > 1:
+        z[1:] = X_gen[-(i + ncomp - 1) : -i]
+        z[0] = 1.0 - z.sum()
+    else:
+        z[0] = 1.0
     i += ncomp - 1
 
     # Other parameters, if any.
@@ -408,7 +411,10 @@ def assemble_generic_arg(
         raise NotImplementedError(f"Unknown flash type {flash_type}.")
 
     # Finally, overall fractions.
-    X_gen_z = z[1:]
+    if ncomp > 1:
+        X_gen_z = z[1:]
+    else:
+        X_gen_z = np.zeros((0,))
     i += ncomp - 1
 
     # Create generic argument.
@@ -568,6 +574,17 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
 
     Number of phases and components is determined from the chape of ``x``.
 
+    Note:
+        In the 1-component case, the mass conservation equation can be obtained by
+        summing the complementarity conditions and applying unity of fractions.
+
+        In the multicomponent case, the mass conservation of the reference component can
+        also be obtained by summation of complementarity conditions and other mass
+        conservation equations.
+
+        It is hence in all cases an redundant equation for the reference component, and
+        the respective result is implemented as an empty array.
+
     Parameters:
         x: ``shape=(num_phases, num_components)``
 
@@ -585,10 +602,13 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
         component, except the first one (in ``z``).
 
     """
-    # tensordot is the fastest option for non-contiguous arrays,
-    # but currently unsupported by numba TODO
-    # return (z - np.tensordot(y, x, axes=1))[1:]
-    return (np.dot(y, x) - z)[1:]
+    if z.size > 1:
+        # tensordot is the fastest option for non-contiguous arrays,
+        # but currently unsupported by numba TODO
+        # return (z - np.tensordot(y, x, axes=1))[1:]
+        return (np.dot(y, x) - z)[1:]
+    else:
+        return np.empty(0)
 
 
 @nb.njit(
@@ -619,6 +639,10 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """
     nphase, ncomp = x.shape
     nip = nphase - 1  # number of independent phases
+    # In the 1-component case, return an array with zero rows, but proper amount of
+    # columns (compatibility with the general assembly of the flash system).
+    if ncomp == 1:
+        return np.empty((0, 2 + 2 * nip + nphase * ncomp))
 
     # Must fill with zeros, since slightly sparse and below fill-up does not cover
     # elements which are zero.

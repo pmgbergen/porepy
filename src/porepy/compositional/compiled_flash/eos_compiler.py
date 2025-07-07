@@ -930,17 +930,23 @@ class EoSCompiler(EquationOfState):
 
         """
 
+        # NOTE this first case also covers the single-component case in the unified
+        # setting. The extended fractions are always passed.
+        if len(thermodynamic_input) == 3:
+            x = thermodynamic_input[-1]
         # Partial fractions are passed individually.
-        if len(thermodynamic_input) == 2 + self._nc:
+        elif len(thermodynamic_input) == 2 + self._nc:
             x = np.array(thermodynamic_input[-self._nc :])
             thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
-        elif len(thermodynamic_input) == 3:
-            x = thermodynamic_input[-1]
         else:
             raise ValueError(
                 "Compiled EoS expects input in format (p, T, x_matrix) or "
                 "(p, T, x_1, .., x_n)."
             )
+
+        # Reshape to matrix in the single-component case for compatibility reasons.
+        if self._nc == 1 and x.ndim == 1:
+            x = x.reshape((1, x.shape[0]))
 
         assert x.ndim == 2, (
             "Could not extract partial fractions as 2D array from thermodynamic input."

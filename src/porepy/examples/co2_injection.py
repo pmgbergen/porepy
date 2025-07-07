@@ -15,7 +15,16 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-FRACTIONAL_FLOW: bool = True
+h_MESH: float = 1.0
+"""Mesh size."""
+# 4.        308 cells
+# 2.        1204 cells
+# 1.        4636 cells
+# 5e-1      18,464 cells
+# 2.5e-1    73,748 cells
+# 1e-1      462,340 cells
+
+FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -42,6 +51,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_che
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
+from scipy.linalg import lstsq
 
 if DISABLE_COMPILATION:
     import os
@@ -62,15 +72,6 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 class _FlowConfiguration(pp.PorePyModel):
     """Helper class to bundle the configuration of pressure, temperature and mass
     for in- and outflow."""
-
-    # Mesh size.
-    _h_MESH: float = 5e-1
-    # 4.        308 cells
-    # 2.        1204 cells
-    # 1.        4636 cells
-    # 5e-1      18,464 cells
-    # 2.5e-1    73,748 cells
-    # 1e-1      462,340 cells
 
     # Initial values.
     _p_INIT: float = 20e6
@@ -329,262 +330,10 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
-                    self,  # type:ignore[arg-type]
+                    self,
                     state,
                 )
         self._time_tracker["flash"].append(time.time() - start)
-
-    def update_derived_quantities(self):
-        """Normalizes fractional variables in the case of violation of the bound
-        [0,1]."""
-        subdomains = self.mdg.subdomains()
-
-        fluid_state = self.current_fluid_state(subdomains)
-
-        # Normalizing fractions in case of overshooting
-        eps = 1e-7  # binding overall fractions away from zero
-        z = fluid_state.z
-        z[z >= 1.0] = 1.0 - eps
-        z[z <= 0.0] = 0.0 + eps
-        z = pp.compositional.normalize_rows(z.T).T
-
-        s = fluid_state.sat
-        s[s >= 1.0] = 1.0
-        s[s <= 0.0] = 0.0
-        s = pp.compositional.normalize_rows(s.T).T
-
-        y = fluid_state.y
-        y[y >= 1.0] = 1.0
-        y[y <= 0.0] = 0.0
-        y = pp.compositional.normalize_rows(y.T).T
-
-        for z_i, comp in zip(z, self.fluid.components):
-            if self.has_independent_fraction(comp):
-                self.equation_system.set_variable_values(
-                    z_i,
-                    [comp.fraction(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-        for j, data in enumerate(zip(s, y, self.fluid.phases)):
-            s_j, y_j, phase = data
-            if self.has_independent_saturation(phase):
-                self.equation_system.set_variable_values(
-                    s_j,
-                    [phase.saturation(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-            if self.has_independent_fraction(phase):
-                self.equation_system.set_variable_values(
-                    y_j,
-                    [phase.fraction(subdomains)],  # type:ignore[arg-type]
-                    iterate_index=0,
-                )
-
-            phase_state = fluid_state.phases[j]
-            x_sum = phase_state.x.sum(axis=0)
-            idx = x_sum > 1.0
-            if np.any(idx):
-                phase_state.x[:, idx] = pp.compositional.normalize_rows(
-                    phase_state.x[:, idx].T
-                ).T
-
-            phase_state.x[phase_state.x < 0] = 0.0
-            phase_state.x[phase_state.x > 1.0] = 1.0
-
-            for i, comp in enumerate(self.fluid.components):
-                if self.has_independent_extended_fraction(comp, phase):
-                    self.equation_system.set_variable_values(
-                        phase_state.x[i],
-                        [phase.extended_fraction_of[comp](subdomains)],
-                        iterate_index=0,
-                    )
-
-        super().update_derived_quantities()
-
-    def postprocess_flash(
-        self,
-        sd: pp.Grid,
-        equilibrium_results: tuple[pp.compositional.FluidProperties, np.ndarray],
-        state: Optional[np.ndarray] = None,
-    ) -> pp.compositional.FluidProperties:
-        """A post-processing where the flash is again attempted where not successful.
-
-        1. Where not successful, it attempts the flash from scratch, with
-           initialization procedure.
-           If the new attempt did not reach the desired precision (max iter), it
-           treats it as success.
-        2. Where still not successful, it falls back to the values of the previous
-           iterate.
-
-        """
-        fluid_state, success = equilibrium_results
-
-        failure = success > 0
-        equilibrium_condition = str(
-            pp.compositional.get_local_equilibrium_condition(self)
-        )
-        if np.any(failure):
-            logger.debug(
-                f"Flash from iterate state failed in {failure.sum()} cells on grid"
-                + f" {sd.id}. Performing full flash .."
-            )
-            z = [
-                self.equation_system.evaluate(comp.fraction([sd]), state=state)[failure]  # type:ignore[index]
-                for comp in self.fluid.components
-            ]
-            p = self.equation_system.evaluate(self.pressure([sd]), state=state)[failure]  # type:ignore[index]
-            h = self.equation_system.evaluate(self.enthalpy([sd]), state=state)[failure]  # type:ignore[index]
-            T = self.equation_system.evaluate(self.temperature([sd]), state=state)[
-                failure
-            ]  # type:ignore[index]
-
-            # no initial guess, and this model uses only p-h flash.
-            flash_kwargs: dict[str, Any] = {
-                "z": z,
-                "p": p,
-                "params": self.params.get("flash_params"),
-            }
-
-            if "p-h" in equilibrium_condition:
-                flash_kwargs["h"] = h
-            elif "p-T" in equilibrium_condition:
-                flash_kwargs["T"] = T
-
-            sub_state, sub_success, num_iter = self.flash.flash(**flash_kwargs)
-
-            ni = np.zeros_like(success)
-            ni[failure] = num_iter
-            self._num_flash_iter += ni
-
-            fallback = sub_success > 1
-            max_iter_reached = sub_success == 1
-            # treat max iter reached as success, and hope for the best in the PDE iter
-            sub_success[max_iter_reached] = 0
-            # fall back to previous iter values
-            if np.any(fallback):
-                logger.debug(
-                    f"Full flash failed in {fallback.sum()} cells on grid "
-                    + f"{sd.id}. Falling back to previous iterate state."
-                )
-                sub_state = self.fall_back(sd, sub_state, failure, fallback)
-                sub_success[fallback] = 0
-            # update parent state with sub state values
-            success[failure] = sub_success
-            fluid_state.T[failure] = sub_state.T
-            fluid_state.h[failure] = sub_state.h
-            fluid_state.rho[failure] = sub_state.rho
-
-            for j in range(len(fluid_state.phases)):
-                fluid_state.sat[j][failure] = sub_state.sat[j]
-                fluid_state.y[j][failure] = sub_state.y[j]
-
-                fluid_state.phases[j].x[:, failure] = sub_state.phases[j].x
-
-                fluid_state.phases[j].rho[failure] = sub_state.phases[j].rho
-                fluid_state.phases[j].h[failure] = sub_state.phases[j].h
-                fluid_state.phases[j].mu[failure] = sub_state.phases[j].mu
-                fluid_state.phases[j].kappa[failure] = sub_state.phases[j].kappa
-
-                fluid_state.phases[j].drho[:, failure] = sub_state.phases[j].drho
-                fluid_state.phases[j].dh[:, failure] = sub_state.phases[j].dh
-                fluid_state.phases[j].dmu[:, failure] = sub_state.phases[j].dmu
-                fluid_state.phases[j].dkappa[:, failure] = sub_state.phases[j].dkappa
-
-                fluid_state.phases[j].phis[:, failure] = sub_state.phases[j].phis
-                fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
-
-        # Parent method performs a check that everything is successful.
-        return super().postprocess_flash(sd, (fluid_state, success), state=state)  # type:ignore
-
-    @no_type_check
-    def fall_back(
-        self,
-        grid: pp.Grid,
-        sub_state: pp.compositional.FluidProperties,
-        failed_idx: np.ndarray,
-        fallback_idx: np.ndarray,
-    ) -> pp.compositional.FluidProperties:
-        """Falls back to previous iterate values for the fluid state, on given
-        grid."""
-        sds = [grid]
-        data = self.mdg.subdomain_data(grid)
-        equilibrium_condition = str(
-            pp.compositional.get_local_equilibrium_condition(self)
-        )
-        if "T" not in equilibrium_condition:
-            sub_state.T[fallback_idx] = pp.get_solution_values(
-                self.temperature_variable, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-        if "h" not in equilibrium_condition:
-            sub_state.h[fallback_idx] = pp.get_solution_values(
-                self.pressure_variable, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-        if "p" not in equilibrium_condition:
-            sub_state.p[fallback_idx] = pp.get_solution_values(
-                self.enthalpy_variable, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-
-        for j, phase in enumerate(self.fluid.phases):
-            if j > 0:
-                sub_state.sat[j][fallback_idx] = pp.get_solution_values(
-                    phase.saturation(sds).name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-                sub_state.y[j][fallback_idx] = pp.get_solution_values(
-                    phase.fraction(sds).name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-
-            sub_state.phases[j].rho[fallback_idx] = pp.get_solution_values(
-                phase.density.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-            sub_state.phases[j].h[fallback_idx] = pp.get_solution_values(
-                phase.specific_enthalpy.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-            sub_state.phases[j].mu[fallback_idx] = pp.get_solution_values(
-                phase.viscosity.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-            sub_state.phases[j].kappa[fallback_idx] = pp.get_solution_values(
-                phase.thermal_conductivity.name, data, iterate_index=0
-            )[failed_idx][fallback_idx]
-
-            sub_state.phases[j].drho[:, fallback_idx] = pp.get_solution_values(
-                phase.density._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-            sub_state.phases[j].dh[:, fallback_idx] = pp.get_solution_values(
-                phase.specific_enthalpy._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-            sub_state.phases[j].dmu[:, fallback_idx] = pp.get_solution_values(
-                phase.viscosity._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-            sub_state.phases[j].dkappa[:, fallback_idx] = pp.get_solution_values(
-                phase.thermal_conductivity._name_derivatives, data, iterate_index=0
-            )[:, failed_idx][:, fallback_idx]
-
-            for i, comp in enumerate(phase):
-                sub_state.phases[j].x[i, fallback_idx] = pp.get_solution_values(
-                    phase.extended_fraction_of[comp](sds).name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-
-                sub_state.phases[j].phis[i, fallback_idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp].name, data, iterate_index=0
-                )[failed_idx][fallback_idx]
-                # NOTE numpy does some weird transpositions when dealing with 3D arrays
-                dphi = sub_state.phases[j].dphis[i]
-                dphi[:, fallback_idx] = pp.get_solution_values(
-                    phase.fugacity_coefficient_of[comp]._name_derivatives,
-                    data,
-                    iterate_index=0,
-                )[:, failed_idx][:, fallback_idx]
-                sub_state.phases[j].dphis[i, :, :] = dphi
-
-        # reference phase fractions and saturations must be computed, since not stored
-        sub_state.y[self.fluid.reference_phase_index, :] = 1 - np.sum(
-            sub_state.y[1:, :], axis=0
-        )
-        sub_state.sat[self.fluid.reference_phase_index, :] = 1 - np.sum(
-            sub_state.sat[1:, :], axis=0
-        )
-
-        return sub_state
 
     def assemble_linear_system(self) -> None:
         start = time.time()
@@ -596,6 +345,9 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         sol = super().solve_linear_system()
         self._time_tracker["linsolve"].append(time.time() - start)
         return sol
+
+    # def add_nonlinear_fourier_flux_discretization(self) -> None:
+    #     pass
 
 
 class PointWells2D(_FlowConfiguration):
@@ -1084,7 +836,93 @@ class BoundaryConditions(_FlowConfiguration):
         return vals
 
 
-class NewtonArmijoSolver(pp.NewtonSolver):
+class AndersonAcceleration:
+    """Anderson acceleration as described by Walker and Ni in doi:10.2307/23074353."""
+
+    def __init__(
+        self,
+        dimension: int,
+        depth: int,
+        constrain_acceleration: bool = False,
+        regularization_parameter: float = 0.0,
+    ) -> None:
+        self._dimension = int(dimension)
+        self._depth = int(depth)
+        self._constrain_acceleration: bool = bool(constrain_acceleration)
+        self._reg_param: float = float(regularization_parameter)
+
+        # Initialize arrays for iterates.
+        self.reset()
+        self._fkm1: np.ndarray = np.zeros(self._dimension)
+        self._gkm1: np.ndarray = np.zeros(self._dimension)
+
+    def reset(self) -> None:
+        self._Fk: np.ndarray = np.zeros(
+            (self._dimension, self._depth)
+        )  # changes in increments
+        self._Gk: np.ndarray = np.zeros(
+            (self._dimension, self._depth)
+        )  # changes in fixed point applications
+
+    def apply(self, gk: np.ndarray, fk: np.ndarray, iteration: int) -> np.ndarray:
+        """Apply Anderson acceleration.
+
+        Parameters:
+            gk: application of some fixed point iteration onto approximation xk, i.e.,
+                g(xk).
+            fk: residual g(xk) - xk; in general some increment.
+            iteration: current iteration count.
+
+        Returns:
+            Modified application of fixed point approximation after acceleration, i.e.,
+            the new iterate xk+1.
+
+        """
+
+        if iteration == 0:
+            self.reset()
+
+        mk = min(iteration, self._depth)
+
+        # Apply actual acceleration (not in the first iteration).
+        if mk > 0:
+            # Build matrices of changes.
+            col = (iteration - 1) % self._depth
+            self._Fk[:, col] = fk - self._fkm1
+            self._Gk[:, col] = gk - self._gkm1
+
+            # Solve least squares problem.
+            A = self._Fk[:, 0:mk]
+            b = fk
+            if self._constrain_acceleration:
+                A = np.vstack((A, np.ones((1, self._depth))))
+                b = np.concatenate((b, np.ones(1)))
+
+            direct_solve = False
+
+            if self._reg_param > 0:
+                b = A.T @ b
+                A = A.T @ A + self._reg_param * np.eye(A.shape[1])
+                direct_solve = np.linalg.matrix_rank(A) >= A.shape[1]
+
+            if direct_solve:
+                gamma_k = np.linalg.solve(A, b)
+            else:
+                gamma_k = lstsq(A, b)[0]
+
+            # Do the mixing
+            x_k_plus_1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
+        else:
+            x_k_plus_1 = gk
+
+        # Store values for next iteration.
+        self._fkm1 = fk.copy()
+        self._gkm1 = gk.copy()
+
+        return x_k_plus_1
+
+
+class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
     """Newton solver with Armijo line search.
 
     The residual objective function is tailored to models where phase properties are
@@ -1093,16 +931,61 @@ class NewtonArmijoSolver(pp.NewtonSolver):
 
     """
 
+    def __init__(self, params: dict | None = None):
+        pp.NewtonSolver.__init__(self, params)
+        if params is None:
+            params = {}
+        depth = int(params.get("anderson_acceleration_depth", 3))
+        dimension = int(params["anderson_acceleration_dimension"])
+        constrain = params.get("anderson_acceleration_constrained", False)
+        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
+        AndersonAcceleration.__init__(
+            self,
+            dimension,
+            depth,
+            constrain_acceleration=constrain,
+            regularization_parameter=reg_param,
+        )
+
     def iteration(self, model: pp.PorePyModel):
         """An iteration consists of performing the Newton step and obtaining the step
         size from the line search."""
-        dx = super().iteration(model)
+        # dx = super().iteration(model)
+        iteration = model.nonlinear_solver_statistics.num_iteration
+
+        dx = pp.NewtonSolver.iteration(self, model)
+
+        if self.params.get("anderson_acceleration", False):
+            x = model.equation_system.get_variable_values(iterate_index=0)
+            x_temp = x + dx
+            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
+                try:
+                    xp1 = self.apply(x_temp, dx.copy(), iteration)
+                    res = model.equation_system.assemble(evaluate_jacobian=False)
+                    # TODO Wrong reference residual
+                    res_norm = model.compute_residual_norm(res, res)
+                    if res_norm <= self.params.get(
+                        "anderson_start_after_residual_reaches", np.inf
+                    ):
+                        dx = xp1 - x
+                except Exception:
+                    logger.warning(
+                        f"Resetting Anderson acceleration at"
+                        f" T={model.time_manager.time}; i={iteration} due to failure."
+                    )
+                    self.reset()
+
         alpha = self.armijo_line_search(model, dx)
         return alpha * dx
 
     def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
-        if not self.params.get("armijo_line_search", False):
+        res = model.equation_system.assemble(evaluate_jacobian=False)
+        # TODO Wrong reference residual
+        res_norm = model.compute_residual_norm(res, res)
+        if not self.params.get(
+            "armijo_line_search", False
+        ) or res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0):
             return 1.0
 
         rho = float(self.params.get("armijo_line_search_weight", 0.9))
@@ -1199,7 +1082,6 @@ class Permeability(pp.PorePyModel):
         return K
 
 
-# region Model class assembly
 # mypy: disable-error-code="type-abstract,attr-defined"
 model_class: type[pp.PorePyModel]
 
@@ -1237,254 +1119,259 @@ if USE_ADTPFA_FLUX_DISCRETIZATION:
         ],
     )
 
-# endregion
+if __name__ == "__main__":
+    time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
-# region Model parametrization
+    max_iterations = 40 if FRACTIONAL_FLOW else 30
+    newton_tol = 1e-6
+    newton_tol_increment = 5e-6
 
-time_schedule = [i * 30 * pp.DAY for i in range(25)]
+    time_manager = pp.TimeManager(
+        schedule=time_schedule,
+        dt_init=10 * pp.MINUTE,
+        dt_min_max=(pp.MINUTE, 30 * pp.DAY),
+        iter_max=max_iterations,
+        iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (10, 20),
+        iter_relax_factors=(0.8, 2.0),
+        recomp_factor=0.6,
+        recomp_max=15,
+        print_info=True,
+        rtol=0.0,
+    )
 
-max_iterations = 40 if FRACTIONAL_FLOW else 30
-newton_tol = 1e-6
-newton_tol_increment = 5e-6
+    phase_property_params = {
+        "phase_property_params": [0.0],
+    }
 
-time_manager = pp.TimeManager(
-    schedule=time_schedule,
-    dt_init=10 * pp.MINUTE,
-    dt_min_max=(pp.MINUTE, 30 * pp.DAY),
-    iter_max=max_iterations,
-    iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (10, 20),
-    iter_relax_factors=(0.8, 2.0),
-    recomp_factor=0.6,
-    recomp_max=15,
-    print_info=True,
-    rtol=0.0,
-)
+    basalt_ = basalt.copy()
+    basalt_["permeability"] = 1e-14
+    material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore[arg-type]
 
-phase_property_params = {
-    "phase_property_params": [0.0],
-}
+    flash_params: dict[Any, Any] = {
+        "mode": "parallel",
+        "solver": "npipm",
+        "solver_params": {
+            "tolerance": 1e-8,
+            "max_iterations": 80,  # 150
+            "armijo_rho": 0.99,
+            "armijo_kappa": 0.4,
+            "armijo_max_iterations": 50 if "p-T" in EQUILIBRIUM_CONDITION else 30,
+            "npipm_u1": 10,
+            "npipm_u2": 10,
+            "npipm_eta": 0.5,
+        },
+        "global_iteration_stride": 2 if FRACTIONAL_FLOW else 3,
+    }
+    flash_params.update(phase_property_params)
 
-basalt_ = basalt.copy()
-basalt_["permeability"] = 1e-14
-material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore[arg-type]
+    restart_params = {
+        "restart_options": {
+            "restart": False,
+            "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
+            "is_mdg_pvd": False,
+            "vtu_files": None,
+            "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
+        },
+    }
 
-flash_params: dict[Any, Any] = {
-    "mode": "parallel",
-    "solver": "npipm",
-    "solver_params": {
-        "tolerance": 1e-8,
-        "max_iterations": 80,  # 150
-        "armijo_rho": 0.99,
-        "armijo_kappa": 0.4,
-        "armijo_max_iterations": 50 if "p-T" in EQUILIBRIUM_CONDITION else 30,
-        "npipm_u1": 10,
-        "npipm_u2": 10,
-        "npipm_eta": 0.5,
-    },
-    "global_iteration_stride": 2 if FRACTIONAL_FLOW else 3,
-}
-flash_params.update(phase_property_params)
+    meshing_params = {
+        "grid_type": "simplex",
+        "meshing_arguments": {
+            "cell_size": h_MESH,
+            "cell_size_fracture": 5e-1,
+        },
+    }
 
-restart_params = {
-    "restart_options": {
-        "restart": False,
-        "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
-        "is_mdg_pvd": False,
-        "vtu_files": None,
-        "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
-    },
-}
+    solver_params = {
+        "max_iterations": max_iterations,
+        "nl_convergence_tol": newton_tol_increment,
+        "nl_convergence_tol_res": newton_tol,
+        "apply_schur_complement_reduction": True,
+        "linear_solver": "scipy_sparse",
+        "nonlinear_solver": NewtonArmijoAndersonSolver,
+        "armijo_line_search": True,
+        "armijo_line_search_weight": 0.95,
+        "armijo_line_search_incline": 0.2,
+        "armijo_line_search_max_iterations": 10,
+        "armijo_stop_after_residual_reaches": 1e0,
+        "anderson_acceleration": False,
+        "anderson_acceleration_depth": 3,
+        "anderson_acceleration_constrained": False,
+        "anderson_acceleration_regularization_parameter": 1e-3,
+        "anderson_start_after_residual_reaches": 1e2,
+        "solver_statistics_file_name": "solver_statistics.json",
+    }
 
-meshing_params = {
-    "grid_type": "simplex",
-    "meshing_arguments": {
-        "cell_size": _FlowConfiguration._h_MESH,
-        "cell_size_fracture": 5e-1,
-    },
-}
+    model_params = {
+        "equilibrium_condition": EQUILIBRIUM_CONDITION,
+        "eliminate_reference_phase": True,
+        "eliminate_reference_component": True,
+        "flash_params": flash_params,
+        "fractional_flow": FRACTIONAL_FLOW,
+        "material_constants": material_params,
+        "time_manager": time_manager,
+        "prepare_simulation": False,
+        "buoyancy_on": BUOYANCY_ON,
+        "compile": True,
+        "flash_compiler_args": ("p-T", "p-h"),
+    }
 
-solver_params = {
-    "max_iterations": max_iterations,
-    "nl_convergence_tol": newton_tol_increment,
-    "nl_convergence_tol_res": newton_tol,
-    "apply_schur_complement_reduction": True,
-    "linear_solver": "scipy_sparse",
-    "nonlinear_solver": NewtonArmijoSolver,
-    "armijo_line_search": True,
-    "armijo_line_search_weight": 0.95,
-    "armijo_line_search_incline": 0.2,
-    "armijo_line_search_max_iterations": 10,
-    "solver_statistics_file_name": "solver_statistics.json",
-}
+    if EXPORT_SCHEDULED_TIME_ONLY:
+        model_params["times_to_export"] = time_schedule
 
+    model_params.update(phase_property_params)
+    model_params.update(restart_params)
+    model_params.update(meshing_params)
+    model_params.update(solver_params)
 
-model_params = {
-    "equilibrium_condition": EQUILIBRIUM_CONDITION,
-    "has_time_dependent_boundary_equilibrium": False,
-    "eliminate_reference_phase": True,
-    "eliminate_reference_component": True,
-    "flash_params": flash_params,
-    "fractional_flow": FRACTIONAL_FLOW,
-    "material_constants": material_params,
-    "time_manager": time_manager,
-    "prepare_simulation": False,
-    "buoyancy_on": BUOYANCY_ON,
-    "compile": True,
-    "flash_compiler_args": ("p-T", "p-h"),
-}
+    # Casting to the most complex model type for typing purposes.
+    model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
+    model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
 
-if EXPORT_SCHEDULED_TIME_ONLY:
-    model_params["times_to_export"] = time_schedule
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("porepy").setLevel(logging.DEBUG)
+    t_0 = time.time()
+    model.prepare_simulation()
+    prep_sim_time = time.time() - t_0
+    logging.getLogger("porepy").setLevel(logging.INFO)
 
-model_params.update(phase_property_params)
-model_params.update(restart_params)
-model_params.update(meshing_params)
-model_params.update(solver_params)
+    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
-# endregion
+    # Defining sub system for Schur complement reduction.
+    primary_equations = cf.get_primary_equations_cf(model)
+    primary_equations += [
+        eq for eq in model.equation_system.equations.keys() if "flux" in eq
+    ]
+    primary_equations += [
+        "production_pressure_constraint",
+        "injection_temperature_constraint",
+    ]
+    primary_variables = cf.get_primary_variables_cf(model)
+    primary_variables += list(
+        set([v.name for v in model.equation_system.variables if "flux" in v.name])
+    )
 
-# Casting to the most complex model type for typing purposes.
-model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
-model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
+    model.schur_complement_primary_equations = primary_equations
+    model.schur_complement_primary_variables = primary_variables
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.DEBUG)
-t_0 = time.time()
-model.prepare_simulation()
-prep_sim_time = time.time() - t_0
-logging.getLogger("porepy").setLevel(logging.INFO)
-
-# Defining sub system with block-diagonal form for efficient Schur complement reduction.
-primary_equations = cf.get_primary_equations_cf(model)
-primary_equations += [
-    eq for eq in model.equation_system.equations.keys() if "flux" in eq
-]
-primary_equations += [
-    "production_pressure_constraint",
-    "injection_temperature_constraint",
-]
-primary_variables = cf.get_primary_variables_cf(model)
-primary_variables += list(
-    set([v.name for v in model.equation_system.variables if "flux" in v.name])
-)
-
-model.schur_complement_primary_equations = primary_equations
-model.schur_complement_primary_variables = primary_variables
-
-t_0 = time.time()
-if "p-T" in EQUILIBRIUM_CONDITION:
-    try:
+    t_0 = time.time()
+    if "p-T" in EQUILIBRIUM_CONDITION:
+        try:
+            pp.run_time_dependent_model(model, model_params)
+        except Exception as err:
+            print(f"SIMULATION FAILED: {err}")
+            # NOTE To avoid recomputation of time step size.
+            model.time_manager.is_constant = True
+            model.after_nonlinear_convergence()
+            model.time_manager.is_constant = False
+    else:
         pp.run_time_dependent_model(model, model_params)
-    except Exception as err:
-        print(f"SIMULATION FAILED: {err}")
-        # NOTE To avoid recomputation of time step size.
-        model.time_manager.is_constant = True
-        model.after_nonlinear_convergence()
-        model.time_manager.is_constant = False
-else:
-    pp.run_time_dependent_model(model, model_params)
-sim_time = time.time() - t_0
+    sim_time = time.time() - t_0
 
-# region Plots
-fig, ax1 = plt.subplots()
+    # region Plots
+    fig, ax1 = plt.subplots()
 
-global_iter_per_time: dict[float, tuple[int, int, int]] = model._global_iter_per_time
+    global_iter_per_time: dict[float, tuple[int, int, int]] = (
+        model._global_iter_per_time
+    )
 
-N = len(global_iter_per_time)
-times = np.zeros(N)
-newton_iter = np.zeros(N, dtype=int)
-cum_armijo_iter = np.zeros(N, dtype=int)
-cum_flash_iter = np.zeros(N, dtype=int)
-for i, tNI in enumerate(global_iter_per_time.items()):
-    t, NI = tNI
-    n, a, f = NI
-    times[i] = t
-    newton_iter[i] = n
-    cum_armijo_iter[i] = a
-    cum_flash_iter[i] = f
+    N = len(global_iter_per_time)
+    times = np.zeros(N)
+    newton_iter = np.zeros(N, dtype=int)
+    cum_armijo_iter = np.zeros(N, dtype=int)
+    cum_flash_iter = np.zeros(N, dtype=int)
+    for i, tNI in enumerate(global_iter_per_time.items()):
+        t, NI = tNI
+        n, a, f = NI
+        times[i] = t
+        newton_iter[i] = n
+        cum_armijo_iter[i] = a
+        cum_flash_iter[i] = f
 
-img1 = ax1.plot(
-    times,
-    newton_iter,
-    "k-",
-    times,
-    cum_armijo_iter,
-    "k--",
-)
-ax1.set_xscale("log")
-ax1.set_xlabel("Time [s]")
-ax1.set_ylabel("Global iterations")
-ax1.set_ylim(
-    0.0,
-    30,
-)
+    img1 = ax1.plot(
+        times,
+        newton_iter,
+        "k-",
+        times,
+        cum_armijo_iter,
+        "k--",
+    )
+    ax1.set_xscale("log")
+    ax1.set_xlabel("Time [s]")
+    ax1.set_ylabel("Global iterations")
+    ax1.set_ylim(
+        0.0,
+        30,
+    )
 
-color = "tab:red"
-ax2 = ax1.twinx()
-ax2.set_ylabel("Local iterations", color=color)
-img2 = ax2.plot(
-    times,
-    cum_flash_iter,
-    "r--",
-)
-ax2.tick_params(axis="y", labelcolor=color)
+    color = "tab:red"
+    ax2 = ax1.twinx()
+    ax2.set_ylabel("Local iterations", color=color)
+    img2 = ax2.plot(
+        times,
+        cum_flash_iter,
+        "r--",
+    )
+    ax2.tick_params(axis="y", labelcolor=color)
 
-ax1.legend(img1 + img2, ["Newton", "Line Search (cum.)", "Flash (cum.)"])
+    ax1.legend(img1 + img2, ["Newton", "Line Search (cum.)", "Flash (cum.)"])
 
-fig.tight_layout()
-fig.savefig(pathlib.Path(".\\visualization\\num_iter.png").resolve(), format="png")
+    fig.tight_layout()
+    fig.savefig(pathlib.Path(".\\visualization\\num_iter.png").resolve(), format="png")
 
-times_file = pathlib.Path("./visualization/times.json").resolve().open("r")
-times_data = json.load(times_file)
-TIMES = times_data["time"]
-DT = times_data["dt"]
-nT = len(DT)
-assert nT == len(TIMES)
-Tidx = np.arange(nT)
+    times_file = pathlib.Path("./visualization/times.json").resolve().open("r")
+    times_data = json.load(times_file)
+    TIMES = times_data["time"]
+    DT = times_data["dt"]
+    nT = len(DT)
+    assert nT == len(TIMES)
+    Tidx = np.arange(nT)
 
-fig, ax1 = plt.subplots()
+    fig, ax1 = plt.subplots()
 
-color = "tab:red"
-ax1.set_xlabel("time step index")
-ax1.set_ylabel("time (s)", color=color)
-ax1.plot(Tidx, TIMES, color=color)
-ax1.tick_params(axis="y", labelcolor=color)
-ax1.set_yscale("log")
+    color = "tab:red"
+    ax1.set_xlabel("time step index")
+    ax1.set_ylabel("time (s)", color=color)
+    ax1.plot(Tidx, TIMES, color=color)
+    ax1.tick_params(axis="y", labelcolor=color)
+    ax1.set_yscale("log")
 
-ax2 = ax1.twinx()
-color = "tab:blue"
-ax2.set_ylabel("dt (s)", color=color)
-ax2.plot(Tidx, DT, color=color)
-ax2.tick_params(axis="y", labelcolor=color)
-ax2.set_yscale("log")
+    ax2 = ax1.twinx()
+    color = "tab:blue"
+    ax2.set_ylabel("dt (s)", color=color)
+    ax2.plot(Tidx, DT, color=color)
+    ax2.tick_params(axis="y", labelcolor=color)
+    ax2.set_yscale("log")
 
-fig.tight_layout()
-fig.savefig(pathlib.Path(".\\visualization\\time_progress.png").resolve(), format="png")
+    fig.tight_layout()
+    fig.savefig(
+        pathlib.Path(".\\visualization\\time_progress.png").resolve(), format="png"
+    )
 
-# endregion
+    # endregion
 
+    def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
+        return float(v.min()), float(v.mean()), float(v.max())
 
-def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
-    return float(v.min()), float(v.mean()), float(v.max())
-
-
-print(
-    f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
-    + f"h={model._h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
-    + f"Buoyancy: {BUOYANCY_ON}"
-)
-print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
-print(f"Simulation run time: {sim_time / 60.0} (min).")
-print(f"smalles time step: {np.min(DT) / 3600} hours")
-print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
-print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
-print(f"global num iter (min, avg, max): {min_avg_max(newton_iter)}")
-print(f"cum. line search num iter (min, avg, max): {min_avg_max(cum_armijo_iter)}")
-avg_cum_flash_iter = cum_flash_iter / model.mdg.num_subdomain_cells()
-print(f"avg. cum. flash num iter (min, avg, max): {min_avg_max(avg_cum_flash_iter)}")
-times_assembly = np.array(model._time_tracker["assembly"])
-times_linsolve = np.array(model._time_tracker["linsolve"])
-times_flash = np.array(model._time_tracker["flash"])
-print(f"assembly time (min, avg, max): {min_avg_max(times_assembly)}")
-print(f"linsolve time (min, avg, max): {min_avg_max(times_linsolve)}")
-print(f"flash time (min, avg, max): {min_avg_max(times_flash)}")
+    print(
+        f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
+        + f"h={h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
+        + f"Buoyancy: {BUOYANCY_ON}"
+    )
+    print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
+    print(f"Simulation run time: {sim_time / 60.0} (min).")
+    print(f"smalles time step: {np.min(DT) / 3600} hours")
+    print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
+    print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
+    print(f"global num iter (min, avg, max): {min_avg_max(newton_iter)}")
+    print(f"cum. line search num iter (min, avg, max): {min_avg_max(cum_armijo_iter)}")
+    avg_cum_flash_iter = cum_flash_iter / model.mdg.num_subdomain_cells()
+    print(
+        f"avg. cum. flash num iter (min, avg, max): {min_avg_max(avg_cum_flash_iter)}"
+    )
+    times_assembly = np.array(model._time_tracker["assembly"])
+    times_linsolve = np.array(model._time_tracker["linsolve"])
+    times_flash = np.array(model._time_tracker["flash"])
+    print(f"assembly time (min, avg, max): {min_avg_max(times_assembly)}")
+    print(f"linsolve time (min, avg, max): {min_avg_max(times_linsolve)}")
+    print(f"flash time (min, avg, max): {min_avg_max(times_flash)}")

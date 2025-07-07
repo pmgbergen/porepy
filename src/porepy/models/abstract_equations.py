@@ -275,7 +275,7 @@ class LocalElimination(EquationMixin):
             domains: A Sequence of grids on which the quantity and its dependencies are
                 defined and on which the equation should be introduces.
                 Used to call ``independent_quantity`` and ``dependencies``.
-            equations_per_grid_entity: ``default=None``
+            equations_per_grid_entity: ``default=None``.
 
                 Argument for when adding above equation to the equation system and
                 creating a surrogate factory. If None, the default ``{'cells':1}`` is

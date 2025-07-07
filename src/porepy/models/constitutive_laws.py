@@ -151,6 +151,10 @@ class DimensionReduction(pp.PorePyModel):
                 aperture *= self.solid.well_radius
             else:
                 aperture = self.solid.residual_aperture * aperture
+        else:
+            # For the matrix, the aperture is one, but needs to be scaled by the
+            # length units.
+            aperture = self.units.convert_units(aperture, "m")
         return aperture
 
     @pp.ad.cached_method
@@ -321,7 +325,11 @@ class DisplacementJumpAperture(DimensionReduction):
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
         num_cells_nd_subdomains = sum(sd.num_cells for sd in nd_subdomains)
-        one = pp.wrap_as_dense_ad_array(1, size=num_cells_nd_subdomains, name="one")
+        # For the matrix, use unitary aperture in SI units, then convert to the model's
+        # units.
+        one = pp.wrap_as_dense_ad_array(
+            self.units.convert_units(1, "m"), size=num_cells_nd_subdomains, name="one"
+        )
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
 
