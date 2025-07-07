@@ -81,6 +81,7 @@ def test_buoyancy_model(
     material_constants = {"solid": solid_constants}
     params = {
         "fractional_flow": True,
+        "buoyancy_on": True,
         "material_constants": material_constants,
         "time_manager": time_manager,
         "prepare_simulation": False,

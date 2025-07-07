@@ -10,7 +10,7 @@ from porepy.models.compositional_flow import (
 from abc import abstractmethod
 
 # test parameters
-expected_order_mass_loss = 6
+expected_order_mass_loss = 8
 mesh_2d_Q = True
 
 
@@ -36,7 +36,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 1.0
+    _sphere_radius: float = 0.75
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -53,15 +53,15 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [2.0, 0.0],
-                [2.0, 5.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1]]).T
-        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    # def set_fractures(self) -> None:
+    #     points = np.array(
+    #         [
+    #             [2.0, 0.0],
+    #             [2.0, 5.0],
+    #         ]
+    #     ).T
+    #     fracs = np.array([[0, 1]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -151,7 +151,7 @@ def temperature_func(
 
     nc = len(thermodynamic_dependencies[0])
 
-    factor = 250.0
+    factor = 0.0
     vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -364,8 +364,7 @@ class BoundaryConditions(pp.PorePyModel):
         return p
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h_inlet = 1.0
-        h = h_inlet * np.ones(boundary_grid.num_cells)
+        h = np.ones(boundary_grid.num_cells)
         return h
 
     def bc_values_overall_fraction(
@@ -374,6 +373,8 @@ class BoundaryConditions(pp.PorePyModel):
         z_CO2 = np.zeros(boundary_grid.num_cells)
         return z_CO2
 
+    def bc_values_fractional_flow_energy(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        return self.bc_values_enthalpy(bg)
 
 class InitialConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -452,28 +453,69 @@ class FlowModel(
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
-        ref_sg_integral = 0.0
-        num_sg_integral = 0.0
+        total_volume = 0.0
+        ref_rho_integral = 0.0
+        ref_rho_z_integral = 0.0
+        num_rho_integral = 0.0
+        num_rho_z_integral = 0.0
+
+        ref_fluid_energy_integral = 0.0
+        num_fluid_energy_integral = 0.0
         for sd in model.mdg.subdomains():
+            total_volume += np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
+
             ic_sg_val = self.ic_values_staturation(sd)
-            ref_sg_integral_op = self.volume_integral(
-                pp.wrap_as_dense_ad_array(ic_sg_val), [sd], dim=1
-            )
-            ref_sg_integral += np.sum(self.equation_system.evaluate(ref_sg_integral_op))
+            rho_l = phases[0].density([sd])
+            rho_v = phases[1].density([sd])
+            ic_rho = pp.wrap_as_dense_ad_array(1.0 - ic_sg_val) * rho_l + pp.wrap_as_dense_ad_array(ic_sg_val) * rho_v
+            ref_rho_integral_op = self.volume_integral(ic_rho, [sd], dim=1)
+            ref_rho_integral += np.sum(self.equation_system.evaluate(ref_rho_integral_op))/total_volume
 
-            s_gas = phases[1].saturation([sd])
-            num_sg_integral_op = self.volume_integral(s_gas, [sd], dim=1)
-            num_sg_integral += np.sum(self.equation_system.evaluate(num_sg_integral_op))
-            aka = 0
+            ic_z_val = self.ic_values_overall_fraction(self.fluid.components[1],sd)
+            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z_val)
+            ref_rho_z_op = self.volume_integral(ic_rho_z, [sd], dim=1)
+            ref_rho_z_integral += np.sum(self.equation_system.evaluate(ref_rho_z_op))/total_volume
 
-        mass_loss = np.abs(ref_sg_integral - num_sg_integral)
+            ic_p_val = self.ic_values_pressure(sd)
+            ic_h_val = self.ic_values_enthalpy(sd)
+            ic_fluid_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h_val) - pp.wrap_as_dense_ad_array(ic_p_val)
+            ref_fluid_energy_op = self.volume_integral(ic_fluid_energy, [sd], dim=1)
+            ref_fluid_energy_integral += np.sum(self.equation_system.evaluate(ref_fluid_energy_op))/total_volume
+
+            num_rho_op = self.fluid.density([sd])
+            num_rho_integral += np.sum(self.equation_system.evaluate(num_rho_op))/total_volume
+
+            num_rho_z_op = num_rho_op * components[1].fraction([sd])
+            num_rho_z_integral += np.sum(self.equation_system.evaluate(num_rho_z_op))/total_volume
+
+            num_fluid_energy_op = num_rho_op * self.enthalpy([sd]) - self.pressure([sd])
+            num_fluid_energy_integral += np.sum(self.equation_system.evaluate(num_fluid_energy_op))/total_volume
+
+        mass_loss = np.abs(ref_rho_integral - num_rho_integral)
+        z_mass_loss = np.abs(ref_rho_z_integral - num_rho_z_integral)
         order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
-        print("ref volume integral sg: ", ref_sg_integral)
-        print("num volume integral sg: ", num_sg_integral)
+        order_z_mass_loss = np.abs(np.floor(np.log10(z_mass_loss)))
+
+        energy_loss = np.abs(ref_fluid_energy_integral - num_fluid_energy_integral)
+        order_energy_loss = np.abs(np.floor(np.log10(energy_loss)))
+        print("ref mass integral: ", ref_rho_integral)
+        print("num mass integral sg: ", num_rho_integral)
         print("Order of mass loss: ", order_mass_loss)
         mass_conservative_Q = order_mass_loss >= expected_order_mass_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
+
+        print("ref z mass integral: ", ref_rho_z_integral)
+        print("num z mass integral sg: ", num_rho_z_integral)
+        print("Order of z mass loss: ", order_z_mass_loss)
+        z_mass_conservative_Q = order_z_mass_loss >= expected_order_mass_loss
+        print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
         # assert mass_conservative_Q
+
+        print("ref energy integral: ", ref_fluid_energy_integral)
+        print("num energy integral sg: ", num_fluid_energy_integral)
+        print("Order of energy loss: ", order_energy_loss)
+        energy_conservative_Q = order_mass_loss >= expected_order_mass_loss
+        print("buoyancy discretization is energy conservative Q: ", energy_conservative_Q)
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
@@ -508,6 +550,12 @@ class FlowModel(
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
         if self._is_nonlinear_problem():
+
+            total_volume = 0.0
+            for sd in model.mdg.subdomains():
+                total_volume += np.sum(
+                    self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
+
             self.equation_system
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
@@ -516,7 +564,7 @@ class FlowModel(
 
             # Residual per subsystem
             res_idx = self.equation_system.assembled_equation_indices
-            residual_norm = np.linalg.norm(residual)
+            residual_norm = np.linalg.norm(residual) * total_volume
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                 nl_params["nl_convergence_tol"] is np.inf
@@ -537,7 +585,7 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 500.0 * day
+tf = 1000.0 * day
 dt = 50.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -556,9 +604,8 @@ solid_constants = pp.SolidConstants(
 )
 material_constants = {"solid": solid_constants}
 params = {
-    "rediscretize_darcy_flux": True,
-    "rediscretize_fourier_flux": True,
     "fractional_flow": True,
+    "buoyancy_on": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,

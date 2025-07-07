@@ -5,10 +5,10 @@ import time
 import porepy as pp
 import porepy.compositional as ppc
 
-from porepy.models.compositional_flow import CompositionalFlowTemplate as FlowTemplate
-# from porepy.models.compositional_flow import (
-#     CompositionalFractionalFlowTemplate as FlowTemplate,
-# )
+# from porepy.models.compositional_flow import CompositionalFlowTemplate as FlowTemplate
+from porepy.models.compositional_flow import (
+    CompositionalFractionalFlowTemplate as FlowTemplate,
+)
 
 from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
