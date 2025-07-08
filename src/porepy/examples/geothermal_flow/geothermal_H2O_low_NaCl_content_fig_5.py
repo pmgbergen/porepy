@@ -94,14 +94,14 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,
-    "fractional_flow": False,
-    "buoyancy_on": False,
+    "fractional_flow": True,
+    "buoyancy_on": True,
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-4,
-    "max_iterations": 200,
+    "nl_convergence_tol_res": 1.0e-2,
+    "max_iterations": 250,
 }
 
 
@@ -137,7 +137,7 @@ file_name_phz = (
     file_name_prefix
     + "XHP_l"
     + str(parametric_space_ref_level)
-    + "_modified_low_salt_content.vtk"
+    + "_cartesian_iapws.vtk"
 )
 file_name_ptz = (
     file_name_prefix
@@ -147,7 +147,7 @@ file_name_ptz = (
 )
 
 brine_sampler_phz = VTKSampler(file_name_phz)
-brine_sampler_phz.conversion_factors = (1.0, 1.0e3, 10.0)  # (z,h,p)
+brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
 model.vtk_sampler = brine_sampler_phz
 
 brine_sampler_ptz = VTKSampler(file_name_ptz)

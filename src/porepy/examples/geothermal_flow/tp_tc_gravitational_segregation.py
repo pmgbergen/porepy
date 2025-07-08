@@ -211,7 +211,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * to_Mega
+        vals = (1.0) * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def kappa(
@@ -263,6 +263,14 @@ class GasEOS(LiquidEOS):
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
+
+    def h(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = (2.0) * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
 class FluidMixture(pp.PorePyModel):
@@ -406,8 +414,8 @@ class InitialConditions(pp.PorePyModel):
         return np.ones(sd.num_cells) * p_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1.0
-        return np.ones(sd.num_cells) * h
+        h = 1.0 + self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        return h
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
@@ -503,19 +511,21 @@ class FlowModel(
         print("Order of mass loss: ", order_mass_loss)
         mass_conservative_Q = order_mass_loss >= expected_order_mass_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
+        assert mass_conservative_Q
 
         print("ref z mass integral: ", ref_rho_z_integral)
         print("num z mass integral sg: ", num_rho_z_integral)
         print("Order of z mass loss: ", order_z_mass_loss)
         z_mass_conservative_Q = order_z_mass_loss >= expected_order_mass_loss
         print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
-        # assert mass_conservative_Q
+        assert z_mass_conservative_Q
 
         print("ref energy integral: ", ref_fluid_energy_integral)
         print("num energy integral sg: ", num_fluid_energy_integral)
         print("Order of energy loss: ", order_energy_loss)
-        energy_conservative_Q = order_mass_loss >= expected_order_mass_loss
+        energy_conservative_Q = order_energy_loss >= expected_order_mass_loss
         print("buoyancy discretization is energy conservative Q: ", energy_conservative_Q)
+        assert energy_conservative_Q
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
