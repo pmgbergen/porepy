@@ -501,10 +501,10 @@ class GeothermalWaterModel(  # type:ignore[misc]
         are not production wells."""
         eq: pp.ad.Operator = super().mass_balance_equation(subdomains)  # type:ignore[misc]
         name = eq.name
-        # return eq
-        eq = eq + self.volume_stabilization_term(subdomains)
-        eq.set_name(name)
         return eq
+        # eq = eq + self.volume_stabilization_term(subdomains)
+        # eq.set_name(name)
+        # return eq
 
     def volume_stabilization_term(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         volume_stabilization = self.fluid.density(subdomains) * pp.ad.sum_operator_list(
