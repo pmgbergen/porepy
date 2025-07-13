@@ -200,10 +200,11 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         res_z_norm = np.linalg.norm(residual[diff_eq_indices['composition_NaCl']])
         res_h_norm = np.linalg.norm(residual[diff_eq_indices['enthalpy']])
         res_t_norm = np.linalg.norm(residual[diff_eq_indices['temperature']]) / np.sqrt(len(diff_eq_indices['temperature']))
-        res_s_norm = np.linalg.norm(residual[alg_eq_indices['saturation']]) / np.sqrt(len(alg_eq_indices['saturation']))
+        res_s_norm = np.linalg.norm(residual[alg_eq_indices['saturation']])
         res_xs_v_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_gas']])
         res_xs_l_norm = np.linalg.norm(residual[alg_eq_indices['mass_fraction_NaCl_liquid']])
 
+        res_t_norm /= 100.0
         sub_residuals = [res_p_norm, res_z_norm, res_h_norm, res_t_norm, res_s_norm, res_xs_v_norm,res_xs_l_norm]
         residual_norm = np.max(sub_residuals)
         return residual_norm
@@ -286,13 +287,14 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             enthalpy_high_res_idx,
             temperature_high_res_idx
         ]))
-        if thermal_indices.size != 0 and self.nonlinear_solver_statistics.num_iteration < 5:
+        n_iter = 5
+        if thermal_indices.size != 0 and self.nonlinear_solver_statistics.num_iteration < n_iter:
             self.postprocessing_thermal_overshoots(solution)
 
         # Scale down the Newton correction if the non-linear solver is struggling
-        if self.nonlinear_solver_statistics.num_iteration > 5:
+        if self.nonlinear_solver_statistics.num_iteration > n_iter:
 
-            scaling_factor = max(0.001, 0.98 ** (self.nonlinear_solver_statistics.num_iteration))
+            scaling_factor = max(0.01, 0.98 ** (self.nonlinear_solver_statistics.num_iteration))
             solution *= scaling_factor
             print(f"Newton correction scale factor: {scaling_factor:.4f}")
 

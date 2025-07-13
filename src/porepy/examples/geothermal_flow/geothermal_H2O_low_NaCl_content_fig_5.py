@@ -35,7 +35,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_lP"
-geometry_case = "horizontal"
+geometry_case = "vertical"
 
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]
@@ -48,7 +48,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 1.0 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -100,8 +100,8 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-2,
-    "max_iterations": 250,
+    "nl_convergence_tol_res": 1.0e-4,
+    "max_iterations": 500,
 }
 
 
@@ -137,7 +137,7 @@ file_name_phz = (
     file_name_prefix
     + "XHP_l"
     + str(parametric_space_ref_level)
-    + "_cartesian_iapws.vtk"
+    + "_simplex_iapws.vtk"
 )
 file_name_ptz = (
     file_name_prefix
