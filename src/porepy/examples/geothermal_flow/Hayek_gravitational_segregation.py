@@ -13,7 +13,7 @@ mesh_2d_Q = True
 
 # define constant phase densities
 rho_l = 1000.0
-rho_g = 700.0
+rho_g = 100.0
 to_Mega = 1.0e-6
 
 
@@ -31,12 +31,12 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0078125
-    _sphere_centre: np.ndarray = np.array([0.00390625, 10.0, 0.0])
+    _sphere_radius: float = 0.0025
+    _sphere_centre: np.ndarray = np.array([0.00125, 8.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(0.0078125, "m")
-        y_length = self.units.convert_units(10.0, "m")
+        x_length = self.units.convert_units(0.0025, "m")
+        y_length = self.units.convert_units(8.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -44,7 +44,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0078125, "m")
+        cell_size = self.units.convert_units(0.0025, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -408,7 +408,7 @@ class InitialConditions(pp.PorePyModel):
         s_init_val = 0.8
         z_init_val = (rho_g*s_init_val)/(rho_l*(1 - s_init_val) + rho_g*(s_init_val))
         xc = sd.cell_centers.T
-        z = np.where((xc[:, 1] >= 2.0) & (xc[:, 1] <= 5.0), z_init_val, 0.0)
+        z = np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 5.0), z_init_val, 0.0)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -445,6 +445,10 @@ class FlowModel(
         self.set_nonlinear_buoyancy_discretization()
 
     def before_nonlinear_iteration(self) -> None:
+        self.update_material_properties()
+        self.update_discretization_parameters()
+        self.rediscretize_fluxes()
+        self.update_flux_values()
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
@@ -499,7 +503,7 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 0.1 * day
+tf = 1.0 * day
 dt = 0.001 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -525,7 +529,7 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-8,
+    "nl_convergence_tol_res": 1.0e-6,
     "max_iterations": 100,
 }
 
