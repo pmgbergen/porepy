@@ -147,7 +147,7 @@ class NewtonSolver:
                 # during the first iteration,
                 # :attr:`~model.nonlinear_solver_statistics.nonlinear_increment_norms`
                 # will be empty and the following code will raise an error.
-                if not is_diverged:
+                if not is_diverged and len(model.nonlinear_solver_statistics.nonlinear_increment_norms) > 0:
                     solver_progressbar.update(n=1)
                     # Ignore the long line; fixing it would require an extra variable.
                     solver_progressbar.set_postfix_str(

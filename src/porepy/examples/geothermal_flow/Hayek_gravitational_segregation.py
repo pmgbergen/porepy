@@ -9,8 +9,6 @@ from porepy.models.compositional_flow import (
 )
 from abc import abstractmethod
 
-mesh_2d_Q = True
-
 # define constant phase densities
 rho_l = 1000.0
 rho_g = 100.0
@@ -31,50 +29,13 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0025
-    _sphere_centre: np.ndarray = np.array([0.00125, 8.0, 0.0])
+    _sphere_radius: float = 0.02
+    _sphere_centre: np.ndarray = np.array([0.01, 0.01, 10.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(0.0025, "m")
-        y_length = self.units.convert_units(8.0, "m")
-        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
-        self._domain = pp.Domain(box)
-
-    def grid_type(self) -> str:
-        return self.params.get("grid_type", "cartesian")
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0025, "m")
-        mesh_args: dict[str, float] = {"cell_size": cell_size}
-        return mesh_args
-
-    def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-        if isinstance(sd, pp.Grid):
-            face_centers = sd.face_centers.T
-        elif isinstance(sd, pp.BoundaryGrid):
-            face_centers = sd.cell_centers.T
-        else:
-            raise ValueError("Type not expected.")
-        boundary_faces = self.domain_boundary_sides(sd)
-        bf_indices = boundary_faces.all_bf
-
-        def find_facets(center: np.ndarray) -> np.ndarray:
-            logical = Geometry.harvest_sphere_members(
-                center, self._sphere_radius, face_centers[bf_indices]
-            )
-            return bf_indices[logical]
-
-        return find_facets(self._sphere_centre)
-
-
-class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 0.25
-    _sphere_centre: np.ndarray = np.array([0.125, 0.125, 10.0])
-
-    def set_domain(self) -> None:
-        x_length = self.units.convert_units(0.25, "m")
-        y_length = self.units.convert_units(0.25, "m")
-        z_length = self.units.convert_units(10.0, "m")
+        x_length = self.units.convert_units(0.02, "m")
+        y_length = self.units.convert_units(0.02, "m")
+        z_length = self.units.convert_units(7.0, "m")
         box: dict[str, pp.number] = {
             "xmax": x_length,
             "ymax": y_length,
@@ -86,7 +47,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.25, "m")
+        cell_size = self.units.convert_units(0.02, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -173,15 +134,7 @@ chi_functions_map = {
     "CO2_gas": CO2_gas_func,
 }
 
-
-class LiquidEOS(pp.compositional.EquationOfState):
-    def rho_func(
-        self,
-        *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = rho_l * np.ones(nc)
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+class BaseEOS(pp.compositional.EquationOfState):
 
     def mu_func(
         self,
@@ -237,6 +190,14 @@ class LiquidEOS(pp.compositional.EquationOfState):
             dphis=np.empty((2, 3, nc)),
         )
 
+class LiquidEOS(BaseEOS):
+    def rho_func(
+        self,
+        *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = rho_l * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 class GasEOS(LiquidEOS):
     def rho_func(
@@ -245,16 +206,6 @@ class GasEOS(LiquidEOS):
     ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
         vals = rho_g * np.ones(nc)
-        # row-wise storage of derivatives, (4, nc) array
-        diffs = np.zeros((len(thermodynamic_dependencies), nc))
-        return vals, diffs
-
-    def h(
-        self,
-        *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
@@ -408,15 +359,12 @@ class InitialConditions(pp.PorePyModel):
         s_init_val = 0.8
         z_init_val = (rho_g*s_init_val)/(rho_l*(1 - s_init_val) + rho_g*(s_init_val))
         xc = sd.cell_centers.T
-        z = np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 5.0), z_init_val, 0.0)
-        if component.name == "H2O":
-            return (1 - z) * np.ones(sd.num_cells)
-        else:
-            return z * np.ones(sd.num_cells)
+        z = np.where((xc[:, 2] >= 1.0) & (xc[:, 2] <= 5.0), z_init_val, 0.0)
+        return z * np.ones(sd.num_cells)
 
 
 class FlowModel(
-    ModelGeometry if mesh_2d_Q else ModelGeometry3D,
+    ModelGeometry,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
@@ -427,6 +375,9 @@ class FlowModel(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         return phase.saturation(domains)**2
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
@@ -445,10 +396,6 @@ class FlowModel(
         self.set_nonlinear_buoyancy_discretization()
 
     def before_nonlinear_iteration(self) -> None:
-        self.update_material_properties()
-        self.update_discretization_parameters()
-        self.rediscretize_fluxes()
-        self.update_flux_values()
         self.update_buoyancy_driven_fluxes()
         self.rediscretize()
 
@@ -474,15 +421,14 @@ class FlowModel(
                 total_volume += np.sum(
                     self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
 
-            self.equation_system
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
                 nonlinear_increment
             )
 
             # Residual per subsystem
-            res_idx = self.equation_system.assembled_equation_indices
             residual_norm = np.linalg.norm(residual) * total_volume
+            print("Residual norm: ", residual_norm)
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                 nl_params["nl_convergence_tol"] is np.inf
@@ -503,8 +449,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 1.0 * day
-dt = 0.001 * day
+tf = 5.0 * day
+dt = 0.025 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -514,8 +460,8 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    permeability=3.0e-12,
-    porosity=0.35,
+    permeability=1.0e-13,
+    porosity=0.1,
     thermal_conductivity=2.0 * to_Mega,
     density=2500.0,
     specific_heat_capacity=1000.0 * to_Mega,
@@ -530,9 +476,10 @@ params = {
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": 1.0e-6,
-    "max_iterations": 100,
+    "max_iterations": 25,
 }
 
 model = FlowModel(params)
 model.prepare_simulation()
+print("Total number of DoF: ", model.equation_system.num_dofs())
 pp.run_time_dependent_model(model, params)
