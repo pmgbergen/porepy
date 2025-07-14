@@ -8,10 +8,13 @@ from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
 from abc import abstractmethod
+import matplotlib.pyplot as plt
 
 # define constant phase densities
+rho_idx = 2
+delta_rho = [225,450,900.0]
 rho_l = 1000.0
-rho_g = 100.0
+rho_g = rho_l - delta_rho[rho_idx]
 to_Mega = 1.0e-6
 
 
@@ -29,12 +32,12 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.02
-    _sphere_centre: np.ndarray = np.array([0.01, 0.01, 10.0])
+    _sphere_radius: float = 0.005
+    _sphere_centre: np.ndarray = np.array([0.0025, 0.0025, 10.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(0.02, "m")
-        y_length = self.units.convert_units(0.02, "m")
+        x_length = self.units.convert_units(0.005, "m")
+        y_length = self.units.convert_units(0.005, "m")
         z_length = self.units.convert_units(7.0, "m")
         box: dict[str, pp.number] = {
             "xmax": x_length,
@@ -47,7 +50,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.02, "m")
+        cell_size = self.units.convert_units(0.005, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -475,11 +478,48 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-6,
+    "nl_convergence_tol_res": 1.0e-8,
     "max_iterations": 25,
 }
 
 model = FlowModel(params)
 model.prepare_simulation()
+
+_, gas = model.fluid.phases
+initial_saturation = model.equation_system.evaluate(gas.saturation(model.mdg.subdomains()))
+
 print("Total number of DoF: ", model.equation_system.num_dofs())
 pp.run_time_dependent_model(model, params)
+
+
+# Load data from CSV
+filename = 'hayek_exact_sol_case_' + str(rho_idx) + '.csv'
+data = np.genfromtxt(filename, delimiter=',', skip_header=1)
+
+# Parse columns
+distance = data[:, 0]
+reference_saturation = data[:, 1]
+
+
+grid = model.mdg.subdomains()[0]
+distance_h = grid.cell_centers.T[:,2]
+numerical_saturation = model.equation_system.evaluate(gas.saturation(model.mdg.subdomains()))
+
+# Create the plot
+plt.figure(figsize=(8, 5))
+plt.plot(distance_h, initial_saturation, label='Initial Saturation', color='grey', linestyle='-', linewidth=2)
+plt.plot(distance, reference_saturation, label='Reference Saturation', color='blue', linewidth=2)
+plt.plot(distance_h, numerical_saturation, label='Numerical Saturation', color='red', linestyle='--', linewidth=2)
+
+
+# Labeling and layout
+plt.xlabel('Distance [m]')
+plt.ylabel('Saturation [-]')
+plt.title(r'Saturation Profile at $t = 5$ days for $\Delta \rho = {}$ kg/m$^3$'.format(delta_rho[rho_idx]))
+plt.grid(True)
+plt.legend()
+plt.tight_layout()
+
+# Save to file
+plt.savefig('hayek_test_comparison_case' + str(rho_idx) + '.png', dpi=300)  # or .pdf, .svg, etc.
+plt.close()
