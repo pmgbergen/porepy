@@ -408,7 +408,7 @@ def test_buoyancy_flow_benchmark(
         ) -> pp.ad.Operator:
             return phase.saturation(domains) ** 2
 
-        def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
             return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
         def after_nonlinear_convergence(self) -> None:
