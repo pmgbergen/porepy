@@ -45,7 +45,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_hP"
-geometry_case = "vertical"
+geometry_case = "horizontal"
 
 final_times = {
     "horizontal": [91250.0, 43800.0, 547500.0],  # final time [250, 120, 1500 years]
@@ -110,7 +110,7 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-2,
+    "nl_convergence_tol_res": 1.0e-4,
     "max_iterations": 100,
 }
 
