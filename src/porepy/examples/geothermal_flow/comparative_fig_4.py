@@ -6,8 +6,8 @@ from scipy.interpolate import interp1d
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # --- Configuration ---
-pressure_case = "hp_"
-figure_type = "horizontal"
+pressure_case = "mp_"
+figure_type = "vertical"
 
 
 def extract_cell_data(file_path: str, field_names: list) -> dict:
@@ -99,7 +99,12 @@ print("\nStep 1: Loading data...")
 
 # 1a. Load data from PorePy's VTU output file
 
-vtk_map = {'hp_horizontal': 'fig4_hp_horizontal_time_idx_000250_l1', 'vertical': 'fig5_vertical_time_idx_004000_xd'}
+vtk_map = { 'hp_horizontal': 'fig4_hp_horizontal_time_idx_000250_l1',
+            'mp_horizontal': 'fig4_mp_horizontal_time_idx_000120_l1',
+            'lp_horizontal': 'fig4_lp_horizontal_time_idx_001500_l1',
+            'hp_vertical': 'fig4_hp_vertical_time_idx_000750_l1',
+            'mp_vertical': 'fig4_mp_vertical_time_idx_000350_l1',
+            'lp_vertical': 'fig4_lp_vertical_time_idx_001500_l1'}
 
 vtk_file = "benchmark_figures_data/porepy_vtks/" + vtk_map[pressure_case+figure_type] + ".vtu"
 fields_to_extract = ['pressure', 'temperature', 'enthalpy']

@@ -44,8 +44,8 @@ from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_marke
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
-case_name = "case_hP"
-geometry_case = "horizontal"
+case_name = "case_mP"
+geometry_case = "vertical"
 
 final_times = {
     "horizontal": [91250.0, 43800.0, 547500.0],  # final time [250, 120, 1500 years]
