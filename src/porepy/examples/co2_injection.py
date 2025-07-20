@@ -15,15 +15,8 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-h_MESH: float = 1.0
-"""Mesh size."""
-# 4.        308 cells
-# 2.        1204 cells
-# 1.        4636 cells
-# 5e-1      18,464 cells
-# 2.5e-1    73,748 cells
-# 1e-1      462,340 cells
-
+REFINEMENT_LEVEL: Literal[0, 1, 2, 3, 4] = 3
+"""Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
 FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
@@ -38,6 +31,17 @@ USE_ADTPFA_FLUX_DISCRETIZATION: bool = False
 """Uses the adaptive flux discretization for both Darcy and Fourier flux."""
 BUOYANCY_ON: bool = False
 """Turn on buoyancy. NOTE: This is still under development."""
+
+MESH_SIZES: dict[int, float] = dict([(i, 4. * 0.5 ** i) for i in range(5)])
+"""
+4.        308 cells
+2.        1204 cells
+1.        4636 cells
+5e-1      18,464 cells
+2.5e-1    73,748 cells
+1e-1      462,340 cells
+"""
+h_MESH = MESH_SIZES[REFINEMENT_LEVEL]
 
 
 import json
