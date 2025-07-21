@@ -22,7 +22,7 @@ FIGUREHEIGHT: int = 0.4 * FIGUREWIDTH
 FIGUREPAD: float = 0.05
 FONTSIZE: int = 24
 MARKERSIZE: int = 20
-LINEWIDTH: float = 3.0
+LINEWIDTH: float = 3
 
 USED_MESH_SIZES: dict[RefinementLevel, float] = {
     0: 4.0,
@@ -69,7 +69,7 @@ class SimulationData(TypedDict, total=False):
     """1D array of times."""
     dt: np.ndarray
     """1D array of time step sizes."""
-    recomputations: dict[float, int]
+    recomputations: list[int]
     """Number of recomputations of dt at a time due to convergence failure."""
     num_global_iter: np.ndarray
     """Number of global iterations per time step."""
@@ -86,6 +86,8 @@ class SimulationData(TypedDict, total=False):
     """Clock time for assembly, average and total."""
     clock_time_flash_solver: tuple[float, float]
     """Clock time for flash solver, average and total."""
+    setup_time: float
+    """"Clock time for simulation setup."""
 
     total_num_time_steps: int
     """Total number of time steps in the simulation."""
@@ -103,6 +105,7 @@ def load_data(
     refinement: RefinementLevel,
     tol_flash_case: int = 4,
 ) -> SimulationData | None:
+    path = pathlib.Path(f"stats_{condition}_h{refinement}_ftol{tol_flash_case}.json")
     return SimulationData(
         refinement_level=refinement,
         tol_flash_case=tol_flash_case,
@@ -111,7 +114,7 @@ def load_data(
         tol_flash=1e-8,
         t=np.array([1.0, 2.0, 3.0]),
         dt=np.array([1.0, 1.0, 1.0]),
-        recomputations={1.0: 1, 2.5: 2, 3.0: 3},
+        recomputations=[0, 3, 1],
         num_global_iter=(
             np.array([10, 11, 12]) if condition == "p-h" else np.array([20, 21, 22])
         )
@@ -130,6 +133,38 @@ def load_data(
         total_num_time_steps=3,
         total_num_global_iter=33 if condition == "p-h" else 63,
         total_num_flash_iter=5 if condition == "p-h" else 7,
+        setup_time=1.0,
+    )
+    if not path.is_file():
+        raise ValueError(
+            "Simulation data not found for\n"
+            f"equilibrium condition: {condition}\n"
+            f"refinement level: {refinement}\n"
+            f"flash tolerance case: {tol_flash_case}"
+        )
+
+    data = json.load(path)
+    assert refinement == data["refinement_level"]
+    assert condition == data["equilibrium_condition"]
+    assert tol_flash_case == data["tol_flash_case"]
+    sdata = SimulationData(
+        refinement_level=data["refinement_level"],
+        equilibrium_condtion=data["equilibrium_condition"],
+        tol_flash_case=data["tol_flash_case"],
+        num_cells=data["num_cells"],
+        t=data["t"],
+        dt=data["dt"],
+        recomputations=data["recomputations"],
+        num_global_iter=data["num_global_iter"],
+        num_linesearch_iter=data["num_linesearch_iter"],
+        num_flash_iter=data["num_flash_iter"],
+        clock_time_global_solver=data["clock_time_global_solver"],
+        clock_time_assembly=data["clock_time_assembly"],
+        clock_time_flash_solver=data["clock_time_flash_solver"],
+        total_num_global_iter=data["total_num_global_iter"],
+        total_num_time_steps=data["total_num_time_steps"],
+        total_num_flash_iter=data["total_num_flash_iter"],
+        setup_time=data["setup_time"],
     )
 
 
@@ -151,7 +186,6 @@ ax = fig.add_subplot(1, 1, 1)
 axr = ax.twinx()
 imgs = []
 imgsr = []
-MARKERSIZE = 7
 
 ngi = []
 nfi = []
@@ -181,7 +215,8 @@ imgsr += axr.plot(
     nfi[1],
     color=color,
     linestyle="dashed",
-    marker="x",
+    marker="s",
+    mfc="white",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="pT-local",
@@ -192,7 +227,7 @@ imgs += ax.plot(
     nli[1],
     color=color,
     linestyle="dotted",
-    marker="1",
+    marker="X",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="pT-linesearch",
@@ -226,7 +261,8 @@ imgsr += axr.plot(
     nfi[1],
     color=color,
     linestyle="dashed",
-    marker="x",
+    marker="s",
+    mfc="white",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="ph-local",
@@ -237,7 +273,7 @@ imgs += ax.plot(
     nli[1],
     color=color,
     linestyle="dotted",
-    marker="1",
+    marker="X",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="ph-linesearch",
@@ -259,14 +295,14 @@ axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
 ax.legend(
     [i.get_label() for i in imgs],
     fontsize=FONTSIZE,
-    loc="upper left",
-    bbox_to_anchor=(-0.4, 1.05),
+    loc="upper right",
+    bbox_to_anchor=(-0.1, 1),
 )
 axr.legend(
     [i.get_label() for i in imgsr],
     fontsize=FONTSIZE,
-    loc="upper right",
-    bbox_to_anchor=(1.3, 1.05),
+    loc="upper left",
+    bbox_to_anchor=(1.1, 1),
 )
 fig.tight_layout(pad=FIGUREPAD)
 fig.savefig(
@@ -308,11 +344,40 @@ imgs += ax.plot(
     nli,
     color=color,
     linestyle="dotted",
-    marker="1",
+    marker="X",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="line search",
 )
+
+rcomps = np.array(D["recomputations"]).astype(int)
+assert np.all(rcomps >= 0)
+rcid = rcomps > 0
+tid = t[rcid]
+ngiid = ngi[rcid] + 2
+rid = rcomps[rcid]
+n = 3e2
+N = 3e3
+m = rid.min()
+M = rid.max()
+a = (N - n) / (M - m)
+b = n - a * m
+sizes = a * rid + b
+
+imgs += [ax.scatter(tid, ngiid, s=sizes, alpha=0.5, label="re-computations")]
+
+idx = rid == M
+
+ax.text(
+    tid[idx][0],
+    ngiid[idx][0],
+    M,
+    fontsize=FONTSIZE + 2,
+    fontweight="heavy",
+    horizontalalignment="center",
+    verticalalignment="center",
+)
+
 ax.set_xscale("log")
 ax.set_xticks(np.array(list(USED_MESH_SIZES.values())))
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
@@ -329,7 +394,8 @@ imgsr += axr.plot(
     nfi,
     color=color,
     linestyle="dashed",
-    marker="x",
+    marker="s",
+    mfc="white",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="local",
@@ -341,14 +407,14 @@ axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 ax.legend(
     [i.get_label() for i in imgs],
     fontsize=FONTSIZE,
-    loc="upper left",
-    bbox_to_anchor=(-0.25, 1.05),
+    loc="upper right",
+    bbox_to_anchor=(-0.1, 1),
 )
 axr.legend(
     [i.get_label() for i in imgsr],
     fontsize=FONTSIZE,
-    loc="upper right",
-    bbox_to_anchor=(1.2, 1.05),
+    loc="upper left",
+    bbox_to_anchor=(1.1, 1),
 )
 fig.tight_layout(pad=FIGUREPAD)
 fig.savefig(
@@ -362,7 +428,77 @@ fig.savefig(
 
 # region Plotting total num iterations per flash tolerance.
 
-D: SimulationData = data["p-h"][3]
+DD: list[SimulationData] = [
+    load_data("p-h", 3, i) for i in USED_FLASH_TOLERANCES.keys()
+]
+ftols = np.array([USED_FLASH_TOLERANCES[d["tol_flash_case"]] for d in DD])
+tngi = np.array([d["total_num_global_iter"] for d in DD]).astype(int)
+tnfi = np.array([d["total_num_flash_iter"] for d in DD]).astype(int)
+
+fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
+ax = fig.add_subplot(1, 1, 1)
+imgs = []
+imgsr = []
+
+color = "black"
+ax.set_xlabel("Local tolerance", fontsize=FONTSIZE + 2)
+ax.set_ylabel("Total global iterations", color=color, fontsize=FONTSIZE + 2)
+imgs += ax.plot(
+    ftols,
+    tngi,
+    color=color,
+    marker="^",
+    markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
+    label="global",
+)
+ax.tick_params(axis="both", which="both", labelcolor=color, labelsize=FONTSIZE)
+ax.set_xticks(ftols)
+ax.set_xscale("log")
+# ax.set_yscale("log")
+# ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator())
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+
+axr = ax.twinx()
+color = "salmon"
+axr.set_ylabel("Total local iterations", color=color, fontsize=FONTSIZE + 2)
+imgsr += axr.plot(
+    ftols,
+    tnfi,
+    color=color,
+    marker="s",
+    mfc="white",
+    markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
+    label="local",
+)
+ax.set_xticks(ftols)
+axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
+# axr.set_yscale("log")
+# axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+axr.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator())
+axr.yaxis.grid(visible=True, which="both", color="orange", alpha=0.3, linewidth=0.5)
+
+# ax.legend(
+#     [i.get_label() for i in imgs],
+#     fontsize=FONTSIZE,
+#     loc="upper right",
+#     bbox_to_anchor=(-0.1, 1),
+# )
+# axr.legend(
+#     [i.get_label() for i in imgsr],
+#     fontsize=FONTSIZE,
+#     loc="upper left",
+#     bbox_to_anchor=(1.1, 1),
+# )
+fig.tight_layout(pad=FIGUREPAD)
+fig.savefig(
+    f"{FIGUREPATH}total_iter_per_ftol_h{3}.png",
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+)
 
 # endregion
 
@@ -403,27 +539,28 @@ imgsr += axr.plot(
     t_indices,
     dt,
     color=color,
-    marker="1",
+    marker="s",
+    mfc="white",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label=r"$\Delta$ t",
 )
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.set_yscale("log")
-ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-ax.yaxis.grid(visible=True, which="both", color="orange", alpha=0.3, linewidth=0.5)
+axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+axr.yaxis.grid(visible=True, which="both", color="orange", alpha=0.3, linewidth=0.5)
 
 ax.legend(
     [i.get_label() for i in imgs],
     fontsize=FONTSIZE,
-    loc="upper left",
-    bbox_to_anchor=(-0.2, 1.05),
+    loc="upper right",
+    bbox_to_anchor=(-0.1, 1),
 )
 axr.legend(
     [i.get_label() for i in imgsr],
     fontsize=FONTSIZE,
-    loc="upper right",
-    bbox_to_anchor=(1.2, 1.05),
+    loc="upper left",
+    bbox_to_anchor=(1.1, 1),
 )
 fig.tight_layout(pad=FIGUREPAD)
 fig.savefig(
