@@ -192,6 +192,10 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
 
         self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
 
+        self._total_num_time_steps: int = 0
+        self._total_num_global_iter: int = 0
+        self._total_num_flash_iter: int = 0
+
     def data_to_export(self):
         data: list = super().data_to_export()
 
@@ -339,6 +343,11 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         # NOTE the time manager always returns the time at the end of the time step,
         # The one for which we solve.
         self._time_steps.append(self.time_manager.time - self.time_manager.dt)
+        self._total_num_time_steps += 1
+        self._total_num_global_iter += self.nonlinear_solver_statistics.num_iteration
+        self._total_num_flash_iter += sum(
+            [sum(vals) for vals in self._cum_flash_iter_per_grid.values()]
+        )
 
     def after_nonlinear_failure(self):
         # Do not include clock times of failed attempts.
@@ -346,6 +355,11 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self._time_tracker["linsolve"] = self._time_tracker["linsolve"][:-n]
         self._time_tracker["assembly"] = self._time_tracker["assembly"][:-n]
         self._time_tracker["flash"] = self._time_tracker["flash"][:-n]
+        self._total_num_time_steps += 1
+        self._total_num_global_iter += n
+        self._total_num_flash_iter += sum(
+            [sum(vals) for vals in self._cum_flash_iter_per_grid.values()]
+        )
         return super().after_nonlinear_failure()
 
     def update_thermodynamic_properties_of_phases(
@@ -1344,6 +1358,9 @@ if __name__ == "__main__":
         ),
         "setup_time": prep_sim_time,
         "simulation_time": sim_time,
+        "total_num_time_steps": model._total_num_time_steps,
+        "total_num_global_iter": model._total_num_global_iter,
+        "total_num_flash_iter": model._total_num_flash_iter,
     }
 
     with open(

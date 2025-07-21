@@ -9,6 +9,7 @@ from typing import Literal, TypeAlias, TypedDict
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from tabulate import tabulate
 
 RefinementLevel: TypeAlias = Literal[0, 1, 2, 3, 4]
 EquilibriumCondition: TypeAlias = Literal["p-T", "p-h"]
@@ -16,16 +17,19 @@ EquilibriumCondition: TypeAlias = Literal["p-T", "p-h"]
 
 FIGUREPATH: str = f"{str(pathlib.Path(__file__).parent.resolve())}\\"
 DPI: int = 400
-FIGUREWIDTH: int = 10
-FONTSIZE: int = 20
-MARKERSIZE: int = 10
+FIGUREWIDTH: int = 20
+FIGUREHEIGHT: int = 0.4 * FIGUREWIDTH
+FIGUREPAD: float = 0.05
+FONTSIZE: int = 24
+MARKERSIZE: int = 20
+LINEWIDTH: float = 3.0
 
 USED_MESH_SIZES: dict[RefinementLevel, float] = {
     0: 4.0,
     1: 2.0,
     2: 1.0,
-    3: 5e-1,
-    4: 2.5e-1,
+    3: 0.5,
+    4: 0.25,
 }
 """Dictionary containing the used mesh sizes for given abreviation."""
 
@@ -47,6 +51,9 @@ ph_colors = {
     3: "dodgerblue",
     4: "blue",
 }
+
+
+plt.rc("text", usetex=True)
 
 
 class SimulationData(TypedDict, total=False):
@@ -80,6 +87,13 @@ class SimulationData(TypedDict, total=False):
     clock_time_flash_solver: tuple[float, float]
     """Clock time for flash solver, average and total."""
 
+    total_num_time_steps: int
+    """Total number of time steps in the simulation."""
+    total_num_global_iter: int
+    """Total number of global iterations in the simulation."""
+    total_num_flash_iter: int
+    """Total number of flash iterations in the simulation."""
+
 
 # region Loading simulation data
 
@@ -110,6 +124,12 @@ def load_data(
             np.array([10, 11, 12]) if condition == "p-h" else np.array([20, 21, 22])
         )
         + (refinement + 2),
+        clock_time_global_solver=(1.0, 3.0),
+        clock_time_assembly=(0.5, 1.5 / 60),
+        clock_time_flash_solver=(0.2, 0.8 / 60),
+        total_num_time_steps=3,
+        total_num_global_iter=33 if condition == "p-h" else 63,
+        total_num_flash_iter=5 if condition == "p-h" else 7,
     )
 
 
@@ -126,7 +146,7 @@ data: dict[EquilibriumCondition, dict[RefinementLevel, SimulationData]] = {
 
 # region Plotting total num iterations per grid refinement.
 
-fig = plt.figure(figsize=(FIGUREWIDTH, 0.8 * FIGUREWIDTH))
+fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
 ax = fig.add_subplot(1, 1, 1)
 axr = ax.twinx()
 imgs = []
@@ -152,6 +172,7 @@ imgs += ax.plot(
     linestyle="solid",
     marker="^",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="pT-global",
 )
 nfi = np.array(nfi).T
@@ -162,6 +183,7 @@ imgsr += axr.plot(
     linestyle="dashed",
     marker="x",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="pT-local",
 )
 nli = np.array(nli).T
@@ -172,6 +194,7 @@ imgs += ax.plot(
     linestyle="dotted",
     marker="1",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="pT-linesearch",
 )
 
@@ -194,6 +217,7 @@ imgs += ax.plot(
     linestyle="solid",
     marker="^",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="ph-global",
 )
 nfi = np.array(nfi).T
@@ -204,6 +228,7 @@ imgsr += axr.plot(
     linestyle="dashed",
     marker="x",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="ph-local",
 )
 nli = np.array(nli).T
@@ -214,6 +239,7 @@ imgs += ax.plot(
     linestyle="dotted",
     marker="1",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="ph-linesearch",
 )
 
@@ -230,13 +256,24 @@ axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.set_ylabel("Average total local iterations", fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
 
-ax.legend([i.get_label() for i in imgs], fontsize=FONTSIZE, loc="upper left")
-axr.legend([i.get_label() for i in imgsr], fontsize=FONTSIZE, loc="upper right")
-fig.tight_layout()
+ax.legend(
+    [i.get_label() for i in imgs],
+    fontsize=FONTSIZE,
+    loc="upper left",
+    bbox_to_anchor=(-0.4, 1.05),
+)
+axr.legend(
+    [i.get_label() for i in imgsr],
+    fontsize=FONTSIZE,
+    loc="upper right",
+    bbox_to_anchor=(1.3, 1.05),
+)
+fig.tight_layout(pad=FIGUREPAD)
 fig.savefig(
     f"{FIGUREPATH}total_iter_per_refinement.png",
     format="png",
     dpi=DPI,
+    bbox_inches="tight",
 )
 
 # endregion
@@ -250,7 +287,7 @@ ngi = np.array(D["num_global_iter"]).astype(int)
 nfi = np.array(D["num_flash_iter"]).astype(float)
 nli = np.array(D["num_linesearch_iter"]).astype(int)
 
-fig = plt.figure(figsize=(FIGUREWIDTH, 0.8 * FIGUREWIDTH))
+fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
 ax = fig.add_subplot(1, 1, 1)
 imgs = []
 imgsr = []
@@ -263,6 +300,7 @@ imgs += ax.plot(
     linestyle="solid",
     marker="^",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="global",
 )
 imgs += ax.plot(
@@ -272,6 +310,7 @@ imgs += ax.plot(
     linestyle="dotted",
     marker="1",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="line search",
 )
 ax.set_xscale("log")
@@ -292,19 +331,31 @@ imgsr += axr.plot(
     linestyle="dashed",
     marker="x",
     markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
     label="local",
 )
 axr.set_ylabel("Average local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 
-ax.legend([i.get_label() for i in imgs], fontsize=FONTSIZE, loc="upper left")
-axr.legend([i.get_label() for i in imgsr], fontsize=FONTSIZE, loc="upper right")
-fig.tight_layout()
+ax.legend(
+    [i.get_label() for i in imgs],
+    fontsize=FONTSIZE,
+    loc="upper left",
+    bbox_to_anchor=(-0.25, 1.05),
+)
+axr.legend(
+    [i.get_label() for i in imgsr],
+    fontsize=FONTSIZE,
+    loc="upper right",
+    bbox_to_anchor=(1.2, 1.05),
+)
+fig.tight_layout(pad=FIGUREPAD)
 fig.savefig(
     f"{FIGUREPATH}iterations_per_time_h{D['refinement_level']}_ftol{D['tol_flash_case']}.png",
     format="png",
     dpi=DPI,
+    bbox_inches="tight",
 )
 
 # endregion
@@ -318,7 +369,7 @@ D: SimulationData = data["p-h"][3]
 # region Plotting time progress.
 
 D: SimulationData = data["p-h"][3]
-fig = plt.figure(figsize=(FIGUREWIDTH, 0.8 * FIGUREWIDTH))
+fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
 ax = fig.add_subplot(1, 1, 1)
 imgs = []
 imgsr = []
@@ -327,42 +378,59 @@ t = np.array(D["t"])
 dt = np.array(D["dt"])
 t_indices = np.arange(t.size)
 
-
 color = "black"
-ax.set_xlabel("Time step index")
-ax.set_ylabel("t (s)", color=color)
+ax.set_xlabel("Time step index", fontsize=FONTSIZE + 2)
+ax.set_ylabel("time (s)", color=color, fontsize=FONTSIZE + 2)
 imgs += ax.plot(
-    t_indices, t, color=color, marker="^", markersize=MARKERSIZE, label="time step"
+    t_indices,
+    t,
+    color=color,
+    marker="^",
+    markersize=MARKERSIZE,
+    linewidth=LINEWIDTH,
+    label="t",
 )
-ax.tick_params(axis="y", labelcolor=color)
+ax.tick_params(axis="both", which="both", labelcolor=color, labelsize=FONTSIZE)
 ax.set_yscale("log")
-ax.get_xaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=10))
+ax.get_xaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=2))
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 
 axr = ax.twinx()
 color = "salmon"
-axr.set_ylabel("dt (s)", color=color)
+axr.set_ylabel("time (s)", color=color, fontsize=FONTSIZE + 2)
 imgsr += axr.plot(
     t_indices,
     dt,
     color=color,
     marker="1",
     markersize=MARKERSIZE,
-    label="time step size",
+    linewidth=LINEWIDTH,
+    label=r"$\Delta$ t",
 )
-axr.tick_params(axis="y", labelcolor=color)
+axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.set_yscale("log")
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="orange", alpha=0.3, linewidth=0.5)
 
-ax.legend([i.get_label() for i in imgs], fontsize=FONTSIZE, loc="upper left")
-axr.legend([i.get_label() for i in imgsr], fontsize=FONTSIZE, loc="upper right")
-fig.tight_layout()
+ax.legend(
+    [i.get_label() for i in imgs],
+    fontsize=FONTSIZE,
+    loc="upper left",
+    bbox_to_anchor=(-0.2, 1.05),
+)
+axr.legend(
+    [i.get_label() for i in imgsr],
+    fontsize=FONTSIZE,
+    loc="upper right",
+    bbox_to_anchor=(1.2, 1.05),
+)
+fig.tight_layout(pad=FIGUREPAD)
 fig.savefig(
     f"{FIGUREPATH}time_progress_h{D['refinement_level']}_ftol{D['tol_flash_case']}.png",
     format="png",
     dpi=DPI,
+    bbox_inches="tight",
 )
 
 # endregion
@@ -372,5 +440,45 @@ fig.savefig(
 
 Dph: SimulationData = data["p-h"][2]
 DpT: SimulationData = data["p-T"][2]
+
+
+def format_times(vals: tuple[float, float]) -> str:
+    """Format the clock time values."""
+    return f"{vals[0]:.6f} ({vals[1]:.2f})"
+
+
+table = tabulate(
+    [
+        [
+            "p-h",
+            format_times(Dph["clock_time_assembly"]),
+            format_times(Dph["clock_time_global_solver"]),
+            format_times(Dph["clock_time_flash_solver"]),
+            Dph["total_num_time_steps"],
+            Dph["total_num_global_iter"],
+            Dph["total_num_flash_iter"],
+        ],
+        [
+            "p-T",
+            format_times(DpT["clock_time_assembly"]),
+            format_times(DpT["clock_time_global_solver"]),
+            format_times(DpT["clock_time_flash_solver"]),
+            DpT["total_num_time_steps"],
+            DpT["total_num_global_iter"],
+            DpT["total_num_flash_iter"],
+        ],
+    ],
+    headers=[
+        "Equilibrium condition",
+        "Assembly time",
+        "Linear solver time",
+        "Flash solver time",
+        "Number of time steps",
+        "Number of global iterations",
+        "Number of local iterations",
+    ],
+    tablefmt="orgtbl",
+)
+print(table)
 
 # endregion
