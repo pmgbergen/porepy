@@ -17,31 +17,45 @@ from __future__ import annotations
 
 REFINEMENT_LEVEL: Literal[0, 1, 2, 3, 4] = 3
 """Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
-FRACTIONAL_FLOW: bool = False
-"""Use the fractional flow formulation without upwinding in the diffusive fluxes."""
 EQUILIBRIUM_CONDITION: str = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
 procedure."""
+FLASH_TOL_CASE: Literal[0, 1, 2, 3, 4] = 4
+"""Define the flash tolerance used in the solution procedure."""
 EXPORT_SCHEDULED_TIME_ONLY: bool = False
 """Exports all  time steps produced by the time stepping algorithm, otherwise only
 the scheduled times."""
+BUOYANCY_ON: bool = False
+"""Turn on buoyancy. NOTE: This is still under development."""
+
+MESH_SIZES: dict[int, float] = {
+    0: 4.0,  # 308 cells
+    1: 2.0,  # 1204 cells
+    2: 1.0,  # 4636 cells
+    3: 0.5,  # 18,464 cells
+    4: 0.25,  # 73,748 cells
+}
+"""Tested mesh sizes in meters."""
+
+FLASH_TOLERANCES: dict[int, float] = {
+    0: 1e-1,
+    1: 1e-2,
+    2: 1e-3,
+    3: 1e-5,
+    4: 1e-8,
+}
+"""Tested flash tolerances."""
+
+h_MESH = MESH_SIZES[REFINEMENT_LEVEL]
+tol_flash = FLASH_TOLERANCES[FLASH_TOL_CASE]
+
+FRACTIONAL_FLOW: bool = False
+"""Use the fractional flow formulation without upwinding in the diffusive fluxes."""
+
 DISABLE_COMPILATION: bool = False
 """For disabling numba compilation and faster start of simulation."""
 USE_ADTPFA_FLUX_DISCRETIZATION: bool = False
 """Uses the adaptive flux discretization for both Darcy and Fourier flux."""
-BUOYANCY_ON: bool = False
-"""Turn on buoyancy. NOTE: This is still under development."""
-
-MESH_SIZES: dict[int, float] = dict([(i, 4. * 0.5 ** i) for i in range(5)])
-"""
-4.        308 cells
-2.        1204 cells
-1.        4636 cells
-5e-1      18,464 cells
-2.5e-1    73,748 cells
-1e-1      462,340 cells
-"""
-h_MESH = MESH_SIZES[REFINEMENT_LEVEL]
 
 
 import json
@@ -50,9 +64,8 @@ import pathlib
 import time
 import warnings
 from collections import deque
-from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_check
+from typing import Any, Callable, Literal, Optional, Sequence, cast
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
 from scipy.linalg import lstsq
@@ -149,21 +162,35 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
     enthalpy_variable: str
     fraction_in_phase_variables: list[str]
 
-    _num_flash_iter: np.ndarray
-
     def __init__(self, params: dict | None = None):
         super().__init__(params)  # type:ignore[safe-super]
 
         self._residual_norm_history: deque[float] = deque(maxlen=4)
         self._increment_norm_history: deque[float] = deque(maxlen=3)
 
-        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
-        self._global_iter_per_time: dict[float, tuple[int, ...]] = {}
-        self._time_tracker: dict[str, list[float]] = {
+        # Data saving for plotting for paper.
+        self._time_steps: list[float] = []
+        self._time_step_sizes: list[float] = []
+        self._time_tracker: dict[
+            Literal["flash", "assembly", "linsolve"], list[float]
+        ] = {
             "flash": [],
             "assembly": [],
             "linsolve": [],
         }
+        self._recomputations: list[int] = []
+        """Number of recomputations of dt at a time due to convergence failure."""
+        self._num_global_iter: list[int] = []
+        """Number of global iterations per successful time step."""
+        self._num_cell_averaged_flash_iter: list[int] = []
+        """Number of cell-averaged flash iterations per successful time step."""
+        self._num_linesearch_iter: list[int] = []
+        """Number of linesearch iterations per successful time step."""
+
+        self._flash_iter_counter: int = 0
+        """Counter for cell-averaged flash iterations per time step."""
+
+        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
 
     def data_to_export(self):
         data: list = super().data_to_export()
@@ -184,6 +211,8 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self._residual_norm_history.clear()
         self._increment_norm_history.clear()
         self._cum_flash_iter_per_grid.clear()
+        self._flash_iter_counter = 0
+        model.nonlinear_solver_statistics.num_iteration_armijo = 0
 
     def check_convergence(
         self,
@@ -298,16 +327,26 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         return float(residual_norm)
 
     def after_nonlinear_convergence(self):
+        # Get number of recomputations from time manager before it is reset.
+        self._recomputations.append(self.time_manager._recomp_num)
         super().after_nonlinear_convergence()
-        global_flash_iter = 0
-        for ni in self._cum_flash_iter_per_grid.values():
-            n = sum(ni).sum()
-            global_flash_iter += int(n)
-        self._global_iter_per_time[self.time_manager.time] = (
-            self.nonlinear_solver_statistics.num_iteration,
-            model.nonlinear_solver_statistics.num_iteration_armijo,
-            global_flash_iter,
+        self._num_global_iter.append(self.nonlinear_solver_statistics.num_iteration)
+        self._num_cell_averaged_flash_iter.append(self._flash_iter_counter)
+        self._num_linesearch_iter.append(
+            self.nonlinear_solver_statistics.num_iteration_armijo
         )
+        self._time_step_sizes.append(self.time_manager.dt)
+        # NOTE the time manager always returns the time at the end of the time step,
+        # The one for which we solve.
+        self._time_steps.append(self.time_manager.time - self.time_manager.dt)
+
+    def after_nonlinear_failure(self):
+        # Do not include clock times of failed attempts.
+        n = self.nonlinear_solver_statistics.num_iteration
+        self._time_tracker["linsolve"] = self._time_tracker["linsolve"][:-n]
+        self._time_tracker["assembly"] = self._time_tracker["assembly"][:-n]
+        self._time_tracker["flash"] = self._time_tracker["flash"][:-n]
+        return super().after_nonlinear_failure()
 
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
@@ -315,6 +354,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         """Performing pT flash in injection wells, because T is fixed there."""
         start = time.time()
         stride = int(self.params["flash_params"].get("global_iteration_stride", 3))
+        nfi_mean = 0
         for sd in self.mdg.subdomains():
             if sd not in self._cum_flash_iter_per_grid:
                 self._cum_flash_iter_per_grid[sd] = []
@@ -327,16 +367,24 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                         self.temperature([sd]), state=state
                     ),
                 }
-                self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
-                self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
+                nfi = self.local_equilibrium(
+                    sd,
+                    state=state,
+                    equilibrium_specs=equ_spec,
+                    return_num_iter=True,
+                )  # type:ignore
+                self._cum_flash_iter_per_grid[sd].append(nfi)
             elif self.nonlinear_solver_statistics.num_iteration % stride == 0:
-                self.local_equilibrium(sd, state=state)  # type:ignore
-                self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
+                nfi = self.local_equilibrium(sd, state=state, return_num_iter=True)  # type:ignore
+                self._cum_flash_iter_per_grid[sd].append(nfi)
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
                     self,
                     state,
                 )
+                nfi = np.zeros(sd.num_cells, dtype=int)
+            nfi_mean += nfi.mean()
+        self._flash_iter_counter += int(nfi_mean)
         self._time_tracker["flash"].append(time.time() - start)
 
     def assemble_linear_system(self) -> None:
@@ -1111,9 +1159,6 @@ model_class = create_local_model_class(
     ],
 )
 
-if BUOYANCY_ON:
-    model_class = create_local_model_class(model_class, [BuoyancyModel])
-
 if USE_ADTPFA_FLUX_DISCRETIZATION:
     model_class = create_local_model_class(
         model_class,
@@ -1155,7 +1200,7 @@ if __name__ == "__main__":
         "mode": "parallel",
         "solver": "npipm",
         "solver_params": {
-            "tolerance": 1e-8,
+            "tolerance": tol_flash,
             "max_iterations": 80,  # 150
             "armijo_rho": 0.99,
             "armijo_kappa": 0.4,
@@ -1272,110 +1317,39 @@ if __name__ == "__main__":
         pp.run_time_dependent_model(model, model_params)
     sim_time = time.time() - t_0
 
-    # region Plots
-    fig, ax1 = plt.subplots()
+    # Dump simulation data for visualization.
+    model = cast(SolutionStrategy, model)  # type:ignore[assignment]
+    data = {
+        "refinement_level": REFINEMENT_LEVEL,
+        "equilibrium_condition": EQUILIBRIUM_CONDITION,
+        "tol_flash_case": FLASH_TOL_CASE,
+        "num_cells": model.mdg.num_subdomain_cells(),
+        "t": model._time_steps,
+        "dt": model._time_step_sizes,
+        "recomputations": model._recomputations,
+        "num_global_iter": model._num_global_iter,
+        "num_flash_iter": model._num_cell_averaged_flash_iter,
+        "num_linesearch_iter": model._num_linesearch_iter,
+        "clock_time_global_solver": (
+            np.mean(model._time_tracker["linsolve"]),
+            np.sum(model._time_tracker["linsolve"]),
+        ),
+        "clock_time_assembly": (
+            np.mean(model._time_tracker["assembly"]),
+            np.sum(model._time_tracker["assembly"]),
+        ),
+        "clock_time_flash_solver": (
+            np.mean(model._time_tracker["flash"]),
+            np.sum(model._time_tracker["flash"]),
+        ),
+        "setup_time": prep_sim_time,
+        "simulation_time": sim_time,
+    }
 
-    global_iter_per_time: dict[float, tuple[int, int, int]] = (
-        model._global_iter_per_time
-    )
-
-    N = len(global_iter_per_time)
-    times = np.zeros(N)
-    newton_iter = np.zeros(N, dtype=int)
-    cum_armijo_iter = np.zeros(N, dtype=int)
-    cum_flash_iter = np.zeros(N, dtype=int)
-    for i, tNI in enumerate(global_iter_per_time.items()):
-        t, NI = tNI
-        n, a, f = NI
-        times[i] = t
-        newton_iter[i] = n
-        cum_armijo_iter[i] = a
-        cum_flash_iter[i] = f
-
-    img1 = ax1.plot(
-        times,
-        newton_iter,
-        "k-",
-        times,
-        cum_armijo_iter,
-        "k--",
-    )
-    ax1.set_xscale("log")
-    ax1.set_xlabel("Time [s]")
-    ax1.set_ylabel("Global iterations")
-    ax1.set_ylim(
-        0.0,
-        30,
-    )
-
-    color = "tab:red"
-    ax2 = ax1.twinx()
-    ax2.set_ylabel("Local iterations", color=color)
-    img2 = ax2.plot(
-        times,
-        cum_flash_iter,
-        "r--",
-    )
-    ax2.tick_params(axis="y", labelcolor=color)
-
-    ax1.legend(img1 + img2, ["Newton", "Line Search (cum.)", "Flash (cum.)"])
-
-    fig.tight_layout()
-    fig.savefig(pathlib.Path(".\\visualization\\num_iter.png").resolve(), format="png")
-
-    times_file = pathlib.Path("./visualization/times.json").resolve().open("r")
-    times_data = json.load(times_file)
-    TIMES = times_data["time"]
-    DT = times_data["dt"]
-    nT = len(DT)
-    assert nT == len(TIMES)
-    Tidx = np.arange(nT)
-
-    fig, ax1 = plt.subplots()
-
-    color = "tab:red"
-    ax1.set_xlabel("time step index")
-    ax1.set_ylabel("time (s)", color=color)
-    ax1.plot(Tidx, TIMES, color=color)
-    ax1.tick_params(axis="y", labelcolor=color)
-    ax1.set_yscale("log")
-
-    ax2 = ax1.twinx()
-    color = "tab:blue"
-    ax2.set_ylabel("dt (s)", color=color)
-    ax2.plot(Tidx, DT, color=color)
-    ax2.tick_params(axis="y", labelcolor=color)
-    ax2.set_yscale("log")
-
-    fig.tight_layout()
-    fig.savefig(
-        pathlib.Path(".\\visualization\\time_progress.png").resolve(), format="png"
-    )
-
-    # endregion
-
-    def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
-        return float(v.min()), float(v.mean()), float(v.max())
-
-    print(
-        f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
-        + f"h={h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
-        + f"Buoyancy: {BUOYANCY_ON}"
-    )
-    print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
-    print(f"Simulation run time: {sim_time / 60.0} (min).")
-    print(f"smalles time step: {np.min(DT) / 3600} hours")
-    print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
-    print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
-    print(f"global num iter (min, avg, max): {min_avg_max(newton_iter)}")
-    print(f"cum. line search num iter (min, avg, max): {min_avg_max(cum_armijo_iter)}")
-    avg_cum_flash_iter = cum_flash_iter / model.mdg.num_subdomain_cells()
-    print(
-        f"avg. cum. flash num iter (min, avg, max): {min_avg_max(avg_cum_flash_iter)}"
-    )
-    times_assembly = np.array(model._time_tracker["assembly"])
-    times_linsolve = np.array(model._time_tracker["linsolve"])
-    times_flash = np.array(model._time_tracker["flash"])
-    print(f"assembly time (min, avg, max): {min_avg_max(times_assembly)}")
-    print(f"linsolve time (min, avg, max): {min_avg_max(times_linsolve)}")
-    print(f"flash time (min, avg, max): {min_avg_max(times_flash)}")
+    with open(
+        pathlib.Path(
+            f"stats_{EQUILIBRIUM_CONDITION}_h{REFINEMENT_LEVEL}_ftol{FLASH_TOL_CASE}.json"
+        ),
+        "w",
+    ) as result_file:
+        json.dump(data, result_file)
