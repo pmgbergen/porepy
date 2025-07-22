@@ -610,6 +610,19 @@ class Phase(Generic[ComponentLike]):
         Partial fractions are used in flow and transport to define mobilities.
 
         """
+        self.chemical_potential_of: dict[Component, ExtendedDomainFunctionType]
+        """Chemical potentials per component in this phase.
+
+        Dimensionless, scalar field.
+
+        """
+
+        self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
+        """Equilibrium stability index per component in this phase.
+
+        Dimensionless, scalar field.
+
+        """
 
     def __iter__(self) -> Generator[ComponentLike, None, None]:
         """Iterator over components present in this phase.
@@ -1124,6 +1137,7 @@ class Element:
             If there is only 1 component, this should be a wrapped scalar with value 1.
 
         """
+        self.element_chemical_potential: ExtendedDomainFunctionType
 
 
 class Solid(Generic[ComponentLike, PhaseLike]):
