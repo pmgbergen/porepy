@@ -15,9 +15,9 @@ from __future__ import annotations
 
 # GENERAL MODEL CONFIGURATION
 
-REFINEMENT_LEVEL: Literal[0, 1, 2, 3, 4] = 3
+REFINEMENT_LEVEL: Literal[0, 1, 2, 3, 4] = 0
 """Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
-EQUILIBRIUM_CONDITION: str = "unified-p-h"
+EQUILIBRIUM_CONDITION: str = "unified-p-T"
 """Define the equilibrium condition to determin the flash type used in the solution
 procedure."""
 FLASH_TOL_CASE: Literal[0, 1, 2, 3, 4] = 4
@@ -39,9 +39,9 @@ MESH_SIZES: dict[int, float] = {
 
 FLASH_TOLERANCES: dict[int, float] = {
     0: 1e-1,
-    1: 1e-2,
-    2: 1e-3,
-    3: 1e-5,
+    1: 1e-3,
+    2: 1e-5,
+    3: 1e-7,
     4: 1e-8,
 }
 """Tested flash tolerances."""
