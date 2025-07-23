@@ -48,7 +48,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.5 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -137,7 +137,7 @@ file_name_phz = (
     file_name_prefix
     + "XHP_l"
     + str(parametric_space_ref_level)
-    + "_simplex_iapws.vtk"
+    + "_modified_low_salt_content.vtk"
 )
 file_name_ptz = (
     file_name_prefix
@@ -147,7 +147,7 @@ file_name_ptz = (
 )
 
 brine_sampler_phz = VTKSampler(file_name_phz)
-brine_sampler_phz.conversion_factors = (1.0, 1.0, 1.0)  # (z,h,p)
+brine_sampler_phz.conversion_factors = (1.0, 1.0e3, 10.0)  # (z,h,p)
 model.vtk_sampler = brine_sampler_phz
 
 brine_sampler_ptz = VTKSampler(file_name_ptz)

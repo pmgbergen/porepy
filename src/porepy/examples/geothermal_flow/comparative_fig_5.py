@@ -6,7 +6,7 @@ from scipy.interpolate import interp1d
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # --- Configuration ---
-figure_type = "vertical"
+figure_type = "horizontal"
 
 
 def extract_cell_data(file_path: str, field_names: list) -> dict:
@@ -147,7 +147,7 @@ print("\nStep 1: Loading data...")
 
 # 1a. Load data from PorePy's VTU output file
 
-vtk_map = {'horizontal': 'fig5_horizontal_time_idx_000800_l0', 'vertical': 'fig5_vertical_time_idx_004000_l0'}
+vtk_map = {'horizontal': 'fig5_horizontal_time_idx_000200_l0', 'vertical': 'fig5_vertical_time_idx_004000_l0'}
 
 vtk_file = "benchmark_figures_data/porepy_vtks/" + vtk_map[figure_type] + ".vtu"
 fields_to_extract = ['pressure', 'temperature', 's_gas', 'enthalpy']
@@ -284,7 +284,7 @@ lines2_twin, labels2_twin = ax2_twin.get_legend_handles_labels()
 ax2.legend(lines2 + lines2_twin, labels2 + labels2_twin, loc='center right')
 
 fig.tight_layout(rect=[0, 0, 1, 0.96])
-output_filename = f'reproduced_plot_{figure_type}.png'
+output_filename = f'reproduced_figure_5_{figure_type}.png'
 plt.savefig(output_filename)
 print(f"\nPlot saved as '{output_filename}'")
 # plt.show()
