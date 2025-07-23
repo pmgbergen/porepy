@@ -1217,6 +1217,7 @@ class FluidMixin(pp.PorePyModel):
     - :meth:`viscosity_of_phase`
     - :meth:`thermal_conductivity_of_phase`
     - :meth:`fugacity_coefficient`
+    - :meth:`chemical_potential`
 
     There is no need to modify the :attr:`fluid` itself.
 
@@ -1408,10 +1409,13 @@ class FluidMixin(pp.PorePyModel):
             phase.viscosity = self.viscosity_of_phase(phase)
             phase.thermal_conductivity = self.thermal_conductivity_of_phase(phase)
             phase.fugacity_coefficient_of = {}
+            phase.chemical_potential_of = {}
+
             for comp in phase:
                 phase.fugacity_coefficient_of[comp] = self.fugacity_coefficient(
                     comp, phase
                 )
+                phase.chemical_potential_of[comp] = self.chemical_potential(comp, phase)
 
     def dependencies_of_phase_properties(
         self, phase: Phase
@@ -1448,6 +1452,8 @@ class FluidMixin(pp.PorePyModel):
             - :attr:`viscosity_of_phase`
             - :attr:`thermal_conductivity_of_phase`
             - :attr:`fugacity_coefficient`
+            - :attr:`chemical_potential`
+
 
             returning functions which raise an error when called, alerting the user that
             some some mixin is missing to provide respective functions as the
@@ -1631,6 +1637,31 @@ class FluidMixin(pp.PorePyModel):
 
         """
         name = f"fugacity_coefficient_{component.name}_in_{phase.name}"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
+
+    def chemical_potential(
+        self, component: Component, phase: Phase
+    ) -> ExtendedDomainFunctionType:
+        """Analogous to :meth:`density_of_phase`, but for
+        :attr:`~porepy.compositional.base.Phase.chemical_potential_of` of a ``phase``.
+
+        Note:
+            Chemical potential appear only in the local equilibrium
+            equation or other chemistry-related models, but not in flow and transport.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
+        name = f"chemical_potential_{component.name}_in_{phase.name}"
         dependencies = self.dependencies_of_phase_properties(phase)
         if dependencies:
             return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
@@ -1974,3 +2005,9 @@ class ChemicalSystem(FluidMixin, SolidMixin):
         # Assign to self.fluid
         self.fluid.fluid_formula_matrix = fluid_formula_matrix
         self.fluid.fluid_species_names = fluid_species  # Optional: for reference
+
+
+class ActivityModels(pp.PorePyModel):
+    def activityModelIdeal(
+        self, component: pp.Component, phase: pp.Phase
+    ) -> ExtendedDomainFunctionType: ...
