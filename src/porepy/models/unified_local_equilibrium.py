@@ -510,24 +510,23 @@ class UnifiedChemicalEquilibriumEquations(pp.PorePyModel):
                     + " All phases must have all components modelled in them."
                 )
 
-    def isofugacity_constraint_for_component_in_phase(
+    def chemical_potential_for_component_in_phase(
         self,
         component: pp.FluidComponent,
         phase: pp.Phase,
         subdomains: Sequence[pp.Grid],
     ) -> pp.ad.Operator:
-        """Construct the local isofugacity constraint for a component between a given
-        phase and the reference phase.
-
+        """
         .. math::
 
-            x_{ij} \\varphi_{ij} - x_{iR} \\varphi_{iR} = 0.
+            mu - W^T y -z = 0.
 
-        - :math:`x_{ij}` : :attr:`~porepy.compositional.base.Phase.extended_fraction_of`
+        - :math:`mu` : :attr:`~porepy.compositional.base.Phase.chemical_potential_of`
           component
-        - :math:`\\varphi_{ij}` : Phase
-          :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of` component
-
+        - :math:`z` : Phase
+          :attr:`~porepy.compositional.base.Phase.equilibrium_stability_index_of` component
+        - :math:`y` : :attr:`~porepy.compositional.base.Element.element_chemical_potential`
+        - :math:`W` : :attr:`formula_matrix`
         Parameters:
             component: A component characterized by the relative fractions in above
                 equation.
