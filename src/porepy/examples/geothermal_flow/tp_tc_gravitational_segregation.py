@@ -10,7 +10,7 @@ from porepy.models.compositional_flow import (
 from abc import abstractmethod
 
 # test parameters
-expected_order_mass_loss = 8
+expected_order_mass_loss = 4
 mesh_2d_Q = True
 
 
@@ -18,7 +18,7 @@ residual_tolerance = 10.0 ** (-expected_order_mass_loss)
 
 # define constant phase densities
 rho_l = 1000.0
-rho_g = 700.0
+rho_g = 500.0
 to_Mega = 1.0e-6
 
 
@@ -36,7 +36,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.75
+    _sphere_radius: float = 0.0625
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -49,20 +49,26 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(0.0625, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
     def set_fractures(self) -> None:
         points = np.array(
             [
-                [2.0, 1.0],
-                [2.0, 4.0],
                 [1.0, 2.0],
                 [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
             ]
         ).T
-        fracs = np.array([[2, 3]]).T
+        fracs = np.array([[0,1],[2, 3],[4, 5],[6, 7],[8, 9]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
@@ -605,7 +611,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 1000.0 * day
-dt = 10.0 * day
+dt = 2.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,

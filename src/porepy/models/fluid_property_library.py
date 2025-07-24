@@ -746,8 +746,11 @@ class FluidBuoyancy(pp.PorePyModel):
                                 + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
                         )
 
-                        b_interface_flux_gamma_delta: pp.ad.Operator = (gamma_on_interface * delta_on_interface) * intf_w_flux_gamma_delta
-                        b_flux_gamma_delta += mortar_projection.mortar_to_primary_int() @ b_interface_flux_gamma_delta
+                        proj_gamma = discr_gamma.bound_transport_neu() * mortar_projection.mortar_to_primary_int() @ gamma_on_interface
+                        proj_delta = discr_delta.bound_transport_neu() * mortar_projection.mortar_to_primary_int() @ delta_on_interface
+                        proj_w_flux_gamma_delta = mortar_projection.mortar_to_primary_int() @ intf_w_flux_gamma_delta
+                        b_proj_flux_gamma_delta: pp.ad.Operator = (proj_gamma * proj_delta) * proj_w_flux_gamma_delta
+                        b_flux_gamma_delta += b_proj_flux_gamma_delta
 
                     b_fluxes.append(b_flux_gamma_delta)
 
