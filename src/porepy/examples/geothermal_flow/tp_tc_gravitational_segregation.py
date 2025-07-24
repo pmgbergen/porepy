@@ -18,7 +18,7 @@ residual_tolerance = 10.0 ** (-expected_order_mass_loss)
 
 # define constant phase densities
 rho_l = 1000.0
-rho_g = 500.0
+rho_g = 700.0
 to_Mega = 1.0e-6
 
 
@@ -56,11 +56,13 @@ class ModelGeometry(Geometry):
     def set_fractures(self) -> None:
         points = np.array(
             [
-                [2.0, 0.0],
-                [2.0, 5.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [1.0, 2.0],
+                [4.0, 2.0],
             ]
         ).T
-        fracs = np.array([[0, 1]]).T
+        fracs = np.array([[2, 3]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
@@ -458,10 +460,15 @@ class FlowModel(
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
         are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
+        # print("buoyancy flux b_c0: ", b_c0)
+        # print("buoyancy flux b_c1: ", b_c1)
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
         total_volume = 0.0
+        for sd in model.mdg.subdomains():
+            total_volume += np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
+
         ref_rho_integral = 0.0
         ref_rho_z_integral = 0.0
         num_rho_integral = 0.0
@@ -470,7 +477,6 @@ class FlowModel(
         ref_fluid_energy_integral = 0.0
         num_fluid_energy_integral = 0.0
         for sd in model.mdg.subdomains():
-            total_volume += np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
 
             ic_sg_val = self.ic_values_staturation(sd)
             rho_l = phases[0].density([sd])
@@ -491,13 +497,16 @@ class FlowModel(
             ref_fluid_energy_integral += np.sum(self.equation_system.evaluate(ref_fluid_energy_op))/total_volume
 
             num_rho_op = self.fluid.density([sd])
-            num_rho_integral += np.sum(self.equation_system.evaluate(num_rho_op))/total_volume
+            int_rho_op = self.volume_integral(num_rho_op, [sd], dim=1)
+            num_rho_integral += np.sum(self.equation_system.evaluate(int_rho_op))/total_volume
 
             num_rho_z_op = num_rho_op * components[1].fraction([sd])
-            num_rho_z_integral += np.sum(self.equation_system.evaluate(num_rho_z_op))/total_volume
+            int_rho_z_op = self.volume_integral(num_rho_z_op, [sd], dim=1)
+            num_rho_z_integral += np.sum(self.equation_system.evaluate(int_rho_z_op))/total_volume
 
             num_fluid_energy_op = num_rho_op * self.enthalpy([sd]) - self.pressure([sd])
-            num_fluid_energy_integral += np.sum(self.equation_system.evaluate(num_fluid_energy_op))/total_volume
+            int_fluid_energy_op = self.volume_integral(num_fluid_energy_op, [sd], dim=1)
+            num_fluid_energy_integral += np.sum(self.equation_system.evaluate(int_fluid_energy_op))/total_volume
 
         mass_loss = np.abs(ref_rho_integral - num_rho_integral)
         z_mass_loss = np.abs(ref_rho_z_integral - num_rho_z_integral)
@@ -596,7 +605,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 1000.0 * day
-dt = 50.0 * day
+dt = 10.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
