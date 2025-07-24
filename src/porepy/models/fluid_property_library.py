@@ -720,7 +720,7 @@ class FluidBuoyancy(pp.PorePyModel):
                     )  # well-defined fraction flow on facets
 
                     b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
-                    b_fluxes.append(b_flux_gamma_delta)
+
 
                     interfaces = self.subdomains_to_interfaces(domains, [1])
                     mortar_projection = pp.ad.MortarProjections(
@@ -738,39 +738,18 @@ class FluidBuoyancy(pp.PorePyModel):
                         secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
 
                         gamma_on_interface = (
-                                discr_gamma.upwind_primary() @ primary_to_mortar @ (chi_xi_gamma * f_gamma)
+                                intf_discr_delta.upwind_primary() @ primary_to_mortar @ trace.trace @ (chi_xi_gamma * f_gamma)
                                 + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (chi_xi_gamma * f_gamma)
                         )
                         delta_on_interface = (
-                                discr_delta.upwind_primary() @ primary_to_mortar @ f_delta
+                                intf_discr_delta.upwind_primary() @ primary_to_mortar @ trace.trace @ f_delta
                                 + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
                         )
 
-                        b_interface_flux: pp.ad.Operator = (gamma_on_interface + delta_on_interface) * w_flux_gamma_delta
+                        b_interface_flux_gamma_delta: pp.ad.Operator = (gamma_on_interface + delta_on_interface) * w_flux_gamma_delta
+                        # b_flux_gamma_delta += mortar_projection.mortar_to_primary_int() @ b_interface_flux_gamma_delta
 
-                        # md_b_flux_gamma_delta += (
-                        #         discr_gamma.bound_transport_neu()
-                        #         @ mortar_projection.mortar_to_primary_int()
-                        #         @ w_flux_gamma_delta
-                        # )
-
-                        # md_b_flux_gamma_delta
-
-                    # md_b_flux_gamma_delta = self._buoyancy_flux(
-                    #     domains,
-                    #     w_flux_gamma_delta,
-                    #     (chi_xi_gamma * f_gamma),
-                    #     discr_gamma,
-                    #     f_delta,
-                    #     discr_delta,
-                    #     self.boundary_component_buoyancy(component_xi, domains),
-                    #     cast(
-                    #         Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-                    #         partial(self.interface_component_buoyancy, component_xi),
-                    #     ),
-                    # )
-                    # md_b_flux_gamma_delta.set_name("md_buoyacy_flux_" + self.buoyancy_key(gamma, delta))
-                    # b_fluxes.append(md_b_flux_gamma_delta)
+                    b_fluxes.append(b_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(b_fluxes)
         b_flux.set_name("component_buoyancy_" + component_xi.name)
@@ -1000,10 +979,10 @@ class FluidBuoyancy(pp.PorePyModel):
                             [intf], rho_gamma - rho_delta
                         )
                     )
-                    data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
+                    data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
                         {self.buoyant_flux_array_key(gamma, delta): +vals}
                     )
-                    data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
+                    data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
                         {self.buoyant_flux_array_key(delta, gamma): -vals}
                     )
 
