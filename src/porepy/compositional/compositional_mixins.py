@@ -27,6 +27,7 @@ import numpy as np
 
 import porepy as pp
 
+
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
 from .base import (
@@ -2008,6 +2009,58 @@ class ChemicalSystem(FluidMixin, SolidMixin):
 
 
 class ActivityModels(pp.PorePyModel):
+    def universal_gas_constant():
+        """
+        Returns the universal gas constant in J/(mol*K).
+        """
+        return 8.3144621
+
+    def water_molar_mass():
+        "The molar mass of water (in kg/mol)"
+        return 0.01801528
+
     def activityModelIdeal(
         self, component: pp.Component, phase: pp.Phase
-    ) -> ExtendedDomainFunctionType: ...
+    ) -> ExtendedDomainFunctionType:
+        """
+        Ideal activity model for species in a solution.
+
+        Returns
+        -------
+        activity : float
+            Ln of the activity of the species in the solution.
+
+        ln a_i = ln \gamma_i + ln m_i, where ln \gamma_i = 0 for ideal solution,
+        m_i is the molality of the species.
+        For minerals, the activity is 1.0.
+        """
+        gamma = pp.ad.Scalar(1.0, "activity_coefficient_ideal")
+        water_mole_mass = pp.ad.Scalar(self.water_molar_mass(), "water_molar_mass")
+        if self.fluid.num_phases > 1:
+            raise NotImplementedError("Multiphase flow not implemented yet.")
+        if phase.name == "aqueous":
+
+            def activity(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                if component.name == "H2O":
+                    # Special case for water, molality is defined as mole fraction in the aqueous phase.
+                    molality = component.fraction(domains)
+                else:
+                    for comp in self.fluid.components:
+                        if comp.name == "H2O":
+                            water_fraction = comp.fraction(domains)
+                    if water_fraction > 0:
+                        molality = component.fraction(domains) / (
+                            water_fraction * water_mole_mass
+                        )
+                op = pp.ad.log(molality)
+                op.set_name(f"activity_ideal_{component.name}_in_{phase.name}")
+                return op
+
+            return activity
+        else:
+            # For minerals, the activity is 1.0
+            def activity(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                op = pp.ad.Scalar(0.0)
+                return op
+
+            return activity
