@@ -25,7 +25,6 @@ import logging
 import os
 import time
 from collections import deque
-from dataclasses import asdict
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 # Benchmark is small, no need for JIT compilation.
@@ -38,7 +37,7 @@ import porepy as pp
 import porepy.compositional.compiled_flash.eos_compiler as eosc
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.examples.co2_injection import NewtonArmijoAndersonSolver
+from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -647,7 +646,6 @@ if __name__ == "__main__":
 
     model.schur_complement_primary_equations = cfle.cf.get_primary_equations_cf(model)
     model.schur_complement_primary_variables = cfle.cf.get_primary_variables_cf(model)
-    model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
 
     t_0 = time.time()
     pp.run_time_dependent_model(model, model_params)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import Literal, TypeAlias, TypedDict
 
 import matplotlib
@@ -11,11 +10,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tabulate import tabulate
 
-RefinementLevel: TypeAlias = Literal[0, 1, 2, 3, 4]
+from porepy.examples.cold_co2_injection.run import (
+    FLASH_TOLERANCES,
+    FOLDER,
+    MESH_SIZES,
+    get_path,
+)
+
 EquilibriumCondition: TypeAlias = Literal["p-T", "p-h"]
 
+ANALYZED_ph_REFINEMENT: int = 2
+"""Refinement level for which to produce the ph-related plots."""
+PRINT_STATS_ph_pT_REFINEMENT: int = 2
+"""Last refinement level for which both equilibrium conditions converged."""
 
-FIGUREPATH: str = f"{str(pathlib.Path(__file__).parent.resolve())}\\"
 DPI: int = 400
 FIGUREWIDTH: int = 20
 FIGUREHEIGHT: int = 0.4 * FIGUREWIDTH
@@ -23,24 +31,8 @@ FIGUREPAD: float = 0.05
 FONTSIZE: int = 24
 MARKERSIZE: int = 20
 LINEWIDTH: float = 3
-
-USED_MESH_SIZES: dict[RefinementLevel, float] = {
-    0: 4.0,
-    1: 2.0,
-    2: 1.0,
-    3: 0.5,
-    4: 0.25,
-}
-"""Dictionary containing the used mesh sizes for given abreviation."""
-
-USED_FLASH_TOLERANCES: dict[int, float] = {
-    0: 1e-1,
-    1: 1e-2,
-    2: 1e-3,
-    3: 1e-5,
-    4: 1e-8,
-}
-"""Dictionary containing the used flash tolerances for given case number."""
+FIGUREPATH = FOLDER
+NUM_REFINEMENTS: int = len(MESH_SIZES)
 
 pT_colors = {0: "yellow", 1: "gold", 2: "orange", 3: "red", 4: "darkred"}
 
@@ -54,6 +46,7 @@ ph_colors = {
 
 
 plt.rc("text", usetex=True)
+# mypy: ignore-errors
 
 
 class SimulationData(TypedDict, total=False):
@@ -69,7 +62,7 @@ class SimulationData(TypedDict, total=False):
     """1D array of times."""
     dt: np.ndarray
     """1D array of time step sizes."""
-    recomputations: list[int]
+    recomputations: np.ndarray
     """Number of recomputations of dt at a time due to convergence failure."""
     num_global_iter: np.ndarray
     """Number of global iterations per time step."""
@@ -102,78 +95,80 @@ class SimulationData(TypedDict, total=False):
 
 def load_data(
     condition: EquilibriumCondition,
-    refinement: RefinementLevel,
-    tol_flash_case: int = 4,
+    refinement: int,
+    tol_flash_case: int = 7,
+    flash_stride: int = 3,
 ) -> SimulationData | None:
-    path = pathlib.Path(f"stats_{condition}_h{refinement}_ftol{tol_flash_case}.json")
-    return SimulationData(
-        refinement_level=refinement,
-        tol_flash_case=tol_flash_case,
-        num_cells=1,
-        equilibrium_condtion=condition,
-        tol_flash=1e-8,
-        t=np.array([1.0, 2.0, 3.0]),
-        dt=np.array([1.0, 1.0, 1.0]),
-        recomputations=[0, 3, 1],
-        num_global_iter=(
-            np.array([10, 11, 12]) if condition == "p-h" else np.array([20, 21, 22])
-        )
-        + (refinement + 1),
-        num_flash_iter=(
-            np.array([5, 5, 5]) if condition == "p-h" else np.array([7, 7, 7])
-        )
-        + (refinement + 0.5),
-        num_linesearch_iter=(
-            np.array([10, 11, 12]) if condition == "p-h" else np.array([20, 21, 22])
-        )
-        + (refinement + 2),
-        clock_time_global_solver=(1.0, 3.0),
-        clock_time_assembly=(0.5, 1.5 / 60),
-        clock_time_flash_solver=(0.2, 0.8 / 60),
-        total_num_time_steps=3,
-        total_num_global_iter=33 if condition == "p-h" else 63,
-        total_num_flash_iter=5 if condition == "p-h" else 7,
-        setup_time=1.0,
-    )
+    path = get_path(condition, refinement, tol_flash_case, flash_stride).resolve()
     if not path.is_file():
-        raise ValueError(
+        print(
             "Simulation data not found for\n"
             f"equilibrium condition: {condition}\n"
             f"refinement level: {refinement}\n"
-            f"flash tolerance case: {tol_flash_case}"
+            f"flash tolerance case: {tol_flash_case}\n"
+            f"at location: {str(path.resolve())}"
         )
+        return None
+        # return SimulationData(
+        #     refinement_level=refinement,
+        #     tol_flash_case=tol_flash_case,
+        #     num_cells=1,
+        #     equilibrium_condtion=condition,
+        #     tol_flash=FLASH_TOLERANCES[tol_flash_case],
+        #     t=np.array([1.0, 2.0, 3.0]),
+        #     dt=np.array([1.0, 1.0, 1.0]),
+        #     recomputations=np.array([0, 3, 1]),
+        #     num_global_iter=np.array([10, 10, 10]) + (refinement + 1),
+        #     num_flash_iter=np.array([5, 5, 5])+ (refinement + 0.5),
+        #     num_linesearch_iter=np.array([10, 10, 10]) + (refinement + 2),
+        #     clock_time_global_solver=(1.0, 1.0),
+        #     clock_time_assembly=(0.5, 1.5 / 60),
+        #     clock_time_flash_solver=(0.2, 0.8 / 60),
+        #     total_num_time_steps=3,
+        #     total_num_global_iter=3 if condition == "p-h" else 4,
+        #     total_num_flash_iter=3 if condition == "p-h" else 4,
+        #     setup_time=1.0,
+        # )
 
-    data = json.load(path)
-    assert refinement == data["refinement_level"]
-    assert condition == data["equilibrium_condition"]
-    assert tol_flash_case == data["tol_flash_case"]
-    sdata = SimulationData(
-        refinement_level=data["refinement_level"],
-        equilibrium_condtion=data["equilibrium_condition"],
-        tol_flash_case=data["tol_flash_case"],
-        num_cells=data["num_cells"],
-        t=data["t"],
-        dt=data["dt"],
-        recomputations=data["recomputations"],
-        num_global_iter=data["num_global_iter"],
-        num_linesearch_iter=data["num_linesearch_iter"],
-        num_flash_iter=data["num_flash_iter"],
-        clock_time_global_solver=data["clock_time_global_solver"],
-        clock_time_assembly=data["clock_time_assembly"],
-        clock_time_flash_solver=data["clock_time_flash_solver"],
-        total_num_global_iter=data["total_num_global_iter"],
-        total_num_time_steps=data["total_num_time_steps"],
-        total_num_flash_iter=data["total_num_flash_iter"],
-        setup_time=data["setup_time"],
+    data = json.load(path.open("r"))
+    assert refinement == int(data["refinement_level"])
+    assert condition == str(data["equilibrium_condition"])
+    assert tol_flash_case == int(data["tol_flash_case"])
+    return SimulationData(
+        refinement_level=int(data["refinement_level"]),
+        equilibrium_condtion=str(data["equilibrium_condition"]),
+        tol_flash_case=int(data["tol_flash_case"]),
+        num_cells=int(data["num_cells"]),
+        t=np.array(data["t"]).astype(float),
+        dt=np.array(data["dt"]).astype(float),
+        recomputations=np.array(data["recomputations"]).astype(int),
+        num_global_iter=np.array(data["num_global_iter"]).astype(int),
+        num_linesearch_iter=np.array(data["num_linesearch_iter"]).astype(int),
+        num_flash_iter=np.array(data["num_flash_iter"]).astype(float),
+        clock_time_global_solver=tuple(data["clock_time_global_solver"]),
+        clock_time_assembly=tuple(data["clock_time_assembly"]),
+        clock_time_flash_solver=tuple(data["clock_time_flash_solver"]),
+        total_num_global_iter=int(data["total_num_global_iter"]),
+        total_num_time_steps=int(data["total_num_time_steps"]),
+        total_num_flash_iter=int(data["total_num_flash_iter"]),
+        setup_time=float(data["setup_time"]),
     )
 
 
-data: dict[EquilibriumCondition, dict[RefinementLevel, SimulationData]] = {
+data: dict[EquilibriumCondition, dict[int, SimulationData]] = {
     "p-T": dict(
-        [(i, load_data("p-T", i)) for i in range(3) if load_data("p-T", i) is not None]
+        [
+            (i, load_data("p-T", i))
+            for i in range(len(MESH_SIZES))
+            if load_data("p-T", i) is not None
+        ]
     ),
     "p-h": dict(
-        [(i, load_data("p-h", i)) for i in range(5) if load_data("p-T", i) is not None]
+        [
+            (i, load_data("p-h", i))
+            for i in range(len(MESH_SIZES))
+            if load_data("p-T", i) is not None
+        ]
     ),
 }
 
@@ -191,13 +186,13 @@ ngi = []
 nfi = []
 nli = []
 color = "salmon"
-for i in range(5):
+for i in MESH_SIZES.keys():
     if i in data["p-T"]:
         D = data["p-T"][i]
         assert i == D["refinement_level"]
-        ngi.append([USED_MESH_SIZES[i], D["num_global_iter"].sum()])
-        nfi.append([USED_MESH_SIZES[i], D["num_flash_iter"].sum()])
-        nli.append([USED_MESH_SIZES[i], D["num_linesearch_iter"].sum()])
+        ngi.append([MESH_SIZES[i], D["num_global_iter"].sum()])
+        nfi.append([MESH_SIZES[i], D["num_flash_iter"].sum()])
+        nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
 ngi = np.array(ngi).T
 imgs += ax.plot(
     ngi[0],
@@ -237,13 +232,13 @@ ngi = []
 nfi = []
 nli = []
 color = "slateblue"
-for i in range(5):
+for i in MESH_SIZES.keys():
     if i in data["p-h"]:
         D = data["p-h"][i]
         assert i == D["refinement_level"]
-        ngi.append([USED_MESH_SIZES[i], D["num_global_iter"].sum()])
-        nfi.append([USED_MESH_SIZES[i], D["num_flash_iter"].sum()])
-        nli.append([USED_MESH_SIZES[i], D["num_linesearch_iter"].sum()])
+        ngi.append([MESH_SIZES[i], D["num_global_iter"].sum()])
+        nfi.append([MESH_SIZES[i], D["num_flash_iter"].sum()])
+        nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
 ngi = np.array(ngi).T
 imgs += ax.plot(
     ngi[0],
@@ -281,7 +276,7 @@ imgs += ax.plot(
 
 ax.set_xlabel("Mesh size [m]", fontsize=FONTSIZE + 2)
 ax.set_xscale("log")
-ax.set_xticks(np.array(list(USED_MESH_SIZES.values())))
+ax.set_xticks(np.array(list(MESH_SIZES.values())))
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_ylabel("Total global iterations", fontsize=FONTSIZE + 2)
@@ -314,9 +309,9 @@ fig.savefig(
 
 # endregion
 
-# region Plotting num iterations, time step size and re-computations per time step.
+# region Plotting num iterations per time step and re-computations per time step.
 
-D: SimulationData = data["p-h"][3]
+D: SimulationData = data["p-h"][ANALYZED_ph_REFINEMENT]
 
 t = np.array(D["t"])
 ngi = np.array(D["num_global_iter"]).astype(int)
@@ -379,7 +374,7 @@ ax.text(
 )
 
 ax.set_xscale("log")
-ax.set_xticks(np.array(list(USED_MESH_SIZES.values())))
+ax.set_xticks(np.array(list(MESH_SIZES.values())))
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_xlabel("Time [s]", fontsize=FONTSIZE + 2)
@@ -429,9 +424,9 @@ fig.savefig(
 # region Plotting total num iterations per flash tolerance.
 
 DD: list[SimulationData] = [
-    load_data("p-h", 3, i) for i in USED_FLASH_TOLERANCES.keys()
+    load_data("p-h", ANALYZED_ph_REFINEMENT, i) for i in FLASH_TOLERANCES.keys()
 ]
-ftols = np.array([USED_FLASH_TOLERANCES[d["tol_flash_case"]] for d in DD])
+ftols = np.array([FLASH_TOLERANCES[d["tol_flash_case"]] for d in DD])
 tngi = np.array([d["total_num_global_iter"] for d in DD]).astype(int)
 tnfi = np.array([d["total_num_flash_iter"] for d in DD]).astype(int)
 
@@ -504,7 +499,7 @@ fig.savefig(
 
 # region Plotting time progress.
 
-D: SimulationData = data["p-h"][3]
+D: SimulationData = data["p-h"][ANALYZED_ph_REFINEMENT]
 fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
 ax = fig.add_subplot(1, 1, 1)
 imgs = []
@@ -575,8 +570,8 @@ fig.savefig(
 # region Printing table with clock times, at maximum refinement where both equilibrium
 # conditions converge.
 
-Dph: SimulationData = data["p-h"][2]
-DpT: SimulationData = data["p-T"][2]
+Dph: SimulationData = data["p-h"][PRINT_STATS_ph_pT_REFINEMENT]
+DpT: SimulationData = data["p-T"][PRINT_STATS_ph_pT_REFINEMENT]
 
 
 def format_times(vals: tuple[float, float]) -> str:

@@ -1,0 +1,482 @@
+""" "Run script for the CO2 injection model."""
+
+from __future__ import annotations
+
+REFINEMENT_LEVEL: int = 3
+"""Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
+EQUILIBRIUM_CONDITION: Literal["unified-p-T", "unified-p-h"] = "unified-p-h"
+"""Define the equilibrium condition to determin the flash type used in the solution
+procedure."""
+FLASH_TOL_CASE: int = 7
+"""Define the flash tolerance used in the solution procedure."""
+LOCAL_SOLVER_STRIDE: int = 3
+"""Ïnteger determining every which global iteration to start the local solver."""
+RUN_WITH_SCHEDULE: bool = False
+"""Ïf running without schedule for the time steps, there is no maximum admissible time
+step size and no time to be hit between start and end of simulation.
+
+This option is for obtaining the uninfluenced results of the time stepping scheme.
+
+If True, a schedule is used at specified times for plotting purposes.
+
+"""
+EXPORT_SCHEDULED_TIME_ONLY: bool = False
+"""Exports all  time steps produced by the time stepping algorithm, otherwise only
+the scheduled times."""
+DISABLE_COMPILATION: bool = False
+"""For disabling numba compilation and faster start of simulation. Intended for
+debugging."""
+BUOYANCY_ON: bool = False
+"""Turn on buoyancy. NOTE: This is still under development."""
+FRACTIONAL_FLOW: bool = False
+"""Use the fractional flow formulation without upwinding in the diffusive fluxes."""
+
+FOLDER: str = "src/porepy/examples/cold_co2_injection/"
+"""For storing simulation results."""
+
+MESH_SIZES: dict[int, float] = {
+    0: 4.0,  # 308 cells
+    1: 2.0,  # 1204 cells
+    2: 1.0,  # 4636 cells
+    3: 0.5,  # 18,464 cells
+    # 4: 0.25,  # 73,748 cells
+}
+"""Tested mesh sizes in meters."""
+
+FLASH_TOLERANCES: dict[int, float] = {
+    0: 1e-1,
+    1: 1e-2,
+    2: 1e-3,
+    3: 1e-4,
+    4: 1e-5,
+    5: 1e-6,
+    6: 1e-7,
+    7: 1e-8,
+}
+"""Tested flash tolerances."""
+
+import json
+import logging
+import pathlib
+import time
+import warnings
+from typing import Any, Literal, Optional, cast
+
+import numpy as np
+
+if DISABLE_COMPILATION:
+    import os
+
+    os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+import porepy as pp
+import porepy.models.compositional_flow_with_equilibrium as cfle
+from porepy.applications.material_values.solid_values import basalt
+from porepy.applications.test_utils.models import add_mixin
+from porepy.examples.cold_co2_injection.model import (
+    ColdCO2InjectionModel,
+    ColdCO2InjectionModelFF,
+)
+from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
+
+logger = logging.getLogger(__name__)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+# mypy: ignore-errors
+
+
+def get_path(
+    condition: str,
+    refinement: int,
+    tol_flash_case: int = 7,
+    flash_stride: int = 3,
+) -> pathlib.Path:
+    """ "Returns path to result data for a simulation case."""
+    return pathlib.Path(
+        f"{FOLDER}stats_{condition}_h{refinement}"
+        f"_ftol{tol_flash_case}_fstride{flash_stride}.json"
+    )
+
+
+class DataCollectionMixin(pp.PorePyModel):
+    """ "Collects data required for running the plot script."""
+
+    def __init__(self, params: dict | None = None):
+        super().__init__(params)
+
+        # Data saving for plotting for paper.
+        self._time_steps: list[float] = []
+        self._time_step_sizes: list[float] = []
+        self._time_tracker: dict[
+            Literal["flash", "assembly", "linsolve"], list[float]
+        ] = {
+            "flash": [],
+            "assembly": [],
+            "linsolve": [],
+        }
+        self._recomputations: list[int] = []
+        """Number of recomputations of dt at a time due to convergence failure."""
+        self._num_global_iter: list[int] = []
+        """Number of global iterations per successful time step."""
+        self._num_cell_averaged_flash_iter: list[float | int] = []
+        """Number of cell-averaged flash iterations per successful time step."""
+        self._num_linesearch_iter: list[int] = []
+        """Number of linesearch iterations per successful time step."""
+
+        self._flash_iter_counter: int = 0
+        """Counter for cell-averaged flash iterations per time step."""
+
+        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
+        self._flash_iter_for_cell_mean: list[np.ndarray] = []
+
+        self._total_num_time_steps: int = 0
+        self._total_num_global_iter: int = 0
+        self._total_num_flash_iter: int = 0
+        self.nonlinear_solver_statistics.num_iteration_armijo = 0
+
+    def data_to_export(self):
+        data: list = super().data_to_export()
+
+        for sd in self.mdg.subdomains():
+            if sd in self._cum_flash_iter_per_grid:
+                ni = self._cum_flash_iter_per_grid[sd]
+                n = np.array(sum(ni), dtype=int)
+            else:
+                n = np.zeros(sd.num_cells, dtype=int)
+
+            data.append((sd, "cumulative flash iterations", n))
+
+        return data
+
+    def assemble_linear_system(self) -> None:
+        start = time.time()
+        super().assemble_linear_system()
+        self._time_tracker["assembly"].append(time.time() - start)
+
+    def solve_linear_system(self) -> np.ndarray:
+        start = time.time()
+        sol = super().solve_linear_system()
+        self._time_tracker["linsolve"].append(time.time() - start)
+        return sol
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()
+        self._cum_flash_iter_per_grid.clear()
+        self._flash_iter_counter = 0
+        self.nonlinear_solver_statistics.num_iteration_armijo = 0
+
+    def after_nonlinear_convergence(self):
+        # Get data before reset and recomputation in super-call.
+        self._num_global_iter.append(self.nonlinear_solver_statistics.num_iteration)
+        self._num_cell_averaged_flash_iter.append(self._flash_iter_counter)
+        self._num_linesearch_iter.append(
+            self.nonlinear_solver_statistics.num_iteration_armijo
+        )
+
+        self._recomputations.append(self.time_manager._recomp_num)
+        self._time_step_sizes.append(self.time_manager.dt)
+        # NOTE the time manager always returns the time at the end of the time step,
+        # The one for which we solve.
+        self._time_steps.append(self.time_manager.time - self.time_manager.dt)
+
+        self._total_num_time_steps += 1
+        self._total_num_global_iter += self.nonlinear_solver_statistics.num_iteration
+        self._total_num_flash_iter += sum(
+            [sum(vals).sum() for vals in self._cum_flash_iter_per_grid.values()]
+        )
+
+        return super().after_nonlinear_convergence()
+
+    def after_nonlinear_failure(self):
+        # Do not include clock times of failed attempts.
+        n = self.nonlinear_solver_statistics.num_iteration
+        self._time_tracker["linsolve"] = self._time_tracker["linsolve"][:-n]
+        self._time_tracker["assembly"] = self._time_tracker["assembly"][:-n]
+        self._time_tracker["flash"] = self._time_tracker["flash"][:-n]
+        self._total_num_time_steps += 1
+        self._total_num_global_iter += n
+        self._total_num_flash_iter += sum(
+            [sum(vals).sum() for vals in self._cum_flash_iter_per_grid.values()]
+        )
+        return super().after_nonlinear_failure()
+
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
+        start = time.time()
+        super().update_thermodynamic_properties_of_phases(state=state)
+        self._time_tracker["flash"].append(time.time() - start)
+        if self._flash_iter_for_cell_mean:
+            ni = np.concatenate(self._flash_iter_for_cell_mean)
+            self._flash_iter_counter += float(ni.mean())
+        self._flash_iter_for_cell_mean.clear()
+
+    def local_equilibrium(
+        self,
+        sd: pp.Grid,
+        state: Optional[np.ndarray] = None,
+        equilibrium_specs: Optional[cfle.IsobaricEquilibriumSpecs] = None,
+        initial_guess_from_current_state: bool = True,
+        update_secondary_variables: bool = True,
+        return_num_iter: bool = False,
+    ) -> None | np.ndarray:
+        nfi = super().local_equilibrium(
+            sd=sd,
+            state=state,
+            equilibrium_specs=equilibrium_specs,
+            initial_guess_from_current_state=initial_guess_from_current_state,
+            update_secondary_variables=update_secondary_variables,
+            return_num_iter=True,
+        )
+
+        self._flash_iter_for_cell_mean.append(nfi)
+
+        if sd not in self._cum_flash_iter_per_grid:
+            self._cum_flash_iter_per_grid[sd] = []
+        self._cum_flash_iter_per_grid[sd].append(nfi)
+
+        if return_num_iter:
+            return nfi
+        else:
+            return None
+
+
+class BuoyancyModel(pp.PorePyModel):
+    def initial_condition(self):
+        super().initial_condition()
+        self.set_buoyancy_discretization_parameters()
+
+    def update_flux_values(self):
+        super().update_flux_values()
+        self.update_buoyancy_driven_fluxes()
+
+    def set_nonlinear_discretizations(self):
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2")
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+
+if __name__ == "__main__":
+    print("--- start of run script ---\n")
+
+    h_MESH = MESH_SIZES[REFINEMENT_LEVEL]
+    tol_flash = FLASH_TOLERANCES[FLASH_TOL_CASE]
+    dt_init = pp.DAY
+
+    if RUN_WITH_SCHEDULE:
+        time_schedule = [i * 30 * pp.DAY for i in range(25)]
+        dt_max = 30 * pp.DAY
+    else:
+        time_schedule = [0, 24 * 30 * pp.DAY]
+        dt_max = time_schedule[-1]
+
+    max_iterations = 40 if FRACTIONAL_FLOW else 30
+    newton_tol = 1e-6
+    newton_tol_increment = 5e-6
+
+    time_manager = pp.TimeManager(
+        schedule=time_schedule,
+        dt_init=dt_init,
+        dt_min_max=(pp.SECOND, dt_max),
+        iter_max=max_iterations,
+        iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (15, 25),
+        iter_relax_factors=(0.8, 2.0),
+        recomp_factor=0.6,
+        recomp_max=15,
+        print_info=True,
+        rtol=0.0,
+    )
+
+    phase_property_params = {
+        "phase_property_params": [0.0],
+    }
+
+    basalt_ = basalt.copy()
+    basalt_["permeability"] = 1e-14
+    material_params = {"solid": pp.SolidConstants(**basalt_)}
+
+    flash_params: dict[Any, Any] = {
+        "mode": "parallel",
+        "solver": "npipm",
+        "solver_params": {
+            "tolerance": tol_flash,
+            "max_iterations": 80,  # 150
+            "armijo_rho": 0.99,
+            "armijo_kappa": 0.4,
+            "armijo_max_iterations": 50 if "p-T" in EQUILIBRIUM_CONDITION else 30,
+            "npipm_u1": 10,
+            "npipm_u2": 10,
+            "npipm_eta": 0.5,
+        },
+        "global_iteration_stride": LOCAL_SOLVER_STRIDE,
+        "fallback_to_iterate": True,
+    }
+    flash_params.update(phase_property_params)
+
+    restart_params = {
+        "restart_options": {
+            "restart": False,
+            "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
+            "is_mdg_pvd": False,
+            "vtu_files": None,
+            "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
+        },
+    }
+
+    meshing_params = {
+        "grid_type": "simplex",
+        "meshing_arguments": {
+            "cell_size": h_MESH,
+            "cell_size_fracture": 5e-1,
+        },
+    }
+
+    solver_params = {
+        "max_iterations": max_iterations,
+        "nl_convergence_tol": newton_tol_increment,
+        "nl_convergence_tol_res": newton_tol,
+        "apply_schur_complement_reduction": True,
+        "linear_solver": "scipy_sparse",
+        "nonlinear_solver": NewtonArmijoAndersonSolver,
+        "armijo_line_search": True,
+        "armijo_line_search_weight": 0.95,
+        "armijo_line_search_incline": 0.2,
+        "armijo_line_search_max_iterations": 10,
+        "armijo_stop_after_residual_reaches": 1e0,
+        "anderson_acceleration": False,
+        "anderson_acceleration_depth": 3,
+        "anderson_acceleration_constrained": False,
+        "anderson_acceleration_regularization_parameter": 1e-3,
+        "anderson_start_after_residual_reaches": 1e2,
+        "solver_statistics_file_name": "solver_statistics.json",
+        "flag_failure_as_diverged": True,
+    }
+
+    model_params: dict[str, Any] = {
+        "equilibrium_condition": EQUILIBRIUM_CONDITION,
+        "eliminate_reference_phase": True,
+        "eliminate_reference_component": True,
+        "flash_params": flash_params,
+        "fractional_flow": FRACTIONAL_FLOW,
+        "material_constants": material_params,
+        "time_manager": time_manager,
+        "prepare_simulation": False,
+        "buoyancy_on": BUOYANCY_ON,
+        "compile": True,
+        "flash_compiler_args": ("p-T", "p-h"),
+    }
+
+    if EXPORT_SCHEDULED_TIME_ONLY:
+        model_params["times_to_export"] = time_schedule
+
+    model_params.update(phase_property_params)
+    model_params.update(restart_params)
+    model_params.update(meshing_params)
+    model_params.update(solver_params)
+
+    if FRACTIONAL_FLOW:
+        model_class = ColdCO2InjectionModelFF
+    else:
+        model_class = ColdCO2InjectionModel
+
+    model_class = add_mixin(DataCollectionMixin, model_class)
+
+    if BUOYANCY_ON:
+        model_class = add_mixin(BuoyancyModel, model_class)
+
+    model = model_class(model_params)
+
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("porepy").setLevel(logging.DEBUG)
+    t_0 = time.time()
+    model.prepare_simulation()
+    prep_sim_time = time.time() - t_0
+    logging.getLogger("porepy").setLevel(logging.INFO)
+
+    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
+
+    # Defining sub system for Schur complement reduction.
+    primary_equations = cfle.cf.get_primary_equations_cf(model)
+    primary_equations += [
+        eq for eq in model.equation_system.equations.keys() if "flux" in eq
+    ]
+    primary_equations += [
+        "production_pressure_constraint",
+        "injection_temperature_constraint",
+    ]
+    primary_variables = cfle.cf.get_primary_variables_cf(model)
+    primary_variables += list(
+        set([v.name for v in model.equation_system.variables if "flux" in v.name])
+    )
+
+    model.schur_complement_primary_equations = primary_equations
+    model.schur_complement_primary_variables = primary_variables
+
+    t_0 = time.time()
+    if "p-T" in EQUILIBRIUM_CONDITION:
+        try:
+            pp.run_time_dependent_model(model, model_params)
+        except Exception as err:
+            print(f"SIMULATION FAILED: {err}")
+            # NOTE To avoid recomputation of time step size.
+            model.time_manager.is_constant = True
+            model.after_nonlinear_failure()
+            model.time_manager.is_constant = False
+    else:
+        pp.run_time_dependent_model(model, model_params)
+    sim_time = time.time() - t_0
+
+    # Dump simulation data for visualization.
+    model = cast(DataCollectionMixin, model)
+    data = {
+        "refinement_level": int(REFINEMENT_LEVEL),
+        "equilibrium_condition": str(EQUILIBRIUM_CONDITION),
+        "tol_flash_case": int(FLASH_TOL_CASE),
+        "num_cells": int(model.mdg.num_subdomain_cells()),
+        "t": [float(_) for _ in model._time_steps],
+        "dt": [float(_) for _ in model._time_step_sizes],
+        "recomputations": [int(_) for _ in model._recomputations],
+        "num_global_iter": [int(_) for _ in model._num_global_iter],
+        "num_flash_iter": [float(_) for _ in model._num_cell_averaged_flash_iter],
+        "num_linesearch_iter": [int(_) for _ in model._num_linesearch_iter],
+        "clock_time_global_solver": (
+            float(np.mean(model._time_tracker["linsolve"])),
+            float(np.sum(model._time_tracker["linsolve"])),
+        ),
+        "clock_time_assembly": (
+            float(np.mean(model._time_tracker["assembly"])),
+            float(np.sum(model._time_tracker["assembly"])),
+        ),
+        "clock_time_flash_solver": (
+            float(np.mean(model._time_tracker["flash"])),
+            float(np.sum(model._time_tracker["flash"])),
+        ),
+        "setup_time": float(prep_sim_time),
+        "simulation_time": float(sim_time),
+        "total_num_time_steps": int(model._total_num_time_steps),
+        "total_num_global_iter": int(model._total_num_global_iter),
+        "total_num_flash_iter": int(model._total_num_flash_iter),
+    }
+
+    # NOTE To avoid accidently overwriting data, we do not export the one we intend
+    # to visualize at a given schedule.
+    if not (RUN_WITH_SCHEDULE and "p-h" in EQUILIBRIUM_CONDITION):
+        path = get_path(
+            EQUILIBRIUM_CONDITION,
+            REFINEMENT_LEVEL,
+            FLASH_TOL_CASE,
+            LOCAL_SOLVER_STRIDE,
+        )
+        with open(
+            path.resolve(),
+            "w",
+        ) as result_file:
+            json.dump(data, result_file)
+        print(f"Results saved at {str(path.resolve())}")
+    print("\n--- end of run script ---")
