@@ -1166,7 +1166,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
     def element_density_ratio(
         self, subdomains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
+    ) -> pp.ad.Operator:  # TODO
         """
         Evaluate the ratio of total element density to total species molar density
         over a given set of subdomains.

@@ -542,19 +542,13 @@ class UnifiedChemicalEquilibriumEquations(pp.PorePyModel):
             The left-hand side of above equation.
 
         """
-        rphase = self.fluid.reference_phase
-        if phase == rphase:
-            raise ValueError(
-                "Cannot construct isofugacity constraint between reference phase and "
-                + "itself."
-            )
-        assert component in phase, "Passed component not modelled in passed phase."
-        assert component in rphase, "Passed component not modelled in reference phase."
 
-        x_ij = phase.extended_fraction_of[component](subdomains)
-        x_ir = rphase.extended_fraction_of[component](subdomains)
-        phi_ij = phase.fugacity_coefficient_of[component](subdomains)
-        phi_ir = rphase.fugacity_coefficient_of[component](subdomains)
+        assert component in phase, "Passed component not modelled in passed phase."
+
+        mu_i = phase.chemical_potential_of[component](subdomains)
+        composed_matrix = self.formula_matrix.T
+        index = self.species_names.index(component.name)
+        composition_row = composed_matrix[index]
 
         equ = x_ij * phi_ij - x_ir * phi_ir
 
