@@ -482,6 +482,12 @@ class _MixtureDOFHandler(pp.PorePyModel):
         """Returns the name of the fraction variable assigned to ``component``."""
         return f"{symbols['element_fluid_fraction']}_{element.name}"
 
+    def _element_chemical_potential_variable(self, element: Element) -> str:
+        return f"{symbols['element_chemical_potential']}_{element.name}"
+
+    def _equilibrium_stability_index_variable(self, component: Component) -> str:
+        return f"{symbols['equilibrium_stability_index']}_{component.name}"
+
     def _fraction_factory(self, name: str) -> DomainFunctionType:
         """Factory method to create a callable representing any independent fraction
         with given ``name`` on subdomain or boundary grids."""
@@ -781,6 +787,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # Creation of element fluid fractions.
         for element in self.fluid.elements:
             element.fluid_fraction = self.element_fluid_fraction(element)
+            element.element_chemical_potential = self.element_chemical_potential(
+                element
+            )
 
         self.fluid.element_density_ratio = self.element_density_ratio
 
@@ -1201,6 +1210,50 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         total_op.set_name("element_density_ratio")
         return total_op
+
+    def element_chemical_potential(
+        self,
+        element: Element,
+    ) -> DomainFunctionType:
+        """Getter method to create a callable representing the chemical potential of an
+        element on a list of subdomains or boundaries.
+
+        Parameters:
+            element: An element in the fluid mixture.
+
+        Returns:
+            A callable which returns the element chemical potential for a given set of domains.
+
+        """
+
+        yy: DomainFunctionType
+
+        yy = self._fraction_factory(self._element_chemical_potential_variable(element))
+
+        return yy
+
+    def equilibrium_stability_index(
+        self,
+        component: Component,
+    ) -> DomainFunctionType:
+        """Getter method to create a callable representing the equilibrium_stability_index of a
+        component on a list of subdomains or boundaries.
+
+        Parameters:
+            component: A component in the fluid mixture.
+
+        Returns:
+            A callable which returns the equilibrium_stability_index for a given set of domains.
+
+        """
+
+        zz: DomainFunctionType
+
+        zz = self._fraction_factory(
+            self._equilibrium_stability_index_variable(component)
+        )
+
+        return zz
 
 
 class FluidMixin(pp.PorePyModel):

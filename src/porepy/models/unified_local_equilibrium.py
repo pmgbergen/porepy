@@ -519,13 +519,13 @@ class UnifiedChemicalEquilibriumEquations(pp.PorePyModel):
         """
         .. math::
 
-            mu - W^T y -z = 0.
+            mu - W^T yy -zz = 0.
 
         - :math:`mu` : :attr:`~porepy.compositional.base.Phase.chemical_potential_of`
           component
-        - :math:`z` : Phase
+        - :math:`zz` : Phase
           :attr:`~porepy.compositional.base.Phase.equilibrium_stability_index_of` component
-        - :math:`y` : :attr:`~porepy.compositional.base.Element.element_chemical_potential`
+        - :math:`yy` : :attr:`~porepy.compositional.base.Element.element_chemical_potential`
         - :math:`W` : :attr:`formula_matrix`
         Parameters:
             component: A component characterized by the relative fractions in above
@@ -549,6 +549,14 @@ class UnifiedChemicalEquilibriumEquations(pp.PorePyModel):
         composed_matrix = self.formula_matrix.T
         index = self.species_names.index(component.name)
         composition_row = composed_matrix[index]
+
+        second_term = pp.ad.sum_operator_list(
+            [
+                element.element_chemical_potential(subdomains)
+                * pp.ad.Scalar(composition_row[self.element_names.index(element.name)])
+                for element in self.fluid.elements
+            ]
+        )
 
         equ = x_ij * phi_ij - x_ir * phi_ir
 

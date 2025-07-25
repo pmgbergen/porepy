@@ -617,13 +617,6 @@ class Phase(Generic[ComponentLike]):
 
         """
 
-        self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
-        """Equilibrium stability index per component in this phase.
-
-        Dimensionless, scalar field.
-
-        """
-
     def __iter__(self) -> Generator[ComponentLike, None, None]:
         """Iterator over components present in this phase.
 
@@ -779,6 +772,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         self.fluid_species_names = []
         self.reference_element = None
         self.element_density_ratio: DomainFunctionType
+        self.element_chemical_potential_of: dict[Element, ExtendedDomainFunctionType]
+        self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
 
         for comp in components:
             double_names.append(comp.name)
@@ -1204,6 +1199,14 @@ class Solid(Generic[ComponentLike, PhaseLike]):
         # NOTE by logic, length of gas-like phases can only be 1 or 0 at this point.
         self._has_gas: bool = True if len(gaslike_phases) == 1 else False
         """Flag indicating if a gas-like phase is present."""
+
+        self.porosity: number = 0.1
+        self.permeability: number = 1e-5
+        self.well_radius: number = 0.1
+        self.skin_factor: number = 0.0
+        self.density: number = 1.0
+        self.specific_heat_capacity: number = 1.0
+        self.thermal_conductivity: number = 1.0
 
     def __str__(self) -> str:
         """
