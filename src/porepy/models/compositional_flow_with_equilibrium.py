@@ -1004,7 +1004,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 Passed to :meth:`local_equilibrium`.
 
         """
-        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)
+        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
         do_flash = False
         if isinstance(stride, int):
             # NOTE Iteration counter is increased after iteration, and 0 modulo anything

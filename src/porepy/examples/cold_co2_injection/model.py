@@ -229,7 +229,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self, state: Optional[np.ndarray] = None
     ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
-        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)
+        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
         do_flash = False
         if isinstance(stride, int):
             assert stride > 0, "Global iteration stride must be positive."
