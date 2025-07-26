@@ -1004,11 +1004,21 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 Passed to :meth:`local_equilibrium`.
 
         """
-        stride = int(
-            self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
-        )
+        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)
+        do_flash = False
+        if isinstance(stride, int):
+            # NOTE Iteration counter is increased after iteration, and 0 modulo anything
+            # is zero.
+            assert stride > 0, 'Global iteration stride must be positive.'
+            n = self.nonlinear_solver_statistics.num_iteration
+            do_flash = (n + 1) % stride == 0 or n == 0
+        elif stride is not None:
+            raise ValueError(
+                f"Global iteration stride for local equilibrium solver must be integer"
+                f" or None, got {type(stride)}."
+            )
         for sd in self.mdg.subdomains():
-            if self.nonlinear_solver_statistics.num_iteration % stride == 0:
+            if do_flash:
                 self.local_equilibrium(sd, state=state)  # type:ignore
             else:
                 super().update_thermodynamic_properties_of_phases(state=state)

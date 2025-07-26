@@ -229,9 +229,19 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self, state: Optional[np.ndarray] = None
     ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
-        stride = int(self.params["flash_params"].get("global_iteration_stride", 3))  # type:ignore
+        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)
+        do_flash = False
+        if isinstance(stride, int):
+            assert stride > 0, "Global iteration stride must be positive."
+            n = self.nonlinear_solver_statistics.num_iteration
+            do_flash = (n + 1) % stride == 0 or n == 0
+        elif stride is not None:
+            raise ValueError(
+                f"Global iteration stride for local equilibrium solver must be integer"
+                f" or None, got {type(stride)}."
+            )
         for sd in self.mdg.subdomains():
-            if "injection_well" in sd.tags:
+            if "injection_well" in sd.tags:  # and stride is not None:
                 equ_spec = {
                     "p": self.equation_system.evaluate(
                         self.pressure([sd]), state=state
@@ -246,7 +256,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                     equilibrium_specs=equ_spec,
                     return_num_iter=True,
                 )  # type:ignore
-            elif self.nonlinear_solver_statistics.num_iteration % stride == 0:
+            elif do_flash:
                 nfi = self.local_equilibrium(sd, state=state, return_num_iter=True)  # type:ignore
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
@@ -724,19 +734,9 @@ class BoundaryConditions(_FlowConfiguration):
 
 class Permeability(pp.PorePyModel):
     """Custom permeability with a higher absolute permability around the wells and a
-    constant permeability of 1 in the wells.
-
-    Implements also a the quadratic relative permeability law.
-
-    """
+    constant permeability of 1 in the wells."""
 
     total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-
-    def relative_permeability(
-        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        """Quadratic relative permeability model."""
-        return phase.saturation(domains) ** pp.ad.Scalar(2)
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         return pp.constitutive_laws.DimensionDependentPermeability.permeability(
