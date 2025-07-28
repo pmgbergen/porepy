@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-REFINEMENT_LEVEL: int = 2
+REFINEMENT_LEVEL: int = 3
 """Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
 EQUILIBRIUM_CONDITION: Literal["unified-p-T", "unified-p-h"] = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -15,7 +15,7 @@ NUM_MONTHS: int = 24
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
-RUN_WITH_SCHEDULE: bool = False
+RUN_WITH_SCHEDULE: bool = True
 """Ïf running without schedule for the time steps, there is no maximum admissible time
 step size and no time to be hit between start and end of simulation.
 
@@ -24,9 +24,6 @@ This option is for obtaining the uninfluenced results of the time stepping schem
 If True, a schedule is used at specified times for plotting purposes.
 
 """
-EXPORT_SCHEDULED_TIME_ONLY: bool = False
-"""Exports all  time steps produced by the time stepping algorithm, otherwise only
-the scheduled times."""
 DISABLE_COMPILATION: bool = False
 """For disabling numba compilation and faster start of simulation. Intended for
 debugging."""
@@ -56,7 +53,7 @@ FLASH_TOLERANCES: dict[int, float] = {
 }
 """Tested flash tolerances."""
 
-LOCAL_STRIDES: list[int] = [-1, 1, 2, 3]
+LOCAL_STRIDES: list[int] = [-1, 1, 2, 3, 4, 5]
 """"Tested iteration strides for applying local solver."""
 
 # FOLDER: str = "src/porepy/examples/cold_co2_injection/"
@@ -66,6 +63,7 @@ FOLDER: str = ""
 import argparse
 import json
 import logging
+import os
 import pathlib
 import time
 import warnings
@@ -74,8 +72,6 @@ from typing import Any, Literal, Optional, cast
 import numpy as np
 
 if DISABLE_COMPILATION:
-    import os
-
     os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
@@ -96,15 +92,19 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 def get_path(
     condition: str,
     refinement: int,
-    tol_flash_case: int = 7,
+    flash_tol_case: int = 7,
     flash_stride: int = 3,
     rel_perm: Literal["quadratic", "linear"] = "linear",
+    num_months: int = 24,
+    file_name: str | None = None,
 ) -> pathlib.Path:
     """ "Returns path to result data for a simulation case."""
-    return pathlib.Path(
-        f"{FOLDER}stats_{condition}_h{refinement}"
-        f"_ftol{tol_flash_case}_fstride{flash_stride}_{rel_perm}.json"
-    )
+    if file_name is None:
+        file_name = (
+            f"stats_{condition}_h{refinement}"
+            f"_ftol{flash_tol_case}_fstride{flash_stride}_{rel_perm}_m{num_months}.json"
+        )
+    return pathlib.Path(f"{FOLDER}{file_name}")
 
 
 class DataCollectionMixin(pp.PorePyModel):
@@ -289,7 +289,7 @@ if __name__ == "__main__":
         "-e",
         "--equilibrium",
         nargs=1,
-        default=EQUILIBRIUM_CONDITION,
+        default="ph",
         choices=["pT", "ph"],
         help="Local equilibrium condition. Defaults to ph",
     )
@@ -392,6 +392,8 @@ if __name__ == "__main__":
         NUM_MONTHS = int(a)
         assert NUM_MONTHS > 0, "Number of months to simulate must be positive."
 
+    file_name: str | None = None
+
     if args.plot:
         print("Configuring simulation for 2D plot.\n")
         EQUILIBRIUM_CONDITION = "unified-p-h"
@@ -399,40 +401,51 @@ if __name__ == "__main__":
         FLASH_TOL_CASE = 2
         LOCAL_SOLVER_STRIDE = 3
         NUM_MONTHS = 24
-        REL_PERM = "quadratic"
+        REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
-        EXPORT_SCHEDULED_TIME_ONLY = True
+        file_name = "stats_ph_scheduled.json"
     else:
         print("--- start of run script ---\n")
+
+    print(
+        f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
+        f"Refinement level: {REFINEMENT_LEVEL}\n"
+        f"Local tolerance case: {FLASH_TOL_CASE}\n"
+        f"Local iteration stride: {LOCAL_SOLVER_STRIDE}\n"
+        f"Number of months: {NUM_MONTHS}\n"
+        f"Relative permeability: {REL_PERM}\n"
+        f"Time schedule: {RUN_WITH_SCHEDULE}"
+    )
+    print(
+        f"Results stored in: {
+            get_path(
+                condition=EQUILIBRIUM_CONDITION,
+                refinement=REFINEMENT_LEVEL,
+                flash_tol_case=FLASH_TOL_CASE,
+                flash_stride=LOCAL_SOLVER_STRIDE,
+                rel_perm=REL_PERM,
+                num_months=NUM_MONTHS,
+                file_name=file_name,
+            ).resolve()
+        }\n"
+    )
 
     # endregion
 
     h_MESH = MESH_SIZES[REFINEMENT_LEVEL]
     tol_flash = FLASH_TOLERANCES[FLASH_TOL_CASE]
-    max_iterations = 40 if FRACTIONAL_FLOW else 30
+    max_iterations = 30
+    iter_range = (15, 25)
+    if FRACTIONAL_FLOW:
+        max_iterations = 40
+        iter_range = (21, 35)
+    if REL_PERM == "quadratic":
+        max_iterations = 50
+        iter_range = (36, 45)
+
     newton_tol = 1e-7
     newton_tol_increment = 5e-6
     dt_init = pp.DAY
-
-    print(
-        f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
-        f"Refinement level: {REFINEMENT_LEVEL} (h = {h_MESH})\n"
-        f"Local tolerance case: {FLASH_TOL_CASE} (eps = {tol_flash})\n"
-        f"Local iteration stride: {LOCAL_SOLVER_STRIDE}\n"
-        f"Number of months: {NUM_MONTHS}\n"
-        f"Relative permeability: {REL_PERM}\n"
-    )
-    print(
-        f"Results stored in: {
-            get_path(
-                EQUILIBRIUM_CONDITION,
-                REFINEMENT_LEVEL,
-                FLASH_TOL_CASE,
-                LOCAL_SOLVER_STRIDE,
-                REL_PERM,
-            ).resolve()
-        }\n"
-    )
 
     if RUN_WITH_SCHEDULE:
         time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS)]
@@ -446,9 +459,9 @@ if __name__ == "__main__":
         dt_init=dt_init,
         dt_min_max=(10 * pp.MINUTE, dt_max),
         iter_max=max_iterations,
-        iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (15, 25),
-        iter_relax_factors=(0.75, 1.5),
-        recomp_factor=0.5,
+        iter_optimal_range=iter_range,
+        iter_relax_factors=(0.75, 2),
+        recomp_factor=0.6,
         recomp_max=15,
         print_info=True,
         rtol=0.0,
@@ -508,8 +521,9 @@ if __name__ == "__main__":
         "armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
         "armijo_line_search_incline": 0.2,
-        "armijo_line_search_max_iterations": 10,
-        "armijo_stop_after_residual_reaches": 1e0,
+        "armijo_line_search_max_iterations": 10 if REL_PERM == "linear" else 20,
+        "armijo_stop_after_residual_reaches": 1e0 if REL_PERM == "linear" else 1e-2,
+        "appplyard_chop": 0.2,
         "anderson_acceleration": False,
         "anderson_acceleration_depth": 3,
         "anderson_acceleration_constrained": False,
@@ -533,7 +547,7 @@ if __name__ == "__main__":
         "flash_compiler_args": ("p-T", "p-h"),
     }
 
-    if EXPORT_SCHEDULED_TIME_ONLY:
+    if RUN_WITH_SCHEDULE:
         model_params["times_to_export"] = time_schedule
 
     model_params.update(phase_property_params)
@@ -552,7 +566,6 @@ if __name__ == "__main__":
         model_class = add_mixin(BuoyancyModel, model_class)
 
     if REL_PERM == "quadratic":
-        print("Adding quadratic relative permeability law.")
         model_class = add_mixin(QuadraticRelPerm, model_class)
 
     model = cast(DataCollectionMixin, model_class(model_params))
@@ -590,11 +603,18 @@ if __name__ == "__main__":
     except Exception as err:
         SIMULATION_SUCCESS = False
         print(f"SIMULATION FAILED: {err}")
-        model.after_nonlinear_failure()
+        n = model.nonlinear_solver_statistics.num_iteration
+        model._time_tracker["linsolve"] = model._time_tracker["linsolve"][:-n]
+        model._time_tracker["assembly"] = model._time_tracker["assembly"][:-n]
+        model._time_tracker["flash"] = model._time_tracker["flash"][:-n]
+        model._total_num_time_steps += 1
+        model._total_num_global_iter += n
+        model._total_num_flash_iter += sum(
+            [sum(vals).sum() for vals in model._cum_flash_iter_per_grid.values()]
+        )
     sim_time = time.time() - t_0
 
     # Dump simulation data for visualization.
-    model = cast(DataCollectionMixin, model)
     data = {
         "simulation_success": SIMULATION_SUCCESS,
         "refinement_level": int(REFINEMENT_LEVEL),
@@ -630,11 +650,13 @@ if __name__ == "__main__":
     # NOTE To avoid accidently overwriting data, we do not export the one we intend
     # to visualize in 2D.
     path = get_path(
-        EQUILIBRIUM_CONDITION,
-        REFINEMENT_LEVEL,
-        FLASH_TOL_CASE,
-        LOCAL_SOLVER_STRIDE,
+        condition=EQUILIBRIUM_CONDITION,
+        refinement=REFINEMENT_LEVEL,
+        flash_tol_case=FLASH_TOL_CASE,
+        flash_stride=LOCAL_SOLVER_STRIDE,
         rel_perm=REL_PERM,
+        num_months=NUM_MONTHS,
+        file_name=file_name,
     )
     with open(
         path.resolve(),

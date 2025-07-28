@@ -604,6 +604,7 @@ if __name__ == "__main__":
         "armijo_line_search_incline": 0.2,
         "armijo_line_search_max_iterations": 10,
         "armijo_stop_after_residual_reaches": 1e0,
+        "appplyard_chop": 0.2,
         "anderson_acceleration": True,
         "anderson_acceleration_depth": 3,
         "anderson_acceleration_constrained": False,

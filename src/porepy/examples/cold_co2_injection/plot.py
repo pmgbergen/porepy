@@ -100,19 +100,26 @@ class SimulationData(TypedDict, total=False):
 def load_data(
     condition: EquilibriumCondition,
     refinement: int,
-    tol_flash_case: int = 2,
+    flash_tol_case: int = 2,
     flash_stride: int | None = 3,
     rel_perm: Literal["quadratic", "linear"] = "linear",
+    num_months: int = 24,
 ) -> SimulationData:
     path = get_path(
-        condition, refinement, tol_flash_case, flash_stride, rel_perm
+        condition=condition,
+        refinement=refinement,
+        flash_tol_case=flash_tol_case,
+        flash_stride=flash_stride,
+        rel_perm=rel_perm,
+        num_months=num_months,
+        file_name=None,
     ).resolve()
     if not path.is_file():
         raise ValueError(
             "Simulation data not found for\n"
             f"equilibrium condition: {condition}\n"
             f"refinement level: {refinement}\n"
-            f"flash tolerance case: {tol_flash_case}\n"
+            f"flash tolerance case: {flash_tol_case}\n"
             f"at location: {str(path.resolve())}"
         )
 
@@ -148,10 +155,24 @@ strides = np.array(LOCAL_STRIDES).astype(int)
 ftols = np.array(list(FLASH_TOLERANCES.values())).astype(float)
 
 DD: list[SimulationData] = [
-    load_data("unified-p-h", 0, tol_flash_case=i) for i in FLASH_TOLERANCES.keys()
+    load_data(
+        condition="unified-p-h",
+        refinement=0,
+        flash_tol_case=i,
+        flash_stride=3,
+        num_months=6,
+    )
+    for i in FLASH_TOLERANCES.keys()
 ]
 DDS: list[SimulationData] = [
-    load_data("unified-p-h", 0, flash_stride=i) for i in [None] + LOCAL_STRIDES[1:]
+    load_data(
+        condition="unified-p-h",
+        refinement=0,
+        flash_tol_case=7,
+        flash_stride=i,
+        num_months=6,
+    )
+    for i in [None] + LOCAL_STRIDES[1:]
 ]
 tngi = np.array([d["total_num_global_iter"] for d in DD]).astype(int)
 tnfi = np.array([d["total_num_flash_iter"] for d in DD]).astype(int)
@@ -160,6 +181,7 @@ tnfis = np.array([d["total_num_flash_iter"] for d in DDS]).astype(int)
 
 mask = np.array([d["simulation_success"] for d in DD]).astype(bool)
 masks = np.array([d["simulation_success"] for d in DDS]).astype(bool)
+has_failures = np.any(~mask) or np.any(~masks)
 
 fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
 ax = fig.add_subplot(1, 2, 2)
@@ -175,17 +197,20 @@ imgs += ax.plot(
     linewidth=LINEWIDTH,
     label="global",
 )
-imgs += ax.plot(
-    ftols[~mask],
-    np.zeros_like(ftols[~mask]).astype(int),
-    color="red",
-    marker="X",
-    markersize=MARKERSIZE,
-    linestyle="",
-    label="failure",
-)
+if has_failures:
+    imgs += ax.plot(
+        ftols[~mask],
+        (np.ones_like(ftols[~mask]) * (tngi.max() + 100)).astype(int),
+        color="red",
+        marker="X",
+        markersize=MARKERSIZE,
+        linestyle="",
+        label="failure",
+    )
 
 axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
 color = "salmon"
 imgsr += axr.plot(
     ftols,
@@ -205,28 +230,42 @@ ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_xscale("log")
 # ax.set_ylabel("Global iterations", color="black", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
-# ax.set_yscale("log")
-# ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-# ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+ax.set_yscale("log")
+ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+ticks = ax.get_yticks()
+ticks = np.concatenate(
+    [ticks, np.array([tngi.max(), tngi.min(), np.ceil(tngi.min() / 10) * 10])]
+).astype(int)
+# ax.set_ylim(ax.get_ylim()[0], int(np.ceil(tngi.max() / 200.0)) * 200)
+ax.set_yticks(ticks)
 # ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=20))
-axr.set_ylabel("Local iterations", color=color, fontsize=FONTSIZE + 2)
+axr.set_ylabel("Total local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 # axr.set_yscale("log")
 # axr.yaxis.grid(visible=True, which="both", color="orange", alpha=0.3, linewidth=0.5)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 
-# ax.legend(
-#     [i.get_label() for i in imgs],
-#     fontsize=FONTSIZE,
-#     loc="upper right",
-#     bbox_to_anchor=(-0.1, 1),
-# )
-# axr.legend(
-#     [i.get_label() for i in imgsr],
-#     fontsize=FONTSIZE,
-#     loc="upper left",
-#     bbox_to_anchor=(1.1, 1),
-# )
+ax.margins(0.10)
+axr.margins(0.10)
+
+if has_failures:
+    ax.legend(
+        [i.get_label() for i in imgs],
+        fontsize=FONTSIZE,
+        loc="upper right",
+        bbox_to_anchor=(-0.1, 1),
+        # loc="upper left",
+        # bbox_to_anchor=(1.1, 1),
+    )
+    axr.legend(
+        [i.get_label() for i in imgsr],
+        fontsize=FONTSIZE,
+        # loc="upper left",
+        # bbox_to_anchor=(1.1, 1),
+        loc="upper right",
+        bbox_to_anchor=(-0.1, 0.8),
+    )
 
 ax = fig.add_subplot(1, 2, 1)
 imgs = []
@@ -241,17 +280,21 @@ imgs += ax.plot(
     linewidth=LINEWIDTH,
     label="global",
 )
-imgs += ax.plot(
-    strides[~masks],
-    np.zeros_like(strides[~masks]).astype(int),
-    color="red",
-    marker="X",
-    markersize=MARKERSIZE,
-    linestyle="",
-    label="failure",
-)
+if has_failures:
+    imgs += ax.plot(
+        strides[~masks],
+        # np.zeros_like(strides[~masks]).astype(int),
+        (np.ones_like(strides[~masks]) * (tngis.max() + 100)).astype(int),
+        color="red",
+        marker="X",
+        markersize=MARKERSIZE,
+        linestyle="",
+        label="failure",
+    )
 
 axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
 color = "salmon"
 imgsr += axr.plot(
     strides,
@@ -266,20 +309,29 @@ imgsr += axr.plot(
 
 ax.set_title(f"Local solver tolerance = 1e-8", fontsize=FONTSIZE + 2)
 ax.set_xlabel("Iteration stride", fontsize=FONTSIZE + 2)
-ax.set_xticks(strides)
-ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+# ax.set_xticks(strides, [str(i) for i in [None] + LOCAL_STRIDES[1:]])
+ax.set_xticks(strides, [str(None)] + LOCAL_STRIDES[1:])
+# ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 # ax.set_xscale("log")
-ax.set_ylabel("Global iterations", color="black", fontsize=FONTSIZE + 2)
+ax.set_ylabel("Total global iterations", color="black", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
-# ax.set_yscale("log")
-# ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-# ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+ax.set_yscale("log")
+ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 # ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=200))
 # axr.set_ylabel("Local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 # axr.set_yscale("log")
 # axr.yaxis.grid(visible=True, which="both", color="orange", alpha=0.3, linewidth=0.5)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+
+ticks = ax.get_yticks()
+ticks = np.concatenate([ticks, np.array([tngis.max(), tngis.min()]).astype(int)])
+ax.set_yticks(ticks)
+# ax.set_ylim(ax.get_ylim()[0], int(np.ceil(tngis.max() / 1000.0)) * 1000)
+
+ax.margins(0.1)
+axr.margins(0.1)
 
 # ax.legend(
 #     [i.get_label() for i in imgs],
@@ -294,7 +346,7 @@ axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 #     bbox_to_anchor=(1.1, 1),
 # )
 fig.tight_layout(pad=FIGUREPAD)
-name = f"{FIGUREPATH}total_iter_per_ftol_and_stride_h{0}.png"
+name = f"{FIGUREPATH}total_iter_per_ftol_and_stride.png"
 fig.savefig(
     name,
     format="png",
@@ -309,16 +361,44 @@ print(f"\nSaved fig: {name}")
 
 data: dict[EquilibriumCondition, dict[int, SimulationData]] = {
     "unified-p-T": dict(
-        [(i, load_data("unified-p-T", i)) for i in range(len(MESH_SIZES))]
+        [
+            (
+                i,
+                load_data(
+                    condition="unified-p-T",
+                    refinement=i,
+                    flash_tol_case=2,
+                    flash_stride=3,
+                    rel_perm="linear",
+                    num_months=24,
+                ),
+            )
+            for i in range(len(MESH_SIZES))
+        ]
     ),
     "unified-p-h": dict(
-        [(i, load_data("unified-p-h", i)) for i in range(len(MESH_SIZES))]
+        [
+            (
+                i,
+                load_data(
+                    condition="unified-p-h",
+                    refinement=i,
+                    flash_tol_case=2,
+                    flash_stride=3,
+                    rel_perm="linear",
+                    num_months=24,
+                ),
+            )
+            for i in range(len(MESH_SIZES))
+        ]
     ),
 }
 
 fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
 ax = fig.add_subplot(1, 1, 1)
 axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
 imgs = []
 imgsr = []
 
@@ -330,12 +410,13 @@ for i in MESH_SIZES.keys():
     if i in data["unified-p-T"]:
         D = data["unified-p-T"][i]
         assert i == D["refinement_level"]
-        # ngi.append([MESH_SIZES[i], D["num_global_iter"].sum()])
-        # nfi.append([MESH_SIZES[i], D["num_flash_iter"].sum()])
-        # nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
-        ngi.append([MESH_SIZES[i], D["total_num_global_iter"]])
-        nfi.append([MESH_SIZES[i], D["total_num_flash_iter"]])
-        nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
+        if D["simulation_success"]:
+            # ngi.append([MESH_SIZES[i], D["num_global_iter"].sum()])
+            # nfi.append([MESH_SIZES[i], D["num_flash_iter"].sum()])
+            # nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
+            ngi.append([MESH_SIZES[i], D["total_num_global_iter"]])
+            nfi.append([MESH_SIZES[i], D["total_num_flash_iter"]])
+            nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
 ngi = np.array(ngi).T
 imgs += ax.plot(
     ngi[0],
@@ -365,11 +446,12 @@ imgs += ax.plot(
     nli[1],
     color=color,
     linestyle="dotted",
-    marker="X",
+    marker="P",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="pT-linesearch",
 )
+M = int(np.hstack((ngi[1], nli[1])).max())
 
 ngi = []
 nfi = []
@@ -379,12 +461,13 @@ for i in MESH_SIZES.keys():
     if i in data["unified-p-h"]:
         D = data["unified-p-h"][i]
         assert i == D["refinement_level"]
-        # ngi.append([MESH_SIZES[i], D["total_num_global_iter"].sum()])
-        # nfi.append([MESH_SIZES[i], D["num_flash_iter"].sum()])
-        # nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
-        ngi.append([MESH_SIZES[i], D["total_num_global_iter"]])
-        nfi.append([MESH_SIZES[i], D["total_num_flash_iter"]])
-        nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
+        if D["simulation_success"]:
+            # ngi.append([MESH_SIZES[i], D["total_num_global_iter"].sum()])
+            # nfi.append([MESH_SIZES[i], D["num_flash_iter"].sum()])
+            # nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
+            ngi.append([MESH_SIZES[i], D["total_num_global_iter"]])
+            nfi.append([MESH_SIZES[i], D["total_num_flash_iter"]])
+            nli.append([MESH_SIZES[i], D["num_linesearch_iter"].sum()])
 ngi = np.array(ngi).T
 imgs += ax.plot(
     ngi[0],
@@ -414,24 +497,37 @@ imgs += ax.plot(
     nli[1],
     color=color,
     linestyle="dotted",
-    marker="X",
+    marker="P",
     markersize=MARKERSIZE,
     linewidth=LINEWIDTH,
     label="ph-linesearch",
 )
+m = int(np.hstack((ngi[1], nli[1])).max())
+if m > M:
+    M = m
+xticks = list(MESH_SIZES.values())[::-1]
 
 ax.set_xlabel("Mesh size [m]", fontsize=FONTSIZE + 2)
 ax.set_xscale("log")
-ax.set_xticks(np.array(list(MESH_SIZES.values())))
+ax.set_xticks(xticks, [str(i) for i in xticks])
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.get_xaxis().set_minor_formatter(matplotlib.ticker.NullFormatter())
 ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_ylabel("Total global iterations", fontsize=FONTSIZE + 2)
-ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=200))
+# ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=100))
 ax.tick_params(axis="both", which="major", labelsize=FONTSIZE)
-ax.tick_params(axis="both", which="minor", labelsize=FONTSIZE)
+# ax.tick_params(axis="both", which="minor", labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.set_ylabel("Total local iterations", fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
+
+ticks = ax.get_yticks()
+ticks = np.concatenate([ticks, np.array([M]).astype(int)])
+ax.set_yticks(ticks)
+# ax.set_ylim(ax.get_ylim()[0], int(np.ceil(M / 100.0)) * 100)
+
+ax.margins(0.05)
+axr.margins(0.05)
 
 ax.legend(
     [i.get_label() for i in imgs],
@@ -460,11 +556,18 @@ print(f"\nSaved fig: {name}")
 # region Plotting num iterations and re-computations per time step, and time progress
 # for plot case
 
-D = load_data("unified-p-h", 3, rel_perm="quadratic")
+D = load_data(
+    condition="unified-p-h",
+    refinement=3,
+    flash_tol_case=2,
+    flash_stride=3,
+    rel_perm="linear",
+    num_months=24,
+)
 
 t = np.array(D["t"]) / (3600 * 24)
 dt = np.array(D["dt"]) / (3600 * 24)
-t_indices = np.arange(t.size)
+t_indices = np.arange(t.size).astype(int)
 ngi = np.array(D["num_global_iter"]).astype(int)
 nfi = np.array(D["num_flash_iter"]).astype(float)
 nli = np.array(D["num_linesearch_iter"]).astype(int)
@@ -489,10 +592,26 @@ imgs += ax.plot(
     nli,
     color="black",
     linestyle="dotted",
-    marker="X",
+    marker="P",
     markersize=int(MARKERSIZE / 2),
     linewidth=LINEWIDTH,
     label="line search",
+)
+
+color = "salmon"
+axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
+imgsr += axr.plot(
+    t,
+    nfi,
+    color=color,
+    linestyle="dashed",
+    marker="s",
+    mfc="white",
+    markersize=int(MARKERSIZE / 2),
+    linewidth=LINEWIDTH,
+    label="local",
 )
 
 rcomps = np.array(D["recomputations"]).astype(int)
@@ -509,9 +628,14 @@ a = (N - n) / (M - m)
 b = n - a * m
 sizes = a * rid + b
 
+ypos = float(np.max([ngi.max(), nli.max()]) + 20)
 imgs += [
     ax.scatter(
-        tid, np.zeros_like(tid).astype(int), s=sizes, alpha=0.5, label="re-computations"
+        tid,
+        np.ones_like(tid).astype(int) * ypos,
+        s=sizes,
+        alpha=0.5,
+        label="re-computations",
     )
 ]
 
@@ -519,7 +643,7 @@ idx = rid == M
 
 ax.text(
     tid[idx][0],
-    0,
+    ypos,
     M,
     fontsize=FONTSIZE + 2,
     fontweight="heavy",
@@ -527,31 +651,22 @@ ax.text(
     verticalalignment="center",
 )
 
-color = "salmon"
-axr = ax.twinx()
-imgsr += axr.plot(
-    t,
-    nfi,
-    color=color,
-    linestyle="dashed",
-    marker="s",
-    mfc="white",
-    markersize=int(MARKERSIZE / 2),
-    linewidth=LINEWIDTH,
-    label="local",
-)
-
 ax.set_xscale("symlog", linthresh=1)
 ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
-ax.set_xlim(-1e-1, 2 * t.max())
+# ax.set_xlim(-1e-1, 2 * t.max())
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_xlabel("Time [d]", fontsize=FONTSIZE + 2)
+ticks = np.concatenate((ax.get_xticks(), np.array([t.max()])))
+ax.set_xticks(ticks)
 ax.get_yaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=10))
 ax.set_ylabel("Global iterations", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelsize=FONTSIZE)
 axr.set_ylabel("Cell-averaged local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
+
+ax.margins(0.05)
+axr.margins(0.05)
 
 ax.legend(
     [i.get_label() for i in imgs],
@@ -566,10 +681,7 @@ axr.legend(
     bbox_to_anchor=(1.1, 1),
 )
 fig.tight_layout(pad=FIGUREPAD)
-name = (
-    f"{FIGUREPATH}iterations_per_time_h{D['refinement_level']}"
-    f"_ftol{D['tol_flash_case']}.png"
-)
+name = f"{FIGUREPATH}iterations_per_time_ph.png"
 fig.savefig(
     name,
     format="png",
@@ -578,7 +690,7 @@ fig.savefig(
 )
 print(f"\nSaved fig: {name}")
 
-fig = plt.figure(figsize=(FIGUREWIDTH, FIGUREHEIGHT))
+fig = plt.figure(figsize=(FIGUREHEIGHT, 0.6 * FIGUREHEIGHT))
 ax = fig.add_subplot(1, 1, 1)
 imgs = []
 imgsr = []
@@ -597,6 +709,8 @@ imgs += ax.plot(
 )
 
 axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
 color = "salmon"
 imgsr += axr.plot(
     t_indices,
@@ -612,16 +726,31 @@ imgsr += axr.plot(
 ax.set_xlabel("Time step index", fontsize=FONTSIZE + 2)
 ax.set_ylabel("Time [d]", color="black", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
-ax.set_yscale("log")
+# ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.set_yscale("symlog", linthresh=1)
+ticks = np.concatenate((ax.get_xticks(), np.array([t_indices.max()]))).astype(int)
+ax.set_xticks(ticks)
+# ax.set_xlim(-1, int(t_indices.max())+1)
+ticks = ax.get_yticks()
+ticks = np.concatenate([ticks, np.array([24 * 30]).astype(int)])
+ax.set_yticks(ticks)
+# ax.set_ylim(0., 24 * 30 + 5)
 # ax.get_xaxis().set_major_locator(matplotlib.ticker.MultipleLocator(base=2))
-ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
 axr.set_ylabel("Time step size [d]", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
-axr.set_yscale("log")
+axr.set_yscale("symlog", linthresh=1)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.yaxis.grid(visible=True, which="major", color="orange", alpha=0.3, linewidth=0.5)
+lim = axr.get_ylim()
+ticks = axr.get_yticks()
+ticks = np.concatenate([ticks, np.array([dt.max()])])
+axr.set_yticks(ticks)
+# axr.set_ylim(0., dt.max() + 20)
+
+ax.margins(0.05)
+axr.margins(0.05)
 
 # ax.legend(
 #     [i.get_label() for i in imgs],
@@ -636,9 +765,7 @@ axr.yaxis.grid(visible=True, which="major", color="orange", alpha=0.3, linewidth
 #     bbox_to_anchor=(1.1, 1),
 # )
 fig.tight_layout(pad=FIGUREPAD)
-name = (
-    f"{FIGUREPATH}time_progress_h{D['refinement_level']}_ftol{D['tol_flash_case']}.png"
-)
+name = f"{FIGUREPATH}time_progress_ph.png"
 fig.savefig(
     name,
     format="png",

@@ -128,32 +128,13 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         """An iteration consists of performing the Newton step and obtaining the step
         size from the line search."""
         # dx = super().iteration(model)
-        iteration = model.nonlinear_solver_statistics.num_iteration
 
         dx = pp.NewtonSolver.iteration(self, model)
 
-        if self.params.get("anderson_acceleration", False):
-            x = model.equation_system.get_variable_values(iterate_index=0)
-            x_temp = x + dx
-            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
-                try:
-                    xp1 = self.apply(x_temp, dx.copy(), iteration)
-                    res = model.equation_system.assemble(evaluate_jacobian=False)
-                    # TODO Wrong reference residual
-                    res_norm = model.compute_residual_norm(res, res)  # type:ignore
-                    if res_norm <= self.params.get(
-                        "anderson_start_after_residual_reaches", np.inf
-                    ):
-                        dx = xp1 - x
-                except Exception:
-                    logger.warning(
-                        f"Resetting Anderson acceleration at"
-                        f" T={model.time_manager.time}; i={iteration} due to failure."
-                    )
-                    self.reset()
+        dx *= self.armijo_line_search(model, dx)
+        dx = self.appleyard_chop(model, dx)
 
-        alpha = self.armijo_line_search(model, dx)
-        return alpha * dx
+        return dx
 
     def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
@@ -200,3 +181,34 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         )
         residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
         return float(np.dot(residual, residual) / 2)
+
+    def appleyard_chop(self, model: pp.PorePyModel, dx: np.ndarray) -> np.ndarray:
+        """ "Simple chopping of updates for saturatons such that their absolute values
+        is not larger than a defined value ``params['appleyard_chop']``.
+
+        By default, no chop is applied.
+
+        """
+
+        m = self.params.get("appplyard_chop", None)
+        if isinstance(m, float):
+            assert 0 < m < 1, "Chopping limit for saturations must be strictly in (0,1)"
+            if hasattr(model, "saturation_variables"):
+                dofs = model.equation_system.dofs_of(model.saturation_variables)
+                ds = dx[dofs]
+
+                chop = np.abs(ds) > m
+                if np.any(chop):
+                    logger.info(f"Applying Appleyard chop in {int(chop.sum())} cells.")
+                    ds[chop] = m * np.sign(ds[chop])
+                    dx[dofs] = ds
+
+                if model.phase_fraction_variables:
+                    dofs = model.equation_system.dofs_of(model.phase_fraction_variables)
+                    dy = dx[dofs]
+                    chop = np.abs(dy) > m
+                    if np.any(chop):
+                        dy[chop] = m * np.sign(dy[chop])
+                        dx[dofs] = dy
+
+        return dx

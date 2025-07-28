@@ -1009,14 +1009,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         if isinstance(stride, int):
             # NOTE Iteration counter is increased after iteration, and 0 modulo anything
             # is zero.
-            assert stride > 0, 'Global iteration stride must be positive.'
+            assert stride > 0, "Global iteration stride must be positive."
             n = self.nonlinear_solver_statistics.num_iteration
             do_flash = (n + 1) % stride == 0 or n == 0
-        elif stride is not None:
-            raise ValueError(
-                f"Global iteration stride for local equilibrium solver must be integer"
-                f" or None, got {type(stride)}."
-            )
+
         for sd in self.mdg.subdomains():
             if do_flash:
                 self.local_equilibrium(sd, state=state)  # type:ignore
