@@ -105,6 +105,7 @@ class Component:
 
         # Creating the overall molar fraction variable.
         self.fraction: DomainFunctionType
+        self.equilibrium_stability_index: ExtendedDomainFunctionType
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
 
@@ -766,14 +767,17 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         # Lists of gas-like and other phases.
         gaslike_phases: list[PhaseLike] = []
         other_phases: list[PhaseLike] = []
+        solidlike_phases: list[PhaseLike] = []
 
         self.elements: list[Element] = []
+        self.num_elements: int = 0
         self.fluid_formula_matrix = None
         self.fluid_species_names = []
         self.reference_element = None
         self.element_density_ratio: DomainFunctionType
         self.element_chemical_potential_of: dict[Element, ExtendedDomainFunctionType]
         self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
+        self.solid_components: list[SolidComponent] = []
 
         for comp in components:
             double_names.append(comp.name)
@@ -783,6 +787,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             double_names.append(phase.name)
             if phase.state == PhysicalState.gas:
                 gaslike_phases.append(phase)
+            elif phase.state == PhysicalState.solid:
+                solidlike_phases.append(phase)
             else:
                 other_phases.append(phase)
 
@@ -791,7 +797,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                     f"Phase {phase.name} has no components assigned."
                 )
 
-        self._phases = other_phases + gaslike_phases
+        self._phases = other_phases + gaslike_phases + solidlike_phases
 
         if len(set(double_names)) < len(self._phases) + len(self._components):
             raise ValueError("Phases and components must have unique names each.")
@@ -803,6 +809,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             raise CompositionalModellingError("At least 1 phase required.")
         if len(gaslike_phases) > 1:
             raise CompositionalModellingError("At most 1 gas-like phase is permitted.")
+        if len(solidlike_phases) == 1:
+            self.solid_phase = solidlike_phases[0]
 
         # Checking no dangling components.
         for comp in self._components:
@@ -818,6 +826,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         # NOTE by logic, length of gas-like phases can only be 1 or 0 at this point.
         self._has_gas: bool = True if len(gaslike_phases) == 1 else False
         """Flag indicating if a gas-like phase is present."""
+
+        self._has_solid: bool = True if len(solidlike_phases) == 1 else False
 
     def __str__(self) -> str:
         """
@@ -1086,6 +1096,22 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         else:
             op = self.reference_phase.thermal_conductivity(domains)
             op.set_name("fluid_thermal_conductivity")
+
+        return op
+
+    def solid_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Density of the solid in ``[kg / m^3]`` or ``[mol / m^3]``.
+
+
+        Parameters:
+            domains: A sequence of grids.
+
+
+        """
+
+        if len(self.solid_components) > 1:
+            op = self.solid_phase.density(domains)
+            op.set_name("solid_density")
 
         return op
 

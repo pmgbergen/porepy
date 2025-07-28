@@ -748,6 +748,12 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # Creation of feed fractions.
         for component in self.fluid.components:
             component.fraction = self.overall_fraction(component)
+            component.equilibrium_stability_index = self.equilibrium_stability_index(
+                component
+            )
+
+        for comp in self.fluid.solid_components:
+            comp.equilibrium_stability_index = self.equilibrium_stability_index(comp)
 
         # Creation of tracer fractions for compounds.
         for component in self.fluid.components:
@@ -1796,6 +1802,8 @@ class SolidMixin(pp.PorePyModel):
 
         self.set_components_in_solid_phases(components, phases)
         self.solid = Solid(components, phases)
+        if hasattr(self, "fluid"):
+            self.fluid.solid_components = components
 
     def get_solid_components(self) -> Sequence[pp.SolidComponent]:
         """Method to return a list of modelled components.
@@ -1920,6 +1928,15 @@ class SolidMixin(pp.PorePyModel):
 
 
 class ChemicalSystem(FluidMixin, SolidMixin):
+    def __init__(self, params: Optional[dict] = None):
+        """Initialize the ChemicalSystem with empty fluid and solid."""
+        super().__init__()
+        self.species_in_phase = {}
+        self.species_names = []
+        self.element_names = []
+        self.formula_matrix = None
+        self.element_objects = []
+
     def get_all_components_by_phase(self):
         """Return a dictionary of all components grouped by phase."""
         system_info = {}

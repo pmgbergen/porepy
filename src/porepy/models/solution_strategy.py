@@ -414,7 +414,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Set the solid for the model.
         # NOTE this will change with the generalization of the solid
-        # self.solid = solid
+        self.solid = solid
 
         # Set the numerical constants for the model.
         self.numerical = numerical
@@ -428,8 +428,6 @@ class SolutionStrategy(pp.PorePyModel):
             self.params["material_constants"]["fluid"] = fluid
         if not hasattr(self, "fluid"):
             self.create_fluid()
-        if not hasattr(self, "solid"):
-            self.create_solid()
 
     def discretize(self) -> None:
         """Discretize all terms."""

@@ -512,7 +512,7 @@ class UnifiedChemicalEquilibriumEquations(pp.PorePyModel):
 
     def chemical_potential_for_component_in_phase(
         self,
-        component: pp.FluidComponent,
+        component: pp.FluidComponent,  # TODO here the component can be a solid component.
         phase: pp.Phase,
         subdomains: Sequence[pp.Grid],
     ) -> pp.ad.Operator:
@@ -557,10 +557,7 @@ class UnifiedChemicalEquilibriumEquations(pp.PorePyModel):
                 for element in self.fluid.elements
             ]
         )
-
-        equ = x_ij * phi_ij - x_ir * phi_ir
-
-        equ.set_name(
-            f"isofugacity_constraint_{component.name}_{phase.name}_{rphase.name}"
-        )
+        zz_i = self.fluid.equilibrium_stability_index_of[component](subdomains)
+        equ = mu_i - second_term - zz_i
+        equ.set_name(f"chemical_potential_constraint_{component.name}_{phase.name}")
         return equ

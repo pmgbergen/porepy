@@ -371,6 +371,7 @@ class SolidConstants(Constants):
             "thermal_conductivity": "W * m^-1 * K^-1",
             "thermal_expansion": "K^-1",
             "well_radius": "m",
+            "total_porosity": "-",
         }
     )
 
@@ -422,6 +423,8 @@ class SolidConstants(Constants):
     thermal_expansion: number = 0.0
 
     well_radius: number = 0.1
+
+    total_porosity: number = 1.0
 
 
 @dataclass(kw_only=True, eq=False)
