@@ -1,4 +1,5 @@
 :: Call the ph flash with the first refinement and minimal local tolerance and test strides.
+:: goto :plot
 :optimalstride
 call python.exe ./run.py -e ph -r 0 -t 7 -s -1 -m 6
 call python.exe ./run.py -e ph -r 0 -t 7 -s 1 -m 6
