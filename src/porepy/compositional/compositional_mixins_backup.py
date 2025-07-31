@@ -1927,7 +1927,7 @@ class SolidMixin(pp.PorePyModel):
             return _no_property_function
 
 
-class ChemicalSystem(FluidMixin):
+class ChemicalSystem(FluidMixin, SolidMixin):
     def __init__(self, params: Optional[dict] = None):
         """Initialize the ChemicalSystem with empty fluid and solid."""
         super().__init__()
@@ -1941,6 +1941,7 @@ class ChemicalSystem(FluidMixin):
         """Return a dictionary of all components grouped by phase."""
         system_info = {}
         self.create_fluid()
+        self.create_solid()
         species_in_phase = {}
 
         # Handle fluid phases
@@ -1949,6 +1950,11 @@ class ChemicalSystem(FluidMixin):
             for comp in phase.components:
                 species_in_phase[comp.name] = phase.name
 
+        # Handle solid phases
+        for phase in self.solid.phases:
+            system_info[phase.name] = [comp.name for comp in phase.components]
+            for comp in phase.components:
+                species_in_phase[comp.name] = phase.name
         return system_info, species_in_phase
 
     def describe(self):

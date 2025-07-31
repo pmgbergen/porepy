@@ -777,7 +777,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         self.element_density_ratio: DomainFunctionType
         self.element_chemical_potential_of: dict[Element, ExtendedDomainFunctionType]
         self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
-        self.solid_components: list[SolidComponent] = []
+        self.solid_components: list[FluidComponent] = []
 
         for comp in components:
             double_names.append(comp.name)
@@ -798,6 +798,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
                 )
 
         self._phases = other_phases + gaslike_phases + solidlike_phases
+        self._fluid_phases = other_phases + gaslike_phases
 
         if len(set(double_names)) < len(self._phases) + len(self._components):
             raise ValueError("Phases and components must have unique names each.")
@@ -809,7 +810,11 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             raise CompositionalModellingError("At least 1 phase required.")
         if len(gaslike_phases) > 1:
             raise CompositionalModellingError("At most 1 gas-like phase is permitted.")
-        if len(solidlike_phases) == 1:
+        if len(solidlike_phases) > 1:
+            raise CompositionalModellingError(
+                "At most 1 solid-like phase is permitted."
+            )
+        elif len(solidlike_phases) == 1:
             self.solid_phase = solidlike_phases[0]
 
         # Checking no dangling components.
@@ -853,6 +858,11 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
     def num_phases(self) -> int:
         """Number of phases phases in this mixture."""
         return len(self._phases)
+
+    @property
+    def num_fluid_phases(self) -> int:
+        """Number of phases phases in this mixture."""
+        return len(self._fluid_phases)
 
     @property
     def components(self) -> list[ComponentLike]:
@@ -996,7 +1006,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         """
 
-        if self.num_phases > 1:
+        if self.num_fluid_phases > 1:
             op = pp.ad.sum_operator_list(
                 [
                     phase.saturation(domains) * phase.density(domains)
@@ -1046,7 +1056,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         """
 
-        if self.num_phases > 1:
+        if self.num_fluid_phases > 1:
             op = pp.ad.sum_operator_list(
                 [
                     phase.fraction(domains) * phase.specific_enthalpy(domains)
@@ -1084,7 +1094,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             In the case of only 1 phase, it returns the reference phase conductivity.
 
         """
-        if self.num_phases > 1:
+        if self.num_fluid_phases > 1:
             op = pp.ad.sum_operator_list(
                 [
                     phase.saturation(domains) * phase.thermal_conductivity(domains)

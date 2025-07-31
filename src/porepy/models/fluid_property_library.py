@@ -475,7 +475,7 @@ class FluidMobility(pp.PorePyModel):
             Above expression in operator form.
 
         """
-        if self.fluid.num_phases > 1:
+        if self.fluid.num_fluid_phases > 1:
             raise NotImplementedError("Not implemented!")
         else:
             mobility = (
