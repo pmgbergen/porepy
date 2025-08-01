@@ -755,9 +755,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 component
             )
 
-        for comp in self.fluid.solid_components:
-            comp.equilibrium_stability_index = self.equilibrium_stability_index(comp)
-
         # Creation of tracer fractions for compounds.
         for component in self.fluid.components:
             if isinstance(component, Compound):
@@ -1219,8 +1216,17 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             raise KeyError(f"Species name '{e.args[0]}' not found in fluid components.")
 
         # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
-        total_op = sum(sum(w * z for w, z in zip(W_row, z_ops)) for W_row in W)
+        total_op = pp.ad.sum_operator_list(
+            [
+                pp.ad.sum_operator_list(
+                    [pp.ad.Scalar(w) * z for w, z in zip(W_row, z_ops)]
+                )
+                for W_row in W
+            ]
+        )
 
+        scaling_factor = self.fluid.fluid_fraction(subdomains) ** pp.ad.Scalar(-1.0)
+        total_op = total_op * scaling_factor
         total_op.set_name("element_density_ratio")
         return total_op
 
