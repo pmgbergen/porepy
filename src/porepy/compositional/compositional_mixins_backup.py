@@ -924,7 +924,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 )
                 s_R.set_name("reference_phase_saturation_by_unity")
                 return s_R
+        elif phase.state == PhysicalState.solid:
 
+            def saturation(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(0.0, "solid_phase_saturation")
         # Should never happen
         else:
             raise NotImplementedError("Missing logic for saturations.")
@@ -2106,7 +2109,7 @@ class ActivityModels(pp.PorePyModel):
         """
         gamma = pp.ad.Scalar(1.0, "activity_coefficient_ideal")
         water_mole_mass = pp.ad.Scalar(self.water_molar_mass(), "water_molar_mass")
-        if self.fluid.num_phases > 1:
+        if self.fluid.num_fluid_phases > 1:
             raise NotImplementedError("Multiphase flow not implemented yet.")
         if phase.name == "aqueous":
 

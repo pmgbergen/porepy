@@ -29,7 +29,7 @@ Note:
 from __future__ import annotations
 
 from typing import Callable, Sequence, cast
-
+from porepy.compositional._core import PhysicalState
 import porepy as pp
 
 __all__ = [
@@ -334,13 +334,15 @@ class FluidMobility(pp.PorePyModel):
         # Distinguish between single-phase case and multi-phase case: Usage of rel-perm
         # makes this class compatible with single-phase models, without requiring some
         # rel-perm mixin.
-        if self.fluid.num_phases > 1:
+        if self.fluid.num_fluid_phases > 1:
             mobility = self.relative_permeability(phase, domains) / phase.viscosity(
                 domains
             )
-        else:
-            assert phase == self.fluid.reference_phase
+        elif phase == self.fluid.reference_phase:
             mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0)
+        elif phase.state == PhysicalState.solid:
+            # Solid phase mobility is zero, but we still need to return an operator.
+            mobility = pp.ad.Scalar(0.0, "solid_phase_mobility")
         mobility.set_name(f"phase_mobility_{phase.name}")
         return mobility
 
