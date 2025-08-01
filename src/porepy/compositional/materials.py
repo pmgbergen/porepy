@@ -435,12 +435,18 @@ class FractureDamageSolidConstants(SolidConstants):
             "initial_friction_damage": "-",
             "dilation_damage_decay": "-",
             "friction_damage_decay": "-",
+            "characteristic_fracture_roughness": "m",
+            "universal_compressive_strength": "Pa",
         }
     )
+    # Initial value 1 implies no frictional damage, 0.0 implies no damage at all.
+    # Consider renaming to `friction_damage_weight`.
     initial_friction_damage: float = 1.0
     friction_damage_decay: float = 0.0
     initial_dilation_damage: float = 1.0
     dilation_damage_decay: float = 0.0
+    characteristic_fracture_roughness: float = 1.0
+    universal_compressive_strength: float = 1.0
 
 
 @dataclass(kw_only=True, eq=False)

@@ -3783,6 +3783,127 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
         return u_t
 
 
+class FractureDamageCoefficients(pp.PorePyModel):
+    """Fracture damage coefficients according to Gao et al. (2024)."""
+
+    def characteristic_fracture_roughness(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic roughness of the fracture [-].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic roughness is
+                defined.
+
+        Returns:
+            Operator for the characteristic roughness.
+        """
+        return pp.ad.Scalar(self.solid.characteristic_fracture_roughness)
+
+    def transitional_normal_strength(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Transitional normal strength for fractures [Pa].
+
+        From Li et al. (2020), https://doi.org/10.1007/s00603-019-01976-5.
+
+        Parameters:
+            subdomains: List of subdomains where the strength is defined.
+
+        Returns:
+            Operator for the transitional normal strength.
+        """
+        strength = pp.ad.Scalar(0.2) * self.universal_compressive_strength(subdomains)
+        strength.set_name("transitional_normal_strength")
+        return strength
+
+    def dilation_damage_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Damage coefficient for dilation damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage coefficient is defined.
+                Should be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the dilation damage coefficient.
+        """
+        # The damage coefficient is defined as the logarithm of the ratio of the
+        # universal compressive strength and the tangential component of the contact
+        # traction.
+        f_log = pp.ad.Function(pp.ad.functions.log, "log")
+        # Expand to tangential components to match dimensions of damage coefficient.
+        scalar_to_tangential = pp.ad.sum_projection_list(
+            [e_i for e_i in self.basis(subdomains, dim=self.nd - 1)]
+        )
+        K_ad = scalar_to_tangential @ f_log(
+            -self.universal_compressive_strength(subdomains)
+            / self.normal_component(subdomains)
+            @ self.contact_traction(subdomains)
+        )
+        coefficient = self._damage_coefficient(subdomains) * K_ad
+        coefficient.set_name("dilation_damage_coefficient")
+        return coefficient
+
+    def universal_compressive_strength(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Universal compressive strength for fractures [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the strength is defined.
+
+        Returns:
+            Operator for the universal compressive strength.
+        """
+        return pp.ad.Scalar(
+            self.solid.universal_compressive_strength,
+            name="universal_compressive_strength",
+        )
+
+    def friction_damage_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Damage coefficient for friction damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage coefficient is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the friction damage coefficient.
+        """
+        # The damage coefficient is, according to Gao et al (2024), a purely geometric
+        # factor which may be set to 3. TODO: Add as solid constant?
+        coefficient = self._damage_coefficient(subdomains) * pp.ad.Scalar(3.0)
+        coefficient.set_name("friction_damage_coefficient")
+        return coefficient
+
+    def _damage_coefficient(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Utility method used for the common part of the two damage coefficients.
+
+        Parameters:
+            subdomains: List of subdomains where the damage coefficient is defined.
+
+            Returns:
+                Operator for the damage coefficient.
+        """
+        strength = self.transitional_normal_strength(subdomains)
+        characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
+        u_t = self.tangential_component(subdomains) @ self.plastic_displacement_jump(
+            subdomains
+        )
+        scalar_to_tangential = pp.ad.sum_projection_list(
+            [e_i for e_i in self.basis(subdomains, dim=self.nd - 1)]
+        )
+        normal_traction = self.normal_component(subdomains) @ self.contact_traction(
+            subdomains
+        )
+        # Expand traction to tangential component to match the dimension of u_t.
+        traction = scalar_to_tangential @ normal_traction
+        degradation = (traction / strength) * (u_t / characteristic_roughness)
+        degradation.set_name("friction_damage_degradation")
+        return degradation
+
+
 class FrictionDamage(pp.PorePyModel):
     """Frictional damage relations.
 
@@ -3805,8 +3926,8 @@ class FrictionDamage(pp.PorePyModel):
     solid: FractureDamageSolidConstants
     """SolidConstants with frictional damage parameters."""
 
-    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable provided by the DamageHistoryVariable mixin."""
+    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable provided by the DamageHistoryVariables mixin."""
 
     def friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Frictional damage [-].
@@ -3820,16 +3941,15 @@ class FrictionDamage(pp.PorePyModel):
 
         """
         # Get the history variable.
-        history = self.damage_history(subdomains)
+        history = self.friction_damage_history(subdomains)
 
-        # Get the initial damage and the material parameter.
+        # Get the material parameter.
         d0 = self.initial_friction_damage(subdomains)
-        c = self.friction_damage_decay(subdomains)
 
         # Compute the damage.
         f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
         one = pp.ad.Scalar(1.0)
-        return one + (d0 - one) * f_exp(-c * history)
+        return d0 + (one - d0) * f_exp(-history)
 
     def initial_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Initial damage [-].
@@ -3909,8 +4029,8 @@ class DilationDamage(pp.PorePyModel):
     solid: FractureDamageSolidConstants
     """SolidConstants with dilation damage parameters."""
 
-    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable provided by the DamageHistoryVariable mixin."""
+    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable provided by the DamageHistoryVariables mixin."""
 
     def dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Dilation damage [-].
@@ -3924,16 +4044,15 @@ class DilationDamage(pp.PorePyModel):
 
         """
         # Get the history variable.
-        history = self.damage_history(subdomains)
+        history = self.dilation_damage_history(subdomains)
 
-        # Get the initial damage and the material parameter.
+        # Get the material parameter.
         d0 = self.initial_dilation_damage(subdomains)
-        c = self.dilation_damage_decay(subdomains)
 
         # Compute the damage.
         f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
         one = pp.ad.Scalar(1.0)
-        return one + (d0 - one) * f_exp(-c * history)
+        return d0 + (one - d0) * f_exp(-history)
 
     def initial_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Initial damage [-].
