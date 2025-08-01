@@ -7,13 +7,13 @@ import numpy as np
 import porepy as pp
 
 
-class DamageHistoryVariable(pp.PorePyModel):
-    """Base class for damage history variables.
+class FractureDamageHistoryVariables(pp.PorePyModel):
+    """Base class for fracture damage variables.
 
-    Sets up the damage history variable for the model. The damage history is defined on
+    Sets up the damage variables for the model. The damage variable is defined on
     fractures and used to compute damage evolution of fracture parameters such as
-    dilation and friction. The damage history variable is computed from a history
-    equation, see :class:`DamageHistoryEquation`.
+    dilation and friction. The damage variable is computed from a damage equation, see
+    :class:`FractureDamageEquation`.
 
     """
 
@@ -30,15 +30,15 @@ class DamageHistoryVariable(pp.PorePyModel):
         """Fracture friction damage history [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage history is defined. Should
-                be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
 
         Returns:
-            Variable for nondimensionalized fracture friction damage history.
+            Variable for nondimensionalized fracture friction damage.
         """
         for sd in subdomains:
             if sd.dim != self.nd - 1:
-                raise ValueError("Damage history only defined on fractures")
+                raise ValueError("Damage only defined on fractures")
 
         return self.equation_system.md_variable(
             self.friction_damage_history_variable, subdomains
@@ -48,15 +48,15 @@ class DamageHistoryVariable(pp.PorePyModel):
         """Fracture dilation damage history [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage history is defined. Should
-                be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
 
         Returns:
-            Variable for nondimensionalized fracture dilation damage history.
+            Variable for nondimensionalized fracture dilation damage.
         """
         for sd in subdomains:
             if sd.dim != self.nd - 1:
-                raise ValueError("Damage history only defined on fractures")
+                raise ValueError("Damage only defined on fractures")
 
         return self.equation_system.md_variable(
             self.dilation_damage_history_variable, subdomains
@@ -83,14 +83,14 @@ class DamageHistoryVariable(pp.PorePyModel):
         )
 
     def update_solution(self, solution: np.ndarray) -> None:
-        """Update the solution with the damage history variable.
+        """Update the solution with the damage variables.
 
         Parameters:
             solution: Solution to update.
 
         """
         assert isinstance(self, pp.SolutionStrategy), (
-            "The DamageHistoryVariable class should be combined with the "
+            "The FractureDamageHistoryVariables class should be combined with the "
             "SolutionStrategy class."
         )
         # Check that the only other class in the model implementing this method is
@@ -100,7 +100,7 @@ class DamageHistoryVariable(pp.PorePyModel):
         # stored at, say, two time steps for other purposes than computing the damage
         # history.
         for cls in self.__class__.__mro__:
-            if cls is DamageHistoryVariable:
+            if cls is FractureDamageHistoryVariables:
                 continue
             if cls is pp.SolutionStrategy:
                 continue
@@ -108,20 +108,18 @@ class DamageHistoryVariable(pp.PorePyModel):
             update_solution_method = cls.__dict__.get("update_solution", None)
             if update_solution_method is not None:
                 raise AssertionError(
-                    f"The class {cls.__name__} implements update_solution, but the "
-                    "DamageHistoryVariable class assumes only pp.SolutionStrategy "
-                    "implements this method."
+                    f"""The class {cls.__name__} implements update_solution, but the
+                    FractureDamageHistoryVariables class assumes only
+                    pp.SolutionStrategy implements this method."""
                 )
 
-        history_variables = self.variables_stored_all_time_steps()
+        damage_variables = self.variables_stored_all_time_steps()
         other_vars = [
-            var
-            for var in self.equation_system.variables
-            if var not in history_variables
+            var for var in self.equation_system.variables if var not in damage_variables
         ]
         # Need to store all time steps to compute the damage history.
         self.equation_system.shift_time_step_values(
-            max_index=None, variables=history_variables
+            max_index=None, variables=damage_variables
         )
         # Then proceed as usual with the other variables.
         self.equation_system.shift_time_step_values(
@@ -159,23 +157,50 @@ class DamageHistoryVariable(pp.PorePyModel):
         )
 
 
-class DamageHistoryEquation(pp.PorePyModel, abc.ABC):
-    """Base class for damage history equations."""
+class FractureDamageEquations(pp.PorePyModel, abc.ABC):
+    """Base class for fracture damage equations.
 
-    friction_damage_history_equation_name = "friction_damage_history_equation"
-    dilation_damage_history_equation_name = "dilation_damage_history_equation"
+    The equations implemented herein are on the form of convolution integral equations
+
+    .. math::
+        \\phi(t) = \\int_0^t K(t - s) f(s) \\, ds + \\phi(0),
+
+    where :math:`\\phi(t)` is the damage variable, :math:`K(t - s)` is the kernel
+    function, and :math:`f(s)` is the integrand function. The kernel function
+    represents the memory effect of the damage variable, and the integrand function
+    represents the contribution of the displacement jump at time :math:`s` to the
+    damage variable at time :math:`t`.
+    """
+
+    friction_damage_equation_name = "friction_damage_equation"
+    dilation_damage_equation_name = "dilation_damage_equation"
+
+    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function to compute the characteristic displacement."""
+    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the dilation damage variable."""
+    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the friction damage variable."""
+    dilation_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the damage coefficient for dilation damage."""
+
+    friction_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the damage coefficient for friction damage."""
+
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function to compute the plastic displacement jump on fractures."""
 
     def set_equations(self):
-        """Set the damage history equations for friction and dilation."""
+        """Set the damage equations for friction and dilation."""
         super().set_equations()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
 
-        friction_eq = self.friction_damage_history_equation(fractures)
-        friction_eq.set_name(self.friction_damage_history_equation_name)
+        friction_eq = self.friction_damage_equation(fractures)
+        friction_eq.set_name(self.friction_damage_equation_name)
         self.equation_system.set_equation(friction_eq, fractures, {"cells": 1})
 
-        dilation_eq = self.dilation_damage_history_equation(fractures)
-        dilation_eq.set_name(self.dilation_damage_history_equation_name)
+        dilation_eq = self.dilation_damage_equation(fractures)
+        dilation_eq.set_name(self.dilation_damage_equation_name)
         self.equation_system.set_equation(dilation_eq, fractures, {"cells": 1})
 
     def before_nonlinear_loop(self):
@@ -183,11 +208,11 @@ class DamageHistoryEquation(pp.PorePyModel, abc.ABC):
         super().before_nonlinear_loop()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
 
-        self.equation_system._equations[self.friction_damage_history_equation_name] = (
-            self.friction_damage_history_equation(fractures)
+        self.equation_system._equations[self.friction_damage_equation_name] = (
+            self.friction_damage_equation(fractures)
         )
-        self.equation_system._equations[self.dilation_damage_history_equation_name] = (
-            self.dilation_damage_history_equation(fractures)
+        self.equation_system._equations[self.dilation_damage_equation_name] = (
+            self.dilation_damage_equation(fractures)
         )
 
     def _convolution_integral_equation(
@@ -202,82 +227,199 @@ class DamageHistoryEquation(pp.PorePyModel, abc.ABC):
         """Helper method for convolution integral equations.
 
         Parameters:
-            damage_history_var: The damage history variable (friction or dilation).
+            damage_history_var: The damage variable (friction or dilation).
             integrand_func: Function that takes time step index and subdomains,
                 returns (contribution, constant_part) tuple.
             subdomains: List of fracture subdomains.
             tolerance: Tolerance for checking if constant part is non-zero.
 
         Returns:
-            Operator for the damage history equation.
+            Operator for the damage equation.
         """
         num_steps = self.time_manager.time_index
 
         # Current time step contribution (implicit part)
-        current_contribution, _ = integrand_func(0, subdomains)  # 0 = current time step
-        eq = damage_history_var - current_contribution
+        current_contribution, _ = integrand_func(0)  # 0 = current time step
+        eq = current_contribution - damage_history_var
 
         # Previous time steps contributions (explicit part)
         for i in range(1, num_steps):
             # i = number of steps back in time
-            contribution_i, constant_part_i = integrand_func(i, subdomains)
-            # Check if constant part is non-zero before adding. Otherwise, skip it,
-            # under the assumption that the contribution is the product of the constant
-            # part and some variable. Provided this, constant_part_i = 0 implies
-            # contribution_i = 0 regardless of the variable's value.
-            constant_value = constant_part_i.value(self.equation_system)
-            if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
-                eq -= contribution_i
+            eq = self.add_integration_term(eq, i, subdomains, integrand_func, tolerance)
 
         return eq
 
-    @abc.abstractmethod
-    def friction_damage_history_equation(
-        self, subdomains: list[pp.Grid]
+    def add_integration_term(
+        self,
+        eq: pp.ad.Operator,
+        time_step_index: int,
+        subdomains: list[pp.Grid],
+        integrand_func: Callable[[int], tuple[pp.ad.Operator, pp.ad.Operator]],
+        tolerance,
     ) -> pp.ad.Operator:
-        """Return the friction damage history equation.
+        """Add an integration term to the equation.
+
+        The term is added only if the constant part of the integrand is non-zero,
+        under the assumption that the contribution is the product of the constant part
+        and some variable. If the constant part is zero, the contribution is also zero,
+        regardless of the variable's value.
+        If this method is used with an integrand that does not follow this assumption,
+        the tolerance can be set negative or the constant part returned can be set to an
+        arbitrary non-zero value.
 
         Parameters:
-            subdomains: List of subdomains where the damage history is defined.
+            eq: The equation to which the term is added.
+            time_step_index: Index of the time step.
+            subdomains: List of fracture subdomains.
+            integrand_func: Function that takes time step index and returns
+                (contribution, constant_part) tuple.
+            tolerance: Tolerance for checking if constant part is non-zero.
 
         Returns:
-            Operator for the friction damage history equation.
+            The updated equation with the new term added.
         """
-        pass
+        contribution_i, constant_part_i = integrand_func(time_step_index)
+        # Check if constant part is non-zero before adding. Otherwise, skip it,
+        # under the assumption that the contribution is the product of the constant
+        # part and some variable. Provided this, constant_part_i = 0 implies
+        # contribution_i = 0 regardless of the variable's value.
+        constant_value = cast(np.ndarray, constant_part_i.value(self.equation_system))
+        if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
+            eq += contribution_i
+        return eq
+
+    def dilation_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Anisotropic dilation damage equation."""
+
+        return self._convolution_integral_equation(
+            self.dilation_damage_history(subdomains),
+            partial(
+                self.damage_integrand,
+                subdomains=subdomains,
+                degradation=self.dilation_damage_coefficient(subdomains),
+            ),  # Now only the time step index is passed to the integrand function.
+            subdomains,
+        )
+
+    def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Anisotropic friction damage equation."""
+
+        return self._convolution_integral_equation(
+            self.friction_damage_history(subdomains),
+            partial(
+                self.damage_integrand,
+                subdomains=subdomains,
+                degradation=self.friction_damage_coefficient(subdomains),
+            ),  # Now only the time step index is passed to the integrand function.
+            subdomains,
+        )
 
     @abc.abstractmethod
-    def dilation_damage_history_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Return the dilation damage history equation.
+    def damage_integrand(
+        self,
+        time_step_index: int,
+        subdomains: list[pp.Grid],
+        degradation: pp.ad.Operator,
+    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
+        """Integrand for the damage equation.
 
         Parameters:
-            subdomains: List of subdomains where the damage history is defined.
+            time_step_index: Index of the time step.
+            subdomains: List of subdomains where the damage is defined.
+            degradation: Function to compute the degradation factor.
 
         Returns:
-            Operator for the dilation damage history equation.
+            Tuple containing the contribution to the equation and the displacement
+            increment at the specified time step. If the displacement increment is zero,
+            the full contribution is also zero.
         """
-        pass
+        raise NotImplementedError(
+            "This method should be implemented in subclasses to define the damage "
+            "integrand."
+        )
 
-    def _normalized_tangential_plastic_jump(
+
+class AnisotropicFractureDamageEquations(FractureDamageEquations):
+    """Anisotropic damage equations for both friction and dilation."""
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the contact traction on fractures."""
+
+    dilation_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the dilation damage variable."""
+
+    friction_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the friction damage variable."""
+
+    def damage_integrand(
+        self,
+        time_step_index: int,
+        subdomains: list[pp.Grid],
+        degradation: pp.ad.Operator,
+    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
+        """Integrand for the anisotropic damage equation.
+
+        Parameters:
+            time_step_index: Index of the time step.
+            subdomains: List of subdomains where the damage is defined.
+            degradation: Operator representing the degradation factor.
+
+        Returns:
+            Tuple containing the contribution to the equation and the displacement
+            increment at the specified time step. If the displacement increment is zero,
+            the full contribution is also zero.
+        """
+        # Get displacement increment.
+        u_t: pp.ad.Operator = self.tangential_component(
+            subdomains
+        ) @ self.plastic_displacement_jump(subdomains)
+        # Note that this amounts to a endpoint rule for this interval of the integral.
+        if time_step_index == 0:
+            degradation_increment = pp.ad.time_increment(degradation)
+        else:
+            degradation_increment = degradation.previous_timestep(
+                time_step_index
+            ) - degradation.previous_timestep(time_step_index + 1)
+
+        m_t = self.normalized_tangential_plastic_jump(subdomains)
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_to_scalar = pp.ad.sum_projection_list(
+            [e_i.T for e_i in tangential_basis]
+        )
+
+        zero_val = 0.5  # TODO: Verify if this is the correct zero value.
+        f_Heaviside = pp.ad.Function(
+            partial(pp.ad.functions.heaviside, zero_val), "Heaviside"
+        )
+        f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
+
+        contribution = f_Heaviside(tangential_to_scalar @ (m_t * u_t)) * f_abs(
+            tangential_to_scalar @ (m_t * degradation_increment)
+        )
+
+        return contribution, degradation_increment
+
+    def normalized_tangential_plastic_jump(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Normalized tangential plastic jump [-].
 
         Parameters:
-            subdomains: List of subdomains where the jump is defined. Should
-                be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the jump is defined. Should be of co-
+                dimension one, i.e. fractures.
 
         Returns:
             Normalized tangential plastic jump.
         """
+        # Operators for the tangential basis and the tangential component in local
+        # coordinates.
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
         nd_vec_to_tangential = self.tangential_component(subdomains)
-
-        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+        # Compute the tangential plastic displacement jump.
+        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
 
-        # Define the functions for the norm and safe power.
+        # Define the functions for the norm and zero-division-safe power.
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
         zero_tol = 1e-12 * cast(
             float,
@@ -290,193 +432,46 @@ class DamageHistoryEquation(pp.PorePyModel, abc.ABC):
         # Compute normalized tangential displacement. First, compute the norm of the
         # displacement jump.
         norm_u_t = scalar_to_tangential @ f_norm(u_t)
-        # Then, normalize the jump by multiplying it by the inverse of the norm.
+        # Then, normalize the jump by multiplying it by the inverse of the norm. The
+        # safe power is used to handle division by zero.
         m_t = f_power(norm_u_t) * u_t
         return m_t
 
 
-class AnisotropicHistoryEquation(DamageHistoryEquation):
-    """Anisotropic damage history equations for both friction and dilation."""
+class IsotropicFractureDamageEquations(FractureDamageEquations):
+    """Isotropic damage equations for both friction and dilation."""
 
-    def friction_damage_history_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Anisotropic friction damage history equation."""
+    dilation_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the dilation damage variable."""
 
-        def friction_integrand(
-            time_step_index: int, sds: list[pp.Grid]
-        ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-            # Get displacement increment at the specified time step.
-            nd_vec_to_tangential = self.tangential_component(sds)
-            u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
-                sds
-            )
-
-            if time_step_index == 0:
-                u_t_increment = pp.ad.time_increment(u_t)
-            else:
-                u_t_increment = u_t.previous_timestep(
-                    time_step_index
-                ) - u_t.previous_timestep(time_step_index + 1)
-
-            # For friction: max(m_t · δu_t, 0) where m_t is normalized tangential
-            # increment.
-            m_t = self._normalized_tangential_plastic_jump(sds)
-            tangential_basis = self.basis(sds, dim=self.nd - 1)
-            tangential_to_scalar = pp.ad.sum_operator_list(
-                [e_i.T for e_i in tangential_basis]
-            )
-
-            inner = tangential_to_scalar @ (m_t * u_t_increment)
-            f_max = pp.ad.Function(pp.ad.functions.maximum, "max")
-            zero = pp.ad.Scalar(0.0)
-            contribution = f_max(inner, zero)
-
-            return contribution, u_t_increment
-
-        return self._convolution_integral_equation(
-            self.friction_damage_history(subdomains), friction_integrand, subdomains
-        )
-
-    def dilation_damage_history_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Anisotropic dilation damage history equation."""
-
-        def dilation_integrand(
-            time_step_index: int, sds: list[pp.Grid]
-        ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-            # Get displacement increment at the specified time step.
-            nd_vec_to_tangential = self.tangential_component(sds)
-            u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
-                sds
-            )
-
-            if time_step_index == 0:
-                u_t_increment = pp.ad.time_increment(u_t)
-            else:
-                u_t_increment = u_t.previous_timestep(
-                    time_step_index
-                ) - u_t.previous_timestep(time_step_index + 1)
-
-            # For dilation: same as friction for anisotropic case (can be customized).
-            m_t = self._normalized_tangential_plastic_jump(sds)
-            tangential_basis = self.basis(sds, dim=self.nd - 1)
-            tangential_to_scalar = pp.ad.sum_operator_list(
-                [e_i.T for e_i in tangential_basis]
-            )
-
-            inner = tangential_to_scalar @ (m_t * u_t_increment)
-            f_max = pp.ad.Function(pp.ad.functions.maximum, "max")
-            zero = pp.ad.Scalar(0.0)
-            contribution = f_max(inner, zero)
-
-            return contribution, u_t_increment
-
-        return self._convolution_integral_equation(
-            self.dilation_damage_history(subdomains), dilation_integrand, subdomains
-        )
-
-
-class IsotropicHistoryEquation(DamageHistoryEquation):
-    """Isotropic damage history equations for both friction and dilation."""
-
-    def friction_damage_history_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Isotropic friction damage history equation.
+    def damage_integrand(
+        self,
+        time_step_index: int,
+        subdomains: list[pp.Grid],
+        degradation: pp.ad.Operator,
+    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
+        """Integrand for the isotropic damage equation.
 
         Parameters:
-            subdomains: List of subdomains where the damage history is defined.
+            time_step_index: Index of the time step.
+            subdomains: List of subdomains where the damage is defined.
+            degradation: Function to compute the degradation factor.
 
         Returns:
-            Operator for the isotropic friction damage history equation.
+            Tuple containing the contribution to the equation and the displacement
+            increment at the specified time step. If the displacement increment is zero,
+            the full contribution is also zero.
         """
 
-        def friction_integrand(
-            time_step_index: int, sds: list[pp.Grid]
-        ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-            """Integrand for the friction damage history equation.
+        if time_step_index == 0:
+            degradation_increment = pp.ad.time_increment(degradation)
+        else:
+            degradation_increment = degradation.previous_timestep(
+                time_step_index
+            ) - degradation.previous_timestep(time_step_index + 1)
 
-            Parameters:
-                time_step_index: Index of the time step.
-                sds: List of subdomains where the damage history is defined.
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
-            Returns:
-                Tuple containing the contribution to the equation and the displacement
-                increment at the specified time step. If the displacement increment
-                is zero, the full contribution is also zero.
-            """
-            # Get displacement increment at the specified time step
-            nd_vec_to_tangential = self.tangential_component(sds)
-            u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
-                sds
-            )
+        contribution = f_norm(degradation_increment)
 
-            if time_step_index == 0:
-                u_t_increment = pp.ad.time_increment(u_t)
-            else:
-                u_t_increment = u_t.previous_timestep(
-                    time_step_index
-                ) - u_t.previous_timestep(time_step_index + 1)
-
-            # For friction: ||δu_t||
-            f_norm = pp.ad.Function(
-                partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
-            )
-            contribution = f_norm(u_t_increment)
-
-            return contribution, u_t_increment
-
-        return self._convolution_integral_equation(
-            self.friction_damage_history(subdomains), friction_integrand, subdomains
-        )
-
-    def dilation_damage_history_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Isotropic dilation damage history equation.
-
-        Parameters:
-            subdomains: List of subdomains where the damage history is defined.
-
-        Returns:
-            Operator for the isotropic dilation damage history equation.
-        """
-
-        def dilation_integrand(
-            time_step_index: int, sds: list[pp.Grid]
-        ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-            """Integrand for the dilation damage history equation.
-
-            Parameters:
-                time_step_index: Index of the time step. sds: List of subdomains where
-                the damage history is defined.
-
-            Returns:
-                Tuple containing the operator for the dilation damage history equation
-                at the specified time step and the displacement increment at that time
-                step.
-            """
-            # Get displacement increment at the specified time step
-            nd_vec_to_tangential = self.tangential_component(sds)
-            u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
-                sds
-            )
-
-            if time_step_index == 0:
-                u_t_increment = pp.ad.time_increment(u_t)
-            else:
-                u_t_increment = u_t.previous_timestep(
-                    time_step_index
-                ) - u_t.previous_timestep(time_step_index + 1)
-
-            # For dilation: ||δu_t|| (same as friction for isotropic case)
-            f_norm = pp.ad.Function(
-                partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
-            )
-            return f_norm(u_t_increment), u_t_increment
-
-        return self._convolution_integral_equation(
-            self.dilation_damage_history(subdomains), dilation_integrand, subdomains
-        )
+        return contribution, degradation_increment

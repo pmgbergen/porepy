@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable, cast
+from abc import ABC, abstractmethod
 
 import numpy as np
 
@@ -44,11 +45,58 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         return values.ravel("F")
 
 
+class FractureDamageCoefficientsWhite:
+    """Fracture damage coefficients for the White paper.
+
+    This class is used to test the fracture damage model with the simpler damage
+    coefficients used in the White paper. It overrides the methods as defined in the
+    FractureDamageCoefficients class, which uses the more complex coefficients based on
+    Gao et al. (2024).
+    """
+
+    def friction_damage_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Damage coefficient for friction damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage coefficient is defined.
+                Should be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the friction damage coefficient.
+        """
+        u_t = self.tangential_component(subdomains) @ self.plastic_displacement_jump(
+            subdomains
+        )
+        c = self.friction_damage_decay(subdomains)
+        coefficient = c * u_t
+        coefficient.set_name("friction_damage_coefficient_white")
+        return coefficient
+
+    def dilation_damage_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Damage coefficient for dilation damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage coefficient is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for the dilation damage coefficient.
+        """
+        u_t = self.tangential_component(subdomains) @ self.plastic_displacement_jump(
+            subdomains
+        )
+        c = self.dilation_damage_decay(subdomains)
+        coefficient = c * u_t
+        coefficient.set_name("dilation_damage_coefficient_white")
+        return coefficient
+
+
 class DamageBase(
     pp.constitutive_laws.FrictionDamage,
     pp.constitutive_laws.DilationDamage,
-    damage.DamageHistoryVariable,
-    damage.DamageHistoryEquation,
+    pp.constitutive_laws.FractureDamageCoefficients,
+    damage.FractureDamageHistoryVariables,
+    damage.FractureDamageEquations,
 ):
     pass
 
@@ -59,8 +107,8 @@ class FractureDamageContactMechanics(  # type: ignore[misc]
 ):
     """Fracture damage model.
 
-    This class needs to be combined with a class defining the history equation, i.e.,
-    (An)IsotropicHistoryEquation. This is to allow for different history equations to be
+    This class needs to be combined with a class defining the damage equation, i.e.,
+    (An)IsotropicDamageEquation. This is to allow for different damage equations to be
     used with the same model, specifically during testing. TODO: Consider to choose one
     as default.
 
@@ -132,12 +180,9 @@ class DamageSaveData:
     exact_dilation_damage: np.ndarray
     approx_dilation_damage: np.ndarray
     dilation_damage_error: float
-    exact_damage_history: np.ndarray
-    approx_damage_history: np.ndarray
-    damage_history_error: float
 
 
-class ExactSolution:
+class ExactSolution(ABC):
     """Exact solution for the damage model.
 
     The driving force of the problem is assumed to be a Dirichlet boundary condition
@@ -149,7 +194,9 @@ class ExactSolution:
 
     model: FractureDamageContactMechanics
 
-    damage_history: Callable[[pp.Grid, int], np.ndarray]
+    dilation_damage: Callable[[pp.Grid, int], np.ndarray]
+
+    friction_damage: Callable[[pp.Grid, int], np.ndarray]
 
     def __init__(self, model) -> None:
         """Constructor of the class."""
@@ -217,10 +264,9 @@ class ExactSolution:
             Array of friction damage for the given time step.
 
         """
-        h = self.damage_history(sd, n)
-        return 1 + (self.model.solid.initial_friction_damage - 1) * np.exp(
-            -self.model.solid.friction_damage_decay * h
-        )
+        h = self._damage(sd, n)
+        d0 = self.model.solid.initial_friction_damage
+        return d0 + (1 - d0) * np.exp(-self.model.solid.friction_damage_decay * h)
 
     def dilation_damage(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -233,14 +279,12 @@ class ExactSolution:
             Array of dilation damage for the given time step.
 
         """
-        h = self.damage_history(sd, n)
-        return 1 + (self.model.solid.initial_dilation_damage - 1) * np.exp(
-            -self.model.solid.dilation_damage_decay * h
-        )
+        h = self._damage(sd, n)
+        d0 = self.model.solid.initial_dilation_damage
+        return d0 + (1 - d0) * np.exp(-self.model.solid.dilation_damage_decay * h)
 
-
-class ExactSolutionIsotropic(ExactSolution):
-    def damage_history(self, sd: pp.Grid, n: int):
+    @abstractmethod
+    def _damage(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
 
         Parameters:
@@ -248,7 +292,22 @@ class ExactSolutionIsotropic(ExactSolution):
             n: Time step index.
 
         Returns:
-            Array of damage history for the given time step.
+            Array of damage for the given time step.
+
+        """
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+
+class ExactSolutionIsotropic(ExactSolution):
+    def _damage(self, sd: pp.Grid, n: int):
+        """Return the exact solution at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of damage for the given time step.
 
         """
         return sum(
@@ -260,7 +319,7 @@ class ExactSolutionIsotropic(ExactSolution):
 
 
 class ExactSolutionAnisotropic(ExactSolution):
-    def damage_history(self, sd: pp.Grid, n: int):
+    def _damage(self, sd: pp.Grid, n: int):
         """Return the exact solution at time step n.
 
         Parameters:
@@ -268,23 +327,24 @@ class ExactSolutionAnisotropic(ExactSolution):
             n: Time step index.
 
         Returns:
-            Array of damage history for the given time step.
+            Array of damage for the given time step.
 
         """
         var = 0
-        m = self.displacement_jump(sd, n)
-        nonzero = np.linalg.norm(m, axis=1) > 0
+        u = self.displacement_jump(sd, n)
+        u_norm = np.linalg.norm(u, axis=1)
+        nonzero = u_norm > 0
         # Compute normalized m for nonzero values.
-        m[nonzero] /= np.linalg.norm(m[nonzero], axis=1)[:, np.newaxis]
-        # Loop through time steps and compute the damage history.
+        m = u.copy()
+        m[nonzero] /= u_norm[nonzero][:, np.newaxis]
+        # Loop through time steps and compute the damage.
         for i in range(1, n + 1):
             # Obtain the displacement increment and displacement jump.
             u_dot = self.displacement_increment(sd, i)
-            u = self.displacement_jump(sd, i)
             # Compute inner products with m.
             inner_u = np.einsum("ij,ij->i", u, m)
             inner_dot = np.einsum("ij,ij->i", u_dot, m)
-            # Compute the contribution to the damage history from the current time step.
+            # Compute the contribution to the damage from the current time step.
             var_i = np.heaviside(inner_u, 0.5) * np.abs(inner_dot)
             var += var_i
         return var
@@ -293,12 +353,10 @@ class ExactSolutionAnisotropic(ExactSolution):
 class DamageDataSaving(pp.PorePyModel):
     """Model mixin responsible for saving data for verification purposes."""
 
-    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Damage history variable."""
-    friction_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction damage operator."""
-    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Dilation damage operator."""
+    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Dilation damage variable."""
+    friction_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Friction damage variable."""
     solid: FractureDamageSolidConstants
 
     def initialize_data_saving(self) -> None:
@@ -324,17 +382,6 @@ class DamageDataSaving(pp.PorePyModel):
         n: int = self.time_manager.time_index
 
         # Collect data.
-        exact_damage = self.exact_sol.damage_history(sd, n)
-        approx_damage = cast(
-            np.ndarray, self.equation_system.evaluate(self.damage_history(sds))
-        )
-        error_damage = ConvergenceAnalysis.lp_error(
-            grid=sd,
-            true_array=exact_damage,
-            approx_array=cast(np.ndarray, approx_damage),
-            is_scalar=True,
-            is_cc=True,
-        )
         friction_damage = self.exact_sol.friction_damage(sd, n)
         approx_friction_damage = cast(
             np.ndarray, self.friction_damage(sds).value(self.equation_system)
@@ -386,9 +433,6 @@ class DamageDataSaving(pp.PorePyModel):
             exact_dilation_damage=dilation_damage,
             approx_dilation_damage=approx_dilation_damage,
             dilation_damage_error=error_dilation_damage,
-            exact_damage_history=exact_damage,
-            approx_damage_history=approx_damage,
-            damage_history_error=error_damage,
         )
         return collected_data
 
@@ -399,14 +443,14 @@ num_time_steps = 7
 north_displacements_3d = np.zeros((3, num_time_steps))
 # Steps/increments in the tangential direction:
 # 1. d_0  (north_displacements[:, 1] - north_displacements[:, 0])
-# 2. -d_0
-# 3. d_0
-# 4. 0
-# 5. -d_0
+# 2. 0
+# 3. -d_0
+# 4. d_0
+# 5. -(d_0 - 0.01)  # 0.01
 # 6. d_1 (different from d_0)
-north_displacements_3d[0] = np.array([0.0, 0.2, 0.2, 0.01, 0.2, 0.01, -0.2])
-north_displacements_3d[2] = np.array([0.0, 0.1, 0.1, 0.01, 0.1, 0.01, 0.1])
-# Set constant negative y component to get compression
+north_displacements_3d[0] = np.array([0.0, 0.2, 0.2, 0.0, 0.2, 0.01, -0.2])
+north_displacements_3d[2] = np.array([0.0, 0.1, 0.1, 0.0, 0.1, 0.01, 0.1])
+# Set constant y component smaller than the elastic opening to get compression.
 north_displacements_3d[1] = 0.1
 solid_params = {
     "friction_damage_decay": 0.5,
@@ -414,6 +458,8 @@ solid_params = {
     "friction_coefficient": 0.1,  # Low friction to get slip \approx bc displacement
     "dilation_angle": 0.1,
     "shear_modulus": 1e6,  # Suppress shear displacement in the matrix.
+    "universal_compressive_strength": 1e6,  # Suppress compressive damage.
+    "characteristic_fracture_roughness": 0.1,  # Low roughness to promote slip
     "fracture_normal_stiffness": 1.0e-3,  # Low normal stiffness to promote slip
     "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress
     # elastic deformation
@@ -437,7 +483,7 @@ model_params = {
 
 
 class IsotropicFractureDamage(  # type: ignore[misc]
-    damage.IsotropicHistoryEquation,
+    damage.IsotropicFractureDamageEquations,
     DamageDataSaving,
     ContactMechanicsTester,
     FractureDamageContactMechanics,
@@ -445,8 +491,8 @@ class IsotropicFractureDamage(  # type: ignore[misc]
     """Isotropic fracture damage model.
 
     The equations are fracture damage and contact mechanics. Variables are contact
-    traction and damage history. The model is isotropic, i.e., the damage history is
-    independent of the loading direction.
+    traction and damage. The model is isotropic, i.e., the damage is independent of the
+    loading direction.
 
     Also contains specifics defining a test case.
 
@@ -454,7 +500,7 @@ class IsotropicFractureDamage(  # type: ignore[misc]
 
 
 class AnisotropicFractureDamage(  # type: ignore[misc]
-    damage.AnisotropicHistoryEquation,
+    damage.AnisotropicFractureDamageEquations,
     DamageDataSaving,
     ContactMechanicsTester,
     FractureDamageContactMechanics,
@@ -462,15 +508,15 @@ class AnisotropicFractureDamage(  # type: ignore[misc]
     """Anisotropic fracture damage model.
 
     The equations are fracture damage and contact mechanics. Variables are contact
-    traction and damage history. The model is anisotropic, i.e., the damage history is
-    dependent on the loading direction.
+    traction and damage. The model is anisotropic, i.e., the damage is dependent on the
+    loading direction.
 
     Also contains specifics defining a test case.
     """
 
 
 class FractureDamageMomentumBalance(  # type: ignore[misc]
-    damage.IsotropicHistoryEquation,
+    damage.IsotropicFractureDamageEquations,
     DamageDataSaving,
     DamageBase,
     TimeDependentDamageBCs,
@@ -480,8 +526,8 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
 
     This model combines fracture damage mechanics with momentum balance and force
     balance across interfaces. Variables are matrix and interface displacements, contact
-    traction, and damage history. The model is isotropic, i.e., the damage history is
-    independent of the loading direction.
+    traction, and damage. The model is isotropic, i.e., the damage is independent of the
+    loading direction.
 
     Also contains specifics defining a test case in terms of the boundary conditions.
 

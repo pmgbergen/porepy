@@ -605,6 +605,14 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
+        def before_nonlinear_loop(self) -> None:
+            """Method to be called before the non-linear loop.
+
+            Possible usage is to initialize the non-linear solver, set up the
+            discretization, etc.
+
+            """
+
         def before_nonlinear_iteration(self) -> None:
             """Method to be called at the start of every non-linear iteration.
 
