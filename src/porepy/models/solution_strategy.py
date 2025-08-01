@@ -693,7 +693,7 @@ class SolutionStrategy(pp.PorePyModel):
             )
             # Residual based norm
             residual_norm = self.compute_residual_norm(residual, reference_residual)
-            logger.debug(
+            logger.info(
                 f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
