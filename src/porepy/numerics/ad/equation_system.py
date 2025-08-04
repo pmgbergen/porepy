@@ -599,7 +599,7 @@ class EquationSystem:
                         filtered_variables.append(var)
 
         return filtered_variables
-    
+
     def get_variable_values(
         self,
         variables: Optional[VariableList] = None,
@@ -629,7 +629,7 @@ class EquationSystem:
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
             :meth:`num_dofs`.
-            
+
         """
         # Normalize the variable input
         variables = self._parse_variable_type(variables)
@@ -657,7 +657,7 @@ class EquationSystem:
                 )
                 # NOTE get_solution_values already returns a copy
                 values.append(val)
-                
+
         # If there are matching blocks, concatenate and return.
         # Else return an empty vector.
         return np.concatenate(values) if values else np.empty(0)
