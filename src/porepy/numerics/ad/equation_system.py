@@ -599,7 +599,7 @@ class EquationSystem:
                         filtered_variables.append(var)
 
         return filtered_variables
-
+    
     def get_variable_values(
         self,
         variables: Optional[VariableList] = None,
@@ -628,35 +628,39 @@ class EquationSystem:
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
-                :meth:`num_dofs`.
-
+            :meth:`num_dofs`.
+            
         """
+        # Normalize the variable input
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
+        var_ids = {var.id for var in variables}
+
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Loop over all blocks and process those requested.
-        # This ensures uniqueness and correct order.
+        # Cache for domain data to avoid recomputing it for the same domain.
+        data_cache = {}
+
         for id_ in self._variable_numbers:
             if id_ in var_ids:
                 variable = self._variables[id_]
+                domain = variable.domain
+
+                if domain not in data_cache:
+                    data_cache[domain] = self._get_data(domain)
 
                 val = pp.get_solution_values(
                     variable.name,
-                    self._get_data(variable.domain),
+                    data_cache[domain],
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                 )
                 # NOTE get_solution_values already returns a copy
                 values.append(val)
-
+                
         # If there are matching blocks, concatenate and return.
-        if values:
-            return np.concatenate(values)
         # Else return an empty vector.
-        else:
-            return np.array([])
+        return np.concatenate(values) if values else np.empty(0)
 
     def set_variable_values(
         self,
