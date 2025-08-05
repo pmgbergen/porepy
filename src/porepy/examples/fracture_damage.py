@@ -45,6 +45,75 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         return values.ravel("F")
 
 
+class MixedNorthMechanicsBCs(pp.PorePyModel):
+    """Boundary conditions for the mechanics problem with mixed north boundary."""
+
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
+        """
+        return pp.ad.Scalar(1)
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
+        """
+        return pp.ad.Scalar(1)
+
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Return the type of the mechanics boundary condition."""
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(
+            sd, domain_sides.north + domain_sides.south, "dir"
+        )
+        if sd.dim < self.nd:
+            return bc  # No displacement bcs needed.
+        bc.internal_to_dirichlet(sd)
+        bc.is_neu[1, domain_sides.north] = True
+        bc.is_dir[1, domain_sides.north] = False
+        return bc
+
+    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary values for the stress problem as a numpy array.
+
+        The stress boundary conditions are set to zero.
+
+        Parameters:
+            bg: Boundary grid for which boundary values are to be returned.
+
+        Returns:
+            Array of boundary values, with one value for each dimension of the
+                domain, for each face in the subdomain.
+
+        """
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros((self.nd, bg.num_cells))
+        if bg.dim < self.nd - 1:
+            # No displacement is implemented on grids of co-dimension > 1.
+            return values.ravel("F")
+
+        # Wrap as array for convert_units. Thus, the passed values can be scalar or
+        # list. Then tile for correct broadcasting below.
+        sigma_north = self.params["north_stress"][self.time_manager.time_index]
+        values[1, domain_sides.north] = self.units.convert_units(sigma_north, "Pa")
+        return values.ravel("F")
+
+
 class FractureDamageCoefficientsWhite:
     """Fracture damage coefficients for the White paper.
 
@@ -182,7 +251,7 @@ class DamageSaveData:
     dilation_damage_error: float
 
 
-class ExactSolution(ABC):
+class ExactSolution:
     """Exact solution for the damage model.
 
     The driving force of the problem is assumed to be a Dirichlet boundary condition
@@ -193,10 +262,6 @@ class ExactSolution(ABC):
     params: dict
 
     model: FractureDamageContactMechanics
-
-    dilation_damage: Callable[[pp.Grid, int], np.ndarray]
-
-    friction_damage: Callable[[pp.Grid, int], np.ndarray]
 
     def __init__(self, model) -> None:
         """Constructor of the class."""
@@ -210,19 +275,33 @@ class ExactSolution(ABC):
             n: Time step index.
 
         Returns:
-            Array of boundary displacements for the given time step.
-
+            Array of boundary displacements for the given time step. Shape is
+            (nd - 1, num_cells), where nd is the number of dimensions of the model.
         """
         num_cells = sd.num_cells
         if self.model.nd == 3:
-            # Get only 0th and 2nd components of the displacement, as the 1st component
-            # is the normal component, which is constant.
             inds: np.ndarray = np.array([0, 2])
         else:
             inds = np.array([0])
-        displacements_3d = cast(np.ndarray, self.model.params["north_displacements"])
-        u: np.ndarray = displacements_3d[inds, n]
-        return np.tile(u, (num_cells, 1))
+        displacements = cast(np.ndarray, self.model.params["north_displacements"])
+        u = displacements[inds, n]
+        # u shape: (nd-1,)
+        # Tile to (nd-1, num_cells)
+        u_tiled = np.tile(u[:, np.newaxis], (1, num_cells))
+        return u_tiled
+
+    def normal_traction(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the exact solution at time step n.
+
+        Parameters:
+            sd: Subdomain where the normal traction is defined.
+            n: Time step index.
+
+        Returns:
+            Array of normal tractions for the given time step.
+
+        """
+        return self.model.params["north_stress"][n] * np.ones((1, sd.num_cells))
 
     def displacement_jump(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -233,11 +312,8 @@ class ExactSolution(ABC):
 
         Returns:
             Array of displacement jumps for the given time step.
-
         """
-        # This class assumes the interface to have the topmost half of the subdomain
-        # as the k side, with the jump being u_k - u_j = u_top - u_bottom \approx
-        # u_boundary - 0 = u_boundary.
+        # Always return (nd-1, num_cells)
         return self.boundary_displacement(sd, n)
 
     def displacement_increment(self, sd: pp.Grid, n: int) -> np.ndarray:
@@ -249,9 +325,11 @@ class ExactSolution(ABC):
 
         Returns:
             Array of displacement increments for the given time step.
-
         """
-        return self.boundary_displacement(sd, n) - self.boundary_displacement(sd, n - 1)
+        disp_n = self.boundary_displacement(sd, n)
+        disp_prev = self.boundary_displacement(sd, n - 1)
+        # Both should be (nd-1, num_cells)
+        return disp_n - disp_prev
 
     def friction_damage(self, sd: pp.Grid, n: int):
         """Return the exact solution at time step n.
@@ -264,9 +342,9 @@ class ExactSolution(ABC):
             Array of friction damage for the given time step.
 
         """
-        h = self._damage(sd, n)
+        h = self.convolution(sd, n, self.friction_damage_function)
         d0 = self.model.solid.initial_friction_damage
-        return d0 + (1 - d0) * np.exp(-self.model.solid.friction_damage_decay * h)
+        return d0 + (1 - d0) * np.exp(-h)
 
     def dilation_damage(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -279,47 +357,68 @@ class ExactSolution(ABC):
             Array of dilation damage for the given time step.
 
         """
-        h = self._damage(sd, n)
+        h = self.convolution(sd, n, self.dilation_damage_function)
         d0 = self.model.solid.initial_dilation_damage
-        return d0 + (1 - d0) * np.exp(-self.model.solid.dilation_damage_decay * h)
+        return d0 + (1 - d0) * np.exp(-h)
 
-    @abstractmethod
-    def _damage(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the exact solution at time step n.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of damage for the given time step.
-
-        """
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-
-class ExactSolutionIsotropic(ExactSolution):
-    def _damage(self, sd: pp.Grid, n: int):
-        """Return the exact solution at time step n.
+    def convolution(self, sd: pp.Grid, n: int, function) -> np.ndarray:
+        """Return the convolution of the displacement increment with the damage kernel.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
             n: Time step index.
 
         Returns:
-            Array of damage for the given time step.
+            Array of convolution values for the given time step.
 
         """
-        return sum(
-            [
-                np.linalg.norm(self.displacement_increment(sd, i), axis=1)
-                for i in range(1, n + 1)
-            ]
+        kernel = self.damage_kernel(sd, n)
+        var = np.zeros(sd.num_cells)
+        # This method can be implemented in subclasses if needed.
+        for i in range(1, n + 1):
+            inner_dot = np.einsum("ij,ij->i", function(sd, i), kernel)
+            # Compute the contribution to the damage from the current time step.
+            var_i = np.abs(inner_dot)
+            var += var_i
+        return var
+
+
+class ExactSolutionWhite:
+    displacement_increment: Callable[[pp.Grid, int], np.ndarray]
+    model: FractureDamageContactMechanics
+
+    def displacement_increment_norm(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the norm of the displacement increment at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of normalized displacement increments for the given time step.
+        """
+        u = self.displacement_increment(sd, n)  # (nd-1, num_cells)
+        # Take norm along tangential direction (axis=0), result shape: (num_cells,)
+        u_norm = np.linalg.norm(u, axis=0)
+        # Tile to (nd-1, num_cells)
+        u_norm_tiled = np.tile(u_norm, (self.model.nd - 1, 1))
+        return u_norm_tiled
+
+    def friction_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
+        return (
+            self.displacement_increment_norm(sd, n)
+            * self.model.solid.friction_damage_decay
+        )
+
+    def dilation_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
+        return (
+            self.displacement_increment_norm(sd, n)
+            * -self.model.solid.dilation_damage_decay
         )
 
 
-class ExactSolutionAnisotropic(ExactSolution):
-    def _damage(self, sd: pp.Grid, n: int):
+class ExactSolutionIsotropic(ExactSolution):
+    def damage_kernel(self, sd: pp.Grid, n: int):
         """Return the exact solution at time step n.
 
         Parameters:
@@ -330,24 +429,84 @@ class ExactSolutionAnisotropic(ExactSolution):
             Array of damage for the given time step.
 
         """
-        var = 0
+        return np.ones((self.model.nd - 1, sd.num_cells))
+
+
+class ExactSolutionAnisotropic(ExactSolution):
+    def damage_kernel(self, sd: pp.Grid, n: int):
+        """Return the exact solution at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of damage for the given time step.
+
+        """
         u = self.displacement_jump(sd, n)
-        u_norm = np.linalg.norm(u, axis=1)
+        u_norm = np.linalg.norm(u, axis=0)
         nonzero = u_norm > 0
         # Compute normalized m for nonzero values.
         m = u.copy()
-        m[nonzero] /= u_norm[nonzero][:, np.newaxis]
+        m[:, nonzero] /= u_norm[nonzero]
         # Loop through time steps and compute the damage.
-        for i in range(1, n + 1):
-            # Obtain the displacement increment and displacement jump.
-            u_dot = self.displacement_increment(sd, i)
-            # Compute inner products with m.
-            inner_u = np.einsum("ij,ij->i", u, m)
-            inner_dot = np.einsum("ij,ij->i", u_dot, m)
-            # Compute the contribution to the damage from the current time step.
-            var_i = np.heaviside(inner_u, 0.5) * np.abs(inner_dot)
-            var += var_i
+        inner_u = np.einsum("ij,ij->i", u, m)
+        # Compute the contribution to the damage from the current time step.
+        activation = np.heaviside(inner_u, 0.5)
+        # Repeat to match number of tangential components.
+        var = np.tile(activation, (self.model.nd - 1, 1)) * m
         return var
+
+
+class ExactSolutionGao:
+    displacement_increment: Callable[[pp.Grid, int], np.ndarray]
+    normal_traction: Callable[[pp.Grid, int], np.ndarray]
+    model: FractureDamageContactMechanics
+
+    def _damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Convenience funtion for common parts of the damage functions.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of damage for the given time step."""
+        u = self.displacement_increment(sd, n)
+        t = np.tile(self.normal_traction(sd, n), (self.model.nd - 1, 1))
+        strength = 0.2 * self.model.solid.uniaxial_compressive_strength
+        return u * t / strength / self.model.solid.characteristic_fracture_roughness
+
+    def dilation_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the dilation damage function at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of dilation damage for the given time step.
+
+        """
+        K_ad = np.log(
+            -self.model.solid.uniaxial_compressive_strength
+            / self.normal_traction(sd, n)
+        )
+        return self._damage_function(sd, n) * K_ad
+
+    def friction_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the friction damage function at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of friction damage for the given time step.
+
+        """
+        return self._damage_function(sd, n) * 3
 
 
 class DamageDataSaving(pp.PorePyModel):
@@ -458,7 +617,7 @@ solid_params = {
     "friction_coefficient": 0.1,  # Low friction to get slip \approx bc displacement
     "dilation_angle": 0.1,
     "shear_modulus": 1e6,  # Suppress shear displacement in the matrix.
-    "universal_compressive_strength": 1e6,  # Suppress compressive damage.
+    "uniaxial_compressive_strength": 1e0,  # Suppress compressive damage.
     "characteristic_fracture_roughness": 0.1,  # Low roughness to promote slip
     "fracture_normal_stiffness": 1.0e-3,  # Low normal stiffness to promote slip
     "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress
@@ -476,6 +635,7 @@ model_params = {
     # Set the schedule using arange to save data from all time steps.
     "time_manager": pp.TimeManager(np.arange(0, num_time_steps), 1, True),
     "north_displacements": north_displacements_3d,
+    "north_stress": -1e-5 * np.ones(num_time_steps),
     "interface_displacement_parameter_values": north_displacements_3d,
     "exact_solution": ExactSolutionAnisotropic,
     "times_to_export": [],  # Suppress export of data for testing.

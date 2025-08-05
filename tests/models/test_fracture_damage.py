@@ -130,11 +130,13 @@ def test_momentum_balance_with_damage(dim: int):
     # Use the isotropic damage model.
     model_class = damage.FractureDamageMomentumBalance
     # Change the exact solution to the isotropic version.
-    params_local["exact_solution"] = damage.ExactSolutionIsotropic
+    params_local["exact_solution"] = add_mixin(
+        damage.ExactSolutionGao, damage.ExactSolutionIsotropic
+    )
     # Add geometry mixin.
     model_class = add_mixin(geometry_mixins[str(dim)], model_class)
     # Add the simplified White coefficients for the damage model.
-    model_class = add_mixin(damage.FractureDamageCoefficientsWhite, model_class)
+    model_class = add_mixin(damage.MixedNorthMechanicsBCs, model_class)
 
     # Combine the solid parameters giving priority to the additional parameters.
     # solid_params is not modified and can be reused in other tests.

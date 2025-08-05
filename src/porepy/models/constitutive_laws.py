@@ -3811,7 +3811,7 @@ class FractureDamageCoefficients(pp.PorePyModel):
         Returns:
             Operator for the transitional normal strength.
         """
-        strength = pp.ad.Scalar(0.2) * self.universal_compressive_strength(subdomains)
+        strength = pp.ad.Scalar(0.2) * self.uniaxial_compressive_strength(subdomains)
         strength.set_name("transitional_normal_strength")
         return strength
 
@@ -3826,36 +3826,46 @@ class FractureDamageCoefficients(pp.PorePyModel):
             Operator for the dilation damage coefficient.
         """
         # The damage coefficient is defined as the logarithm of the ratio of the
-        # universal compressive strength and the tangential component of the contact
+        # uniaxial compressive strength and the tangential component of the contact
         # traction.
         f_log = pp.ad.Function(pp.ad.functions.log, "log")
+        f_clip = pp.ad.Function(
+            partial(pp.ad.functions.clip, min_val=-1e15, max_val=-1e15),
+            "clip_function",
+        )
         # Expand to tangential components to match dimensions of damage coefficient.
         scalar_to_tangential = pp.ad.sum_projection_list(
             [e_i for e_i in self.basis(subdomains, dim=self.nd - 1)]
         )
+        # Nondimensionlize, since the contact traction is nondimensionalized.
+        dimensionless_strength = self.uniaxial_compressive_strength(
+            subdomains
+        ) / self.characteristic_contact_traction(subdomains)
         K_ad = scalar_to_tangential @ f_log(
-            -self.universal_compressive_strength(subdomains)
-            / self.normal_component(subdomains)
-            @ self.contact_traction(subdomains)
+            -dimensionless_strength
+            / (
+                self.normal_component(subdomains)
+                @ f_clip(self.contact_traction(subdomains))
+            )
         )
         coefficient = self._damage_coefficient(subdomains) * K_ad
         coefficient.set_name("dilation_damage_coefficient")
         return coefficient
 
-    def universal_compressive_strength(
+    def uniaxial_compressive_strength(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Universal compressive strength for fractures [Pa].
+        """uniaxial compressive strength for fractures [Pa].
 
         Parameters:
             subdomains: List of subdomains where the strength is defined.
 
         Returns:
-            Operator for the universal compressive strength.
+            Operator for the uniaxial compressive strength.
         """
         return pp.ad.Scalar(
-            self.solid.universal_compressive_strength,
-            name="universal_compressive_strength",
+            self.solid.uniaxial_compressive_strength,
+            name="uniaxial_compressive_strength",
         )
 
     def friction_damage_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -3886,7 +3896,11 @@ class FractureDamageCoefficients(pp.PorePyModel):
             Returns:
                 Operator for the damage coefficient.
         """
-        strength = self.transitional_normal_strength(subdomains)
+        # Nondimensionalize the characteristic contact traction, since the contact
+        # traction is nondimensionalized.
+        strength = self.transitional_normal_strength(
+            subdomains
+        ) / self.characteristic_contact_traction(subdomains)
         characteristic_roughness = self.characteristic_fracture_roughness(subdomains)
         u_t = self.tangential_component(subdomains) @ self.plastic_displacement_jump(
             subdomains
