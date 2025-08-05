@@ -631,7 +631,7 @@ class EquationSystem:
             :meth:`num_dofs`.
 
         """
-        # Normalize the variable input
+        # Normalize the variable input.
         variables = self._parse_variable_type(variables)
         var_ids = {var.id for var in variables}
 
