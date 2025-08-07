@@ -339,7 +339,7 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
         )
 
 
-class AnisotropicFractureDamageEquations(FractureDamageEquations):
+class AnisotropicFractureDamageEquations:
     """Anisotropic damage equations for both friction and dilation."""
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -438,7 +438,7 @@ class AnisotropicFractureDamageEquations(FractureDamageEquations):
         return m_t
 
 
-class IsotropicFractureDamageEquations(FractureDamageEquations):
+class IsotropicFractureDamageEquations:
     """Isotropic damage equations for both friction and dilation."""
 
     dilation_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]

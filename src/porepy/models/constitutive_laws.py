@@ -3829,8 +3829,12 @@ class FractureDamageCoefficients(pp.PorePyModel):
         # uniaxial compressive strength and the tangential component of the contact
         # traction.
         f_log = pp.ad.Function(pp.ad.functions.log, "log")
+        # Clip the contact traction to avoid division by zero. The clip is set to
+        # negative values, since the contact traction is negative when the fracture is
+        # in contact, and the dilation effect is only relevant when the fracture is
+        # in contact.
         f_clip = pp.ad.Function(
-            partial(pp.ad.functions.clip, min_val=-1e15, max_val=-1e15),
+            partial(pp.ad.functions.clip, min_val=-np.inf, max_val=-1e-15),
             "clip_function",
         )
         # Expand to tangential components to match dimensions of damage coefficient.
