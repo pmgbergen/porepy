@@ -96,7 +96,7 @@ class TestTpsaTailoredGrid:
     internal one), 0 (boundary face, normal vector along x-axis, normal vector points
     into the cell, unit area of face, unit distance between cell and face center), and 6
     (boundary face, not aligned with the axis, non-unitary area and cell-face distance,
-    outward-pointing normal vector). The Lame and Cosserat parameters are heterogeneous.
+    outward-pointing normal vector). The Lame parameters are heterogeneous.
 
     """
 
@@ -112,23 +112,17 @@ class TestTpsaTailoredGrid:
         g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
         self.g = g
 
-        # Define shear modulus and Cosserat parameter.
+        # Define shear modulus.
         self.mu_0 = 1
         self.mu_1 = 2
-        self.cos_0 = 1
-        self.cos_1 = 3
 
         # The second Lame parameter is actually not tested here, since it only enters
         # through the accumulation term in tpsa. Still, it is needed to define a tensor.
         lmbda = np.array([1, 1])
         mu = np.array([self.mu_0, self.mu_1])
         C = pp.FourthOrderTensor(mu, lmbda)
-        cosserat = np.array([self.cos_0, self.cos_1])
-
         self.data = {
-            pp.PARAMETERS: {
-                KEYWORD: {"fourth_order_tensor": C, "cosserat_parameter": cosserat}
-            },
+            pp.PARAMETERS: {KEYWORD: {"fourth_order_tensor": C}},
             pp.DISCRETIZATION_MATRICES: {KEYWORD: {}},
         }
 
@@ -212,16 +206,6 @@ class TestTpsaTailoredGrid:
         # Multiply by the length of the face.
         stress = 2 * (self.mu_0 * self.mu_1 / (d_0_1 * d_1_1) / mu_w) * n_nrm
 
-        # The Cosserat parameter is the harmonic average of the two Cosserat parameters.
-        # Multiply by the length of the face (sqrt(5)).
-        cosserat = (
-            self.cos_0
-            * self.cos_1
-            / (d_0_1 * d_1_1)
-            / (self.cos_0 / d_0_1 + self.cos_1 / d_1_1)
-            * n_nrm
-        )
-
         # Weight of the cell-to-face averaging operator for cell 0.
         c2f_avg_0 = self.mu_0 / d_0_1 / mu_w
         c2f_avg_1 = self.mu_1 / d_1_1 / mu_w
@@ -258,8 +242,8 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_displacement": np.zeros((1, 14)),
-            "rotation_diffusion": np.array([-cosserat, cosserat]),
-            "bound_rotation_diffusion": np.zeros((1, 7)),
+            # No rotation-rotation interaction on internal cells
+            "rotation_rotation": np.array([0, 0]),
             "solid_mass_displacement": np.array(
                 [c2f_avg_0 * n[0], c2f_avg_0 * n[1], c2f_avg_1 * n[0], c2f_avg_1 * n[1]]
             ),
@@ -303,12 +287,6 @@ class TestTpsaTailoredGrid:
         bound_stress[1, 1] = -stress_0
         bound_stress[2, 12] = stress_6
         bound_stress[3, 13] = stress_6
-
-        # The boundary condition for the rotation diffusion problem is the standard
-        # expression for Dirichlet conditions on Laplace problems.
-        bound_rotation_diffusion = np.zeros((2, 7))
-        bound_rotation_diffusion[0, 0] = -self.cos_0 / self.d_0_0 * self.n_0_nrm
-        bound_rotation_diffusion[1, 6] = self.cos_1 / self.d_1_6 * self.n_6_nrm
 
         bound_rotation_displacement = np.zeros((2, 14))
         # From the definition of \bar{R}, we get [-n[1], n[0]]. The discretization is
@@ -369,13 +347,12 @@ class TestTpsaTailoredGrid:
             "bound_rotation_displacement": bound_rotation_displacement,
             # Minus sign on the second face, since the normal vector is pointing out of
             # the cell.
-            "rotation_diffusion": np.array(
+            "rotation_rotation": np.array(
                 [
-                    [self.cos_0 / self.d_0_0 * self.n_0_nrm, 0],
-                    [0, -self.cos_1 / self.d_1_6 * self.n_6_nrm],
+                    [0, 0],
+                    [0, 0],
                 ]
             ),
-            "bound_rotation_diffusion": bound_rotation_diffusion,
             "solid_mass_displacement": np.zeros((2, 4)),
             "bound_mass_displacement": bound_mass_displacement,
             "solid_mass_total_pressure": np.zeros((2, 2)),
@@ -427,10 +404,10 @@ class TestTpsaTailoredGrid:
 
         # Transform the stress components to displacements via an inverse Hook's law.
         bound_mass_displacement = np.zeros((2, 14))
-        bound_mass_displacement[0, 0] = self.d_0_0 * self.n_0[0] / (2 * self.mu_0)
-        bound_mass_displacement[0, 1] = self.d_0_0 * self.n_0[1] / (2 * self.mu_0)
-        bound_mass_displacement[1, 12] = self.d_1_6 * self.n_6[0] / (2 * self.mu_1)
-        bound_mass_displacement[1, 13] = self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
+        bound_mass_displacement[0, 0] = -self.d_0_0 * self.n_0[0] / (2 * self.mu_0)
+        bound_mass_displacement[0, 1] = -self.d_0_0 * self.n_0[1] / (2 * self.mu_0)
+        bound_mass_displacement[1, 12] = -self.d_1_6 * self.n_6[0] / (2 * self.mu_1)
+        bound_mass_displacement[1, 13] = -self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
 
         # The contribution from cell center displacement to the boundary displacement
         # has unit value in the cell neighboring the face.
@@ -498,8 +475,12 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
-            "rotation_diffusion": np.zeros((2, 2)),
-            "bound_rotation_diffusion": bound_rotation_diffusion,
+            "rotation_rotation": np.array(
+                [
+                    [self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
+                    [0, self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
+                ]
+            ),
             "solid_mass_displacement": np.array(
                 [
                     [c2f_avg_0 * self.n_0[0], c2f_avg_0 * self.n_0[1], 0, 0],
@@ -714,8 +695,13 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
-            "rotation_diffusion": np.zeros((2, 2)),
-            "bound_rotation_diffusion": bound_rotation_diffusion,
+            # For now, this is just a placeholder; something is wrong here.
+            "rotation_rotation": np.array(
+                [
+                    [self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
+                    [0, self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
+                ]
+            ),
             "solid_mass_displacement": np.array(
                 [
                     [c2f_avg_0_x * self.n_0[0], c2f_avg_0_y * self.n_0[1], 0, 0],
@@ -780,12 +766,6 @@ class TestTpsaTailoredGrid:
         bound_stress[1, 1] = -1
         bound_stress[2, 12] = stress_6
         bound_stress[3, 13] = 1
-
-        # The boundary condition for the rotation diffusion problem is the standard
-        # expression for Dirichlet conditions on Laplace problems.
-        bound_rotation_diffusion = np.zeros((2, 7))
-        bound_rotation_diffusion[0, 0] = -self.cos_0 / self.d_0_0 * self.n_0_nrm
-        bound_rotation_diffusion[1, 6] = self.cos_1 / self.d_1_6 * self.n_6_nrm
 
         bound_rotation_displacement = np.zeros((2, 14))
         # From the definition of \bar{R}, we get [-n[1], n[0]]. The discretization is
@@ -877,13 +857,12 @@ class TestTpsaTailoredGrid:
             "bound_rotation_displacement": bound_rotation_displacement,
             # Minus sign on the second face, since the normal vector is pointing out of
             # the cell.
-            "rotation_diffusion": np.array(
+            "rotation_rotation": np.array(
                 [
                     [self.cos_0 / self.d_0_0 * self.n_0_nrm, 0],
                     [0, -self.cos_1 / self.d_1_6 * self.n_6_nrm],
                 ]
             ),
-            "bound_rotation_diffusion": bound_rotation_diffusion,
             "solid_mass_displacement": np.array(
                 [
                     [0, c2f_avg_0_y * self.n_0[1], 0, 0],
@@ -933,75 +912,7 @@ def test_no_cosserat():
     # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
 
-    assert np.allclose(matrices["rotation_diffusion"].toarray(), 0)
-    assert np.allclose(matrices["bound_rotation_diffusion"].toarray(), 0)
-
-
-def test_cosserat_3d():
-    """Set up a 3d problem, check that the rotation diffusion matrix has the right
-    dimension, and that the boundary conditions are correctly implemented.
-    """
-    g = pp.CartGrid([2, 1, 1])
-    g.compute_geometry()
-    d = _set_uniform_parameters(g)
-
-    d[pp.PARAMETERS][KEYWORD]["cosserat_parameter"] = np.ones(g.num_cells)
-    bf = g.get_all_boundary_faces()
-    d[pp.PARAMETERS][KEYWORD]["bc"] = pp.BoundaryConditionVectorial(
-        g, faces=bf, cond=bf.size * ["dir"]
-    )
-    # Set Dirichlet conditions everywhere except on face 0, which has a Neumann
-    # condition.
-    bc_rot = pp.BoundaryConditionVectorial(g, faces=bf, cond=bf.size * ["dir"])
-    bc_rot.is_dir[:, 0] = False
-    bc_rot.is_neu[:, 0] = True
-    d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
-
-    # Discretize
-    matrices = _discretize_get_matrices(g, d)
-
-    rot_mat = matrices["rotation_diffusion"]
-    # Check size
-    assert rot_mat.shape == (g.num_faces * 3, g.num_cells * 3)
-
-    known_values = np.zeros((12, 6))
-
-    # Face 0 has a Neumann condition, thus the coefficients are zero. Check coefficients
-    # on the inner face.
-    known_values[3, 0] = -1
-    known_values[4, 1] = -1
-    known_values[5, 2] = -1
-    known_values[3, 3] = 1
-    known_values[4, 4] = 1
-    known_values[5, 5] = 1
-    # Check coefficients on face 2, which has a Dirichlet condition.
-    known_values[6, 3] = -2
-    known_values[7, 4] = -2
-    known_values[8, 5] = -2
-    # Face 3 has a Dirichlet condition, but with inwards pointing normal vector, thus
-    # the coefficients should have negative sign.
-    known_values[9, 0] = 2
-    known_values[10, 1] = 2
-    known_values[11, 2] = 2
-
-    assert np.allclose(rot_mat[:12].toarray(), known_values)
-
-    bc_rot = matrices["bound_rotation_diffusion"]
-    known_values = np.zeros((12, 33))
-    # Neumann condition on face 0.
-    known_values[0, 0] = -1
-    known_values[1, 1] = -1
-    known_values[2, 2] = -1
-    # Dirichlet condition, outwards pointing normal vector on face 2.
-    known_values[6, 6] = 2
-    known_values[7, 7] = 2
-    known_values[8, 8] = 2
-    # Dirichlet condition, inwards pointing normal vector on face 3.
-    known_values[9, 9] = -2
-    known_values[10, 10] = -2
-    known_values[11, 11] = -2
-
-    assert np.allclose(bc_rot[:12].toarray(), known_values)
+    assert np.allclose(matrices["rotation_rotation"].toarray(), 0)
 
 
 @pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
@@ -1281,7 +1192,7 @@ def _assemble_matrices(
             ],
             [
                 matrices["rotation_displacement"],
-                matrices["rotation_diffusion"],
+                matrices["rotation_rotation"],
                 sps.csr_array((n_rot_face, g.num_cells)),
             ],
             [
