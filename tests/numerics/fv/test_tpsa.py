@@ -475,9 +475,12 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
+            # The inner minus sign on the second row is caused by the inwards normal
+            # vector. Note that, in the discretization expression, there is a term
+            # -R_k^n, this evaluates (in EK's calculation) to 1 in 2d.
             "rotation_rotation": np.array(
                 [
-                    [self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
+                    [-self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
                     [0, self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
                 ]
             ),
@@ -598,11 +601,13 @@ class TestTpsaTailoredGrid:
         bound_rotation_displacement[1, 12] = self.n_6[1] * (-delta_6 + c2f_avg_6_bound)
         bound_rotation_displacement[1, 13] = self.n_6[0] * (delta_6 - c2f_avg_6_bound)
 
+        # Minus sign on the first term is set in correspondance with the stress part of
+        # the Robin condition, see paper.
         bound_mass_displacement = np.zeros((2, 14))
-        bound_mass_displacement[0, 0] = self.n_0[0] * (delta_0_x + c2f_avg_0_x_bound)
-        bound_mass_displacement[0, 1] = self.n_0[1] * (delta_0_y + c2f_avg_0_y_bound)
-        bound_mass_displacement[1, 12] = self.n_6[0] * (delta_6 + c2f_avg_6_bound)
-        bound_mass_displacement[1, 13] = self.n_6[1] * (delta_6 + c2f_avg_6_bound)
+        bound_mass_displacement[0, 0] = self.n_0[0] * (-delta_0_x + c2f_avg_0_x_bound)
+        bound_mass_displacement[0, 1] = self.n_0[1] * (-delta_0_y + c2f_avg_0_y_bound)
+        bound_mass_displacement[1, 12] = self.n_6[0] * (-delta_6 + c2f_avg_6_bound)
+        bound_mass_displacement[1, 13] = self.n_6[1] * (-delta_6 + c2f_avg_6_bound)
 
         # The contribution from cell center displacement to the boundary displacement.
         bound_displacement_cell = np.zeros((4, 4))
@@ -695,10 +700,10 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
-            # For now, this is just a placeholder; something is wrong here.
+            # Inner minus caused by the inwards normal vector.
             "rotation_rotation": np.array(
                 [
-                    [self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
+                    [-self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
                     [0, self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
                 ]
             ),
@@ -779,9 +784,9 @@ class TestTpsaTailoredGrid:
         # condition.
         bound_mass_displacement = np.zeros((2, 14))
         bound_mass_displacement[0, 0] = c_c2f_avg_0_x * self.n_0[0]
-        bound_mass_displacement[0, 1] = self.d_0_0 * self.n_0[1] / (2 * self.mu_0)
+        bound_mass_displacement[0, 1] = -self.d_0_0 * self.n_0[1] / (2 * self.mu_0)
         bound_mass_displacement[1, 12] = c_c2f_avg_6_x * self.n_6[0]
-        bound_mass_displacement[1, 13] = self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
+        bound_mass_displacement[1, 13] = -self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
 
         # The contribution from cell center displacement to the boundary displacement
         # has unit value in the cell neighboring the face.
@@ -855,12 +860,25 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
-            # Minus sign on the second face, since the normal vector is pointing out of
-            # the cell.
+            # Minus sign on the first face, since the normal vector is pointing into the
+            # cell. The rotation matrix R_k^n, for the 2d grid, swaps the x and y
+            # components so that it is the x-component of the normal vector which is
+            # multiplied with the Neumann condition (which, in contrast to the Dirichlet
+            # condition, is non-zero).
             "rotation_rotation": np.array(
                 [
-                    [self.cos_0 / self.d_0_0 * self.n_0_nrm, 0],
-                    [0, -self.cos_1 / self.d_1_6 * self.n_6_nrm],
+                    [
+                        -(self.n_0[0] ** 2)
+                        * (self.d_0_0 / (2 * self.mu_0))
+                        / self.n_0_nrm,
+                        0,
+                    ],
+                    [
+                        0,
+                        (self.n_6[0] ** 2)
+                        * (self.d_1_6 / (2 * self.mu_1))
+                        / self.n_6_nrm,
+                    ],
                 ]
             ),
             "solid_mass_displacement": np.array(
