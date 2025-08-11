@@ -42,7 +42,6 @@ def _set_uniform_bc(
     grid: pp.Grid,
     d: dict,
     bc_type: Literal["dir", "neu", "rob"],
-    include_rot: Optional[bool] = True,
 ):
     """Set a uniform boundary condition on all faces of the grid.
 
@@ -51,7 +50,6 @@ def _set_uniform_bc(
         d: Dictionary with parameters. The boundary conditions objects are added to
             this dictionary.
         bc_type: Type of boundary condition. One of 'dir', 'neu', 'rob'.
-        include_rot: Whether to include a boundary condition for the rotation variable.
 
     """
     face_ind = grid.get_all_boundary_faces()
@@ -61,23 +59,18 @@ def _set_uniform_bc(
             bc_disp = pp.BoundaryConditionVectorial(
                 grid, faces=face_ind, cond=nf * ["dir"]
             )
-            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["dir"])
         case "neu":
             bc_disp = pp.BoundaryConditionVectorial(
                 grid, faces=face_ind, cond=nf * ["neu"]
             )
-            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["neu"])
         case "rob":
             bc_disp = pp.BoundaryConditionVectorial(
                 grid, faces=face_ind, cond=nf * ["rob"]
             )
-            bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["rob"])
         case _:
             raise ValueError(f"Unknown boundary condition type {bc_type}")
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_disp
-    if include_rot:
-        d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
 
 class TestTpsaTailoredGrid:
@@ -529,14 +522,6 @@ class TestTpsaTailoredGrid:
         bc_disp.robin_weight[0, 0, 6] = rw_6
         bc_disp.robin_weight[1, 1, 6] = rw_6
 
-        # Robin boundaries have not yet been implemented for the rotation variable, so
-        # set this to Neumann and ignore the computed values.
-        bc_rot = self.data[pp.PARAMETERS][KEYWORD]["bc_rot"]
-        # This will actually set Neumann conditions also on internal faces, which is
-        # not meaningful, but it will not be a problem for the purpose of this test.
-        bc_rot.is_neu[:] = True
-        bc_rot.is_rob[:] = False
-
         matrices = _discretize_get_matrices(self.g, self.data)
 
         # Shorthand for the shear modulus divided by the cell to face distance.
@@ -986,15 +971,12 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
 
     if g.dim == 2:
-        n_rot_face = g.num_faces
         rot_dim = 1
     else:
-        n_rot_face = g.num_faces * g.dim
         rot_dim = g.dim
 
     # Boundary values, map to right-hand side.
-    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
-    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
+    x = _solve(flux, rhs_matrix, div, accum, bc_values.ravel("F"))
 
     if tensile:
         # Positive x-direction, negative y- (and z-) direction.
@@ -1025,7 +1007,7 @@ def test_translation(g: pp.Grid):
     d = _set_uniform_parameters(g)
 
     # Set type and values of boundary conditions. No rotation.
-    _set_uniform_bc(g, d, "dir", include_rot=False)
+    _set_uniform_bc(g, d, "dir")
     if g.dim == 2:
         disp = np.array([1, -2])
     else:
@@ -1046,7 +1028,7 @@ def test_translation(g: pp.Grid):
         n_rot_face = g.num_faces * g.dim
 
     # Boundary values.
-    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
+    bound_vec = bc_values.ravel("F")
 
     # Check: Uniform translation should result in a stress-free state on all faces. This
     # is not the case for rotation and solid mass, which are only zero when integrated
@@ -1105,14 +1087,11 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     bc_neu = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_neu)
 
     # Random values for the boundary conditions.
-    bc_values = np.zeros((g.dim, g.num_faces))
     vals = np.random.rand(g.dim, bf.size)
     bc_values_disp = np.zeros((g.dim, g.num_faces))
     bc_values_disp[:, bf] = vals
-    bc_values_rot = (
-        np.zeros(g.num_faces) if g.dim == 2 else np.zeros(g.dim * g.num_faces)
-    )
-    bc_values = np.hstack((bc_values_disp.ravel("F"), bc_values_rot))
+
+    bc_values = bc_values_disp.ravel("F")
 
     # Discretize, assemble matrices.
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
@@ -1223,18 +1202,9 @@ def _assemble_matrices(
 
     rhs_matrix = sps.block_array(
         [
-            [
-                matrices["bound_stress"],
-                sps.csr_array((g.num_faces * g.dim, n_rot_face)),
-            ],
-            [
-                matrices["bound_rotation_displacement"],
-                sps.csr_array((n_rot_face, n_rot_face)),
-            ],
-            [
-                matrices["bound_mass_displacement"],
-                sps.csr_array((g.num_faces, n_rot_face)),
-            ],
+            [matrices["bound_stress"]],
+            [matrices["bound_rotation_displacement"]],
+            [matrices["bound_mass_displacement"]],
         ]
     )
 
@@ -1350,13 +1320,8 @@ def _set_bc_by_direction(
     bc_list = bc_str[face_ind].tolist()
 
     bc_disp = pp.BoundaryConditionVectorial(g, faces=face_ind, cond=bc_list)
-    if g.dim == 2:
-        bc_rot = pp.BoundaryCondition(g, faces=face_ind, cond=bc_list)
-    else:
-        bc_rot = pp.BoundaryConditionVectorial(g, faces=face_ind, cond=bc_list)
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_disp
-    d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
     bc_val = np.zeros((g.dim, g.num_faces))
     bc_val[1, np.where(getattr(domain, "south"))[0]] = 0.1
