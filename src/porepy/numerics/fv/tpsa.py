@@ -409,11 +409,6 @@ class Tpsa:
                 pressure contribution.
 
         Raises:
-            ValueError: If a scalar BoundaryCondition is given for the rotation variable
-                in 3d (where rotation is a vector), or a BoundaryConditionVectorial is
-                given for the rotation variable in 2d.
-            NotImplementedError: If Robin boundary conditions are specified for the
-                rotation variable.
             NotImplementedError: If the displacement variable has been assigned Robin
                 conditions with a non-diagonal weight, or if the ``basis`` attribute of
                 the displacement boundary condition is not a diagonal matrix.
@@ -425,8 +420,8 @@ class Tpsa:
         """
         # Overview of implementation: The implementation closely follows the description
         # of Tpsa given in the arXiv paper (see module-level documentation).
-        # Specifically, the discretization is derived in appendix 2 therein, with some
-        # central definition provided in Section 1. The ingredients of the
+        # Specifically, the discretization is derived in Appendix 2 therein, with some
+        # central definition provided in Section 2. The ingredients of the
         # discretization are:
         # 1. Quantities related to bookkeeping, such as face and cell indices.
         # 2. Distance measures (e.g., cell-face) sometimes scaled with the shear
@@ -436,8 +431,8 @@ class Tpsa:
         #
         # From these quantities, matrices that represent the different components of the
         # discretization can be constructed. The actual discretization matrices are
-        # specified in Equation (A2.24) in the Tpsa paper (referring to the version
-        # found at https://arxiv.org/abs/2405.10390v2) for internal faces and (A2.28-31)
+        # specified in Equation (A2.19) in the Tpsa paper (referring to the version
+        # found at https://arxiv.org/abs/2405.10390v3) for internal faces and (A2.25-28)
         # for boundary faces. Compared to the description in the paper, the
         # implementation uses a more explicit treatment of boundary conditions and
         # prefers more explicit naming of mathematical operators, but should otherwise
@@ -479,13 +474,10 @@ class Tpsa:
         #    to verify that this does not introduce division by zero somewhere.
         #
         # Known shortcomings and known unknowns:
-        # 1. The implementation of boundary conditions for the rotation variable covers
-        #    only Neumann and Dirichlet conditions. Robin conditions should be feasible,
-        #    but have not been prioritized.
-        # 2. Robin conditions for the displacement variable are only implemented for a
+        # 1. Robin conditions for the displacement variable are only implemented for a
         #    subset of the variations possible within PorePy. Errors are raised if the
         #    specified boundary condition falls outside the scope of the implementation.
-        # 3. Non-homogeneous boundary conditions have generally not been thoroughly
+        # 2. Non-homogeneous boundary conditions have generally not been thoroughly
         #    tested, mainly due to limited capacity. TODO: Such tests should be
         #    undertaken before the code is used for production purposes. EK's gut
         #    feeling in terms of the reliability of the different components is:
@@ -504,7 +496,7 @@ class Tpsa:
         #         tested. It should be correct for the easy case of Dirichlet
         #         conditions, quite likely also for Neumann conditions, while Robin
         #         should be considered a likely weak point.
-        # 4. For the term 'mass_total_pressure', it is not clear how to interpret
+        # 3. For the term 'mass_total_pressure', it is not clear how to interpret
         #    boundary conditions, and treatment of such conditions is therefore somewhat
         #    improvised. Plainly, EK does not know what to do here, but the current
         #    implementation seems to work. NOTE that this term acts as a numerical
@@ -524,9 +516,7 @@ class Tpsa:
         # Fetch parameters for the mechanical behavior.
         stiffness: FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
-        # Boundary condition object. Use the keyword 'bc' here to be compatible with the
-        # implementation in mpsa.py, although symmetry with the boundary conditions for
-        # rotation seems to call for a keyword like 'bc_disp'.
+        # Boundary condition object.
         bnd_disp: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
 
         # Map the stiffness tensor to the face-wise ordering.
@@ -645,8 +635,8 @@ class Tpsa:
         )
         # The impact on the solid mass flux from the displacement is the matrix of
         # normal vectors multiplied with the average displacement over the faces. This
-        # matrix will be empty on Dirichlet faces due to the filtering in
-        # cell_to_face_average_nd.
+        # matrix will be empty on Dirichlet faces due to the filtering in c2f_maps.c2f
+        # (see the construction of that filter).
         mass_displacement = normal_vector_nd @ c2f_maps.c2f
 
         # While there is no spatial operator that relates the total pressure to the
@@ -692,8 +682,8 @@ class Tpsa:
         # discretization of the diffusion operators for the displacement and (if
         # relevant) rotations.
         if nd == 3:
-            # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 matrix given in the
-            # Tpsa paper,
+            # In this case, \hat{R}_k^n = \bar{R}_k^n = R^n is the 3x3 matrix given in
+            # the Tpsa paper,
             #
             #    R^n = [[0, -n2, n1], [n2, 0, -n0], [-n1, n0, 0]]
             #
