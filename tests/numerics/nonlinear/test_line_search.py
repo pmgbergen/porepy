@@ -72,7 +72,7 @@ def test_line_search():
     model = ConstraintFunctionsMomentumBalance({"times_to_export": []})
     solver_params = {
         "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
-        "Global_line_search": True,
-        "Local_line_search": True,
+        "global_line_search": True,
+        "local_line_search": True,
     }
     pp.run_time_dependent_model(model, solver_params)
