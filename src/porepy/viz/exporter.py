@@ -1085,11 +1085,6 @@ class Exporter:
                     data with given key.
 
             """
-            msg = (
-                """This functionality is deprecated and will be removed in a """
-                """future version."""
-            )
-            warnings.warn(msg, DeprecationWarning)
 
             # Implementation of isinstance(data_pt, tuple[list[pp.Grid], str]).
             isinstance_tuple_subdomains_str = list(map(type, data_pt)) == [
@@ -1099,6 +1094,12 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_subdomains_str:
+                msg = (
+                    """This functionality is deprecated and will be removed in a """
+                    """future version."""
+                )
+                warnings.warn(msg, DeprecationWarning)
+
                 # By construction, the components are a list of grids and a key.
                 subdomains: list[pp.Grid] = data_pt[0]
                 key = data_pt[1]
@@ -1167,11 +1168,6 @@ class Exporter:
                     with given key.
 
             """
-            msg = (
-                """This functionality is deprecated and will be removed in a """
-                """future version."""
-            )
-            warnings.warn(msg, DeprecationWarning)
 
             # Implementation of isinstance(t, tuple[list[pp.MortarGrid], str]).
             isinstance_tuple_interfaces_str = list(map(type, data_pt)) == [
@@ -1181,6 +1177,12 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
+                msg = (
+                    """This functionality is deprecated and will be removed in a """
+                    """future version."""
+                )
+                warnings.warn(msg, DeprecationWarning)
+
                 # By construction, the components are a list of interfaces and a key.
                 interfaces: list[pp.MortarGrid] = data_pt[0]
                 key = data_pt[1]
@@ -1351,17 +1353,17 @@ class Exporter:
                     subdomain.
 
             """
-            msg = (
-                """This functionality is deprecated and will be removed in a """
-                """future version."""
-            )
-            warnings.warn(msg, DeprecationWarning)
 
             # Implementation if isinstance(data_pt, tuple[str, np.ndarray].
             isinstance_tuple_str_array = list(map(type, data)) == [str, np.ndarray]
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_str_array:
+                msg = (
+                    """This functionality is deprecated and will be removed in a """
+                    """future version."""
+                )
+                warnings.warn(msg, DeprecationWarning)
                 # Fetch the correct grid. This option is only supported for
                 # mixed-dimensional grids containing a single subdomain.
                 subdomains = self._mdg.subdomains()
