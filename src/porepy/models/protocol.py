@@ -488,9 +488,6 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in SolutionStrategy."""
 
-        convergence_status: bool
-        """Whether the non-linear iteration has converged."""
-
         equation_system: pp.ad.EquationSystem
         """Equation system manager.
 

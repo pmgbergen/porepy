@@ -43,6 +43,8 @@ class SolverStatistics:
     """List of increment magnitudes for each non-linear iteration."""
     residual_norms: list[float] = field(default_factory=list)
     """List of residual for each non-linear iteration."""
+    nl_is_converged: bool = False
+    """Flag indicating whether the non-linear solver converged."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
 
@@ -63,6 +65,7 @@ class SolverStatistics:
     def reset(self) -> None:
         """Reset the statistics object."""
         self.num_iteration = 0
+        self.nl_is_converged = False
         self.nonlinear_increment_norms.clear()
         self.residual_norms.clear()
 
@@ -79,6 +82,7 @@ class SolverStatistics:
             # Append data - assume the index corresponds to time step
             ind = len(data) + 1
             data[ind] = {
+                "nl_is_converged": self.nl_is_converged,
                 "num_iteration": self.num_iteration,
                 "nonlinear_increment_norms": self.nonlinear_increment_norms,
                 "residual_norms": self.residual_norms,
