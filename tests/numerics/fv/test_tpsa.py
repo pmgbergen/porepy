@@ -1149,6 +1149,43 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     assert np.allclose(x_rob_low, x_neu)
 
 
+def test_3d_linear_displacement():
+    g = pp.CartGrid([1, 1, 10], [1, 1, 1])
+    g.compute_geometry()
+    d = _set_uniform_parameters(g)
+    boundary_faces = g.get_all_boundary_faces()
+
+    domain = pp.domain.domain_sides_from_grid(g)
+    # Represent the array of boundary conditions as a numpy array for now, this makes it
+    # easy to insert values in the correct order.
+
+    f_bottom = np.where(domain.bottom)[0]
+
+    bc = pp.BoundaryConditionVectorial(g, faces=f_bottom, cond=f_bottom.size * ["dir"])
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc
+
+    bc_values = np.zeros((g.dim, g.num_faces))
+    f_west = np.where(domain.west)[0]
+    f_east = np.where(domain.east)[0]
+    f_top = np.where(domain.top)[0]
+
+    bc_values[2, f_west] = -1
+    bc_values[2, f_east] = 1
+    bc_values[0, f_top] = 1
+    bc_values *= g.face_areas
+
+    matrices = _discretize_get_matrices(g, d)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
+
+    # Boundary values.
+    bound_values = bc_values.ravel("F")
+
+    x = _solve(flux, rhs_matrix, div, accum, bound_values)
+
+    y = flux @ x + rhs_matrix @ bound_values
+
+
 def _set_uniform_parameters(g: pp.Grid, val=1) -> dict:
     """Set up a uniform parameter dictionary for the TPSA problem."""
     e = val * np.ones(g.num_cells)
