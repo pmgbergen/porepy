@@ -976,7 +976,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
 
     # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
 
     if g.dim == 2:
         rot_dim = 1
@@ -1028,7 +1028,7 @@ def test_translation(g: pp.Grid):
 
     # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
 
     if g.dim == 2:
         n_rot_face = g.num_faces
@@ -1104,7 +1104,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     # Discretize, assemble matrices.
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
     matrices_dir = deepcopy(_discretize_get_matrices(g, d))
-    flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g)
+    flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g, d)
     x_dir = _solve(flux_dir, rhs_matrix_dir, div, accum, bc_values)
 
     # For future reference: EK has verified that, as the Robin weight is increased, the
@@ -1122,14 +1122,14 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
     matrices_high = deepcopy(_discretize_get_matrices(g, d))
-    flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g)
+    flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g, d)
     x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
     # The displacement should be close to the Dirichlet value.
     assert np.allclose(x_rob_high, x_dir, rtol=1e-2)
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
     matrices_neu = deepcopy(_discretize_get_matrices(g, d))
-    flux_neu, rhs_matrix_neu, div, accum = _assemble_matrices(matrices_neu, g)
+    flux_neu, rhs_matrix_neu, div, accum = _assemble_matrices(matrices_neu, g, d)
     x_neu = _solve(flux_neu, rhs_matrix_neu, div, accum, bc_values)
 
     # Set the Robin weight to zero, such that the Robin condition approaches the Neumann
@@ -1141,7 +1141,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
     x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
 
     # The displacement should be close to the Neumann value.
@@ -1161,7 +1161,7 @@ def _set_uniform_parameters(g: pp.Grid) -> dict:
 
 
 def _assemble_matrices(
-    matrices: dict, g: pp.Grid
+    matrices: dict, g: pp.Grid, d: dict
 ) -> tuple[sps.sparray, sps.sparray, sps.sparray, sps.sparray]:
     """Helper method to assemble discretization matrices derived from a Tpsa
     discretization into global matrices.
@@ -1181,6 +1181,8 @@ def _assemble_matrices(
         sps.sparray: Accumulation matrix for the cell center terms.
 
     """
+    C = d[pp.PARAMETERS][KEYWORD]["fourth_order_tensor"]
+
     # Deal with the different dimensions of the rotation variable.
     rot_dim = g.dim if g.dim == 3 else 1
 
@@ -1233,7 +1235,19 @@ def _assemble_matrices(
         ],
         format="csr",
     )
-
+    accum = sps.block_diag(
+        [
+            sps.csr_array((g.num_cells * g.dim, g.num_cells * g.dim)),
+            sps.dia_matrix(
+                (np.repeat(g.cell_volumes / C.mu, rot_dim), 0),
+                shape=(n_rot_cell, n_rot_cell),
+            ),
+            sps.dia_matrix(
+                (g.cell_volumes / C.lmbda, 0), shape=(g.num_cells, g.num_cells)
+            ),
+        ],
+        format="csr",
+    )
     return flux, rhs_matrix, div, accum
 
 
