@@ -1075,7 +1075,8 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     g.compute_geometry()
 
-    d = _set_uniform_parameters(g)
+    # EK: Need value of 100 for parameters. Don't understand why. TODO!
+    d = _set_uniform_parameters(g, val=100)
 
     bf = g.get_all_boundary_faces()
 
@@ -1148,9 +1149,9 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     assert np.allclose(x_rob_low, x_neu)
 
 
-def _set_uniform_parameters(g: pp.Grid) -> dict:
+def _set_uniform_parameters(g: pp.Grid, val=1) -> dict:
     """Set up a uniform parameter dictionary for the TPSA problem."""
-    e = 100 * np.ones(g.num_cells)
+    e = val * np.ones(g.num_cells)
     C = pp.FourthOrderTensor(e, e)
 
     d = {
