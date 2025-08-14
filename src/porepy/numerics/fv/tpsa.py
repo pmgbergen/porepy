@@ -117,11 +117,12 @@ class _Distances:
     mu_by_dist_fc_cc: np.ndarray
     """Shear modulus divided by the distance from face to cell centers. Follows the
     fi/ci ordering defined in _Numbering."""
-    mu_by_dist_fc_cc_bound: np.ndarray
+    mu_by_dist_fc_cc_nd_with_rob_bound_faces: np.ndarray
     """Shear modulus divided by the distance from face to cell centers, also accounting
-    for Robin boundary conditions. Follows the fi/ci ordering defined in _Numbering."""
+    for Robin boundary conditions. Follows the expanded (to nd) fi/ci ordering defined
+    in _Numbering."""
     inv_mu_by_dist_array: sps.dia_array
-    """Diagonal array of the inverse of mu_by_dist_fc_cc_bound."""
+    """Diagonal array of the inverse of mu_by_dist_fc_cc_nd_with_rob_bound_faces."""
     rob_weight: np.ndarray
     """Robin weights, extracted from the displacement boundary conditions. Included in
     this container since, in the description of Tpsa, the weights of the Robin condition
@@ -581,10 +582,10 @@ class Tpsa:
         # contribution from the interior faces (computed here) and the Robin boundary
         # conditions (represented in t_shear_rob, computed previously). Since the Robin
         # conditions are already summed up, we use mu_by_dist_fc_cc, not
-        # mu_by_dist_fc_cc_bound. The operation results in an nd x nf array, where each
-        # row contains the discretization coefficients for one dimension of all the
-        # faces (internal and boundary, though the boundary term will be modified in the
-        # subsequent call to _vector_laplace_matrices).
+        # mu_by_dist_fc_cc_nd_with_rob_bound_faces. The operation results in an nd x nf
+        # array, where each row contains the discretization coefficients for one
+        # dimension of all the faces (internal and boundary, though the boundary term
+        # will be modified in the subsequent call to _vector_laplace_matrices).
         t_shear_nd = (
             2  # The factor 2 in Hook's law.
             * np.repeat(sd.face_areas, nd)  # Scaling with face areas.
@@ -664,10 +665,12 @@ class Tpsa:
         )
 
         # This is the expression \delta_k^mu, valid for internal and boundary faces.
-        # Note that the factor 1 / 2 is included in mu_by_dist_fc_cc_bound, see the
-        # definition of that term for a discussion.
+        # Note that the factor 1 / 2 is included in
+        # mu_by_dist_fc_cc_nd_with_rob_bound_faces, see the definition of that term for
+        # a discussion.
         inv_mu_face = sps.dia_matrix(
-            (1.0 / dist.mu_by_dist_fc_cc_bound, 0), shape=(nf * nd, nf * nd)
+            (1.0 / dist.mu_by_dist_fc_cc_nd_with_rob_bound_faces, 0),
+            shape=(nf * nd, nf * nd),
         )
 
         # A rotation in 2d has a single degree of freedom, while a 3d rotation has 3
@@ -1180,7 +1183,7 @@ class Tpsa:
         #
         # For reference, the reciprocal of this field is also the expression \delta_k^mu
         # (used in the paper to describe the discretization scheme).
-        mu_by_dist_fc_cc_bound = np.bincount(
+        mu_by_dist_fc_cc_nd_with_rob_bound_faces = np.bincount(
             np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
             weights=np.hstack((2 * mu_by_dist_fc_cc_nd, rob_weights_boundary_faces)),
         )
@@ -1189,7 +1192,7 @@ class Tpsa:
         # unit row sum (thus they become true averaging maps), both in the interior and
         # on faces with Robin boundary conditions.
         inv_mu_by_dist_array = sps.dia_array(
-            (1 / mu_by_dist_fc_cc_bound, 0), shape=(nf * nd, nf * nd)
+            (1 / mu_by_dist_fc_cc_nd_with_rob_bound_faces, 0), shape=(nf * nd, nf * nd)
         )
 
         # Finally, since we have obtained the Robin weights and the associated indices
@@ -1204,7 +1207,7 @@ class Tpsa:
         dist = _Distances(
             dist_fc_cc,
             mu_by_dist_fc_cc,
-            mu_by_dist_fc_cc_bound,
+            mu_by_dist_fc_cc_nd_with_rob_bound_faces,
             inv_mu_by_dist_array,
             rob_weight,
         )
