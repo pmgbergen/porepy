@@ -128,6 +128,9 @@ class _Distances:
     this container since, in the description of Tpsa, the weights of the Robin condition
     is in part given the interpretation of a distance measure.
     """
+    arithmetic_average_shear_modulus: np.ndarray
+    """Arithmetic average of the shear modulus. Robin boundary conditions are
+    included."""
 
 
 class Tpsa:
@@ -558,6 +561,19 @@ class Tpsa:
                 "Non-diagonal Robin weights have not been implemnted."
             )
 
+        if not all(
+            np.logical_xor(
+                np.any(bnd_disp.is_rob, axis=0),
+                np.logical_not(np.all(bnd_disp.is_rob, axis=0)),
+            )
+        ):
+            # A mix of Robin with Dirichlet or Neumann can be achieved in practice by
+            # formally setting the type to be Robin, but setting the weight to be 0 (to
+            # mimick Neumann) or very high (to mimic Dirichlet).
+            raise NotImplementedError(
+                "Mixing Robin with Dirichlet or Neumann conditions is not implemneted."
+            )
+
         ###
         # Done with processing of parameters.
 
@@ -648,13 +664,8 @@ class Tpsa:
         # condition set, it is unclear what to actually do with boundary terms. The
         # current implementation seems to work.
         #
-        # Arithmetic average of shear modulus. No contribution from boundary conditions,
-        # thus do not use mu_by_dist_fc_cc_bound.
-        arithmetic_average_shear_modulus = np.bincount(
-            numbering.fi,
-            weights=dist.mu_by_dist_fc_cc,
-            minlength=nf,
-        )
+        # Arithmetic average of shear modulus.
+        arithmetic_average_shear_modulus = dist.arithmetic_average_shear_modulus
         # Following the paper, we filter away Dirichlet boundary conditions.
         mass_total_pressure = -filters.dir_notpass @ (
             sps.dia_matrix(
@@ -1164,6 +1175,26 @@ class Tpsa:
         if nd == 3:
             rob_weight = np.vstack((rob_weight, bnd_disp.robin_weight[2, 2]))
 
+        # We need an arithmetic average of the shear modulus that accounts for Robin
+        # boundary conditions (this enters, for instance in the discretization of solid
+        # mass with respect to solid pressure, see the paper for details). For that, we
+        # need a single Robin weight for the face (this should be a scalar quantity).
+        # The implementation formally allows for anisotropic Robin conditions, but they
+        # should be aligned with the coordinate axes, see sanity checks on the
+        # parameters in the method discretize. EK's executive decision is to multiply
+        # the Robin weight matrix (assumed to be diagonal) with the unit face normal to
+        # project the weights to the face.
+        rob_weight_projected = np.sum(
+            rob_weight * (sd.face_normals[:nd] / sd.face_areas) ** 2, axis=0
+        )
+        rob_faces = np.where(bnd_disp.is_rob[0])[0]
+        # Now compute the arithmetic average (this is the factor \delta_k^mu in the
+        # paper describing the discretization scheme).
+        arithmetic_average_shear_modulus = np.bincount(
+            np.hstack((numbering.fi, rob_faces)),
+            np.hstack((mu_by_dist_fc_cc, rob_weight_projected[rob_faces])),
+        )
+
         # Nd version of the faces with Robin boundary conditions.
         rob_boundary_faces_expanded = pp.array_operations.expand_indices_nd(
             np.arange(nf), nd
@@ -1210,6 +1241,7 @@ class Tpsa:
             mu_by_dist_fc_cc_nd_with_rob_bound_faces,
             inv_mu_by_dist_array,
             rob_weight,
+            arithmetic_average_shear_modulus,
         )
 
         return dist, t_shear_rob

@@ -693,8 +693,8 @@ class TestTpsaTailoredGrid:
             # Inner minus caused by the inwards normal vector.
             "rotation_rotation": np.array(
                 [
-                    [-self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
-                    [0, self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
+                    [-1 / (2 * self.mu_0 / self.d_0_0 + rw_0_x) * self.n_0_nrm, 0],
+                    [0, 1 / (2 * self.mu_1 / self.d_1_6 + rw_6) * self.n_6_nrm],
                 ]
             ),
             "solid_mass_displacement": np.array(
@@ -706,8 +706,8 @@ class TestTpsaTailoredGrid:
             "bound_mass_displacement": bound_mass_displacement,
             "solid_mass_total_pressure": np.array(
                 [
-                    [self.d_0_0 / (2 * self.mu_0) * self.n_0_nrm, 0],
-                    [0, -self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
+                    [1 / (2 * self.mu_0 / self.d_0_0 + rw_0_x) * self.n_0_nrm, 0],
+                    [0, -1 / (2 * self.mu_1 / self.d_1_6 + rw_6) * self.n_6_nrm],
                 ]
             ),
             "bound_displacement_cell": bound_displacement_cell,
