@@ -1025,15 +1025,32 @@ class Tpsa:
             ((2 * dist.mu_by_dist_fc_cc, (numbering.fi, numbering.ci))), shape=(nf, nc)
         ).tocsr()
 
-        # Create the nd version, multiply with a scaling matrix to get an averaging map,
-        # and filter away Dirichlet boundary conditions (these will be enforced
-        # elsewhere in the code).
+        # Create the nd version, multiply with a scaling matrix to get an averaging map.
+        # The map should be zero for Dirichlet faces, but, since we construct the
+        # construct the complement map (below) by taking 1 - c2f, and since matrices are
+        # sparse, we need to take care not to modify the sparsity pattern of c2f when
+        # setting zeros on the Dirichlet faces. It turns out that left multiplying with
+        # (the diagonal matrix) filters.dir_notpass_nd may or may not alter the sparsity
+        # pattern, so we need a safer construct:
+
+        # Construct the cell-to-face mapping, with no regard for boundary conditions.
+        # Convert to csc, so that c2f.indices will give row indices.
         c2f = (
-            filters.dir_notpass_nd
-            @ dist.inv_mu_by_dist_array
+            dist.inv_mu_by_dist_array
             @ sps.kron(cell_to_face, sps.eye(nd), format="csr")
-        )
-        # Complement map.
+        ).tocsc()
+        # Inspect the filtering matrix to find which rows will be zeroed due to
+        # Dirichlet conditions.
+        dir_nd_face = np.where(filters.dir_notpass_nd.diagonal() == 0)[0]
+        # Find the elements in c2f.indices that correspond to Dirichlet faces. Set the
+        # corresponding matrix data to zero. The zero will remain explicit in the
+        # matrix.
+        to_zero = np.isin(c2f.indices, dir_nd_face)
+        c2f.data[to_zero] = 0
+        # Convert back to csr.
+        c2f = c2f.tocsr()
+
+        # The complement map can now be constructed to have value 1 on Dirichlet faces.
         c2f_compl = sps.csr_matrix(
             (1 - c2f.data, c2f.indices, c2f.indptr), shape=c2f.shape
         )
