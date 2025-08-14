@@ -1075,8 +1075,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     g.compute_geometry()
 
-    # EK: Need value of 100 for parameters. Don't understand why. TODO!
-    d = _set_uniform_parameters(g, val=100)
+    d = _set_uniform_parameters(g, val=1)
 
     bf = g.get_all_boundary_faces()
 
@@ -1126,7 +1125,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g, d)
     x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
     # The displacement should be close to the Dirichlet value.
-    assert np.allclose(x_rob_high, x_dir, rtol=1e-2)
+    assert np.allclose(x_rob_high, x_dir, rtol=1e-12)
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
     matrices_neu = deepcopy(_discretize_get_matrices(g, d))
@@ -1146,7 +1145,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
 
     # The displacement should be close to the Neumann value.
-    assert np.allclose(x_rob_low, x_neu)
+    assert np.allclose(x_rob_low, x_neu, rtol=1e-12)
 
 
 def test_3d_linear_displacement():
