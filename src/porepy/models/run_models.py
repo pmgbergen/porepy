@@ -121,7 +121,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
                 )
             )
             time_progressbar = progressbar_class(
-                expected_time_steps,
+                range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,
@@ -222,7 +222,7 @@ def _run_iterative_model(model, params: dict) -> None:
                 )
             )
             time_progressbar = progressbar_class(
-                expected_time_steps,
+                range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,

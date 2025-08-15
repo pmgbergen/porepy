@@ -109,7 +109,7 @@ class NewtonSolver:
             if self.progress_bar:
                 # Length is the maximal number of Newton iterations.
                 solver_progressbar = progressbar_class(  # type: ignore
-                    self.params["max_iterations"],
+                    range(self.params["max_iterations"]),
                     desc="Newton loop",
                     position=self.progress_bar_position,
                     leave=False,
