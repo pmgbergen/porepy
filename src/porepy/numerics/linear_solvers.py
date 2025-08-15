@@ -11,6 +11,10 @@ from __future__ import annotations
 from typing import Optional
 
 from porepy.models.solution_strategy import SolutionStrategy
+from porepy.models.convergence_check import (
+    ConvergenceStatus,
+    NanConvergenceCriterion,
+)
 
 
 class LinearSolver:
@@ -31,14 +35,14 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, model: SolutionStrategy) -> bool:
+    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
             model: Model to be solved.
 
         Returns:
-            boolean: True if the linear solver converged.
+            ConvergenceStatus: The status of the convergence.
 
         """
 
@@ -53,11 +57,9 @@ class LinearSolver:
         residual = model.equation_system.assemble(evaluate_jacobian=False)
         nonlinear_increment = model.solve_linear_system()
 
-        is_converged, _ = model.check_convergence(
-            nonlinear_increment, residual, self.params
-        )
+        convergence_status = self.check_convergence(nonlinear_increment, residual)
 
-        if is_converged:
+        if convergence_status.is_converged():
             # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
             # there is something wrong with how the linear and non-linear solvers
             # interact with the models (and it illustrates that the model convention for
@@ -71,4 +73,9 @@ class LinearSolver:
             model.after_nonlinear_convergence()
         else:
             model.after_nonlinear_failure()
-        return is_converged
+        return convergence_status
+
+    def check_convergence(self, nonlinear_increment, residual) -> ConvergenceStatus:
+        convergence_criterion = NanConvergenceCriterion()
+        convergence_status = convergence_criterion.check(nonlinear_increment, residual)
+        return convergence_status
