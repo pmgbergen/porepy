@@ -12,6 +12,7 @@ from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.models.convergence_check import ConvergenceStatus
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
 
     # Define a function that does all the work during one time step, except
     # for everything ``tqdm`` related.
-    def time_step() -> bool:
+    def time_step() -> ConvergenceStatus:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
         logger.info(
@@ -135,9 +136,9 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
             time_progressbar.set_description_str(
                 f"Time step {model.time_manager.time_index + 1}"
             )
-            converged: bool = time_step()
+            status: ConvergenceStatus = time_step()
             # Update progressbar length.
-            if converged:
+            if status.is_converged():
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
 
     model.after_simulation()
