@@ -88,6 +88,7 @@ class NewtonSolver:
 
         # Redirect all loggers to not interfere with the progressbar.
         with logging_redirect_tqdm([logging.root]):
+
             # Newton loop.
             while True:
                 # Perform a single Newton iteration.
