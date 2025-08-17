@@ -88,22 +88,16 @@ class NewtonSolver:
 
         # Redirect all loggers to not interfere with the progressbar.
         with logging_redirect_tqdm([logging.root]):
-
             # Newton loop.
             while True:
                 # Perform a single Newton iteration.
                 model.before_nonlinear_iteration()
-                nonlinear_increment = self.iteration(model)
+                nonlinear_increment = self.nonlinear_iteration(model)
                 model.after_nonlinear_iteration(nonlinear_increment)
-                residual = model.equation_system.assemble(evaluate_jacobian=False)
 
                 # Monitor convergence.
                 convergence_status, nonlinear_increment_norm, residual_norm = (
-                    self.check_convergence(
-                        model,
-                        nonlinear_increment,
-                        residual,
-                    )
+                    self.check_nonlinear_convergence(model, nonlinear_increment)
                 )
 
                 # Logging and progress bar update.
@@ -131,7 +125,7 @@ class NewtonSolver:
 
         return convergence_status
 
-    def iteration(self, model) -> np.ndarray:
+    def nonlinear_iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate
@@ -148,11 +142,10 @@ class NewtonSolver:
         nonlinear_increment = model.solve_linear_system()
         return nonlinear_increment
 
-    def check_convergence(
+    def check_nonlinear_convergence(
         self,
         model,
         nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
     ) -> Tuple[ConvergenceStatus, float, float]:
         """Implements a convergence check, to be called by a non-linear solver.
 
@@ -166,8 +159,6 @@ class NewtonSolver:
             model: The model instance specifying the problem to be solved, knowing
                 of its metrics for measuring states and residuals.
             nonlinear_increment: Newly obtained solution increment vector.
-            residual: Residual vector of non-linear system, evaluated at the newly
-                obtained solution vector.
 
         Returns:
             ConvergenceStatus: The convergence status of the non-linear iteration.
@@ -175,6 +166,10 @@ class NewtonSolver:
             float: Norm of the residual.
 
         """
+        # Fetch the residual and current iterate.
+        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        iterate = model.equation_system.get_variable_values(iterate_index=0)
+
         # If the model is linear, we do not need to check convergence.
         # TODO: How important is this? Newton is only called for nonlinear problems, by default.
         if not model._is_nonlinear_problem():
@@ -193,9 +188,6 @@ class NewtonSolver:
         # but also dictionaries are possible if equation-based norms are used, e.g.
         nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
         residual_norm = model.residual_norm(residual)
-
-        # Also fetch the norm of the iterate, which is used as a reference value.
-        iterate = model.equation_system.get_variable_values(iterate_index=0)
         iterate_norm = model.variable_norm(iterate)
 
         # Each iteration requires a new reference value for the convergence criterion.
