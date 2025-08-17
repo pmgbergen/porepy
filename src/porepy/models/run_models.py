@@ -79,9 +79,9 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     # such that they are displayed in the correct order. The orders are increasing, i.e.
     # 0 specifies the lowest level, 1 the next-lowest etc.
     # When the ``NewtonSolver`` is called inside ``run_time_dependent_model``, the
-    # ``_nl_progress_bar_position`` parameter with the updated position of the progress
+    # ``nl_progress_bar_position`` parameter with the updated position of the progress
     # bar for the ``NewtonSolver`` is passed.
-    params.update({"_nl_progress_bar_position": 1})
+    params.update({"nl_progress_bar_position": 1})
 
     # Assign a solver
     solver = _choose_solver(model, params)
@@ -180,7 +180,7 @@ def _run_iterative_model(model, params: dict) -> None:
     # occupied by the time progress bar.
     # This needs to be adapted, once a progress bar for the iterations is
     # introduced.
-    params.update({"_nl_progress_bar_position": 1})
+    params.update({"nl_progress_bar_position": 1})
 
     # Assign a solver
     solver = _choose_solver(model, params)
