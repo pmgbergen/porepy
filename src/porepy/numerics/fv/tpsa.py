@@ -669,7 +669,7 @@ class Tpsa:
         # Following the paper, we filter away Dirichlet boundary conditions.
         mass_total_pressure = -filters.dir_notpass @ (
             sps.dia_matrix(
-                (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
+                (sd.face_areas / arithmetic_average_shear_modulus, 0),
                 shape=(nf, nf),
             )
             @ sd.cell_faces
@@ -733,7 +733,7 @@ class Tpsa:
                     (
                         1.0
                         / np.repeat(
-                            2 * arithmetic_average_shear_modulus * sd.face_areas, nd
+                            arithmetic_average_shear_modulus * sd.face_areas, nd
                         ),
                         0,
                     ),
@@ -793,7 +793,7 @@ class Tpsa:
                     (
                         1.0
                         / np.repeat(
-                            2 * arithmetic_average_shear_modulus * sd.face_areas, nd
+                            arithmetic_average_shear_modulus * sd.face_areas, nd
                         ),
                         0,
                     ),
@@ -1192,7 +1192,7 @@ class Tpsa:
         # paper describing the discretization scheme).
         arithmetic_average_shear_modulus = np.bincount(
             np.hstack((numbering.fi, rob_faces)),
-            np.hstack((mu_by_dist_fc_cc, rob_weight_projected[rob_faces])),
+            np.hstack((2 * mu_by_dist_fc_cc, rob_weight_projected[rob_faces])),
         )
 
         # Nd version of the faces with Robin boundary conditions.
