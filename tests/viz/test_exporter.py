@@ -620,8 +620,9 @@ def test_fracture_network_2d(setup: ExporterTestSetup):
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
     # Make directory if not existent
-    if not os.path.exists(setup.folder):
-        os.makedirs(setup.folder)
+
+    path = Path(setup.folder)
+    path.mkdir(parents=True, exist_ok=True)
 
     # Export data
     network_2d.to_file(
@@ -654,8 +655,9 @@ def test_fracture_network_3d(setup: ExporterTestSetup):
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
     # Make directory if not existent.
-    if not os.path.exists(setup.folder):
-        os.makedirs(setup.folder)
+
+    path = Path(setup.folder)
+    path.mkdir(parents=True, exist_ok=True)
 
     # Export data
     network_3d.to_file(

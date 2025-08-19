@@ -7,7 +7,7 @@ import csv
 import logging
 import time
 from typing import Optional
-
+from pathlib import Path
 import meshio
 import numpy as np
 
@@ -1324,7 +1324,8 @@ class FractureNetwork2d:
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_cell_data
         )
-        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
+        path = Path(folder_name) / file_name
+        meshio.write(path, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
         s = (

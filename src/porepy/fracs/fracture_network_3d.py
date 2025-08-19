@@ -16,7 +16,7 @@ from typing import Optional, Union
 import meshio
 import numpy as np
 from scipy.spatial import ConvexHull
-
+from pathlib import Path
 import porepy as pp
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
 from porepy.geometry import sort_points
@@ -2696,7 +2696,9 @@ class FractureNetwork3d(object):
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_data
         )
-        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
+
+        path = Path(folder_name) / file_name
+        meshio.write(path, meshio_grid_to_export, binary=binary)
 
     def to_csv(self, file_name: str, domain: Optional[pp.Domain] = None) -> None:
         """Save the 3D network on a CSV file with comma as separator.
