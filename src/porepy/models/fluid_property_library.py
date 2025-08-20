@@ -723,35 +723,42 @@ class FluidBuoyancy(pp.PorePyModel):
 
 
                     interfaces = self.subdomains_to_interfaces(domains, [1])
-                    mortar_projection = pp.ad.MortarProjections(
-                        self.mdg, domains, interfaces, dim=1
-                    )
 
-                    if len(interfaces) !=0:
+                    if len(interfaces) != 0:
+                        # Get interface flux contribution
                         intf_w_flux_gamma_delta = self.interface_density_driven_flux(interfaces, rho_gamma - rho_delta)
+
+                        # Setup discretizations for interface coupling
                         intf_discr_gamma = self.interface_buoyancy_discretization(gamma, delta, interfaces)
                         intf_discr_delta = self.interface_buoyancy_discretization(delta, gamma, interfaces)
 
+                        # Projections and trace operators
+                        mortar_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
                         trace = pp.ad.Trace(domains)
 
-                        primary_to_mortar = mortar_projection.primary_to_mortar_avg() @ trace.trace
+                        # Modified coupling that properly handles dimensional transition
+                        primary_trace = trace.trace
+                        mortar_avg = mortar_projection.primary_to_mortar_avg()
                         secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
 
-                        gamma_on_interface = (
-                                intf_discr_gamma.upwind_primary() @ primary_to_mortar @ (chi_xi_gamma * f_gamma)
-                                + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (chi_xi_gamma * f_gamma)
+                        # Project quantities to interface with proper upwinding for both primary and secondary sides
+                        gamma_interface = (
+                            intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (chi_xi_gamma * f_gamma)
+                            + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (chi_xi_gamma * f_gamma)
                         )
-                        delta_on_interface = (
-                                intf_discr_delta.upwind_primary() @ primary_to_mortar @ f_delta
-                                + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
+                        delta_interface = (
+                            intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta
+                            + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
                         )
 
-                        proj_gamma = discr_gamma.bound_transport_neu() * mortar_projection.mortar_to_primary_int() @ gamma_on_interface
-                        proj_delta = discr_delta.bound_transport_neu() * mortar_projection.mortar_to_primary_int() @ delta_on_interface
-                        proj_w_flux_gamma_delta = mortar_projection.mortar_to_primary_int() @ intf_w_flux_gamma_delta
-                        b_proj_flux_gamma_delta: pp.ad.Operator = (proj_gamma * proj_delta) * proj_w_flux_gamma_delta
-                        b_flux_gamma_delta += b_proj_flux_gamma_delta
 
+                        # gamma_data = self.equation_system.evaluate(discr_gamma.bound_transport_neu()).data
+                        # delta_data = self.equation_system.evaluate(discr_delta.bound_transport_neu()).data
+                        # assert delta_data == delta_data
+
+                        # Compute interface contribution and project back to primary grid
+                        interface_coupling = (gamma_interface * delta_interface) * intf_w_flux_gamma_delta
+                        b_flux_gamma_delta += discr_gamma.bound_transport_neu() @ mortar_projection.mortar_to_primary_int() @ interface_coupling
                     b_fluxes.append(b_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(b_fluxes)
@@ -1112,6 +1119,4 @@ class FluidEnthalpyFromTemperature(pp.PorePyModel):
             return enthalpy
 
         return h
-
-
 

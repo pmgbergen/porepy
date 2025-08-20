@@ -36,7 +36,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0625
+    _sphere_radius: float = 2.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -49,15 +49,15 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0625, "m")
+        cell_size = self.units.convert_units(2.5, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
     def set_fractures(self) -> None:
         points = np.array(
             [
-                [1.0, 2.0],
-                [4.0, 2.0],
+                [0.0, 2.5],
+                [5.0, 2.5],
                 [1.0, 2.0],
                 [1.0, 4.0],
                 [4.0, 2.0],
@@ -68,7 +68,8 @@ class ModelGeometry(Geometry):
                 [3.0, 4.0],
             ]
         ).T
-        fracs = np.array([[0,1],[2, 3],[4, 5],[6, 7],[8, 9]]).T
+        # fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        fracs = np.array([[0, 1]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
@@ -429,12 +430,13 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = (
-            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
-        )
+        # z = (
+        #     np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
+        #     + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
+        #     + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
+        #     + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        # )
+        z = np.where((xc[:, 1] >= 0.0) & (xc[:, 1] <= 2.5), 1.0, 0.0)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -611,7 +613,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 1000.0 * day
-dt = 2.0 * day
+dt = 20.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
