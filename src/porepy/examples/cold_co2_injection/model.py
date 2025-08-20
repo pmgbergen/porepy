@@ -13,60 +13,17 @@ Note:
 
 from __future__ import annotations
 
-# GENERAL MODEL CONFIGURATION
-
-h_MESH: float = 1.0
-"""Mesh size."""
-# 4.        308 cells
-# 2.        1204 cells
-# 1.        4636 cells
-# 5e-1      18,464 cells
-# 2.5e-1    73,748 cells
-# 1e-1      462,340 cells
-
-FRACTIONAL_FLOW: bool = False
-"""Use the fractional flow formulation without upwinding in the diffusive fluxes."""
-EQUILIBRIUM_CONDITION: str = "unified-p-h"
-"""Define the equilibrium condition to determin the flash type used in the solution
-procedure."""
-EXPORT_SCHEDULED_TIME_ONLY: bool = False
-"""Exports all  time steps produced by the time stepping algorithm, otherwise only
-the scheduled times."""
-DISABLE_COMPILATION: bool = False
-"""For disabling numba compilation and faster start of simulation."""
-USE_ADTPFA_FLUX_DISCRETIZATION: bool = False
-"""Uses the adaptive flux discretization for both Darcy and Fourier flux."""
-BUOYANCY_ON: bool = False
-"""Turn on buoyancy. NOTE: This is still under development."""
-
-
-import json
-import logging
-import pathlib
 import time
-import warnings
 from collections import deque
-from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_check
+from typing import Any, Callable, Literal, Optional, Sequence, cast
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
-from scipy.linalg import lstsq
-
-if DISABLE_COMPILATION:
-    import os
-
-    os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.applications.material_values.solid_values import basalt
-from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
-
-logger = logging.getLogger(__name__)
-warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -145,41 +102,16 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
     enthalpy_variable: str
     fraction_in_phase_variables: list[str]
 
-    _num_flash_iter: np.ndarray
-
     def __init__(self, params: dict | None = None):
         super().__init__(params)  # type:ignore[safe-super]
 
         self._residual_norm_history: deque[float] = deque(maxlen=4)
         self._increment_norm_history: deque[float] = deque(maxlen=3)
 
-        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
-        self._global_iter_per_time: dict[float, tuple[int, ...]] = {}
-        self._time_tracker: dict[str, list[float]] = {
-            "flash": [],
-            "assembly": [],
-            "linsolve": [],
-        }
-
-    def data_to_export(self):
-        data: list = super().data_to_export()
-
-        for sd in self.mdg.subdomains():
-            if sd in self._cum_flash_iter_per_grid:
-                ni = self._cum_flash_iter_per_grid[sd]
-                n = np.array(sum(ni), dtype=int)
-            else:
-                n = np.zeros(sd.num_cells, dtype=int)
-
-            data.append((sd, "cumulative flash iterations", n))
-
-        return data
-
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # type:ignore[misc]
         self._residual_norm_history.clear()
         self._increment_norm_history.clear()
-        self._cum_flash_iter_per_grid.clear()
 
     def check_convergence(
         self,
@@ -250,7 +182,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 False,
             )
             if status[0]:
-                print("\nConverged with relaxed, unified CF criteria.\n")
+                print("\nConverged with relaxed CFLE criteria.\n")
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -293,28 +225,19 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         residual_norm = np.linalg.norm(residual)
         return float(residual_norm)
 
-    def after_nonlinear_convergence(self):
-        super().after_nonlinear_convergence()
-        global_flash_iter = 0
-        for ni in self._cum_flash_iter_per_grid.values():
-            n = sum(ni).sum()
-            global_flash_iter += int(n)
-        self._global_iter_per_time[self.time_manager.time] = (
-            self.nonlinear_solver_statistics.num_iteration,
-            model.nonlinear_solver_statistics.num_iteration_armijo,
-            global_flash_iter,
-        )
-
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
     ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
-        start = time.time()
-        stride = int(self.params["flash_params"].get("global_iteration_stride", 3))
+        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
+        do_flash = False
+        if isinstance(stride, int):
+            assert stride > 0, "Global iteration stride must be positive."
+            n = self.nonlinear_solver_statistics.num_iteration
+            do_flash = (n + 1) % stride == 0 or n == 0
+
         for sd in self.mdg.subdomains():
-            if sd not in self._cum_flash_iter_per_grid:
-                self._cum_flash_iter_per_grid[sd] = []
-            if "injection_well" in sd.tags:
+            if "injection_well" in sd.tags:  # and stride is not None:
                 equ_spec = {
                     "p": self.equation_system.evaluate(
                         self.pressure([sd]), state=state
@@ -323,28 +246,19 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                         self.temperature([sd]), state=state
                     ),
                 }
-                self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
-                self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
-            elif self.nonlinear_solver_statistics.num_iteration % stride == 0:
-                self.local_equilibrium(sd, state=state)  # type:ignore
-                self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
+                nfi = self.local_equilibrium(
+                    sd,
+                    state=state,
+                    equilibrium_specs=equ_spec,
+                    return_num_iter=True,
+                )  # type:ignore
+            elif do_flash:
+                nfi = self.local_equilibrium(sd, state=state, return_num_iter=True)  # type:ignore
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
                     self,
                     state,
                 )
-        self._time_tracker["flash"].append(time.time() - start)
-
-    def assemble_linear_system(self) -> None:
-        start = time.time()
-        super().assemble_linear_system()
-        self._time_tracker["assembly"].append(time.time() - start)
-
-    def solve_linear_system(self) -> np.ndarray:
-        start = time.time()
-        sol = super().solve_linear_system()
-        self._time_tracker["linsolve"].append(time.time() - start)
-        return sol
 
     # def add_nonlinear_fourier_flux_discretization(self) -> None:
     #     pass
@@ -696,28 +610,6 @@ class AdjustedWellModel2D(_FlowConfiguration):
         return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
 
 
-class BuoyancyModel(pp.PorePyModel):
-    def initial_condition(self):
-        super().initial_condition()
-        self.set_buoyancy_discretization_parameters()
-
-    def update_flux_values(self):
-        super().update_flux_values()
-        self.update_buoyancy_driven_fluxes()
-
-    def set_nonlinear_discretizations(self):
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2")
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
-
 class InitialConditions(_FlowConfiguration):
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
@@ -836,196 +728,8 @@ class BoundaryConditions(_FlowConfiguration):
         return vals
 
 
-class AndersonAcceleration:
-    """Anderson acceleration as described by Walker and Ni in doi:10.2307/23074353."""
-
-    def __init__(
-        self,
-        dimension: int,
-        depth: int,
-        constrain_acceleration: bool = False,
-        regularization_parameter: float = 0.0,
-    ) -> None:
-        self._dimension = int(dimension)
-        self._depth = int(depth)
-        self._constrain_acceleration: bool = bool(constrain_acceleration)
-        self._reg_param: float = float(regularization_parameter)
-
-        # Initialize arrays for iterates.
-        self.reset()
-        self._fkm1: np.ndarray = np.zeros(self._dimension)
-        self._gkm1: np.ndarray = np.zeros(self._dimension)
-
-    def reset(self) -> None:
-        self._Fk: np.ndarray = np.zeros(
-            (self._dimension, self._depth)
-        )  # changes in increments
-        self._Gk: np.ndarray = np.zeros(
-            (self._dimension, self._depth)
-        )  # changes in fixed point applications
-
-    def apply(self, gk: np.ndarray, fk: np.ndarray, iteration: int) -> np.ndarray:
-        """Apply Anderson acceleration.
-
-        Parameters:
-            gk: application of some fixed point iteration onto approximation xk, i.e.,
-                g(xk).
-            fk: residual g(xk) - xk; in general some increment.
-            iteration: current iteration count.
-
-        Returns:
-            Modified application of fixed point approximation after acceleration, i.e.,
-            the new iterate xk+1.
-
-        """
-
-        if iteration == 0:
-            self.reset()
-
-        mk = min(iteration, self._depth)
-
-        # Apply actual acceleration (not in the first iteration).
-        if mk > 0:
-            # Build matrices of changes.
-            col = (iteration - 1) % self._depth
-            self._Fk[:, col] = fk - self._fkm1
-            self._Gk[:, col] = gk - self._gkm1
-
-            # Solve least squares problem.
-            A = self._Fk[:, 0:mk]
-            b = fk
-            if self._constrain_acceleration:
-                A = np.vstack((A, np.ones((1, self._depth))))
-                b = np.concatenate((b, np.ones(1)))
-
-            direct_solve = False
-
-            if self._reg_param > 0:
-                b = A.T @ b
-                A = A.T @ A + self._reg_param * np.eye(A.shape[1])
-                direct_solve = np.linalg.matrix_rank(A) >= A.shape[1]
-
-            if direct_solve:
-                gamma_k = np.linalg.solve(A, b)
-            else:
-                gamma_k = lstsq(A, b)[0]
-
-            # Do the mixing
-            x_k_plus_1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
-        else:
-            x_k_plus_1 = gk
-
-        # Store values for next iteration.
-        self._fkm1 = fk.copy()
-        self._gkm1 = gk.copy()
-
-        return x_k_plus_1
-
-
-class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
-    """Newton solver with Armijo line search.
-
-    The residual objective function is tailored to models where phase properties are
-    assumed to be surrogate factories and require an update before evaluating the
-    objective function.
-
-    """
-
-    def __init__(self, params: dict | None = None):
-        pp.NewtonSolver.__init__(self, params)
-        if params is None:
-            params = {}
-        depth = int(params.get("anderson_acceleration_depth", 3))
-        dimension = int(params["anderson_acceleration_dimension"])
-        constrain = params.get("anderson_acceleration_constrained", False)
-        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
-        AndersonAcceleration.__init__(
-            self,
-            dimension,
-            depth,
-            constrain_acceleration=constrain,
-            regularization_parameter=reg_param,
-        )
-
-    def iteration(self, model: pp.PorePyModel):
-        """An iteration consists of performing the Newton step and obtaining the step
-        size from the line search."""
-        # dx = super().iteration(model)
-        iteration = model.nonlinear_solver_statistics.num_iteration
-
-        dx = pp.NewtonSolver.iteration(self, model)
-
-        if self.params.get("anderson_acceleration", False):
-            x = model.equation_system.get_variable_values(iterate_index=0)
-            x_temp = x + dx
-            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
-                try:
-                    xp1 = self.apply(x_temp, dx.copy(), iteration)
-                    res = model.equation_system.assemble(evaluate_jacobian=False)
-                    # TODO Wrong reference residual
-                    res_norm = model.compute_residual_norm(res, res)
-                    if res_norm <= self.params.get(
-                        "anderson_start_after_residual_reaches", np.inf
-                    ):
-                        dx = xp1 - x
-                except Exception:
-                    logger.warning(
-                        f"Resetting Anderson acceleration at"
-                        f" T={model.time_manager.time}; i={iteration} due to failure."
-                    )
-                    self.reset()
-
-        alpha = self.armijo_line_search(model, dx)
-        return alpha * dx
-
-    def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
-        """Performs the Armijo line search."""
-        res = model.equation_system.assemble(evaluate_jacobian=False)
-        # TODO Wrong reference residual
-        res_norm = model.compute_residual_norm(res, res)
-        if not self.params.get(
-            "armijo_line_search", False
-        ) or res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0):
-            return 1.0
-
-        rho = float(self.params.get("armijo_line_search_weight", 0.9))
-        kappa = float(self.params.get("armijo_line_search_incline", 0.4))
-        N = int(self.params.get("armijo_line_search_max_iterations", 50))
-
-        pot_0 = self.armijo_objective_function(model, dx, 0.0)
-        rho_i = rho
-        n = 0
-
-        for i in range(N):
-            n = i
-            rho_i = rho**i
-
-            pot_i = self.armijo_objective_function(model, dx, rho_i)
-            if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
-                break
-
-        model.nonlinear_solver_statistics.num_iteration_armijo += n  # type:ignore[attr-defined]
-        logger.info(f"Armijo line search determined weight: {rho_i} ({n})")
-        return rho_i
-
-    def armijo_objective_function(
-        self, model: pp.PorePyModel, dx: np.ndarray, weight: float
-    ) -> float:
-        """The objective function to be minimized is the norm of the residual squared
-        and divided by 2."""
-        x_0 = model.equation_system.get_variable_values(iterate_index=0)
-        state = x_0 + weight * dx
-        # model.update_thermodynamic_properties_of_phases(state)
-        cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
-            model,  # type:ignore[arg-type]
-            state,
-        )
-        residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
-        return float(np.dot(residual, residual) / 2)
-
-
 class Permeability(pp.PorePyModel):
-    """Custom permeability with a slightly lower permability around the wells and a
+    """Custom permeability with a higher absolute permability around the wells and a
     constant permeability of 1 in the wells."""
 
     total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -1082,296 +786,23 @@ class Permeability(pp.PorePyModel):
         return K
 
 
-# mypy: disable-error-code="type-abstract,attr-defined"
-model_class: type[pp.PorePyModel]
+class _ModelMixins(
+    Permeability,
+    PointWells2D,
+    AdjustedWellModel2D,
+    FluidMixture,
+    InitialConditions,
+    BoundaryConditions,
+    SolutionStrategy,
+):
+    """Collection of used mixins, including a quadratic relative permeability law."""
 
-if FRACTIONAL_FLOW:
-    model_class = create_local_model_class(
-        cfle.EnthalpyBasedCFFLETemplate,
-        [pp.constitutive_laws.DarcysLawAd],
-    )
-else:
-    model_class = cfle.EnthalpyBasedCFLETemplate
 
-model_class = create_local_model_class(
-    model_class,
-    [
-        SolutionStrategy,
-        BoundaryConditions,
-        InitialConditions,
-        FluidMixture,
-        AdjustedWellModel2D,
-        PointWells2D,
-        Permeability,
-        # BuoyancyModel,
-    ],
-)
+class ColdCO2InjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
+    """2-phase 2-component model simulating the injection of a cold water-co2 mixture
+    into an initially hot and water saturated domain."""
 
-if BUOYANCY_ON:
-    model_class = create_local_model_class(model_class, [BuoyancyModel])
 
-if USE_ADTPFA_FLUX_DISCRETIZATION:
-    model_class = create_local_model_class(
-        model_class,
-        [
-            pp.constitutive_laws.DarcysLawAd,
-            pp.constitutive_laws.FouriersLawAd,
-        ],
-    )
-
-if __name__ == "__main__":
-    time_schedule = [i * 30 * pp.DAY for i in range(25)]
-
-    max_iterations = 40 if FRACTIONAL_FLOW else 30
-    newton_tol = 1e-6
-    newton_tol_increment = 5e-6
-
-    time_manager = pp.TimeManager(
-        schedule=time_schedule,
-        dt_init=10 * pp.MINUTE,
-        dt_min_max=(pp.MINUTE, 30 * pp.DAY),
-        iter_max=max_iterations,
-        iter_optimal_range=(20, 30) if FRACTIONAL_FLOW else (10, 20),
-        iter_relax_factors=(0.8, 2.0),
-        recomp_factor=0.6,
-        recomp_max=15,
-        print_info=True,
-        rtol=0.0,
-    )
-
-    phase_property_params = {
-        "phase_property_params": [0.0],
-    }
-
-    basalt_ = basalt.copy()
-    basalt_["permeability"] = 1e-14
-    material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore[arg-type]
-
-    flash_params: dict[Any, Any] = {
-        "mode": "parallel",
-        "solver": "npipm",
-        "solver_params": {
-            "tolerance": 1e-8,
-            "max_iterations": 80,  # 150
-            "armijo_rho": 0.99,
-            "armijo_kappa": 0.4,
-            "armijo_max_iterations": 50 if "p-T" in EQUILIBRIUM_CONDITION else 30,
-            "npipm_u1": 10,
-            "npipm_u2": 10,
-            "npipm_eta": 0.5,
-        },
-        "global_iteration_stride": 2 if FRACTIONAL_FLOW else 3,
-    }
-    flash_params.update(phase_property_params)
-
-    restart_params = {
-        "restart_options": {
-            "restart": False,
-            "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
-            "is_mdg_pvd": False,
-            "vtu_files": None,
-            "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
-        },
-    }
-
-    meshing_params = {
-        "grid_type": "simplex",
-        "meshing_arguments": {
-            "cell_size": h_MESH,
-            "cell_size_fracture": 5e-1,
-        },
-    }
-
-    solver_params = {
-        "max_iterations": max_iterations,
-        "nl_convergence_tol": newton_tol_increment,
-        "nl_convergence_tol_res": newton_tol,
-        "apply_schur_complement_reduction": True,
-        "linear_solver": "scipy_sparse",
-        "nonlinear_solver": NewtonArmijoAndersonSolver,
-        "armijo_line_search": True,
-        "armijo_line_search_weight": 0.95,
-        "armijo_line_search_incline": 0.2,
-        "armijo_line_search_max_iterations": 10,
-        "armijo_stop_after_residual_reaches": 1e0,
-        "anderson_acceleration": False,
-        "anderson_acceleration_depth": 3,
-        "anderson_acceleration_constrained": False,
-        "anderson_acceleration_regularization_parameter": 1e-3,
-        "anderson_start_after_residual_reaches": 1e2,
-        "solver_statistics_file_name": "solver_statistics.json",
-    }
-
-    model_params = {
-        "equilibrium_condition": EQUILIBRIUM_CONDITION,
-        "eliminate_reference_phase": True,
-        "eliminate_reference_component": True,
-        "flash_params": flash_params,
-        "fractional_flow": FRACTIONAL_FLOW,
-        "material_constants": material_params,
-        "time_manager": time_manager,
-        "prepare_simulation": False,
-        "buoyancy_on": BUOYANCY_ON,
-        "compile": True,
-        "flash_compiler_args": ("p-T", "p-h"),
-    }
-
-    if EXPORT_SCHEDULED_TIME_ONLY:
-        model_params["times_to_export"] = time_schedule
-
-    model_params.update(phase_property_params)
-    model_params.update(restart_params)
-    model_params.update(meshing_params)
-    model_params.update(solver_params)
-
-    # Casting to the most complex model type for typing purposes.
-    model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
-    model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
-
-    logging.basicConfig(level=logging.INFO)
-    logging.getLogger("porepy").setLevel(logging.DEBUG)
-    t_0 = time.time()
-    model.prepare_simulation()
-    prep_sim_time = time.time() - t_0
-    logging.getLogger("porepy").setLevel(logging.INFO)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
-
-    # Defining sub system for Schur complement reduction.
-    primary_equations = cf.get_primary_equations_cf(model)
-    primary_equations += [
-        eq for eq in model.equation_system.equations.keys() if "flux" in eq
-    ]
-    primary_equations += [
-        "production_pressure_constraint",
-        "injection_temperature_constraint",
-    ]
-    primary_variables = cf.get_primary_variables_cf(model)
-    primary_variables += list(
-        set([v.name for v in model.equation_system.variables if "flux" in v.name])
-    )
-
-    model.schur_complement_primary_equations = primary_equations
-    model.schur_complement_primary_variables = primary_variables
-
-    t_0 = time.time()
-    if "p-T" in EQUILIBRIUM_CONDITION:
-        try:
-            pp.run_time_dependent_model(model, model_params)
-        except Exception as err:
-            print(f"SIMULATION FAILED: {err}")
-            # NOTE To avoid recomputation of time step size.
-            model.time_manager.is_constant = True
-            model.after_nonlinear_convergence()
-            model.time_manager.is_constant = False
-    else:
-        pp.run_time_dependent_model(model, model_params)
-    sim_time = time.time() - t_0
-
-    # region Plots
-    fig, ax1 = plt.subplots()
-
-    global_iter_per_time: dict[float, tuple[int, int, int]] = (
-        model._global_iter_per_time
-    )
-
-    N = len(global_iter_per_time)
-    times = np.zeros(N)
-    newton_iter = np.zeros(N, dtype=int)
-    cum_armijo_iter = np.zeros(N, dtype=int)
-    cum_flash_iter = np.zeros(N, dtype=int)
-    for i, tNI in enumerate(global_iter_per_time.items()):
-        t, NI = tNI
-        n, a, f = NI
-        times[i] = t
-        newton_iter[i] = n
-        cum_armijo_iter[i] = a
-        cum_flash_iter[i] = f
-
-    img1 = ax1.plot(
-        times,
-        newton_iter,
-        "k-",
-        times,
-        cum_armijo_iter,
-        "k--",
-    )
-    ax1.set_xscale("log")
-    ax1.set_xlabel("Time [s]")
-    ax1.set_ylabel("Global iterations")
-    ax1.set_ylim(
-        0.0,
-        30,
-    )
-
-    color = "tab:red"
-    ax2 = ax1.twinx()
-    ax2.set_ylabel("Local iterations", color=color)
-    img2 = ax2.plot(
-        times,
-        cum_flash_iter,
-        "r--",
-    )
-    ax2.tick_params(axis="y", labelcolor=color)
-
-    ax1.legend(img1 + img2, ["Newton", "Line Search (cum.)", "Flash (cum.)"])
-
-    fig.tight_layout()
-    fig.savefig(pathlib.Path(".\\visualization\\num_iter.png").resolve(), format="png")
-
-    times_file = pathlib.Path("./visualization/times.json").resolve().open("r")
-    times_data = json.load(times_file)
-    TIMES = times_data["time"]
-    DT = times_data["dt"]
-    nT = len(DT)
-    assert nT == len(TIMES)
-    Tidx = np.arange(nT)
-
-    fig, ax1 = plt.subplots()
-
-    color = "tab:red"
-    ax1.set_xlabel("time step index")
-    ax1.set_ylabel("time (s)", color=color)
-    ax1.plot(Tidx, TIMES, color=color)
-    ax1.tick_params(axis="y", labelcolor=color)
-    ax1.set_yscale("log")
-
-    ax2 = ax1.twinx()
-    color = "tab:blue"
-    ax2.set_ylabel("dt (s)", color=color)
-    ax2.plot(Tidx, DT, color=color)
-    ax2.tick_params(axis="y", labelcolor=color)
-    ax2.set_yscale("log")
-
-    fig.tight_layout()
-    fig.savefig(
-        pathlib.Path(".\\visualization\\time_progress.png").resolve(), format="png"
-    )
-
-    # endregion
-
-    def min_avg_max(v: np.ndarray) -> tuple[float, float, float]:
-        return float(v.min()), float(v.mean()), float(v.max())
-
-    print(
-        f"equ type: {EQUILIBRIUM_CONDITION}\tfrac flow: {FRACTIONAL_FLOW}\t"
-        + f"h={h_MESH}\tAD flux: {USE_ADTPFA_FLUX_DISCRETIZATION}\t"
-        + f"Buoyancy: {BUOYANCY_ON}"
-    )
-    print(f"Set-up time (incl. compilation): {prep_sim_time} (s).")
-    print(f"Simulation run time: {sim_time / 60.0} (min).")
-    print(f"smalles time step: {np.min(DT) / 3600} hours")
-    print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
-    print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
-    print(f"global num iter (min, avg, max): {min_avg_max(newton_iter)}")
-    print(f"cum. line search num iter (min, avg, max): {min_avg_max(cum_armijo_iter)}")
-    avg_cum_flash_iter = cum_flash_iter / model.mdg.num_subdomain_cells()
-    print(
-        f"avg. cum. flash num iter (min, avg, max): {min_avg_max(avg_cum_flash_iter)}"
-    )
-    times_assembly = np.array(model._time_tracker["assembly"])
-    times_linsolve = np.array(model._time_tracker["linsolve"])
-    times_flash = np.array(model._time_tracker["flash"])
-    print(f"assembly time (min, avg, max): {min_avg_max(times_assembly)}")
-    print(f"linsolve time (min, avg, max): {min_avg_max(times_linsolve)}")
-    print(f"flash time (min, avg, max): {min_avg_max(times_flash)}")
+class ColdCO2InjectionModelFF(_ModelMixins, cfle.EnthalpyBasedCFFLETemplate):  # type:ignore
+    """Analogous to class:`ColdCO2InjectionModel` but based on the fractional flow
+    template."""

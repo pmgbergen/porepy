@@ -29,6 +29,7 @@ from typing import (
     Sequence,
     TypedDict,
     cast,
+    overload,
 )
 
 import numpy as np
@@ -1003,11 +1004,17 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 Passed to :meth:`local_equilibrium`.
 
         """
-        stride = int(
-            self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
-        )
+        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
+        do_flash = False
+        if isinstance(stride, int):
+            # NOTE Iteration counter is increased after iteration, and 0 modulo anything
+            # is zero.
+            assert stride > 0, "Global iteration stride must be positive."
+            n = self.nonlinear_solver_statistics.num_iteration
+            do_flash = (n + 1) % stride == 0 or n == 0
+
         for sd in self.mdg.subdomains():
-            if self.nonlinear_solver_statistics.num_iteration % stride == 0:
+            if do_flash:
                 self.local_equilibrium(sd, state=state)  # type:ignore
             else:
                 super().update_thermodynamic_properties_of_phases(state=state)
@@ -1114,6 +1121,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             ],
         )
 
+    @overload
     def local_equilibrium(
         self,
         sd: pp.Grid,
@@ -1121,7 +1129,29 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         equilibrium_specs: Optional[IsobaricEquilibriumSpecs] = None,
         initial_guess_from_current_state: bool = True,
         update_secondary_variables: bool = True,
-    ) -> None:
+        return_num_iter: Literal[False] = False,
+    ) -> None: ...
+
+    @overload
+    def local_equilibrium(
+        self,
+        sd: pp.Grid,
+        state: Optional[np.ndarray] = None,
+        equilibrium_specs: Optional[IsobaricEquilibriumSpecs] = None,
+        initial_guess_from_current_state: bool = True,
+        update_secondary_variables: bool = True,
+        return_num_iter: Literal[True] = True,
+    ) -> np.ndarray: ...
+
+    def local_equilibrium(
+        self,
+        sd: pp.Grid,
+        state: Optional[np.ndarray] = None,
+        equilibrium_specs: Optional[IsobaricEquilibriumSpecs] = None,
+        initial_guess_from_current_state: bool = True,
+        update_secondary_variables: bool = True,
+        return_num_iter: bool = False,
+    ) -> None | np.ndarray:
         """Performs flash calculations on the given grid and updates the fluid
         properties at the current iterate.
 
@@ -1160,6 +1190,15 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 Besides updates of various fractions, this includes also an update
                 of pressure or temperature for example, if they are not defined in
                 ``equilibrium_specs``.
+            return_num_iter: ``default=False``
+
+                If True, returns the vector containing the number of iterations
+                performed in the flash for each cell in the subdomain.
+
+        Returns:
+            If ``return_num_iter`` is True, returns a vector containing the number of
+            iterations performed in the flash for each cell in the subdomain.
+            Otherwise, returns None.
 
         """
 
@@ -1221,7 +1260,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             initial_state=initial_state,
             params=self.params.get("flash_params", None),  # type:ignore[arg-type]
         )
-        self._num_flash_iter: np.ndarray = num_iter
+        self._nfi: np.ndarray = num_iter
 
         # Perform the full flash where the initial guess from the current state caused
         # failures.
@@ -1319,6 +1358,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
 
+        if return_num_iter:
+            return self._nfi.copy()
+        else:
+            return None
+
     def _full_equilibrium(
         self,
         sd: pp.Grid,
@@ -1385,7 +1429,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
         ni = np.zeros_like(failure)
         ni[failure] = num_iter
-        self._num_flash_iter += ni.astype(int)
+        self._nfi += ni.astype(int)
 
         # update parent state with sub state values
         fluid_state.T[failure] = sub_state.T

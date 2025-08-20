@@ -25,7 +25,6 @@ import logging
 import os
 import time
 from collections import deque
-from dataclasses import asdict
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 # Benchmark is small, no need for JIT compilation.
@@ -38,7 +37,7 @@ import porepy as pp
 import porepy.compositional.compiled_flash.eos_compiler as eosc
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.examples.co2_injection import NewtonArmijoAndersonSolver
+from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
@@ -501,10 +500,10 @@ class GeothermalWaterModel(  # type:ignore[misc]
         are not production wells."""
         eq: pp.ad.Operator = super().mass_balance_equation(subdomains)  # type:ignore[misc]
         name = eq.name
-        # return eq
-        eq = eq + self.volume_stabilization_term(subdomains)
-        eq.set_name(name)
         return eq
+        # eq = eq + self.volume_stabilization_term(subdomains)
+        # eq.set_name(name)
+        # return eq
 
     def volume_stabilization_term(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         volume_stabilization = self.fluid.density(subdomains) * pp.ad.sum_operator_list(
@@ -605,6 +604,7 @@ if __name__ == "__main__":
         "armijo_line_search_incline": 0.2,
         "armijo_line_search_max_iterations": 10,
         "armijo_stop_after_residual_reaches": 1e0,
+        "appplyard_chop": 0.2,
         "anderson_acceleration": True,
         "anderson_acceleration_depth": 3,
         "anderson_acceleration_constrained": False,
@@ -647,7 +647,6 @@ if __name__ == "__main__":
 
     model.schur_complement_primary_equations = cfle.cf.get_primary_equations_cf(model)
     model.schur_complement_primary_variables = cfle.cf.get_primary_variables_cf(model)
-    model.nonlinear_solver_statistics.num_iteration_armijo = 0  # type:ignore[attr-defined]
 
     t_0 = time.time()
     pp.run_time_dependent_model(model, model_params)
