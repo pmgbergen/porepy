@@ -399,6 +399,16 @@ class EnthalpyBasedEnergyBalanceEquations(
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
+    enthalpy_buoyancy: Callable[
+        [pp.Subdomains], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    enthalpy_buoyancy_jump: Callable[
+        [pp.Subdomains], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsMulticomponent`."""
 
@@ -477,6 +487,13 @@ class EnthalpyBasedEnergyBalanceEquations(
         if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
         return flux
+
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        source = super().energy_source(subdomains)
+        buoyancy_condition: bool = self.params.get("buoyancy_on", True)
+        if buoyancy_condition:
+            source += self.enthalpy_buoyancy_jump(subdomains)
+        return source
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation):
