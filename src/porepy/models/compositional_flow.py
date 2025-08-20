@@ -557,6 +557,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
+    component_buoyancy_jump: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -886,6 +891,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
+        if self.params.get("buoyancy_on", True):
+            source += self.component_buoyancy_jump(component, subdomains)
+
         source.set_name(f"interface_component_flux_source_{component.name}")
         well_fluxes = (
             well_projection.mortar_to_secondary_int()

@@ -2574,7 +2574,7 @@ class AdvectiveFlux(pp.PorePyModel):
         advected_entity: pp.ad.Operator,
         discr: pp.ad.UpwindCouplingAd,
     ) -> pp.ad.Operator:
-        """An operator represetning the advective flux on interfaces.
+        """An operator representing the advective flux on interfaces.
 
         .. note::
             The implementation here is tailored for discretization using an upwind

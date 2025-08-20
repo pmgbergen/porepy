@@ -436,7 +436,7 @@ class InitialConditions(pp.PorePyModel):
         #     + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
         #     + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
         # )
-        z = np.where((xc[:, 1] >= 0.0) & (xc[:, 1] <= 2.5), 1.0, 0.0)
+        z = np.where((xc[:, 1] >= 0.0) & (xc[:, 1] <= 2.5), 0.95, 0.05)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -613,7 +613,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 1000.0 * day
-dt = 20.0 * day
+dt = 50.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
