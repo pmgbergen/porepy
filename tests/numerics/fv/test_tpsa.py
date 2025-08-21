@@ -1184,6 +1184,18 @@ def test_3d_linear_displacement():
 
     y = flux @ x + rhs_matrix @ bound_values
 
+    u_ex = np.zeros(g.num_cells * g.dim)
+    u_ex[::3] = g.cell_centers[2]
+    r_ex = np.zeros(g.num_cells * g.dim)
+    r_ex[1 :: g.dim] = -1
+    p_ex = np.zeros(g.num_cells)
+    sol_ex = np.hstack((u_ex, r_ex, p_ex))
+    flux_ex = flux @ sol_ex + rhs_matrix @ bound_values
+    resid_ex = div @ flux_ex - accum @ sol_ex
+    A = div @ flux - accum
+
+    assert np.allclose(resid_ex, 0)
+
 
 def _set_uniform_parameters(g: pp.Grid, val=1) -> dict:
     """Set up a uniform parameter dictionary for the TPSA problem."""
