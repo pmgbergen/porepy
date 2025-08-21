@@ -2,7 +2,7 @@
 
 This includes:
 - Convergence status enumeration.
-- Dynamic reference value management for defining reference norms.
+- Reference value management for defining reference norms.
 - Base convergence criterion classes.
 - Absolute and relative convergence criteria for nonlinear problems.
 - A NaN convergence criterion for detecting divergence due to NaN values.
@@ -36,12 +36,12 @@ class ConvergenceStatus(Enum):
         return self == ConvergenceStatus.DIVERGED
 
 
-class DynamicReferenceValue:
-    """Dynamic reference manager.
+class ReferenceValue:
+    """Reference value manager.
 
-    This class manages reference values dynamically based on a condition function.
-    It allows setting a reference value only when a certain condition is met, and
-    provides a default value if the condition is not met.
+    It allows initializing a reference value only when a certain condition is met, and
+    provides a default value if the condition is not met. For updating reference
+    values, the object needs to be reset.
 
     """
 
@@ -50,7 +50,7 @@ class DynamicReferenceValue:
         condition: Callable[[float], bool],
         default_reference_value: float,
     ) -> None:
-        """Define the dynamic reference value manager.
+        """Define the reference value manager.
 
         Parameters:
             condition: A callable that takes a value and returns True if it is a
@@ -101,8 +101,12 @@ class DynamicReferenceValue:
 ### Base convergence criterion classes
 
 
-class BaseConvergenceCriterion:
-    """Base class for convergence criteria."""
+class ConvergenceCriterion:
+    """Base class for convergence criteria.
+
+    Requires the implementation of the `_check` method to define the convergence.
+
+    """
 
     def check(
         self,
@@ -183,8 +187,8 @@ class BaseConvergenceCriterion:
         pass
 
 
-class BaseRelativeConvergenceCriterion(BaseConvergenceCriterion):
-    """Relative convergence criterion.
+class RelativeConvergenceCriterion(ConvergenceCriterion):
+    """Relative convergence criterion based on reference values.
 
     The convergence criterion is met if all relative norms of the nonlinear increment
     and the residual are below the specified thresholds. A combined absolute-relative
@@ -193,15 +197,15 @@ class BaseRelativeConvergenceCriterion(BaseConvergenceCriterion):
         ||inc|| / (1 + ||ref_inc||) < tol_inc
         ||res|| / (1 + ||ref_res||) < tol_res
 
-    The reference values for the nonlinear increment and residual norms are managed
-    dynamically, allowing for a flexible convergence check that adapts to the problem.
-    This class is abstract and requires the implementation of the `init_reference_value`
-    method, defining `reference_value`.
+    The reference values for the nonlinear increment and residual norms are managed,
+    allowing for a flexible convergence check that adapts to the problem. This class
+    is abstract and requires the implementation of the `init_reference_value` method,
+    defining `reference_value`.
 
     """
 
-    reference_value: DynamicReferenceValue
-    """Dynamic reference value manager for relative convergence checks."""
+    reference_value: ReferenceValue
+    """Reference value for relative convergence checks."""
 
     def __init__(self) -> None:
         """Initialize the relative convergence criterion."""
@@ -211,7 +215,7 @@ class BaseRelativeConvergenceCriterion(BaseConvergenceCriterion):
         self.reference_residual_norm: dict[str, float] = {}
         """Reference value for the residual norm."""
 
-    ### Manager methods for dynamic reference values
+    ### Manager methods for setting reference values
 
     @abstractmethod
     def init_reference_value(self) -> None:
@@ -313,7 +317,7 @@ class BaseRelativeConvergenceCriterion(BaseConvergenceCriterion):
 ### Concrete convergence criteria
 
 
-class NanConvergenceCriterion(BaseConvergenceCriterion):
+class NanConvergenceCriterion(ConvergenceCriterion):
     """Convergence criterion that checks for NaN values."""
 
     def _check(
@@ -343,28 +347,28 @@ class NanConvergenceCriterion(BaseConvergenceCriterion):
             return ConvergenceStatus.CONVERGED, 0.0, 0.0
 
 
-class AbsoluteConvergenceCriterion(BaseRelativeConvergenceCriterion):
+class AbsoluteConvergenceCriterion(RelativeConvergenceCriterion):
     """Absolute convergence criterion for nonlinear problems."""
 
     def init_reference_value(self):
         """Initialize the reference value manager for absolute convergence."""
-        self.reference_value = DynamicReferenceValue(
+        self.reference_value = ReferenceValue(
             condition=lambda x: False,
             default_reference_value=0.0,
         )
 
 
-class RelativeConvergenceCriterion(BaseRelativeConvergenceCriterion):
+class DynamicRelativeConvergenceCriterion(RelativeConvergenceCriterion):
     """Relative convergence criterion for nonlinear problems.
 
-    Reference values are set dynamically based on the current state but are not
-    allowed to be zero or nan.
+    Reference values are set based on the current state but are not allowed to
+    be zero or nan.
 
     """
 
     def init_reference_value(self):
         """Initialize the reference value manager for relative convergence."""
-        self.reference_value = DynamicReferenceValue(
+        self.reference_value = ReferenceValue(
             condition=lambda x: not np.isclose(x, 0.0) and not np.isnan(x),
             default_reference_value=1.0,
         )
