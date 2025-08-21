@@ -349,7 +349,7 @@ class AbsoluteConvergenceCriterion(BaseRelativeConvergenceCriterion):
     def init_reference_value(self):
         """Initialize the reference value manager for absolute convergence."""
         self.reference_value = DynamicReferenceValue(
-            condition=lambda x: True,
+            condition=lambda x: False,
             default_reference_value=0.0,
         )
 
