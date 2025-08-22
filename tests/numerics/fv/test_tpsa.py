@@ -1172,53 +1172,84 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     assert np.allclose(x_rob_low, x_neu, rtol=1e-12)
 
 
-def test_3d_linear_displacement():
-    g = pp.CartGrid([1, 1, 10], [1, 1, 1])
+@pytest.mark.parametrize("neu_bcs", [False, True])
+def test_3d_linear_displacement(neu_bcs: bool):
+    """Test of a 3d linear displacement problem, for which Tpsa should be exact.
+
+    The analytical solution is u = [z, 0, 0], which results in \sigma_{1,3} =
+    \sigma{3,1} = 1, with all other stress components equal to zero. The rotation will
+    be r = [0, -1, 0]. The solid pressure is zero.
+
+    Boundary conditions can be set from this analytical solution, as either Dirichlet or
+    Neumann (controlled by the parameter neu_bcs). In both cases, the bottom boundary is
+    assigned homogenous Dirichlet conditions to ensure solvability.
+
+    """
+    # Notes for debugging: For Neumann BCs, at least two cells are needed in the x- or
+    # y-direction to fix the domain and ensure solvability.
+    g = pp.CartGrid([2, 1, 10], [1, 1, 1])
     g.compute_geometry()
     d = _set_uniform_parameters(g)
-    boundary_faces = g.get_all_boundary_faces()
 
     domain = pp.domain.domain_sides_from_grid(g)
-    # Represent the array of boundary conditions as a numpy array for now, this makes it
-    # easy to insert values in the correct order.
 
-    f_bottom = np.where(domain.bottom)[0]
+    bc_values = np.zeros((g.dim, g.num_faces))
 
-    bc = pp.BoundaryConditionVectorial(g, faces=f_bottom, cond=f_bottom.size * ["dir"])
+    if neu_bcs:
+        # Clamp the domain at the bottom.
+        dir_faces = np.where(domain.bottom)[0]
+
+        # Non-zero Neumann conditions on the west and east side, and the top.
+        f_west = np.where(domain.west)[0]
+        f_east = np.where(domain.east)[0]
+        f_top = np.where(domain.top)[0]
+
+        # The stress on the west boundary (x=0) is [0, 0, -1] (multiply the analytical
+        # stress field, using an outer normal vector).
+        bc_values[2, f_west] = -1
+        # Stress along x=1, is [0, 0, 1].
+        bc_values[2, f_east] = 1
+        # Stress on top boundary is [1, 0, 0].
+        bc_values[0, f_top] = 1
+        # Area scaling to get traction.
+        bc_values *= g.face_areas
+    else:
+        dir_faces = g.get_all_boundary_faces()
+        # Set the displacement in the x-direction to the z-coordinate of the faces.
+        bc_values[0, dir_faces] = g.face_centers[2, dir_faces]
+
+    bc = pp.BoundaryConditionVectorial(
+        g, faces=dir_faces, cond=dir_faces.size * ["dir"]
+    )
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc
 
-    bc_values = np.zeros((g.dim, g.num_faces))
-    f_west = np.where(domain.west)[0]
-    f_east = np.where(domain.east)[0]
-    f_top = np.where(domain.top)[0]
-
-    bc_values[2, f_west] = -1
-    bc_values[2, f_east] = 1
-    bc_values[0, f_top] = 1
-    bc_values *= g.face_areas
-
+    # Discretize, get matrices, solve.
     matrices = _discretize_get_matrices(g, d)
     flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
 
     # Boundary values.
     bound_values = bc_values.ravel("F")
-
     x = _solve(flux, rhs_matrix, div, accum, bound_values)
 
-    y = flux @ x + rhs_matrix @ bound_values
-
+    # The analytical solution, as outlined in the method documentation.
     u_ex = np.zeros(g.num_cells * g.dim)
     u_ex[::3] = g.cell_centers[2]
     r_ex = np.zeros(g.num_cells * g.dim)
     r_ex[1 :: g.dim] = -1
     p_ex = np.zeros(g.num_cells)
     sol_ex = np.hstack((u_ex, r_ex, p_ex))
+
+    # Compute the flux and the residual from the discretization scheme when inserting
+    # the analytical solution. For the scheme to be exact, the residual should be zero.
     flux_ex = flux @ sol_ex + rhs_matrix @ bound_values
     resid_ex = div @ flux_ex - accum @ sol_ex
-    A = div @ flux - accum
-
     assert np.allclose(resid_ex, 0)
+
+    # Also compare the actual computed solutions.
+    assert np.allclose(x[: g.dim * g.num_cells], u_ex)
+    assert np.allclose(x[g.dim * g.num_cells : 2 * g.dim * g.num_cells], r_ex)
+    assert np.allclose(x[2 * g.dim * g.num_cells :], p_ex)
 
 
 def _set_uniform_parameters(g: pp.Grid, val=1) -> dict:
