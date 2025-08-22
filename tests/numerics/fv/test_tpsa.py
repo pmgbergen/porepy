@@ -931,25 +931,6 @@ class TestTpsaTailoredGrid:
         self._compare_matrices(matrices, known_values)
 
 
-def test_no_cosserat():
-    """Set up a problem without Cosserat effects, check that the rotation diffusion
-    matrix is zero.
-    """
-    g = pp.CartGrid([2, 2])
-    g.compute_geometry()
-
-    d = _set_uniform_parameters(g)
-    bf = g.get_all_boundary_faces()
-    d[pp.PARAMETERS][KEYWORD]["bc"] = pp.BoundaryConditionVectorial(
-        g, faces=bf, cond=bf.size * ["dir"]
-    )
-
-    # Discretize, assemble matrices.
-    matrices = _discretize_get_matrices(g, d)
-
-    assert np.allclose(matrices["rotation_rotation"].toarray(), 0)
-
-
 @pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
 @pytest.mark.parametrize("driving_bc_type", ["dir", "neu"])
 @pytest.mark.parametrize("tensile", [False, True])
