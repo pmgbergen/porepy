@@ -88,7 +88,6 @@ def test_buoyancy_fd_model(
         "buoyancy_on": True,
         "material_constants": material_constants,
         "time_manager": time_manager,
-        "prepare_simulation": False,
         "apply_schur_complement_reduction": False,
         "nl_convergence_tol": np.inf,
         "nl_convergence_tol_res": residual_tolerance,
@@ -109,8 +108,6 @@ def test_buoyancy_fd_model(
             pass
 
         model = Model3D(params)
-
-    model.prepare_simulation()
     pp.run_time_dependent_model(model, params)
 
 @pytest.mark.parametrize(
@@ -173,7 +170,6 @@ def test_buoyancy_md_model(
         "buoyancy_on": True,
         "material_constants": material_constants,
         "time_manager": time_manager,
-        "prepare_simulation": False,
         "apply_schur_complement_reduction": False,
         "nl_convergence_tol": np.inf,
         "nl_convergence_tol_res": residual_tolerance,
@@ -194,6 +190,4 @@ def test_buoyancy_md_model(
             pass
 
         model = Model3D(params)
-
-    model.prepare_simulation()
     pp.run_time_dependent_model(model, params)
