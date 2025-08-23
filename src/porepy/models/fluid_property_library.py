@@ -464,7 +464,7 @@ class FluidMobility(pp.PorePyModel):
 
 
 class FluidBuoyancy(pp.PorePyModel):
-    """Class for fluid buoyancy and its discretization in flow & transport equations."""
+    """Buoyancy terms and discretizations for multi-phase  multi-component flow."""
 
     component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
@@ -485,20 +485,25 @@ class FluidBuoyancy(pp.PorePyModel):
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     def buoyancy_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
+        """Key for subdomain buoyancy between phases gamma and delta."""
         return "buoyancy_" + gamma.name + "_" + delta.name
 
     def buoyant_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
+        """Key for stored buoyant flux array on subdomains."""
         return "buoyant_flux_" + gamma.name + "_" + delta.name
 
     def buoyancy_intf_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
+        """Key for interface buoyancy between phases gamma and delta."""
         return "buoyancy_intf_" + gamma.name + "_" + delta.name
 
     def buoyant_intf_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
+        """Key for stored buoyant flux array on interfaces."""
         return "buoyant_intf_flux_" + gamma.name + "_" + delta.name
 
     def buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.UpwindAd:
+        """Return upwind discretization for subdomain buoyancy term gamma↔delta."""
         discr = pp.ad.UpwindAd(self.buoyancy_key(gamma, delta), subdomains)
         discr._discretization.upwind_matrix_key = self.buoyancy_key(gamma, delta)
         discr._discretization.flux_array_key = self.buoyant_flux_array_key(gamma, delta)
@@ -507,6 +512,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def interface_buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
+        """Return upwind discretization for interface buoyancy term gamma↔delta."""
         discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
         discr._discretization.upwind_matrix_key = self.buoyancy_intf_key(gamma, delta)
         discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(
@@ -515,6 +521,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return discr
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Return gravity magnitude field (pointing in negative last coord)."""
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2")
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
@@ -527,10 +534,9 @@ class FluidBuoyancy(pp.PorePyModel):
         subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
         material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
+        """Return gravity force term (fluid only if buoyancy enabled)."""
         if material == "fluid" and self.params.get("buoyancy_on", True):
             fractionally_weighted_rho = self.fractionally_weighted_density(subdomains)
-
-            # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
             e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
             overall_gravity_flux = (
                 pp.ad.Scalar(-1)
@@ -540,14 +546,12 @@ class FluidBuoyancy(pp.PorePyModel):
             overall_gravity_flux.set_name("overall gravity flux")
             return overall_gravity_flux
         else:
-            # TODO this needs documentation and a failsafe if no other gravity mixin
-            # provided.
             return super().gravity_force(subdomains, material)  # type:ignore
 
     def density_driven_flux(
         self, subdomains: pp.SubdomainsOrBoundaries, density_metric: pp.ad.Operator
     ) -> pp.ad.Operator:
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        """Compute flux induced by density_metric * g along gravity direction."""
         e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
         gravity_flux = (
             pp.ad.Scalar(-1) * e_n @ (density_metric * self.gravity_field(subdomains))
@@ -564,6 +568,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def interface_density_driven_flux(
         self, interfaces: list[pp.MortarGrid], density_metric: pp.ad.Operator
     ) -> pp.ad.Operator:
+        """Compute interface flux induced by density_metric * g along gravity direction."""
         normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
 
         subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
@@ -571,7 +576,6 @@ class FluidBuoyancy(pp.PorePyModel):
             self.mdg, subdomain_neighbors, interfaces, dim=self.nd
         )
 
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
         e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
         gravity_flux = (
             pp.ad.Scalar(-1)
@@ -597,6 +601,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def fractionally_weighted_density(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
+        """Return sum f_j rho_j (fractional-flow-weighted density)."""
         overall_rho = pp.ad.sum_operator_list(
             [
                 self.fractional_phase_mass_mobility(phase, domains)
@@ -610,12 +615,11 @@ class FluidBuoyancy(pp.PorePyModel):
     def __entity_buoyancy_flux(
         self, convected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
+        """Internal: Buoyancy flux induced by gamma and delta, convecting a quantity associated to phase gamma."""
         b_fluxes = []
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
-        w_flux_gamma_delta = self.density_driven_flux(
-            domains, rho_gamma - rho_delta
-        )  # well-defined flux on facets
+        w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta)
         f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
 
@@ -628,11 +632,11 @@ class FluidBuoyancy(pp.PorePyModel):
         discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
         f_gamma_upwind: pp.ad.Operator = (
-                discr_gamma.upwind() @ (convected_gamma_quantity * f_gamma)
-        )  # well-defined fraction flow on facets
+            discr_gamma.upwind() @ (convected_gamma_quantity * f_gamma)
+        )  # well-defined fractional flow on facets
         f_delta_upwind: pp.ad.Operator = (
-                discr_delta.upwind() @ f_delta
-        )  # well-defined fraction flow on facets
+            discr_delta.upwind() @ f_delta
+        )  # well-defined fractional flow on facets
 
         b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
         b_fluxes.append(b_flux_gamma_delta)
@@ -675,8 +679,9 @@ class FluidBuoyancy(pp.PorePyModel):
         return b_fluxes
 
     def __entity_buoyancy_jump(
-            self, convected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
+        self, convected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
+        """Internal: Buoyancy flux jump induced by gamma and delta, convecting a quantity associated to phase gamma."""
 
         # Verify that the domains are subdomains.
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -685,7 +690,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         b_flux_jumps = []
         size = sum(g.num_cells for g in domains)
-        zero = pp.wrap_as_dense_ad_array(np.zeros(size), name="component_buoyancy_jump_zero")
+        zero = pp.wrap_as_dense_ad_array(
+            np.zeros(size), name="component_buoyancy_jump_zero"
+        )
         b_flux_jumps.append(zero)
 
         rho_gamma = gamma.density(domains)
@@ -714,13 +721,12 @@ class FluidBuoyancy(pp.PorePyModel):
 
             # Project quantities to interface with proper upwinding for both primary and secondary sides
             gamma_interface = (
-                    intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (
-                        convected_gamma_quantity * f_gamma)
-                    + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (convected_gamma_quantity * f_gamma)
+                intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (convected_gamma_quantity * f_gamma)
+                + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (convected_gamma_quantity * f_gamma)
             )
             delta_interface = (
-                    intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta
-                    + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
+                intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta
+                + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
             )
 
             # Compute interface contribution and project back to secondary grid
@@ -730,6 +736,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return b_flux_jumps
 
     def phase_pairs_for(self, phase: pp.Phase) -> list[tuple[pp.Phase, pp.Phase]]:
+        """Return ordered phase pairs (gamma, delta) including given phase first."""
         combination_by_pairs = [
             pair for pair in list(combinations(self.fluid.phases, 2)) if phase in pair
         ]
@@ -748,14 +755,16 @@ class FluidBuoyancy(pp.PorePyModel):
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-
+        """Return buoyancy flux for a component."""
         b_fluxes = []
         b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase):
                 gamma, delta = pairs
                 chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
-                b_fluxes += self.__entity_buoyancy_flux(chi_xi_gamma, gamma, delta, domains)
+                b_fluxes += self.__entity_buoyancy_flux(
+                    chi_xi_gamma, gamma, delta, domains
+                )
         b_flux = pp.ad.sum_operator_list(b_fluxes)
         b_flux.set_name("component_buoyancy_" + component_xi.name)
         return b_flux
@@ -763,7 +772,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def enthalpy_buoyancy(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-
+        """Return buoyancy flux for specific enthalpy."""
         b_fluxes = []
         b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
         for phase in self.fluid.phases:
@@ -771,15 +780,14 @@ class FluidBuoyancy(pp.PorePyModel):
                 gamma, delta = pairs
                 h_gamma = gamma.specific_enthalpy(domains)
                 b_fluxes += self.__entity_buoyancy_flux(h_gamma, gamma, delta, domains)
-        b_flux = pp.ad.sum_operator_list(
-            b_fluxes
-        )  # sum all buoyancy terms w.t. component_xi
+        b_flux = pp.ad.sum_operator_list(b_fluxes)
         b_flux.set_name("enthalpy_buoyancy")
         return b_flux
 
     def component_buoyancy_jump(
-            self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
+        self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
+        """Return interface jump term for component buoyancy."""
         b_fluxes = []
 
         size = sum(g.num_cells for g in domains)
@@ -795,9 +803,9 @@ class FluidBuoyancy(pp.PorePyModel):
         return b_flux
 
     def enthalpy_buoyancy_jump(
-            self, domains: pp.SubdomainsOrBoundaries
+        self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-
+        """Return interface jump term for enthalpy buoyancy."""
         b_fluxes = []
         size = sum(g.num_cells for g in domains)
         zero = pp.wrap_as_dense_ad_array(np.zeros(size), name="enthalpy_buoyancy_jump_zero")
@@ -812,6 +820,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return b_flux
 
     def set_buoyancy_discretization_parameters(self):
+        """Initialize parameter containers and zero flux arrays for buoyancy."""
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
@@ -837,6 +846,7 @@ class FluidBuoyancy(pp.PorePyModel):
                     )
 
     def set_nonlinear_buoyancy_discretization(self):
+        """Register nonlinear upwind discretizations for buoyancy terms."""
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
@@ -862,11 +872,11 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
     def update_buoyancy_driven_fluxes(self):
+        """Update stored buoyancy flux arrays (subdomains and interfaces)."""
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
-                    # Computing buoyancy flux and updating it in the mobility
                     rho_gamma = gamma.density([sd])
                     rho_delta = delta.density([sd])
                     vals = self.equation_system.evaluate(
@@ -878,7 +888,6 @@ class FluidBuoyancy(pp.PorePyModel):
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
                         {self.buoyant_flux_array_key(delta, gamma): -vals}
                     )
-
                 for intf, data in self.mdg.interfaces(return_data=True, codim=1):
                     subdomain_neighbors = self.interfaces_to_subdomains([intf])
                     rho_gamma = gamma.density(subdomain_neighbors)
@@ -894,7 +903,6 @@ class FluidBuoyancy(pp.PorePyModel):
                     data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
                         {self.buoyant_intf_flux_array_key(delta, gamma): -vals}
                     )
-
                 for intf, data in self.mdg.interfaces(return_data=True, codim=2):
                     # TODO: This functionality is out of the research scope
                     assert False  # case not implemented yet
