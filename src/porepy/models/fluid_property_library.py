@@ -857,16 +857,6 @@ class FluidBuoyancy(pp.PorePyModel):
                         delta, gamma, self.mdg.subdomains()
                     ).upwind(),
                 )
-                # self.add_nonlinear_discretization(
-                #     self.interface_buoyancy_discretization(
-                #         gamma, delta, self.mdg.interfaces()
-                #     ),
-                # )
-                # self.add_nonlinear_discretization(
-                #     self.interface_buoyancy_discretization(
-                #         delta, gamma, self.mdg.interfaces()
-                #     ),
-                # )
 
     def update_buoyancy_driven_fluxes(self):
         """Update stored buoyancy flux arrays (subdomains and interfaces)."""
