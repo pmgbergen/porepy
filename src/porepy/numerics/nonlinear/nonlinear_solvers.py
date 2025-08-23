@@ -59,7 +59,7 @@ class NewtonSolver:
             # Allow the position of the progress bar to be flexible, depending on whether
             # this is called inside a time loop, a time loop and an additional propagation
             # loop or inside a stationary problem (default).
-            progress_bar_position: int = self.params.get("nl_progressbar_position", 0)
+            progress_bar_position: int = self.params.get("_nl_progress_bar_position", 0)
 
             # Length is the maximal number of Newton iterations.
             self.solver_progressbar = progressbar_class(  # type: ignore
