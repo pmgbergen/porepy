@@ -150,9 +150,9 @@ class NewtonSolver:
                 if not is_diverged:
                     solver_progressbar.update(n=1)
                     # Ignore the long line; fixing it would require an extra variable.
-                    solver_progressbar.set_postfix_str(
-                        f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
-                    )
+                    # solver_progressbar.set_postfix_str(
+                    #     f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
+                    # )
 
                 if is_diverged:
                     # Handle nonlinear divergence outside the loop.
