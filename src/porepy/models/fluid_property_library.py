@@ -947,22 +947,22 @@ class FluidBuoyancy(pp.PorePyModel):
                 for sd, data in self.mdg.subdomains(return_data=True):
                     pp.initialize_data(sd, data, self.buoyancy_key(gamma, delta))
                     pp.initialize_data(sd, data, self.buoyancy_key(delta, gamma))
-                    vals = np.zeros(sd.num_faces)
+                    null_vals = np.zeros(sd.num_faces)
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                        {self.buoyant_flux_array_key(gamma, delta): +vals}
+                        {self.buoyant_flux_array_key(gamma, delta): +null_vals}
                     )
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                        {self.buoyant_flux_array_key(delta, gamma): -vals}
+                        {self.buoyant_flux_array_key(delta, gamma): -null_vals}
                     )
                 for intf, data in self.mdg.interfaces(return_data=True):
-                    vals = np.zeros(intf.num_cells)
+                    null_vals = np.zeros(intf.num_cells)
                     pp.initialize_data(intf, data, self.buoyancy_intf_key(gamma, delta))
                     pp.initialize_data(intf, data, self.buoyancy_intf_key(delta, gamma))
                     data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
-                        {self.buoyant_intf_flux_array_key(gamma, delta): +vals}
+                        {self.buoyant_intf_flux_array_key(gamma, delta): +null_vals}
                     )
                     data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
-                        {self.buoyant_intf_flux_array_key(delta, gamma): -vals}
+                        {self.buoyant_intf_flux_array_key(delta, gamma): -null_vals}
                     )
 
     def set_nonlinear_buoyancy_discretization(self):
