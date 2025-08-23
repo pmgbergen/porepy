@@ -860,16 +860,6 @@ class FluidBuoyancy(pp.PorePyModel):
                         delta, gamma, self.mdg.subdomains()
                     ).upwind(),
                 )
-                self.add_nonlinear_discretization(
-                    self.interface_buoyancy_discretization(
-                        gamma, delta, self.mdg.interfaces()
-                    ).upwind(),
-                )
-                self.add_nonlinear_discretization(
-                    self.interface_buoyancy_discretization(
-                        delta, gamma, self.mdg.interfaces()
-                    ).upwind(),
-                )
 
     def update_buoyancy_driven_fluxes(self):
         """Update stored buoyancy flux arrays (subdomains and interfaces)."""
@@ -906,7 +896,6 @@ class FluidBuoyancy(pp.PorePyModel):
                 for intf, data in self.mdg.interfaces(return_data=True, codim=2):
                     # TODO: This functionality is out of the research scope
                     assert False  # case not implemented yet
-
 
 class ConstantViscosity(pp.PorePyModel):
     """Constant viscosity for a single-phase fluid."""

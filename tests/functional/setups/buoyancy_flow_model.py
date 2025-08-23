@@ -683,11 +683,9 @@ class FlowModel2N(
         z_mass_loss = abs(ref_rho_z - num_rho_z)
         energy_loss = abs(ref_energy - num_energy)
 
-        aka = 0
         assert order(mass_loss) >= self.expected_order_loss
         assert order(z_mass_loss) >= self.expected_order_loss
         assert order(energy_loss) >= self.expected_order_loss
-        aka = 0
 
 
 class BuoyancyFlowModel2N(

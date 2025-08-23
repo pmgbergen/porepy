@@ -126,7 +126,7 @@ class NewtonSolver:
             if self.progress_bar:
                 # Length is the maximal number of Newton iterations.
                 solver_progressbar = progressbar_class(  # type: ignore
-                    self.params["max_iterations"],
+                    range(int(self.params["max_iterations"])),
                     desc="Newton loop",
                     position=self.progress_bar_position,
                     leave=False,
@@ -150,9 +150,9 @@ class NewtonSolver:
                 if not is_diverged and len(model.nonlinear_solver_statistics.nonlinear_increment_norms) > 0:
                     solver_progressbar.update(n=1)
                     # Ignore the long line; fixing it would require an extra variable.
-                    solver_progressbar.set_postfix_str(
-                        f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
-                    )
+                    # solver_progressbar.set_postfix_str(
+                    #     f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
+                    # )
 
                 if is_diverged:
                     # Handle nonlinear divergence outside the loop.

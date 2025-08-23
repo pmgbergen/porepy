@@ -42,7 +42,7 @@ class DummyProgressBar:
 # ``tqdm`` is not a dependency. Up to the user to install it.
 try:
     # Avoid some mypy trouble due to missing library stubs for tqdm.
-    from tqdm.autonotebook import trange as progressbar_class  # type: ignore
+    from tqdm.autonotebook import tqdm as progressbar_class  # type: ignore
     from tqdm.contrib.logging import (  # type: ignore
         _get_first_found_console_logging_handler,
         _TqdmLoggingHandler,
