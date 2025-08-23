@@ -648,7 +648,7 @@ class FluidBuoyancy(pp.PorePyModel):
                     )  # well-defined fraction flow on facets
 
                     b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
-
+                    b_fluxes.append(b_flux_gamma_delta)
 
                     interfaces = self.subdomains_to_interfaces(domains, [1])
 
@@ -679,16 +679,12 @@ class FluidBuoyancy(pp.PorePyModel):
                             + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
                         )
 
-                        # gamma_data = self.equation_system.evaluate(discr_gamma.bound_transport_neu()).data
-                        # delta_data = self.equation_system.evaluate(discr_delta.bound_transport_neu()).data
-                        # assert delta_data == delta_data
-
                         # Compute interface contribution and project back to primary grid
                         interface_coupling_intf = (gamma_interface * delta_interface) * intf_w_flux_gamma_delta
                         # discr_gamma.bound_transport_neu() and discr_delta.bound_transport_neu() are equal
                         # discr_gamma.bound_transport_neu() is selected to operate
-                        b_flux_gamma_delta += discr_gamma.bound_transport_neu() @ mortar_projection.mortar_to_primary_int() @ interface_coupling_intf
-                    b_fluxes.append(b_flux_gamma_delta)
+                        b_intf_flux_gamma_delta = discr_gamma.bound_transport_neu() @ mortar_projection.mortar_to_primary_int() @ interface_coupling_intf
+                        b_fluxes.append(b_intf_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(b_fluxes)
         b_flux.set_name("component_buoyancy_" + component_xi.name)
@@ -716,9 +712,7 @@ class FluidBuoyancy(pp.PorePyModel):
                     gamma, delta = pairs
                     rho_gamma = gamma.density(domains)
                     rho_delta = delta.density(domains)
-                    w_flux_gamma_delta = self.density_driven_flux(
-                        domains, rho_gamma - rho_delta
-                    )  # well-defined flux on facets
+
                     f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
                     f_delta = self.fractional_phase_mass_mobility(delta, domains)
 
@@ -729,11 +723,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
                     chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
 
-                    discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
-                    discr_delta = self.buoyancy_discretization(delta, gamma, domains)
-
                     interfaces = self.subdomains_to_interfaces(domains, [1])
-
                     if len(interfaces) != 0:
                         # Get interface flux contribution
                         intf_w_flux_gamma_delta = self.interface_density_driven_flux(interfaces, rho_gamma - rho_delta)
@@ -804,14 +794,6 @@ class FluidBuoyancy(pp.PorePyModel):
                     discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
                     discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
-                    # diffusive_upwind = self.mobility_discretization(domains)
-
-                    # # TODO: Fixed dimensional implementation. Needs md-part
-                    # h_gamma_upwind: pp.ad.Operator = (
-                    #     diffusive_upwind.upwind() @ h_gamma
-                    # )
-
-                    # TODO: Fixed dimensional implementation. Needs md-part
                     f_gamma_upwind: pp.ad.Operator = (
                         discr_gamma.upwind() @ (h_gamma * f_gamma)
                     )  # well-defined fraction flow on facets
@@ -852,18 +834,12 @@ class FluidBuoyancy(pp.PorePyModel):
                                 + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
                         )
 
-                        # gamma_data = self.equation_system.evaluate(discr_gamma.bound_transport_neu()).data
-                        # delta_data = self.equation_system.evaluate(discr_delta.bound_transport_neu()).data
-                        # assert delta_data == delta_data
-
                         # Compute interface contribution and project back to primary grid
                         interface_coupling_intf = (gamma_interface * delta_interface) * intf_w_flux_gamma_delta
                         # discr_gamma.bound_transport_neu() and discr_delta.bound_transport_neu() are equal
                         # discr_gamma.bound_transport_neu() is selected to operate
-                        b_flux_gamma_delta += discr_gamma.bound_transport_neu() @ mortar_projection.mortar_to_primary_int() @ interface_coupling_intf
-                    else:
-                        b_flux_gamma_delta = self.density_driven_flux(domains, pp.ad.Scalar(0.0))
-                    b_fluxes.append(b_flux_gamma_delta)
+                        b_intf_flux_gamma_delta = discr_gamma.bound_transport_neu() @ mortar_projection.mortar_to_primary_int() @ interface_coupling_intf
+                        b_fluxes.append(b_intf_flux_gamma_delta)
 
         b_flux = pp.ad.sum_operator_list(
             b_fluxes
