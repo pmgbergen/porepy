@@ -1,23 +1,23 @@
 """
 Tests for the N-phase, N-component buoyancy-driven flow model.
 
-This test file verifies mass conservation and the reciprocity of buoyancy
-fluxes in an immiscible flow simulation under the influence of gravity.
+This file verifies mass and energy conservation and the reciprocity of buoyancy
+fluxes in an immiscible flow simulation under gravity.
 
-The tests cover two systems:
-- N=2: Two phases (liquid-aqueous, gas) and two components (e.g., H₂O, CH₄).
-- N=3: Three phases (liquid-aqueous, liquid-oleic, gas) and three components (e.g., H₂O, CO₂, CH₄).
+It covers two multicomponent fluid systems:
+- N = 2: Two phases (aqueous liquid, gas) and two components (e.g., H₂O, CH₄).
+- N = 3: Three phases (aqueous liquid, oleic liquid, gas) and three components (e.g., H₂O, CO₂, CH₄).
 
-The test runs simulations in both 2D and 3D and for various mass conservation
-tolerances. It checks two primary conditions after each simulation run:
-1. Reciprocal Buoyancy Fluxes: It asserts that the buoyancy fluxes of the
-   components are equal and opposite.
-2. Mass Conservation: It verifies that the change in the total volume of independent phases
-   over the simulation time is within a specified tolerance, ensuring that the
-   discretization of the buoyancy term is mass-conservative.
-2. Energy Conservation: It verifies that the change in the fluid energy
-   over the simulation time is within a specified tolerance, ensuring that the
-   discretization of the convection buoyancy terms are energy-conservative.
+Simulations are run in 2D and 3D for several conservation tolerances, and
+the observed conservation is checked to be of the expected order. After each
+time step the following are tested:
+1. Reciprocal buoyancy fluxes: Component buoyancy fluxes are equal and opposite.
+2. Mass conservation: The change in the total volume of independent phases over
+   the simulation time remains within the specified tolerance, demonstrating a
+   mass-conservative discretization of the buoyancy term.
+3. Energy conservation: The change in total fluid energy over the simulation
+   time remains within the specified tolerance, demonstrating an energy-conservative
+   discretization of the energy convective buoyancy terms.
 """
 
 from typing import Type
@@ -52,14 +52,14 @@ def test_buoyancy_fd_model(
     expected_order_loss: int,
 ) -> None:
     """
-    Runs the buoyancy-driven flow simulation and checks for mass conservation and
+    Runs the buoyancy-driven flow simulation and checks for mass, energy conservation and
     reciprocal buoyancy fluxes.
 
     Parameters:
         model_class (Type[pp.PorePyModel]): The buoyancy flow model class to test
                                                      (BuoyancyFlowModel2N or BuoyancyFlowModel3N).
         mesh_2d_Q (bool): If True, runs a 2D simulation. Otherwise, runs a 3D simulation.
-        expected_order_mass_loss (int): The expected order of magnitude for the mass loss,
+        expected_order_loss (int): The expected order of magnitude for the mass or energy loss,
                                         used to set the residual tolerance.
     """
     residual_tolerance = 10.0 ** (-expected_order_loss)
@@ -137,14 +137,14 @@ def test_buoyancy_md_model(
     expected_order_loss: int,
 ) -> None:
     """
-    Runs the md buoyancy-driven flow simulation and checks for mass conservation and
+    Runs the md buoyancy-driven flow simulation and checks for mass, energy conservation and
     reciprocal buoyancy fluxes.
 
     Parameters:
         model_class (Type[pp.PorePyModel]): The buoyancy flow model class to test
                                                      (BuoyancyFlowModel2N or BuoyancyFlowModel3N).
         mesh_2d_Q (bool): If True, runs a 2D simulation. Otherwise, runs a 3D simulation.
-        expected_order_mass_loss (int): The expected order of magnitude for the mass loss,
+        expected_order_loss (int): The expected order of magnitude for the mass or energy loss,
                                         used to set the residual tolerance.
     """
     residual_tolerance = 10.0 ** (-expected_order_loss)
