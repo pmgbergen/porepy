@@ -1,4 +1,4 @@
-"""Collection of objects and functions related to convergence checking in models.
+"""Collection of objects and functions related to convergence checking.
 
 This includes:
 - Convergence status enumeration.
@@ -219,7 +219,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 
     @abstractmethod
     def init_reference_value(self) -> None:
-        """Expect to set `self.reference_value`."""
+        """Expect to instantiate `self.reference_value`."""
 
     def set_reference_value(
         self,
