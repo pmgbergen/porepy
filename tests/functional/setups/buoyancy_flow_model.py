@@ -29,6 +29,11 @@ mu_w = 1.0e-3  #: Viscosity of water (H2O)
 mu_o = 1.0e-4   #: Viscosity of oil (C5H12)
 mu_g = 1.0e-5   #: Viscosity of gas (CH4)
 
+# Specific enthalpies (physical units MJ/kg)
+h_w = 1.0     # Water
+h_o = 1.5     # Oil
+h_g = 2.0     # Gas
+
 # Conversion factor to Mega (1e-6)
 to_Mega = 1.0e-6  #: Unit conversion factor to Mega units
 
@@ -194,27 +199,10 @@ class BaseEOS(pp.compositional.EquationOfState):
     with methods to return values and derivatives for compositional flow.
 
     Subclasses should override:
+        -h_func to provide phase-enthalpy.
         -rho_func to provide phase-specific density.
         -mu_func to provide phase-viscosity.
     """
-
-    def h(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Specific enthalpy function.
-
-        Args:
-            thermodynamic_dependencies: Variable number of arrays representing
-                thermodynamic inputs.
-
-        Returns:
-            Tuple of enthalpy values and their derivatives w.r.t. inputs.
-        """
-        nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * to_Mega
-        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def kappa(
             self,
@@ -280,6 +268,14 @@ class WaterEOS(BaseEOS):
     from BaseEOS.
     """
 
+    def h(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = h_w * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
     def rho_func(
             self,
             *thermodynamic_dependencies: np.ndarray,
@@ -307,6 +303,14 @@ class OilEOS(BaseEOS):
     from BaseEOS.
     """
 
+    def h(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = h_o * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
     def rho_func(
             self,
             *thermodynamic_dependencies: np.ndarray,
@@ -332,6 +336,14 @@ class GasEOS(BaseEOS):
     Implements constant density specific to gas and inherits other properties
     from BaseEOS.
     """
+
+    def h(
+            self,
+            *thermodynamic_dependencies: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        nc = len(thermodynamic_dependencies[0])
+        vals = h_g * np.ones(nc)
+        return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def rho_func(
             self,
@@ -624,7 +636,9 @@ class InitialConditions2N(pp.PorePyModel):
         return np.ones(sd.num_cells) * p_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1.0
+        ic_s = self.ic_values_saturation(sd)
+        ic_rho = rho_g * ic_s + rho_w * (1.0 - ic_s)
+        h = (ic_s * h_g * rho_g + (1.0 - ic_s) * h_w * rho_w) / ic_rho
         return np.ones(sd.num_cells) * h
 
     def ic_values_overall_fraction(
@@ -648,76 +662,79 @@ class FlowModel2N(
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
 
+        subdomains = self.mdg.subdomains()
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
 
-        flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
-        flux_buoyancy_c1 = self.component_buoyancy(components[1], self.mdg.subdomains())
+        # Buoyancy flux reciprocity
+        buoy_ops = [
+            self.component_buoyancy(comp, subdomains) for comp in components[:2]
+        ]
+        buoy_vals = [self.equation_system.evaluate(op) for op in buoy_ops]
+        assert np.all(np.isclose(sum(buoy_vals), 0.0))
 
-        b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
-        b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
-        are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
-        assert are_reciprocal_Q
+        # Total volume
+        total_volume = sum(
+            np.sum(
+                self.equation_system.evaluate(
+                    self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                )
+            )
+            for sd in subdomains
+        )
 
-        total_volume = 0.0
-        for sd in self.mdg.subdomains():
-            total_volume += np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
+        def norm_vol_int(op: pp.ad.Operator, sd: pp.Grid) -> float:
+            return (
+                    np.sum(self.equation_system.evaluate(self.volume_integral(op, [sd], dim=1)))
+                    / total_volume
+            )
 
-        ref_rho_integral = 0.0
-        ref_rho_z_integral = 0.0
-        num_rho_integral = 0.0
-        num_rho_z_integral = 0.0
+        # Reference and numerical accumulators
+        ref_rho = ref_rho_z = ref_energy = 0.0
+        num_rho = num_rho_z = num_energy = 0.0
 
-        ref_fluid_energy_integral = 0.0
-        num_fluid_energy_integral = 0.0
-        for sd in self.mdg.subdomains():
-
-            ic_sg_val = self.ic_values_saturation(sd)
+        for sd in subdomains:
+            ic_sg = self.ic_values_saturation(sd)
             rho_l = phases[0].density([sd])
-            rho_v = phases[1].density([sd])
-            ic_rho = pp.wrap_as_dense_ad_array(1.0 - ic_sg_val) * rho_l + pp.wrap_as_dense_ad_array(ic_sg_val) * rho_v
-            ref_rho_integral_op = self.volume_integral(ic_rho, [sd], dim=1)
-            ref_rho_integral += np.sum(self.equation_system.evaluate(ref_rho_integral_op))/total_volume
+            rho_g = phases[1].density([sd])
 
-            ic_z_val = self.ic_values_overall_fraction(self.fluid.components[1],sd)
-            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z_val)
-            ref_rho_z_op = self.volume_integral(ic_rho_z, [sd], dim=1)
-            ref_rho_z_integral += np.sum(self.equation_system.evaluate(ref_rho_z_op))/total_volume
+            ic_rho = (
+                    pp.wrap_as_dense_ad_array(1.0 - ic_sg) * rho_l
+                    + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+            )
+            ref_rho += norm_vol_int(ic_rho, sd)
 
-            ic_p_val = self.ic_values_pressure(sd)
-            ic_h_val = self.ic_values_enthalpy(sd)
-            ic_fluid_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h_val) - pp.wrap_as_dense_ad_array(ic_p_val)
-            ref_fluid_energy_op = self.volume_integral(ic_fluid_energy, [sd], dim=1)
-            ref_fluid_energy_integral += np.sum(self.equation_system.evaluate(ref_fluid_energy_op))/total_volume
+            ic_z = self.ic_values_overall_fraction(components[1], sd)
+            ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z)
+            ref_rho_z += norm_vol_int(ic_rho_z, sd)
 
-            num_rho_op = self.fluid.density([sd])
-            int_rho_op = self.volume_integral(num_rho_op, [sd], dim=1)
-            num_rho_integral += np.sum(self.equation_system.evaluate(int_rho_op))/total_volume
+            ic_p = self.ic_values_pressure(sd)
+            ic_h = self.ic_values_enthalpy(sd)
+            ic_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h) - pp.wrap_as_dense_ad_array(ic_p)
+            ref_energy += norm_vol_int(ic_energy, sd)
 
-            num_rho_z_op = num_rho_op * components[1].fraction([sd])
-            int_rho_z_op = self.volume_integral(num_rho_z_op, [sd], dim=1)
-            num_rho_z_integral += np.sum(self.equation_system.evaluate(int_rho_z_op))/total_volume
+            cur_rho = self.fluid.density([sd])
+            num_rho += norm_vol_int(cur_rho, sd)
 
-            num_fluid_energy_op = num_rho_op * self.enthalpy([sd]) - self.pressure([sd])
-            int_fluid_energy_op = self.volume_integral(num_fluid_energy_op, [sd], dim=1)
-            num_fluid_energy_integral += np.sum(self.equation_system.evaluate(int_fluid_energy_op))/total_volume
+            cur_rho_z = cur_rho * components[1].fraction([sd])
+            num_rho_z += norm_vol_int(cur_rho_z, sd)
 
-        mass_loss = np.abs(ref_rho_integral - num_rho_integral)
-        z_mass_loss = np.abs(ref_rho_z_integral - num_rho_z_integral)
-        order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
-        order_z_mass_loss = np.abs(np.floor(np.log10(z_mass_loss)))
+            cur_energy = cur_rho * self.enthalpy([sd]) - self.pressure([sd])
+            num_energy += norm_vol_int(cur_energy, sd)
 
-        energy_loss = np.abs(ref_fluid_energy_integral - num_fluid_energy_integral)
-        order_energy_loss = np.abs(np.floor(np.log10(energy_loss)))
+        # Loss metrics
+        def order(loss: float) -> float:
+            return np.inf if loss <= 0.0 else abs(np.floor(np.log10(loss)))
 
-        mass_conservative_Q = order_mass_loss >= self.expected_order_loss
-        assert mass_conservative_Q
+        mass_loss = abs(ref_rho - num_rho)
+        z_mass_loss = abs(ref_rho_z - num_rho_z)
+        energy_loss = abs(ref_energy - num_energy)
 
-        z_mass_conservative_Q = order_z_mass_loss >= self.expected_order_loss
-        assert z_mass_conservative_Q
-
-        energy_conservative_Q = order_energy_loss >= self.expected_order_loss
-        assert energy_conservative_Q
+        aka = 0
+        assert order(mass_loss) >= self.expected_order_loss
+        assert order(z_mass_loss) >= self.expected_order_loss
+        assert order(energy_loss) >= self.expected_order_loss
+        aka = 0
 
 
 class BuoyancyFlowModel2N(
