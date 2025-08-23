@@ -46,7 +46,7 @@ from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, Buo
         (BuoyancyFlowModel3N, False, 4),
     ],
 )
-def test_buoyancy_model(
+def test_buoyancy_fd_model(
     model_class: Type[pp.PorePyModel],
     mesh_2d_Q: bool,
     expected_order_loss: int,
