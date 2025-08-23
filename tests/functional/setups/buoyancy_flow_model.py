@@ -189,6 +189,33 @@ class ModelGeometry3D(Geometry):
 
         return find_facets(self._sphere_centre)
 
+class ModelMDGeometry3D(ModelGeometry3D):
+    """Concrete geometry class for MD 3D Cartesian grid domain."""
+
+    def set_fractures(self) -> None:
+        kind_1_square_u = np.array([1.0, 1.0, 4.0, 4.0])
+        kind_1_square_v = np.array([1.0, 4.0, 4.0, 1.0])
+
+        kind_2_square_u = np.array([2.0, 2.0, 4.0, 4.0])
+        kind_2_square_v = np.array([2.0, 4.0, 4.0, 2.0])
+
+        # normal along z from z = 2.0
+        f1 = np.vstack([kind_1_square_u, kind_1_square_v, np.full(4, 2.0)])
+
+        # normal along y from y = 1.0
+        f2 = np.vstack([kind_1_square_u, np.full(4, 1.0), kind_1_square_v])
+
+        # normal along y from y = 4.0
+        f3 = np.vstack([kind_1_square_u, np.full(4, 4.0), kind_1_square_v])
+
+        # normal along y from y = 3.0
+        f4 = np.vstack([kind_1_square_u, np.full(4, 3.0), kind_1_square_v])
+
+        # normal along x from x = 2.0
+        f5 = np.vstack([np.full(4, 2.0), kind_2_square_u, kind_2_square_v])
+
+        disjoint_set = [f1, f2, f3, f4, f5]
+        self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
 
 class BaseEOS(pp.compositional.EquationOfState):
     """
@@ -375,7 +402,7 @@ class BaseFlowModel(
     def relative_permeability(
             self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        return phase.saturation(domains)**2
+        return phase.saturation(domains)
 
     def set_equations(self):
         super().set_equations()
@@ -442,7 +469,9 @@ def temperature_2N(
 
     nc = len(thermodynamic_dependencies[0])
 
-    factor = 250.0
+    # Set temperature to zero to isolate
+    # the effect of energy convection driven by buoyancy.
+    factor = 0.0
     vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -757,7 +786,9 @@ def temperature_3N(
 
     nc = len(thermodynamic_dependencies[0])
 
-    factor = 250.0
+    # Set temperature to zero to isolate
+    # the effect of energy convection driven by buoyancy.
+    factor = 0.0
     vals = np.array(h) * factor
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))

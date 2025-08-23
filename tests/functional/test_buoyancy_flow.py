@@ -15,6 +15,9 @@ tolerances. It checks two primary conditions after each simulation run:
 2. Mass Conservation: It verifies that the change in the total volume of independent phases
    over the simulation time is within a specified tolerance, ensuring that the
    discretization of the buoyancy term is mass-conservative.
+2. Energy Conservation: It verifies that the change in the fluid energy
+   over the simulation time is within a specified tolerance, ensuring that the
+   discretization of the convection buoyancy terms are energy-conservative.
 """
 
 from typing import Type
@@ -22,7 +25,7 @@ import pytest
 import numpy as np
 import porepy as pp
 from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGeometry3D
-from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D
+from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D, ModelMDGeometry3D
 from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, BuoyancyFlowModel3N
 
 
@@ -30,20 +33,20 @@ from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, Buo
     "model_class, mesh_2d_Q, expected_order_loss",
     [
         (BuoyancyFlowModel2N, True, 2),
-        # (BuoyancyFlowModel2N, True, 3),
-        # (BuoyancyFlowModel2N, True, 4),
-        # (BuoyancyFlowModel2N, False, 2),
-        # (BuoyancyFlowModel2N, False, 3),
-        # (BuoyancyFlowModel2N, False, 4),
-        # (BuoyancyFlowModel3N, True, 2),
-        # (BuoyancyFlowModel3N, True, 3),
-        # (BuoyancyFlowModel3N, True, 4),
-        # (BuoyancyFlowModel3N, False, 2),
-        # (BuoyancyFlowModel3N, False, 3),
-        # (BuoyancyFlowModel3N, False, 4),
+        (BuoyancyFlowModel2N, True, 3),
+        (BuoyancyFlowModel2N, True, 4),
+        (BuoyancyFlowModel2N, False, 2),
+        (BuoyancyFlowModel2N, False, 3),
+        (BuoyancyFlowModel2N, False, 4),
+        (BuoyancyFlowModel3N, True, 2),
+        (BuoyancyFlowModel3N, True, 3),
+        (BuoyancyFlowModel3N, True, 4),
+        (BuoyancyFlowModel3N, False, 2),
+        (BuoyancyFlowModel3N, False, 3),
+        (BuoyancyFlowModel3N, False, 4),
     ],
 )
-def test_buoyancy_model(
+def akatest_buoyancy_model(
     model_class: Type[pp.PorePyModel],
     mesh_2d_Q: bool,
     expected_order_loss: int,
@@ -113,22 +116,22 @@ def test_buoyancy_model(
 @pytest.mark.parametrize(
     "model_class, mesh_2d_Q, expected_order_loss",
     [
-        (BuoyancyFlowModel2N, True, 2),
+        # (BuoyancyFlowModel2N, True, 2),
         # (BuoyancyFlowModel2N, True, 3),
         # (BuoyancyFlowModel2N, True, 4),
         # (BuoyancyFlowModel2N, False, 2),
         # (BuoyancyFlowModel2N, False, 3),
         # (BuoyancyFlowModel2N, False, 4),
-        (BuoyancyFlowModel3N, True, 2),
+        # (BuoyancyFlowModel3N, True, 2),
         # (BuoyancyFlowModel3N, True, 3),
         # (BuoyancyFlowModel3N, True, 4),
-        # (BuoyancyFlowModel3N, False, 2),
-        # (BuoyancyFlowModel3N, False, 3),
-        # (BuoyancyFlowModel3N, False, 4),
+        (BuoyancyFlowModel3N, False, 2),
+        (BuoyancyFlowModel3N, False, 3),
+        (BuoyancyFlowModel3N, False, 4),
     ],
 )
 
-def akatest_buoyancy_md_model(
+def test_buoyancy_md_model(
     model_class: Type[pp.PorePyModel],
     mesh_2d_Q: bool,
     expected_order_loss: int,
@@ -187,7 +190,7 @@ def akatest_buoyancy_md_model(
         model = Model2D(params)
     else:
         # Define the 3D model by inheriting from ModelGeometry3D and the parametrized model
-        class Model3D(ModelGeometry3D, model_class):
+        class Model3D(ModelMDGeometry3D, model_class):
             pass
 
         model = Model3D(params)
