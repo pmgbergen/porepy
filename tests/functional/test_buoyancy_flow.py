@@ -46,7 +46,7 @@ from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, Buo
         (BuoyancyFlowModel3N, False, 4),
     ],
 )
-def akatest_buoyancy_model(
+def test_buoyancy_model(
     model_class: Type[pp.PorePyModel],
     mesh_2d_Q: bool,
     expected_order_loss: int,
@@ -116,15 +116,15 @@ def akatest_buoyancy_model(
 @pytest.mark.parametrize(
     "model_class, mesh_2d_Q, expected_order_loss",
     [
-        # (BuoyancyFlowModel2N, True, 2),
-        # (BuoyancyFlowModel2N, True, 3),
-        # (BuoyancyFlowModel2N, True, 4),
-        # (BuoyancyFlowModel2N, False, 2),
-        # (BuoyancyFlowModel2N, False, 3),
-        # (BuoyancyFlowModel2N, False, 4),
-        # (BuoyancyFlowModel3N, True, 2),
-        # (BuoyancyFlowModel3N, True, 3),
-        # (BuoyancyFlowModel3N, True, 4),
+        (BuoyancyFlowModel2N, True, 2),
+        (BuoyancyFlowModel2N, True, 3),
+        (BuoyancyFlowModel2N, True, 4),
+        (BuoyancyFlowModel2N, False, 2),
+        (BuoyancyFlowModel2N, False, 3),
+        (BuoyancyFlowModel2N, False, 4),
+        (BuoyancyFlowModel3N, True, 2),
+        (BuoyancyFlowModel3N, True, 3),
+        (BuoyancyFlowModel3N, True, 4),
         (BuoyancyFlowModel3N, False, 2),
         (BuoyancyFlowModel3N, False, 3),
         (BuoyancyFlowModel3N, False, 4),
