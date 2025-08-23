@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Optional
 
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.models.convergence_check import (
+from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     NanConvergenceCriterion,
 )
