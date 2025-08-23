@@ -6,8 +6,10 @@ Supports both:
 - 2-phase, 2-component systems (e.g., water and methane)
 - 3-phase, 3-component systems (e.g., water, oil, and methane)
 
-The module defines geometry setup, equations of state, initial and boundary conditions,
+The module defines 2D and 3D geometry setup, equations of state, initial and boundary conditions,
 and solution procedures for compositional fluid flow problems with gravitational effects.
+Fixed- and mixed-dimensional meshes are defined on cartesian grids.
+
 """
 
 from __future__ import annotations

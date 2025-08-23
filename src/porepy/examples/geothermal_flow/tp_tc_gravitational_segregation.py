@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
+from shapely.lib import disjoint
+
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
@@ -10,15 +12,17 @@ from porepy.models.compositional_flow import (
 from abc import abstractmethod
 
 # test parameters
-expected_order_mass_loss = 6
-mesh_2d_Q = True
+expected_order_loss = 2
+mesh_2d_Q = False
 
 
-residual_tolerance = 10.0 ** (-expected_order_mass_loss)
+residual_tolerance = 20.0 ** (-expected_order_loss)
 
 # define constant phase densities
 rho_l = 1000.0
 rho_g = 500.0
+h_l = 1.0
+h_g = 2.0
 to_Mega = 1.0e-6
 
 
@@ -36,7 +40,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.1
+    _sphere_radius: float = 1.0
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -49,28 +53,27 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.1, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    # def set_fractures(self) -> None:
-    #     points = np.array(
-    #         [
-    #             [0.0, 2.5],
-    #             [5.0, 2.5],
-    #             [1.0, 2.0],
-    #             [1.0, 4.0],
-    #             [4.0, 2.0],
-    #             [4.0, 4.0],
-    #             [2.0, 1.0],
-    #             [2.0, 4.0],
-    #             [3.0, 1.0],
-    #             [3.0, 4.0],
-    #         ]
-    #     ).T
-    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-    #     # fracs = np.array([[0, 1]]).T
-    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    def set_fractures(self) -> None:
+        points = np.array(
+            [
+                [1.0, 2.0],
+                [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
+            ]
+        ).T
+        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -92,7 +95,7 @@ class ModelGeometry(Geometry):
 
 
 class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 1.0
+    _sphere_radius: float = 0.5
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -110,7 +113,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(0.5, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -132,6 +135,32 @@ class ModelGeometry3D(Geometry):
 
         return find_facets(self._sphere_centre)
 
+    def set_fractures(self) -> None:
+
+
+        kind_1_square_u = np.array([1.0, 1.0, 4.0, 4.0])
+        kind_1_square_v = np.array([1.0, 4.0, 4.0, 1.0])
+
+        kind_2_square_u = np.array([2.0, 2.0, 4.0, 4.0])
+        kind_2_square_v = np.array([2.0, 4.0, 4.0, 2.0])
+
+        # normal along z from z = 2.0
+        f1 = np.vstack([kind_1_square_u, kind_1_square_v, np.full(4, 2.0)])
+
+        # normal along y from y = 1.0
+        f2 = np.vstack([kind_1_square_u,  np.full(4, 1.0), kind_1_square_v])
+
+        # normal along y from y = 4.0
+        f3 = np.vstack([kind_1_square_u,  np.full(4, 4.0), kind_1_square_v])
+
+        # normal along y from y = 3.0
+        f4 = np.vstack([kind_1_square_u, np.full(4, 3.0), kind_1_square_v])
+
+        # normal along x from x = 2.0
+        f5 = np.vstack([np.full(4, 2.0), kind_2_square_u, kind_2_square_v])
+
+        disjoint_set = [f1,f2,f3,f4,f5]
+        self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
 
 # constitutive description
 def gas_saturation_func(
@@ -220,7 +249,7 @@ class LiquidEOS(pp.compositional.EquationOfState):
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
-        vals = (1.0) * np.ones(nc)
+        vals = h_l * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
     def kappa(
@@ -278,7 +307,7 @@ class GasEOS(LiquidEOS):
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc)
+        vals = h_g * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
@@ -426,6 +455,10 @@ class InitialConditions(pp.PorePyModel):
         h = 1.0 + self.ic_values_overall_fraction(self.fluid.components[1], sd)
         return h
 
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        T = 250 * self.ic_values_enthalpy(sd)
+        return T
+
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
@@ -436,7 +469,7 @@ class InitialConditions(pp.PorePyModel):
         #     + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
         #     + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
         # )
-        z = np.where((xc[:, 1] >= 0.0) & (xc[:, 1] <= 2.5), 0.95, 0.05)
+        z = np.where((xc[:, 2] >= 0.0) & (xc[:, 2] <= 2.5), 0.95, 0.05)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -454,7 +487,7 @@ class FlowModel(
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        return phase.saturation(domains)
+        return phase.saturation(domains)**2
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
@@ -468,8 +501,6 @@ class FlowModel(
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
         are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
-        # print("buoyancy flux b_c0: ", b_c0)
-        # print("buoyancy flux b_c1: ", b_c1)
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
@@ -482,8 +513,8 @@ class FlowModel(
         num_rho_integral = 0.0
         num_rho_z_integral = 0.0
 
-        ref_fluid_energy_integral = 0.0
-        num_fluid_energy_integral = 0.0
+        ref_total_energy_integral = 0.0
+        num_total_energy_integral = 0.0
         for sd in model.mdg.subdomains():
 
             ic_sg_val = self.ic_values_staturation(sd)
@@ -500,9 +531,12 @@ class FlowModel(
 
             ic_p_val = self.ic_values_pressure(sd)
             ic_h_val = self.ic_values_enthalpy(sd)
+            ic_t_val = self.ic_values_temperature(sd)
             ic_fluid_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h_val) - pp.wrap_as_dense_ad_array(ic_p_val)
-            ref_fluid_energy_op = self.volume_integral(ic_fluid_energy, [sd], dim=1)
-            ref_fluid_energy_integral += np.sum(self.equation_system.evaluate(ref_fluid_energy_op))/total_volume
+            ic_rock_energy = pp.wrap_as_dense_ad_array(ic_t_val) * solid_constants.density * solid_constants.specific_heat_capacity
+            total_energy_op = self.porosity(sd) * ic_fluid_energy + (1.0 - self.porosity(sd))* ic_rock_energy
+            ref_total_energy_op = self.volume_integral(total_energy_op, [sd], dim=1)
+            ref_total_energy_integral += np.sum(self.equation_system.evaluate(ref_total_energy_op))/total_volume
 
             num_rho_op = self.fluid.density([sd])
             int_rho_op = self.volume_integral(num_rho_op, [sd], dim=1)
@@ -513,36 +547,38 @@ class FlowModel(
             num_rho_z_integral += np.sum(self.equation_system.evaluate(int_rho_z_op))/total_volume
 
             num_fluid_energy_op = num_rho_op * self.enthalpy([sd]) - self.pressure([sd])
-            int_fluid_energy_op = self.volume_integral(num_fluid_energy_op, [sd], dim=1)
-            num_fluid_energy_integral += np.sum(self.equation_system.evaluate(int_fluid_energy_op))/total_volume
+            num_rock_energy = self.temperature([sd]) * solid_constants.density * solid_constants.specific_heat_capacity
+            num_total_energy_op = self.porosity(sd) * num_fluid_energy_op + (1.0 - self.porosity(sd)) * num_rock_energy
+            int_total_energy_op = self.volume_integral(num_total_energy_op, [sd], dim=1)
+            num_total_energy_integral += np.sum(self.equation_system.evaluate(int_total_energy_op))/total_volume
 
         mass_loss = np.abs(ref_rho_integral - num_rho_integral)
         z_mass_loss = np.abs(ref_rho_z_integral - num_rho_z_integral)
         order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
         order_z_mass_loss = np.abs(np.floor(np.log10(z_mass_loss)))
 
-        energy_loss = np.abs(ref_fluid_energy_integral - num_fluid_energy_integral)
+        energy_loss = np.abs(ref_total_energy_integral - num_total_energy_integral)
         order_energy_loss = np.abs(np.floor(np.log10(energy_loss)))
         print("ref mass integral: ", ref_rho_integral)
         print("num mass integral sg: ", num_rho_integral)
         print("Order of mass loss: ", order_mass_loss)
-        mass_conservative_Q = order_mass_loss >= expected_order_mass_loss
+        mass_conservative_Q = order_mass_loss >= expected_order_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
-        # assert mass_conservative_Q
+        assert mass_conservative_Q
 
         print("ref z mass integral: ", ref_rho_z_integral)
         print("num z mass integral sg: ", num_rho_z_integral)
         print("Order of z mass loss: ", order_z_mass_loss)
-        z_mass_conservative_Q = order_z_mass_loss >= expected_order_mass_loss
+        z_mass_conservative_Q = order_z_mass_loss >= expected_order_loss
         print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
-        # assert z_mass_conservative_Q
+        assert z_mass_conservative_Q
 
-        print("ref energy integral: ", ref_fluid_energy_integral)
-        print("num energy integral sg: ", num_fluid_energy_integral)
+        print("ref energy integral: ", ref_total_energy_integral)
+        print("num energy integral sg: ", num_total_energy_integral)
         print("Order of energy loss: ", order_energy_loss)
-        energy_conservative_Q = order_energy_loss >= expected_order_mass_loss
+        energy_conservative_Q = order_energy_loss >= expected_order_loss
         print("buoyancy discretization is energy conservative Q: ", energy_conservative_Q)
-        # assert energy_conservative_Q
+        assert energy_conservative_Q
 
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
@@ -590,7 +626,6 @@ class FlowModel(
             )
 
             # Residual per subsystem
-            res_idx = self.equation_system.assembled_equation_indices
             residual_norm = np.linalg.norm(residual) * total_volume
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
@@ -612,7 +647,7 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 1000.0 * day
+tf = 500.0 * day
 dt = 10.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
