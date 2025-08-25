@@ -398,6 +398,12 @@ class UpwindCoupling(InterfaceDiscretization):
         """Keyword used to identify the parameter matrix for face fluxes.
         Defaults to 'darcy_flux'."""
 
+    def key(self) -> str:
+        return self.keyword + "_"
+
+    def discretization_key(self):
+        return self.key() + pp.DISCRETIZATION
+
     @property
     def flux_array_key(self) -> str:
         return self._flux_array_key
