@@ -31,9 +31,6 @@ from __future__ import annotations
 from typing import Callable, Sequence, cast, Union, Literal, Optional
 import numpy as np
 from itertools import combinations
-from functools import partial
-
-from sympy import false
 
 import porepy as pp
 
@@ -859,6 +856,27 @@ class FluidBuoyancy(pp.PorePyModel):
                     self.buoyancy_discretization(
                         delta, gamma, self.mdg.subdomains()
                     ).upwind(),
+                )
+                # coupling discretizations are separate components from the subdomain ones
+                self.add_nonlinear_discretization(
+                    self.interface_buoyancy_discretization(
+                        gamma, delta, self.mdg.interfaces(codim=1)
+                    ).upwind_primary(),
+                )
+                self.add_nonlinear_discretization(
+                    self.interface_buoyancy_discretization(
+                        gamma, delta, self.mdg.interfaces(codim=1)
+                    ).upwind_secondary(),
+                )
+                self.add_nonlinear_discretization(
+                    self.interface_buoyancy_discretization(
+                        delta, gamma, self.mdg.interfaces(codim=1)
+                    ).upwind_primary(),
+                )
+                self.add_nonlinear_discretization(
+                    self.interface_buoyancy_discretization(
+                        delta, gamma, self.mdg.interfaces(codim=1)
+                    ).upwind_secondary(),
                 )
 
     def update_buoyancy_driven_fluxes(self):
