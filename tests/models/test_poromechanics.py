@@ -1,8 +1,35 @@
 """Tests for poromechanics.
+The module contains a setup for a fractured domain, and tests for the poromechanics
+model. The tests are qualitative, in the sense that they check that the solution is
+reasonable (e.g., have the expected sign), but do not check for exact values. Most tests
+are carried out with both the mpsa and tpsa discretizations, though the latter is
+dropped in a few cases where there is no reason to believe that the spatial
+discretization should affect the results.
 
-The positive fracture gap value ensures positive aperture for all simulation. This is
-needed to avoid degenerate mass balance equation in fracture.
+Overview of tests:
+    - test_poromechanics_model_no_modification: Test that the vanilla poromechanics
+        model runs without errors. Failure of this test would signify rather fundamental
+        problems in the model.
+    - test_without_fracture: Domain with no fractures.
+    - test_2d_single_fracture: Test a domain with a single fracture. The test is
+        parametrized to let the fracture be open or closed, and the test verifies the
+        displacement and pressure fields in the different parts of the domain.
 
+    Then follows tests that to some degree are variations of what is tested
+    test_2d_single_fracture, but together they cover the different boundary conditions
+    (pull/push on north/south side). Their setup and verification are also simpler than
+    test_2d_single_fracture:
+    - test_pull_north_positive_opening: Pull on the north side, open fracture.
+    - test_pull_south_positive_opening: Pull on the south side, open fracture.
+    - test_push_north_zero_opening: Push on the north side, closed fracture.
+    - test_positive_p_frac_positive_opening: Positive fracture pressure implies positive
+        opening.
+    - test_pull_south_positive_reference_pressure: Compare with and without nonzero
+        reference (and initial) solution.
+
+    Finally, there are tests for unit conversion and a well model:
+    - test_unit_conversion: Test that solution is independent of units.
+    - test_poromechanics_well: Test that the poromechanics model runs without errors.
 """
 
 from __future__ import annotations
@@ -138,11 +165,25 @@ class TailoredPoromechanics(
     pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
     models.Poromechanics,
 ):
+    """Tailored poromechanics model intended for testing."""
+
+    pass
+
+
+class TailoredPoromechanicsTpsa(
+    pp.poromechanics.TpsaPoromechanicsMixin, TailoredPoromechanics
+):
+    """Tailored poromechanics model with TPSA discretization."""
+
     pass
 
 
 def create_model_with_fracture(
-    solid_vals: dict, fluid_vals: dict, reference_vals: dict, uy_north: float
+    solid_vals: dict,
+    fluid_vals: dict,
+    reference_vals: dict,
+    uy_north: float,
+    model_class: type,
 ) -> TailoredPoromechanics:
     """Create a model for a fractured domain.
 
@@ -153,6 +194,7 @@ def create_model_with_fracture(
         fluid_vals: Parameters for the fluid mechanics model.
         reference_vals: Reference values for the mechanics model.
         uy_north: Displacement in y-direction on the north boundary.
+        model: Model class to use.
 
     Returns:
         TailoredPoromechanics: A model for a fractured domain.
@@ -174,7 +216,7 @@ def create_model_with_fracture(
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
         "max_iterations": 20,
     }
-    model = TailoredPoromechanics(model_params)
+    model = model_class(model_params)
     return model
 
 
@@ -226,6 +268,55 @@ def get_variables(
     return u_vals, p_vals, p_frac, jump, traction
 
 
+def test_poromechanics_model_no_modification():
+    """Test that the poromechanics model with no modifications runs with no errors.
+
+    Failure of this test would signify rather fundamental problems in the model.
+    """
+    mod = pp.poromechanics.Poromechanics({})
+    pp.run_stationary_model(mod, {})
+
+
+@pytest.mark.parametrize("biot_coefficient", [0, 0.5])
+@pytest.mark.parametrize("model", [TailoredPoromechanics, TailoredPoromechanicsTpsa])
+def test_without_fracture(biot_coefficient: float, model):
+    """Test that the solution is qualitatively sound for a domain without fractures.
+
+    Parameters:
+        biot_coefficient: Biot coefficient.
+        model: Model class to use.
+
+    """
+    fluid = pp.FluidConstants(constants={"compressibility": 0.5})
+    solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
+    params = {
+        "fracture_indices": [],
+        "material_constants": {"fluid": fluid, "solid": solid},
+        "u_north": [0, 0.001],
+        "cartesian": True,
+    }
+    m = model(params)
+    pp.run_time_dependent_model(m, {})
+
+    sd = m.mdg.subdomains(dim=m.nd)
+    u = m.displacement(sd).value(m.equation_system).reshape((m.nd, -1), order="F")
+    p = m.pressure(sd).value(m.equation_system)
+
+    # By symmetry (reasonable to expect from this grid), the average x displacement
+    # should be zero
+    tol = 1e-10
+    assert np.abs(np.sum(u[0])) < tol
+    # Check that y component lies between zero and applied boundary displacement
+    assert np.all(u[1] > 0)
+    assert np.all(u[1] < 0.001)
+    if biot_coefficient == 0:
+        # No coupling implies zero pressure.
+        assert np.allclose(p, 0)
+    else:
+        # Check that the expansion yields a negative pressure.
+        assert np.all(p < -tol)
+
+
 @pytest.mark.parametrize(
     "solid_vals,north_displacement",
     [
@@ -234,7 +325,10 @@ def get_variables(
         ({"porosity": 0.5}, 0.1),
     ],
 )
-def test_2d_single_fracture(solid_vals, north_displacement):
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_2d_single_fracture(solid_vals, north_displacement, model_class):
     """Test that the solution is qualitatively sound.
 
     Parameters:
@@ -243,10 +337,13 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         north_displacement (float): Value of displacement on the north boundary.
         expected_x_y (tuple): Expected values of the displacement in the x and y.
             directions. The values are used to infer sign of displacement solution.
+        model_class: Model class to use.
 
     """
 
-    model = create_model_with_fracture(solid_vals, {}, {}, north_displacement)
+    model = create_model_with_fracture(
+        solid_vals, {}, {}, north_displacement, model_class
+    )
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
@@ -348,9 +445,12 @@ def test_without_fracture(biot_coefficient):
         assert np.all(p < -tol)
 
 
-def test_pull_north_positive_opening():
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_pull_north_positive_opening(model_class):
     """Check solution for a pull on the north side with one horizontal fracture."""
-    model = create_model_with_fracture({}, {}, {}, 0.001)
+    model = create_model_with_fracture({}, {}, {}, 0.001, model_class)
     pp.run_time_dependent_model(model)
     _, _s, p_frac, jump, traction = get_variables(model)
 
@@ -359,10 +459,15 @@ def test_pull_north_positive_opening():
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero.
-    assert np.abs(np.sum(jump[0])) < 1e-5
+    #
+    # EK note to posterity: I had to change this from 1e-5 to 1e-4 when introducing
+    # Tpsa; for reference, the respective value for Mpsa was of the order of 1e-7. I
+    # believe this is caused by the grid not being face-orthogonal (see Tpsa paper for
+    # definition), which causes the discretization to be inconsistent.
+    assert np.abs(np.sum(jump[0])) < 1e-4
 
-    # The contact force in normal direction should be zero
-
+    # The contact force in normal direction should be zero.
+    #
     # NB: This assumes the contact force is expressed in local coordinates
     assert np.all(np.abs(traction) < 1e-7)
 
@@ -370,10 +475,13 @@ def test_pull_north_positive_opening():
     assert np.all(p_frac < -1e-7)
 
 
-def test_pull_south_positive_opening():
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_pull_south_positive_opening(model_class):
     """Check solution for a pull on the south side with one horizontal fracture."""
 
-    model = create_model_with_fracture({}, {}, {}, 0.0)
+    model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
     model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
@@ -382,8 +490,9 @@ def test_pull_south_positive_opening():
     assert np.all(jump[1] > 0.0)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
-    # deformation should be zero.
-    assert np.abs(np.sum(jump[0])) < 1.0e-5
+    # deformation should be zero. See comment in test_pull_north_positive_opening()
+    # regarding accuracy obtained with tpsa on this test.
+    assert np.abs(np.sum(jump[0])) < 1.0e-4
 
     # The contact force in normal direction should be zero
 
@@ -395,7 +504,7 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-    model = create_model_with_fracture({}, {}, {}, -0.001)
+    model = create_model_with_fracture({}, {}, {}, -0.001, TailoredPoromechanics)
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
@@ -409,8 +518,11 @@ def test_push_north_zero_opening():
     assert np.all(p_frac > 1e-10)
 
 
-def test_positive_p_frac_positive_opening():
-    model = create_model_with_fracture({}, {}, {}, 0.0)
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_positive_p_frac_positive_opening(model_class):
+    model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
     model.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction = get_variables(model)
@@ -419,8 +531,9 @@ def test_positive_p_frac_positive_opening():
     assert np.all(jump[1] > model.solid.fracture_gap)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
-    # deformation should be zero.
-    assert np.abs(np.sum(jump[0])) < 1e-5
+    # deformation should be zero. See comment in test_pull_north_positive_opening()
+    # regarding accuracy obtained with tpsa on this test.
+    assert np.abs(np.sum(jump[0])) < 1e-4
 
     # The contact force in normal direction should be zero
 
@@ -434,7 +547,7 @@ def test_positive_p_frac_positive_opening():
 
 def test_pull_south_positive_reference_pressure():
     """Compare with and without nonzero reference (and initial) solution."""
-    reference_model = create_model_with_fracture({}, {}, {}, 0.0)
+    reference_model = create_model_with_fracture({}, {}, {}, 0.0, TailoredPoromechanics)
     reference_model.subtract_p_frac = False
     reference_model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(reference_model)
@@ -442,7 +555,9 @@ def test_pull_south_positive_reference_pressure():
         reference_model
     )
 
-    model = create_model_with_fracture({}, {}, {"pressure": 1}, 0.0)
+    model = create_model_with_fracture(
+        {}, {}, {"pressure": 1}, 0.0, TailoredPoromechanics
+    )
     model.subtract_p_frac = False
     model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(model)
@@ -461,7 +576,10 @@ def test_pull_south_positive_reference_pressure():
         {"m": 0.2, "kg": 0.3, "K": 42},
     ],
 )
-def test_unit_conversion(units):
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_unit_conversion(units, model_class):
     """Test that solution is independent of units.
 
     Parameters:
@@ -489,11 +607,11 @@ def test_unit_conversion(units):
     model_reference_params["file_name"] = "unit_conversion_reference"
 
     # Create model and run simulation
-    reference_model = TailoredPoromechanics(model_reference_params)
+    reference_model = model_class(model_reference_params)
     pp.run_time_dependent_model(reference_model)
 
     model_params["units"] = pp.Units(**units)
-    model = TailoredPoromechanics(model_params)
+    model = model_class(model_params)
 
     pp.run_time_dependent_model(model)
     variables = [
