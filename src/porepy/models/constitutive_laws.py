@@ -2898,6 +2898,10 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # No need to facilitate changing of stress discretization, only one is available
         # at the moment.
         discr = self.stress_discretization(domains)
+        # Partly for mypy: Make sure the stress discretization has not been set to
+        # TpsaAd; that would require the use of a different formulation.
+        assert isinstance(discr, (pp.ad.MpsaAd, pp.ad.BiotAd))
+
         # Fractures in the domain.
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
@@ -2998,7 +3002,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
 
     def stress_discretization(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.BiotAd | pp.ad.MpsaAd:
+    ) -> pp.ad.BiotAd | pp.ad.MpsaAd | pp.ad.TpsaAd:
         """Discretization of the stress tensor.
 
         Parameters:
@@ -3009,6 +3013,387 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
 
         """
         return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+
+
+class _ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
+    """Constitutive laws related to the three-field formulation of a linear elastic
+    medium.
+
+    This class is not meant to be mixed in directly, but is used by other mixin classes,
+    see for instance TpsaMomentumBalanceMixin.
+
+    This class define the mechanical stress as a function of the displacement, rotation
+    stress, and total pressure variables. The class further defines face-wise operators
+    (think generalized fluxes) for the rotation and the solid mass.
+
+    """
+
+    combine_boundary_operators_mechanical_stress: Callable[
+        [Sequence[pp.Grid]], pp.ad.Operator
+    ]
+    """Combine mechanical stress boundary operators for different types of boundary
+    conditions. Can be provided by a mixin class of type
+    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+    """
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    """
+    interface_displacement: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Displacement variable on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    """
+    rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Rotation stress variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    """
+    total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Total pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    """
+    stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+    """
+    stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
+    """Operator returning the stiffness tensor. Can be defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """
+
+    def _rotation_dimension(self) -> Literal[1, 3]:
+        """Get the dimension of the rotation variable.
+
+        Returns:
+            1 for 2d problems, 3 for 3d problems.
+
+        """
+        return 1 if self.nd == 2 else 3
+
+    def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Linear elastic mechanical stress [Pa] as defined in the three-field
+        formulation.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Raises:
+            ValueError: If a mix of subdomain and boundary grids is provided.
+            ValueError: If the subdomains are not of the ambient dimension.
+
+        Returns:
+            Operator for the stress.
+
+        """
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            return self.create_boundary_operator(
+                name=self.stress_keyword,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
+            )
+
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
+            )
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
+
+        for sd in domains:
+            # The mechanical stress is only defined on subdomains of co-dimension 0.
+            if sd.dim != self.nd:
+                raise ValueError("Subdomain must be of co-dimension 0.")
+
+        # No need to facilitate changing of stress discretization, only one is available
+        # at the moment.
+        discr = self.stress_discretization(domains)
+        # Fractures in the domain.
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+
+        # Boundary conditions on external boundaries.
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
+        proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
+        stress = (
+            discr.stress_displacement() @ self.displacement(domains)
+            + discr.bound_stress() @ boundary_operator
+            + discr.bound_stress()
+            @ proj.mortar_to_primary_avg()
+            @ self.interface_displacement(interfaces)
+            + discr.stress_rotation() @ self.rotation_stress(domains)
+            + discr.stress_total_pressure() @ self.total_pressure(domains)
+        )
+        return stress
+
+    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpsaAd:
+        """Set a Tpsa discretization scheme for the stress.
+
+        Parameters:
+            subdomains: List of grids where the discretization is to be set.
+
+        Returns:
+            A Tpsa discretization object for the grids.
+
+        """
+        return pp.ad.TpsaAd(self.stress_keyword, subdomains)
+
+    def total_rotation(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Total rotation operator. Can be thought of as a (generalized) flux of
+        rotation through a face.
+
+        Parameters:
+            subdomains: List of subdomains where the total rotation is defined.
+
+        Raises:
+            ValueError: If a mix of subdomain and boundary grids is provided.
+            ValueError: If the subdomains are not of the ambient dimension.
+
+        Returns:
+            Operator for the total rotation.
+
+        """
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            # The boundary condition for this term is posed in terms of the displacement
+            # variable (or stresses).
+            return self.create_boundary_operator(
+                name=self.stress_keyword,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
+            )
+
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
+            )
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
+
+        for sd in domains:
+            # The mechanical stress is only defined on subdomains of co-dimension 0.
+            if sd.dim != self.nd:
+                raise ValueError("Subdomain must be of co-dimension 0.")
+
+        discr = self.stress_discretization(domains)
+
+        # Boundary conditions on external boundaries for the displacement variable.
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
+
+        # Fractures in the domain.
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+        proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
+
+        return (
+            discr.rotation_displacement() @ self.displacement(domains)
+            + discr.rotation_rotation() @ self.rotation_stress(domains)
+            + discr.bound_rotation_displacement() @ boundary_operator
+            + discr.bound_rotation_displacement()
+            @ proj.mortar_to_primary_avg()
+            @ self.interface_displacement(interfaces)
+        )
+
+    def solid_mass_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Operator for the solid mass flux through a face.
+
+        Parameters:
+            subdomains: List of subdomains where the solid mass flux is defined.
+
+        Raises:
+            ValueError: If a mix of subdomain and boundary grids is provided.
+            ValueError: If the subdomains are not of the ambient dimension.
+
+        Returns:
+            Operator for the solid mass flux.
+
+        """
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            # The boundary condition for this term is posed in terms of the displacement
+            # variable (or stresses).
+            return self.create_boundary_operator(
+                name=self.stress_keyword,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
+            )
+
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
+            )
+
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
+
+        for sd in domains:
+            # The solid mass flux is only defined on subdomains of co-dimension 0.
+            if sd.dim != self.nd:
+                raise ValueError("Subdomain must be of co-dimension 0.")
+
+        discr = self.stress_discretization(domains)
+
+        # Boundary conditions on external boundaries for the displacement variable.
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
+
+        # Fractures in the domain.
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+        proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
+
+        mass_flux = (
+            discr.mass_displacement() @ self.displacement(domains)
+            + discr.mass_total_pressure() @ self.total_pressure(domains)
+            + discr.bound_mass_displacement() @ boundary_operator
+            + discr.bound_mass_displacement()
+            @ proj.mortar_to_primary_avg()
+            @ self.interface_displacement(interfaces)
+        )
+        return mass_flux
+
+    def inv_mu(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Wrap the inverse of the first Lame parameter as an Ad operator.
+
+        Parameters:
+            subdomains: List of grids.
+
+        Raises:
+            ValueError: If the stiffness tensor has a zero first Lame parameter.
+
+        Returns:
+            Operator for the inverse first Lame parameter. The values are pulled from
+            the stiffness tensor.
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, name="inv_mu")
+
+        mu = []
+        for sd in subdomains:
+            stiffness = self.stiffness_tensor(sd)
+            if np.any(stiffness.mu == 0):
+                # If mu is actually zero, it is unclear if the three-field
+                # formulation can be applied. Raise an error for now.
+                raise ValueError("Cannot take the inverse of a zero Lame parameter.")
+
+            mu.append(np.repeat(1.0 / stiffness.mu, self._rotation_dimension()))
+
+        return pp.ad.DenseArray(np.hstack(mu), name="inv_mu")
+
+    def inv_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Wrap the inverse of the second Lame parameter as an Ad operator.
+
+        Parameters:
+            subdomains: List of grids.
+
+        Raises:
+            ValueError: If the stiffness tensor has a zero second Lame parameter.
+
+        Returns:
+            Operator for the inverse second  Lame parameter. The values are pulled from
+            the stiffness tensor.
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0, name="inv_lambda")
+
+        lmbda = []
+        for sd in subdomains:
+            stiffness = self.stiffness_tensor(sd)
+            if np.any(stiffness.lmbda == 0):
+                # If lmbda is actually zero, it is unclear if the three-field
+                # formulation can be applied. Raise an error  for now.
+                raise ValueError("Cannot take the inverse of a zero Lame parameter.")
+
+            lmbda.append(1.0 / stiffness.lmbda)
+
+        return pp.ad.DenseArray(np.hstack(lmbda), name="inv_lambda")
+
+
+class _ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
+    """Mixin class containing constitutive laws for Tpsa discretization of
+    poromechanics.
+
+    The class contains the constitutive laws for a four-field formulation of
+    poromechanics, where solid displacement, fluid pressure, solid pressure and fluid
+    pressure are the primary variables. This formulation is used to make the problem
+    ammenable to the Tpsa discretization. The constitutive laws here are specific to the
+    poromechanical extension of the pure mechanics problem, see also
+    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+
+    """
+
+    mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator to define the mechanical stress. Can be provided by a mixin class of
+    type :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+    """
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+    total_pressure: Callable[
+        [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
+    ]
+    """Total pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    """
+    inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Inverse of the second Lame parameter. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    """
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
+
+    def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Stress operator [Pa].
+
+        In the four-field formulation, the fluid pressure is not directly included in
+        the stress definition, but is instead included in the total pressure.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Operator for the stress.
+
+        """
+        # Method from constitutive library's LinearElasticRock.
+        return self.mechanical_stress(subdomains)
+
+    def porosity_change_from_displacement(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Porosity change from displacement [-].
+
+        This is intended to override the corresponding method in
+        :class:`~porepy.models.constitutive_laws.PoroMechanicsPorosity`, to introduce
+        the alternative formulation of the displacement divergence used in the Tpsa
+        formulation. For details, see the Tpsa paper, https://arxiv.org/pdf/2405.10390,
+        specifically sections 1 and 2.1.
+
+        TODO: Is it okay to place this method in this mixin class, or should we have a
+        separate mixin for the TPSA-related changes to the porosity model?
+
+        Parameters:
+            subdomains: List of subdomains where the displacement divergence is defined.
+
+        Returns:
+            Operator for the displacement divergence.
+
+        """
+        alpha = self.biot_coefficient(subdomains)
+        iLambda = self.inv_lambda(subdomains)
+
+        coeff = (
+            alpha
+            * iLambda
+            * (self.total_pressure(subdomains) + alpha * self.pressure(subdomains))
+        )
+
+        coeff.set_name("displacement_divergence Tpsa formulation")
+
+        return coeff
 
 
 class PressureStress(LinearElasticMechanicalStress):
@@ -3142,7 +3527,7 @@ class PressureStress(LinearElasticMechanicalStress):
 
     def stress_discretization(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.BiotAd | pp.ad.MpsaAd:
+    ) -> pp.ad.BiotAd | pp.ad.MpsaAd | pp.ad.TpsaAd:
         """Discretization of the stress tensor.
 
         Parameters:
@@ -4129,8 +4514,19 @@ class PoroMechanicsPorosity(pp.PorePyModel):
     combine_boundary_operators_mechanical_stress: Callable[
         [Sequence[pp.Grid]], pp.ad.Operator
     ]
+    """Combine mechanical stress boundary operators for different types of boundary
+    conditions. Can be provided by a mixin class of type
+    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+    """
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator to define the mechanical stress. Can be provided by a mixin class of
+    type :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+    """
+    stress_discretization: Callable[
+        [list[pp.Grid]], pp.ad.TpsaAd | pp.ad.MpsaAd | pp.ad.BiotAd
+    ]
+    """Stress discretization applied."""
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity.
@@ -4179,10 +4575,16 @@ class PoroMechanicsPorosity(pp.PorePyModel):
             self.reference_porosity(subdomains)
             + self.porosity_change_from_pressure(subdomains)
             + self.porosity_change_from_displacement(subdomains)
-            + self._mpsa_consistency(
+        )
+
+        if not isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
+            # If the stress discretization is not TPSA, add the consistency term. For
+            # clarity, there is also a consistency term in the TPSA discretization, but
+            # this is already included in the solid mass balance discretization.
+            phi += self._mpsa_consistency(
                 subdomains, self.darcy_keyword, self.pressure_variable
             )
-        )
+
         phi.set_name("Stabilized matrix porosity")
 
         return phi
