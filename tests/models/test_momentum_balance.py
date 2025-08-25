@@ -26,6 +26,13 @@ class LinearModel(
     pass
 
 
+class TpsaLinearModel(
+    pp.models.momentum_balance.TpsaMomentumBalanceMixin,
+    LinearModel,
+):
+    pass
+
+
 @pytest.mark.parametrize(
     "solid_vals,numerical_vals,north_displacement",
     [
@@ -34,7 +41,10 @@ class LinearModel(
         ({"porosity": 0.5}, {}, 0.2),
     ],
 )
-def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
+@pytest.mark.parametrize("model_class", [LinearModel, TpsaLinearModel])
+def test_2d_single_fracture(
+    solid_vals, numerical_vals, north_displacement, model_class
+):
     """Test that the solution is qualitatively sound.
 
     Parameters:
@@ -53,9 +63,12 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
         "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
     }
+    if model_class == TpsaLinearModel:
+        # Tpsa is only consistent on Cartesian grids, so do the test there.
+        params["cartesian"] = True
 
     # Create model and run simulation
-    model = LinearModel(params)
+    model = model_class(params)
     pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear
