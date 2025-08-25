@@ -232,7 +232,7 @@ class Upwind(Discretization):
         if "bc" in parameter_dictionary:
             bc: pp.BoundaryCondition = parameter_dictionary["bc"]
         else:
-            bc: pp.BoundaryCondition = pp.BoundaryCondition(
+            bc = pp.BoundaryCondition(
                 sd, sd.get_boundary_faces(), "dir"
             )
 
