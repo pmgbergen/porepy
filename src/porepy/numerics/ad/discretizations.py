@@ -35,6 +35,7 @@ __all__ = [
     "Discretization",
     "BiotAd",
     "MpsaAd",
+    "TpsaAd",
     "MpfaAd",
     "TpfaAd",
     "UpwindAd",
@@ -145,6 +146,32 @@ class MpsaAd(Discretization):
 
         self.stress: Callable[[], MergedOperator]
         self.bound_stress: Callable[[], MergedOperator]
+        self.bound_displacement_cell: Callable[[], MergedOperator]
+        self.bound_displacement_face: Callable[[], MergedOperator]
+
+        wrap_discretization(self, self._discretization, subdomains=subdomains)
+
+
+class TpsaAd(Discretization):
+    def __init__(self, keyword: str, subdomains: list[pp.Grid]) -> None:
+        self.subdomains = subdomains
+        self._discretization = pp.Tpsa(keyword)
+        self._name = "Tpsa"
+
+        self.keyword = keyword
+
+        # Declare attributes, these will be initialized by the below call to the
+        # discretization wrapper.
+        self.stress_displacement: Callable[[], MergedOperator]
+        self.bound_stress: Callable[[], MergedOperator]
+        self.rotation_displacement: Callable[[], MergedOperator]
+        self.rotation_rotation: Callable[[], MergedOperator]
+        self.stress_rotation: Callable[[], MergedOperator]
+        self.stress_total_pressure: Callable[[], MergedOperator]
+        self.mass_total_pressure: Callable[[], MergedOperator]
+        self.mass_displacement: Callable[[], MergedOperator]
+        self.bound_rotation_displacement: Callable[[], MergedOperator]
+        self.bound_mass_displacement: Callable[[], MergedOperator]
         self.bound_displacement_cell: Callable[[], MergedOperator]
         self.bound_displacement_face: Callable[[], MergedOperator]
 
