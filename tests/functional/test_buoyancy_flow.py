@@ -30,8 +30,8 @@ from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, Buo
 from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
-# Shared parameter list for both tests
-PARAMS = [
+# Parameterization list for both tests
+Parameterization = [
     (BuoyancyFlowModel2N, True, 2),
     (BuoyancyFlowModel2N, True, 3),
     (BuoyancyFlowModel2N, True, 4),
@@ -109,13 +109,13 @@ def _run_buoyancy_model(
     pp.run_time_dependent_model(model, params)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", PARAMS)
+@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", Parameterization)
 def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (FD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=False)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", PARAMS)
+@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", Parameterization)
 def test_buoyancy_md_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (MD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=True)
