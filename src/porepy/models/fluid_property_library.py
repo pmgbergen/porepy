@@ -502,7 +502,6 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.UpwindAd:
         """Return upwind discretization for subdomain buoyancy term gamma↔delta."""
         discr = pp.ad.UpwindAd(self.buoyancy_key(gamma, delta), subdomains)
-        discr._discretization.upwind_matrix_key = self.buoyancy_key(gamma, delta)
         discr._discretization.flux_array_key = self.buoyant_flux_array_key(gamma, delta)
         return discr
 
@@ -511,7 +510,6 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.UpwindCouplingAd:
         """Return upwind discretization for interface buoyancy term gamma↔delta."""
         discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
-        discr._discretization.upwind_matrix_key = self.buoyancy_intf_key(gamma, delta)
         discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(
             gamma, delta
         )
