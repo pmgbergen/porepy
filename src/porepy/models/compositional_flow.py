@@ -399,6 +399,16 @@ class EnthalpyBasedEnergyBalanceEquations(
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
+    enthalpy_buoyancy: Callable[
+        [pp.Subdomains], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    enthalpy_buoyancy_jump: Callable[
+        [pp.Subdomains], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsMulticomponent`."""
 
@@ -451,11 +461,9 @@ class EnthalpyBasedEnergyBalanceEquations(
                 [
                     phase.specific_enthalpy(domains)
                     * self.fractional_phase_mass_mobility(phase, domains)
-                    # * phase.density(domains)
-                    # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-            )  # / self.total_mobility(domains)
+            )
             op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
@@ -470,11 +478,22 @@ class EnthalpyBasedEnergyBalanceEquations(
             len(subdomains) == 0
             or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
         ) and is_fractional_flow(self):
-            return self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
+            flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
-            return super().enthalpy_flux(subdomains)
+            flux = super().enthalpy_flux(subdomains)
+        buoyancy_condition: bool = self.params.get("buoyancy_on", True) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        if buoyancy_condition:
+            flux += self.enthalpy_buoyancy(subdomains)
+        return flux
+
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        source = super().energy_source(subdomains)
+        buoyancy_condition: bool = self.params.get("buoyancy_on", True)
+        if buoyancy_condition:
+            source += self.enthalpy_buoyancy_jump(subdomains)
+        return source
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation):
@@ -551,6 +570,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """
 
     component_buoyancy: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    component_buoyancy_jump: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
@@ -884,6 +908,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
+        if self.params.get("buoyancy_on", True):
+            source += self.component_buoyancy_jump(component, subdomains)
+
         source.set_name(f"interface_component_flux_source_{component.name}")
         well_fluxes = (
             well_projection.mortar_to_secondary_int()
