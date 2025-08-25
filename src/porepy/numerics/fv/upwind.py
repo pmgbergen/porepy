@@ -232,7 +232,12 @@ class Upwind(Discretization):
         bc_all_dir: pp.BoundaryCondition = pp.BoundaryCondition(
             sd, sd.get_boundary_faces(), "dir"
         )
-        bc: pp.BoundaryCondition = parameter_dictionary.get("bc", bc_all_dir)
+        if "bc" in parameter_dictionary:
+            bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+        else:
+            bc: pp.BoundaryCondition = pp.BoundaryCondition(
+                sd, sd.get_boundary_faces(), "dir"
+            )
 
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0
