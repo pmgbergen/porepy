@@ -89,6 +89,61 @@ class EquationsPoromechanics(
         )
 
 
+class _SolidMassEquation(momentum.SolidMassEquation):
+    """Solid mass equation for poromechanics.
+
+    This is an extension of the solid mass equation in the three-field formulation of
+    the mechanics problem. The extension is the addition of the fluid pressure term.
+
+    """
+
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
+    inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Inverse of the second Lame parameter. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    """
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+
+    def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Extension of the solid mass equation to the poromechanics problem [-].
+
+        For details on the the solid mass equation, and the extension to poromechanical
+        systems, see https://arxiv.org/pdf/2405.10390 Section 2.1.
+
+        Parameters:
+            subdomains: List of subdomains where the solid mass equation is defined.
+
+        Returns:
+            Operator for the solid mass equation.
+
+        """
+        # The mechanics part of the solid mass equation is the same as in the momentum
+        # balance model.
+        momentum_term = super().solid_mass_equation(subdomains)
+
+        # Add the term related to the fluid pressure.
+        iLambda = self.inv_lambda(subdomains)
+        # Biot coefficient.
+        biot = self.biot_coefficient(subdomains)
+
+        pressure_term = self.volume_integral(
+            iLambda * biot * self.pressure(subdomains),
+            subdomains,
+            dim=1,
+        )
+        full_eq = momentum_term - pressure_term
+
+        full_eq.set_name("Solid_mass_equation_poromechanics")
+
+        return full_eq
+
+
 class VariablesPoromechanics(
     pp.momentum_balance.VariablesMomentumBalance,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
@@ -125,6 +180,23 @@ class InitialConditionsPoromechanics(
 ):
     """Combines initial conditions for mass and momentum balance and contact mechanics,
     and associated primary variables."""
+
+
+class TpsaPoromechanicsMixin(
+    pp.constitutive_laws._ConstitutiveLawsTpsaPoromechanics,
+    _SolidMassEquation,
+    momentum.TpsaMomentumBalanceMixin,
+):
+    """Mixin for the TPSA poromechanics model. This can be mixed into a Poromechanics
+    class to get four-field (displacement, rotation stress, total pressure and fluid
+    pressure) formulation for poromechanics. The resulting model will be discretized
+    using Tpsa.
+
+    Can also be used to define a THM model with Tpsa.
+
+    """
+
+    pass
 
 
 class SolutionStrategyPoromechanics(
