@@ -116,7 +116,7 @@ def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss):
 
 
 @pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", PARAMS)
-def akatest_buoyancy_md_model(model_class, mesh_2d_Q, expected_order_loss):
+def test_buoyancy_md_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (MD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=True)
 
