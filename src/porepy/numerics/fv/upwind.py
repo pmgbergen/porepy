@@ -226,7 +226,13 @@ class Upwind(Discretization):
 
         # Get the sign of the advective flux.
         darcy_flux: np.ndarray = np.sign(parameter_dictionary[self._flux_array_key])
-        bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+
+        # Enables the creation of an upwind object even if boundary data is not
+        # externally provided.
+        bc_all_dir: pp.BoundaryCondition = pp.BoundaryCondition(
+            sd, sd.get_boundary_faces(), "dir"
+        )
+        bc: pp.BoundaryCondition = parameter_dictionary.get("bc", bc_all_dir)
 
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0

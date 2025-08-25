@@ -361,6 +361,30 @@ class TestUpwind:
             rhs_known = self._rhs_collection[test_name]
             assert np.allclose(rhs, rhs_known, rtol, atol)
 
+    def test_upwind_default_boundary_condition(self):
+        """Test Upwind discretization with no boundary condition provided."""
+        sd = pp.CartGrid(3, 1)
+        sd.compute_geometry()
+        # Only provide darcy_flux, no 'bc' in parameters
+        data = {
+            pp.PARAMETERS: {"transport": {"darcy_flux": np.ones(sd.num_faces)}},
+            pp.DISCRETIZATION_MATRICES: {"transport": {}},
+        }
+        upwind = pp.Upwind()
+        # Should use default Dirichlet boundary condition
+        upwind.discretize(sd, data)
+        # Check that matrices are created and have expected shapes
+        matrices = data[pp.DISCRETIZATION_MATRICES]["transport"]
+        assert matrices[upwind.upwind_matrix_key].shape == (sd.num_faces, sd.num_cells)
+        assert matrices[upwind.bound_transport_dir_matrix_key].shape == (
+            sd.num_faces,
+            sd.num_faces,
+        )
+        assert matrices[upwind.bound_transport_neu_matrix_key].shape == (
+            sd.num_faces,
+            sd.num_faces,
+        )
+
 
 class TestMixedDimensionalUpwind:
     """Test the discretization and assembly functionality of the mixed-dimensional
