@@ -390,7 +390,7 @@ class TestMixedDimensionalUpwind:
     """Test the discretization and assembly functionality of the mixed-dimensional
     upwind discretization.
 
-    The tests are based on the the following steps:
+    The tests are based on the following steps:
         1. Specify a geometry and advection field
         2. Discretize the mixed-dimensional problem
         3. Assemble the discretization matrix and rhs vector for the md-problem.
