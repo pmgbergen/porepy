@@ -43,6 +43,14 @@ class Upwind(Discretization):
 
         """
 
+    @property
+    def flux_array_key(self) -> str:
+        return self._flux_array_key
+
+    @flux_array_key.setter
+    def flux_array_key(self, value: str) -> None:
+        self._flux_array_key = value
+
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method. In this
         case number of cells.
@@ -401,6 +409,14 @@ class UpwindCoupling(InterfaceDiscretization):
 
     def discretization_key(self):
         return self.key() + pp.DISCRETIZATION
+
+    @property
+    def flux_array_key(self) -> str:
+        return self._flux_array_key
+
+    @flux_array_key.setter
+    def flux_array_key(self, value: str) -> None:
+        self._flux_array_key = value
 
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells
