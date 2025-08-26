@@ -202,7 +202,7 @@ class FractureNetwork3d(object):
         self,
         mesh_args: dict[str, float],
         dfn: bool = False,
-        file_name: Optional[str] = None,
+        file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         write_geo: bool = True,
         tags_to_transfer: Optional[list[str]] = None,
@@ -266,7 +266,9 @@ class FractureNetwork3d(object):
 
         """
         if file_name is None:
-            file_name = "gmsh_frac_file.msh"
+            file_name = Path("gmsh_frac_file.msh")
+
+            # TODO currently the gmsh file is generated in the working directory
 
         gmsh_repr = self.prepare_for_gmsh(
             mesh_args,

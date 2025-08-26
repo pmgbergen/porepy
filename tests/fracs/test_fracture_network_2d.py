@@ -10,6 +10,7 @@ from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.geometry.domain import Domain
+from pathlib import Path
 
 
 def check_mdg_from_polytopal_2d_domain(
@@ -384,7 +385,7 @@ class TestGmshTags:
             "mesh_size_bound": 0.1,
         }
 
-        file_name = "mesh_simplex.msh"
+        file_name = Path("mesh_simplex.msh")
         gmsh_data = network.prepare_for_gmsh(mesh_args, None, True, None, False)
 
         # Consider the dimension of the problem

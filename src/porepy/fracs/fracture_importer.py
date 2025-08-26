@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import warnings
 from typing import Optional, Union
-
+from pathlib import Path
 import gmsh
 import numpy as np
 from numpy.typing import ArrayLike
@@ -406,10 +406,10 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
         gmsh.finalize()
 
     if dim == 2:
-        subdomains = pp.fracs.simplex.triangle_grid_from_gmsh(out_file, **kwargs)
+        subdomains = pp.fracs.simplex.triangle_grid_from_gmsh(Path(out_file), **kwargs)
     elif dim == 3:
         subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
-            file_name=out_file, **kwargs
+            file_name=Path(out_file), **kwargs
         )
     else:
         raise ValueError(f"Unknown dimension, dim: {dim}")

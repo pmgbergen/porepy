@@ -142,7 +142,7 @@ class FractureNetwork2d:
         tol: Optional[float] = None,
         do_snap: bool = True,
         constraints: Optional[np.ndarray] = None,
-        file_name: Optional[str] = None,
+        file_name: Optional[Path] = None,
         dfn: bool = False,
         tags_to_transfer: Optional[list[str]] = None,
         remove_small_fractures: bool = False,
@@ -217,7 +217,9 @@ class FractureNetwork2d:
 
         """
         if file_name is None:
-            file_name = "gmsh_frac_file.msh"
+            file_name = Path("gmsh_frac_file.msh")
+            # TODO currently the gmsh file is generated in the working directory
+
         # No constraints if not available.
         if constraints is None:
             constraints = np.empty(0, dtype=int)
