@@ -365,15 +365,15 @@ class TestUpwind:
         """Test Upwind discretization with no boundary condition provided."""
         sd = pp.CartGrid(3, 1)
         sd.compute_geometry()
-        # Only provide darcy_flux, no 'bc' in parameters
+        # Only provide darcy_flux, no 'bc' in parameters.
         data = {
             pp.PARAMETERS: {"transport": {"darcy_flux": np.ones(sd.num_faces)}},
             pp.DISCRETIZATION_MATRICES: {"transport": {}},
         }
         upwind = pp.Upwind()
-        # Should use default Dirichlet boundary condition
+        # Should use default Dirichlet boundary condition.
         upwind.discretize(sd, data)
-        # Check that matrices are created and have expected shapes
+        # Check that matrices are created and have expected shapes.
         matrices = data[pp.DISCRETIZATION_MATRICES]["transport"]
         assert matrices[upwind.upwind_matrix_key].shape == (sd.num_faces, sd.num_cells)
         assert matrices[upwind.bound_transport_dir_matrix_key].shape == (
@@ -384,6 +384,16 @@ class TestUpwind:
             sd.num_faces,
             sd.num_faces,
         )
+        # A Dirichlet condition should be assigned by default. This will give a unit
+        # value in [0, 0] of the Dirichlet boundary matrix, since the assigned
+        # darcy_flux gives inflow over leftmost face into leftmost cell. The value on
+        # the rightmost face is zero, since Dirichlet conditions do not contribute on
+        # outflow faces.
+        assert matrices[upwind.bound_transport_dir_matrix_key].nnz == 1
+        assert matrices[upwind.bound_transport_dir_matrix_key][0, 0] == 1
+
+        # The Neumann boundary discretization should be all zeros.
+        assert matrices[upwind.bound_transport_neu_matrix_key].nnz == 0
 
 
 class TestMixedDimensionalUpwind:
