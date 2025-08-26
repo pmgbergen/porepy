@@ -35,9 +35,7 @@ from porepy.fracs.utils import pts_edges_to_linefractures
 from tests.models.test_poromechanics import NonzeroFractureGapPoromechanics
 
 # Globally store location of reference files
-FOLDER_REFERENCE = (
-    os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
-)
+FOLDER_REFERENCE = Path(__file__).parent / "test_vtk_reference"
 
 
 @dataclass
