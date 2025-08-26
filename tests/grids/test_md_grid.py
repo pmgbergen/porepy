@@ -2,7 +2,7 @@
 topological information on the bucket, and pickling and unpickling of buckets.
 """
 
-import os
+from pathlib import Path
 import pickle
 
 import numpy as np
@@ -529,4 +529,4 @@ def test_pickle_md_grid():
     compare_md_grids(mdg, mdg_read)
 
     # Delete the temporary file
-    os.remove(fn)
+    Path(fn).unlink()

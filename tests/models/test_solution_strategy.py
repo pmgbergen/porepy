@@ -46,8 +46,8 @@ from porepy.applications.test_utils.models import add_mixin
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
-current_dir = Path(os.path.dirname(os.path.realpath(__file__)))
-reference_dir = current_dir / Path("restart_reference")
+current_dir = Path(__file__).parent
+reference_dir = current_dir / "restart_reference"
 visualization_dir = Path("visualization")
 
 

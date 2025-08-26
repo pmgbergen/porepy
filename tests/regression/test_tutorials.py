@@ -1,6 +1,7 @@
 import glob
 import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -32,7 +33,7 @@ def test_run_tutorials(tutorial_path: str):
 
     # Removing the generated source file after the assertion. If the test fails, it is
     # useful to keep it in order to see what went wrong there.
-    os.remove(new_file)
+    Path(new_file).unlink()
 
 
 def edit_imports(filename: str):

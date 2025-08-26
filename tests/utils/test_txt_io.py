@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -53,4 +53,4 @@ def test_export_data() -> None:
     np.testing.assert_allclose(flux.array, read_data["flux"])
 
     # Delete file
-    os.remove("out.txt")
+    Path("out.txt").unlink()

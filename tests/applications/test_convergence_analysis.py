@@ -11,6 +11,7 @@ Tested functionality includes:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal
@@ -749,7 +750,7 @@ class TestExportErrors:
         np.testing.assert_equal(read_data["error_var_0"], np.array([10.0, 5.0]))
         np.testing.assert_equal(read_data["error_var_1"], np.array([20.0, 5.0]))
 
-        os.remove("error_analysis.txt")
+        Path("error_analysis.txt").unlink()
 
     def test_export_errors_for_time_dependent_model(
         self,
@@ -766,7 +767,7 @@ class TestExportErrors:
         np.testing.assert_equal(read_data["error_var_0"], np.array([10.0, 5.0]))
         np.testing.assert_equal(read_data["error_var_1"], np.array([20.0, 5.0]))
 
-        os.remove("error_analysis.txt")
+        Path("error_analysis.txt").unlink()
 
 
 @pytest.fixture(scope="module")

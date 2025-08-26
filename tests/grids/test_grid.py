@@ -4,7 +4,7 @@
 * Tests for the mortar grid.
 """
 
-import os
+from pathlib import Path
 import pickle
 
 import numpy as np
@@ -957,4 +957,4 @@ def test_pickle_grid(g):
     g_read = pickle.load(open(fn, "rb"))
 
     pp.test_utils.grids.compare_grids(g, g_read)
-    os.unlink(fn)
+    Path(fn).unlink()
