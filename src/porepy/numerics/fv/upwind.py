@@ -229,10 +229,13 @@ class Upwind(Discretization):
 
         # Enables the creation of an upwind object even if boundary data is not
         # externally provided.
-        bc_all_dir: pp.BoundaryCondition = pp.BoundaryCondition(
-            sd, sd.get_boundary_faces(), "dir"
-        )
-        bc: pp.BoundaryCondition = parameter_dictionary.get("bc", bc_all_dir)
+        if "bc" in parameter_dictionary:
+            bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+        else:
+            # Set a Dirichlet condition by default. Motivation (from Omar Duran): If the
+            # advecting flux is non-zero on external facets, this choice ensures
+            # consistent handling of sinking phases.
+            bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0
@@ -403,6 +406,14 @@ class UpwindCoupling(InterfaceDiscretization):
         self._flux_array_key = "darcy_flux"
         """Keyword used to identify the parameter matrix for face fluxes.
         Defaults to 'darcy_flux'."""
+
+    @property
+    def flux_array_key(self) -> str:
+        return self._flux_array_key
+
+    @flux_array_key.setter
+    def flux_array_key(self, value: str) -> None:
+        self._flux_array_key = value
 
     @property
     def flux_array_key(self) -> str:
