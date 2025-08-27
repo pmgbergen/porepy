@@ -886,7 +886,7 @@ class Grid:
         self,
         cn: Optional[sps.spmatrix] = None,
         cell_wise: bool = True,
-        func: Optional[Callable] = None,
+        func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> np.ndarray:
         """Computes the cell diameters.
 
@@ -903,8 +903,13 @@ class Grid:
                 limitations of the implementation.
 
             func:
-                A function to apply to the computed diameters. Must be provided if
-                ``cell_wise`` is False.
+                A function to apply to the computed diameters. Should operate on a 1d
+                numpy array and return a numpy array. For instance ``func=np.min`` will
+                return the minimum cell diameter in the grid.
+
+                The parameter must be provided if ``cell_wise`` is False. Will not be
+                applied if ``cell_wise`` is True.
+
 
         Raises:
             ValueError: If ``func`` is not provided when ``cell_wise`` is False.
@@ -995,7 +1000,7 @@ class Grid:
                 self.nodes[:, unique_pairs[0]] - self.nodes[:, unique_pairs[1]], axis=0
             )
 
-            assert func is not None  # For mypy
+            assert func is not None  # For mypy.
             # Apply the function to the computed diameters.
             return func(dist)
 
