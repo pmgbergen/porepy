@@ -43,7 +43,7 @@ def test_export_data() -> None:
     export_data_to_txt(list_of_txt_data)
 
     # Read back the file
-    read_data: dict[str, np.ndarray] = read_data_from_txt("out.txt")
+    read_data: dict[str, np.ndarray] = read_data_from_txt(Path("out.txt"))
 
     # Compare
     assert len(read_data.keys()) == 2

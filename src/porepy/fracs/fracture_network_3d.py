@@ -2605,7 +2605,7 @@ class FractureNetwork3d(object):
 
     def to_file(
         self,
-        file_name: str,
+        file_name: Path,
         data: Optional[dict[str, Union[np.ndarray, list]]] = None,
         **kwargs,
     ) -> None:
@@ -2656,8 +2656,8 @@ class FractureNetwork3d(object):
             msg = "Got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        if not file_name.endswith(extension):
-            file_name += extension
+        if file_name.suffix != extension:
+            file_name = file_name.with_suffix(extension)
 
         # fracture points
         meshio_pts = np.empty((0, 3))
@@ -2702,7 +2702,7 @@ class FractureNetwork3d(object):
         path = Path(folder_name) / file_name
         meshio.write(path, meshio_grid_to_export, binary=binary)
 
-    def to_csv(self, file_name: str, domain: Optional[pp.Domain] = None) -> None:
+    def to_csv(self, file_name: Path, domain: Optional[pp.Domain] = None) -> None:
         """Save the 3D network on a CSV file with comma as separator.
 
         The format is as follows:
@@ -2735,7 +2735,7 @@ class FractureNetwork3d(object):
             for f in self.fractures:
                 csv_writer.writerow(f.pts.ravel(order="F"))
 
-    def to_fab(self, file_name: str) -> None:
+    def to_fab(self, file_name: Path) -> None:
         """Save the 3D network on a fab file, as specified by FracMan.
 
         The filter is based on the ``.fab`` -files needed at the time of writing, and

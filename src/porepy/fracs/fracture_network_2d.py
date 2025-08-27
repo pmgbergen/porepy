@@ -1211,7 +1211,7 @@ class FractureNetwork2d:
         """
         pp.plot_fractures(self._pts, self._edges, domain=self.domain, **kwargs)
 
-    def to_csv(self, file_name: str, with_header: bool = True) -> None:
+    def to_csv(self, file_name: Path, with_header: bool = True) -> None:
         """Save the 2D network on a CSV file with comma as separator.
 
         The format is ``FID, START_X, START_Y, END_X, END_Y``, where ``FID`` is the
@@ -1242,7 +1242,7 @@ class FractureNetwork2d:
                 csv_writer.writerow(data)
 
     def to_file(
-        self, file_name: str, data: Optional[dict[str, np.ndarray]] = None, **kwargs
+        self, file_name: Path, data: Optional[dict[str, np.ndarray]] = None, **kwargs
     ) -> None:
         """Export the fracture network to file.
 
@@ -1294,8 +1294,8 @@ class FractureNetwork2d:
             msg = "Got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        if not file_name.endswith(extension):
-            file_name += extension
+        if file_name.suffix != extension:
+            file_name = file_name.with_suffix(extension)
 
         # in 1d we have only one cell type
         cell_type = "line"

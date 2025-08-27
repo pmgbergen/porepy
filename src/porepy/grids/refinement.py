@@ -771,7 +771,7 @@ class GridSequenceFactory(abc.ABC):
         writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
         # Generate the first grid.
         # Do not finalize gmsh; this should be done by a call to self.close()
-        writer.generate(file_name=file_name, finalize=False, clear_gmsh=False)
+        writer.generate(file_name=Path(file_name), finalize=False, clear_gmsh=False)
         self._out_file = file_name
         self._gmsh = gmsh
 
@@ -798,7 +798,7 @@ class GridSequenceFactory(abc.ABC):
 
         self._gmsh.write(out_file_name)  # Write the result to '.msh' file
 
-        mdg = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
+        mdg = pp.fracture_importer.dfm_from_gmsh(Path(out_file_name), self.dim)
         pp.set_local_coordinate_projections(mdg)
         return mdg
 

@@ -743,7 +743,7 @@ class TestExportErrors:
     ):
         """Test if all errors are exported correctly for a stationary model."""
         conv_analysis_in_space.export_errors_to_txt(list_of_results_space)
-        read_data = read_data_from_txt("error_analysis.txt")
+        read_data = read_data_from_txt(Path("error_analysis.txt"))
 
         assert len(read_data.keys()) == 3
         np.testing.assert_equal(read_data["cell_diameter"], np.array([0.5, 0.25]))
@@ -759,7 +759,7 @@ class TestExportErrors:
     ):
         """Test if all errors are exported correctly for a time-dependent model."""
         conv_analysis_in_space_and_time.export_errors_to_txt(list_of_results_space_time)
-        read_data = read_data_from_txt("error_analysis.txt")
+        read_data = read_data_from_txt(Path("error_analysis.txt"))
 
         assert len(read_data.keys()) == 4
         np.testing.assert_equal(read_data["cell_diameter"], np.array([0.5, 0.25]))

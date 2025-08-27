@@ -622,9 +622,12 @@ def test_fracture_network_2d(setup: ExporterTestSetup):
     path = Path(setup.folder)
     path.mkdir(parents=True, exist_ok=True)
 
+    file_name = path / setup.file_name
+    file_name = file_name.with_suffix(".vtu")
+
     # Export data
     network_2d.to_file(
-        setup.folder + "/" + setup.file_name + ".vtu",
+        file_name,
         data=data,
     )
 
@@ -657,9 +660,12 @@ def test_fracture_network_3d(setup: ExporterTestSetup):
     path = Path(setup.folder)
     path.mkdir(parents=True, exist_ok=True)
 
+    file_name = path / setup.file_name
+    file_name = file_name.with_suffix(".vtu")
+
     # Export data
     network_3d.to_file(
-        setup.folder + "/" + setup.file_name + ".vtu",
+        file_name,
         data=data,
     )
 
