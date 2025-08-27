@@ -971,7 +971,7 @@ class Grid:
 
             # Profiling showed that constructing the combinations of indices (the nested
             # calls to itertools in the above function comb) is quite slow. The
-            # combinations to be conisdered depends only on the number of nodes in each
+            # combinations to be considered depend only on the number of nodes in each
             # cell, and there will at most be a few different cases per grid. We
             # therefore precompute all combinations for each unique number of nodes, and
             # store these in the variable template.
