@@ -232,6 +232,9 @@ class Upwind(Discretization):
         if "bc" in parameter_dictionary:
             bc: pp.BoundaryCondition = parameter_dictionary["bc"]
         else:
+            # Set a Dirichlet condition by default. Motivation (from Omar Duran): If the
+            # advecting flux is non-zero on external facets, this choice ensures
+            # consistent handling of sinking phases.
             bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
         # Booleans of flux direction.
