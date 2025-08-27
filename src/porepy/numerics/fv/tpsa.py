@@ -697,8 +697,8 @@ class Tpsa:
         # discretization of the diffusion operators for the displacement and (if
         # relevant) rotations.
         if nd == 3:
-            # In this case, \hat{R}_k^n = \bar{R}_k^n = R^n is the 3x3 matrix given in the
-            # Tpsa paper,
+            # In this case, \hat{R}_k^n = \bar{R}_k^n = R^n is the 3x3 matrix given in
+            # the Tpsa paper,
             #
             #    R^n = [[0, -n2, n1], [n2, 0, -n0], [-n1, n0, 0]]
             #
