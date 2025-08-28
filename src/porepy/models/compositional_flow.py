@@ -1011,6 +1011,9 @@ class ConstitutiveLawsCF(
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
+    # Contains the Upwind for the enthalpy flux, otherwise not required.
+    # TODO Consider putting discretizations strictly outside of classes providing
+    # reformulation of fluid properties.
     pp.constitutive_laws.FluidBuoyancy,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.ZeroGravityForce,
