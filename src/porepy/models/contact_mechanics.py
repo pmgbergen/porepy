@@ -230,7 +230,10 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # round-off errors, we use a tolerance to allow for slight inaccuracies before
         # switching between the two cases. The tolerance is a numerical method parameter
         # and can be tailored.
-        characteristic = self.contact_mechanics_open_state_characteristic(subdomains)
+        characteristic = (
+            scalar_to_tangential
+            @ self.contact_mechanics_open_state_characteristic(subdomains)
+        )
 
         # Compose the equation itself. The last term handles the case bound=0, in which
         # case t_t = 0 cannot be deduced from the standard version of the complementary
@@ -457,10 +460,10 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     """
 
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin 
-    instance of either 
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of either
     :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
+    or
     :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
@@ -527,19 +530,6 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
 
         """
 
-        # Basis vectors for the tangential components. This is a list of Ad matrices,
-        # each of which represents a cell-wise basis vector which is non-zero in one
-        # dimension (and this is known to be in the tangential plane of the subdomains).
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-
-        # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions can be represented as projection matrices of size
-        # (Nc * (self.nd - 1), Nc), where Nc is # the total number of cells in the
-        # subdomain. The sum of basis vectors can likewise be represented as a matrix of
-        # the same shape, but the row corresponding to each cell will be non-zero in all
-        # rows corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
-
         # With the active set method, the performance of the Newton solver is sensitive
         # to changes in state between sticking and sliding. To reduce the sensitivity to
         # round-off errors, we use a tolerance to allow for slight inaccuracies before
@@ -559,7 +549,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
-        characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
+        characteristic: pp.ad.Operator = f_characteristic(b_p)
         characteristic.set_name("characteristic_function_of_b_p")
         return characteristic
 
