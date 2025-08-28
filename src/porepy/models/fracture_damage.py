@@ -10,77 +10,16 @@ import porepy as pp
 class FractureDamageHistoryVariables(pp.PorePyModel):
     """Base class for fracture damage variables.
 
-    Sets up the damage variables for the model. The damage variable is defined on
-    fractures and used to compute damage evolution of fracture parameters such as
-    dilation and friction. The damage variable is computed from a damage equation, see
-    :class:`FractureDamageEquation`.
+    Common functionality for fracture damage variables. Currently related to storing of
+    multiple time steps of the variables entering the history integral.
 
     """
-
-    friction_damage_history_variable = "friction_damage_history"
-    dilation_damage_history_variable = "dilation_damage_history"
 
     interface_displacement_variable: str
     """Interface displacement variable."""
 
     contact_traction_variable: str
     """Contact traction variable."""
-
-    def friction_damage_history(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
-        """Fracture friction damage history [-].
-
-        Parameters:
-            subdomains: List of subdomains where the damage is defined. Should be of co-
-                dimension one, i.e. fractures.
-
-        Returns:
-            Variable for nondimensionalized fracture friction damage.
-        """
-        for sd in subdomains:
-            if sd.dim != self.nd - 1:
-                raise ValueError("Damage only defined on fractures")
-
-        return self.equation_system.md_variable(
-            self.friction_damage_history_variable, subdomains
-        )
-
-    def dilation_damage_history(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
-        """Fracture dilation damage history [-].
-
-        Parameters:
-            subdomains: List of subdomains where the damage is defined. Should be of co-
-                dimension one, i.e. fractures.
-
-        Returns:
-            Variable for nondimensionalized fracture dilation damage.
-        """
-        for sd in subdomains:
-            if sd.dim != self.nd - 1:
-                raise ValueError("Damage only defined on fractures")
-
-        return self.equation_system.md_variable(
-            self.dilation_damage_history_variable, subdomains
-        )
-
-    def create_variables(self) -> None:
-        """Create variables for the model."""
-        super().create_variables()
-
-        fractures = self.mdg.subdomains(dim=self.nd - 1)
-
-        self.equation_system.create_variables(
-            dof_info={"cells": 1},
-            name=self.friction_damage_history_variable,
-            subdomains=fractures,
-            tags={"si_units": "-"},
-        )
-
-        self.equation_system.create_variables(
-            dof_info={"cells": 1},
-            name=self.dilation_damage_history_variable,
-            subdomains=fractures,
-            tags={"si_units": "-"},
-        )
 
     def update_solution(self, solution: np.ndarray) -> None:
         """Update the solution with the damage variables.
@@ -157,6 +96,83 @@ class FractureDamageHistoryVariables(pp.PorePyModel):
         )
 
 
+class DilationDamageVariable(pp.PorePyModel):
+    """Dilation damage variable for fractures.
+
+    Defines the variable and sets it to the equation system.
+
+    """
+
+    dilation_damage_history_variable = "dilation_damage_history"
+
+    def dilation_damage_history(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
+        """Fracture dilation damage history [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
+
+        Returns:
+            Variable for nondimensionalized fracture dilation damage.
+        """
+        for sd in subdomains:
+            if sd.dim != self.nd - 1:
+                raise ValueError("Damage only defined on fractures")
+
+        return self.equation_system.md_variable(
+            self.dilation_damage_history_variable, subdomains
+        )
+
+    def create_variables(self) -> None:
+        """Create variables for the model."""
+        super().create_variables()
+
+        self.equation_system.create_variables(
+            dof_info={"cells": 1},
+            name=self.dilation_damage_history_variable,
+            subdomains=self.mdg.subdomains(dim=self.nd - 1),
+            tags={"si_units": "-"},
+        )
+
+
+class FrictionDamageVariable(pp.PorePyModel):
+    """Friction damage variable for fractures.
+
+    Defines the variable and sets it to the equation system.
+    """
+
+    friction_damage_history_variable = "friction_damage_history"
+
+    def friction_damage_history(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
+        """Fracture friction damage history [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
+
+        Returns:
+            Variable for nondimensionalized fracture friction damage.
+        """
+        for sd in subdomains:
+            if sd.dim != self.nd - 1:
+                raise ValueError("Damage only defined on fractures")
+
+        return self.equation_system.md_variable(
+            self.friction_damage_history_variable, subdomains
+        )
+
+    def create_variables(self) -> None:
+        """Create variables for the model."""
+        super().create_variables()
+
+        self.equation_system.create_variables(
+            dof_info={"cells": 1},
+            name=self.friction_damage_history_variable,
+            subdomains=self.mdg.subdomains(dim=self.nd - 1),
+            tags={"si_units": "-"},
+        )
+
+
 class FractureDamageEquations(pp.PorePyModel, abc.ABC):
     """Base class for fracture damage equations.
 
@@ -215,12 +231,12 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
             self.dilation_damage_equation(fractures)
         )
 
-    def _convolution_integral_equation(
+    def damage_convolution_integral(
         self,
-        damage_history_var: pp.ad.Variable,
-        integrand_func: Callable[
-            [int, list[pp.Grid]], tuple[pp.ad.Operator, pp.ad.Operator]
+        length_function: Callable[
+            [list[pp.Grid], int], tuple[pp.ad.Operator, pp.ad.Operator]
         ],
+        damage_coefficient_function: Callable[[list[pp.Grid]], pp.ad.Operator],
         subdomains: list[pp.Grid],
         tolerance: float = 1e-14,
     ) -> pp.ad.Operator:
@@ -238,88 +254,62 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
         """
         num_steps = self.time_manager.time_index
 
-        # Current time step contribution (implicit part)
-        current_contribution, _ = integrand_func(0)  # 0 = current time step
-        eq = current_contribution - damage_history_var
+        # Current time step contribution (implicit part). 0 = current time step.
+        damage_coefficient = damage_coefficient_function(subdomains)
+        length, _ = length_function(subdomains, 0)
+        eq = damage_coefficient * length
 
-        # Previous time steps contributions (explicit part)
+        # Previous time steps contributions (explicit part).
         for i in range(1, num_steps):
-            # i = number of steps back in time
-            eq = self.add_integration_term(eq, i, subdomains, integrand_func, tolerance)
+            # i = number of steps back in time.
+            damage_coefficient_i = damage_coefficient.previous_timestep(i)
+            length_i, constant_part_i = length_function(subdomains, i)
+            # Provided the contribution is the product of the constant part and some
+            # variable, constant_part_i = 0 implies contribution_i = 0 regardless of the
+            # variable's value.
+            constant_value = cast(
+                np.ndarray, constant_part_i.value(self.equation_system)
+            )
+            if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
+                eq += length_i * damage_coefficient_i
 
-        return eq
-
-    def add_integration_term(
-        self,
-        eq: pp.ad.Operator,
-        time_step_index: int,
-        subdomains: list[pp.Grid],
-        integrand_func: Callable[[int], tuple[pp.ad.Operator, pp.ad.Operator]],
-        tolerance,
-    ) -> pp.ad.Operator:
-        """Add an integration term to the equation.
-
-        The term is added only if the constant part of the integrand is non-zero,
-        under the assumption that the contribution is the product of the constant part
-        and some variable. If the constant part is zero, the contribution is also zero,
-        regardless of the variable's value.
-        If this method is used with an integrand that does not follow this assumption,
-        the tolerance can be set negative or the constant part returned can be set to an
-        arbitrary non-zero value.
-
-        Parameters:
-            eq: The equation to which the term is added.
-            time_step_index: Index of the time step.
-            subdomains: List of fracture subdomains.
-            integrand_func: Function that takes time step index and returns
-                (contribution, constant_part) tuple.
-            tolerance: Tolerance for checking if constant part is non-zero.
-
-        Returns:
-            The updated equation with the new term added.
-        """
-        contribution_i, constant_part_i = integrand_func(time_step_index)
-        # Check if constant part is non-zero before adding. Otherwise, skip it,
-        # under the assumption that the contribution is the product of the constant
-        # part and some variable. Provided this, constant_part_i = 0 implies
-        # contribution_i = 0 regardless of the variable's value.
-        constant_value = cast(np.ndarray, constant_part_i.value(self.equation_system))
-        if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
-            eq += contribution_i
         return eq
 
     def dilation_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Anisotropic dilation damage equation."""
+        characteristic = pp.ad.Scalar(0)
+        characteristic = self.contact_mechanics_open_state_characteristic(subdomains)
 
-        return self._convolution_integral_equation(
-            self.dilation_damage_history(subdomains),
-            partial(
-                self.damage_integrand,
+        eq = (
+            (pp.ad.Scalar(1.0) - characteristic)
+            * self.damage_convolution_integral(
+                self.damage_length,
+                self.dilation_damage_coefficient,
                 subdomains=subdomains,
-                degradation=self.dilation_damage_coefficient(subdomains),
-            ),  # Now only the time step index is passed to the integrand function.
-            subdomains,
+            )
+            - self.dilation_damage_history(subdomains)
+            + characteristic
+            * self.dilation_damage_history(subdomains).previous_timestep(1)
         )
+        eq.set_name("dilation_damage_equation")
+        return eq
 
     def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Anisotropic friction damage equation."""
 
-        return self._convolution_integral_equation(
-            self.friction_damage_history(subdomains),
-            partial(
-                self.damage_integrand,
-                subdomains=subdomains,
-                degradation=self.friction_damage_coefficient(subdomains),
-            ),  # Now only the time step index is passed to the integrand function.
-            subdomains,
-        )
+        eq = self.damage_convolution_integral(
+            self.damage_length,
+            self.friction_damage_coefficient,
+            subdomains=subdomains,
+        ) - self.friction_damage_history(subdomains)
+        eq.set_name("friction_damage_equation")
+        return eq
 
     @abc.abstractmethod
-    def damage_integrand(
+    def damage_length(
         self,
-        time_step_index: int,
         subdomains: list[pp.Grid],
-        degradation: pp.ad.Operator,
+        time_step_index: int,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Integrand for the damage equation.
 
@@ -335,69 +325,97 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
         """
         raise NotImplementedError(
             "This method should be implemented in subclasses to define the damage "
-            "integrand."
+            "length."
         )
 
 
-class AnisotropicFractureDamageEquations:
+class AnisotropicFractureDamageEquations(pp.PorePyModel):
     """Anisotropic damage equations for both friction and dilation."""
+
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the characteristic contact traction on fractures."""
+
+    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the characteristic displacement on fractures."""
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the contact traction on fractures."""
 
-    dilation_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Method returning the dilation damage variable."""
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the plastic displacement jump variable."""
 
-    friction_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Method returning the friction damage variable."""
-
-    def damage_integrand(
+    def damage_length(
         self,
-        time_step_index: int,
         subdomains: list[pp.Grid],
-        degradation: pp.ad.Operator,
+        time_step_index: int,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Integrand for the anisotropic damage equation.
+
+        The damage length is defined as the difference between the positive part of the
+        values of the tangential displacement along the update direction m at time n and
+        the previous time step n-1:
+
+        .. math::
+
+            L_d = \max(0, m \cdot u_t_{n}) - \max(0, m \cdot u_t_{n-1})
 
         Parameters:
             time_step_index: Index of the time step.
             subdomains: List of subdomains where the damage is defined.
-            degradation: Operator representing the degradation factor.
 
         Returns:
             Tuple containing the contribution to the equation and the displacement
             increment at the specified time step. If the displacement increment is zero,
             the full contribution is also zero.
         """
-        # Get displacement increment.
-        u_t: pp.ad.Operator = self.tangential_component(
-            subdomains
-        ) @ self.plastic_displacement_jump(subdomains)
-        # Note that this amounts to a endpoint rule for this interval of the integral.
-        if time_step_index == 0:
-            degradation_increment = pp.ad.time_increment(degradation)
-        else:
-            degradation_increment = degradation.previous_timestep(
-                time_step_index
-            ) - degradation.previous_timestep(time_step_index + 1)
-
-        m_t = self.normalized_tangential_plastic_jump(subdomains)
+        # Fracture coordinate basis functions.
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
         tangential_to_scalar = pp.ad.sum_projection_list(
             [e_i.T for e_i in tangential_basis]
         )
 
-        zero_val = 0.5  # TODO: Verify if this is the correct zero value.
+        # Get variables.
+        u_t: pp.ad.Operator = self.tangential_component(
+            subdomains
+        ) @ self.plastic_displacement_jump(subdomains)
+        m_t = self.normalized_tangential_plastic_jump(subdomains)
+        t_n = self.normal_component(subdomains) @ self.contact_traction(subdomains)
+        # Derived previous time step values. If time_step_index is 0, u_t_0 is the
+        # actual variable.
+        u_t_1 = u_t._previous_timestep(time_step_index + 1)
+        u_t_0 = u_t._previous_timestep(time_step_index)
+
+        # Create Heaviside function to handle open fractures.
+        zero_val = 0.0  # TODO: Verify if this is the correct zero value.
+        tol = pp.ad.Scalar(1e-8)  # Tolerance for checking if the traction is zero.
         f_Heaviside = pp.ad.Function(
             partial(pp.ad.functions.heaviside, zero_val), "Heaviside"
         )
-        f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
-
-        contribution = f_Heaviside(tangential_to_scalar @ (m_t * u_t)) * f_abs(
-            tangential_to_scalar @ (m_t * degradation_increment)
+        # The fracture is closed if the normal traction is negative. There is no damage
+        # if the fracture is open. Add tolerance since a numerically zero traction
+        # should not be considered as closed.
+        closed = f_Heaviside(
+            pp.ad.Scalar(-1) * t_n
+            + tol * self.characteristic_contact_traction(subdomains)
         )
-
-        return contribution, degradation_increment
+        # Length is evaluated using the ramp function max(x, 0)
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        zero = pp.ad.Scalar(0.0)
+        max_0 = f_max(
+            tangential_to_scalar @ (m_t * u_t_0),
+            zero,
+        )
+        max_1 = f_max(
+            tangential_to_scalar @ (m_t * u_t_1),
+            zero,
+        )
+        f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
+        contribution = closed * (f_abs(max_1 - max_0))
+        # If time_step_index > 0, we can safely disregard the contribution if the
+        # displacement increment is zero. Return increment for checking before adding
+        # the contribution.
+        increment = u_t_0 - u_t_1
+        return contribution, increment
 
     def normalized_tangential_plastic_jump(
         self, subdomains: list[pp.Grid]
@@ -438,17 +456,16 @@ class AnisotropicFractureDamageEquations:
         return m_t
 
 
-class IsotropicFractureDamageEquations:
+class IsotropicFractureDamageEquations(pp.PorePyModel):
     """Isotropic damage equations for both friction and dilation."""
 
-    dilation_damage_history_variable: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Method returning the dilation damage variable."""
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method returning the plastic displacement jump variable."""
 
-    def damage_integrand(
+    def damage_length(
         self,
-        time_step_index: int,
         subdomains: list[pp.Grid],
-        degradation: pp.ad.Operator,
+        time_step_index: int,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Integrand for the isotropic damage equation.
 
@@ -462,16 +479,14 @@ class IsotropicFractureDamageEquations:
             increment at the specified time step. If the displacement increment is zero,
             the full contribution is also zero.
         """
-
-        if time_step_index == 0:
-            degradation_increment = pp.ad.time_increment(degradation)
-        else:
-            degradation_increment = degradation.previous_timestep(
-                time_step_index
-            ) - degradation.previous_timestep(time_step_index + 1)
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
+        u_t_increment = u_t._previous_timestep(
+            time_step_index
+        ) - u_t._previous_timestep(time_step_index + 1)
 
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
-        contribution = f_norm(degradation_increment)
+        contribution = f_norm(u_t_increment)
 
-        return contribution, degradation_increment
+        return contribution, u_t_increment
