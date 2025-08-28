@@ -399,14 +399,10 @@ class EnthalpyBasedEnergyBalanceEquations(
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
-    enthalpy_buoyancy: Callable[
-        [pp.Subdomains], pp.ad.Operator
-    ]
+    enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
-    enthalpy_buoyancy_jump: Callable[
-        [pp.Subdomains], pp.ad.Operator
-    ]
+    enthalpy_buoyancy_jump: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
     bc_data_fractional_flow_energy_key: str
@@ -483,14 +479,16 @@ class EnthalpyBasedEnergyBalanceEquations(
             )
         else:
             flux = super().enthalpy_flux(subdomains)
-        buoyancy_condition: bool = self.params.get("buoyancy_on", True) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        buoyancy_condition: bool = self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
         if buoyancy_condition:
             flux += self.enthalpy_buoyancy(subdomains)
         return flux
 
     def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         source = super().energy_source(subdomains)
-        buoyancy_condition: bool = self.params.get("buoyancy_on", True)
+        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
         if buoyancy_condition:
             source += self.enthalpy_buoyancy_jump(subdomains)
         return source
@@ -635,7 +633,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             self.component_mass(component, subdomains), subdomains, dim=1
         )
         flux = self.component_flux(component, subdomains)
-        if self.params.get("buoyancy_on", True):
+        if self.params.get("enable_buoyancy_effects", False):
             flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
@@ -908,7 +906,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
-        if self.params.get("buoyancy_on", True):
+        if self.params.get("enable_buoyancy_effects", False):
             source += self.component_buoyancy_jump(component, subdomains)
 
         source.set_name(f"interface_component_flux_source_{component.name}")
