@@ -24,8 +24,14 @@ import pytest
 import numpy as np
 import porepy as pp
 from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGeometry3D
-from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D, ModelMDGeometry3D
-from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, BuoyancyFlowModel3N
+from tests.functional.setups.buoyancy_flow_model import (
+    ModelMDGeometry2D,
+    ModelMDGeometry3D,
+)
+from tests.functional.setups.buoyancy_flow_model import (
+    BuoyancyFlowModel2N,
+    BuoyancyFlowModel3N,
+)
 from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
@@ -93,22 +99,31 @@ def _run_buoyancy_model(
     }
     # Combine geometry with model class
     if mesh_2d_Q:
-        class Model2D(geometry2d, model_class): pass
+
+        class Model2D(geometry2d, model_class):
+            pass
+
         model = Model2D(params)
     else:
-        class Model3D(geometry3d, model_class): pass
+
+        class Model3D(geometry3d, model_class):
+            pass
+
         model = Model3D(params)
     pp.run_time_dependent_model(model, params)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", Parameterization)
+@pytest.mark.parametrize(
+    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
+)
 def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (FD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=False)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", Parameterization)
+@pytest.mark.parametrize(
+    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
+)
 def test_buoyancy_md_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (MD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=True)
-
