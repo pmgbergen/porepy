@@ -67,8 +67,6 @@ def test_buoyancy_flow_benchmark(
     rho_g = rho_l - delta_rho
     to_Mega = 1.0e-6
 
-    # --- All class and function definitions from the original script are placed here ---
-
     # geometry description
     class Geometry(pp.PorePyModel):
         @abstractmethod
@@ -503,7 +501,7 @@ def test_buoyancy_flow_benchmark(
     material_constants = {"solid": solid_constants}
     params = {
         "fractional_flow": True,
-        "buoyancy_on": True,
+        "enable_buoyancy_effects": True,
         "material_constants": material_constants,
         "time_manager": time_manager,
         "prepare_simulation": False,
@@ -584,7 +582,8 @@ def test_buoyancy_flow_benchmark(
         plt.xlabel("Distance [m]")
         plt.ylabel("Saturation [-]")
         plt.title(
-            f"Saturation Profile at $t = 5$ days for $\\Delta \\rho = {delta_rho}$ kg/m$^3$"
+            f"Saturation Profile at $t = 5$ days for "
+            f"$\\Delta \\rho = {delta_rho}$ kg/m$^3$"
         )
         plt.grid(True)
         plt.legend()
