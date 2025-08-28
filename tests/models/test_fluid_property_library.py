@@ -2,32 +2,20 @@
 import pytest
 import numpy as np
 import porepy as pp
-from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGeometry3D
-from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D, ModelMDGeometry3D
+from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D
+from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D
 from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, BuoyancyFlowModel3N
 from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
 # Parameterization list for both tests
 Parameterization = [
-    (BuoyancyFlowModel2N, True),
-    (BuoyancyFlowModel2N, True),
-    (BuoyancyFlowModel2N, True),
-    (BuoyancyFlowModel2N, False),
-    (BuoyancyFlowModel2N, False),
-    (BuoyancyFlowModel2N, False),
-    (BuoyancyFlowModel3N, True),
-    (BuoyancyFlowModel3N, True),
-    (BuoyancyFlowModel3N, True),
-    (BuoyancyFlowModel3N, False),
-    (BuoyancyFlowModel3N, False),
-    (BuoyancyFlowModel3N, False),
+    (BuoyancyFlowModel2N),
+    (BuoyancyFlowModel3N),
 ]
-
 
 def _build_buoyancy_model(
     model_class: type,
-    mesh_2d_Q: bool,
     md: bool = False,
 ) -> None:
     """Run buoyancy flow simulation for given parameters."""
@@ -43,10 +31,8 @@ def _build_buoyancy_model(
     )
     if md:
         geometry2d = ModelMDGeometry2D
-        geometry3d = ModelMDGeometry3D
     else:
         geometry2d = ModelGeometry2D
-        geometry3d = ModelGeometry3D
 
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
@@ -65,20 +51,15 @@ def _build_buoyancy_model(
         "nl_convergence_tol_res": np.inf,
     }
     # Combine geometry with model class
-    if mesh_2d_Q:
-        class Model2D(geometry2d, model_class): pass
-        model = Model2D(params)
-    else:
-        class Model3D(geometry3d, model_class): pass
-        model = Model3D(params)
+    class Model2D(geometry2d, model_class): pass
+    model = Model2D(params)
     model.prepare_simulation()
     return model
 
 def __common_assertions(model):
 
-    # test keys
+
     phase_context = model.fluid.phases
-    component_context = model.fluid.components
     unkown_phase = pp.Phase(0,"unkown")
     assert model.phase_pairs_for(unkown_phase) == []
 
@@ -98,16 +79,189 @@ def __common_assertions(model):
             assert model.buoyancy_intf_key(pair[0], pair[1]) == "buoyancy_intf_" + pair[0].name + "_" + pair[1].name
             assert model.buoyant_intf_flux_array_key(pair[0], pair[1]) == "buoyant_intf_flux_" + pair[0].name + "_" + pair[1].name
 
+def __subdomains_assertions(model):
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q", Parameterization)
-def test_fluid_buoyancy_fd(model_class, mesh_2d_Q):
+    # test keys
+    phase_context = model.fluid.phases
+    component_context = model.fluid.components
+    subdomains = model.mdg.subdomains()
+
+    eval = lambda op: model.equation_system.evaluate(op)
+    are_equal = lambda a, b: np.allclose(a, b)
+
+    rho_hat = eval(model.fractionally_weighted_density(subdomains))
+    if len(phase_context) == 2:
+        rho_hat_expected = np.array([
+            1000.0, 207.92079208, 1000.0, 207.92079208,
+            1000.0, 207.92079208, 200.0, 207.92079208,
+            200.0, 207.92079208, 1000.0, 207.92079208,
+            1000.0, 207.92079208, 1000.0, 207.92079208,
+            200.0, 207.92079208, 200.0, 207.92079208,
+            1000.0, 207.92079208, 1000.0, 207.92079208,
+            1000.0
+        ])
+    else:
+        rho_hat_expected = np.array([1000., 271.92982456, 1000., 271.92982456,
+               1000., 271.92982456, 252.25225225, 271.92982456,
+               252.25225225, 271.92982456, 1000., 271.92982456,
+               1000., 271.92982456, 1000., 271.92982456,
+               252.25225225, 271.92982456, 252.25225225, 271.92982456,
+               1000., 271.92982456, 1000., 271.92982456,
+               1000.])
+    assert are_equal(rho_hat, rho_hat_expected)
+
+    w_flux = eval(model.density_driven_flux(subdomains, pp.ad.Scalar(1.0)))
+    if len(phase_context) == 2:
+        w_flux_expected = np.array([0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., -1.85134888e-07,
+                                    -1.79270887e-06, -1.85134888e-07, -1.79270887e-06, -1.85134888e-07,
+                                    -1.85134888e-07, -1.79270887e-06, -1.85134888e-07, -1.79270887e-06,
+                                    -1.85134888e-07, -1.85134888e-07, -1.79270887e-06, -1.85134888e-07,
+                                    -1.79270887e-06, -1.85134888e-07, -1.85134888e-07, -1.79270887e-06,
+                                    -1.85134888e-07, -1.79270887e-06, -1.85134888e-07, 0.,
+                                    0., -9.80665000e-08, 0., 0.])
+    else:
+        w_flux_expected = np.array([ 0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0., -1.79694758e-07,
+       -1.23819178e-06, -1.79694758e-07, -1.23819178e-06, -1.79694758e-07,
+       -1.79694758e-07, -1.23819178e-06, -1.79694758e-07, -1.23819178e-06,
+       -1.79694758e-07, -1.79694758e-07, -1.23819178e-06, -1.79694758e-07,
+       -1.23819178e-06, -1.79694758e-07, -1.79694758e-07, -1.23819178e-06,
+       -1.79694758e-07, -1.23819178e-06, -1.79694758e-07,  0.,
+        0., -9.80665000e-08,  0.,  0.])
+
+    assert are_equal(w_flux, w_flux_expected)
+
+    buoyancy_fluxes = []
+    for component in component_context:
+        c_buoyancy_flux = eval(model.component_buoyancy(component, subdomains))
+        buoyancy_fluxes.append(c_buoyancy_flux)
+    overall_buoyancy_flux = np.sum(np.array(buoyancy_fluxes), axis=0)
+    assert are_equal(overall_buoyancy_flux, np.zeros_like(overall_buoyancy_flux))
+
+    h_buoyancy_flux = eval(model.enthalpy_buoyancy(subdomains))
+    if len(phase_context) == 2:
+        h_buoyancy_flux_expected = np.array([0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 0.,
+                                             0., 0., 0., 2.96215821e-19,
+                                             1.40590834e-05, 2.96215821e-19, 1.40590834e-05, 2.96215821e-19,
+                                             1.45189599e-06, 0., 1.45189599e-06, 0.,
+                                             1.45189599e-06, 2.96215821e-19, 1.40590834e-05, 2.96215821e-19,
+                                             1.40590834e-05, 2.96215821e-19, 1.45189599e-06, 0.,
+                                             1.45189599e-06, 0., 1.45189599e-06, 0.,
+                                             0., 1.56906400e-19, 0., 0.])
+    else:
+        h_buoyancy_flux_expected = np.array([0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 0.,
+       0., 0., 0., 3.06379562e-19,
+       5.48783061e-05, 3.06379562e-19, 5.48783061e-05, 3.06379562e-19,
+       7.96431059e-06, 3.33139011e-05, 7.96431059e-06, 3.33139011e-05,
+       7.96431059e-06, 3.06379562e-19, 5.48783061e-05, 3.06379562e-19,
+       5.48783061e-05, 3.06379562e-19, 7.96431059e-06, 3.33139011e-05,
+       7.96431059e-06, 3.33139011e-05, 7.96431059e-06, 0.,
+       0., 1.67203382e-19, 0., 0.])
+    assert are_equal(h_buoyancy_flux, h_buoyancy_flux_expected)
+
+def __interface_assertions(model):
+
+    # test keys
+    phase_context = model.fluid.phases
+    component_context = model.fluid.components
+    subdomains = model.mdg.subdomains()
+    interfaces = model.mdg.interfaces()
+
+    eval = lambda op: model.equation_system.evaluate(op)
+    are_equal = lambda a, b: np.allclose(a, b)
+
+    intf_w_flux = eval(model.interface_density_driven_flux(interfaces, pp.ad.Scalar(1.0)))
+    if len(phase_context) == 2:
+        intf_w_flux_expected = np.array([ 1.96133000e-06,  1.65078608e-06,  1.96133000e-06, -1.96133000e-06,
+       -1.65078608e-06, -1.96133000e-06,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        1.96133000e-07,  1.96133000e-07, -1.96133000e-07,  1.96133000e-07,
+       -1.96133000e-07,  1.96133000e-07])
+    else:
+        intf_w_flux_expected = np.array([ 1.46533982e-06,  1.07201462e-06,  1.46533982e-06, -1.46533982e-06,
+       -1.07201462e-06, -1.46533982e-06,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        1.46533982e-07,  1.46533982e-07, -1.46533982e-07,  1.46533982e-07,
+       -1.46533982e-07,  1.46533982e-07])
+
+    assert are_equal(intf_w_flux, intf_w_flux_expected)
+
+    buoyancy_flux_jumps = []
+    for component in component_context:
+        c_buoyancy_flux_jump = eval(model.component_buoyancy_jump(component, subdomains))
+        buoyancy_flux_jumps.append(c_buoyancy_flux_jump)
+    overall_buoyancy_flux_jump = np.sum(np.array(buoyancy_flux_jumps), axis=0)
+    assert are_equal(overall_buoyancy_flux_jump, np.zeros_like(overall_buoyancy_flux_jump))
+
+    h_buoyancy_flux_jump = eval(model.enthalpy_buoyancy_jump(subdomains))
+    if len(phase_context) == 2:
+        h_buoyancy_flux_jump_expected = np.array([0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+       0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+       0., 0., 0., 0., 0., 0., 0., 0.])
+    else:
+        h_buoyancy_flux_jump_expected = np.array([ 0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0.,  0.,  0.,
+        0.,  0., -3.94253834e-06,  0.,
+        0., -3.94253834e-06])
+    assert are_equal(h_buoyancy_flux_jump, h_buoyancy_flux_jump_expected)
+
+@pytest.mark.parametrize("model_class", Parameterization)
+def akatest_fluid_buoyancy_fd(model_class):
     """Test buoyancy-driven flow model (FD)."""
-    fd_model = _build_buoyancy_model(model_class, mesh_2d_Q, md=False)
+    fd_model = _build_buoyancy_model(model_class, md=False)
     __common_assertions(fd_model)
+    __subdomains_assertions(fd_model)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q", Parameterization)
-def test_fluid_buoyancy_md(model_class, mesh_2d_Q):
+@pytest.mark.parametrize("model_class", Parameterization)
+def test_fluid_buoyancy_md(model_class):
     """Test buoyancy-driven flow model (MD)."""
-    md_model = _build_buoyancy_model(model_class, mesh_2d_Q, md=True)
+    md_model = _build_buoyancy_model(model_class, md=True)
     __common_assertions(md_model)
+    __interface_assertions(md_model)

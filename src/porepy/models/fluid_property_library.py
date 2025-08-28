@@ -515,6 +515,20 @@ class FluidBuoyancy(pp.PorePyModel):
         )
         return discr
 
+    def fractionally_weighted_density(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Return sum f_j rho_j (fractional-flow-weighted density)."""
+        overall_rho = pp.ad.sum_operator_list(
+            [
+                self.fractional_phase_mass_mobility(phase, domains)
+                * phase.density(domains)
+                for phase in self.fluid.phases
+            ]
+        )
+        overall_rho.set_name("fractionally_weighted_density")
+        return overall_rho
+
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Return gravity magnitude field (pointing in negative last coord)."""
         g_constant = pp.GRAVITY_ACCELERATION
@@ -592,20 +606,6 @@ class FluidBuoyancy(pp.PorePyModel):
         )
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
-
-    def fractionally_weighted_density(
-        self, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        """Return sum f_j rho_j (fractional-flow-weighted density)."""
-        overall_rho = pp.ad.sum_operator_list(
-            [
-                self.fractional_phase_mass_mobility(phase, domains)
-                * phase.density(domains)
-                for phase in self.fluid.phases
-            ]
-        )
-        overall_rho.set_name("fractionally_weighted_density")
-        return overall_rho
 
     def __entity_buoyancy_flux(
         self, advected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
