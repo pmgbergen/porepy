@@ -929,6 +929,9 @@ class Grid:
         if cell_wise is False and func is None:
             raise ValueError("func must be provided if cell_wise is False")
 
+        if cell_wise and func is not None:
+            warn("The parameter func is ignored when cell_wise is True")
+
         if cn is None:
             cn = self.cell_nodes()
 
