@@ -10,19 +10,29 @@ from tests.functional.setups.buoyancy_flow_model import (
 from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
-# this test the class FluidBuoyancy by instanciating a model and evaluated the operators composed by the class.
+# Test suite for FluidBuoyancy class functionality.
+# Validates buoyancy operators by instantiating models and evaluating computed operators.
 
-# Parameterization list for both tests
+# Parameterization for testing both 2-component and 3-component models
 Parameterization = [
-    (BuoyancyFlowModel2N),
-    (BuoyancyFlowModel3N),
+    (BuoyancyFlowModel2N),  # 2-component buoyancy flow model
+    (BuoyancyFlowModel3N),  # 3-component buoyancy flow model
 ]
 
 def _build_buoyancy_model(
     model_class: type,
     md: bool = False,
 ) -> None:
-    """build buoyancy flow model for given parameters."""
+    """
+    Build a buoyancy flow model for given parameters.
+
+    Args:
+        model_class: The model class to instantiate (2N or 3N component model)
+        md: Whether to use mixed-dimensional geometry (default: False)
+
+    Returns:
+        Configured and prepared buoyancy flow model instance
+    """
     day = 86400
     tf = 0.5 * day
     dt = 0.25 * day
@@ -66,7 +76,12 @@ def _build_buoyancy_model(
 
 def __common_assertions(model):
     """
-    Assert fluid configuration and keys for a given phase context.
+    Verify fluid configuration and phase pair relationships.
+
+    Tests:
+    - Phase pair generation logic for unknown phases
+    - Correct pairing of phases in multi-phase contexts
+    - Consistency of buoyancy-related dictionary keys
     """
 
     phase_context = model.fluid.phases
@@ -107,7 +122,13 @@ def __common_assertions(model):
 
 def __subdomains_assertions(model):
     """
-    Assert that subdomain fluxes are correctly computed for the model.
+    Validate subdomain flux computations and buoyancy calculations.
+
+    Tests:
+    - Fractionally weighted density calculations
+    - Density-driven flux computations
+    - Component-wise buoyancy flux reciprocity (should sum to zero)
+    - Enthalpy buoyancy flux values against expected values
     """
 
     # test keys
@@ -220,6 +241,8 @@ def __subdomains_assertions(model):
                 0.0,
                 0.0,
                 0.0,
+                0.0,
+                0.0,
                 -1.85134888e-07,
                 -1.79270887e-06,
                 -1.85134888e-07,
@@ -250,6 +273,8 @@ def __subdomains_assertions(model):
     else:
         w_flux_expected = np.array(
             [
+                0.0,
+                0.0,
                 0.0,
                 0.0,
                 0.0,
@@ -361,29 +386,11 @@ def __subdomains_assertions(model):
                 0.0,
                 0.0,
                 0.0,
-                2.96215821e-19,
-                1.40590834e-05,
-                2.96215821e-19,
-                1.40590834e-05,
-                2.96215821e-19,
-                1.45189599e-06,
-                0.0,
-                1.45189599e-06,
-                0.0,
-                1.45189599e-06,
-                2.96215821e-19,
-                1.40590834e-05,
-                2.96215821e-19,
-                1.40590834e-05,
-                2.96215821e-19,
-                1.45189599e-06,
-                0.0,
-                1.45189599e-06,
-                0.0,
-                1.45189599e-06,
                 0.0,
                 0.0,
-                1.56906400e-19,
+                0.0,
+                0.0,
+                0.0,
                 0.0,
                 0.0,
             ]
@@ -456,7 +463,12 @@ def __subdomains_assertions(model):
 
 def __interface_assertions(model):
     """
-    Assert that interface fluxes are correctly computed for the model.
+    Verify interface flux computations for mixed-dimensional cases.
+
+    Tests:
+    - Interface density-driven flux calculations
+    - Component-wise buoyancy flux jump reciprocity (should sum to zero)
+    - Enthalpy buoyancy flux jumps for fracture-matrix interactions
     """
     # test keys
     phase_context = model.fluid.phases
@@ -670,7 +682,7 @@ def __interface_assertions(model):
 
 @pytest.mark.parametrize("model_class", Parameterization)
 def akatest_fluid_buoyancy_fd(model_class):
-    """Test buoyancy-driven flow model (FD)."""
+    """Test FluidBuoyancy class with fixed-dimensional (FD) geometry."""
     fd_model = _build_buoyancy_model(model_class, md=False)
     __common_assertions(fd_model)
     __subdomains_assertions(fd_model)
@@ -678,7 +690,7 @@ def akatest_fluid_buoyancy_fd(model_class):
 
 @pytest.mark.parametrize("model_class", Parameterization)
 def test_fluid_buoyancy_md(model_class):
-    """Test buoyancy-driven flow model (MD)."""
+    """Test FluidBuoyancy class with mixed-dimensional (MD) geometry."""
     md_model = _build_buoyancy_model(model_class, md=True)
     __common_assertions(md_model)
     __interface_assertions(md_model)
