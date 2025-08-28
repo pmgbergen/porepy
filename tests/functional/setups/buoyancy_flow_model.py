@@ -18,26 +18,29 @@ from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
-from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
+from porepy.models.compositional_flow import (
+    CompositionalFractionalFlowTemplate as FlowTemplate,
+)
 from abc import abstractmethod
 
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)
-rho_o = 700.0   #: Density of oil (C5H12)
-rho_g = 200.0   #: Density of gas (CH4)
+rho_o = 700.0  #: Density of oil (C5H12)
+rho_g = 200.0  #: Density of gas (CH4)
 
 # Constants for fluid phase viscosities (Pa * second)
 mu_w = 1.0e-3  #: Viscosity of water (H2O)
-mu_o = 1.0e-4   #: Viscosity of oil (C5H12)
-mu_g = 1.0e-5   #: Viscosity of gas (CH4)
+mu_o = 1.0e-4  #: Viscosity of oil (C5H12)
+mu_g = 1.0e-5  #: Viscosity of gas (CH4)
 
 # Specific enthalpies (physical units MJ/kg)
-h_w = 1.0     # Water
-h_o = 1.5     # Oil
-h_g = 2.0     # Gas
+h_w = 1.0  # Water
+h_o = 1.5  # Oil
+h_g = 2.0  # Gas
 
 # Conversion factor to Mega (1e-6)
 to_Mega = 1.0e-6  #: Unit conversion factor to Mega units
+
 
 class Geometry(pp.PorePyModel):
     """
@@ -53,11 +56,7 @@ class Geometry(pp.PorePyModel):
         pass
 
     @staticmethod
-    def harvest_sphere_members(
-            xc: np.ndarray,
-            rc: float,
-            x: np.ndarray
-    ) -> np.ndarray:
+    def harvest_sphere_members(xc: np.ndarray, rc: float, x: np.ndarray) -> np.ndarray:
         """
         Select points inside a sphere defined by center and radius.
 
@@ -73,11 +72,14 @@ class Geometry(pp.PorePyModel):
         r = np.linalg.norm(dx, axis=1)
         return np.where(r < rc, True, False)
 
+
 class ModelGeometry2D(Geometry):
     """2D Cartesian domain."""
 
     _sphere_radius: float = 1.0
-    _sphere_center: np.ndarray = np.array([2.5, 5.0, 0.0])  # renamed from _sphere_centre
+    _sphere_center: np.ndarray = np.array(
+        [2.5, 5.0, 0.0]
+    )  # renamed from _sphere_centre
 
     def set_domain(self) -> None:
         """Set square domain."""
@@ -113,6 +115,7 @@ class ModelGeometry2D(Geometry):
 
         return find_facets(self._sphere_center)
 
+
 class ModelMDGeometry2D(ModelGeometry2D):
     """2D mixed-dimensional domain."""
 
@@ -134,18 +137,25 @@ class ModelMDGeometry2D(ModelGeometry2D):
         fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
         self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
+
 class ModelGeometry3D(Geometry):
     """3D Cartesian domain."""
 
     _sphere_radius: float = 1.0
-    _sphere_center: np.ndarray = np.array([2.5, 2.5, 5.0])  # renamed from _sphere_centre
+    _sphere_center: np.ndarray = np.array(
+        [2.5, 2.5, 5.0]
+    )  # renamed from _sphere_centre
 
     def set_domain(self) -> None:
         """Set a 3D cubic domain."""
         x_length = self.units.convert_units(5.0, "m")
         y_length = self.units.convert_units(5.0, "m")
         z_length = self.units.convert_units(5.0, "m")
-        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length, "zmax": z_length}
+        box: dict[str, pp.number] = {
+            "xmax": x_length,
+            "ymax": y_length,
+            "zmax": z_length,
+        }
         self._domain = pp.Domain(box)
 
     def grid_type(self) -> str:
@@ -175,6 +185,7 @@ class ModelGeometry3D(Geometry):
 
         return find_facets(self._sphere_center)
 
+
 class ModelMDGeometry3D(ModelGeometry3D):
     """3D mixed-dimensional domain."""
 
@@ -203,6 +214,7 @@ class ModelMDGeometry3D(ModelGeometry3D):
         disjoint_set = [f1, f2, f3, f4, f5]
         self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
 
+
 class BaseEOS(pp.compositional.EquationOfState):
     """Simple constant-property EOS base.
 
@@ -217,8 +229,8 @@ class BaseEOS(pp.compositional.EquationOfState):
     """
 
     def kappa(
-            self,
-            *thermodynamic_dependencies: np.ndarray,
+        self,
+        *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Thermal conductivity function.
@@ -231,14 +243,21 @@ class BaseEOS(pp.compositional.EquationOfState):
         vals = (2.0) * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-    def compute_phase_properties(self, phase_state: pp.compositional.PhysicalState, *thermodynamic_input: np.ndarray, params: Optional[Sequence[np.ndarray | float]] = None) -> pp.compositional.PhaseProperties:
+    def compute_phase_properties(
+        self,
+        phase_state: pp.compositional.PhysicalState,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
+    ) -> pp.compositional.PhaseProperties:
         """Compile phase properties as a pp.compositional.PhaseProperties."""
 
         nc = len(thermodynamic_input[0])
         rho, drho = self.rho_func(*thermodynamic_input)  # mass density and derivatives
-        h, dh = self.h(*thermodynamic_input)             # specific enthalpy and derivatives
-        mu, dmu = self.mu_func(*thermodynamic_input)     # viscosity and derivatives
-        kappa, dkappa = self.kappa(*thermodynamic_input) # thermal conductivity and derivatives
+        h, dh = self.h(*thermodynamic_input)  # specific enthalpy and derivatives
+        mu, dmu = self.mu_func(*thermodynamic_input)  # viscosity and derivatives
+        kappa, dkappa = self.kappa(
+            *thermodynamic_input
+        )  # thermal conductivity and derivatives
 
         return pp.compositional.PhaseProperties(
             state=phase_state,
@@ -258,18 +277,24 @@ class BaseEOS(pp.compositional.EquationOfState):
 class WaterEOS(BaseEOS):
     """Water EOS (constant props)."""
 
-    def h(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def h(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
         vals = h_w * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-    def rho_func(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def rho_func(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
         vals = rho_w * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-    def mu_func(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def mu_func(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
         vals = mu_w * np.ones(nc) * to_Mega
@@ -279,42 +304,56 @@ class WaterEOS(BaseEOS):
 class OilEOS(BaseEOS):
     """Oil EOS (constant props)."""
 
-    def h(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def h(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
         vals = h_o * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-    def rho_func(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def rho_func(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
         vals = rho_o * np.ones(nc)
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def mu_func(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def mu_func(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
         vals = mu_o * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
+
 class GasEOS(BaseEOS):
     """Gas EOS (constant props)."""
 
-    def h(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def h(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
         vals = h_g * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-    def rho_func(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def rho_func(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
         vals = rho_g * np.ones(nc)
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def mu_func(self, *thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def mu_func(
+        self, *thermodynamic_dependencies: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         nc = len(thermodynamic_dependencies[0])
         vals = mu_g * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
+
 
 class BaseFlowModel(
     FlowTemplate,
@@ -325,7 +364,9 @@ class BaseFlowModel(
         super().__init__(params)
         self.expected_order_loss = params.get("expected_order_loss", 10)
 
-    def relative_permeability(self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def relative_permeability(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """kr = saturation."""
         return phase.saturation(domains)
 
@@ -353,7 +394,13 @@ class BaseFlowModel(
         gravity_field.set_name("gravity_field")
         return gravity_field
 
-    def check_convergence(self, nonlinear_increment: np.ndarray, residual: Optional[np.ndarray], reference_residual: np.ndarray, nl_params: dict[str, Any]) -> tuple[bool, bool]:
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
         """Check nonlinear convergence."""
 
         if self._is_nonlinear_problem():
@@ -361,7 +408,10 @@ class BaseFlowModel(
             total_volume = 0.0
             for sd in self.mdg.subdomains():
                 total_volume += np.sum(
-                    self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
+                    self.equation_system.evaluate(
+                        self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)
+                    )
+                )
 
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
@@ -371,21 +421,26 @@ class BaseFlowModel(
             residual_norm = np.linalg.norm(residual) * total_volume
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
-                    nl_params["nl_convergence_tol"] is np.inf
-                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+                nl_params["nl_convergence_tol"] is np.inf
+                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
             )
             converged_res = (
-                    nl_params["nl_convergence_tol_res"] is np.inf
-                    or residual_norm < nl_params["nl_convergence_tol_res"]
+                nl_params["nl_convergence_tol_res"] is np.inf
+                or residual_norm < nl_params["nl_convergence_tol_res"]
             )
             converged = converged_inc and converged_res
             diverged = False
         else:
-            raise ValueError("Gravitational segregation is nonlinear in its simpler form.")
+            raise ValueError(
+                "Gravitational segregation is nonlinear in its simpler form."
+            )
         return converged, diverged
 
+
 # constitutive description for N=2
-def temperature_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def temperature_2N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """Temperature correlation (zeroed)."""
     p, h, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -401,7 +456,10 @@ def temperature_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray,
     diffs[1, :] = 1.0 * factor
     return vals, diffs
 
-def gas_saturation_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def gas_saturation_2N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """Gas saturation correlation."""
     p, h, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -412,10 +470,15 @@ def gas_saturation_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarr
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = (rho_w * rho_g) / ((z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g))
+    diffs[2, :] = (rho_w * rho_g) / (
+        (z_CH4 * (rho_w - rho_g) + rho_g) * (z_CH4 * (rho_w - rho_g) + rho_g)
+    )
     return vals, diffs
 
-def CH4_water_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def CH4_water_2N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """CH4 in water fraction."""
     p, h, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -426,7 +489,9 @@ def CH4_water_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, n
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
 
-def CH4_gas_2N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def CH4_gas_2N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """CH4 in gas fraction."""
     p, h, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -451,7 +516,7 @@ class FluidMixture2N(pp.PorePyModel):
         return pp.compositional.load_fluid_constants(["H2O", "CH4"], "chemicals")
 
     def get_phase_configuration(
-            self, components: Sequence[pp.Component]
+        self, components: Sequence[pp.Component]
     ) -> Sequence[
         tuple[pp.compositional.EquationOfState, pp.compositional.PhysicalState, str]
     ]:
@@ -462,7 +527,7 @@ class FluidMixture2N(pp.PorePyModel):
         return [configuration_W, configuration_G]
 
     def dependencies_of_phase_properties(
-            self, phase: pp.Phase
+        self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         z = [
             comp.fraction
@@ -474,6 +539,7 @@ class FluidMixture2N(pp.PorePyModel):
 
 class SecondaryEquations2N(LocalElimination):
     """Secondary (eliminated) relations 2N."""
+
     dependencies_of_phase_properties: Callable[
         ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
@@ -551,7 +617,7 @@ class BoundaryConditions2N(pp.PorePyModel):
         return h
 
     def bc_values_overall_fraction(
-            self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         z_CH4 = np.zeros(boundary_grid.num_cells)
         return z_CH4
@@ -594,13 +660,15 @@ class InitialConditions2N(pp.PorePyModel):
         return np.ones(sd.num_cells) * h
 
     def ic_values_overall_fraction(
-            self, component: pp.Component, sd: pp.Grid
+        self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0) +
-             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0) +
-             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0) +
-             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0))
+        z = (
+            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
+            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
+            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
+            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        )
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -638,8 +706,10 @@ class FlowModel2N(
 
         def norm_vol_int(op: pp.ad.Operator, sd: pp.Grid) -> float:
             return (
-                    np.sum(self.equation_system.evaluate(self.volume_integral(op, [sd], dim=1)))
-                    / total_volume
+                np.sum(
+                    self.equation_system.evaluate(self.volume_integral(op, [sd], dim=1))
+                )
+                / total_volume
             )
 
         # Reference and numerical accumulators
@@ -652,8 +722,8 @@ class FlowModel2N(
             rho_g = phases[1].density([sd])
 
             ic_rho = (
-                    pp.wrap_as_dense_ad_array(1.0 - ic_sg) * rho_l
-                    + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+                pp.wrap_as_dense_ad_array(1.0 - ic_sg) * rho_l
+                + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
             )
             ref_rho += norm_vol_int(ic_rho, sd)
 
@@ -663,7 +733,9 @@ class FlowModel2N(
 
             ic_p = self.ic_values_pressure(sd)
             ic_h = self.ic_values_enthalpy(sd)
-            ic_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h) - pp.wrap_as_dense_ad_array(ic_p)
+            ic_energy = ic_rho * pp.wrap_as_dense_ad_array(
+                ic_h
+            ) - pp.wrap_as_dense_ad_array(ic_p)
             ref_energy += norm_vol_int(ic_energy, sd)
 
             cur_rho = self.fluid.density([sd])
@@ -696,10 +768,14 @@ class BuoyancyFlowModel2N(
     FlowModel2N,
 ):
     """Complete 2N buoyancy model."""
+
     pass
 
+
 # constitutive description for N=3
-def temperature_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def temperature_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """Temperature correlation (zeroed)."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -715,46 +791,100 @@ def temperature_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray,
     diffs[1, :] = 1.0 * factor
     return vals, diffs
 
-def oil_saturation_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def oil_saturation_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """Oil saturation correlation."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = (z_C5H12*rho_g*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+    vals = (z_C5H12 * rho_g * rho_w) / (
+        -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+        + z_C5H12 * rho_g * rho_w
+        + z_CH4 * rho_o * rho_w
+    )
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = -((z_C5H12*rho_g*rho_w*(-(rho_g*rho_o) + rho_g*rho_w))/
-       (-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)**2) + (rho_g*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
-    diffs[3, :] = -((z_C5H12*rho_g*rho_w*(-(rho_g*rho_o) + rho_o*rho_w))/
-     (-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)**2)
+    diffs[2, :] = -(
+        (z_C5H12 * rho_g * rho_w * (-(rho_g * rho_o) + rho_g * rho_w))
+        / (
+            -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+            + z_C5H12 * rho_g * rho_w
+            + z_CH4 * rho_o * rho_w
+        )
+        ** 2
+    ) + (rho_g * rho_w) / (
+        -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+        + z_C5H12 * rho_g * rho_w
+        + z_CH4 * rho_o * rho_w
+    )
+    diffs[3, :] = -(
+        (z_C5H12 * rho_g * rho_w * (-(rho_g * rho_o) + rho_o * rho_w))
+        / (
+            -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+            + z_C5H12 * rho_g * rho_w
+            + z_CH4 * rho_o * rho_w
+        )
+        ** 2
+    )
     return vals, diffs
 
-def gas_saturation_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def gas_saturation_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """Gas saturation correlation."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
 
     nc = len(thermodynamic_dependencies[0])
-    vals = (z_CH4*rho_o*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+    vals = (z_CH4 * rho_o * rho_w) / (
+        -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+        + z_C5H12 * rho_g * rho_w
+        + z_CH4 * rho_o * rho_w
+    )
     vals = np.clip(vals, 1.0e-16, 1.0)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
-    diffs[2, :] = -((z_CH4*rho_o*rho_w*(-(rho_g*rho_o) + rho_g*rho_w))/
-      (-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)**2)
-    diffs[3, :] = -((z_CH4*rho_o*rho_w*(-(rho_g*rho_o) + rho_o*rho_w))/
-       (-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)**2) + (rho_o*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+    diffs[2, :] = -(
+        (z_CH4 * rho_o * rho_w * (-(rho_g * rho_o) + rho_g * rho_w))
+        / (
+            -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+            + z_C5H12 * rho_g * rho_w
+            + z_CH4 * rho_o * rho_w
+        )
+        ** 2
+    )
+    diffs[3, :] = -(
+        (z_CH4 * rho_o * rho_w * (-(rho_g * rho_o) + rho_o * rho_w))
+        / (
+            -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+            + z_C5H12 * rho_g * rho_w
+            + z_CH4 * rho_o * rho_w
+        )
+        ** 2
+    ) + (rho_o * rho_w) / (
+        -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+        + z_C5H12 * rho_g * rho_w
+        + z_CH4 * rho_o * rho_w
+    )
     return vals, diffs
+
 
 saturation_functions_map_3N = {
     "oil": oil_saturation_3N,
     "gas": gas_saturation_3N,
 }
 
-def C5H12_water_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def C5H12_water_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """C5H12 in water."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -764,7 +894,10 @@ def C5H12_water_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray,
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-def C5H12_oil_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def C5H12_oil_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """C5H12 in oil."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -774,7 +907,10 @@ def C5H12_oil_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, n
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-def C5H12_gas_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def C5H12_gas_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """C5H12 in gas."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -784,7 +920,10 @@ def C5H12_gas_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, n
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-def CH4_water_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def CH4_water_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """CH4 in water."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -794,7 +933,10 @@ def CH4_water_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, n
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-def CH4_oil_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def CH4_oil_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """CH4 in oil."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -804,7 +946,10 @@ def CH4_oil_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.
     vals = np.clip(vals, 1.0e-16, 1.0)
     return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
-def CH4_gas_3N(*thermodynamic_dependencies: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+def CH4_gas_3N(
+    *thermodynamic_dependencies: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """CH4 in gas."""
     p, h, z_C5H12, z_CH4 = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_CH4)
@@ -824,14 +969,17 @@ chi_functions_map_3N = {
     "CH4_gas": CH4_gas_3N,
 }
 
+
 class FluidMixture3N(pp.PorePyModel):
     """3-phase (water-oil-gas), 3-component mixture."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(["H2O", "C5H12", "CH4"], "chemicals")
+        return pp.compositional.load_fluid_constants(
+            ["H2O", "C5H12", "CH4"], "chemicals"
+        )
 
     def get_phase_configuration(
-            self, components: Sequence[pp.Component]
+        self, components: Sequence[pp.Component]
     ) -> Sequence[
         tuple[pp.compositional.EquationOfState, pp.compositional.PhysicalState, str]
     ]:
@@ -844,7 +992,7 @@ class FluidMixture3N(pp.PorePyModel):
         return [configuration_W, configuration_O, configuration_G]
 
     def dependencies_of_phase_properties(
-            self, phase: pp.Phase
+        self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         z = [
             comp.fraction
@@ -856,6 +1004,7 @@ class FluidMixture3N(pp.PorePyModel):
 
 class SecondaryEquations3N(LocalElimination):
     """Secondary relations 3N."""
+
     dependencies_of_phase_properties: Callable[
         ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
@@ -884,7 +1033,9 @@ class SecondaryEquations3N(LocalElimination):
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdomains
-                saturation_functions_map_3N[phase.name],  # numerical function implementing correlation
+                saturation_functions_map_3N[
+                    phase.name
+                ],  # numerical function implementing correlation
                 subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
             )
 
@@ -934,7 +1085,7 @@ class BoundaryConditions3N(pp.PorePyModel):
         return h
 
     def bc_values_overall_fraction(
-            self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         return np.zeros(boundary_grid.num_cells)
 
@@ -951,8 +1102,12 @@ class InitialConditions3N(pp.PorePyModel):
         for sd in self.mdg.subdomains():
             s_oil_val = self.ic_values_saturation_oil(sd)
             s_gas_val = self.ic_values_saturation_gas(sd)
-            self.equation_system.set_variable_values(s_oil_val, [oil.saturation([sd])], 0, 0)
-            self.equation_system.set_variable_values(s_gas_val, [gas.saturation([sd])], 0, 0)
+            self.equation_system.set_variable_values(
+                s_oil_val, [oil.saturation([sd])], 0, 0
+            )
+            self.equation_system.set_variable_values(
+                s_gas_val, [gas.saturation([sd])], 0, 0
+            )
 
             x_inactive_v = np.zeros_like(s_oil_val)
             x_active_v = np.ones_like(s_gas_val)
@@ -965,7 +1120,9 @@ class InitialConditions3N(pp.PorePyModel):
             x_CH4_oil = oil.partial_fraction_of[self.fluid.components[2]]([sd])
             x_CH4_gas = gas.partial_fraction_of[self.fluid.components[2]]([sd])
 
-            self.equation_system.set_variable_values(x_inactive_v, [x_C5H12_water], 0, 0)
+            self.equation_system.set_variable_values(
+                x_inactive_v, [x_C5H12_water], 0, 0
+            )
             self.equation_system.set_variable_values(x_active_v, [x_C5H12_oil], 0, 0)
             self.equation_system.set_variable_values(x_inactive_v, [x_C5H12_gas], 0, 0)
 
@@ -973,17 +1130,24 @@ class InitialConditions3N(pp.PorePyModel):
             self.equation_system.set_variable_values(x_inactive_v, [x_CH4_oil], 0, 0)
             self.equation_system.set_variable_values(x_active_v, [x_CH4_gas], 0, 0)
 
-
     def ic_values_saturation_oil(self, sd: pp.Grid) -> np.ndarray:
         z_C5H12 = self.ic_values_overall_fraction(self.fluid.components[1], sd)
         z_CH4 = self.ic_values_overall_fraction(self.fluid.components[2], sd)
-        so_val = (z_C5H12*rho_g*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+        so_val = (z_C5H12 * rho_g * rho_w) / (
+            -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+            + z_C5H12 * rho_g * rho_w
+            + z_CH4 * rho_o * rho_w
+        )
         return so_val
 
     def ic_values_saturation_gas(self, sd: pp.Grid) -> np.ndarray:
         z_C5H12 = self.ic_values_overall_fraction(self.fluid.components[1], sd)
         z_CH4 = self.ic_values_overall_fraction(self.fluid.components[2], sd)
-        sg_val = (z_CH4*rho_o*rho_w)/(-((-1 + z_C5H12 + z_CH4)*rho_g*rho_o) + z_C5H12*rho_g*rho_w + z_CH4*rho_o*rho_w)
+        sg_val = (z_CH4 * rho_o * rho_w) / (
+            -((-1 + z_C5H12 + z_CH4) * rho_g * rho_o)
+            + z_C5H12 * rho_g * rho_w
+            + z_CH4 * rho_o * rho_w
+        )
         return sg_val
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
@@ -995,15 +1159,16 @@ class InitialConditions3N(pp.PorePyModel):
         return np.ones(sd.num_cells) * h
 
     def ic_values_overall_fraction(
-            self, component: pp.Component, sd: pp.Grid
+        self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = (np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 1/6.0, 0.0) +
-             np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1/6.0, 0.0) +
-             np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1/6.0, 0.0) +
-             np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1/6.0, 0.0))
+        z = (
+            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 1 / 6.0, 0.0)
+            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 1 / 6.0, 0.0)
+            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 1 / 6.0, 0.0)
+            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 1 / 6.0, 0.0)
+        )
         return z * np.ones(sd.num_cells)
-
 
 
 class FlowModel3N(
@@ -1060,9 +1225,9 @@ class FlowModel3N(
 
             # Initial mixture density (AD)
             ic_rho = (
-                    pp.wrap_as_dense_ad_array(ic_sw) * rho_w
-                    + pp.wrap_as_dense_ad_array(ic_so) * rho_o
-                    + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
+                pp.wrap_as_dense_ad_array(ic_sw) * rho_w
+                + pp.wrap_as_dense_ad_array(ic_so) * rho_o
+                + pp.wrap_as_dense_ad_array(ic_sg) * rho_g
             )
 
             # Initial overall fractions for non-reference components
@@ -1070,48 +1235,90 @@ class FlowModel3N(
             ic_z_c2 = self.ic_values_overall_fraction(components[2], sd)  # CH4
 
             # Reference mass integrals (normalized)
-            ref_rho_integral += np.sum(
-                self.equation_system.evaluate(self.volume_integral(ic_rho, [sd], dim=1))
-            ) / total_volume
+            ref_rho_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(ic_rho, [sd], dim=1)
+                    )
+                )
+                / total_volume
+            )
 
-            ref_rho_c1_integral += np.sum(
-                self.equation_system.evaluate(
-                    self.volume_integral(ic_rho * pp.wrap_as_dense_ad_array(ic_z_c1), [sd], dim=1)
+            ref_rho_c1_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(
+                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c1), [sd], dim=1
+                        )
+                    )
                 )
-            ) / total_volume
-            ref_rho_c2_integral += np.sum(
-                self.equation_system.evaluate(
-                    self.volume_integral(ic_rho * pp.wrap_as_dense_ad_array(ic_z_c2), [sd], dim=1)
+                / total_volume
+            )
+            ref_rho_c2_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(
+                            ic_rho * pp.wrap_as_dense_ad_array(ic_z_c2), [sd], dim=1
+                        )
+                    )
                 )
-            ) / total_volume
+                / total_volume
+            )
 
             # Initial energy (rho*h - p)
             ic_p = self.ic_values_pressure(sd)
             ic_h = self.ic_values_enthalpy(sd)
-            ic_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h) - pp.wrap_as_dense_ad_array(ic_p)
-            ref_energy_integral += np.sum(
-                self.equation_system.evaluate(self.volume_integral(ic_energy, [sd], dim=1))
-            ) / total_volume
+            ic_energy = ic_rho * pp.wrap_as_dense_ad_array(
+                ic_h
+            ) - pp.wrap_as_dense_ad_array(ic_p)
+            ref_energy_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(ic_energy, [sd], dim=1)
+                    )
+                )
+                / total_volume
+            )
 
             # Current mixture density and integrals
             num_rho = self.fluid.density([sd])
-            num_rho_integral += np.sum(
-                self.equation_system.evaluate(self.volume_integral(num_rho, [sd], dim=1))
-            ) / total_volume
+            num_rho_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(num_rho, [sd], dim=1)
+                    )
+                )
+                / total_volume
+            )
 
             num_rho_c1 = num_rho * components[1].fraction([sd])
             num_rho_c2 = num_rho * components[2].fraction([sd])
-            num_rho_c1_integral += np.sum(
-                self.equation_system.evaluate(self.volume_integral(num_rho_c1, [sd], dim=1))
-            ) / total_volume
-            num_rho_c2_integral += np.sum(
-                self.equation_system.evaluate(self.volume_integral(num_rho_c2, [sd], dim=1))
-            ) / total_volume
+            num_rho_c1_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(num_rho_c1, [sd], dim=1)
+                    )
+                )
+                / total_volume
+            )
+            num_rho_c2_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(num_rho_c2, [sd], dim=1)
+                    )
+                )
+                / total_volume
+            )
 
             num_energy = num_rho * self.enthalpy([sd]) - self.pressure([sd])
-            num_energy_integral += np.sum(
-                self.equation_system.evaluate(self.volume_integral(num_energy, [sd], dim=1))
-            ) / total_volume
+            num_energy_integral += (
+                np.sum(
+                    self.equation_system.evaluate(
+                        self.volume_integral(num_energy, [sd], dim=1)
+                    )
+                )
+                / total_volume
+            )
 
         # Loss metrics (orders)
         total_mass_loss = abs(ref_rho_integral - num_rho_integral)
@@ -1139,5 +1346,5 @@ class BuoyancyFlowModel3N(
     FlowModel3N,
 ):
     """Complete 3N buoyancy model."""
-    pass
 
+    pass
