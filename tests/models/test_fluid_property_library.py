@@ -11,13 +11,15 @@ from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
 # Test suite for FluidBuoyancy class functionality.
-# Validates buoyancy operators by instantiating models and evaluating computed operators.
+# Validates buoyancy operators by instantiating models and evaluating
+# computed operators.
 
 # Parameterization for testing both 2-component and 3-component models
 Parameterization = [
     (BuoyancyFlowModel2N),  # 2-component buoyancy flow model
     (BuoyancyFlowModel3N),  # 3-component buoyancy flow model
 ]
+
 
 def _build_buoyancy_model(
     model_class: type,
@@ -57,7 +59,7 @@ def _build_buoyancy_model(
     )
     params = {
         "fractional_flow": True,
-        "buoyancy_on": True,
+        "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
@@ -456,9 +458,7 @@ def __subdomains_assertions(model):
                 0.0,
             ]
         )
-    assert np.allclose(
-        h_buoyancy_flux, h_buoyancy_flux_expected
-    )
+    assert np.allclose(h_buoyancy_flux, h_buoyancy_flux_expected)
 
 
 def __interface_assertions(model):

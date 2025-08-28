@@ -6,8 +6,10 @@ Supports both:
 - 2-phase, 2-component systems (e.g., water and methane)
 - 3-phase, 3-component systems (e.g., water, oil, and methane)
 
-The module defines 2D and 3D geometry setup, equations of state, initial and boundary conditions,
-and solution procedures for compositional fluid flow problems with gravitational effects.
+The module defines 2D and 3D geometry setup, equations of state, initial and boundary
+conditions, and solution procedures for compositional fluid flow problems with
+gravitational effects.
+
 Fixed- and mixed-dimensional meshes are defined on cartesian grids.
 
 """
@@ -287,7 +289,6 @@ class WaterEOS(BaseEOS):
     def rho_func(
         self, *thermodynamic_dependencies: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = rho_w * np.ones(nc)
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -295,7 +296,6 @@ class WaterEOS(BaseEOS):
     def mu_func(
         self, *thermodynamic_dependencies: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = mu_w * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
@@ -314,7 +314,6 @@ class OilEOS(BaseEOS):
     def rho_func(
         self, *thermodynamic_dependencies: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = rho_o * np.ones(nc)
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -341,7 +340,6 @@ class GasEOS(BaseEOS):
     def rho_func(
         self, *thermodynamic_dependencies: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = rho_g * np.ones(nc)
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -358,7 +356,6 @@ class GasEOS(BaseEOS):
 class BaseFlowModel(
     FlowTemplate,
 ):
-
     def __init__(self, params: dict):
         """Initialize flow model."""
         super().__init__(params)
@@ -404,7 +401,6 @@ class BaseFlowModel(
         """Check nonlinear convergence."""
 
         if self._is_nonlinear_problem():
-
             total_volume = 0.0
             for sd in self.mdg.subdomains():
                 total_volume += np.sum(
@@ -678,7 +674,6 @@ class InitialConditions2N(pp.PorePyModel):
 class FlowModel2N(
     BaseFlowModel,
 ):
-
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
         super().after_nonlinear_convergence()
@@ -1174,7 +1169,6 @@ class InitialConditions3N(pp.PorePyModel):
 class FlowModel3N(
     BaseFlowModel,
 ):
-
     def after_nonlinear_convergence(self) -> None:
         """Post-convergence diagnostics."""
         super().after_nonlinear_convergence()

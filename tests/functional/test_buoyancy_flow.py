@@ -6,7 +6,8 @@ fluxes in an immiscible flow simulation under gravity.
 
 It covers two multicomponent fluid systems:
 - N = 2: Two phases (aqueous liquid, gas) and two components (e.g., H₂O, CH₄).
-- N = 3: Three phases (aqueous liquid, oleic liquid, gas) and three components (e.g., H₂O, CO₂, CH₄).
+- N = 3: Three phases (aqueous liquid, oleic liquid, gas) and
+three components (e.g., H₂O, CO₂, CH₄).
 
 Simulations are run in 2D and 3D for several conservation tolerances, and
 the observed conservation is checked to be of the expected order. After each
@@ -88,7 +89,7 @@ def _run_buoyancy_model(
     )
     params = {
         "fractional_flow": True,
-        "buoyancy_on": True,
+        "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
@@ -112,6 +113,7 @@ def _run_buoyancy_model(
         model = Model3D(params)
     pp.run_time_dependent_model(model, params)
 
+
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize(
     "model_class, mesh_2d_Q, expected_order_loss", Parameterization
@@ -119,6 +121,7 @@ def _run_buoyancy_model(
 def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (FD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=False)
+
 
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize(
