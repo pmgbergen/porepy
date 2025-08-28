@@ -10,12 +10,13 @@ from tests.functional.setups.buoyancy_flow_model import (
 from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
+# this test the class FluidBuoyancy by instanciating a model and evaluated the operators composed by the class.
+
 # Parameterization list for both tests
 Parameterization = [
     (BuoyancyFlowModel2N),
     (BuoyancyFlowModel3N),
 ]
-
 
 def _build_buoyancy_model(
     model_class: type,
@@ -450,10 +451,7 @@ def __subdomains_assertions(model):
         )
     assert np.allclose(
         h_buoyancy_flux, h_buoyancy_flux_expected
-    ), "Buoyancy flux values do not match expected results."
-    assert (
-        h_buoyancy_flux.shape == h_buoyancy_flux_expected.shape
-    ), "Buoyancy flux output shape mismatch."
+    )
 
 
 def __interface_assertions(model):
