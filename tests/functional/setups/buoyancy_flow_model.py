@@ -509,7 +509,9 @@ class FluidMixture2N(pp.PorePyModel):
     """2-phase (water-gas), 2-component mixture."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(["H2O", "CH4"], "chemicals")
+        component_1 = pp.FluidComponent(name="H2O")
+        component_2 = pp.FluidComponent(name="CH4")
+        return [component_1, component_2]
 
     def get_phase_configuration(
         self, components: Sequence[pp.Component]
@@ -969,9 +971,10 @@ class FluidMixture3N(pp.PorePyModel):
     """3-phase (water-oil-gas), 3-component mixture."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(
-            ["H2O", "C5H12", "CH4"], "chemicals"
-        )
+        component_1 = pp.FluidComponent(name="H2O")
+        component_2 = pp.FluidComponent(name="C5H12")
+        component_3 = pp.FluidComponent(name="CH4")
+        return [component_1, component_2, component_3]
 
     def get_phase_configuration(
         self, components: Sequence[pp.Component]
