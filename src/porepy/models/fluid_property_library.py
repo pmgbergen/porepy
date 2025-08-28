@@ -28,7 +28,7 @@ Note:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast, Union, Literal, Optional
+from typing import Callable, Sequence, cast, Union, Literal, List
 import numpy as np
 from itertools import combinations
 
@@ -608,9 +608,9 @@ class FluidBuoyancy(pp.PorePyModel):
         return overall_rho
 
     def __entity_buoyancy_flux(
-        self, convected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        """Internal: Buoyancy flux induced by gamma and delta, convecting a quantity associated to phase gamma."""
+        self, advected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> List[pp.ad.Operator]:
+        """Internal: Buoyancy flux induced by gamma and delta, advecting a quantity associated to phase gamma."""
         b_fluxes = []
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
@@ -627,7 +627,7 @@ class FluidBuoyancy(pp.PorePyModel):
         discr_delta = self.buoyancy_discretization(delta, gamma, domains)
 
         f_gamma_upwind: pp.ad.Operator = (
-            discr_gamma.upwind() @ (convected_gamma_quantity * f_gamma)
+            discr_gamma.upwind() @ (advected_gamma_quantity * f_gamma)
         )  # well-defined fractional flow on facets
         f_delta_upwind: pp.ad.Operator = (
             discr_delta.upwind() @ f_delta
@@ -657,8 +657,8 @@ class FluidBuoyancy(pp.PorePyModel):
 
             # Project quantities to interface with proper upwinding for both primary and secondary sides
             gamma_interface = (
-                intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (convected_gamma_quantity * f_gamma)
-                + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (convected_gamma_quantity * f_gamma)
+                intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (advected_gamma_quantity * f_gamma)
+                + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (advected_gamma_quantity * f_gamma)
             )
             delta_interface = (
                 intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta
@@ -674,9 +674,9 @@ class FluidBuoyancy(pp.PorePyModel):
         return b_fluxes
 
     def __entity_buoyancy_jump(
-        self, convected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
-        """Internal: Buoyancy flux jump induced by gamma and delta, convecting a quantity associated to phase gamma."""
+        self, advected_gamma_quantity: pp.ad.Operator, gamma: pp.Phase, delta: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> List[pp.ad.Operator]:
+        """Internal: Buoyancy flux jump induced by gamma and delta, advecting a quantity associated to phase gamma."""
 
         # Verify that the domains are subdomains.
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -716,8 +716,8 @@ class FluidBuoyancy(pp.PorePyModel):
 
             # Project quantities to interface with proper upwinding for both primary and secondary sides
             gamma_interface = (
-                intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (convected_gamma_quantity * f_gamma)
-                + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (convected_gamma_quantity * f_gamma)
+                intf_discr_gamma.upwind_primary() @ mortar_avg @ primary_trace @ (advected_gamma_quantity * f_gamma)
+                + intf_discr_gamma.upwind_secondary() @ secondary_to_mortar @ (advected_gamma_quantity * f_gamma)
             )
             delta_interface = (
                 intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta

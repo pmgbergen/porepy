@@ -20,7 +20,6 @@ time step the following are tested:
    discretization of the energy convective buoyancy terms.
 """
 
-from typing import Type
 import pytest
 import numpy as np
 import porepy as pp
@@ -59,28 +58,21 @@ def _run_buoyancy_model(
     if md:
         tf = 0.5 * day
         dt = 0.25 * day
-        solid_constants = pp.SolidConstants(
-            permeability=1.0e-14,
-            porosity=0.1,
-            thermal_conductivity=2.0 * to_Mega,
-            density=2500.0,
-            specific_heat_capacity=1000.0 * to_Mega,
-        )
         geometry2d = ModelMDGeometry2D
         geometry3d = ModelMDGeometry3D
     else:
         tf = 2.0 * day
         dt = 1.0 * day
-        solid_constants = pp.SolidConstants(
-            permeability=1.0e-14,
-            porosity=0.1,
-            thermal_conductivity=2.0 * to_Mega,
-            density=2500.0,
-            specific_heat_capacity=1000.0 * to_Mega,
-        )
         geometry2d = ModelGeometry2D
         geometry3d = ModelGeometry3D
 
+    solid_constants = pp.SolidConstants(
+        permeability=1.0e-14,
+        porosity=0.1,
+        thermal_conductivity=2.0 * to_Mega,
+        density=2500.0,
+        specific_heat_capacity=1000.0 * to_Mega,
+    )
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
         dt_init=dt,
