@@ -727,3 +727,11 @@ class ConstraintLineSearch:
             violation_tol = violation_tol / 2
 
         return weights
+
+
+class ConstraintLineSearchNonlinearSolver(
+    ConstraintLineSearch,
+    SplineInterpolationLineSearch,
+    LineSearchNewtonSolver,
+):
+    pass
