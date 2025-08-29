@@ -1197,7 +1197,7 @@ class Tpsa:
             rob_weight = np.vstack((rob_weight, bnd_disp.robin_weight[2, 2]))
 
         # We need an arithmetic average of the shear modulus that accounts for Robin
-        # boundary conditions (this enters, for instance in the discretization of solid
+        # boundary conditions (this enters, for instance, in the discretization of solid
         # mass with respect to solid pressure, see the paper for details). For that, we
         # need a single Robin weight for the face (this should be a scalar quantity).
         # The implementation formally allows for anisotropic Robin conditions, but they

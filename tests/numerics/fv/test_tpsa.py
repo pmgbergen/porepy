@@ -1,5 +1,5 @@
 """Tests for the Tpsa discretization. Contains two sets of tests:
-1. Various other tests that probe different aspects of the Tpsa discretization. These
+1. Various tests that probe different aspects of the Tpsa discretization. These
    are not grouped in a class, but are individual tests:
    - test_compression_tension: Fix some boundaries, push or pull in other boundaries,
    check that the resulting primary variables have the expected signs.
@@ -11,7 +11,7 @@
    material that undergoes linear displacement.
 
 2. Detailed tests of the implemented discretization scheme, with hard-coded values for
-   the various discretization matrices defined on an 2x2 grid, contained in the class
+   the various discretization matrices defined on a 2x2 grid, contained in the class
    TestTpsaTailoredGrid. The tests are in a sense extremely powerful, but can also be
    hard to understand and work with. It is considered highly unlikely that these tests
    reveal issues with the code that will not be picked up by the simpler tests mentioned
@@ -274,7 +274,7 @@ def test_3d_linear_displacement(neu_bcs: bool):
     """
     # Notes for debugging: For Neumann BCs, at least two cells are needed in the x- or
     # y-direction to fix the domain and ensure solvability.
-    g = pp.CartGrid([2, 1, 10], [1, 1, 1])
+    g = pp.CartGrid([2, 1, 4], [1, 1, 1])
     g.compute_geometry()
     d = _set_uniform_parameters(g)
 
