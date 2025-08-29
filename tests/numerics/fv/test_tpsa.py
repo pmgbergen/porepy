@@ -41,17 +41,18 @@ matrices in the dictionary."""
 @pytest.mark.parametrize("tensile", [False, True])
 def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     """Assign a compressive or tensile force, check that the resulting displacement is
-    in the correct direction, and that the total pressure is negative.
+    in the correct direction, and that the total pressure is negative (compression) or
+    positive (tension).
 
-    The logic of the test is as follows (assuming a compressive regime, tensile=False,
-    is compressive on the south, east and (if 3d) bottom faces, the remaining faces
-    having neutral conditions. Check that this results in displacement in the negative
-    x-direction and positive y- (and z) direction. The total pressure should be
-    negative, while EK cannot surmise the correct sign of the rotation by physical
-    intuition. The grid is assumed to be Cartesian (or else the discretization is
-    inconsistent, and anything can happen), in which case the face normal vectors will
-    point into the domain on the south (and bottom) boundary, out of the domain on the
-    east boundary.
+    The logic of the test is as follows (assuming a compressive regime, i.e.
+    tensile=False): The boundary condition is compressive on the south, east and (if 3d)
+    bottom faces, the remaining faces are fixed (homogenous Dirchlet conditions.) Check
+    that this results in displacement in the negative x-direction and positive y- (and
+    z) direction. The total pressure should be negative in compression, while EK cannot
+    surmise the correct sign of the rotation by physical intuition. The grid is assumed
+    to be Cartesian (or else the discretization is inconsistent, and anything can
+    happen), in which case the face normal vectors will point into the domain on the
+    south (and bottom) boundary, out of the domain on the east boundary.
 
     Parameters:
         g: Grid object.
@@ -60,11 +61,6 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
             tensile, rather than compressive.
 
     """
-    # EK note to self: For the 3d test of compression with a unit value for the elastic
-    # moduli, there was an unexpected sign in the direction of the displacement, but
-    # this changed when moving to a stiffer material. This does not sound unreasonable,
-    # but is hereby noted for future reference.
-
     g.compute_geometry()
 
     d = _set_uniform_parameters(g)
@@ -87,15 +83,15 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
 
     # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
+    face_discretization, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
 
     if g.dim == 2:
         rot_dim = 1
     else:
         rot_dim = g.dim
 
-    # Boundary values, map to right-hand side.
-    x = _solve(flux, rhs_matrix, div, accum, bc_values.ravel("F"))
+    # Set up and solve the system.
+    x = _solve(face_discretization, rhs_matrix, div, accum, bc_values.ravel("F"))
 
     if tensile:
         # Positive x-direction, negative y- (and z-) direction.
@@ -125,12 +121,9 @@ def test_translation(g: pp.Grid):
 
     d = _set_uniform_parameters(g)
 
-    # Set type and values of boundary conditions. No rotation.
+    # Set type and values of boundary conditions.
     _set_uniform_bc(g, d, "dir")
-    if g.dim == 2:
-        disp = np.array([1, -2])
-    else:
-        disp = np.array([1, -2, 3])
+    disp = np.array([1, -2, 3])
 
     bc_values = np.zeros((g.dim, g.num_faces))
     bf = g.get_boundary_faces()
@@ -139,7 +132,7 @@ def test_translation(g: pp.Grid):
 
     # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
+    face_discretization, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
 
     if g.dim == 2:
         n_rot_face = g.num_faces
@@ -157,12 +150,12 @@ def test_translation(g: pp.Grid):
     disp_cells[1 :: g.dim] = disp[1]
     if g.dim == 3:
         disp_cells[2 :: g.dim] = disp[2]
-    v = matrices["stress"] @ disp_cells + matrices["bound_stress"] @ bc_values.ravel(
-        "F"
-    )
-    assert np.allclose(v, 0)
+    stress = matrices["stress"] @ disp_cells + matrices[
+        "bound_stress"
+    ] @ bc_values.ravel("F")
+    assert np.allclose(stress, 0)
 
-    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
+    x = _solve(face_discretization, rhs_matrix, div, accum, bound_vec)
 
     # Check that the displacement is as expected.
     assert np.allclose(x[: g.dim * g.num_cells : g.dim], disp[0])
@@ -215,13 +208,10 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     # Discretize, assemble matrices.
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
     matrices_dir = deepcopy(_discretize_get_matrices(g, d))
-    flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g, d)
-    x_dir = _solve(flux_dir, rhs_matrix_dir, div, accum, bc_values)
-
-    # For future reference: EK has verified that, as the Robin weight is increased, the
-    # discretization matrices of the Dirichlet and Robin cases do converge. The rates
-    # seem to be faster for the matrices than for the solution, but this is not
-    # unreasonable.
+    face_discretization_dir, rhs_matrix_dir, div, accum = _assemble_matrices(
+        matrices_dir, g, d
+    )
+    x_dir = _solve(face_discretization_dir, rhs_matrix_dir, div, accum, bc_values)
 
     # Set the Robin weight to a large value, such that the Robin condition approaches
     # the Dirichlet condition.
@@ -233,15 +223,21 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
     matrices_high = deepcopy(_discretize_get_matrices(g, d))
-    flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g, d)
-    x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
+    face_discretization_high, rhs_matrix_high, div, accum = _assemble_matrices(
+        matrices_high, g, d
+    )
+    x_rob_high = _solve(
+        face_discretization_high, rhs_matrix_high, div, accum, bc_values
+    )
     # The displacement should be close to the Dirichlet value.
     assert np.allclose(x_rob_high, x_dir, rtol=1e-12)
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
     matrices_neu = deepcopy(_discretize_get_matrices(g, d))
-    flux_neu, rhs_matrix_neu, div, accum = _assemble_matrices(matrices_neu, g, d)
-    x_neu = _solve(flux_neu, rhs_matrix_neu, div, accum, bc_values)
+    face_discretization_neu, rhs_matrix_neu, div, accum = _assemble_matrices(
+        matrices_neu, g, d
+    )
+    x_neu = _solve(face_discretization_neu, rhs_matrix_neu, div, accum, bc_values)
 
     # Set the Robin weight to zero, such that the Robin condition approaches the Neumann
     # condition.
@@ -252,8 +248,8 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
-    x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
+    face_discretization, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
+    x_rob_low = _solve(face_discretization, rhs_matrix, div, accum, bc_values)
 
     # The displacement should be close to the Neumann value.
     assert np.allclose(x_rob_low, x_neu, rtol=1e-12)
@@ -313,11 +309,11 @@ def test_3d_linear_displacement(neu_bcs: bool):
 
     # Discretize, get matrices, solve.
     matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
+    face_discretization, rhs_matrix, div, accum = _assemble_matrices(matrices, g, d)
 
     # Boundary values.
     bound_values = bc_values.ravel("F")
-    x = _solve(flux, rhs_matrix, div, accum, bound_values)
+    x = _solve(face_discretization, rhs_matrix, div, accum, bound_values)
 
     # The analytical solution, as outlined in the method documentation.
     u_ex = np.zeros(g.num_cells * g.dim)
@@ -327,10 +323,11 @@ def test_3d_linear_displacement(neu_bcs: bool):
     p_ex = np.zeros(g.num_cells)
     sol_ex = np.hstack((u_ex, r_ex, p_ex))
 
-    # Compute the flux and the residual from the discretization scheme when inserting
-    # the analytical solution. For the scheme to be exact, the residual should be zero.
-    flux_ex = flux @ sol_ex + rhs_matrix @ bound_values
-    resid_ex = div @ flux_ex - accum @ sol_ex
+    # Compute the generalized flux (really, stress, rotation and solid mass flux) and
+    # the residual from the discretization scheme when inserting the analytical
+    # solution. For the scheme to be exact, the residual should be zero.
+    generalized_flux_ex = face_discretization @ sol_ex + rhs_matrix @ bound_values
+    resid_ex = div @ generalized_flux_ex - accum @ sol_ex
     assert np.allclose(resid_ex, 0)
 
     # Also compare the actual computed solutions.
@@ -389,7 +386,7 @@ def _assemble_matrices(
     n_rot_cell = g.num_cells * rot_dim
     div_rot = g.divergence(dim=rot_dim)
 
-    flux = sps.block_array(
+    face_discretization = sps.block_array(
         [
             [
                 matrices["stress"],
@@ -447,11 +444,11 @@ def _assemble_matrices(
         ],
         format="csr",
     )
-    return flux, rhs_matrix, div, accum
+    return face_discretization, rhs_matrix, div, accum
 
 
 def _solve(
-    flux: sps.sparray,
+    face_discretization: sps.sparray,
     rhs_matrix: sps.sparray,
     div: sps.sparray,
     accum: sps.sparray,
@@ -460,7 +457,7 @@ def _solve(
     """Assemble the Tpsa problem and solve.
 
     Parameters:
-        flux: Discretization of the face terms as a block matrix.
+        face_discretization: Discretization of the face terms as a block matrix.
         rhs_matrix: Discretization of the boundary conditions.
         div: Divergence matrix for the face terms.
         accum: Accumulation matrix for the cell center terms.
@@ -473,7 +470,7 @@ def _solve(
 
     # Assemble and solve. The minus sign on accum follows from the definition of the
     # governing equations in the paper.
-    A = div @ flux - accum
+    A = div @ face_discretization - accum
     x = sps.linalg.spsolve(A, b)
     return x
 
@@ -539,18 +536,17 @@ def _set_bc_by_direction(
     conditions given.
 
     The boundary condition has value 0.1 on the south face, -0.1 on the east face, and
-    0.1 on the bottom face (if 3d). The remaining faces have homogeneous conditions.
-    The conditions correspond to a compressive force on the south, east and (if
-    relevant) bottom faces.
+    0.1 on the bottom face (if 3d). The remaining faces have homogeneous conditions. The
+    conditions set in this function correspond to a compressive force on the south, east
+    and (if relevant) bottom faces; tensile conditions can be obtained by negating the
+    returned array.
 
     Parameters:
-        g: Grid object.
-        d: Dictionary of parameters.
-        type_south: Type of boundary condition on the south face.
-        type_east: Type of boundary condition on the east face.
-        type_north: Type of boundary condition on the north face.
-        type_west: Type of boundary condition on the west face.
-        type_bottom: Type of boundary condition on the bottom face. Only relevant for 3d
+        g: Grid object. d: Dictionary of parameters. type_south: Type of boundary
+        condition on the south face. type_east: Type of boundary condition on the east
+        face. type_north: Type of boundary condition on the north face. type_west: Type
+        of boundary condition on the west face. type_bottom: Type of boundary condition
+        on the bottom face. Only relevant for 3d
             grids.
         type_top: Type of boundary condition on the top face. Only relevant for 3d
             grids.
