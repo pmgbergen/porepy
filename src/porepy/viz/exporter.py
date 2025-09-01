@@ -172,7 +172,7 @@ class Exporter:
         self.m_meshio_geom: MD_Meshio_Geom = dict()
         """Dictionary storing the meshio representation of the mortar grids."""
 
-        # Generate geometrical information in meshio format
+        # Generate geometrical information in meshio format.
         self._update_meshio_geom()
         self._update_constant_mesh_data()
 
@@ -183,6 +183,10 @@ class Exporter:
 
         self._exported_timesteps: list[int] = []
         """List of exported time steps, gatherer for pvd files."""
+
+        self._exported_timesteps_convergence: list[bool] = []
+        """Boolean list marking time steps in :attr:`~Exporter._exported_timesteps` as
+        converged or not converged, gatherer for pvd files."""
 
         self._time_step_constant_data: Optional[int] = None
         """Reference to the last time step used for exporting constant data."""
@@ -588,6 +592,7 @@ class Exporter:
         time_dependent: bool = False,
         time_step: Optional[int] = None,
         grid: Optional[Union[pp.Grid, pp.MixedDimensionalGrid]] = None,
+        converged: bool = True,
     ) -> None:
         """Interface function to export the grid and additional data with meshio.
 
@@ -609,10 +614,11 @@ class Exporter:
                 index that marks the time step. Can be overwritten by giving a value to
                 time_step; if not, the file names will subsequently be ending with 1, 2,
                 etc.
-            time_step: will be used as appendix to define the file corresponding to this
+            time_step: Will be used as appendix to define the file corresponding to this
                 specific time step.
-            grid: subdomain or mixed-dimensional grid if it is not fixed and should be
+            grid: Subdomain or mixed-dimensional grid if it is not fixed and should be
                 updated.
+            converged: Whether the solver has converged. Default is True.
 
         Raises:
             ValueError: if a grid is provided as argument although the exporter has been
@@ -647,6 +653,11 @@ class Exporter:
         # If time step is prescribed, store it.
         if time_step is not None:
             self._exported_timesteps.append(time_step)
+            # In addition, store information about convergence.
+            if converged:
+                self._exported_timesteps_convergence.append(True)
+            else:
+                self._exported_timesteps_convergence.append(False)
 
         # Preprocessing step with two main goals:
         # 1. Sort wrt. whether data is associated to subdomains or interfaces.
@@ -715,17 +726,25 @@ class Exporter:
         # Export subdomain and interface data to vtu format if existing
         if subdomain_data or subdomain_data_pt:
             self._has_subdomain_data = True
-            self._export_data_vtu(subdomain_data, subdomain_data_pt, time_step)
+            self._export_data_vtu(
+                subdomain_data, subdomain_data_pt, time_step, converged=converged
+            )
         if interface_data or interface_data_pt:
             self._has_interface_data = True
             self._export_data_vtu(
-                interface_data, interface_data_pt, time_step, interface_data=True
+                interface_data,
+                interface_data_pt,
+                time_step,
+                interface_data=True,
+                converged=converged,
             )
 
         # Export mixed-dimensional grid to pvd format
-        file_name = self._make_file_name(self._file_name, time_step, extension=".pvd")
+        file_name = self._make_file_name(
+            self._file_name, time_step, extension=".pvd", converged=converged
+        )
         file_name = self._append_folder_name(self._folder_name, file_name)
-        self._export_mdg_pvd(file_name, time_step)
+        self._export_mdg_pvd(file_name, time_step, converged=converged)
 
     def write_pvd(
         self,
@@ -767,15 +786,21 @@ class Exporter:
         # written in the following hardcoded manner. This has seemed to work for a while
         # now. The hardcoded style is exploited in importing routines.
 
+        # When ``times`` and/or ``file_extension`` are not provided, use time steps that
+        # were exported AND converged.
         if times is None:
-            times = np.array(self._exported_timesteps)
+            times = np.array(self._exported_timesteps)[
+                np.array(self._exported_timesteps_convergence)
+            ]
 
         if file_extension is None:
-            file_extension = self._exported_timesteps
+            file_extension = np.array(self._exported_timesteps)[
+                np.array(self._exported_timesteps_convergence)
+            ].tolist()
         elif isinstance(file_extension, np.ndarray):
             file_extension = file_extension.tolist()
 
-            # Make sure that the inputs are consistent
+            # Make sure that the inputs are consistent.
             assert isinstance(file_extension, list)
             assert len(file_extension) == times.shape[0]
 
@@ -798,8 +823,8 @@ class Exporter:
         )
         file_exists: bool = pvd_file.exists()
 
-        # Define the header - either copy paste from availble previous output, or define
-        # hardcoded header.
+        # Define the header - either copy paste from available previous output, or
+        # define hardcoded header.
         if file_exists and append:
             # Strategy: Continue writing available pvd file by first copying all content
             # until the restart time, here altogether defined as header.
@@ -830,11 +855,11 @@ class Exporter:
         # of the header.
         footer = "</Collection>\n" + "</VTKFile>"
 
-        # Open the file and write the header to file
+        # Open the file and write the header to file.
         o_file = open(pvd_file, "w")
         o_file.write(header)
 
-        # Define main body
+        # Define main body.
         fm = '\t<DataSet group="" part="" timestep="%f" file="%s"/>\n'
 
         # Perform the same procedure as in _export_mdg_pvd but looping over all
@@ -1565,6 +1590,7 @@ class Exporter:
         data: Union[SubdomainData, InterfaceData],
         data_pt: Union[SubdomainData, InterfaceData],
         time_step: Optional[int],
+        converged: bool = True,
         **kwargs,
     ) -> None:
         """Collect data associated to a single grid dimension and passing further to the
@@ -1576,6 +1602,7 @@ class Exporter:
         Parameters:
             data: Subdomain or interface data.
             time_step: time_step to be used to append the file name.
+            converged: Whether the solver has converged. Default is True.
             kwargs:
                 'interface_data' (boolean) indicates whether data is associated to an
                     interface, default is False.
@@ -1607,8 +1634,6 @@ class Exporter:
         file_name_base += "_constant" if self.constant_data else ""
         # Extend in case of interface data
         file_name_base += "_mortar" if self.interface_data else ""
-        # Append folder name to file name base
-        file_name_base = self._append_folder_name(self._folder_name, file_name_base)
 
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _, key in data]))
@@ -1644,7 +1669,11 @@ class Exporter:
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
             # Define the full file name
-            file_name: str = self._make_file_name(file_name_base, time_step, dim)
+            file_name: str = self._make_file_name(
+                file_name_base, time_step, dim, converged=converged
+            )
+            # Append folder name to file name base
+            file_name = self._append_folder_name(self._folder_name, file_name)
 
             # Get all geometrical entities of dimension dim:
             if is_subdomain_data:
@@ -1670,13 +1699,16 @@ class Exporter:
             if meshio_geom is not None:
                 self._write(fields, fields_pt, file_name, meshio_geom)
 
-    def _export_mdg_pvd(self, file_name: str, time_step: Optional[int]) -> None:
+    def _export_mdg_pvd(
+        self, file_name: str, time_step: Optional[int], converged: bool = True
+    ) -> None:
         """Routine to export to pvd format and collect all data scattered over several
         files for distinct grid dimensions.
 
         Parameters:
-            file_name: storage path for pvd file.
-            time_step: used as appendix for the file name.
+            file_name: Storage path for pvd file.
+            time_step: Used as appendix for the file name.
+            converged: Whether the solver has converged. Default is True.
 
         """
         # Open the file
@@ -1697,14 +1729,21 @@ class Exporter:
         # Subdomain data.
         for dim in self._dims:
             if self._has_subdomain_data and self.meshio_geom[dim] is not None:
-                o_file.write(fm % self._make_file_name(self._file_name, time_step, dim))
+                o_file.write(
+                    fm
+                    % self._make_file_name(
+                        self._file_name, time_step, dim, converged=converged
+                    )
+                )
 
         # Interface data.
         for dim in self._m_dims:
             if self._has_interface_data and self.m_meshio_geom[dim] is not None:
                 o_file.write(
                     fm
-                    % self._make_file_name(self._file_name + "_mortar", time_step, dim)
+                    % self._make_file_name(
+                        self._file_name + "_mortar", time_step, dim, converged=converged
+                    )
                 )
 
         # If constant data is exported to separate vtu files, also include these here.
@@ -2654,6 +2693,7 @@ class Exporter:
         time_step: Optional[int] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
+        converged: bool = True,
     ) -> str:
         """Auxiliary method to setting up file name.
 
@@ -2666,6 +2706,8 @@ class Exporter:
             time_step: Time or time step (index).
             dim: Dimension of the exported grid.
             extension: Extension of the file, typically file ending defining the format.
+            converged: If False, a prefix "failed_" is added the the file name. Default
+                is True, i.e., no prefix is added.
 
         Returns:
             Complete name of file.
@@ -2677,11 +2719,14 @@ class Exporter:
             "" if time_step is None else "_" + str(time_step).zfill(self._padding)
         )
 
-        # Define non-empty dim extension
+        # Define non-empty dim extension.
         dim_extension = "" if dim is None else "_" + str(dim)
 
-        # Combine prefix and extensions to define the complete name
-        return file_name + dim_extension + time_extension + extension
+        # Prefix to mark failed time steps.
+        failed_prefix: str = "" if converged else "failed_"
+
+        # Combine prefix and extensions to define the complete name.
+        return failed_prefix + file_name + dim_extension + time_extension + extension
 
     def _num_grid_entities(
         self, grid: pp.Grid | pp.MortarGrid, entity_type: str

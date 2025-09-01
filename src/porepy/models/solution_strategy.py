@@ -48,10 +48,6 @@ class SolutionStrategy(pp.PorePyModel):
         self.params = default_params
         """Dictionary of parameters."""
 
-        # Set a convergence status. Not sure if a boolean is sufficient, or whether
-        # we should have an enum here.
-        self.convergence_status = False
-        """Whether the non-linear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
         """See :meth:`add_nonlinear_discretization`."""
         self._nonlinear_diffusive_flux_discretizations: list[
@@ -176,7 +172,9 @@ class SolutionStrategy(pp.PorePyModel):
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
-        # Export initial condition
+        # Export initial condition. To avoid marking the initial condition as a "failed"
+        # time step, we set the nonlinear convergence status to True.
+        self.nonlinear_solver_statistics.nl_is_converged = True
         self.save_data_time_step()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
@@ -609,7 +607,7 @@ class SolutionStrategy(pp.PorePyModel):
             )
         self.update_solution(solution)
 
-        self.convergence_status = True
+        self.nonlinear_solver_statistics.nl_is_converged = True
         self.save_data_time_step()
 
     def update_solution(self, solution: np.ndarray) -> None:

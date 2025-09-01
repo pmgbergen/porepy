@@ -62,16 +62,16 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
-        if not self._is_time_dependent():  # stationary problem
+        if not self._is_time_dependent():  # Stationary problem
             if (
                 self.nonlinear_solver_statistics.num_iteration > 0
             ):  # avoid saving initial condition
                 collected_data = self.collect_data()
                 if collected_data is not None:
                     self.results.append(collected_data)
-        else:  # time-dependent problem
+        else:  # Time-dependent problem
             t = self.time_manager.time  # current time
-            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
+            scheduled = self.time_manager.schedule[1:]  # Scheduled times except t_init.
             if any(np.isclose(t, scheduled)):
                 collected_data = self.collect_data()
                 if collected_data is not None:
@@ -99,7 +99,11 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.write_time_information(
             Path(self.params["folder_name"]) / "times.json"
         )
-        self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+        self.exporter.write_vtu(
+            self.data_to_export(),
+            time_dependent=True,
+            converged=self.nonlinear_solver_statistics.nl_is_converged,
+        )
         times = np.array(self.time_manager.exported_times)
         if self.restart_options.get("restart", False):
             # For a pvd file addressing all time steps (before and after restart
