@@ -461,7 +461,25 @@ class FluidMobility(pp.PorePyModel):
 
 
 class FluidBuoyancy(pp.PorePyModel):
-    """Buoyancy terms and discretizations for multi-phase  multi-component flow."""
+    """
+    Buoyancy terms and discretizations for multiphase, multicomponent flow.
+
+    This class is based on the fixed-dimensional hybrid upwinding scheme presented in
+    Bosma et al. (2022), "Smooth implicit hybrid upwinding for compositional multiphase
+    flow in porous media" (CMA, 388, 114288). Here, we implement an alternate version of
+    the scheme using a total mass formulation.
+
+    The main difference in this implementation is the consistent treatment of the gravity term,
+    following Starnoni et al. (2019),
+    "Consistent MPFA Discretization for Flow in the Presence of Gravity" (WRR, 55(12), 10105–10118).
+
+    This implementation is novel in three main aspects: non-isothermal compositional multiphase flow,
+    mixed-dimensional formulation, and the fractional flow form of the equations.
+
+    Mass, component mass, and energy conservation are tested in `test_buoyancy_flow.py`,
+    and a benchmark against an analytical buoyancy solution is provided in
+    `test_buoyancy_flow_benchmark.py`.
+    """
 
     component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
