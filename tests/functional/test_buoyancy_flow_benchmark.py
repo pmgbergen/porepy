@@ -26,7 +26,6 @@ from porepy.models.compositional_flow import (
 from abc import abstractmethod
 import matplotlib.pyplot as plt
 
-
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize(
     "rho_idx, delta_rho, epsilon_saturation",
