@@ -957,32 +957,61 @@ class FluidBuoyancy(pp.PorePyModel):
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
-                for sd, data in self.mdg.subdomains(return_data=True):
-                    rho_gamma = gamma.density([sd])
-                    rho_delta = delta.density([sd])
-                    vals = self.equation_system.evaluate(
-                        self.density_driven_flux([sd], rho_gamma - rho_delta)
+
+                # Compute the values for all subdomains jointly, then distribute in a
+                # for-loop. This is faster evaluation inside a loop over subdomains.
+                subdomains = self.mdg.subdomains()
+
+                rho_gamma_full = gamma.density(subdomains)
+                rho_delta_full = delta.density(subdomains)
+                subdomain_vals = self.equation_system.evaluate(
+                    self.density_driven_flux(
+                        subdomains, rho_gamma_full - rho_delta_full
                     )
+                )
+                # Offsets for the indices of individual subdomains.
+                subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
+
+                for id, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
+                    sd_offset = subdomain_offsets[id]
+                    vals_loc = subdomain_vals[sd_offset : sd_offset + sd.num_faces]
+
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
-                        {self.buoyant_flux_array_key(gamma, delta): +vals}
+                        {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
                     )
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
-                        {self.buoyant_flux_array_key(delta, gamma): -vals}
+                        {self.buoyant_flux_array_key(delta, gamma): -vals_loc}
                     )
-                for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-                    subdomain_neighbors = self.interfaces_to_subdomains([intf])
-                    rho_gamma = gamma.density(subdomain_neighbors)
-                    rho_delta = delta.density(subdomain_neighbors)
-                    vals = self.equation_system.evaluate(
-                        self.interface_density_driven_flux(
-                            [intf], rho_gamma - rho_delta
-                        )
+
+                # Same procedure for interfaces.
+                interfaces = self.subdomains_to_interfaces(subdomains, [1])
+
+                if len(interfaces) < 1:
+                    # Shortcut for fracture-less domains.
+                    continue
+
+                interface_values = self.equation_system.evaluate(
+                    self.interface_density_driven_flux(
+                        interfaces, rho_gamma_full - rho_delta_full
                     )
+                )
+                interface_offsets = np.cumsum(
+                    [0] + [intf.num_cells for intf in interfaces]
+                )
+
+                for id, (intf, data) in enumerate(
+                    self.mdg.interfaces(return_data=True, codim=1)
+                ):
+                    intf_offset = interface_offsets[id]
+                    vals_loc = interface_values[
+                        intf_offset : intf_offset + intf.num_cells
+                    ]
+
                     data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
-                        {self.buoyant_intf_flux_array_key(gamma, delta): +vals}
+                        {self.buoyant_intf_flux_array_key(gamma, delta): +vals_loc}
                     )
                     data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
-                        {self.buoyant_intf_flux_array_key(delta, gamma): -vals}
+                        {self.buoyant_intf_flux_array_key(delta, gamma): -vals_loc}
                     )
 
 
