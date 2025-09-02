@@ -352,6 +352,7 @@ class GasEOS(BaseEOS):
         vals = mu_g * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
+
 class BoundaryConditions(pp.PorePyModel):
     """Boundary conditions."""
 
@@ -379,6 +380,7 @@ class BoundaryConditions(pp.PorePyModel):
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         return np.zeros(boundary_grid.num_cells)
+
 
 class SecondaryEquations(LocalElimination):
     """Base class for Secondary relations (2N or 3N)."""
@@ -450,6 +452,7 @@ class SecondaryEquations(LocalElimination):
             self._temperature_function,
             subdomains_and_matrix,
         )
+
 
 class BaseFlowModel(
     FlowTemplate,
@@ -601,6 +604,7 @@ chi_functions_map_2N = {
     "CH4_gas": CH4_gas_2N,
 }
 
+
 # Two phases Two components case
 class FluidMixture2N(pp.PorePyModel):
     """2-phase (water-gas), 2-component mixture."""
@@ -643,6 +647,7 @@ class SecondaryEquations2N(SecondaryEquations):
             *args,
             **kwargs,
         )
+
 
 class InitialConditions2N(pp.PorePyModel):
     """Initial conditions 2N."""
@@ -1034,6 +1039,7 @@ class SecondaryEquations3N(SecondaryEquations):
             *args,
             **kwargs,
         )
+
 
 class InitialConditions3N(pp.PorePyModel):
     """Initial conditions 3N."""
