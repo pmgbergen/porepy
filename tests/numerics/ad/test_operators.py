@@ -712,21 +712,27 @@ def test_ad_variable_prev_time_and_iter(prev_time):
         var_prev = getattr(var, get_prev_key)(steps=depth)
         _ = equation_system.evaluate(var_prev)
 
-    # Evaluate prev var and check that the values are what they're supposed to be.
+    # Evaluate prev var and check that the values are what they're supposed to be. First
+    # check current variable value.
+    var = getattr(var, get_prev_key)(steps=0)
+    val_0 = equation_system.evaluate(var)
+    assert np.allclose(val_0, 0)
+    # Then do the same for all previous steps.
     for i in range(depth - 1):
         var_i = getattr(var, get_prev_key)(steps=i + 1)
         val_i = equation_system.evaluate(var_i)
         assert np.allclose(val_i, i)
-
-        # prev var has no Jacobian
-        ad_i = var_i.value_and_jacobian(equation_system)
-        assert np.all(ad_i.jac.toarray() == 0.0)
+        if i > 0:
+            # prev var has no Jacobian. That is not the case for i=0, corresponding to
+            # the variable itself.
+            ad_i = var_i.value_and_jacobian(equation_system)
+            assert np.all(ad_i.jac.toarray() == 0.0)
 
     # Test creating with explicit stepping and recursive stepping
-    vars_exp = [getattr(var, get_prev_key)(steps=i) for i in range(1, depth)]
+    vars_exp = [getattr(var, get_prev_key)(steps=i) for i in range(0, depth)]
 
     vars_rec = []
-    for i in range(1, depth):
+    for i in range(0, depth):
         var_i = copy.copy(var)
         for _ in range(i):
             var_i = getattr(var_i, get_prev_key)()
@@ -747,11 +753,12 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     # Testing index values.
     # For prev time, time step index increases starting from 0, while iterate is None
     # For prev iter, iterate index increases starting from 0, while time is always None
+    # Only relevant for previous values, not the variable itself.
     for i in range(depth - 1):
-        assert getattr(vars_exp[i], index_key) == i
-        assert getattr(vars_exp[i], other_index_key) is None
-        assert getattr(vars_rec[i], index_key) == i
-        assert getattr(vars_rec[i], other_index_key) is None
+        assert getattr(vars_exp[i + 1], index_key) == i
+        assert getattr(vars_exp[i + 1], other_index_key) is None
+        assert getattr(vars_rec[i + 1], index_key) == i
+        assert getattr(vars_rec[i + 1], other_index_key) is None
 
 
 @pytest.mark.parametrize(

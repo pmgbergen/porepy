@@ -75,7 +75,8 @@ def _get_previous_time_or_iterate(
         iteration.
 
     """
-
+    if steps == 0:
+        return op
     # The recursion reached an atomic operator, which has some time- or
     # iterate-dependent behaviour
     if isinstance(op, TimeDependentOperator) and prev_time:
@@ -981,8 +982,8 @@ class TimeDependentOperator(Operator):
         """Returns a copy of the time-dependent operator with an advanced time-step
         index.
 
-        Time-dependent operators do not invoke the recursion (like the base class),
-        but represent a leaf in the recursion tree.
+        Time-dependent operators do not invoke the recursion (like the base class), but
+        represent a leaf in the recursion tree.
 
         Note:
             You cannot create operators at the previous time step from operators which
@@ -991,11 +992,12 @@ class TimeDependentOperator(Operator):
         Parameters:
             steps: ``default=1``
 
-                Number of steps backwards in time.
+                Number of steps backwards in time. If steps=0, the current time is
+                represented.
 
         Raises:
             ValueError: If this instance represents an operator at a previous iterate.
-            AssertionError: If ``steps`` is not strictly positive.
+            AssertionError: If ``steps`` is not non-negative.
 
         """
         if isinstance(self, IterativeOperator):
@@ -1005,7 +1007,7 @@ class TimeDependentOperator(Operator):
                     + " if it already represents a previous iterate."
                 )
 
-        assert steps > 0, "Number of steps backwards must be strictly positive."
+        assert steps >= 0, "Number of steps backwards must be non-negative."
         # TODO copy or deepcopy? Is this enough for every operator class?
         op = copy.copy(self)
 
@@ -1111,11 +1113,12 @@ class IterativeOperator(Operator):
         Parameters:
             steps: ``default=1``
 
-                Number of steps backwards in the iterate sense.
+                Number of steps backwards in the iterate sense. If ``steps`` is 0, the
+                current iterate is returned.
 
         Raises:
             ValueError: If this instance represents an operator at a previous time step.
-            AssertionError: If ``steps`` is not strictly positive.
+            AssertionError: If ``steps`` is not non-negative.
 
         """
         if isinstance(self, TimeDependentOperator):
@@ -1124,7 +1127,7 @@ class IterativeOperator(Operator):
                     "Cannot create an operator representing a previous iterate,"
                     + " if it already represents a previous time step."
                 )
-        assert steps > 0, "Number of steps backwards must be strictly positive."
+        assert steps >= 0, "Number of steps backwards must be non-negative."
         # See TODO in TimeDependentOperator.previous_timestep
         op = copy.copy(self)
         op._iterate_index = self._iterate_index + int(steps)
