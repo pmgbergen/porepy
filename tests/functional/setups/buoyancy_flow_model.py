@@ -503,6 +503,33 @@ chi_functions_map_2N = {
     "CH4_gas": CH4_gas_2N,
 }
 
+class BoundaryConditions(pp.PorePyModel):
+    """Boundary conditions."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_top = 10.0e6 * to_Mega
+        p = p_top * np.ones(boundary_grid.num_cells)
+        return p
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        h_inlet = 1.0
+        h = h_inlet * np.ones(boundary_grid.num_cells)
+        return h
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        return np.zeros(boundary_grid.num_cells)
 
 # Two phases Two components case
 class FluidMixture2N(pp.PorePyModel):
@@ -588,38 +615,6 @@ class SecondaryEquations2N(LocalElimination):
             temperature_2N,
             subdomains_and_matrix,
         )
-
-
-# model description
-class BoundaryConditions2N(pp.PorePyModel):
-    """Boundary conditions 2N."""
-
-    get_inlet_outlet_sides: Callable[
-        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
-    ]
-
-    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
-
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
-
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_top = 10.0e6 * to_Mega
-        p = p_top * np.ones(boundary_grid.num_cells)
-        return p
-
-    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h_inlet = 1.0
-        h = h_inlet * np.ones(boundary_grid.num_cells)
-        return h
-
-    def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        z_CH4 = np.zeros(boundary_grid.num_cells)
-        return z_CH4
-
 
 class InitialConditions2N(pp.PorePyModel):
     """Initial conditions 2N."""
@@ -760,7 +755,7 @@ class FlowModel2N(
 class BuoyancyFlowModel2N(
     FluidMixture2N,
     InitialConditions2N,
-    BoundaryConditions2N,
+    BoundaryConditions,
     SecondaryEquations2N,
     FlowModel2N,
 ):
@@ -1057,37 +1052,6 @@ class SecondaryEquations3N(LocalElimination):
             subdomains_and_matrix,
         )
 
-
-# model description
-class BoundaryConditions3N(pp.PorePyModel):
-    """Boundary conditions 3N."""
-
-    get_inlet_outlet_sides: Callable[
-        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
-    ]
-
-    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
-
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
-
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_top = 10.0e6 * to_Mega
-        p = p_top * np.ones(boundary_grid.num_cells)
-        return p
-
-    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h_inlet = 1.0
-        h = h_inlet * np.ones(boundary_grid.num_cells)
-        return h
-
-    def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        return np.zeros(boundary_grid.num_cells)
-
-
 class InitialConditions3N(pp.PorePyModel):
     """Initial conditions 3N."""
 
@@ -1338,7 +1302,7 @@ class FlowModel3N(
 class BuoyancyFlowModel3N(
     FluidMixture3N,
     InitialConditions3N,
-    BoundaryConditions3N,
+    BoundaryConditions,
     SecondaryEquations3N,
     FlowModel3N,
 ):
