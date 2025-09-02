@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gmsh
 import copy
 import csv
 import logging
@@ -135,6 +136,37 @@ class FractureNetwork2d:
             )
         if domain is not None:
             logger.info(f"Domain specification : {str(domain)}")
+
+
+    def export_domain_to_gmsh(self):
+        """Export the rectangular domain to Gmsh using the OpenCASCADE kernel.
+
+        This method creates a rectangle corresponding to the bounding box of the
+        fracture network domain and adds it to the current Gmsh model. The OpenCASCADE
+        CAD kernel is used for the geometry representation.
+
+        Returns:
+            The Gmsh tag ID of the created rectangle. This can be used to reference the
+            rectangle in further Gmsh operations, such as meshing or boolean operations.
+
+        Notes:
+            * Ensure that `gmsh.initialize()` has been called before using this method,
+                or call it in the method if starting a fresh Gmsh session.
+            * The `gmsh.model.occ.synchronize()` call is required to update the model
+                so that the rectangle can be used in subsequent operations.
+            * This method currently only supports rectangular domains.
+
+    """
+        bb = self.domain.bounding_box
+        xmin, xmax = bb["xmin"], bb["xmax"]
+        ymin, ymax = bb["ymin"], bb["ymax"]
+
+        gmsh_representation_of_domain = gmsh.model.occ.addRectangle(
+            xmin, ymin, 0, xmax - xmin, ymax - ymin
+        )
+        gmsh.model.occ.synchronize()
+        return gmsh_representation_of_domain
+
 
     def mesh(
         self,
