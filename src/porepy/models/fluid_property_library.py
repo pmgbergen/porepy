@@ -469,12 +469,14 @@ class FluidBuoyancy(pp.PorePyModel):
     flow in porous media" (CMA, 388, 114288). Here, we implement an alternate version of
     the scheme using a total mass formulation.
 
-    The main difference in this implementation is the consistent treatment of the gravity term,
-    following Starnoni et al. (2019),
-    "Consistent MPFA Discretization for Flow in the Presence of Gravity" (WRR, 55(12), 10105–10118).
+    The main difference in this implementation is the consistent treatment of the
+    gravity term, following Starnoni et al. (2019),
+    "Consistent MPFA Discretization for Flow in the Presence of Gravity"
+    (WRR, 55(12), 10105–10118).
 
-    This implementation is novel in three main aspects: non-isothermal compositional multiphase flow,
-    mixed-dimensional formulation, and the fractional flow form of the equations.
+    This implementation is novel in three main aspects: non-isothermal compositional
+    multiphase flow, mixed-dimensional formulation,
+    and the fractional flow form of the equations.
 
     Mass, component mass, and energy conservation are tested in `test_buoyancy_flow.py`,
     and a benchmark against an analytical buoyancy solution is provided in
