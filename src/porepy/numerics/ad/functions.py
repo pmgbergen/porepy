@@ -25,6 +25,7 @@ from typing import Callable, TypeVar
 import numpy as np
 import scipy.sparse as sps
 
+
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
@@ -61,7 +62,7 @@ __all__ = [
 def exp(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         val = np.exp(var.val)
-        der = var._diagvec_mul_jac(np.exp(var.val))
+        der = var._diagvec_mul_jac(val)
         return AdArray(val, der)
     else:
         return np.exp(var)
@@ -95,9 +96,8 @@ def clip(var: FloatType, min_val: float, max_val: float) -> FloatType:
         # jacobian.
         mask = (var.val > min_val) & (var.val < max_val)
         mask_diag = mask.astype(float)
-        from scipy.sparse import diags
 
-        mask_matrix = diags(mask_diag)
+        mask_matrix = sps.diags(mask_diag)
         jac = mask_matrix @ var.jac
         # Ensure jac is a sparse matrix
         if not isinstance(jac, sps.spmatrix):
