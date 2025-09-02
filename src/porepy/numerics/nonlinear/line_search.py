@@ -41,6 +41,19 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
+class NonFiniteSampleError(FloatingPointError):
+    """Raised when a non-finite function sample is encountered.
+
+    Carries the x-location of the offending sample so callers can shrink the interval
+    to [a, x_bad].
+    """
+
+    def __init__(self, x_bad: float, x_good: float):
+        super().__init__("Non-finite function value encountered during sampling")
+        self.x_bad = float(x_bad)
+        self.x_good = float(x_good)
+
+
 class LineSearchNewtonSolver(pp.NewtonSolver):
     """Class for relaxing a nonlinear iteration update using a line search.
 
@@ -152,8 +165,8 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             objective_function,
             num_steps=num_steps,
             step_size_tolerance=interval_size,
-            f_a=f_0,
-            f_b=f_1,
+            f_a=float(f_0),
+            f_b=float(f_1),
         )
         # Safeguard against zero weights.
         return np.maximum(alpha, self.min_line_search_weight) * np.ones_like(dx)
@@ -398,14 +411,50 @@ class SplineInterpolationLineSearch:
         """
         counter = 0
         while b - a > interval_target_size or counter < 1:
-            alpha, x, y = self.optimum_from_spline(
-                function,
-                a,
-                b,
-                num_pts,
-                f_a=f_a,
-                f_b=f_b,
-            )
+            try:
+                alpha, x, y = self.optimum_from_spline(
+                    function,
+                    a,
+                    b,
+                    num_pts,
+                    f_a=f_a,
+                    f_b=f_b,
+                )
+            except NonFiniteSampleError as err:
+                # Non-finite found at x*=err.x_bad.
+                x_bad = err.x_bad
+                x_good = err.x_good
+                if np.isclose(x_good, a) or x_good < a:
+                    # If x_good is at or before a, we can use [a, x_bad] as the new interval.
+                    b = x_bad
+                    f_b = None
+                    counter += 1
+                    continue
+                # Check whether alpha is in [a, x_good]. We do not catch the error here,
+                # since by assumption all values in the interval [a, x_good] are valid.
+                alpha, x, y = self.optimum_from_spline(
+                    function,
+                    a,
+                    x_good,
+                    num_pts,
+                    f_a=f_a,
+                )
+                # 1) If alpha is in [a, x_good]:
+                if np.isclose(alpha, x_good) or alpha > x_good:
+                    # The minimum is at or beyond x_good. We assume that the minimum
+                    # lies in the interval [x_good, x_bad].
+                    a = x_good
+                    f_a = y[-1]
+                    b = x_bad
+                    f_b = None
+                    # While this will incur the error in the next iteration, we have
+                    # shrunk the interval to [x_good, x_bad] from [a, b], since the
+                    # alpha, x, y last computed are all non-degenerate.
+                    counter += 1
+                    continue
+                # 2) If it is, we may proceed with the search in [a, x_good]. The below
+                # code (standard, non-error case) handles that case.
+
             x = np.linspace(a, b, num_pts)
             # Find the indices on either side of alpha. We know that alpha is int, since
             # alpha is scalar.
@@ -455,26 +504,29 @@ class SplineInterpolationLineSearch:
         """
         x = np.linspace(a, b, num_pts)
         y_list = []
-
-        for pt in x:
+        for i, pt in enumerate(x):
             if f_a is not None and np.isclose(pt, a):
                 f_pt = f_a
             elif f_b is not None and np.isclose(pt, b):
                 f_pt = f_b
             else:
                 f_pt = f(pt)
-            if np.any(np.isnan(f_pt)):
-                # If we get overflow, truncate the x vector. For future reference,
-                # overflows have # occured during experimentation, but it is unclear why
-                # this happened.
-                x = x[: np.where(x == pt)[0][0]]
-                break
+            # Guard against invalid values; signal to shrink to [a, x*] upstream.
+            if not np.all(np.isfinite(f_pt)):
+                raise NonFiniteSampleError(pt, x[i - 1])
             # Collect function values, scalar or vector.
             y_list.append(f_pt)
         if isinstance(y_list[0], np.ndarray):
             y = np.vstack(y_list)
         else:
             y = np.array(y_list)
+
+        # Additional safety: ensure all y values are finite before constructing splines.
+        if isinstance(y, np.ndarray):
+            if not np.all(np.isfinite(y)):
+                raise FloatingPointError(
+                    "Non-finite values in sampled data for spline interpolation"
+                )
 
         def compute_minimum_from_spline(poly, a: float, b: float) -> float:
             """Compute the minimum of one spline and postprocess the result.
