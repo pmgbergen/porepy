@@ -352,6 +352,104 @@ class GasEOS(BaseEOS):
         vals = mu_g * np.ones(nc) * to_Mega
         return vals, np.zeros((len(thermodynamic_dependencies), nc))
 
+class BoundaryConditions(pp.PorePyModel):
+    """Boundary conditions."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        p_top = 10.0e6 * to_Mega
+        p = p_top * np.ones(boundary_grid.num_cells)
+        return p
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        h_inlet = 1.0
+        h = h_inlet * np.ones(boundary_grid.num_cells)
+        return h
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+    ) -> np.ndarray:
+        return np.zeros(boundary_grid.num_cells)
+
+class SecondaryEquations(LocalElimination):
+    """Base class for Secondary relations (2N or 3N)."""
+
+    dependencies_of_phase_properties: Callable[
+        ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
+    ]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    def __init__(
+        self,
+        *args,
+        saturation_functions_map: dict[str, Callable],
+        chi_functions_map: dict[str, Callable],
+        temperature_function: Callable,
+        **kwargs,
+    ):
+        # Pass positional + keyword args upstream
+        super().__init__(*args, **kwargs)
+
+        self._saturation_functions_map = saturation_functions_map
+        self._chi_functions_map = chi_functions_map
+        self._temperature_function = temperature_function
+
+    def set_equations(self) -> None:
+        """Register eliminations."""
+        super().set_equations()
+        subdomains = self.mdg.subdomains()
+
+        matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
+        matrix_boundary = cast(
+            pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
+        )
+        subdomains_and_matrix = subdomains + [matrix_boundary]
+
+        # liquid phase is dependent
+        rphase = self.fluid.reference_phase
+        # other phases independent
+        independent_phases = [p for p in self.fluid.phases if p != rphase]
+
+        # Saturation eliminations
+        for phase in independent_phases:
+            if phase.name in self._saturation_functions_map:
+                self.eliminate_locally(
+                    phase.saturation,
+                    self.dependencies_of_phase_properties(phase),
+                    self._saturation_functions_map[phase.name],
+                    subdomains_and_matrix,
+                )
+
+        # Partial fractions eliminations
+        for phase in self.fluid.phases:
+            for comp in phase:
+                if self.has_independent_partial_fraction(comp, phase):
+                    key = f"{comp.name}_{phase.name}"
+                    if key in self._chi_functions_map:
+                        self.eliminate_locally(
+                            phase.partial_fraction_of[comp],
+                            self.dependencies_of_phase_properties(phase),
+                            self._chi_functions_map[key],
+                            subdomains_and_matrix,
+                        )
+
+        # Temperature elimination
+        self.eliminate_locally(
+            self.temperature,
+            self.dependencies_of_phase_properties(rphase),
+            self._temperature_function,
+            subdomains_and_matrix,
+        )
 
 class BaseFlowModel(
     FlowTemplate,
@@ -503,34 +601,6 @@ chi_functions_map_2N = {
     "CH4_gas": CH4_gas_2N,
 }
 
-class BoundaryConditions(pp.PorePyModel):
-    """Boundary conditions."""
-
-    get_inlet_outlet_sides: Callable[
-        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
-    ]
-
-    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
-
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
-
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        p_top = 10.0e6 * to_Mega
-        p = p_top * np.ones(boundary_grid.num_cells)
-        return p
-
-    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h_inlet = 1.0
-        h = h_inlet * np.ones(boundary_grid.num_cells)
-        return h
-
-    def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
-        return np.zeros(boundary_grid.num_cells)
-
 # Two phases Two components case
 class FluidMixture2N(pp.PorePyModel):
     """2-phase (water-gas), 2-component mixture."""
@@ -562,58 +632,16 @@ class FluidMixture2N(pp.PorePyModel):
         return [self.pressure, self.enthalpy] + z  # type:ignore[return-value]
 
 
-class SecondaryEquations2N(LocalElimination):
+class SecondaryEquations2N(SecondaryEquations):
     """Secondary (eliminated) relations 2N."""
 
-    dependencies_of_phase_properties: Callable[
-        ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
-    ]
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
-
-    def set_equations(self) -> None:
-        super().set_equations()
-        subdomains = self.mdg.subdomains()
-
-        matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
-        matrix_boundary = cast(
-            pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
-        )
-        subdomains_and_matrix = subdomains + [matrix_boundary]
-
-        # liquid phase is dependent
-        rphase = self.fluid.reference_phase
-        # gas phase is independent
-        independent_phases = [p for p in self.fluid.phases if p != rphase]
-
-        for phase in independent_phases:
-            self.eliminate_locally(
-                phase.saturation,  # callable giving saturation on ``subdomains``
-                self.dependencies_of_phase_properties(
-                    phase
-                ),  # callables giving primary variables on subdomains
-                gas_saturation_2N,  # numerical function implementing correlation
-                subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
-            )
-
-        ### Providing constitutive laws for partial fractions based on correlations
-        for phase in self.fluid.phases:
-            for comp in phase:
-                check = self.has_independent_partial_fraction(comp, phase)
-                if check:
-                    self.eliminate_locally(
-                        phase.partial_fraction_of[comp],
-                        self.dependencies_of_phase_properties(phase),
-                        chi_functions_map_2N[comp.name + "_" + phase.name],
-                        subdomains_and_matrix,
-                    )
-
-        ### Provide constitutive law for temperature
-        self.eliminate_locally(
-            self.temperature,
-            self.dependencies_of_phase_properties(rphase),  # since same for all.
-            temperature_2N,
-            subdomains_and_matrix,
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            saturation_functions_map={"gas": gas_saturation_2N},
+            chi_functions_map=chi_functions_map_2N,
+            temperature_function=temperature_2N,
+            *args,
+            **kwargs,
         )
 
 class InitialConditions2N(pp.PorePyModel):
@@ -995,61 +1023,16 @@ class FluidMixture3N(pp.PorePyModel):
         return [self.pressure, self.enthalpy] + z  # type:ignore[return-value]
 
 
-class SecondaryEquations3N(LocalElimination):
+class SecondaryEquations3N(SecondaryEquations):
     """Secondary relations 3N."""
 
-    dependencies_of_phase_properties: Callable[
-        ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
-    ]
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
-
-    def set_equations(self) -> None:
-        """Register eliminations."""
-        super().set_equations()
-        subdomains = self.mdg.subdomains()
-
-        matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
-        matrix_boundary = cast(
-            pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
-        )
-        subdomains_and_matrix = subdomains + [matrix_boundary]
-
-        # liquid phase is dependent
-        rphase = self.fluid.reference_phase
-        # gas phase is independent
-        independent_phases = [p for p in self.fluid.phases if p != rphase]
-
-        for phase in independent_phases:
-            self.eliminate_locally(
-                phase.saturation,  # callable giving saturation on ``subdomains``
-                self.dependencies_of_phase_properties(
-                    phase
-                ),  # callables giving primary variables on subdomains
-                saturation_functions_map_3N[
-                    phase.name
-                ],  # numerical function implementing correlation
-                subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
-            )
-
-        ### Providing constitutive laws for partial fractions based on correlations
-        for phase in self.fluid.phases:
-            for comp in phase:
-                check = self.has_independent_partial_fraction(comp, phase)
-                if check:
-                    self.eliminate_locally(
-                        phase.partial_fraction_of[comp],
-                        self.dependencies_of_phase_properties(phase),
-                        chi_functions_map_3N[comp.name + "_" + phase.name],
-                        subdomains_and_matrix,
-                    )
-
-        ### Provide constitutive law for temperature
-        self.eliminate_locally(
-            self.temperature,
-            self.dependencies_of_phase_properties(rphase),  # since same for all.
-            temperature_3N,
-            subdomains_and_matrix,
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            saturation_functions_map=saturation_functions_map_3N,
+            chi_functions_map=chi_functions_map_3N,
+            temperature_function=temperature_3N,
+            *args,
+            **kwargs,
         )
 
 class InitialConditions3N(pp.PorePyModel):
