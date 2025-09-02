@@ -27,10 +27,14 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
         (pp.CartGrid(np.array([3, 2, 1])), np.sqrt(3)),
     ],
 )
-def test_cell_diameters(grid, expected_diameter):
+@pytest.mark.parametrize("cell_wise", [True, False])
+def test_cell_diameters(grid, expected_diameter, cell_wise):
     # The test is run for a 2d grid and a 3d grid.
-    cell_diameters = grid.cell_diameters()
-    known = np.repeat(expected_diameter, grid.num_cells)
+    cell_diameters = grid.cell_diameters(cell_wise=cell_wise, func=np.max)
+    if cell_wise:
+        known = np.repeat(expected_diameter, grid.num_cells)
+    else:
+        known = expected_diameter
     assert np.allclose(cell_diameters, known)
 
 
