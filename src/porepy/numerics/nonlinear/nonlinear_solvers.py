@@ -5,7 +5,6 @@ Implemented classes
 """
 
 import logging
-import traceback
 
 import numpy as np
 
@@ -28,7 +27,6 @@ class NewtonSolver:
             "nl_convergence_tol": 1e-10,
             "nl_convergence_tol_res": np.inf,
             "nl_divergence_tol": np.inf,
-            "flag_failure_as_diverged": False,
         }
         default_options.update(params)
         self.params = default_options
@@ -87,36 +85,25 @@ class NewtonSolver:
                 + f" {self.params['max_iterations']}"
             )
 
-            try:
-                model.before_nonlinear_iteration()
-                nonlinear_increment = self.iteration(model)
-                model.after_nonlinear_iteration(nonlinear_increment)
+            model.before_nonlinear_iteration()
+            nonlinear_increment = self.iteration(model)
+            model.after_nonlinear_iteration(nonlinear_increment)
 
-                if (
-                    self.params["nl_convergence_tol_res"] is not np.inf
-                    or self.params["nl_divergence_tol"] is not np.inf
-                ):
-                    # Note: The residual is extracted after the solution has been
-                    # updated by the after_nonlinear_iteration() method. This is
-                    # required if the residual is used to check convergence or
-                    # divergence, i.e., the tolerance of one of them is not np.inf.
-                    residual = model.equation_system.assemble(evaluate_jacobian=False)
-                else:
-                    residual = None
+            if (
+                self.params["nl_convergence_tol_res"] is not np.inf
+                or self.params["nl_divergence_tol"] is not np.inf
+            ):
+                # Note: The residual is extracted after the solution has been updated by
+                # the after_nonlinear_iteration() method. This is required if the
+                # residual is used to check convergence or divergence, i.e., the
+                # tolerance of one of them is not np.inf.
+                residual = model.equation_system.assemble(evaluate_jacobian=False)
+            else:
+                residual = None
 
-                is_converged, is_diverged = model.check_convergence(
-                    nonlinear_increment, residual, reference_residual, self.params
-                )
-            except Exception as err:
-                if self.params["flag_failure_as_diverged"]:
-                    logger.warning(
-                        "\nNewton step failure:\n%s\nFlagging as diverged.\n"
-                        % (traceback.format_exc())
-                    )
-                    is_converged = False
-                    is_diverged = True
-                else:
-                    raise err
+            is_converged, is_diverged = model.check_convergence(
+                nonlinear_increment, residual, reference_residual, self.params
+            )
 
         # Redirect all loggers to not interfere with the progressbar.
         with logging_redirect_tqdm([logging.root]):
@@ -147,12 +134,16 @@ class NewtonSolver:
                 # during the first iteration,
                 # :attr:`~model.nonlinear_solver_statistics.nonlinear_increment_norms`
                 # will be empty and the following code will raise an error.
-                if not is_diverged and len(model.nonlinear_solver_statistics.nonlinear_increment_norms) > 0:
+                if not is_diverged:
                     solver_progressbar.update(n=1)
                     # Ignore the long line; fixing it would require an extra variable.
-                    # solver_progressbar.set_postfix_str(
-                    #     f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
-                    # )
+                    if (
+                        len(model.nonlinear_solver_statistics.nonlinear_increment_norms)
+                        != 0
+                    ):
+                        solver_progressbar.set_postfix_str(
+                            f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
+                        )
 
                 if is_diverged:
                     # Handle nonlinear divergence outside the loop.
