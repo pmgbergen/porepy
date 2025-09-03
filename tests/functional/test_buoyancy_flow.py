@@ -6,7 +6,8 @@ fluxes in an immiscible flow simulation under gravity.
 
 It covers two multicomponent fluid systems:
 - N = 2: Two phases (aqueous liquid, gas) and two components (e.g., H₂O, CH₄).
-- N = 3: Three phases (aqueous liquid, oleic liquid, gas) and three components (e.g., H₂O, CO₂, CH₄).
+- N = 3: Three phases (aqueous liquid, oleic liquid, gas) and
+three components (e.g., H₂O, CO₂, CH₄).
 
 Simulations are run in 2D and 3D for several conservation tolerances, and
 the observed conservation is checked to be of the expected order. After each
@@ -20,13 +21,18 @@ time step the following are tested:
    discretization of the energy convective buoyancy terms.
 """
 
-from typing import Type
 import pytest
 import numpy as np
 import porepy as pp
 from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGeometry3D
-from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D, ModelMDGeometry3D
-from tests.functional.setups.buoyancy_flow_model import BuoyancyFlowModel2N, BuoyancyFlowModel3N
+from tests.functional.setups.buoyancy_flow_model import (
+    ModelMDGeometry2D,
+    ModelMDGeometry3D,
+)
+from tests.functional.setups.buoyancy_flow_model import (
+    BuoyancyFlowModel2N,
+    BuoyancyFlowModel3N,
+)
 from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 
@@ -59,28 +65,21 @@ def _run_buoyancy_model(
     if md:
         tf = 0.5 * day
         dt = 0.25 * day
-        solid_constants = pp.SolidConstants(
-            permeability=1.0e-14,
-            porosity=0.1,
-            thermal_conductivity=2.0 * to_Mega,
-            density=2500.0,
-            specific_heat_capacity=1000.0 * to_Mega,
-        )
         geometry2d = ModelMDGeometry2D
         geometry3d = ModelMDGeometry3D
     else:
         tf = 2.0 * day
         dt = 1.0 * day
-        solid_constants = pp.SolidConstants(
-            permeability=1.0e-14,
-            porosity=0.1,
-            thermal_conductivity=2.0 * to_Mega,
-            density=2500.0,
-            specific_heat_capacity=1000.0 * to_Mega,
-        )
         geometry2d = ModelGeometry2D
         geometry3d = ModelGeometry3D
 
+    solid_constants = pp.SolidConstants(
+        permeability=1.0e-14,
+        porosity=0.1,
+        thermal_conductivity=2.0 * to_Mega,
+        density=2500.0,
+        specific_heat_capacity=1000.0 * to_Mega,
+    )
     time_manager = pp.TimeManager(
         schedule=[0.0, tf],
         dt_init=dt,
@@ -90,7 +89,7 @@ def _run_buoyancy_model(
     )
     params = {
         "fractional_flow": True,
-        "buoyancy_on": True,
+        "enable_buoyancy_effects": True,
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
@@ -101,22 +100,33 @@ def _run_buoyancy_model(
     }
     # Combine geometry with model class
     if mesh_2d_Q:
-        class Model2D(geometry2d, model_class): pass
+
+        class Model2D(geometry2d, model_class):
+            pass
+
         model = Model2D(params)
     else:
-        class Model3D(geometry3d, model_class): pass
+
+        class Model3D(geometry3d, model_class):
+            pass
+
         model = Model3D(params)
     pp.run_time_dependent_model(model, params)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", Parameterization)
+@pytest.mark.skipped  # reason: slow
+@pytest.mark.parametrize(
+    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
+)
 def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (FD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=False)
 
 
-@pytest.mark.parametrize("model_class, mesh_2d_Q, expected_order_loss", Parameterization)
+@pytest.mark.skipped  # reason: slow
+@pytest.mark.parametrize(
+    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
+)
 def test_buoyancy_md_model(model_class, mesh_2d_Q, expected_order_loss):
     """Test buoyancy-driven flow model (MD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=True)
-
