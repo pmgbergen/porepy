@@ -157,9 +157,8 @@ class TimeManager:
         recomp_factor: Failed-to-converge solution recomputation factor.
             Factor by which the time step will be multiplied in case the solution must
             be recomputed. We require `recomp_factor` to be strictly less than one.
-        recomp_max: Failed-to-converge maximum recomputation attempts. The maximum
-        allowable
-            number of consecutive recomputation attempts.
+        recomp_max: Maximum recomputation attempts. The maximum allowable
+            number of recomputation attempts.
         print_info. Whether to print on-the-fly time-stepping information or not.
         rtol: Relative tolerance parameter for float point equality.
         atol: Absolute tolerance parameter for float point equality.
@@ -382,8 +381,10 @@ class TimeManager:
         # Time index
         self.time_index: int = 0
 
-        # Private attributes
-        # Number of times the solution has been recomputed
+        # Private attributes 
+        # Number of times the solution has been recomputed. 
+        # The count is inconsistent: it may represent recomputations per time-step or
+        # for the entire simulation depending on the method used.
         self._recomp_num: int = 0
 
         # Index of the next scheduled time
