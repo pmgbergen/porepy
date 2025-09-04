@@ -64,8 +64,13 @@ def test_cell_diameters(
     # z-coordinate, so that a 2d grid stays 2d.
     g.nodes[:2, -1] = 2
 
-    # The test is run for a 2d grid and a 3d grid.
-    cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    if cell_wise:
+        # When cell_wise is True, 'func' will not be used and a warning should be raised
+        # if func is not None. Check this.
+        with pytest.warns(UserWarning):
+            cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    else:
+        cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
     if cell_wise:
         # The returned array is an element-wise array of cell diameters, we can do a
         # direct comparison.

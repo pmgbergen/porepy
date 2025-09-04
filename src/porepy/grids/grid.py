@@ -993,7 +993,7 @@ class Grid:
                 [ind[ptr[i] + template[sz]] for i, sz in enumerate(num_nodes)]
             )
 
-            # Compute the diameter of each unique pair of nodes.
+            # Compute the diameter of each pair of nodes.
             dist = np.linalg.norm(
                 self.nodes[:, all_node_pairs[0]] - self.nodes[:, all_node_pairs[1]],
                 axis=0,
