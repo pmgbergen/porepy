@@ -381,8 +381,8 @@ class TimeManager:
         # Time index
         self.time_index: int = 0
 
-        # Private attributes 
-        # Number of times the solution has been recomputed. 
+        # Private attributes
+        # Number of times the solution has been recomputed.
         # The count is inconsistent: it may represent recomputations per time-step or
         # for the entire simulation depending on the method used.
         self._recomp_num: int = 0
