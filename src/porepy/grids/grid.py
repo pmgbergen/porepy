@@ -1012,7 +1012,7 @@ class Grid:
             # the maximum in cell_diam.
             cell_diam = np.zeros(self.num_cells)
             # By numpy magic and copilot cleverness, the following two lines efficiently
-            # takes the cell-wise maximum. It is equivalent to (but much faster than)
+            # take the cell-wise maximum. It is equivalent to (but much faster than)
             # the following code:
             #   cell_diam = np.array([np.max(dist[cell_index == ci])
             #                         for ci in range(self.num_cells)])
