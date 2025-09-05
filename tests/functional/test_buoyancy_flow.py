@@ -119,6 +119,6 @@ def _run_buoyancy_model(
     "model_class, mesh_2d_Q, expected_order_loss", Parameterization
 )
 @pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
-def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss, md):
+def test_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md):
     """Test buoyancy-driven flow model (FD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=md)
