@@ -529,7 +529,7 @@ class BaseFlowModel(
             diverged = False
         else:
             raise ValueError(
-                "Gravitational segregation is nonlinear in its simpler form."
+                "Gravitational segregation is always nonlinear."
             )
         return converged, diverged
 
