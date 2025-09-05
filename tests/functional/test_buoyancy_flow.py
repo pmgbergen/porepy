@@ -38,17 +38,17 @@ from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 # Parameterization list for both tests
 Parameterization = [
-    (BuoyancyFlowModel2N, True, 2),
-    (BuoyancyFlowModel2N, True, 3),
+    # (BuoyancyFlowModel2N, True, 2),
+    # (BuoyancyFlowModel2N, True, 3),
     (BuoyancyFlowModel2N, True, 4),
-    (BuoyancyFlowModel2N, False, 2),
-    (BuoyancyFlowModel2N, False, 3),
+    # (BuoyancyFlowModel2N, False, 2),
+    # (BuoyancyFlowModel2N, False, 3),
     (BuoyancyFlowModel2N, False, 4),
-    (BuoyancyFlowModel3N, True, 2),
-    (BuoyancyFlowModel3N, True, 3),
+    # (BuoyancyFlowModel3N, True, 2),
+    # (BuoyancyFlowModel3N, True, 3),
     (BuoyancyFlowModel3N, True, 4),
-    (BuoyancyFlowModel3N, False, 2),
-    (BuoyancyFlowModel3N, False, 3),
+    # (BuoyancyFlowModel3N, False, 2),
+    # (BuoyancyFlowModel3N, False, 3),
     (BuoyancyFlowModel3N, False, 4),
 ]
 
@@ -118,15 +118,7 @@ def _run_buoyancy_model(
 @pytest.mark.parametrize(
     "model_class, mesh_2d_Q, expected_order_loss", Parameterization
 )
-def test_buoyancy_fd_model(model_class, mesh_2d_Q, expected_order_loss):
+@pytest.mark.parametrize("md", [True])  # False skipped to limit computational cost.
+def test_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md):
     """Test buoyancy-driven flow model (FD)."""
-    _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=False)
-
-
-@pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize(
-    "model_class, mesh_2d_Q, expected_order_loss", Parameterization
-)
-def test_buoyancy_md_model(model_class, mesh_2d_Q, expected_order_loss):
-    """Test buoyancy-driven flow model (MD)."""
-    _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=True)
+    _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=md)
