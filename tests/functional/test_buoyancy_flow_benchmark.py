@@ -37,7 +37,9 @@ from porepy.applications.test_utils import reference_arrays_buoyancy_discretizat
         (2, 900.0, 5.61e-02),
     ],
 )
-def test_buoyancy_flow_benchmark(
+# EK: This test is too computationally intensive to be run even among the skipped tests.
+# It is kept as an invaluable reference for future changes to the buoyancy model.
+def slow_test_buoyancy_flow_benchmark(
     rho_idx, delta_rho, epsilon_saturation, saturation_at_5_days
 ):
     """
