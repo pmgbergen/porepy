@@ -7,6 +7,8 @@
 import os
 import pickle
 
+from typing import Callable
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -18,24 +20,66 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 
 
 @pytest.mark.parametrize(
-    "grid, expected_diameter",
+    "g, expected_diameters",
     [
         (
-            pp.CartGrid(np.array([3, 2]), np.array([1, 1])),
-            np.sqrt(0.5**2 + 1.0 / 3.0**2),
+            pp.CartGrid(np.array([2, 1]), np.array([1, 1])),  # 2d grid.
+            np.array(
+                [
+                    np.sqrt(1**2 + 0.5**2),  # Cell 0 has dx=0.5, dy=1.
+                    np.sqrt(1.5**2 + 2**2),  # Cell 1 is perturbed to have dx=1.5, dy=2.
+                ]
+            ),
         ),
-        (pp.CartGrid(np.array([3, 2, 1])), np.sqrt(3)),
+        (
+            pp.CartGrid(np.array([2, 1, 1]), np.array([1, 1, 1])),  # 3d grid.
+            np.array(
+                [
+                    np.sqrt(0.5**2 + 1**2 + 1**2),  # Cell 0 has dx=0.5, dy=dz=1.
+                    np.sqrt(1.5**2 + 2**2 + 1**2),  # Cell 1 has dx=1.5, dy=2, dz=1.
+                ]
+            ),
+        ),
     ],
 )
 @pytest.mark.parametrize("cell_wise", [True, False])
-def test_cell_diameters(grid, expected_diameter, cell_wise):
-    # The test is run for a 2d grid and a 3d grid.
-    cell_diameters = grid.cell_diameters(cell_wise=cell_wise, func=np.max)
+@pytest.mark.parametrize("func", [np.max, np.min, np.mean])
+def test_cell_diameters(
+    g: pp.Grid, expected_diameters: np.ndarray, cell_wise: bool, func: Callable
+):
+    """Test the computation of cell diameters.
+
+    Parameters:
+        g: Grid to be tested. This is expected to be of uniform size. The node of one of
+            the cells will be moved so that the cells have non-uniform diameter.
+        expected_diameters: Array of expected diameter for each cell.
+        cell_wise: Whether to compute the diameter cell-wise or not.
+        func: Function to apply to the expected diameters. Will only be used if
+            cell_wise=False, see Grid.cell_diameters() for details.
+
+    """
+    # Move the last node of the grid (it is easier to do this here than to modify the
+    # grid in the test parametrization). Since the grid is expected to be Cartesian,
+    # this will impact the diameter of cell 1, but not cell 0. Do not perturb the
+    # z-coordinate, so that a 2d grid stays 2d.
+    g.nodes[:2, -1] = 2
+
     if cell_wise:
-        known = np.repeat(expected_diameter, grid.num_cells)
+        # When cell_wise is True, 'func' will not be used and a warning should be raised
+        # if func is not None. Check this.
+        with pytest.warns(UserWarning):
+            cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
     else:
-        known = expected_diameter
-    assert np.allclose(cell_diameters, known)
+        cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    if cell_wise:
+        # The returned array is an element-wise array of cell diameters, we can do a
+        # direct comparison.
+        assert np.allclose(cell_diameters, expected_diameters)
+    else:
+        # The returned value is a single value obtained by applying 'func' to the
+        # calculated cell diameters. Apply 'func' also to the expected diameters before
+        # comparing.
+        assert np.allclose(cell_diameters, func(expected_diameters))
 
 
 def test_repr():

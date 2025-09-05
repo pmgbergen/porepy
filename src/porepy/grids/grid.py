@@ -993,19 +993,35 @@ class Grid:
                 [ind[ptr[i] + template[sz]] for i, sz in enumerate(num_nodes)]
             )
 
-            # In-place sort of the columns.
-            all_node_pairs.sort(axis=0)
-
-            # We only need the unique pairs of nodes.
-            unique_pairs = np.unique(all_node_pairs, axis=1)
-            # Compute the diameter of each unique pair of nodes.
+            # Compute the diameter of each pair of nodes.
             dist = np.linalg.norm(
-                self.nodes[:, unique_pairs[0]] - self.nodes[:, unique_pairs[1]], axis=0
+                self.nodes[:, all_node_pairs[0]] - self.nodes[:, all_node_pairs[1]],
+                axis=0,
             )
+            # The cell diameter is the maximum of the distances associated to a cell. To
+            # find this, we first make an array of cell indices for all elements in
+            # dist. Spelled out: For each element in num_nodes (the number of nodes in
+            # each cell), create an array of cell indices (ci). The size of this array
+            # should be the number of node-node combinations within that cell (given by
+            # the number of columns in the corresponding template). Concatenate the
+            # arrays created for all cells by using np.hstack.
+            cell_index = np.hstack(
+                [np.full(template[sz].shape[1], ci) for ci, sz in enumerate(num_nodes)]
+            )
+            # Take the maximum over all distances associated with a cell. We will store
+            # the maximum in cell_diam.
+            cell_diam = np.zeros(self.num_cells)
+            # By numpy magic and copilot cleverness, the following two lines efficiently
+            # take the cell-wise maximum. It is equivalent to (but much faster than)
+            # the following code:
+            #   cell_diam = np.array([np.max(dist[cell_index == ci])
+            #                         for ci in range(self.num_cells)])
+            _, inverse_indices = np.unique(cell_index, return_inverse=True)
+            np.maximum.at(cell_diam, inverse_indices, dist)
 
             assert func is not None  # For mypy.
             # Apply the function to the computed diameters.
-            return func(dist)
+            return func(cell_diam)
 
     def cell_faces_as_dense(self) -> np.ndarray:
         """Obtain the cell-face relation in the form of two rows, rather than a
