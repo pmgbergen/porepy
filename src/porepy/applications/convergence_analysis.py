@@ -198,7 +198,7 @@ class ConvergenceAnalysis:
         self,
         list_of_results: list,
         variables_to_export: Optional[list[str]] = None,
-        file_name=Path("error_analysis.txt"),
+        file_name: Path = Path("error_analysis.txt"),
     ) -> None:
         """Write errors into a ``txt`` file.
 
