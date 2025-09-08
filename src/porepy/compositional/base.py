@@ -1351,3 +1351,17 @@ class Solid(Generic[ComponentLike, PhaseLike]):
         """Returns the reference component as designated by
         :meth:`reference_component_index`."""
         return self._components[self.reference_component_index]
+
+
+class Reaction:
+    """Base class for chemical reactions in a chemical system."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.formula: str = str(kwargs.get("formula", ""))
+        """Formula of the element. Can be named by providing a keyword argument 'name'
+        when instantiating."""
+
+        self.is_kinetic: bool = kwargs.get("is_kinetic", True)
+
+        self.reaction_rate: DomainFunctionType
+        """Reaction rate of the reaction in ``[mol / m^3 / s]`` ."""

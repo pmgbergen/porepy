@@ -39,6 +39,7 @@ from .base import (
     Phase,
     Solid,
     Element,
+    Reaction,
 )
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
@@ -947,14 +948,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
 
-        elif get_equilibrium_type(self) is None:
-
-            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                raise CompositionalModellingError(
-                    "Phase fractions are not defined in model without equilibrium."
-                    + " A re-formulation using saturations is required."
-                )
-
         elif self.has_independent_fraction(phase):
             fraction = self._fraction_factory(self._phase_fraction_variable(phase))
         elif phase == self.fluid.reference_phase:
@@ -969,7 +962,13 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 )
                 y_R.set_name("reference_phase_fraction_by_unity")
                 return y_R
+        elif get_equilibrium_type(self) is None:
 
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                raise CompositionalModellingError(
+                    "Phase fractions are not defined in model without equilibrium."
+                    + " A re-formulation using saturations is required."
+                )
         else:
             raise NotImplementedError("Missing logic for phase fractions.")
 
@@ -2083,6 +2082,50 @@ class ChemicalSystem(FluidMixin):
         # Assign to self.fluid
         self.fluid.fluid_formula_matrix = fluid_formula_matrix
         self.fluid.fluid_species_names = fluid_species  # Optional: for reference
+
+    def set_reactions(self, reactions: list[Reaction]) -> None:
+        """Sets the reactions for the chemical system and updates the fluid accordingly.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        """
+        self.reactions = reactions
+        if hasattr(self, "fluid"):
+            self.fluid.reactions = reactions
+            self.fluid.num_reactions = len(reactions)
+
+    def parse_reaction(reaction: Reaction) -> tuple[list[str], list[int]]:
+        reaction_str = reaction.formula
+        """
+        Parses a reaction string and returns species and their stoichiometric coefficients.
+        Reactants get negative coefficients, products get positive ones.
+
+        Example input: 'Halite = Na+ Cl-'
+        Output: (['Halite', 'Na+', 'Cl-'], [-1, 1, 1])
+        """
+        # Split into left-hand side (reactants) and right-hand side (products)
+        lhs, rhs = reaction_str.split("=")
+
+        # Clean up whitespace and split by spaces
+        lhs_species = lhs.strip().split()
+        rhs_species = rhs.strip().split()
+
+        species = []
+        coefficients = []
+
+        # Reactants get negative coefficients
+        for sp in lhs_species:
+            if sp:  # skip empty strings
+                species.append(sp)
+                coefficients.append(-1)  # assuming stoichiometric coefficient of 1
+
+        # Products get positive coefficients
+        for sp in rhs_species:
+            if sp:
+                species.append(sp)
+                coefficients.append(1)
+
+        return species, coefficients
 
 
 class ActivityModels(pp.PorePyModel):
