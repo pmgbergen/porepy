@@ -38,17 +38,9 @@ from tests.functional.setups.buoyancy_flow_model import to_Mega
 
 # Parameterization list for both tests
 Parameterization = [
-    # (BuoyancyFlowModel2N, True, 2),
-    # (BuoyancyFlowModel2N, True, 3),
     (BuoyancyFlowModel2N, True, 4),
-    # (BuoyancyFlowModel2N, False, 2),
-    # (BuoyancyFlowModel2N, False, 3),
     (BuoyancyFlowModel2N, False, 4),
-    # (BuoyancyFlowModel3N, True, 2),
-    # (BuoyancyFlowModel3N, True, 3),
     (BuoyancyFlowModel3N, True, 4),
-    # (BuoyancyFlowModel3N, False, 2),
-    # (BuoyancyFlowModel3N, False, 3),
     (BuoyancyFlowModel3N, False, 4),
 ]
 
