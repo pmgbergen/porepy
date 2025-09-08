@@ -48,10 +48,18 @@ if run_3d:
             np.array([0.5, 0, 1]),
         ]
     )
+    frac_4 = add_surface(
+        [
+            np.array([-0.2, -0, -0]),
+            np.array([1, 0.0, -0]),
+            np.array([1, 1, 1]),
+            np.array([-0.2, 1, 1]),
+        ]
+    )
 
     fac.synchronize()
 
-    fractures = [(2, frac_1), (2, frac_2), (2, frac_3)]
+    fractures = [(2, frac_1), (2, frac_2), (2, frac_3), (2, frac_4)]
 
     _, isect_mapping = fac.fragment(
         fractures, [(3, domain)], removeObject=True, removeTool=True
@@ -59,70 +67,123 @@ if run_3d:
 
     fac.synchronize()
 
-    # Partial implementation.
-    # Intersection lines are either on the boundary or embedded in fractures. Make a list of both.
+    # Partial implementation. Intersection lines are either on the boundary or embedded
+    # in fractures. Make a list of both.
     bnd_lines = []
     embedded_lines = []
-    # Problem: Since the mdg graph only accepts single edges between node pairs
+    # Challenge: Since the mdg graph only accepts single edges between node pairs
     # (subdomains), if two intersection lines cross (think a Rubik's cube geometry), the
     # split part of the intersection line must be assigned the same physical tag, thus
-    # generate a single subdomain grid. For starters, keep track of the fracture indices
-    # that gave rise to each line.
+    # generate a single subdomain grid. Achieving this will take some work; for
+    # starters, keep track of the fracture indices that gave rise to each line.
     fi_bnd = []
     fi_embedded = []
 
+    # Loop over all identified fragments of the fractures, find their boundary and
+    # embedded lines.
+    #
+    # TODO: What if two fractures intersect in a point? This is likely not covered here,
+    # and not considered in the current implementation of md dynamics in general.
     for fi, new_frac in enumerate(isect_mapping):
+        # A fracture can be split into multiple sub-fractures if they are fully cut by
+        # other fractures.
         for subfrac in new_frac:
             if subfrac[0] == 3:  # This is the domain.
                 continue
+            # Get the boundary of the sub-fracture. It can contain both lines on the
+            # boundary of the original fracture and lines on the boundary of
+            # subfractures that were introduced because a fracture was cut in two.
             bnd = gmsh.model.get_boundary([subfrac])
-            for b in bnd:
-                if b[0] == 1:
-                    bnd_lines.append(b[1])
+            # Loop over the boundary.
+            for parent_map in bnd:
+                if (
+                    parent_map[0] == 1
+                ):  # This is a line, not a point (would be b[0] == 0).
+                    bnd_lines.append(parent_map[1])
                     # Keep track of the fracture index for each boundary line. Using fi
-                    # (the enumeration counter) here means that even if a fracture was
-                    # split into two sub-fractures during fragmentation, they will still
-                    # be associated with the original fracture index.
+                    # (the enumeration counter of the outer for loop) ensures that even
+                    # if a fracture was split into two sub-fractures during
+                    # fragmentation, they will still be associated with the original
+                    # fracture index.
                     fi_bnd.append(fi)
 
+            # Also find lines that are embedded in this subfracture (this will be an
+            # intersection line that does not cut subfrac in two).
             embedded = gmsh.model.mesh.get_embedded(*subfrac)
             for line in embedded:
                 if line[0] == 1:
                     embedded_lines.append(line[1])
+                    # Also keep track of the fracture index for each embedded line.
                     fi_embedded.append(fi)
 
     # For a boundary line to be an intersection, it must be shared by at least two
-    # fractures. TODO: What if it is on the boundary of one, but not the other? Should
-    # be embedded in the other then?
+    # fractures. TODO: What if it is on the boundary of one, but not the other, in a
+    # T-style intersection? Should be embedded in the other then? EK thinks this should
+    # be the case. Similarly, L-style intersection (boundary on both) should be picked
+    # up here.
     num_lines_occ = np.bincount(np.abs(bnd_lines))
+    # Find the 'interesting' boundary lines, i.e. those occuring more than once.
     boundary_lines = np.where(num_lines_occ > 1)[0]
     all_lines = np.hstack((embedded_lines, boundary_lines))
     # Fracture intersection lines, to be added as physical lines.
     intersection_lines = np.unique(all_lines)
 
+    # Now, we need to find which intersection lines stem from the same set of
+    # intersecting fractures (this can be two or more fractures). This requires some
+    # juggling of indices.
+
+    # Turn the fracture indices into numpy arrays.
     fi_bnd = np.array(fi_bnd)
     fi_embedded = np.array(fi_embedded)
-
+    # For each intersection line, this will be a list of its parent fractures.
     line_parents = []
-
-    # This is an attempt to identify pairs of parents that give rise to a line. It will
-    # likely break if three fractures meet along a single line (then the elements
-    # line_parents will not have the same size, hence the unique on line_parents will
-    # break. Perhaps we can do a unique for each size of the parent set?
     for line in intersection_lines:
+        # Find the set of parents, looking at both boundary and embedded lines (an
+        # intersection can be on the boundary of fracture, but not the other).
         parent = np.hstack(
             (
                 fi_bnd[np.where(np.abs(bnd_lines) == line)[0]],
                 fi_embedded[np.where(np.abs(embedded_lines) == line)[0]],
             )
         )
+        # Uniquify (thereby also sort) and turn to list.
         line_parents.append(np.unique(parent).tolist())
-    _, intersection_line_to_fracture_pair = np.unique(
-        line_parents, axis=0, return_inverse=True
-    )
 
+    # Now we need to find the unique parent sets. Since line_parents can have a varying
+    # number of elements, we cannot just do a numpy unique, but instead need to process
+    # each number of parents separately (if the number of parents differs, clearly, the
+    # sets of parents must also differ).
+
+    # Do a count.
+    num_parents = np.array([len(lp) for lp in line_parents])
+    # This will be the mapping from line indices to their parent set indices.
+    parent_of_intersection_lines = np.full(num_parents.size, -1)
+
+    # Counter over intersection lines. Linked to the physical tags that will be
+    # associated with the intersection lines. Note that there is no requirement that
+    # this is related to the physical tag of the parent fracture (to the degree we care
+    # about such intersections, we go through the grid information generated by gmsh).
+    num_line_parent_counter = 0
+
+    # Loop over all unique parent counts.
+    for n in np.unique(num_parents):
+        # Find all intersection lines that has this number of parents.
+        inds = np.where(num_parents == n)[0]
+        # Find the unique number of parents and the map from all intersection lines with
+        # 'n' parents to the unique set.
+        unique_parent, parent_map = np.unique(
+            [line_parents[i] for i in inds], axis=0, return_inverse=True
+        )
+        # Store the parent identification for this set of intersection lines.
+        parent_of_intersection_lines[inds] = parent_map + num_line_parent_counter
+        # Increase the counter.
+        num_line_parent_counter += unique_parent.shape[0]
+    # Done with the intersection line processing.
+
+    # Find intersection points: These by definition lie on the boundary of intersection
+    # lines, so we loop over the latter, store their boundary points and identify which
+    # points occur more than once.u
     points_of_intersection_lines = []
-
     for line in intersection_lines:
         for bp in gmsh.model.get_boundary([(1, line)]):
             points_of_intersection_lines.append(bp[1])
@@ -130,14 +191,22 @@ if run_3d:
     num_point_occ = np.bincount(points_of_intersection_lines)
     intersection_points = np.where(num_point_occ > 1)[0]
 
-    debug = []
+    ## Export physical entities to gmsh.
 
+    # Intersection points.
     for i in intersection_points:
         gmsh.model.addPhysicalGroup(0, [i], -1, f"FRACTURE_INTERSECTION_POINT_{i}")
+    # Intersection lines.
+    for li in range(num_line_parent_counter):
+        this_parent = np.where(parent_of_intersection_lines == li)[0]
 
-    for li, line in enumerate(line_parents):
-        gmsh.model.addPhysicalGroup(1, line, -1, f"FRACTURE_INTERSECTION_LINE_{li}")
-
+        gmsh.model.addPhysicalGroup(
+            1,
+            intersection_lines[this_parent].tolist(),
+            -1,
+            f"FRACTURE_INTERSECTION_LINE_{li}",
+        )
+    # Fractures.
     for i, frac in enumerate(isect_mapping):
         subfracs = []
         for subfrac in frac:
@@ -145,7 +214,7 @@ if run_3d:
                 subfracs.append(subfrac[1])
         if subfracs:
             gmsh.model.addPhysicalGroup(2, subfracs, -1, f"FRACTURE_{i}")
-
+    # The domain.
     gmsh.model.addPhysicalGroup(3, [domain], -1, "DOMAIN")
 
     fac.synchronize()
@@ -200,13 +269,13 @@ else:  # 2D
     lines_removed = []
 
     for ind, line in enumerate(lines):
-        truncated_line, b = fac.intersect(
+        truncated_line, parent_map = fac.intersect(
             [line], [(2, domain)], removeTool=False, removeObject=False
         )
         if len(truncated_line) > 0:
             # The line was partly outside the domain. It must be replaced.
             new_lines[ind] = truncated_line[0]
-        elif len(b[0]) == 0:
+        elif len(parent_map[0]) == 0:
             # The line was fully outside the domain. It will be deleted.
             lines_removed.append(ind)
 
