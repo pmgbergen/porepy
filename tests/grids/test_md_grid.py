@@ -30,7 +30,9 @@ class MockGrid(pp.CartGrid):
         self.box = box
         self.compute_geometry()
 
-    def cell_diameters(self):
+    def cell_diameters(self, cell_wise, func):
+        # Parameters cell_wise and func are needed to comply with the superclass, but
+        # are not used for the mock grid.
         return self.diameter
 
     def bounding_box(self):
