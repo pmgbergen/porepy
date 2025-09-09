@@ -13,7 +13,6 @@ something is wrong.
 
 from __future__ import annotations
 
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -747,15 +746,17 @@ def test_rescaled_export(setup: ExporterTestSetup):
 
     folder_path = Path(setup.folder)
     num_vtk_tested = 0
-    for file_name_scaled in os.listdir(setup.folder):
-        if not file_name_scaled.startswith(scaled_prefix):
+    for file_path_scaled in folder_path.iterdir():
+        if not file_path_scaled.name.startswith(scaled_prefix):
             continue
-        file_name_unscaled = f"{unscaled_prefix}{file_name_scaled[6:]}"
-        if file_name_scaled.endswith("vtu"):
+        file_path_unscaled = (
+            folder_path / f"{unscaled_prefix}{file_path_scaled.name[6:]}"
+        )
+        if file_path_scaled.suffix == ".vtu":
             assert compare_vtu_files(
-                test_file=folder_path / file_name_scaled,
-                reference_file=folder_path / file_name_unscaled,
-            ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}."
+                test_file=file_path_scaled,
+                reference_file=file_path_unscaled,
+            ), f"Files don't match: {file_path_scaled} and {file_path_unscaled}."
             num_vtk_tested += 1
 
     assert num_vtk_tested > 0, "No VTU files were tested."

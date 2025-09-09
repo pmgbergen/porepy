@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import copy
 import json
-import os
 import shutil
 from pathlib import Path
 from typing import Any, Optional, Callable, cast
@@ -71,8 +70,8 @@ def create_restart_model(
     # Add restart possibility
     params["restart_options"] = {
         "restart": restart,
-        "pvd_file": reference_dir / Path("previous_data.pvd"),
-        "times_file": reference_dir / Path("previous_times.json"),
+        "pvd_file": reference_dir / "previous_data.pvd",
+        "times_file": reference_dir / "previous_times.json",
     }
 
     # Redefine model

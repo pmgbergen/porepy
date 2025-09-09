@@ -10,7 +10,6 @@ Tested functionality includes:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass

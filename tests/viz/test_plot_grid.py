@@ -1,6 +1,5 @@
 """Tests of methods from porepy.vis.plot_grid."""
 
-import os
 from pathlib import Path
 
 import matplotlib
