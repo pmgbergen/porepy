@@ -497,7 +497,7 @@ class _VariablesThreeFieldMomentumBalance(pp.PorePyModel):
     This class is not meant to be mixed in directly, but is used by other mixin classes,
     see for instance TpsaMomentumBalanceMixin.
 
-    Mixin this in will add the variables rotation_stress and total_pressure to the
+    Mixing this in will add the variables rotation_stress and total_pressure to the
     model.
 
     """
