@@ -5,9 +5,11 @@ from __future__ import annotations
 import copy
 import csv
 import logging
+import sys
 import time
-from typing import Optional
 from pathlib import Path
+from typing import Optional
+
 import meshio
 import numpy as np
 
@@ -218,7 +220,6 @@ class FractureNetwork2d:
         """
         if file_name is None:
             file_name = Path("gmsh_frac_file.msh")
-            # TODO currently the gmsh file is generated in the working directory
 
         # No constraints if not available.
         if constraints is None:
@@ -1030,7 +1031,7 @@ class FractureNetwork2d:
     def _bounding_box_to_points(self, box: dict[str, pp.number]) -> np.ndarray:
         """Helper function to convert a bounding box into a point set.
 
-        Todo:
+        TODO:
             Consider moving this method to :class:`~porepy.geometry.domain.Domain`.
 
         Parameters:
@@ -1288,7 +1289,7 @@ class FractureNetwork2d:
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")
-        folder_name: Path = Path(kwargs.pop("folder_name", ""))
+        folder_name: Path = Path(kwargs.pop("folder_name", sys.argv[0]))
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
