@@ -3107,8 +3107,10 @@ class _ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
             if sd.dim != self.nd:
                 raise ValueError("Subdomain must be of co-dimension 0.")
 
-        # No need to facilitate changing of stress discretization, only one is available
-        # at the moment.
+        # Fetch the stress discretization. This should provide discretization for stress
+        # induced by the displacement, rotation and total pressure (see definition of
+        # the variable 'stress' below). In practice, this means that the stress
+        # discretization should be of type TpsaAd.
         discr = self.stress_discretization(domains)
         # Fractures in the domain.
         interfaces = self.subdomains_to_interfaces(domains, [1])
@@ -3383,11 +3385,11 @@ class _ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
 
         """
         alpha = self.biot_coefficient(subdomains)
-        iLambda = self.inv_lambda(subdomains)
+        inv_lambda = self.inv_lambda(subdomains)
 
         coeff = (
             alpha
-            * iLambda
+            * inv_lambda
             * (self.total_pressure(subdomains) + alpha * self.pressure(subdomains))
         )
 

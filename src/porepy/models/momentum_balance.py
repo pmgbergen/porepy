@@ -330,7 +330,7 @@ class SolidMassEquation(pp.BalanceEquation):
         """
         mass_flux = self.solid_mass_flux(subdomains)
 
-        source = self.source_solid_mass(subdomains)
+        source = self.solid_mass_source(subdomains)
         accumulation = -self.volume_integral(
             self.inv_lambda(subdomains) * self.total_pressure(subdomains),
             subdomains,
@@ -343,8 +343,11 @@ class SolidMassEquation(pp.BalanceEquation):
         solid_mass.set_name("solid_mass_equation")
         return solid_mass
 
-    def source_solid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def solid_mass_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Define the solid mass source.
+
+        This term has no obvious physical interpretation but is included for
+        completeness.
 
         Parameters:
             subdomains: List of subdomains where the solid mass source is
