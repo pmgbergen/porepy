@@ -112,15 +112,15 @@ def test_plot_grid_simple_grid(mdg: MixedDimensionalGrid, vector_variable: str):
 
 @pytest.fixture
 def image_name():
-    image_name = "test_save_img.png"
-    assert not Path(image_name).exists()
+    image_name = Path("test_save_img.png")
+    assert not image_name.exists()
     yield image_name
 
     # Tear down
-    Path(image_name).unlink()
+    image_name.unlink()
 
 
-def test_save_img(mdg: MixedDimensionalGrid, image_name: str):
+def test_save_img(mdg: MixedDimensionalGrid, image_name: Path):
     """Testing that `save_img` works."""
     pp.save_img(
         image_name,
@@ -129,4 +129,4 @@ def test_save_img(mdg: MixedDimensionalGrid, image_name: str):
         vector_value=VECTOR_VARIABLE_CELL,
     )
 
-    assert Path(image_name).exists()
+    assert image_name.exists()

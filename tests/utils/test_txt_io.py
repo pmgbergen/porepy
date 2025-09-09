@@ -43,7 +43,8 @@ def test_export_data() -> None:
     export_data_to_txt(list_of_txt_data)
 
     # Read back the file
-    read_data: dict[str, np.ndarray] = read_data_from_txt(Path("out.txt"))
+    path = Path("out.txt")
+    read_data: dict[str, np.ndarray] = read_data_from_txt(path)
 
     # Compare
     assert len(read_data.keys()) == 2
@@ -53,4 +54,4 @@ def test_export_data() -> None:
     np.testing.assert_allclose(flux.array, read_data["flux"])
 
     # Delete file
-    Path("out.txt").unlink()
+    path.unlink()

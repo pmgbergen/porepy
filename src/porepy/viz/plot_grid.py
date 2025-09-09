@@ -11,6 +11,7 @@ this folder.
 from __future__ import annotations
 
 import string
+from pathlib import Path
 from typing import Optional, Union
 
 import matplotlib as mpl
@@ -83,7 +84,7 @@ def plot_grid(
 
 
 def save_img(
-    name: str,
+    name: Path,
     grid: Union[pp.Grid, pp.MixedDimensionalGrid],
     cell_value: Optional[Union[np.ndarray, str]] = None,
     vector_value: Optional[Union[np.ndarray, str]] = None,
