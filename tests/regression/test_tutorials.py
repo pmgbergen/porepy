@@ -1,24 +1,23 @@
-import glob
 import os
 import sys
 from pathlib import Path
 
 import pytest
 
-TUTORIAL_FILENAMES = glob.glob("tutorials/*.ipynb")
+TUTORIAL_FILENAMES = [fn.resolve() for fn in Path("tutorials").glob("*.ipynb")]
 
 
 @pytest.mark.tutorials
 @pytest.mark.parametrize("tutorial_path", TUTORIAL_FILENAMES)
-def test_run_tutorials(tutorial_path: str):
+def test_run_tutorials(tutorial_path: Path):
     """We run the tutorial and check that it didn't raise any error.
     This assumes we run pytest from the porepy directory.
 
     """
-    new_file = tutorial_path.removesuffix(".ipynb") + ".py"
+    new_file = tutorial_path.with_suffix(".py")
 
     # This command might fail in github actions.
-    cmd_convert = "jupyter-nbconvert --to script " + tutorial_path
+    cmd_convert = "jupyter-nbconvert --to script " + str(tutorial_path)
     status = os.system(cmd_convert)
     if status != 0:
         raise RuntimeError(
@@ -33,10 +32,10 @@ def test_run_tutorials(tutorial_path: str):
 
     # Removing the generated source file after the assertion. If the test fails, it is
     # useful to keep it in order to see what went wrong there.
-    Path(new_file).unlink()
+    new_file.unlink()
 
 
-def edit_imports(filename: str):
+def edit_imports(filename: Path):
     """Matplotlib opens a new window for each figure in the interactive mode.
     Here, we prevent it by setting the noninteractive matplotlib backend.
     "template" backend is a dummy backend that does nothing.
@@ -54,7 +53,7 @@ def edit_imports(filename: str):
 
 if __name__ == "__main__":
     try:
-        filenames = [sys.argv[1]]
+        filenames = [Path(sys.argv[1])]
     except IndexError:
         filenames = TUTORIAL_FILENAMES
     for tut_path in filenames:

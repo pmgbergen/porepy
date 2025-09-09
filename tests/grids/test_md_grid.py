@@ -524,11 +524,11 @@ def test_pickle_md_grid():
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     mdg = pp.meshing.cart_grid(fracs, np.array([2, 2]))
 
-    fn = "tmp.md_grid"
+    fn = Path("tmp.md_grid")
     pickle.dump(mdg, open(fn, "wb"))
     mdg_read = pickle.load(open(fn, "rb"))
 
     compare_md_grids(mdg, mdg_read)
 
     # Delete the temporary file
-    Path(fn).unlink()
+    fn.unlink()
