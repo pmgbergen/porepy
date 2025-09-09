@@ -425,9 +425,13 @@ class SplineInterpolationLineSearch:
                 x_bad = err.x_bad
                 x_good = err.x_good
                 if np.isclose(x_good, a) or x_good < a:
-                    # If x_good is at or before a, we can use [a, x_bad] as the new interval.
+                    # If x_good is at or before a, we can use [a, x_bad] as the new
+                    # interval.
                     b = x_bad
                     f_b = None
+                    # In case the new interval satisfies the termination criterion, we
+                    # will set alpha to b.
+                    alpha = b
                     counter += 1
                     continue
                 # Check whether alpha is in [a, x_good]. We do not catch the error here,
