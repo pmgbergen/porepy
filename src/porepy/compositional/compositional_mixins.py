@@ -21,7 +21,7 @@ Important:
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, cast
+from typing import List, Tuple, Callable, Optional, Sequence, cast
 
 import numpy as np
 
@@ -45,6 +45,7 @@ from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 from chempy.chemistry import Species
 from chempy.util.periodic import symbols as chemical_symbols
+import re
 
 
 __all__ = [
@@ -2083,6 +2084,28 @@ class ChemicalSystem(FluidMixin):
         self.fluid.fluid_formula_matrix = fluid_formula_matrix
         self.fluid.fluid_species_names = fluid_species  # Optional: for reference
 
+    def get_reactions(self) -> Sequence[pp.Reaction]:
+        """Method to return a list of modelled components.
+
+        The default implementation takes the user-provided or default fluid component
+        found in the model ``params`` and returns a single component.
+
+        Override this method via mixin to provide a more complex component context for
+        the :attr:`fluid`.
+
+        """
+        # Should be available after SolutionStrategy.set_materials()
+        # Getting the user-passed or default fluid component to create the default fluid
+        # component.
+        fluid_constants = self.params["material_constants"]["reactions"]
+        # All materials are assumed to derive from Component.
+        assert isinstance(fluid_constants, Reaction), (
+            "model.params['material_constants']['reactions'] must be of type "
+            + f"{Reaction}"
+        )
+        # Need to cast into FluidComponent, because of the assert statement above.
+        return [cast(pp.Reaction, fluid_constants)]
+
     def set_reactions(self, reactions: list[Reaction]) -> None:
         """Sets the reactions for the chemical system and updates the fluid accordingly.
 
@@ -2094,7 +2117,38 @@ class ChemicalSystem(FluidMixin):
             self.fluid.reactions = reactions
             self.fluid.num_reactions = len(reactions)
 
-    def parse_reaction(reaction: Reaction) -> tuple[list[str], list[int]]:
+    _COEFF_RE = re.compile(
+        r"""
+        ^\s*
+        (?:
+            (?P<coeff> -? (?:\d+(?:\.\d*)?|\.\d+) (?:[eE][+-]?\d+)? )  # number like 2, 0.5, .5, 1e-3
+            (?:\s*\*\s*)?                                             # optional '*'
+        )?
+        (?P<species> \S.*\S|\S )                                      # the rest (non-empty, trims later)
+        \s*$
+        """,
+        re.VERBOSE,
+    )
+
+    def _parse_side(self, side: str, sign: int) -> Tuple[List[str], List[float]]:
+        species: List[str] = []
+        coeffs: List[float] = []
+        # Split on ' + ' with at least one space on each side, so 'H3O+' stays intact
+        tokens = re.split(r"\s+\+\s+", side.strip())
+        for tok in tokens:
+            if not tok:
+                continue
+            m = self._COEFF_RE.match(tok)
+            if not m:
+                raise ValueError(f"Could not parse token: {tok!r}")
+            coeff_str = m.group("coeff")
+            sp = m.group("species").strip()
+            coeff = float(coeff_str) if coeff_str is not None else 1.0
+            species.append(sp)
+            coeffs.append(sign * coeff)
+        return species, coeffs
+
+    def parse_reaction(self, reaction: Reaction) -> tuple[list[str], list[float]]:
         reaction_str = reaction.formula
         """
         Parses a reaction string and returns species and their stoichiometric coefficients.
@@ -2104,28 +2158,13 @@ class ChemicalSystem(FluidMixin):
         Output: (['Halite', 'Na+', 'Cl-'], [-1, 1, 1])
         """
         # Split into left-hand side (reactants) and right-hand side (products)
-        lhs, rhs = reaction_str.split("=")
+        if "=" not in reaction_str:
+            raise ValueError("Reaction must contain '=' separating LHS and RHS")
 
-        # Clean up whitespace and split by spaces
-        lhs_species = lhs.strip().split()
-        rhs_species = rhs.strip().split()
-
-        species = []
-        coefficients = []
-
-        # Reactants get negative coefficients
-        for sp in lhs_species:
-            if sp:  # skip empty strings
-                species.append(sp)
-                coefficients.append(-1)  # assuming stoichiometric coefficient of 1
-
-        # Products get positive coefficients
-        for sp in rhs_species:
-            if sp:
-                species.append(sp)
-                coefficients.append(1)
-
-        return species, coefficients
+        lhs, rhs = reaction_str.split("=", 1)
+        lhs_species, lhs_coeffs = self._parse_side(lhs, sign=-1)
+        rhs_species, rhs_coeffs = self._parse_side(rhs, sign=+1)
+        return lhs_species + rhs_species, lhs_coeffs + rhs_coeffs
 
 
 class ActivityModels(pp.PorePyModel):
