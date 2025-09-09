@@ -43,12 +43,7 @@ def triangle_grid_embedded(file_name: Path) -> list[list[pp.Grid]]:
         sub-list is empty.
 
     """
-
-    if file_name.suffix == ".geo" or file_name.suffix == ".msh":
-        file_name = file_name.with_suffix("")
-
     out_file = file_name.with_suffix(".msh")
-
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     g_2d = msh_2_grid.create_2d_grids(
@@ -111,10 +106,7 @@ def triangle_grid_from_gmsh(
 
     start_time = time.time()
 
-    if file_name.suffix == ".msh":
-        file_name = file_name.with_suffix("")
     out_file = file_name.with_suffix(".msh")
-
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Create grids from gmsh mesh.
@@ -184,10 +176,7 @@ def line_grid_from_gmsh(
 
     start_time = time.time()
 
-    if file_name.suffix == ".msh":
-        file_name = file_name.with_suffix("")
     out_file = file_name.with_suffix(".msh")
-
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Create grids from gmsh mesh.
@@ -255,11 +244,8 @@ def tetrahedral_grid_from_gmsh(
     # Verbosity level
     verbose = kwargs.get("verbose", 1)
 
-    if file_name.suffix == ".msh":
-        file_name = file_name.with_suffix("")
-    file_name = file_name.with_suffix(".msh")
-
-    pts, cells, cell_info, phys_names = _read_gmsh_file(file_name)
+    out_file = file_name.with_suffix(".msh")
+    pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Call upon helper functions to create grids in various dimensions. The
     # constructors require somewhat different information, reflecting the different
