@@ -1294,8 +1294,8 @@ class FractureNetwork2d:
             msg = "Got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        if file_name.suffix != extension:
-            file_name = file_name.with_suffix(extension)
+        # Make sure the suffix is correct
+        file_name = file_name.with_suffix(extension)
 
         # in 1d we have only one cell type
         cell_type = "line"
