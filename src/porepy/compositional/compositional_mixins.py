@@ -1949,6 +1949,9 @@ class ChemicalSystem(FluidMixin):
         self.element_names = []
         self.formula_matrix = None
         self.element_objects = []
+        self.print_formula_matrix()
+        reactions = self.get_reactions()
+        self.set_reactions(reactions)
 
     def get_all_components_by_phase(self):
         """Return a dictionary of all components grouped by phase."""
@@ -2106,7 +2109,7 @@ class ChemicalSystem(FluidMixin):
         # Need to cast into FluidComponent, because of the assert statement above.
         return [cast(pp.Reaction, fluid_constants)]
 
-    def set_reactions(self, reactions: list[Reaction]) -> None:
+    def set_reactions(self, reactions: Sequence[Reaction]) -> None:
         """Sets the reactions for the chemical system and updates the fluid accordingly.
 
         Parameters:
@@ -2116,6 +2119,7 @@ class ChemicalSystem(FluidMixin):
         if hasattr(self, "fluid"):
             self.fluid.reactions = reactions
             self.fluid.num_reactions = len(reactions)
+        self.stoichiometrix_matrix = self.build_stoichiometric_matrix(reactions)
 
     _COEFF_RE = re.compile(
         r"""
@@ -2165,6 +2169,55 @@ class ChemicalSystem(FluidMixin):
         lhs_species, lhs_coeffs = self._parse_side(lhs, sign=-1)
         rhs_species, rhs_coeffs = self._parse_side(rhs, sign=+1)
         return lhs_species + rhs_species, lhs_coeffs + rhs_coeffs
+
+    def build_stoichiometric_matrix(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> np.ndarray:
+        """
+        Build a stoichiometric matrix S with shape (n_reactions, n_species).
+
+        Columns are ordered exactly as in self.species_names.
+        Rows follow the input order of `reactions`.
+
+        Requires:
+            - self.species_names: list[str]
+            - self.parse_reaction(reaction): -> (species: list[str], coeffs: list[float])
+            - each `reaction` has a `.formula` attribute (or is accepted by parse_reaction)
+
+        Raises:
+            ValueError if a species in any reaction is not present in self.species_names.
+        """
+        if not hasattr(self, "species_names") or not self.species_names:
+            raise ValueError("self.species_names must be a non-empty list of species.")
+
+        # Map species name -> column index using your specified order
+        col_index = {sp: j for j, sp in enumerate(self.species_names)}
+
+        n_rxn = len(reactions)
+        n_sp = len(self.species_names)
+
+        S = np.zeros((n_rxn, n_sp), dtype=float)
+
+        for i, rxn in enumerate(reactions):
+            # Your own parser (reactants negative, products positive)
+            sp_list, coeffs = self.parse_reaction(rxn)
+
+            # Accumulate duplicates within the same reaction
+            row_acc = {}
+            for sp, c in zip(sp_list, coeffs):
+                if sp not in col_index:
+                    # Fail fast with a helpful message
+                    raise ValueError(
+                        f"Species '{sp}' in reaction {i} is not in self.species_names. "
+                        f"Known species: {self.species_names}"
+                    )
+                row_acc[sp] = row_acc.get(sp, 0.0) + float(c)
+
+            # Write this reaction row
+            for sp, c in row_acc.items():
+                S[i, col_index[sp]] = c
+
+        return S
 
 
 class ActivityModels(pp.PorePyModel):
