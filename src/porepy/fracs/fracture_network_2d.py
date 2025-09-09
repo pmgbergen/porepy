@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import csv
 import logging
-import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -1274,7 +1273,7 @@ class FractureNetwork2d:
 
                     Used to define the offset for a fracture id.
 
-                - ``'folder_name'`` (:obj:`Path`): ``default=Path("./")``
+                - ``'folder_name'`` (:obj:`Path`): ``default=Path("")``
 
                     Path to save the file.
 
@@ -1289,7 +1288,7 @@ class FractureNetwork2d:
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")
-        folder_name: Path = Path(kwargs.pop("folder_name", sys.argv[0]))
+        folder_name: Path = Path(kwargs.pop("folder_name", ""))
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
