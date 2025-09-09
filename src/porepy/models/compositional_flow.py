@@ -399,6 +399,12 @@ class EnthalpyBasedEnergyBalanceEquations(
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
+    enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    enthalpy_buoyancy_jump: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsMulticomponent`."""
 
@@ -451,11 +457,9 @@ class EnthalpyBasedEnergyBalanceEquations(
                 [
                     phase.specific_enthalpy(domains)
                     * self.fractional_phase_mass_mobility(phase, domains)
-                    # * phase.density(domains)
-                    # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-            )  # / self.total_mobility(domains)
+            )
             op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
@@ -470,11 +474,24 @@ class EnthalpyBasedEnergyBalanceEquations(
             len(subdomains) == 0
             or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
         ) and is_fractional_flow(self):
-            return self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
+            flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
                 subdomains
             )
         else:
-            return super().enthalpy_flux(subdomains)
+            flux = super().enthalpy_flux(subdomains)
+        buoyancy_condition: bool = self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        if buoyancy_condition:
+            flux += self.enthalpy_buoyancy(subdomains)
+        return flux
+
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        source = super().energy_source(subdomains)
+        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
+        if buoyancy_condition:
+            source += self.enthalpy_buoyancy_jump(subdomains)
+        return source
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation):
@@ -550,6 +567,16 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
 
+    component_buoyancy: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    component_buoyancy_jump: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
@@ -606,6 +633,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             self.component_mass(component, subdomains), subdomains, dim=1
         )
         flux = self.component_flux(component, subdomains)
+        if self.params.get("enable_buoyancy_effects", False):
+            flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -877,6 +906,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
+        if self.params.get("enable_buoyancy_effects", False):
+            source += self.component_buoyancy_jump(component, subdomains)
+
         source.set_name(f"interface_component_flux_source_{component.name}")
         well_fluxes = (
             well_projection.mortar_to_secondary_int()
@@ -979,7 +1011,8 @@ class ConstitutiveLawsCF(
     pp.constitutive_laws.FluidMobility,
     # Contains the Upwind for the enthalpy flux, otherwise not required.
     # TODO Consider putting discretizations strictly outside of classes providing
-    # heuristics for thermodynamic properties.
+    # reformulation of fluid properties.
+    pp.constitutive_laws.FluidBuoyancy,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.SecondOrderTensorUtils,
