@@ -4,7 +4,6 @@ it stays up to date. We also enforce lowercase keys for the PorePy parameters.
 
 """
 
-import os
 import re
 from pathlib import Path
 
@@ -23,25 +22,21 @@ def search_params_directory(root_dirs: list[Path]) -> set[str]:
     pattern_get = re.compile(r'params\.get\(\s*"(\S+?)"\s*')
     """Captures `param_name` in `params.get("param_name")."""
 
-    def search_params_file(filepath: str) -> set[str]:
+    def search_params_file(filepath: Path) -> set[str]:
         """Scans the provided file and returns the found parameter keys."""
         matches: set[str] = set()
-        with open(filepath, "r", encoding="utf-8") as f:
-            lines = f.read()
-            found = pattern_brackets.findall(lines)
-            matches.update(found)
-            found = pattern_get.findall(lines)
-            matches.update(found)
+        lines = filepath.read_text()
+        found = pattern_brackets.findall(lines)
+        matches.update(found)
+        found = pattern_get.findall(lines)
+        matches.update(found)
         return matches
 
     results: set[str] = set()
     for root_dir in root_dirs:
         assert root_dir.exists()
-        for dirpath, _, filenames in os.walk(root_dir):
-            for fname in filenames:
-                if fname.endswith(".py"):
-                    path = os.path.join(dirpath, fname)
-                    results.update(search_params_file(path))
+        for fname in root_dir.glob("*.py"):
+            results.update(search_params_file(fname))
     return results
 
 
@@ -49,18 +44,9 @@ def compare_parameters_with_expected(found: set[str], expected: set[str]) -> boo
     """Ensures that the two sets of parameters are the same."""
     # This could be done in one line, but the error message is more visual this way.
     # Useful for debugging, does not hurt for the test.
-    print("\nParams in config but not in files:")
-    success = True
-    for param in expected:
-        if param not in found:
-            print(param)
-            success = False
-    print("\nParams in files but not in config:")
-    for param in found:
-        if param not in expected:
-            print(param)
-            success = False
-    return success
+    print(f"\nParams in config but not in files: {expected - found}")
+    print(f"\nParams in files but not in config: {found - expected}")
+    return len(found - expected) == 0 and len(expected - found) == 0
 
 
 def test_example_params_up_to_date():
@@ -74,7 +60,7 @@ def test_example_params_up_to_date():
         pp_path / "viz",
         pp_path / "numerics/nonlinear",
     ]
-    # There are two distinc dictionaries of parameters: for the model and for the
+    # There are two distinct dictionaries of parameters: for the model and for the
     # solver. There's no way to statically detect what belongs to which dict.
     # So far, we check that they exist at least somewhere.
     params_common = set(model_params.keys()) | set(solver_params.keys())
@@ -82,7 +68,7 @@ def test_example_params_up_to_date():
     # First, we ensure that the parameters are in lower case.
     for param in params_common:
         assert param.lower() == param, (
-            f"We enforse only lower case parameters, {param}."
+            f"We enforce only lower case parameters, {param}."
         )
 
     found = search_params_directory(directories_params)
