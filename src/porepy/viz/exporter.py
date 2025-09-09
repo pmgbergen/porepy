@@ -725,7 +725,7 @@ class Exporter:
         file_name = self._make_file_name(
             self._file_name, time_step=time_step, extension=".pvd"
         )
-        file_name = self._append_folder_name(self._folder_name, file_name)
+        file_name = self._append_folder_name(file_name, self._folder_name)
         self._export_mdg_pvd(file_name, time_step)
 
     def write_pvd(
@@ -795,7 +795,7 @@ class Exporter:
 
         # Set up file name and check whether it already exists in storage.
         pvd_file: Path = self._append_folder_name(
-            self._folder_name, self._file_name
+            self._file_name, self._folder_name
         ).with_suffix(".pvd")
         file_exists: bool = pvd_file.exists()
 
@@ -1611,7 +1611,7 @@ class Exporter:
         file_name_stem += "_mortar" if self.interface_data else ""
         # Append folder name to file name base
         file_name_base: Path = self._append_folder_name(
-            self._folder_name, file_name_stem
+            Path(file_name_stem), self._folder_name
         )
 
         # Collect unique keys, and for unique sorting, sort by alphabet
@@ -2629,7 +2629,7 @@ class Exporter:
         meshio.write(file_name, meshio_grid_to_export, binary=self._binary)
 
     def _append_folder_name(
-        self, folder_name: Optional[Path] = None, name: str = ""
+        self, name: Path, folder_name: Optional[Path] = None
     ) -> Path:
         """Auxiliary method setting up potentially non-existent folder structure and
         setting up a path for exporting.
@@ -2661,7 +2661,7 @@ class Exporter:
         time_step: Optional[int] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
-    ) -> str:
+    ) -> Path:
         """Auxiliary method to setting up file name.
 
         The final name is built as combination of a prescribed prefix, and possibly
