@@ -7,7 +7,7 @@ import numpy as np
 import porepy as pp
 
 
-class FractureDamageHistoryVariables(pp.PorePyModel):
+class FractureDamageVariables(pp.PorePyModel):
     """Base class for fracture damage variables.
 
     Common functionality for fracture damage variables. Currently related to storing of
@@ -39,7 +39,7 @@ class FractureDamageHistoryVariables(pp.PorePyModel):
         # stored at, say, two time steps for other purposes than computing the damage
         # history.
         for cls in self.__class__.__mro__:
-            if cls is FractureDamageHistoryVariables:
+            if cls is FractureDamageVariables:
                 continue
             if cls is pp.SolutionStrategy:
                 continue
@@ -52,7 +52,9 @@ class FractureDamageHistoryVariables(pp.PorePyModel):
                     pp.SolutionStrategy implements this method."""
                 )
 
-        damage_variables = self.variables_stored_all_time_steps()
+        damage_variables = cast(
+            FractureDamageVariables, self
+        ).variables_stored_all_time_steps()
         other_vars = [
             var for var in self.equation_system.variables if var not in damage_variables
         ]
@@ -96,7 +98,7 @@ class FractureDamageHistoryVariables(pp.PorePyModel):
         )
 
 
-class DilationDamageVariable(pp.PorePyModel):
+class DilationDamageVariable(FractureDamageVariables):
     """Dilation damage variable for fractures.
 
     Defines the variable and sets it to the equation system.
@@ -135,7 +137,7 @@ class DilationDamageVariable(pp.PorePyModel):
         )
 
 
-class FrictionDamageVariable(pp.PorePyModel):
+class FrictionDamageVariable(FractureDamageVariables):
     """Friction damage variable for fractures.
 
     Defines the variable and sets it to the equation system.
@@ -176,60 +178,21 @@ class FrictionDamageVariable(pp.PorePyModel):
 class FractureDamageEquations(pp.PorePyModel, abc.ABC):
     """Base class for fracture damage equations.
 
-    The equations implemented herein are on the form of convolution integral equations
-
-    .. math::
-        \\phi(t) = \\int_0^t K(t - s) f(s) \\, ds + \\phi(0),
-
-    where :math:`\\phi(t)` is the damage variable, :math:`K(t - s)` is the kernel
-    function, and :math:`f(s)` is the integrand function. The kernel function
-    represents the memory effect of the damage variable, and the integrand function
-    represents the contribution of the displacement jump at time :math:`s` to the
-    damage variable at time :math:`t`.
+    Provides shared helpers for damage convolution-based equations. Subclasses should
+    implement specific equations (friction or dilation) and override `set_equations` and
+    `before_nonlinear_loop` to register the equations they provide.
     """
-
-    friction_damage_equation_name = "friction_damage_equation"
-    dilation_damage_equation_name = "dilation_damage_equation"
 
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function to compute the characteristic displacement."""
-    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Method returning the dilation damage variable."""
-    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Method returning the friction damage variable."""
-    dilation_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method to compute the damage coefficient for dilation damage."""
-
-    friction_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method to compute the damage coefficient for friction damage."""
-
+    contact_mechanics_open_state_characteristic: Callable[
+        [list[pp.Grid]], pp.ad.Operator
+    ]
+    """Method to compute the open/closed state characteristic for contact mechanics."""
+    damage_length: Callable[[list[pp.Grid], int], tuple[pp.ad.Operator, pp.ad.Operator]]
+    """Method returning the damage length operator."""
     plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function to compute the plastic displacement jump on fractures."""
-
-    def set_equations(self):
-        """Set the damage equations for friction and dilation."""
-        super().set_equations()
-        fractures = self.mdg.subdomains(dim=self.nd - 1)
-
-        friction_eq = self.friction_damage_equation(fractures)
-        friction_eq.set_name(self.friction_damage_equation_name)
-        self.equation_system.set_equation(friction_eq, fractures, {"cells": 1})
-
-        dilation_eq = self.dilation_damage_equation(fractures)
-        dilation_eq.set_name(self.dilation_damage_equation_name)
-        self.equation_system.set_equation(dilation_eq, fractures, {"cells": 1})
-
-    def before_nonlinear_loop(self):
-        """Reset damage history equations to include new terms."""
-        super().before_nonlinear_loop()
-        fractures = self.mdg.subdomains(dim=self.nd - 1)
-
-        self.equation_system._equations[self.friction_damage_equation_name] = (
-            self.friction_damage_equation(fractures)
-        )
-        self.equation_system._equations[self.dilation_damage_equation_name] = (
-            self.dilation_damage_equation(fractures)
-        )
 
     def damage_convolution_integral(
         self,
@@ -243,9 +206,10 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
         """Helper method for convolution integral equations.
 
         Parameters:
-            damage_history_var: The damage variable (friction or dilation).
-            integrand_func: Function that takes time step index and subdomains,
+            length_function: Function that takes (subdomains, time_step_index) and
                 returns (contribution, constant_part) tuple.
+            damage_coefficient_function: Function returning the damage coefficient
+                operator for the current time step.
             subdomains: List of fracture subdomains.
             tolerance: Tolerance for checking if constant part is non-zero.
 
@@ -275,9 +239,45 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
 
         return eq
 
+
+class DilationDamageEquation(FractureDamageEquations):
+    """Mixin class that provides the dilation damage equation and registration."""
+
+    dilation_damage_equation_name = "dilation_damage_equation"
+    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the dilation damage variable."""
+    dilation_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the damage coefficient for dilation damage."""
+
+    def set_equations(self):
+        """Set the dilation damage equation."""
+        super().set_equations()
+        fractures = self.mdg.subdomains(dim=self.nd - 1)
+
+        dilation_eq = self.dilation_damage_equation(fractures)
+        dilation_eq.set_name(self.dilation_damage_equation_name)
+        self.equation_system.set_equation(dilation_eq, fractures, {"cells": 1})
+
+    def before_nonlinear_loop(self):
+        """Update the dilation damage equation to include new term."""
+        super().before_nonlinear_loop()
+        fractures = self.mdg.subdomains(dim=self.nd - 1)
+        self.equation_system._equations[self.dilation_damage_equation_name] = (
+            self.dilation_damage_equation(fractures)
+        )
+
     def dilation_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Anisotropic dilation damage equation."""
-        characteristic = pp.ad.Scalar(0)
+        """Dilation damage equation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Dilation damage equation operator.
+        """
+        # If the contact mechanics state is open, use the open state characteristic to
+        # enforce no update of the damage history. Otherwise, the standard version of
+        # the damage equation is used (characteristic=0).
         characteristic = self.contact_mechanics_open_state_characteristic(subdomains)
 
         eq = (
@@ -294,43 +294,68 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
         eq.set_name("dilation_damage_equation")
         return eq
 
-    def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Anisotropic friction damage equation."""
 
-        eq = self.damage_convolution_integral(
-            self.damage_length,
-            self.friction_damage_coefficient,
-            subdomains=subdomains,
-        ) - self.friction_damage_history(subdomains)
+class FrictionDamageEquation(FractureDamageEquations):
+    """Mixin class that provides the friction damage equation and registration."""
+
+    friction_damage_equation_name = "friction_damage_equation"
+    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Method returning the friction damage variable."""
+    friction_damage_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method to compute the damage coefficient for friction damage."""
+
+    def set_equations(self):
+        """Set the friction damage equation."""
+        super().set_equations()
+        fractures = self.mdg.subdomains(dim=self.nd - 1)
+
+        friction_eq = self.friction_damage_equation(fractures)
+        friction_eq.set_name(self.friction_damage_equation_name)
+        self.equation_system.set_equation(friction_eq, fractures, {"cells": 1})
+
+    def before_nonlinear_loop(self):
+        """Update the friction damage equation to include new term."""
+        super().before_nonlinear_loop()
+        fractures = self.mdg.subdomains(dim=self.nd - 1)
+        self.equation_system._equations[self.friction_damage_equation_name] = (
+            self.friction_damage_equation(fractures)
+        )
+
+    def friction_damage_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction damage equation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Friction damage equation operator.
+        """
+        # If the contact mechanics state is open, use the open state characteristic to
+        # enforce no update of the damage history. Otherwise, the standard version of
+        # the damage equation is used (characteristic=0).
+        characteristic = self.contact_mechanics_open_state_characteristic(subdomains)
+        eq = (
+            (pp.ad.Scalar(1.0) - characteristic)
+            * self.damage_convolution_integral(
+                self.damage_length,
+                self.friction_damage_coefficient,
+                subdomains=subdomains,
+            )
+            - self.friction_damage_history(subdomains)
+            + characteristic
+            * self.friction_damage_history(subdomains).previous_timestep(1)
+        )
         eq.set_name("friction_damage_equation")
         return eq
 
-    @abc.abstractmethod
-    def damage_length(
-        self,
-        subdomains: list[pp.Grid],
-        time_step_index: int,
-    ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-        """Integrand for the damage equation.
 
-        Parameters:
-            time_step_index: Index of the time step.
-            subdomains: List of subdomains where the damage is defined.
-            degradation: Function to compute the degradation factor.
+class AnisotropicFractureDamageLength(pp.PorePyModel):
+    """Anisotropic damage equations for both friction and dilation.
 
-        Returns:
-            Tuple containing the contribution to the equation and the displacement
-            increment at the specified time step. If the displacement increment is zero,
-            the full contribution is also zero.
-        """
-        raise NotImplementedError(
-            "This method should be implemented in subclasses to define the damage "
-            "length."
-        )
-
-
-class AnisotropicFractureDamageEquations(pp.PorePyModel):
-    """Anisotropic damage equations for both friction and dilation."""
+    When combined with both ``class:FrictionDamageEquation`` and
+    ``class:DilationDamageEquation``, the use of a single damage length method implies a
+    unified treatment of damage in both friction and dilation.
+    """
 
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the characteristic contact traction on fractures."""
@@ -349,7 +374,7 @@ class AnisotropicFractureDamageEquations(pp.PorePyModel):
         subdomains: list[pp.Grid],
         time_step_index: int,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-        """Integrand for the anisotropic damage equation.
+        r"""Integrand for the anisotropic damage equation.
 
         The damage length is defined as the difference between the positive part of the
         values of the tangential displacement along the update direction m at time n and
@@ -359,9 +384,11 @@ class AnisotropicFractureDamageEquations(pp.PorePyModel):
 
             L_d = \max(0, m \cdot u_t_{n}) - \max(0, m \cdot u_t_{n-1})
 
+
+
         Parameters:
-            time_step_index: Index of the time step.
             subdomains: List of subdomains where the damage is defined.
+            time_step_index: Index of the time step.
 
         Returns:
             Tuple containing the contribution to the equation and the displacement
@@ -382,8 +409,8 @@ class AnisotropicFractureDamageEquations(pp.PorePyModel):
         t_n = self.normal_component(subdomains) @ self.contact_traction(subdomains)
         # Derived previous time step values. If time_step_index is 0, u_t_0 is the
         # actual variable.
-        u_t_1 = u_t._previous_timestep(time_step_index + 1)
-        u_t_0 = u_t._previous_timestep(time_step_index)
+        u_t_1 = u_t.previous_timestep(time_step_index + 1)
+        u_t_0 = u_t.previous_timestep(time_step_index)
 
         # Create Heaviside function to handle open fractures.
         zero_val = 0.0  # TODO: Verify if this is the correct zero value.
@@ -456,8 +483,13 @@ class AnisotropicFractureDamageEquations(pp.PorePyModel):
         return m_t
 
 
-class IsotropicFractureDamageEquations(pp.PorePyModel):
-    """Isotropic damage equations for both friction and dilation."""
+class IsotropicFractureDamageLength(pp.PorePyModel):
+    """Isotropic damage equations for both friction and dilation.
+
+    When combined with both ``class:FrictionDamageEquation`` and
+    ``class:DilationDamageEquation``, the use of a single damage length method
+    implies a unified treatment of damage in both friction and dilation.
+    """
 
     plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning the plastic displacement jump variable."""
@@ -468,6 +500,8 @@ class IsotropicFractureDamageEquations(pp.PorePyModel):
         time_step_index: int,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
         """Integrand for the isotropic damage equation.
+
+
 
         Parameters:
             time_step_index: Index of the time step.
@@ -481,9 +515,9 @@ class IsotropicFractureDamageEquations(pp.PorePyModel):
         """
         nd_vec_to_tangential = self.tangential_component(subdomains)
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
-        u_t_increment = u_t._previous_timestep(
-            time_step_index
-        ) - u_t._previous_timestep(time_step_index + 1)
+        u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
+            time_step_index + 1
+        )
 
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 

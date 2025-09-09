@@ -11,84 +11,96 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
-from porepy.examples import fracture_damage as damage
-from porepy.models.fracture_damage import AnisotropicFractureDamageEquations
+from porepy.examples import fracture_damage as damage_examples
+from porepy.models import fracture_damage as damage_models
+from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
 geometry_mixins = {
     "2": SquareDomainOrthogonalFractures,
     "3": CubeDomainOrthogonalFractures,
 }
-# Additional solid parameters used for parameterizing the tests for different regimes
-# of frictional and dilational damage.
-additional_solid_params = {
-    "dilation": {
-        "initial_friction_damage": 1.0,  # Initial value 1 implies no frictional damage
-        "initial_dilation_damage": 0.7,
-    },
-    "friction": {
-        "initial_friction_damage": 0.5,
-        "initial_dilation_damage": 1.0,  # Initial value 1 implies no dilational damage
-    },
-    "both": {
-        "initial_friction_damage": 0.5,
-        "initial_dilation_damage": 0.5,
-    },
+damage_types = {
+    "dilation": damage_examples.DilationDamageMomentumBalance,
+    "friction": damage_examples.FrictionDamageMomentumBalance,
 }
 
+# Methods to compare will be provided later by the user. Example names could be
+# ["friction_damage", "dilation_damage"]. Leave empty to skip comparisons.
+METHODS_TO_COMPARE: list[str] = []
 
-@pytest.mark.parametrize("isotropic", [True, False])
-@pytest.mark.parametrize("dim", [2])
-@pytest.mark.parametrize(
-    "regime",
-    ["dilation"],  # "friction", "both"],
-)
-@pytest.mark.parametrize(
-    "time_steps", [7, pytest.param(7, marks=pytest.mark.skipped(reason="slow"))]
-)
-def test_damage(
+
+def build_single_step_model(
     isotropic: bool,
     dim: int,
-    regime: Literal["dilation", "friction", "both"],
+    damages: Sequence[str],
     time_steps: int,
+    params: dict[str, Any] | None = None,
 ):
-    # Copy the model parameters to avoid modifying the original dictionary.
-    # Deepcopy is needed to avoid modifying mutable objects in the dictionary,
-    # presumably the time manager.
-    params_local = copy.deepcopy(damage.model_params)
-    model_class = damage.FractureDamageMomentumBalance
+    """Construct a model for a time-dependent run using shared setup logic.
 
+    Parameters:
+        isotropic: If True, use isotropic damage length; otherwise anisotropic.
+    dim: Spatial dimension of the bulk domain (2 or 3).
+    damages: Iterable of damage types to include (subset of {"dilation", "friction"}).
+    time_steps: Number of time steps to simulate.
+        Number of time instants passed to the TimeManager (N); this yields N-1
+        forward steps. For a single forward step, pass 2.
+
+    Returns:
+        A configured model instance ready to be run with pp.run_time_dependent_model.
+    """
+    params_local = copy.deepcopy(damage_examples.model_params)
+    model_class = damage_examples.FractureDamageMomentumBalance
+
+    # Choose damage length (isotropic vs anisotropic) and exact solution
     if isotropic:
-        # Use the isotropic damage model.
-        # Change the exact solution to the isotropic version.
-        params_local["exact_solution"] = damage.ExactSolutionIsotropic
+        params_local["exact_solution"] = damage_examples.ExactSolutionIsotropic
+        model_class = add_mixin(
+            damage_models.IsotropicFractureDamageLength, model_class
+        )
     else:
-        # Use the anisotropic damage model.
-        model_class = add_mixin(AnisotropicFractureDamageEquations, model_class)
-    # Add geometry mixin.
-    model_class = add_mixin(geometry_mixins[str(dim)], model_class)
-    # Add the simplified White coefficients for the damage model.
-    # model_class = add_mixin(damage.FractureDamageCoefficientsWhite, model_class)
-    # Combine the solid parameters giving priority to the additional parameters.
-    # solid_params is not modified and can be reused in other tests.
-    solid_params_local = {**damage.solid_params, **additional_solid_params[regime]}
+        params_local["exact_solution"] = damage_examples.ExactSolutionAnisotropic
+        model_class = add_mixin(
+            damage_models.AnisotropicFractureDamageLength, model_class
+        )
 
+    # Add requested damage equations and variables.
+    for name in damages:
+        model_class = add_mixin(damage_types[name], model_class)
+
+    # Add geometry mixin for the target dimension.
+    model_class = add_mixin(geometry_mixins[str(dim)], model_class)
+
+    # Configure time manager: np.arange(0, time_steps) gives time_steps-1 steps
     params_local.update(
         {
-            "material_constants": {
-                "solid": FractureDamageSolidConstants(**solid_params_local)
-            },
             "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
+            # Trim displacement BCs to requested dimension
             "north_displacements": params_local["north_displacements"][:dim],
         }
     )
 
+    # Use equal initial damage in both modes for simplicity
+    solid_params_local = {
+        **damage_examples.solid_params,
+        **{"initial_friction_damage": 0.5, "initial_dilation_damage": 0.5},
+    }
+    params_local["material_constants"] = {
+        "solid": FractureDamageSolidConstants(**solid_params_local)  # type: ignore[arg-type]
+    }
+    # Finally, add model parameters passed to this function.
+    params_local.update(params or {})
+    # Initialize the model with the updated parameters and run problem.
     m = model_class(params_local)
     pp.run_time_dependent_model(
         m,
         {
-            "max_iterations": 20,
+            "max_iterations": 50,  # Hard nonlinear problems - expect slow convergence
             "nl_convergence_tol_res": 1e-8,
             "nl_convergence_tol": 1e-8,
+            "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
+            "adaptive_indicator_scaling": True,
+            "local_line_search": True,
         },
     )
     # Initialize test names for assertions

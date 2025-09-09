@@ -126,6 +126,9 @@ class FractureDamageCoefficientsWhite:
     Gao et al. (2024).
     """
 
+    solid: FractureDamageSolidConstants
+    """SolidConstants with dilation damage parameters."""
+
     def friction_damage_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Damage coefficient for friction damage [-].
 
@@ -136,11 +139,7 @@ class FractureDamageCoefficientsWhite:
         Returns:
             Operator for the friction damage coefficient.
         """
-        u_t = self.tangential_component(subdomains) @ self.plastic_displacement_jump(
-            subdomains
-        )
-        c = self.friction_damage_decay(subdomains)
-        coefficient = c * u_t
+        coefficient = pp.ad.Scalar(self.solid.friction_damage_decay)
         coefficient.set_name("friction_damage_coefficient_white")
         return coefficient
 
@@ -148,110 +147,144 @@ class FractureDamageCoefficientsWhite:
         """Damage coefficient for dilation damage [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage coefficient is defined. Should
-                be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the damage coefficient is defined.
+                Should be of co-dimension one, i.e. fractures.
 
         Returns:
             Operator for the dilation damage coefficient.
         """
-        u_t = self.tangential_component(subdomains) @ self.plastic_displacement_jump(
-            subdomains
-        )
-        c = self.dilation_damage_decay(subdomains)
-        coefficient = c * u_t
+        coefficient = pp.ad.Scalar(self.solid.dilation_damage_decay)
         coefficient.set_name("dilation_damage_coefficient_white")
         return coefficient
 
 
-class DamageBase(
-    pp.constitutive_laws.FrictionDamage,
-    pp.constitutive_laws.DilationDamage,
+DATA_SAVING_METHOD_NAMES = [
+    "friction_damage",
+    "friction_damage_coefficient",
+    "dilation_damage",
+    "dilation_damage_coefficient",
+    "damage_length",
+    "_common_factor_damage_coefficients",
+]
+
+
+def make_damagesavedata_class(method_names):
+    """Create a dataclass type with fields for exact/approx values and errors."""
+    annotations: dict[str, type] = {}
+    namespace: dict[str, object] = {"__annotations__": annotations}
+
+    for name in method_names:
+        annotations[f"exact_{name}"] = np.ndarray
+        annotations[f"approx_{name}"] = np.ndarray
+        annotations[f"{name}_error"] = float
+
+    cls = type("DamageSaveData", (object,), namespace)
+    return dataclass(cls)
+
+
+DamageSaveData = make_damagesavedata_class(DATA_SAVING_METHOD_NAMES)
+
+
+class DamageDataSaving(pp.PorePyModel):
+    """Model mixin responsible for saving data for verification purposes."""
+
+    damage_length: Callable[[list[pp.Grid], int], pp.ad.Operator]
+    """Damage length operator."""
+    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Dilation damage variable."""
+    friction_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Friction damage variable."""
+    solid: FractureDamageSolidConstants
+
+    def initialize_data_saving(self) -> None:
+        """Set material parameters.
+
+        Add exact solution object to the simulation model after materials have been set.
+
+        """
+        super().initialize_data_saving()  # type: ignore[safe-super]
+        self.exact_sol: ExactSolution = self.params["exact_solution"](self)
+
+    def collect_data(self) -> DamageSaveData:
+        """Collect the data from the verification setup.
+
+        Returns:
+            DamageSaveData object containing the results of the verification for the
+            current time.
+
+        """
+        # Retrieve information from setup.
+        sds = self.mdg.subdomains(dim=self.nd - 1)
+        sd = sds[0]
+        n: int = self.time_manager.time_index
+        names = DATA_SAVING_METHOD_NAMES
+        vals = {}
+        for name in names:
+            if name == "damage_length":
+                # Treat damage length as a special case because of signature
+                exact_val = cast(np.ndarray, self.exact_sol.damage_length(sd, n, n))
+                # Since we have already updated the solution, time_step_index=1 gives
+                # the most recent increment.
+                length, _ = self.damage_length(sds, time_step_index=1)
+                approx_val = length.value(self.equation_system)
+            else:
+                # Collect data.
+                exact_val = cast(np.ndarray, getattr(self.exact_sol, name)(sd, n))
+                if hasattr(self, name):
+                    approx_val = cast(
+                        np.ndarray, getattr(self, name)(sds).value(self.equation_system)
+                    )
+                else:
+                    approx_val = np.zeros_like(exact_val)
+
+            error = ConvergenceAnalysis.lp_error(
+                grid=sd,
+                true_array=exact_val,
+                approx_array=approx_val,
+                is_scalar=True,
+                is_cc=True,
+            )
+            vals["exact_" + name] = exact_val
+            vals["approx_" + name] = approx_val
+            vals[name + "_error"] = error
+        collected_data = DamageSaveData(**vals)
+        return collected_data
+
+
+class FractureDamageMomentumBalance(  # type: ignore[misc]
+    pp.models.solution_strategy.ContactIndicators,
+    DamageDataSaving,
     pp.constitutive_laws.FractureDamageCoefficients,
-    damage.FractureDamageHistoryVariables,
-    damage.FractureDamageEquations,
+    MixedNorthMechanicsBCs,
+    TimeDependentDamageBCs,
+    pp.MomentumBalance,
+):
+    """Fracture damage momentum balance model.
+
+    This model combines fracture damage mechanics with momentum balance and force
+    balance across interfaces. Variables are matrix and interface displacements, contact
+    traction, and damage. The model is isotropic, i.e., the damage is independent of the
+    loading direction.
+
+    Also contains specifics defining a test case in terms of the boundary conditions.
+
+    """
+
+
+class DilationDamageMomentumBalance(
+    pp.constitutive_laws.DilationDamage,
+    damage.DilationDamageEquation,
+    damage.DilationDamageVariable,
 ):
     pass
 
 
-class FractureDamageContactMechanics(  # type: ignore[misc]
-    DamageBase,
-    pp.contact_mechanics.ContactMechanics,
+class FrictionDamageMomentumBalance(
+    pp.constitutive_laws.FrictionDamage,
+    damage.FrictionDamageEquation,
+    damage.FrictionDamageVariable,
 ):
-    """Fracture damage model.
-
-    This class needs to be combined with a class defining the damage equation, i.e.,
-    (An)IsotropicDamageEquation. This is to allow for different damage equations to be
-    used with the same model, specifically during testing. TODO: Consider to choose one
-    as default.
-
-    Two methods are overridden in this class:
-        - variables_stored_all_time_steps: The interface displacement is not included in
-        the model, and thus the method is overridden to exclude it.
-        - update_interface_displacement_parameter: The interface displacement parameter
-        needs to be stored at all time steps.
-
-    The combination of the two overrides amounts to replacing the variable stored at
-    each time step with the parameter value being stored.
-
-    """
-
-    def variables_stored_all_time_steps(self) -> list[pp.ad.Variable]:
-        """Return the variables stored at all time steps.
-
-        Override default implementation, since the interface displacement is not
-        included in the model.
-
-        Returns:
-            List of variables.
-
-        """
-        return self.equation_system.get_variables(
-            variables=[
-                self.contact_traction_variable,
-            ]
-        )
-
-    def update_interface_displacement_parameter(self) -> None:
-        """Update the interface displacement parameter."""
-
-        name = self.interface_displacement_parameter_key
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
-                # Use the values at the unknown time step from the previous time step.
-                vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
-            else:
-                # No current value stored. The method was called during the
-                # initialization.
-                vals = self.interface_displacement_parameter_values(intf).ravel(
-                    order="F"
-                )
-
-            # Before setting the new, most recent time step, shift the stored values
-            # backwards in time.
-            pp.shift_solution_values(
-                name=name,
-                data=data,
-                location=pp.TIME_STEP_SOLUTIONS,
-                max_index=None,
-            )
-            # Set the values of current time to most recent previous time.
-            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
-
-            # Set the unknown time step values.
-            vals = self.interface_displacement_parameter_values(intf).ravel(order="F")
-            pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
-
-
-@dataclass
-class DamageSaveData:
-    """Dataclass for saving data for verification purposes."""
-
-    exact_friction_damage: np.ndarray
-    approx_friction_damage: np.ndarray
-    friction_damage_error: float
-    exact_dilation_damage: np.ndarray
-    approx_dilation_damage: np.ndarray
-    dilation_damage_error: float
+    pass
 
 
 class ExactSolution:
@@ -264,7 +297,9 @@ class ExactSolution:
 
     params: dict
 
-    model: FractureDamageContactMechanics
+    model: FractureDamageMomentumBalance
+
+    damage_length: Callable[[pp.Grid, int, int], np.ndarray]
 
     def __init__(self, model) -> None:
         """Constructor of the class."""
@@ -345,7 +380,7 @@ class ExactSolution:
             Array of friction damage for the given time step.
 
         """
-        h = self.convolution(sd, n, self.friction_damage_function)
+        h = self.convolution(sd, n, self.friction_damage_coefficient)
         d0 = self.model.solid.initial_friction_damage
         return d0 + (1 - d0) * np.exp(-h)
 
@@ -360,37 +395,32 @@ class ExactSolution:
             Array of dilation damage for the given time step.
 
         """
-        h = self.convolution(sd, n, self.dilation_damage_function)
+        h = self.convolution(sd, n, self.dilation_damage_coefficient)
         d0 = self.model.solid.initial_dilation_damage
         return d0 + (1 - d0) * np.exp(-h)
 
-    def convolution(self, sd: pp.Grid, n: int, function) -> np.ndarray:
+    def convolution(self, sd: pp.Grid, n: int, coefficient_function) -> np.ndarray:
         """Return the convolution of the displacement increment with the damage kernel.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
             n: Time step index.
+            coefficient_function: Function to compute the coefficient for the
+                convolution.
 
         Returns:
             Array of convolution values for the given time step.
 
         """
-        kernel = self.damage_kernel(sd, n)
         var = np.zeros(sd.num_cells)
         # This method can be implemented in subclasses if needed.
         for i in range(1, n + 1):
-            inner_dot = np.einsum("ij,ij->j", function(sd, i), kernel)
             # Compute the contribution to the damage from the current time step.
-            var_i = np.abs(inner_dot)
+            var_i = self.damage_length(sd, n, i) * coefficient_function(sd, i)
             var += var_i
         return var
 
-    # class ExactSolutionGao:
-    #     displacement_increment: Callable[[pp.Grid, int], np.ndarray]
-    #     normal_traction: Callable[[pp.Grid, int], np.ndarray]
-    #     model: FractureDamageContactMechanics
-
-    def _damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
+    def _common_factor_damage_coefficients(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Convenience funtion for common parts of the damage functions.
 
         Parameters:
@@ -399,13 +429,13 @@ class ExactSolution:
 
         Returns:
             Array of damage for the given time step."""
-        u = self.displacement_increment(sd, n)
-        t = np.tile(self.normal_traction(sd, n), (self.model.nd - 1, 1))
-        strength = 0.2 * self.model.solid.uniaxial_compressive_strength
-        return -u * t / strength / self.model.solid.characteristic_fracture_roughness
+        t = self.normal_traction(sd, n)
+        transitional_strength = 0.2 * self.model.solid.uniaxial_compressive_strength
+        roughness = self.model.solid.characteristic_fracture_roughness
+        return -t / (transitional_strength * roughness)
 
-    def dilation_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the dilation damage function at time step n.
+    def dilation_damage_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the dilation damage coefficient at time step n.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
@@ -417,12 +447,12 @@ class ExactSolution:
         """
         K_ad = np.log(
             -self.model.solid.uniaxial_compressive_strength
-            / self.normal_traction(sd, n)
+            / np.clip(self.normal_traction(sd, n), None, -1e-15)
         )
-        return self._damage_function(sd, n) * K_ad
+        return self._common_factor_damage_coefficients(sd, n) * K_ad
 
-    def friction_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the friction damage function at time step n.
+    def friction_damage_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the friction damage coefficient at time step n.
 
         Parameters:
             sd: Subdomain where the boundary displacement is defined.
@@ -432,189 +462,60 @@ class ExactSolution:
             Array of friction damage for the given time step.
 
         """
-        return self._damage_function(sd, n) * 3
+        return self._common_factor_damage_coefficients(sd, n) * 3
 
 
 class ExactSolutionWhite:
-    displacement_increment: Callable[[pp.Grid, int], np.ndarray]
-    model: FractureDamageContactMechanics
+    model: FractureDamageMomentumBalance
 
-    def displacement_increment_norm(self, sd: pp.Grid, n: int) -> np.ndarray:
-        """Return the norm of the displacement increment at time step n.
+    def friction_damage_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+        return np.full(sd.num_cells, self.model.solid.friction_damage_decay)
 
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of normalized displacement increments for the given time step.
-        """
-        u = self.displacement_increment(sd, n)  # (nd-1, num_cells)
-        # Take norm along tangential direction (axis=0), result shape: (num_cells,)
-        u_norm = np.linalg.norm(u, axis=0)
-        # Tile to (nd-1, num_cells)
-        u_norm_tiled = np.tile(u_norm, (self.model.nd - 1, 1))
-        return u_norm_tiled
-
-    def friction_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
-        return (
-            self.displacement_increment_norm(sd, n)
-            * self.model.solid.friction_damage_decay
-        )
-
-    def dilation_damage_function(self, sd: pp.Grid, n: int) -> np.ndarray:
-        return (
-            self.displacement_increment_norm(sd, n)
-            * -self.model.solid.dilation_damage_decay
-        )
+    def dilation_damage_coefficient(self, sd: pp.Grid, n: int) -> np.ndarray:
+        return np.full(sd.num_cells, self.model.solid.dilation_damage_decay)
 
 
 class ExactSolutionIsotropic(ExactSolution):
-    def damage_kernel(self, sd: pp.Grid, n: int):
-        """Return the exact solution at time step n.
+    def damage_length(self, sd: pp.Grid, n: int, i: int):
+        """Damage length contribution from step i to exact length for time step n.
 
         Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
+            sd: Subdomain where the damage length is to be evaluated.
+            n: Current time step index.
+            i: Index of the time step we are collecting data from.
 
         Returns:
             Array of damage for the given time step.
 
         """
-        return np.ones((self.model.nd - 1, sd.num_cells))
-
-    def convolution(self, sd: pp.Grid, n: int, function) -> np.ndarray:
-        """Return the convolution of the displacement increment with the damage kernel.
-
-        Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
-
-        Returns:
-            Array of convolution values for the given time step.
-
-        """
-        var = np.zeros(sd.num_cells)
-        # This method can be implemented in subclasses if needed.
-        for i in range(1, n + 1):
-            # Compute the contribution to the damage from the current time step.
-            var_i = np.linalg.norm(function(sd, i), axis=0)
-            var += var_i
-        return var
+        return np.linalg.norm(self.displacement_increment(sd, i), axis=0)
 
 
 class ExactSolutionAnisotropic(ExactSolution):
-    def damage_kernel(self, sd: pp.Grid, n: int):
-        """Return the exact solution at time step n.
+    def damage_length(self, sd: pp.Grid, n: int, i: int):
+        """Damage length contribution from step i to exact length for time step n.
 
         Parameters:
-            sd: Subdomain where the boundary displacement is defined.
-            n: Time step index.
+            sd: Subdomain where the damage length is to be evaluated.
+            n: Current time step index.
+            i: Index of the time step we are collecting data from.
 
         Returns:
-            Array of damage for the given time step.
+            Array of damage for the given time step combination.
 
         """
-        u = self.displacement_jump(sd, n)
-        u_norm = np.linalg.norm(u, axis=0)
-        nonzero = u_norm > 0
         # Compute normalized m for nonzero values.
-        m = u.copy()
-        m[:, nonzero] /= u_norm[nonzero]
-        # Loop through time steps and compute the damage.
-        inner_u = np.einsum("ij,ij->i", u, m)
-        # Compute the contribution to the damage from the current time step.
-        activation = np.heaviside(inner_u, 0.5)
-        # Repeat to match number of tangential components.
-        var = np.tile(activation, (self.model.nd - 1, 1)) * m
-        return var
+        m = self.displacement_jump(sd, n)
+        norm = np.linalg.norm(m, axis=0)
+        nonzero = norm > 0
 
+        m[:, nonzero] /= norm[nonzero]
 
-class DamageDataSaving(pp.PorePyModel):
-    """Model mixin responsible for saving data for verification purposes."""
+        def oriented_length(j):
+            u_j = self.displacement_jump(sd, j)
+            return np.clip(np.einsum("ij,ij->j", u_j, m), 0, None)
 
-    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Dilation damage variable."""
-    friction_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Friction damage variable."""
-    solid: FractureDamageSolidConstants
-
-    def initialize_data_saving(self) -> None:
-        """Set material parameters.
-
-        Add exact solution object to the simulation model after materials have been set.
-
-        """
-        super().initialize_data_saving()  # type: ignore[safe-super]
-        self.exact_sol: ExactSolution = self.params["exact_solution"](self)
-
-    def collect_data(self) -> DamageSaveData:
-        """Collect the data from the verification setup.
-
-        Returns:
-            DamageSaveData object containing the results of the verification for the
-            current time.
-
-        """
-        # Retrieve information from setup.
-        sds = self.mdg.subdomains(dim=self.nd - 1)
-        sd = sds[0]
-        n: int = self.time_manager.time_index
-
-        # Collect data.
-        friction_damage = self.exact_sol.friction_damage(sd, n)
-        approx_friction_damage = cast(
-            np.ndarray, self.friction_damage(sds).value(self.equation_system)
-        )
-
-        # initial_friction_damage = 1 implies no damage. In this case, the exact
-        # solution, which is used to normalize the relative error, is zero. This can
-        # lead to division by zero. To avoid this, we check if the
-        # initial_friction_damage is 1 and set the error to zero. To avoid masking
-        # errors, we also check that the approximated friction damage and the exact
-        # solution are zero.
-        if (
-            np.isclose(self.solid.initial_friction_damage, 1.0)
-            and np.allclose(approx_friction_damage, 0)
-            and np.allclose(friction_damage, 0)
-        ):
-            error_friction_damage = 0.0
-        else:
-            error_friction_damage = ConvergenceAnalysis.lp_error(
-                grid=sd,
-                true_array=friction_damage,
-                approx_array=approx_friction_damage,
-                is_scalar=True,
-                is_cc=True,
-            )
-        dilation_damage = self.exact_sol.dilation_damage(sd, n)
-        approx_dilation_damage = cast(
-            np.ndarray, self.dilation_damage(sds).value(self.equation_system)
-        )
-        # See comment above for the friction damage error.
-        if (
-            np.isclose(self.solid.initial_dilation_damage, 1.0)
-            and np.allclose(approx_dilation_damage, 0)
-            and np.allclose(dilation_damage, 0)
-        ):
-            error_dilation_damage = 0.0
-        else:
-            error_dilation_damage = ConvergenceAnalysis.lp_error(
-                grid=sd,
-                true_array=dilation_damage,
-                approx_array=approx_dilation_damage,
-                is_scalar=True,
-                is_cc=True,
-            )
-        collected_data = DamageSaveData(
-            exact_friction_damage=friction_damage,
-            approx_friction_damage=approx_friction_damage,
-            friction_damage_error=error_friction_damage,
-            exact_dilation_damage=dilation_damage,
-            approx_dilation_damage=approx_dilation_damage,
-            dilation_damage_error=error_dilation_damage,
-        )
-        return collected_data
+        return np.abs(oriented_length(i) - oriented_length(i - 1))
 
 
 # Collect parameters etc. This defines the test case as used in test_fracture_damage.py
@@ -628,21 +529,21 @@ north_displacements_3d = np.zeros((3, num_time_steps))
 # 4. d_0
 # 5. -(d_0 - 0.01)  # 0.01
 # 6. d_1 (different from d_0)
-north_displacements_3d[0] = np.array([0.0, 0.2, 0.2, 0.0, 0.2, 0.01, -0.2])
-north_displacements_3d[2] = np.array([0.0, 0.1, 0.1, 0.0, 0.1, 0.01, 0.1])
+north_displacements_3d[0] = np.array([0.0, -0.2, 0.2, 1e-5, 0.2, 1e-5, -0.2])
+# The 1e-5 avoids m=0, which leads to zero damage in the analytical model. This is not
+# reproduced in the numerical model due to the presence of numerical noise.
+north_displacements_3d[2] = np.array([0.0, 0.1, 0.1, 0.0, 0.1, 0.0, 0.1])
 # Set constant y component smaller than the elastic opening to get compression.
 north_displacements_3d[1] = 0.1
+north_displacements_3d[1, 2] = 0.3
+north_stress = -1e-1 * np.ones(num_time_steps)
 solid_params = {
-    "friction_damage_decay": 0.5,
-    "dilation_damage_decay": 0.5,
-    "friction_coefficient": 0.1,  # Low friction to get slip \approx bc displacement
+    "friction_coefficient": 0.01,  # Low friction to get slip \approx bc displacement
     "dilation_angle": 0.1,
     "shear_modulus": 1e6,  # Suppress shear displacement in the matrix.
-    "uniaxial_compressive_strength": 1e0,  # Suppress compressive damage.
+    "uniaxial_compressive_strength": 1e1,
     "characteristic_fracture_roughness": 0.1,  # Low roughness to promote slip
-    "fracture_normal_stiffness": 1.0e-3,  # Low normal stiffness to promote slip
-    "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress
-    # elastic deformation
+    "fracture_normal_stiffness": 1.0e-3,
     "maximum_elastic_fracture_opening": 0.2,  # Larger than (bc displacement + shear
     # dilation).
 }
@@ -656,61 +557,7 @@ model_params = {
     # Set the schedule using arange to save data from all time steps.
     "time_manager": pp.TimeManager(np.arange(0, num_time_steps), 1, True),
     "north_displacements": north_displacements_3d,
-    "north_stress": -1e-5 * np.ones(num_time_steps),
+    "north_stress": north_stress,
     "interface_displacement_parameter_values": north_displacements_3d,
-    "exact_solution": ExactSolutionAnisotropic,
     "times_to_export": [],  # Suppress export of data for testing.
 }
-
-
-class IsotropicFractureDamage(  # type: ignore[misc]
-    damage.IsotropicFractureDamageEquations,
-    DamageDataSaving,
-    ContactMechanicsTester,
-    FractureDamageContactMechanics,
-):
-    """Isotropic fracture damage model.
-
-    The equations are fracture damage and contact mechanics. Variables are contact
-    traction and damage. The model is isotropic, i.e., the damage is independent of the
-    loading direction.
-
-    Also contains specifics defining a test case.
-
-    """
-
-
-class AnisotropicFractureDamage(  # type: ignore[misc]
-    damage.AnisotropicFractureDamageEquations,
-    DamageDataSaving,
-    ContactMechanicsTester,
-    FractureDamageContactMechanics,
-):
-    """Anisotropic fracture damage model.
-
-    The equations are fracture damage and contact mechanics. Variables are contact
-    traction and damage. The model is anisotropic, i.e., the damage is dependent on the
-    loading direction.
-
-    Also contains specifics defining a test case.
-    """
-
-
-class FractureDamageMomentumBalance(  # type: ignore[misc]
-    damage.IsotropicFractureDamageEquations,
-    DamageDataSaving,
-    DamageBase,
-    MixedNorthMechanicsBCs,
-    TimeDependentDamageBCs,
-    pp.MomentumBalance,
-):
-    """Fracture damage momentum balance model.
-
-    This model combines fracture damage mechanics with momentum balance and force
-    balance across interfaces. Variables are matrix and interface displacements, contact
-    traction, and damage. The model is isotropic, i.e., the damage is independent of the
-    loading direction.
-
-    Also contains specifics defining a test case in terms of the boundary conditions.
-
-    """
