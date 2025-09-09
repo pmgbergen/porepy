@@ -363,6 +363,11 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the characteristic displacement on fractures."""
 
+    contact_mechanics_open_state_characteristic: Callable[
+        [list[pp.Grid]], pp.ad.Operator
+    ]
+    """Method to compute the open/closed state characteristic for contact mechanics."""
+
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the contact traction on fractures."""
 
@@ -406,25 +411,19 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             subdomains
         ) @ self.plastic_displacement_jump(subdomains)
         m_t = self.normalized_tangential_plastic_jump(subdomains)
-        t_n = self.normal_component(subdomains) @ self.contact_traction(subdomains)
         # Derived previous time step values. If time_step_index is 0, u_t_0 is the
         # actual variable.
         u_t_1 = u_t.previous_timestep(time_step_index + 1)
         u_t_0 = u_t.previous_timestep(time_step_index)
 
         # Create Heaviside function to handle open fractures.
-        zero_val = 0.0  # TODO: Verify if this is the correct zero value.
-        tol = pp.ad.Scalar(1e-8)  # Tolerance for checking if the traction is zero.
-        f_Heaviside = pp.ad.Function(
-            partial(pp.ad.functions.heaviside, zero_val), "Heaviside"
-        )
         # The fracture is closed if the normal traction is negative. There is no damage
         # if the fracture is open. Add tolerance since a numerically zero traction
         # should not be considered as closed.
-        closed = f_Heaviside(
-            pp.ad.Scalar(-1) * t_n
-            + tol * self.characteristic_contact_traction(subdomains)
+        closed = pp.ad.Scalar(1.0) - self.contact_mechanics_open_state_characteristic(
+            subdomains
         )
+
         # Length is evaluated using the ramp function max(x, 0)
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         zero = pp.ad.Scalar(0.0)
@@ -466,7 +465,7 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
 
         # Define the functions for the norm and zero-division-safe power.
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        zero_tol = 1e-12 * cast(
+        zero_tol = 1e-10 * cast(
             float,
             self.equation_system.evaluate(self.characteristic_displacement(subdomains)),
         )

@@ -45,8 +45,9 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         return values.ravel("F")
 
 
-class MixedNorthMechanicsBCs(pp.PorePyModel):
-    """Boundary conditions for the mechanics problem with mixed north boundary."""
+class CharacteristicSizes:
+    """Use tailored, unitary characteristic sizes since our problem does not necessarily
+    follow typical scaling rules."""
 
     def characteristic_contact_traction(
         self, subdomains: list[pp.Grid]
@@ -75,6 +76,10 @@ class MixedNorthMechanicsBCs(pp.PorePyModel):
         """
         return pp.ad.Scalar(1)
 
+
+class MixedNorthMechanicsBCs(pp.PorePyModel):
+    """Boundary conditions for the mechanics problem with mixed north boundary."""
+
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Return the type of the mechanics boundary condition."""
         domain_sides = self.domain_boundary_sides(sd)
@@ -84,8 +89,10 @@ class MixedNorthMechanicsBCs(pp.PorePyModel):
         if sd.dim < self.nd:
             return bc  # No displacement bcs needed.
         bc.internal_to_dirichlet(sd)
-        bc.is_neu[1, domain_sides.north] = True
-        bc.is_dir[1, domain_sides.north] = False
+        if "north_stress" in self.params:
+            # Override north boundary condition to Neumann if stress BCs are defined.
+            bc.is_neu[1, domain_sides.north] = True
+            bc.is_dir[1, domain_sides.north] = False
         return bc
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -103,7 +110,7 @@ class MixedNorthMechanicsBCs(pp.PorePyModel):
         """
         domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros((self.nd, bg.num_cells))
-        if bg.dim < self.nd - 1:
+        if bg.dim < self.nd - 1 or "north_stress" not in self.params:
             # No displacement is implemented on grids of co-dimension > 1.
             return values.ravel("F")
 
@@ -252,6 +259,7 @@ class DamageDataSaving(pp.PorePyModel):
 
 
 class FractureDamageMomentumBalance(  # type: ignore[misc]
+    CharacteristicSizes,
     pp.models.solution_strategy.ContactIndicators,
     DamageDataSaving,
     pp.constitutive_laws.FractureDamageCoefficients,
@@ -336,10 +344,14 @@ class ExactSolution:
             n: Time step index.
 
         Returns:
-            Array of normal tractions for the given time step.
+            Array of normal tractions for the given time step. Default is zero if not
+            defined in the model parameters.
 
         """
-        return self.model.params["north_stress"][n]
+        if "north_stress" in self.model.params:
+            return self.model.params["north_stress"][n]
+        else:
+            return np.zeros(sd.num_cells)
 
     def displacement_jump(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -529,13 +541,12 @@ north_displacements_3d = np.zeros((3, num_time_steps))
 # 4. d_0
 # 5. -(d_0 - 0.01)  # 0.01
 # 6. d_1 (different from d_0)
-north_displacements_3d[0] = np.array([0.0, -0.2, 0.2, 1e-5, 0.2, 1e-5, -0.2])
-# The 1e-5 avoids m=0, which leads to zero damage in the analytical model. This is not
+north_displacements_3d[0] = np.array([0.0, -0.2, 0.2, 2e-5, 0.2, 1e-5, -0.2])
+# The 1e-7 avoids m=0, which leads to zero damage in the analytical model. This is not
 # reproduced in the numerical model due to the presence of numerical noise.
-north_displacements_3d[2] = np.array([0.0, 0.1, 0.1, 0.0, 0.1, 0.0, 0.1])
-# Set constant y component smaller than the elastic opening to get compression.
-north_displacements_3d[1] = 0.1
-north_displacements_3d[1, 2] = 0.3
+north_displacements_3d[2] = np.array([0.0, 0.1, -0.1, -1e-5, 0.1, 0.0, 0.1])
+
+
 north_stress = -1e-1 * np.ones(num_time_steps)
 solid_params = {
     "friction_coefficient": 0.01,  # Low friction to get slip \approx bc displacement
@@ -544,8 +555,10 @@ solid_params = {
     "uniaxial_compressive_strength": 1e1,
     "characteristic_fracture_roughness": 0.1,  # Low roughness to promote slip
     "fracture_normal_stiffness": 1.0e-3,
-    "maximum_elastic_fracture_opening": 0.2,  # Larger than (bc displacement + shear
-    # dilation).
+    "maximum_elastic_fracture_opening": 0.2,  # Allowing elastic deformation seems for
+    # whatever reason to improve convergence and agreement with exact solution.
+    "initial_friction_damage": 0.5,
+    "initial_dilation_damage": 0.5,
 }
 model_params = {
     # We need two cells in the y direction to get a fracture. In the x direction, we
