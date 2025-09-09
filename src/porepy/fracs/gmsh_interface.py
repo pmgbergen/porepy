@@ -495,15 +495,14 @@ class GmshWriter:
                 ``gmsh.initialize`` is called.
 
         """
-        if ndim == -1:
-            ndim = self._dim
-        if file_name.suffix != ".msh":
-            file_name = file_name.with_suffix(".msh")
+        # Write geo file.
         if write_geo:
             fn = file_name.with_suffix(".geo_unrolled")
-            path = str(fn)
-            gmsh.write(path)
+            gmsh.write(str(fn))
 
+        # Write msh file.
+        if ndim == -1:
+            ndim = self._dim
         for dim in range(1, ndim + 1):
             try:
                 gmsh.model.mesh.generate(dim=dim)
@@ -512,8 +511,8 @@ class GmshWriter:
                 s += str(exc)
                 print(s)
                 raise exc
-        path = str(file_name)
-        gmsh.write(path)
+        file_name = file_name.with_suffix(".msh")
+        gmsh.write(str(file_name))
 
         if clear_gmsh:
             gmsh.clear()
