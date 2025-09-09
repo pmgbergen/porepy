@@ -1273,11 +1273,11 @@ class FractureNetwork2d:
 
                     Used to define the offset for a fracture id.
 
-                - ``'folder_name'`` (:obj:`str`): ``default="./"``
+                - ``'folder_name'`` (:obj:`Path`): ``default=Path("./")``
 
                     Path to save the file.
 
-                - ``'extension'`` (:obj:`str`): ``default="vtu"``
+                - ``'extension'`` (:obj:`str`): ``default=".vtu"``
 
                     File extension.
 
@@ -1288,7 +1288,7 @@ class FractureNetwork2d:
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")
-        folder_name: str = kwargs.pop("folder_name", "")
+        folder_name: Path = Path(kwargs.pop("folder_name", ""))
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
@@ -1326,7 +1326,7 @@ class FractureNetwork2d:
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_cell_data
         )
-        path = Path(folder_name) / file_name
+        path = folder_name / file_name
         meshio.write(path, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
