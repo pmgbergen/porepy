@@ -99,9 +99,9 @@ def save_img(
     informations are displayed.
 
     Parameters:
-        name: the name of the file
+        name: The name of the file.
         grid: subdomain or mixed-dimensional grid.
-        cell_value: if grid is a single grid, cell_value is a cell scalar field to
+        cell_value: If grid is a single grid, cell_value is a cell scalar field to
             be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
             cell_value is the name (key) of the scalar field as a string.
         vector_value: Same as cell_value, but for vector fields.

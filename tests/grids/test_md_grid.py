@@ -530,5 +530,5 @@ def test_pickle_md_grid():
 
     compare_md_grids(mdg, mdg_read)
 
-    # Delete the temporary file
+    # Delete the temporary file.
     fn.unlink()

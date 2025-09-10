@@ -1116,9 +1116,9 @@ def test_pickle_mortar_grid(g):
     # Dump the grid to file using pickle.
     file_name = Path("tmp.grid")
     pickle.dump(mg, open(file_name, "wb"))
-    # Read back
+    # Read back.
     mg_read = pickle.load(open(file_name, "rb"))
-    # Compare the grids
+    # Compare the grids.
     pp.test_utils.grids.compare_mortar_grids(mg, mg_read)
 
     # Do the same operation with the one-sided grid.
@@ -1127,5 +1127,5 @@ def test_pickle_mortar_grid(g):
     mg_read = pickle.load(open(file_name, "rb"))
     pp.test_utils.grids.compare_mortar_grids(mg_one_sided, mg_read)
 
-    # Delete the file
+    # Delete the file.
     file_name.unlink()

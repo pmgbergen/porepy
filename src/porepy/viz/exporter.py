@@ -2690,7 +2690,7 @@ class Exporter:
         # Define non-empty dim extension
         dim_extension = "" if dim is None else "_" + str(dim)
 
-        # Combine prefix and extensions to define the complete name
+        # Combine prefix and extensions to define the complete name.
         return (
             file_name.parent
             / (file_name.stem + appendix_extension + dim_extension + time_extension)
