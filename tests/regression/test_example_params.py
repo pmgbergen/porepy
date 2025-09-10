@@ -35,7 +35,7 @@ def search_params_directory(root_dirs: list[Path]) -> set[str]:
     results: set[str] = set()
     for root_dir in root_dirs:
         assert root_dir.exists()
-        for fname in root_dir.glob("*.py"):
+        for fname in root_dir.rglob("*.py"):
             results.update(search_params_file(fname))
     return results
 
