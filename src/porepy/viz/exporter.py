@@ -847,7 +847,8 @@ class Exporter:
             for dim in self._dims:
                 if self._has_subdomain_data and self.meshio_geom[dim] is not None:
                     o_file.write(
-                        fm % (time, self._make_file_name(self._file_name, "", fn, dim))
+                        fm
+                        % (time, self._make_file_name(self._file_name, None, fn, dim))
                     )
 
             # Interface data.
@@ -1648,7 +1649,7 @@ class Exporter:
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
             # Define the full file name
-            file_name: Path = self._make_file_name(file_name_base, "", time_step, dim)
+            file_name: Path = self._make_file_name(file_name_base, None, time_step, dim)
 
             # Get all geometrical entities of dimension dim:
             if is_subdomain_data:
@@ -1702,7 +1703,7 @@ class Exporter:
         for dim in self._dims:
             if self._has_subdomain_data and self.meshio_geom[dim] is not None:
                 o_file.write(
-                    fm % self._make_file_name(self._file_name, "", time_step, dim)
+                    fm % self._make_file_name(self._file_name, None, time_step, dim)
                 )
 
         # Interface data.
@@ -2657,7 +2658,7 @@ class Exporter:
     def _make_file_name(
         self,
         file_name: Path,
-        appendix: str = "",
+        appendix: Optional[str] = None,
         time_step: Optional[int] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
@@ -2679,7 +2680,7 @@ class Exporter:
 
         """
         # Add appendix to file name if prescribed
-        appendix_extension = "" if appendix == "" else "_" + appendix
+        appendix_extension = "" if appendix is None else "_" + appendix
 
         # Define non-empty time step extension including zero padding.
         time_extension = (
