@@ -116,7 +116,7 @@ def image_name():
     assert not image_name.exists()
     yield image_name
 
-    # Tear down
+    # Tear down.
     image_name.unlink()
 
 

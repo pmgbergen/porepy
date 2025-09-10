@@ -616,12 +616,12 @@ def test_fracture_network_2d(setup: ExporterTestSetup):
     dummy_vector = np.ones((3, network_2d.num_frac()))
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
-    # Make directory if not existent
+    # Make directory if not existent.
     setup.folder.mkdir(parents=True, exist_ok=True)
     file_name = setup.folder / setup.file_name
     file_name = file_name.with_suffix(".vtu")
 
-    # Export data
+    # Export data.
     network_2d.to_file(file_name, data=data)
 
     # Check that exported vtu file and reference file are the same.
@@ -650,7 +650,7 @@ def test_fracture_network_3d(setup: ExporterTestSetup):
     file_name = setup.folder / setup.file_name
     file_name = file_name.with_suffix(".vtu")
 
-    # Export data
+    # Export data.
     network_3d.to_file(file_name, data=data)
 
     # Check that exported vtu file and reference file are the same.
