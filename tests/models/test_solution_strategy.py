@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import copy
 import json
-import os
 import shutil
 from pathlib import Path
 from typing import Any, Optional, Callable, cast
@@ -46,8 +45,8 @@ from porepy.applications.test_utils.models import add_mixin
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
-current_dir = Path(os.path.dirname(os.path.realpath(__file__)))
-reference_dir = current_dir / Path("restart_reference")
+current_dir = Path(__file__).parent
+reference_dir = current_dir / "restart_reference"
 visualization_dir = Path("visualization")
 
 
@@ -71,8 +70,8 @@ def create_restart_model(
     # Add restart possibility
     params["restart_options"] = {
         "restart": restart,
-        "pvd_file": reference_dir / Path("previous_data.pvd"),
-        "times_file": reference_dir / Path("previous_times.json"),
+        "pvd_file": reference_dir / "previous_data.pvd",
+        "times_file": reference_dir / "previous_times.json",
     }
 
     # Redefine model
