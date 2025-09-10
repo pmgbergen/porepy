@@ -10,7 +10,7 @@ Tested functionality includes:
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal
@@ -742,14 +742,14 @@ class TestExportErrors:
     ):
         """Test if all errors are exported correctly for a stationary model."""
         conv_analysis_in_space.export_errors_to_txt(list_of_results_space)
-        read_data = read_data_from_txt("error_analysis.txt")
+        read_data = read_data_from_txt(Path("error_analysis.txt"))
 
         assert len(read_data.keys()) == 3
         np.testing.assert_equal(read_data["cell_diameter"], np.array([0.5, 0.25]))
         np.testing.assert_equal(read_data["error_var_0"], np.array([10.0, 5.0]))
         np.testing.assert_equal(read_data["error_var_1"], np.array([20.0, 5.0]))
 
-        os.remove("error_analysis.txt")
+        Path("error_analysis.txt").unlink()
 
     def test_export_errors_for_time_dependent_model(
         self,
@@ -758,7 +758,7 @@ class TestExportErrors:
     ):
         """Test if all errors are exported correctly for a time-dependent model."""
         conv_analysis_in_space_and_time.export_errors_to_txt(list_of_results_space_time)
-        read_data = read_data_from_txt("error_analysis.txt")
+        read_data = read_data_from_txt(Path("error_analysis.txt"))
 
         assert len(read_data.keys()) == 4
         np.testing.assert_equal(read_data["cell_diameter"], np.array([0.5, 0.25]))
@@ -766,7 +766,7 @@ class TestExportErrors:
         np.testing.assert_equal(read_data["error_var_0"], np.array([10.0, 5.0]))
         np.testing.assert_equal(read_data["error_var_1"], np.array([20.0, 5.0]))
 
-        os.remove("error_analysis.txt")
+        Path("error_analysis.txt").unlink()
 
 
 @pytest.fixture(scope="module")
