@@ -1125,25 +1125,6 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         return op
 
-    def fluid_fraction(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Molar fraction of the fluid.
-        Parameters:
-            domains: A sequence of grids.
-
-        """
-
-        if self.num_fluid_phases > 1:
-            op = pp.ad.sum_operator_list(
-                [phase.fraction(domains) for phase in self._fluid_phases],
-                "fluid_fraction",
-            )
-
-        else:
-            op = self.reference_phase.fraction(domains)
-            op.set_name("fluid_fraction")
-
-        return op
-
     def porosity(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Porosity of the fluid."""
         ...

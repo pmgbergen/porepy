@@ -1274,6 +1274,36 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         return zz
 
+    def fluid_molar_fraction(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Molar fraction of the fluid.
+        Parameters:
+            domains: A sequence of grids.
+
+        """
+
+        if len(self.fluid.solid_components) > 1:
+            op = (
+                self.porosity(domains)
+                * self.fluid.density(domains)
+                / self.total_molar_concentration(domains)
+            )
+
+        else:
+            op = pp.ad.Scalar(1)
+            op.set_name("fluid_molar_fraction")
+
+        return op
+
+    def total_molar_concentration(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Total molar concentration of the fluid."""
+        op = self.porosity(domains) * self.fluid.density(domains) + (
+            pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains)
+        ) * self.fluid.solid_density(domains)
+
 
 class FluidMixin(pp.PorePyModel):
     """Mixin class for introducing a general fluid (mixture) into a PorePy model and
