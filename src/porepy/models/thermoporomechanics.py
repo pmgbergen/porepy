@@ -154,24 +154,6 @@ class SolutionStrategyThermoporomechanics(
 
     """
 
-    darcy_flux_discretization: Callable[
-        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
-    ]
-    """Discretization of the Darcy flux. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-    fourier_flux_discretization: Callable[
-        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
-    ]
-    """Discretization of the Fourier flux. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FouriersLaw`.
-
-    """
-    temperature_variable: str
-    """Name of the temperature variable. Normally set by a mixin instance of
-    :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
-    """
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that defines the Biot tensor. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
@@ -181,10 +163,10 @@ class SolutionStrategyThermoporomechanics(
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
     """
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
             scalar_vector_mappings = data[pp.PARAMETERS][self.darcy_keyword].get(
@@ -198,22 +180,33 @@ class SolutionStrategyThermoporomechanics(
                 scalar_vector_mappings
             )
 
-    def set_nonlinear_discretizations(self) -> None:
-        """Collect discretizations for nonlinear terms."""
-        # Super calls method in mass and energy balance. Momentum balance has no
-        # nonlinear discretizations.
-        super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a
-        # re-discretization of the diffusive flux in subdomains where the aperture
-        # changes.
-        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux(),
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """(Themo-) Poromechanics rely by default on Darcy flux re-discretization.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+            ).flux(),
         )
-        # Aperture and porosity changes render thermal conductivity variable. This
-        # requires a re-discretization of the diffusive flux.
-        self.add_nonlinear_discretization(
-            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Thermo-Poromechanics rely by default on Fourier flux re-discretization.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.fourier_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd],
+            ).flux(),
         )
 
     def _is_nonlinear_problem(self) -> bool:

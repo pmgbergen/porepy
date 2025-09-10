@@ -151,6 +151,10 @@ class DimensionReduction(pp.PorePyModel):
                 aperture *= self.solid.well_radius
             else:
                 aperture = self.solid.residual_aperture * aperture
+        else:
+            # For the matrix, the aperture is one, but needs to be scaled by the
+            # length units.
+            aperture = self.units.convert_units(aperture, "m")
         return aperture
 
     @pp.ad.cached_method
@@ -235,19 +239,23 @@ class DimensionReduction(pp.PorePyModel):
             assert all(intf.codim == codim for intf in interfaces)
             if codim == 1:
                 trace = pp.ad.Trace(neighbor_subdomains)
-                v_h = trace.trace @ self.specific_volume(neighbor_subdomains)
+                specific_volume_neighbors = trace.trace @ self.specific_volume(
+                    neighbor_subdomains
+                )
             else:
-                v_h = self.specific_volume(neighbor_subdomains)
-            v = projection.primary_to_mortar_avg() @ v_h
-            v.set_name("specific_volume")
-            return v
+                specific_volume_neighbors = self.specific_volume(neighbor_subdomains)
+            specific_volume = (
+                projection.primary_to_mortar_avg() @ specific_volume_neighbors
+            )
+            specific_volume.set_name("specific_volume")
+            return specific_volume
 
         assert all(isinstance(g, pp.Grid) for g in grids), "Mixed grids"
         subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
         # Compute specific volume as the cross-sectional area/volume
         # of the cell, i.e. raise to the power nd-dim
         subdomain_projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-        v: pp.ad.Operator = None  # type: ignore
+        specific_volume: pp.ad.Operator = None  # type: ignore
 
         # Loop over dimensions, and add the contribution from each subdomain within
         # that dimension.
@@ -260,16 +268,18 @@ class DimensionReduction(pp.PorePyModel):
             if len(sd_dim) == 0:
                 continue
             a_loc = self.aperture(sd_dim)
-            v_loc = a_loc ** Scalar(self.nd - dim)
-            v_glob = subdomain_projection.cell_prolongation(sd_dim) @ v_loc
-            if v is None:
-                v = v_glob
+            specific_volume_loc = a_loc ** Scalar(self.nd - dim)
+            specific_volume_glob = (
+                subdomain_projection.cell_prolongation(sd_dim) @ specific_volume_loc
+            )
+            if specific_volume is None:
+                specific_volume = specific_volume_glob
             else:
-                v = v + v_glob
+                specific_volume = specific_volume + specific_volume_glob
 
-        v.set_name("specific_volume")
+        specific_volume.set_name("specific_volume")
 
-        return v
+        return specific_volume
 
 
 class DisplacementJumpAperture(DimensionReduction):
@@ -315,7 +325,11 @@ class DisplacementJumpAperture(DimensionReduction):
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
         num_cells_nd_subdomains = sum(sd.num_cells for sd in nd_subdomains)
-        one = pp.wrap_as_dense_ad_array(1, size=num_cells_nd_subdomains, name="one")
+        # For the matrix, use unitary aperture in SI units, then convert to the model's
+        # units.
+        one = pp.wrap_as_dense_ad_array(
+            self.units.convert_units(1, "m"), size=num_cells_nd_subdomains, name="one"
+        )
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
 

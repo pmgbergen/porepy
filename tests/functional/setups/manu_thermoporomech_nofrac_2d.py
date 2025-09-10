@@ -923,7 +923,7 @@ class UnitSquareGrid(pp.PorePyModel):
 
         sd = self.mdg.subdomains()[0]
         x, y = sd.nodes[0], sd.nodes[1]
-        h = np.min(sd.cell_diameters())
+        h = sd.cell_diameters(cell_wise=False, func=np.min)
 
         pert_rate = self.params.get("perturbation", 0.0)
 
@@ -1105,13 +1105,13 @@ class ManuThermoPoroMechSolutionStrategy2d(
 
             return pp.wrap_as_dense_ad_array(bulk, name="bulk_modulus")
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
         The parent class' definitions of permeability, stiffness parameters, and the
         Biot and thermal stress tensors are owerwritten.
         """
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         x, y = sym.symbols("x y")
 

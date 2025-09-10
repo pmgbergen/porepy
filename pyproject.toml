@@ -31,7 +31,7 @@ dependencies = [
     "networkx",
     "numba",
     "numpy < 2.2",
-    "scipy",
+    "scipy < 1.16",
     "seaborn",
     "shapely",
     "six",

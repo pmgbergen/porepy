@@ -12,6 +12,7 @@ import csv
 import logging
 import time
 import warnings
+from pathlib import Path
 from typing import Optional, Union
 
 import meshio
@@ -203,7 +204,7 @@ class FractureNetwork3d(object):
         self,
         mesh_args: dict[str, float],
         dfn: bool = False,
-        file_name: Optional[str] = None,
+        file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         write_geo: bool = True,
         tags_to_transfer: Optional[list[str]] = None,
@@ -270,11 +271,11 @@ class FractureNetwork3d(object):
             if "PYTEST_CURRENT_TEST" in os.environ:
                 # Generate a random file name, to allow tests to be run in parallel
                 # without conflicts.
-                file_name = f"gmsh_frac_file_{np.random.randint(int(1e8))}.msh"
+                file_name = Path(f"gmsh_frac_file_{np.random.randint(int(1e8))}.msh")
             else:
                 # Use a standard name for the file, so that it can be inspected after
                 # the run.
-                file_name = "gmsh_frac_file.msh"
+                file_name = Path("gmsh_frac_file.msh")
 
         gmsh_repr = self.prepare_for_gmsh(
             mesh_args,
@@ -2611,7 +2612,7 @@ class FractureNetwork3d(object):
 
     def to_file(
         self,
-        file_name: str,
+        file_name: Path,
         data: Optional[dict[str, Union[np.ndarray, list]]] = None,
         **kwargs,
     ) -> None:
@@ -2642,10 +2643,10 @@ class FractureNetwork3d(object):
                 - ``'fracture_offset'`` (:obj:`int`): ``default=1``
 
                   Used to define the offset for a fracture id.
-                - ``'folder_name'`` (:obj:`str`): ``default="./"``
+                - ``'folder_name'`` (:obj:`Path`): ``default=Path("")``
 
                   Path to save the file.
-                - ``'extension'`` (:obj:`str`): ``default="vtu"``
+                - ``'extension'`` (:obj:`str`): ``default=".vtu"``
 
                   File extension.
 
@@ -2656,14 +2657,14 @@ class FractureNetwork3d(object):
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")
-        folder_name: str = kwargs.pop("folder_name", "")
+        folder_name: Path = Path(kwargs.pop("folder_name", ""))
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        if not file_name.endswith(extension):
-            file_name += extension
+        # Make sure the suffix is correct
+        file_name = file_name.with_suffix(extension)
 
         # fracture points
         meshio_pts = np.empty((0, 3))
@@ -2704,9 +2705,11 @@ class FractureNetwork3d(object):
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_data
         )
-        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
-    def to_csv(self, file_name: str, domain: Optional[pp.Domain] = None) -> None:
+        path = folder_name / file_name
+        meshio.write(path, meshio_grid_to_export, binary=binary)
+
+    def to_csv(self, file_name: Path, domain: Optional[pp.Domain] = None) -> None:
         """Save the 3D network on a CSV file with comma as separator.
 
         The format is as follows:
@@ -2739,7 +2742,7 @@ class FractureNetwork3d(object):
             for f in self.fractures:
                 csv_writer.writerow(f.pts.ravel(order="F"))
 
-    def to_fab(self, file_name: str) -> None:
+    def to_fab(self, file_name: Path) -> None:
         """Save the 3D network on a fab file, as specified by FracMan.
 
         The filter is based on the ``.fab`` -files needed at the time of writing, and
