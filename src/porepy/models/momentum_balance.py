@@ -567,9 +567,9 @@ class _VariablesThreeFieldMomentumBalance(pp.PorePyModel):
                 the matrix subdomains.
 
         Raises:
-            ValueError: If the method is called on a boundary grid.
+            ValueError: If the domains represents the domain boundary.
             ValueError: If the dimension of the subdomains is not equal to the ambient
-                dimension of the problem.
+                dimension.
 
         Returns:
             Variable for the rotation stress.
@@ -579,23 +579,12 @@ class _VariablesThreeFieldMomentumBalance(pp.PorePyModel):
             return pp.wrap_as_dense_ad_array(
                 0, size=0, name="empty_" + self.rotation_stress_variable
             )
+        # There should be no boundary condition for the rotation_stress variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):
-            # The rotation stress should never be invoked on a boundary, it is not a
-            # primary variable in this sense.
-            raise ValueError("Rotation stress is not defined on boundary grids.")
-
-        # Check that the subdomains are grids.
-        if not all(isinstance(grid, pp.Grid) for grid in domains):
-            raise ValueError(
-                "Method called on a mixture of subdomain and boundary grids."
-            )
-        # Now we can cast to Grid.
-        domains = cast(list[pp.Grid], domains)
+            raise ValueError("Subdomains must not be boundary grids.")
 
         if not all([grid.dim == self.nd for grid in domains]):
-            s = "Rotation stress is only defined in subdomains of dimension "
-            s += f"nd={self.nd}."
-            raise ValueError(s)
+            raise ValueError(f"Subdomains must all be of dimension {self.nd}.")
 
         return self.equation_system.md_variable(self.rotation_stress_variable, domains)
 
@@ -607,9 +596,9 @@ class _VariablesThreeFieldMomentumBalance(pp.PorePyModel):
             the matrix subdomains.
 
         Raises:
-            ValueError: If the method is called on a boundary grid.
+            ValueError: If the domains represents the domain boundary.
             ValueError: If the dimension of the subdomains is not equal to the ambient
-                dimension of the problem.
+                dimension.
 
         Returns:
             Variable for the total pressure.
@@ -619,23 +608,12 @@ class _VariablesThreeFieldMomentumBalance(pp.PorePyModel):
             return pp.wrap_as_dense_ad_array(
                 0, size=0, name="empty_" + self.total_pressure_variable
             )
+        # There should be no boundary condition for the total_pressure variable.
         if any(isinstance(grid, pp.BoundaryGrid) for grid in domains):
-            # The total pressure should never be invoked on a boundary, it is not a
-            # primary variable in this sense.
-            raise ValueError("Total pressure is not defined on boundary grids.")
-
-        # Check that the subdomains are grids.
-        if not all(isinstance(grid, pp.Grid) for grid in domains):
-            raise ValueError(
-                "Method called on a mixture of subdomain and boundary grids."
-            )
-        # Now we can cast to Grid.
-        domains = cast(list[pp.Grid], domains)
+            raise ValueError("Subdomains must not be boundary grids.")
 
         if not all([grid.dim == self.nd for grid in domains]):
-            raise ValueError(
-                "Total pressure is only defined in subdomains of dimension nd."
-            )
+            raise ValueError(f"Subdomains must all be of dimension {self.nd}.")
 
         return self.equation_system.md_variable(self.total_pressure_variable, domains)
 
