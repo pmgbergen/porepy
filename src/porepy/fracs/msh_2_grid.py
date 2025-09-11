@@ -521,10 +521,16 @@ def tag_grid(
         Grid with updated ``.tags`` attribute.
 
     """
+    # TODO: The physical names should be filtered on dimension. Also, we should avoid
+    # creating tags for physical names that are mesh processing specific (e.g.,
+    # domain_boundary_line etc.).
     for grid_element_type in cell_info:
         for tag in np.unique(cell_info[grid_element_type]):
             tag_name = (
                 f"{phys_names[tag].lower()}_{grid_element_type}s"  # s for plural.
             )
             sd.tags[tag_name] = cell_info[grid_element_type] == tag
+            if sd.dim == 3:
+                breakpoint()
+                debug = []
     return sd

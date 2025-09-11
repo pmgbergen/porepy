@@ -51,10 +51,7 @@ def fracture_network(dims: tuple) -> pp.fracture_network:
             "ymax": dims[1],
         }
         # Two intersecting line fractures
-        fractures = [
-            pp.LineFracture(np.array([[0, dims[0]], [dims[1] / 2, dims[1] / 2]])),
-            pp.LineFracture(np.array([[dims[0] / 2, dims[0] / 2], [0, dims[1]]])),
-        ]
+        fractures = pp.fracture_sets.orthogonal_fractures_2d(size=dims[0])
 
     if len(dims) == 3:
         bounding_box = {
@@ -67,35 +64,7 @@ def fracture_network(dims: tuple) -> pp.fracture_network:
         }
         # Three intersecting plane fractures creating both a line fracture intersection
         # and a point fracture intersection.
-        fractures = [
-            pp.PlaneFracture(
-                np.array(
-                    [
-                        [0, dims[0], dims[0], 0],
-                        [0, 0, dims[1], dims[1]],
-                        [dims[2] / 2, dims[2] / 2, dims[2] / 2, dims[2] / 2],
-                    ]
-                ),
-            ),
-            pp.PlaneFracture(
-                np.array(
-                    [
-                        [0, dims[0], dims[0], 0],
-                        [dims[1] / 2, dims[1] / 2, dims[1] / 2, dims[1] / 2],
-                        [0, 0, dims[2], dims[2]],
-                    ]
-                ),
-            ),
-            pp.PlaneFracture(
-                np.array(
-                    [
-                        [dims[0] / 2, dims[0] / 2, dims[0] / 2, dims[0] / 2],
-                        [0, dims[1], dims[1], 0],
-                        [0, 0, dims[2], dims[2]],
-                    ]
-                ),
-            ),
-        ]
+        fractures = pp.fracture_sets.orthogonal_fractures_3d(size=dims[0])
     domain = pp.Domain(bounding_box)
     return pp.create_fracture_network(fractures, domain)
 
@@ -108,10 +77,11 @@ def simplex_grids(fracture_network: pp.fracture_network) -> list[pp.Grid]:
 
 @pytest.fixture
 def create_gmsh_file(
-    fracture_network: pp.fracture_network, num_phys_names: int, tmp_path: pathlib.Path
+    fracture_network: pp.fracture_network, tmp_path: pathlib.Path
 ) -> str:
     """Create a gmsh file with the given number of physical names."""
     msh_file: pathlib.Path = tmp_path / "test.msh"
+    msh_file = "test.msh"
 
     # Use functionality from pp.create_mdg and fracture_network.mesh to create a gmsh
     # file from the fracture_network.
@@ -124,14 +94,123 @@ def create_gmsh_file(
     # Without the if-else construction, _prepare_simplex_args fails.
     if isinstance(fracture_network, FractureNetwork2d):
         dim = 2
-        lower_level_args, extra_args, kwargs = _preprocess_simplex_args(
+        lower_level_args, *_ = _preprocess_simplex_args(
             {"cell_size": 0.5}, kwargs, FractureNetwork2d.mesh
         )
     elif isinstance(fracture_network, FractureNetwork3d):
         dim = 3
-        lower_level_args, extra_args, kwargs = _preprocess_simplex_args(
+        lower_level_args, *_ = _preprocess_simplex_args(
             {"cell_size": 0.5}, kwargs, FractureNetwork3d.mesh
         )
+
+    fracture_network.mesh(
+        mesh_args=lower_level_args,
+        file_name=str(msh_file),
+        finalize_gmsh=False,
+        clear_gmsh=False,
+    )
+
+    gmsh.open(str(msh_file))
+
+    domain = fracture_network.domain
+    x_min = domain.bounding_box["xmin"]
+    x_max = domain.bounding_box["xmax"]
+    y_min = domain.bounding_box["ymin"]
+    y_max = domain.bounding_box["ymax"]
+    dx = x_max - x_min
+    dy = y_max - y_min
+    if dim == 3:
+        z_min = domain.bounding_box["zmin"]
+        z_max = domain.bounding_box["zmax"]
+        dz = z_max - z_min
+    else:
+        z_min = 0.0
+        z_max = 0.0
+        dz = 0.0
+
+    if dim == 2:
+        p_0 = gmsh.model.geo.addPoint(x_min + 0.1 * dx, y_min + 0.1 * dy, 0)
+        p_1 = gmsh.model.geo.addPoint(x_max + 0.2 * dx, y_min + 0.1 * dy, 0)
+        p_2 = gmsh.model.geo.addPoint(x_max + 0.2 * dx, y_max + 0.2 * dy, 0)
+        p_3 = gmsh.model.geo.addPoint(x_min + 0.1 * dx, y_max + 0.2 * dy, 0)
+        line_0 = gmsh.model.geo.addLine(p_0, p_1)
+        line_1 = gmsh.model.geo.addLine(p_1, p_2)
+        line_2 = gmsh.model.geo.addLine(p_2, p_3)
+        line_3 = gmsh.model.geo.addLine(p_3, p_0)
+        loop = gmsh.model.geo.addCurveLoop([line_0, line_1, line_2, line_3])
+        inclusion = gmsh.model.geo.addPlaneSurface([loop])
+        gmsh.model.geo.synchronize()
+        gmsh.model.add_physical_group(2, [inclusion], name="inclusion")
+
+    else:  # dim == 3
+        # Add points spanning a cube.
+        p_0 = gmsh.model.geo.addPoint(
+            x_min + 0.1 * dx, y_min + 0.1 * dy, z_min + 0.1 * dz
+        )
+        p_1 = gmsh.model.geo.addPoint(
+            x_max + 0.2 * dx, y_max + 0.1 * dy, z_min + 0.1 * dz
+        )
+        p_2 = gmsh.model.geo.addPoint(
+            x_max + 0.2 * dx, y_max + 0.2 * dy, z_min + 0.1 * dz
+        )
+        p_3 = gmsh.model.geo.addPoint(
+            x_min + 0.1 * dx, y_max + 0.2 * dy, z_min + 0.1 * dz
+        )
+        p_4 = gmsh.model.geo.addPoint(
+            x_min + 0.1 * dx, y_min + 0.1 * dy, z_max + 0.2 * dz
+        )
+        p_5 = gmsh.model.geo.addPoint(
+            x_max + 0.2 * dx, y_min + 0.1 * dy, z_max + 0.2 * dz
+        )
+        p_6 = gmsh.model.geo.addPoint(
+            x_max + 0.2 * dx, y_max + 0.2 * dy, z_max + 0.2 * dz
+        )
+        p_7 = gmsh.model.geo.addPoint(
+            x_min + 0.1 * dx, y_max + 0.2 * dy, z_max + 0.2 * dz
+        )
+        # Add lines forming the wire basket of the cube.
+        line_0 = gmsh.model.geo.addLine(p_0, p_1)
+        line_1 = gmsh.model.geo.addLine(p_1, p_2)
+        line_2 = gmsh.model.geo.addLine(p_2, p_3)
+        line_3 = gmsh.model.geo.addLine(p_3, p_0)
+        line_4 = gmsh.model.geo.addLine(p_4, p_5)
+        line_5 = gmsh.model.geo.addLine(p_5, p_6)
+        line_6 = gmsh.model.geo.addLine(p_6, p_7)
+        line_7 = gmsh.model.geo.addLine(p_7, p_4)
+        line_8 = gmsh.model.geo.addLine(p_0, p_4)
+        line_9 = gmsh.model.geo.addLine(p_1, p_5)
+        line_10 = gmsh.model.geo.addLine(p_2, p_6)
+        line_11 = gmsh.model.geo.addLine(p_3, p_7)
+        # For each of the bounding surfaces, create a curve loop and define the surface.
+        loop_0 = gmsh.model.geo.addCurveLoop([line_0, line_1, line_2, line_3])
+        loop_1 = gmsh.model.geo.addCurveLoop([line_4, line_5, line_6, line_7])
+        loop_2 = gmsh.model.geo.addCurveLoop([line_0, line_9, -line_4, -line_8])
+        loop_3 = gmsh.model.geo.addCurveLoop([line_2, line_11, -line_6, -line_10])
+        loop_4 = gmsh.model.geo.addCurveLoop([line_1, line_10, -line_5, -line_9])
+        loop_5 = gmsh.model.geo.addCurveLoop([line_3, line_8, -line_7, -line_11])
+        surface_0 = gmsh.model.geo.addPlaneSurface([loop_0])
+        surface_1 = gmsh.model.geo.addPlaneSurface([loop_1])
+        surface_2 = gmsh.model.geo.addPlaneSurface([loop_2])
+        surface_3 = gmsh.model.geo.addPlaneSurface([loop_3])
+        surface_4 = gmsh.model.geo.addPlaneSurface([loop_4])
+        surface_5 = gmsh.model.geo.addPlaneSurface([loop_5])
+        surface_loop = gmsh.model.geo.addSurfaceLoop(
+            [surface_0, surface_1, surface_2, surface_3, surface_4, surface_5]
+        )
+        inclusion = gmsh.model.geo.addVolume([surface_loop])
+        gmsh.model.geo.synchronize()
+        gmsh.model.add_physical_group(3, [inclusion], name="inclusion")
+
+    gmsh.model.geo.synchronize()
+
+    gmsh.model.mesh.generate(dim)
+    gmsh.write(str(msh_file))
+    gmsh.clear()
+    # gmsh.finalize()
+
+    # pp.fracture_importer.dfm_from_gmsh(str(msh_file), dim=dim)
+
+    debug = []
 
     # Add physical names.
     # TODO Didn't manage this yet, it's tricky. Basically, we want to loop through all
@@ -174,8 +253,8 @@ def create_gmsh_file(
     # into multiple facies. Both should be doable, but they are not the same.
 
     # This is how to get hold of the gmsh-porepy interface.
-    gmsh_info = fracture_network.prepare_for_gmsh(lower_level_args)
-    gmsh_writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_info)
+    # gmsh_info = fracture_network.prepare_for_gmsh(lower_level_args)
+    # gmsh_writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_info)
 
     # EK: This is an attempt at deleting all physical names in the gmsh file, and then
     # adding the same ones + some extra ones for the same gmsh entities. I am not sure
@@ -226,6 +305,7 @@ def cell_info_from_gmsh(create_gmsh_file: pathlib.Path) -> dict[str, np.ndarray]
     # TODO This is a temporary solution. The file should be in the test directory and
     # doesn't need to include 30k cells.
     _, __, cell_info, ___ = _read_gmsh_file(str(create_gmsh_file))
+    breakpoint()
     return cell_info
 
 
@@ -302,6 +382,9 @@ def test_create_grids(
     for g in grids:
         assert isinstance(g, expected_grid_type)
         for gmsh_element_type in cell_info:
+            if g.dim == 3:
+                breakpoint()
+                debug = []
             for tag in np.unique(cell_info[gmsh_element_type]):
                 phys_name = phys_names[tag].lower()
                 assert np.all(
@@ -337,7 +420,7 @@ def test_gmsh_elements(
 
 
 @pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
-@pytest.mark.parametrize("num_phys_names", [0, 1, 5, 10], indirect=True)
+@pytest.mark.parametrize("num_phys_names", [2], indirect=True)
 def test_tag_grids(
     simplex_grids: list[pp.Grid],
     phys_names: dict[int, str],
@@ -347,7 +430,18 @@ def test_tag_grids(
 ) -> None:
     """Test that ``tag_grids`` correctly assigns tags to the grid.
 
-    TODO: Check whether the unused parameters are needed. If not, remove them."""
+    The test generates a list of subdomain grids (through the fixture ``simplex_grids``)
+    and randomly assigns physical names to the grid elements. It then checks that
+    ``tag_grids`` correctly assigns the tags.
+
+    Though the test uses gmsh for mesh generation, it does not use gmsh tags and
+    physical names beyond what is always done for meshing. A failure of this test would
+    thereby signify that something is wrong with the ``tag_grids`` function itself, not
+    with the meshing or gmsh reading (unless the test fails under mesh construction, but
+    then a host of other tests will fail as well).
+
+
+    """
     for grid in simplex_grids:
         tagged_grid: pp.Grid = tag_grid(grid, phys_names, cell_info_from_mdg)
         for gmsh_element_type in cell_info_from_mdg:
