@@ -208,7 +208,7 @@ class AngularMomentumEquation(pp.BalanceEquation):
     """Dimension of the rotation variable. Defined in a mixin instance of 
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
-    inv_mu: Callable[[list[pp.Grid]], pp.ad.Operator]
+    first_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the first Lame parameter. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
@@ -251,7 +251,8 @@ class AngularMomentumEquation(pp.BalanceEquation):
         # The accumulation term is what it is in the three-field formulation, see the
         # Tpsa paper for more information (reference in module-level docstring).
         accumulation = -self.volume_integral(
-            self.inv_mu(subdomains) * self.rotation_stress(subdomains),
+            self.first_lame_parameter_inverted(subdomains)
+            * self.rotation_stress(subdomains),
             subdomains,
             dim=self._rotation_dimension(),
         )
@@ -299,7 +300,7 @@ class SolidMassEquation(pp.BalanceEquation):
     approximation scheme. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
-    inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
+    second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the second Lame parameter. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
@@ -332,7 +333,8 @@ class SolidMassEquation(pp.BalanceEquation):
 
         source = self.solid_mass_source(subdomains)
         accumulation = -self.volume_integral(
-            self.inv_lambda(subdomains) * self.total_pressure(subdomains),
+            self.second_lame_parameter_inverted(subdomains)
+            * self.total_pressure(subdomains),
             subdomains,
             dim=1,
         )

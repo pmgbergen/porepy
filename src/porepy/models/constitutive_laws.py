@@ -3252,7 +3252,9 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
         )
         return mass_flux
 
-    def inv_mu(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def first_lame_parameter_inverted(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Wrap the inverse of the first Lame parameter as an Ad operator.
 
         Parameters:
@@ -3281,7 +3283,9 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
 
         return pp.ad.DenseArray(np.hstack(mu), name="inv_mu")
 
-    def inv_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def second_lame_parameter_inverted(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """Wrap the inverse of the second Lame parameter as an Ad operator.
 
         Parameters:
