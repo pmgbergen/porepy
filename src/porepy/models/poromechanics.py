@@ -89,7 +89,7 @@ class EquationsPoromechanics(
         )
 
 
-class _SolidMassEquation(pp.momentum_balance.SolidMassEquation):
+class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
     """Solid mass equation for poromechanics.
 
     This is an extension of the solid mass equation in the three-field formulation of
@@ -183,8 +183,8 @@ class InitialConditionsPoromechanics(
 
 
 class TpsaPoromechanicsMixin(
-    pp.constitutive_laws._ConstitutiveLawsTpsaPoromechanics,
-    _SolidMassEquation,
+    pp.constitutive_laws.ConstitutiveLawsTpsaPoromechanics,
+    SolidMassEquation,
     pp.momentum_balance.TpsaMomentumBalanceMixin,
 ):
     """Mixin for the TPSA poromechanics model. This can be mixed into a Poromechanics

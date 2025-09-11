@@ -493,7 +493,7 @@ class VariablesMomentumBalance(VariableMixin):
         )
 
 
-class _VariablesThreeFieldMomentumBalance(pp.PorePyModel):
+class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
     """Variables used in the three-field formulation of the momentum balance, needed to
     use the Tpsa discretization scheme.
 
@@ -696,7 +696,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class _SolutionStrategyThreeFieldMomentumBalance:
+class SolutionStrategyThreeFieldMomentumBalance(pp.SolutionStrategy):
     """Solution strategy for the three-field formulation of the momentum balance.
 
     This class is not meant to be mixed in directly, but is used by other mixin classes,
@@ -704,15 +704,18 @@ class _SolutionStrategyThreeFieldMomentumBalance:
 
     """
 
-    # The only task is to set some keywords.
-    rotation_stress_variable: str = "rotation_stress"
-    """Name of the rotation variable."""
+    def __init__(self, params: Optional[dict] = None) -> None:
+        super().__init__(params)
 
-    total_pressure_variable: str = "total_pressure"
-    """Name of the volumetric strain variable."""
+        # The only task is to set some keywords.
+        self.rotation_stress_variable: str = "rotation_stress"
+        """Name of the rotation variable."""
 
-    rotation_keyword: str = "rotation"
-    """Keyword to identify fields specifically related to rotation."""
+        self.total_pressure_variable: str = "total_pressure"
+        """Name of the volumetric strain variable."""
+
+        self.rotation_keyword: str = "rotation"
+        """Keyword to identify fields specifically related to rotation."""
 
 
 class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
@@ -973,12 +976,12 @@ class MomentumBalance(  # type: ignore[misc]
 
 
 class TpsaMomentumBalanceMixin(  # type: ignore[misc]
-    _VariablesThreeFieldMomentumBalance,
+    VariablesThreeFieldMomentumBalance,
     AngularMomentumEquation,
     SolidMassEquation,
-    constitutive_laws._ThreeFieldLinearElasticMechanicalStress,
+    constitutive_laws.ThreeFieldLinearElasticMechanicalStress,
     InitialConditionsThreeFieldMomentumBalance,
-    _SolutionStrategyThreeFieldMomentumBalance,
+    SolutionStrategyThreeFieldMomentumBalance,
 ):
     """Full mixin class for the three-field momentum balance. If mixed into a
     MomentumBalance class, the resulting objects will apply the three-field formulation
