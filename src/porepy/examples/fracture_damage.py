@@ -46,8 +46,8 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
 
 
 class CharacteristicSizes:
-    """Use tailored, unitary characteristic sizes since our problem does not necessarily
-    follow typical scaling rules."""
+    """Use tailored, non-unitary characteristic sizes since our problem does not
+    necessarily follow typical scaling rules."""
 
     def characteristic_contact_traction(
         self, subdomains: list[pp.Grid]
@@ -61,7 +61,7 @@ class CharacteristicSizes:
             Scalar operator representing the characteristic traction.
 
         """
-        return pp.ad.Scalar(1)
+        return pp.ad.Scalar(1e5)
 
     def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Characteristic displacement [m].
@@ -74,7 +74,7 @@ class CharacteristicSizes:
             Scalar operator representing the characteristic displacement.
 
         """
-        return pp.ad.Scalar(1)
+        return pp.ad.Scalar(1e-2)
 
 
 class MixedNorthMechanicsBCs(pp.PorePyModel):
@@ -166,12 +166,14 @@ class FractureDamageCoefficientsWhite:
 
 
 DATA_SAVING_METHOD_NAMES = [
-    "friction_damage",
-    "friction_damage_coefficient",
+    "_common_factor_damage_coefficients",
+    "damage_length",
     "dilation_damage",
     "dilation_damage_coefficient",
-    "damage_length",
-    "_common_factor_damage_coefficients",
+    "dilation_damage_history",
+    "friction_damage",
+    "friction_damage_coefficient",
+    "friction_damage_history",
 ]
 
 
@@ -197,10 +199,14 @@ class DamageDataSaving(pp.PorePyModel):
 
     damage_length: Callable[[list[pp.Grid], int], pp.ad.Operator]
     """Damage length operator."""
-    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Dilation damage variable."""
-    friction_damage: Callable[[list[pp.Grid]], pp.ad.Variable]
-    """Friction damage variable."""
+    dilation_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Dilation damage operator."""
+    dilation_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Dilation damage history."""
+    friction_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction damage operator."""
+    friction_damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Friction damage history."""
     solid: FractureDamageSolidConstants
 
     def initialize_data_saving(self) -> None:
@@ -235,13 +241,16 @@ class DamageDataSaving(pp.PorePyModel):
                 length, _ = self.damage_length(sds, time_step_index=1)
                 approx_val = length.value(self.equation_system)
             else:
-                # Collect data.
-                exact_val = cast(np.ndarray, getattr(self.exact_sol, name)(sd, n))
                 if hasattr(self, name):
+                    # Collect data.
+                    exact_val = cast(np.ndarray, getattr(self.exact_sol, name)(sd, n))
                     approx_val = cast(
                         np.ndarray, getattr(self, name)(sds).value(self.equation_system)
                     )
                 else:
+                    # By setting different values, we ensure that the error is large if
+                    # the lack of the method masks some other error.
+                    exact_val = np.ones(sd.num_cells)
                     approx_val = np.zeros_like(exact_val)
 
             error = ConvergenceAnalysis.lp_error(
@@ -392,9 +401,22 @@ class ExactSolution:
             Array of friction damage for the given time step.
 
         """
-        h = self.convolution(sd, n, self.friction_damage_coefficient)
+        h = self.friction_damage_history(sd, n)
         d0 = self.model.solid.initial_friction_damage
         return d0 + (1 - d0) * np.exp(-h)
+
+    def friction_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the friction damage history at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of friction damage history for the given time step.
+
+        """
+        return self.convolution(sd, n, self.friction_damage_coefficient)
 
     def dilation_damage(self, sd: pp.Grid, n: int) -> np.ndarray:
         """Return the exact solution at time step n.
@@ -407,9 +429,22 @@ class ExactSolution:
             Array of dilation damage for the given time step.
 
         """
-        h = self.convolution(sd, n, self.dilation_damage_coefficient)
+        h = self.dilation_damage_history(sd, n)
         d0 = self.model.solid.initial_dilation_damage
         return d0 + (1 - d0) * np.exp(-h)
+
+    def dilation_damage_history(self, sd: pp.Grid, n: int) -> np.ndarray:
+        """Return the dilation damage history at time step n.
+
+        Parameters:
+            sd: Subdomain where the boundary displacement is defined.
+            n: Time step index.
+
+        Returns:
+            Array of dilation damage history for the given time step.
+
+        """
+        return self.convolution(sd, n, self.dilation_damage_coefficient)
 
     def convolution(self, sd: pp.Grid, n: int, coefficient_function) -> np.ndarray:
         """Return the convolution of the displacement increment with the damage kernel.
@@ -532,34 +567,37 @@ class ExactSolutionAnisotropic(ExactSolution):
 
 # Collect parameters etc. This defines the test case as used in test_fracture_damage.py
 # (dim x number of time steps) displacement values on the north boundary
-num_time_steps = 7
+num_time_steps = 5
 north_displacements_3d = np.zeros((3, num_time_steps))
 # Steps/increments in the tangential direction:
 # 1. d_0  (north_displacements[:, 1] - north_displacements[:, 0])
 # 2. 0
 # 3. -d_0
-# 4. d_0
-# 5. -(d_0 - 0.01)  # 0.01
-# 6. d_1 (different from d_0)
-north_displacements_3d[0] = np.array([0.0, -0.2, 0.2, 2e-5, 0.2, 1e-5, -0.2])
-# The 1e-7 avoids m=0, which leads to zero damage in the analytical model. This is not
-# reproduced in the numerical model due to the presence of numerical noise.
-north_displacements_3d[2] = np.array([0.0, 0.1, -0.1, -1e-5, 0.1, 0.0, 0.1])
+# 4. -d_0
+# 5. new direction
+north_displacements_3d[0] = np.array([0.0, -2.0, -2.0, 2.0, 1.0])
+north_displacements_3d[2] = np.array([0.0, 1.0, 1.0, -1.0, 1.0])
+# The 1e-4 avoids m=0, which leads to zero damage in the analytical model. This is not
+# reproduced in the numerical model due to the presence of numerical noise. The offset
+# needs to be large enough to avoid directional ambiguity in the damage length when
+# the jump is very small, which happens due to friction.
 
+north_displacements_3d *= 1.0e-4
 
-north_stress = -1e-1 * np.ones(num_time_steps)
-solid_params = {
-    "friction_coefficient": 0.01,  # Low friction to get slip \approx bc displacement
-    "dilation_angle": 0.1,
-    "shear_modulus": 1e6,  # Suppress shear displacement in the matrix.
-    "uniaxial_compressive_strength": 1e1,
-    "characteristic_fracture_roughness": 0.1,  # Low roughness to promote slip
-    "fracture_normal_stiffness": 1.0e-3,
-    "maximum_elastic_fracture_opening": 0.2,  # Allowing elastic deformation seems for
-    # whatever reason to improve convergence and agreement with exact solution.
-    "initial_friction_damage": 0.5,
-    "initial_dilation_damage": 0.5,
-}
+north_stress = -1e5 * np.ones(num_time_steps)
+solid_params = pp.solid_values.extended_granite_values_for_testing.copy()
+solid_params.update(
+    {
+        "friction_coefficient": 0.01,  # Low friction to get slip \approx bc displacement
+        "uniaxial_compressive_strength": 1e8,
+        "characteristic_fracture_roughness": 1e-4,  # [m]
+        "initial_friction_damage": 0.3,
+        "initial_dilation_damage": 0.6,
+    }
+)
+# Increase shear modulus to suppress shear displacements relative to normal ones.
+solid_params["shear_modulus"] = 1e3 * solid_params["shear_modulus"]
+
 model_params = {
     # We need two cells in the y direction to get a fracture. In the x direction, we
     # also need two cells to avoid nasty singular matrix from MPSA discretization and

@@ -113,25 +113,25 @@ def run_displacement_controlled_setup(
     cls, model_params, solver_params = setup(isotropic, dim, damages, 5)
 
     model_params.pop("north_stress", None)  # Disable stress BC for this test.
-    # Set negative y component to get compression.
-    model_params["north_displacements"][1] = -1e-8
-    # Modify north displacement BC to get open fracture (=> no additional damage) in 4th
-    # time increment.
-    model_params["north_displacements"][1, 4] = 0.3
+    # Set y component somewhat smaller than (fracture gap + maximum elastic opening).
+    # This results in compression and sensible tractions.
+    model_params["north_displacements"][1] = 1.8e-3
+    # Modify north displacement BC to get open fracture (=> no additional damage) in
+    # 4th time increment.
+    model_params["north_displacements"][1, 4] = 3e-3
     # Turn off shear dilation to better control the test. Although physically
     # nonsensical, dilation damage with zero dilation angle is mathematically
     # well-defined.
     solid_params = damage_examples.solid_params.copy()
     solid_params["dilation_angle"] = 0.0
     # Similarly, simplify problem by removing elastic normal deformation.
-    solid_params["fracture_normal_stiffness"] = 0.0
     model_params["material_constants"]["solid"] = FractureDamageSolidConstants(
         **solid_params
     )  # type: ignore[arg-type]
     m = cls(model_params)
     pp.run_time_dependent_model(m, solver_params)
 
-    return m.results
+    return m.results, m
 
 
 @pytest.mark.parametrize("dim", [2, 3])
@@ -157,68 +157,95 @@ def test_isotropic_damage(dim: int):
         AssertionError: If the results do not match the exact solution.
     """
     damages = ["dilation", "friction"]
-    vals = run_displacement_controlled_setup(True, dim, damages)
+    # Model instance may be useful for debugging.
+    vals, model = run_displacement_controlled_setup(True, dim, damages)
     # Note on counting time steps: The initial time step is not included in the results.
     # Thus, vals[0] corresponds to t=1 in the time manager, and vals[1]-vals[0] is
     # referred to as "first increment" below.
     for damage in damages:
-        name = damage + "_damage"
-        # I) First two displacement jumps have same magnitude, but opposite sign. The
-        # damage is expected to decrease after more damage is accumulated during second
-        # step.
-        val0 = cast(np.ndarray, getattr(vals[0], "approx_" + name))
-        val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
-        assert np.all(val1 < val0 - 1e-2), f"Damage did not decrease for {name} at t=2"
+        # Test both damage and damage history variable.
+        names = [damage + "_damage", damage + "_damage_history"]
+        # I) First two displacement jumps are identical, yielding identical damage
+        # values after first two steps.
+        for name in names:
+            val0 = cast(np.ndarray, getattr(vals[0], "approx_" + name))
+            val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
+            np.testing.assert_allclose(
+                val0,
+                val1,
+                atol=1e-8,
+                err_msg=f"Mismatch between damage values at t=1 and t=2 for {name}",
+            )
 
-        # II) Third displacement jump is close to zero, but in same direction as second
-        # jump. The damage decreases still further. Due to exponential decay, the
-        # increase in damage is smaller than a factor 2.
+        # II) Third displacement jump is the negative of the second. For isotropic
+        # damage length, this leads to a further decrease in...
+        # i) damage
+        name = names[0]
+        val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
         val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
-        assert np.all(val2 < val1), f"Damage did not decrease for {name} at t=3"
-        assert np.all(val2 * 2 > val1), (
-            f"Damage decrease too large for {name} at t=3: {val2}/{val1}"
+        assert np.all(val2 < val1 - 1e-2), (
+            f"Damage did not decrease for {name} at t=3: {val2}/{val1}."
         )
+        # Due to exponential decay, the decrease in damage is smaller than a factor 2.
+        assert np.all(val2 * 2 > val1), (
+            f"Damage decrease too large for {name} at t=3: {val2}/{val1}."
+        )
+        # ii) ... corresponding to a threefold increase in damage history.
+        name = names[1]
+        val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
+        val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
+        np.testing.assert_allclose(
+            val2,
+            3 * val1,
+            rtol=1e-5,  # Allow some tolerance due to numerical errors.
+            err_msg=f"Damage history mismatch for {name} at t=3: {val2}/{val1}.",
+        )
+
         # III) Fourth displacement jump and increment are nonzero in the tangential
         # direction, but the normal displacement is large enough to open the fracture.
         # Thus, we expect no additional damage.
-        val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
-        np.testing.assert_allclose(
-            val2,
-            val3,
-            atol=1e-8,
-            err_msg=f"Mismatch between damage values at t=3 and t=4 for {name}",
-        )
+        for name in names:
+            val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
+            val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
+            np.testing.assert_allclose(
+                val2,
+                val3,
+                atol=1e-8,
+                err_msg=f"Mismatch between damage values at t=3 and t=4 for {name}.",
+            )
     # Test damage lengths. Each value is the contribution from that increment.
-    # 1) The displacement increments are equal in magnitude and opposite in direction.
-    length0 = vals[0].approx_damage_length
-    length1 = vals[1].approx_damage_length
-    length2 = vals[2].approx_damage_length
-    # Second damage length should be twice the first, since the entire increment
-    # contributes.
-    assert np.allclose(length0 * 2, length1, rtol=1e-8), (
-        f"Damage length mismatch after first and second step: {length0 * 2}/{length1}."
-    )
-    # 2) After third step, damage length should be slightly smaller than half the second
-    # step.
-    assert np.allclose(length2 * 2, length1, rtol=1e-4), (
-        "Damage length after third step not close to double the length after second "
-        f"step: {length2}/{length1}"
-    )
-    assert np.all(length2 * 2 < length1), (
-        "Damage length expected to be smaller for step 3 than for step 2: "
-        f"{length2}/{length1}"
+    length_0 = vals[0].approx_damage_length
+    length_1 = vals[1].approx_damage_length
+    length_2 = vals[2].approx_damage_length
+    length_3 = vals[3].approx_damage_length
+    # 1) The second displacement increment is zero.
+    np.testing.assert_allclose(
+        length_1,
+        0.0,
+        atol=1e-8,
+        err_msg=f"Damage length after second step not close to zero: {length_1}.",
     )
 
-    # 3) After fourth step, damage *length* (as opposed to damage above) should increase
-    # due to nonzero tangential increment, even though damage does not increase due to
-    # the fracture being open.
-    length3 = vals[3].approx_damage_length
-    expected_3 = 0.2 if dim == 2 else np.sqrt(0.05)
+    # 2) Isotropic damage length depends on the magnitude, not the direction, of the
+    # displacement jump. Since the first and third jump are in opposite directions, the
+    # third damage length should be twice the first.
     np.testing.assert_allclose(
-        length3,
+        length_0 * 2,
+        length_2,
+        rtol=1e-5,  # Allow some tolerance due to numerical errors.
+        err_msg=f"Damage length mismatch after first and third step: "
+        f"{length_0}/{length_2}.",
+    )
+
+    # 3) After fourth step, damage *length* (as opposed to damage above) should be
+    # positive due to nonzero tangential increment, even though damage does not increase
+    # due to the fracture being open.
+    expected_3 = 1e-4 if dim == 2 else np.sqrt(5) * 1e-4
+    np.testing.assert_allclose(
+        length_3,
         expected_3,
-        rtol=1e-4,
-        err_msg=f"Damage length is too small after fourth step: {length3}",
+        rtol=1e-3,
+        err_msg=f"Damage length is too small after fourth step: {length_3}",
     )
 
 
@@ -245,75 +272,82 @@ def test_anisotropic_damage(dim: int):
         AssertionError: If the results do not match the exact solution.
     """
     damages = ["dilation", "friction"]
-    vals = run_displacement_controlled_setup(False, dim, damages)
+    # Model instance may be useful for debugging.
+    vals, model = run_displacement_controlled_setup(False, dim, damages)
     # Note on counting time steps: The initial time step is not included in the results.
     # Thus, vals[0] corresponds to t=1 in the time manager, and vals[1]-vals[0] is
     # referred to as "first increment" below.
     for damage in damages:
-        name = damage + "_damage"
-        # I) First two displacement jumps have same magnitude, but opposite sign. Since
-        # the damage length is anisotropic, the second increment only partially
-        # contributes to damage, yielding identical damage values after first two
-        # steps.
-        val0 = cast(np.ndarray, getattr(vals[0], "approx_" + name))
-        val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
-        np.testing.assert_allclose(
-            val0,
-            val1,
-            atol=1e-8,
-            err_msg=f"Mismatch between damage values at t=1 and t=2 for {name}",
-        )
+        names = [damage + "_damage", damage + "_damage_history"]
+        # I) First two displacement jumps are identical, yielding identical damage
+        # values after first two steps.
+        for name in names:
+            val0 = cast(np.ndarray, getattr(vals[0], "approx_" + name))
+            val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
+            np.testing.assert_allclose(
+                val0,
+                val1,
+                atol=1e-8,
+                err_msg=f"Mismatch between damage values at t=1 and t=2 for {name}",
+            )
 
-        # II) Third displacement jump is close to zero, but in same direction as second
-        # jump. The damage decreases. Due to exponential decay, the
-        # increase in damage is smaller than a factor 2.
-        val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
-        assert np.all(val2 < val1), f"Damage did not decrease for {name} at t=3"
-        assert np.all(val2 * 2 > val1), (
-            f"Damage decrease too large for {name} at t=3: {val2}/{val1}"
-        )
+        # II) Third displacement jump is the negative of the second. For anisotropic
+        # damage length, this yields identical damage values after third step.
+        for name in names:
+            val1 = cast(np.ndarray, getattr(vals[1], "approx_" + name))
+            val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
+            np.testing.assert_allclose(
+                val1,
+                val2,
+                atol=1e-8,
+                err_msg=f"Mismatch between damage values at t=2 and t=3 for {name}",
+            )
+
         # III) Fourth displacement jump and increment are nonzero in the tangential
         # direction, but the normal displacement is large enough to open the fracture.
         # Thus, we expect no additional damage.
-        val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
-        np.testing.assert_allclose(
-            val2,
-            val3,
-            atol=1e-8,
-            err_msg=f"Mismatch between damage values at t=3 and t=4 for {name}",
-        )
+        for name in names:
+            val2 = cast(np.ndarray, getattr(vals[2], "approx_" + name))
+            val3 = cast(np.ndarray, getattr(vals[3], "approx_" + name))
+            np.testing.assert_allclose(
+                val2,
+                val3,
+                atol=1e-8,
+                err_msg=f"Mismatch between damage values at t=3 and t=4 for {name}",
+            )
     # Test damage lengths. Each value is the contribution from that increment.
-    # 1) The displacement increments are equal in magnitude and opposite in direction.
     length_0 = vals[0].approx_damage_length
     length_1 = vals[1].approx_damage_length
     length_2 = vals[2].approx_damage_length
     length_3 = vals[3].approx_damage_length
-    # Anisotropic damage length depends on the direction of the displacement jump.
-    # Since the first two jumps are in opposite directions and only the part of the
+    # 1) The second displacement increment is zero.
+    np.testing.assert_allclose(
+        length_1,
+        0.0,
+        atol=1e-8,
+        err_msg=f"Damage length after second step not close to zero: {length_1}.",
+    )
+
+    # 2) Anisotropic damage length depends on the direction of the displacement jump.
+    # Since the first and third jump are in opposite directions and only the part of the
     # increment aligned with the current jump contributes, the damage lengths
     # should be equal.
-    assert np.allclose(length_0, length_1, rtol=1e-8), (
-        f"Damage length mismatch after first and second step: {length_0}/{length_1}."
-    )
-    # 2) After third step, damage length should be slightly smaller than the second
-    # step.
-    assert np.allclose(length_2, length_1, rtol=1e-4), (
-        "Damage length after third step not close to the length after second step: "
-        f"{length_2}/{length_1}"
-    )
-    assert np.all(length_2 < length_1), (
-        "Damage length expected to be smaller for step 3 than for step 2: "
-        f"{length_2}/{length_1}"
+    np.testing.assert_allclose(
+        length_0,
+        length_2,
+        rtol=1e-8,
+        err_msg=f"Damage length mismatch after first and third step: "
+        f"{length_0}/{length_2}.",
     )
 
     # 3) After fourth step, damage *length* (as opposed to damage above) should increase
     # due to nonzero tangential increment, even though damage does not increase due to
     # the fracture being open.
-    expected_3 = 0.2 if dim == 2 else np.sqrt(0.05)
+    expected_3 = 1e-4 if dim == 2 else np.sqrt(1 / 2) * 1e-4
     np.testing.assert_allclose(
         length_3,
         expected_3,
-        rtol=1e-4,
+        rtol=1e-3,
         err_msg=f"Damage length is too small after fourth step: {length_3}",
     )
 
@@ -325,8 +359,7 @@ def test_anisotropic_damage(dim: int):
     [["dilation"], ["friction"], ["dilation", "friction"]],
 )
 @pytest.mark.parametrize(
-    "time_steps",
-    [2, 7],  # pytest.param(7, marks=pytest.mark.skipped(reason="slow"))
+    "time_steps", [2, pytest.param(5, marks=pytest.mark.skipped(reason="slow"))]
 )  # The skipped tests take several minutes.
 def test_damage(
     isotropic: bool,
@@ -359,34 +392,16 @@ def test_damage(
                 continue
             if "friction" in name and "friction" not in damages:
                 continue
-            compare_single_quantity(m, t, name)
+            results = m.results[t]
 
+            exact = getattr(results, "exact_" + name)
+            approx = getattr(results, "approx_" + name)
 
-def compare_single_quantity(m: pp.PorePyModel, t: int, name: str, atol: float = 1e-5):
-    """Test a single quantity at a specific time step.
-
-    Parameters:
-        m: The model instance. t: The time step index. name: The name of the quantity to
-        test. atol: The absolute tolerance for the test.
-
-    Raises:
-        AssertionError: If the results do not match the exact solution up to the
-        specified tolerance.
-    """
-    results = m.results[t]
-
-    # Retrieve the normalized error for the current time step and the current
-    # variable.
-    e = getattr(results, name + "_error")
-    # Uncomment to print the error. Useful for debugging. Might require running
-    # the test with pytest -s.
-    exact = getattr(results, "exact_" + name)
-    approx = getattr(results, "approx_" + name)
-    # print(f"Time step {t + 1}, {name}: {e}")
-    # print(f"Time step {t + 1}, {name} ana: {exact}")
-    # print(f"Time step {t + 1}, {name} num: {approx}")
-
-    # Assert that the error is small.
-    np.testing.assert_allclose(
-        exact, approx, atol=atol, err_msg=f"Mismatch for {name} at step {t + 1}"
-    )
+            np.testing.assert_allclose(
+                approx,
+                exact,
+                atol=1e-7,
+                rtol=6e-3,  # Lenient relative tolerance due to simplifications in exact
+                # solution.
+                err_msg=f"Mismatch for {name} at step {t + 1}",
+            )

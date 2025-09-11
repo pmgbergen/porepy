@@ -3970,8 +3970,12 @@ class FrictionDamage(pp.PorePyModel):
             Operator for nondimensionalized frictional damage.
 
         """
-        # Get the history variable.
-        history = self.friction_damage_history(subdomains)
+        f_clip = Function(
+            partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
+            "clip_function",
+        )
+        # Get the history variable. Guard against negative values.
+        history = f_clip(self.friction_damage_history(subdomains))
 
         # Get the material parameter.
         d0 = self.initial_friction_damage(subdomains)
@@ -4060,11 +4064,11 @@ class DilationDamage(pp.PorePyModel):
             Operator for dimensionless dilation damage.
 
         """
-        # Get the history variable.
         f_clip = Function(
             partial(pp.ad.functions.clip, min_val=0.0, max_val=10.0),
             "clip_function",
         )
+        # Get the history variable. Guard against negative values.
         history = f_clip(self.dilation_damage_history(subdomains))
 
         # Get the material parameter.

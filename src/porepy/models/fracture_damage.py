@@ -230,9 +230,11 @@ class FractureDamageEquations(pp.PorePyModel, abc.ABC):
             length_i, constant_part_i = length_function(subdomains, i)
             # Provided the contribution is the product of the constant part and some
             # variable, constant_part_i = 0 implies contribution_i = 0 regardless of the
-            # variable's value.
+            # variable's value. The damage coefficient is also treated as constant (it
+            # is evaluated at the previous time step).
             constant_value = cast(
-                np.ndarray, constant_part_i.value(self.equation_system)
+                np.ndarray,
+                (constant_part_i * damage_coefficient_i).value(self.equation_system),
             )
             if np.any(np.abs(constant_value) > tolerance):  # tolerance for zero check
                 eq += length_i * damage_coefficient_i
@@ -357,16 +359,8 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
     unified treatment of damage in both friction and dilation.
     """
 
-    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method to compute the characteristic contact traction on fractures."""
-
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the characteristic displacement on fractures."""
-
-    contact_mechanics_open_state_characteristic: Callable[
-        [list[pp.Grid]], pp.ad.Operator
-    ]
-    """Method to compute the open/closed state characteristic for contact mechanics."""
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method to compute the contact traction on fractures."""
@@ -416,14 +410,6 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
         u_t_1 = u_t.previous_timestep(time_step_index + 1)
         u_t_0 = u_t.previous_timestep(time_step_index)
 
-        # Create Heaviside function to handle open fractures.
-        # The fracture is closed if the normal traction is negative. There is no damage
-        # if the fracture is open. Add tolerance since a numerically zero traction
-        # should not be considered as closed.
-        closed = pp.ad.Scalar(1.0) - self.contact_mechanics_open_state_characteristic(
-            subdomains
-        )
-
         # Length is evaluated using the ramp function max(x, 0)
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         zero = pp.ad.Scalar(0.0)
@@ -436,12 +422,12 @@ class AnisotropicFractureDamageLength(pp.PorePyModel):
             zero,
         )
         f_abs = pp.ad.Function(pp.ad.abs, "abs_function")
-        contribution = closed * (f_abs(max_1 - max_0))
+        contribution = f_abs(max_1 - max_0)
         # If time_step_index > 0, we can safely disregard the contribution if the
         # displacement increment is zero. Return increment for checking before adding
         # the contribution.
         increment = u_t_0 - u_t_1
-        return contribution, increment
+        return contribution, tangential_to_scalar @ increment
 
     def normalized_tangential_plastic_jump(
         self, subdomains: list[pp.Grid]
@@ -513,6 +499,10 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
             the full contribution is also zero.
         """
         nd_vec_to_tangential = self.tangential_component(subdomains)
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_to_scalar = pp.ad.sum_projection_list(
+            [e_i.T for e_i in tangential_basis]
+        )
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
         u_t_increment = u_t.previous_timestep(time_step_index) - u_t.previous_timestep(
             time_step_index + 1
@@ -522,4 +512,4 @@ class IsotropicFractureDamageLength(pp.PorePyModel):
 
         contribution = f_norm(u_t_increment)
 
-        return contribution, u_t_increment
+        return contribution, tangential_to_scalar @ u_t_increment
