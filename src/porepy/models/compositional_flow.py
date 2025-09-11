@@ -534,6 +534,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
             \Phi \rho \z_{\eta},
 
+            new form: n=n_T*z_\eta, n_T = total molar concentration
+            the purpose is to introduce mineral calculations
+
         in AD operator form on the given ``subdomains``.
 
         Parameters:
@@ -544,10 +547,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             Above expression in AD operator form.
 
         """
-        mass_density = (
-            self.porosity(subdomains)
-            * self.fluid.density(subdomains)
-            * component.fraction(subdomains)
+        mass_density = self.total_molar_concentration(subdomains) * component.fraction(
+            subdomains
         )
         mass_density.set_name(f"component_mass_{component.name}")
         return mass_density

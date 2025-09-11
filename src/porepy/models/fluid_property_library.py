@@ -334,15 +334,16 @@ class FluidMobility(pp.PorePyModel):
         # Distinguish between single-phase case and multi-phase case: Usage of rel-perm
         # makes this class compatible with single-phase models, without requiring some
         # rel-perm mixin.
-        if self.fluid.num_fluid_phases > 1:
-            mobility = self.relative_permeability(phase, domains) / phase.viscosity(
-                domains
-            )
-        elif phase == self.fluid.reference_phase:
-            mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0)
-        elif phase.state == PhysicalState.solid:
+        if phase.state == PhysicalState.solid:
             # Solid phase mobility is zero, but we still need to return an operator.
             mobility = pp.ad.Scalar(0.0, "solid_phase_mobility")
+        else:
+            if self.fluid.num_fluid_phases > 1:
+                mobility = self.relative_permeability(phase, domains) / phase.viscosity(
+                    domains
+                )
+            elif phase == self.fluid.reference_phase:
+                mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0)
         mobility.set_name(f"phase_mobility_{phase.name}")
         return mobility
 

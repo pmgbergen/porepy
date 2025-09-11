@@ -756,6 +756,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             component.equilibrium_stability_index = self.equilibrium_stability_index(
                 component
             )
+            component.mineral_saturation = self.mineral_saturation(component)
 
         # Creation of tracer fractions for compounds.
         for component in self.fluid.components:
@@ -1303,6 +1304,26 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         op = self.porosity(domains) * self.fluid.density(domains) + (
             pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains)
         ) * self.fluid.solid_density(domains)
+
+    def mineral_saturation(
+        self,
+        component: Component,
+    ) -> DomainFunctionType:
+        if component in self.fluid.solid_components:
+
+            def mineral_saturation(
+                domains: pp.SubdomainsOrBoundaries,
+            ) -> pp.ad.Operator:
+                s = (
+                    self.total_molar_concentration(domains)
+                    * component.fraction(domains)
+                    * component.molar_volume(domains)
+                    / pp.ad.Scalar(self.solid.total_porosity)
+                )
+                s.set_name(f"mineral_saturation_of_{component.name}")
+                return s
+
+            return mineral_saturation
 
 
 class FluidMixin(pp.PorePyModel):

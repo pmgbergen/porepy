@@ -106,6 +106,9 @@ class Component:
         # Creating the overall molar fraction variable.
         self.fraction: DomainFunctionType
         self.equilibrium_stability_index: ExtendedDomainFunctionType
+        self.molar_bulk_concentration: ExtendedDomainFunctionType
+        self.molar_volume: ExtendedDomainFunctionType
+        self.mineral_saturation: ExtendedDomainFunctionType
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
 
@@ -1060,7 +1063,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             op = pp.ad.sum_operator_list(
                 [
                     phase.fraction(domains) * phase.specific_enthalpy(domains)
-                    for phase in self.phases
+                    for phase in self._fluid_phases
                 ],
                 "fluid_specific_enthalpy",
             )
