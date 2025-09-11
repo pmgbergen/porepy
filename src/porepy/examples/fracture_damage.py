@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, cast
-from abc import ABC, abstractmethod
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -8,8 +7,6 @@ import porepy as pp
 from porepy.applications.boundary_conditions.model_boundary_conditions import (
     BoundaryConditionsMechanicsDirNorthSouth,
 )
-from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.applications.test_utils.models import ContactMechanicsTester
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
 
@@ -177,7 +174,7 @@ DATA_SAVING_METHOD_NAMES = [
 ]
 
 
-def make_damagesavedata_class(method_names):
+def make_damagesavedata_class(method_names: list[str]) -> type:
     """Create a dataclass type with fields for exact/approx values and errors."""
     annotations: dict[str, type] = {}
     namespace: dict[str, object] = {"__annotations__": annotations}
@@ -185,7 +182,6 @@ def make_damagesavedata_class(method_names):
     for name in method_names:
         annotations[f"exact_{name}"] = np.ndarray
         annotations[f"approx_{name}"] = np.ndarray
-        annotations[f"{name}_error"] = float
 
     cls = type("DamageSaveData", (object,), namespace)
     return dataclass(cls)
@@ -197,7 +193,7 @@ DamageSaveData = make_damagesavedata_class(DATA_SAVING_METHOD_NAMES)
 class DamageDataSaving(pp.PorePyModel):
     """Model mixin responsible for saving data for verification purposes."""
 
-    damage_length: Callable[[list[pp.Grid], int], pp.ad.Operator]
+    damage_length: Callable[[list[pp.Grid], int], tuple[pp.ad.Operator, pp.ad.Operator]]
     """Damage length operator."""
     dilation_damage: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Dilation damage operator."""
@@ -218,7 +214,7 @@ class DamageDataSaving(pp.PorePyModel):
         super().initialize_data_saving()  # type: ignore[safe-super]
         self.exact_sol: ExactSolution = self.params["exact_solution"](self)
 
-    def collect_data(self) -> DamageSaveData:
+    def collect_data(self) -> Any:
         """Collect the data from the verification setup.
 
         Returns:
@@ -238,8 +234,8 @@ class DamageDataSaving(pp.PorePyModel):
                 exact_val = cast(np.ndarray, self.exact_sol.damage_length(sd, n, n))
                 # Since we have already updated the solution, time_step_index=1 gives
                 # the most recent increment.
-                length, _ = self.damage_length(sds, time_step_index=1)
-                approx_val = length.value(self.equation_system)
+                length, _ = self.damage_length(sds, 1)
+                approx_val = cast(np.ndarray, length.value(self.equation_system))
             else:
                 if hasattr(self, name):
                     # Collect data.
@@ -253,16 +249,8 @@ class DamageDataSaving(pp.PorePyModel):
                     exact_val = np.ones(sd.num_cells)
                     approx_val = np.zeros_like(exact_val)
 
-            error = ConvergenceAnalysis.lp_error(
-                grid=sd,
-                true_array=exact_val,
-                approx_array=approx_val,
-                is_scalar=True,
-                is_cc=True,
-            )
             vals["exact_" + name] = exact_val
             vals["approx_" + name] = approx_val
-            vals[name + "_error"] = error
         collected_data = DamageSaveData(**vals)
         return collected_data
 
@@ -358,7 +346,7 @@ class ExactSolution:
 
         """
         if "north_stress" in self.model.params:
-            return self.model.params["north_stress"][n]
+            return np.full(sd.num_cells, self.model.params["north_stress"][n])
         else:
             return np.zeros(sd.num_cells)
 
@@ -588,15 +576,15 @@ north_stress = -1e5 * np.ones(num_time_steps)
 solid_params = pp.solid_values.extended_granite_values_for_testing.copy()
 solid_params.update(
     {
-        "friction_coefficient": 0.01,  # Low friction to get slip \approx bc displacement
+        "friction_coefficient": 0.01,  # Low friction => slip \approx bc displacement
         "uniaxial_compressive_strength": 1e8,
-        "characteristic_fracture_roughness": 1e-4,  # [m]
+        "characteristic_fracture_roughness": 1e-4,
         "initial_friction_damage": 0.3,
         "initial_dilation_damage": 0.6,
     }
 )
 # Increase shear modulus to suppress shear displacements relative to normal ones.
-solid_params["shear_modulus"] = 1e3 * solid_params["shear_modulus"]
+solid_params["shear_modulus"] = 1e3 * cast(float, solid_params["shear_modulus"])
 
 model_params = {
     # We need two cells in the y direction to get a fracture. In the x direction, we

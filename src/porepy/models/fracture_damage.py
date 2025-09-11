@@ -1,13 +1,12 @@
 from functools import partial
 from typing import Callable, cast
-import abc
 
 import numpy as np
 
 import porepy as pp
 
 
-class FractureDamageVariables(pp.PorePyModel):
+class FractureDamageVariables(pp.VariableMixin):
     """Base class for fracture damage variables.
 
     Common functionality for fracture damage variables. Currently related to storing of
@@ -175,7 +174,7 @@ class FrictionDamageVariable(FractureDamageVariables):
         )
 
 
-class FractureDamageEquations(pp.PorePyModel, abc.ABC):
+class FractureDamageEquations(pp.PorePyModel):
     """Base class for fracture damage equations.
 
     Provides shared helpers for damage convolution-based equations. Subclasses should

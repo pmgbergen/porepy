@@ -25,7 +25,6 @@ from typing import Callable, TypeVar
 import numpy as np
 import scipy.sparse as sps
 
-
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 

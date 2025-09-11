@@ -108,7 +108,8 @@ def run_displacement_controlled_setup(
             {"dilation", "friction"}).
 
     Returns:
-        A list of VerificationDataSaving instances containing results for each time step.
+        A list of VerificationDataSaving instances containing results for each time
+        step.
     """
     cls, model_params, solver_params = setup(isotropic, dim, damages, 5)
 

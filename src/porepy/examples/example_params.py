@@ -21,7 +21,6 @@ from porepy.applications.material_values.solid_values import (
 )
 from porepy.numerics.nonlinear.line_search import ConstraintLineSearchNonlinearSolver
 
-
 # Used for conversion of units.
 units = pp.Units()
 
