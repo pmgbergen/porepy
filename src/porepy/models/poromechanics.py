@@ -103,7 +103,7 @@ class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
     """
     second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the second Lame parameter. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of

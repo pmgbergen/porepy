@@ -3022,7 +3022,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
     This class is not meant to be mixed in directly, but is used by other mixin classes,
     see for instance TpsaMomentumBalanceMixin.
 
-    This class define the mechanical stress as a function of the displacement, rotation
+    This class defines the mechanical stress as a function of the displacement, rotation
     stress, and total pressure variables. The class further defines face-wise operators
     (think generalized fluxes) for the rotation and the solid mass.
 
@@ -3269,13 +3269,15 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0, name="inv_mu")
+            return pp.wrap_as_dense_ad_array(
+                0, size=0, name="first_lame_parameter_inverted"
+            )
 
         mu = []
         for sd in subdomains:
             stiffness = self.stiffness_tensor(sd)
             if np.any(stiffness.mu == 0):
-                # If mu is actually zero, it is unclear if the three-field
+                # If the parameter is actually zero, it is unclear if the three-field
                 # formulation can be applied. Raise an error for now.
                 raise ValueError("Cannot take the inverse of a zero Lame parameter.")
 
@@ -3306,8 +3308,8 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
         for sd in subdomains:
             stiffness = self.stiffness_tensor(sd)
             if np.any(stiffness.lmbda == 0):
-                # If lmbda is actually zero, it is unclear if the three-field
-                # formulation can be applied. Raise an error  for now.
+                # If the parameter is actually zero, it is unclear if the three-field
+                # formulation can be applied. Raise an error for now.
                 raise ValueError("Cannot take the inverse of a zero Lame parameter.")
 
             lmbda.append(1.0 / stiffness.lmbda)
@@ -3324,7 +3326,7 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
     pressure are the primary variables. This formulation is used to make the problem
     ammenable to the Tpsa discretization. The constitutive laws here are specific to the
     poromechanical extension of the pure mechanics problem, see also
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
 
     """
 
@@ -3340,15 +3342,19 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
         [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
     ]
     """Total pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.VariablesThreeFieldMomentumBalance`.
     """
     inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the second Lame parameter. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Biot coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+    """
+    second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Inverse of the second Lame parameter. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -3377,9 +3383,6 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
         the alternative formulation of the displacement divergence used in the Tpsa
         formulation. For details, see the Tpsa paper, https://arxiv.org/pdf/2405.10390,
         specifically sections 1 and 2.1.
-
-        TODO: Is it okay to place this method in this mixin class, or should we have a
-        separate mixin for the TPSA-related changes to the porosity model?
 
         Parameters:
             subdomains: List of subdomains where the displacement divergence is defined.
@@ -4550,7 +4553,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
         subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-        # Constant unitary porosity in fractures and intersections
+        # Constant unitary porosity in fractures and intersections.
         size = sum(sd.num_cells for sd in subdomains_lower)
         one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
         phi_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(

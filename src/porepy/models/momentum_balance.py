@@ -22,7 +22,7 @@ Two different formulations are available:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Sequence, cast, Literal
+from typing import Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
 
@@ -205,27 +205,27 @@ class AngularMomentumEquation(pp.BalanceEquation):
     """
 
     _rotation_dimension: Callable[[], Literal[1, 3]]
-    """Dimension of the rotation variable. Defined in a mixin instance of 
+    """Dimension of the rotation variable. Defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
     first_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the first Lame parameter. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     total_rotation: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Total rotation over faces. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Rotation variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.VariablesThreeFieldMomentumBalance`.
     """
 
     def set_equations(self) -> None:
-        """Add the angular momentum equation to the set of equations"""
+        """Add the angular momentum equation to the set of equations."""
 
-        # Set equations for momentum balance and fracture deformation by calling
-        # the parent class.
+        # Set other equations, including for momentum balance and fracture deformation,
+        # by calling the parent class.
         super().set_equations()
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
@@ -298,15 +298,15 @@ class SolidMassEquation(pp.BalanceEquation):
     solid_mass_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Flux expression for the solid mass, as employed in the two-point stress
     approximation scheme. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the second Lame parameter. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Total pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.VariablesThreeFieldMomentumBalance`.
     """
 
     def set_equations(self) -> None:
@@ -322,8 +322,7 @@ class SolidMassEquation(pp.BalanceEquation):
         """Define the solid mass conservation equation and add it to the EquationSystem.
 
         Parameters:
-            subdomains: List of subdomains where the solid mass equation is
-                defined.
+            subdomains: List of subdomains where the solid mass equation is defined.
 
         Returns:
             Operator for the solid mass conservation equation.
@@ -352,8 +351,7 @@ class SolidMassEquation(pp.BalanceEquation):
         completeness.
 
         Parameters:
-            subdomains: List of subdomains where the solid mass source is
-                defined.
+            subdomains: List of subdomains where the solid mass source is defined.
 
         Returns:
             Operator for the solid mass source term. Set to zero by default.
@@ -510,20 +508,20 @@ class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
     rotation_stress_variable: str
     """Name of the primary variable representing the rotation stress in subdomains.
     Normally defined in a mixin of instance
-    :class:`~porepy.models.momentum_balance._SolutionStrategyThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.SolutionStrategyThreeFieldMomentumBalance`.
     """
     total_pressure_variable: str
     """Name of the primary variable representing the total pressure in subdomains.
     Normally defined in a mixin of instance
-    :class:`~porepy.models.momentum_balance._SolutionStrategyThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.SolutionStrategyThreeFieldMomentumBalance`.
     """
     _rotation_dimension: Callable[[], Literal[1, 3]]
-    """Dimension of the rotation stress variable. Defined in a mixin instance of 
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    """Dimension of the rotation stress variable. Defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
 
     def create_variables(self) -> None:
-        """Set variables related to the three-field formulation of momentuum balance.
+        """Set variables related to the three-field formulation of momentum balance.
 
         The following variables are set:
             - Rotation stress in the matrix.
@@ -595,7 +593,7 @@ class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
 
         Parameters:
             domains: List of subdomains where the total pressure is defined. Should be
-            the matrix subdomains.
+                the matrix subdomains.
 
         Raises:
             ValueError: If the domains represents the domain boundary.
@@ -648,10 +646,10 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin 
-    instance of either 
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of either
     :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
+    or
     :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
@@ -873,16 +871,16 @@ class InitialConditionsThreeFieldMomentumBalance(pp.InitialConditionMixin):
     variables."""
 
     _rotation_dimension: Callable[[], Literal[1, 3]]
-    """Dimension of the rotation variable. Defined in a mixin instance of 
-    :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
+    """Dimension of the rotation variable. Defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Rotation stress variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.VariablesThreeFieldMomentumBalance`.
     """
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Total pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
+    :class:`~porepy.models.momentum_balance.VariablesThreeFieldMomentumBalance`.
     """
 
     def set_initial_values_primary_variables(self) -> None:
