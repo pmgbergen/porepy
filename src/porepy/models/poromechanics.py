@@ -101,7 +101,7 @@ class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
     """Biot coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
-    inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
+    second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the second Lame parameter. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
@@ -128,12 +128,12 @@ class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
         momentum_term = super().solid_mass_equation(subdomains)
 
         # Add the term related to the fluid pressure.
-        iLambda = self.inv_lambda(subdomains)
+        inv_lambda = self.second_lame_parameter_inverted(subdomains)
         # Biot coefficient.
         biot = self.biot_coefficient(subdomains)
 
         pressure_term = self.volume_integral(
-            iLambda * biot * self.pressure(subdomains),
+            inv_lambda * biot * self.pressure(subdomains),
             subdomains,
             dim=1,
         )

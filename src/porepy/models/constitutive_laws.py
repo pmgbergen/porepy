@@ -3389,7 +3389,7 @@ class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
 
         """
         alpha = self.biot_coefficient(subdomains)
-        inv_lambda = self.inv_lambda(subdomains)
+        inv_lambda = self.second_lame_parameter_inverted(subdomains)
 
         coeff = (
             alpha
