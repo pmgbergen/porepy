@@ -268,46 +268,6 @@ def get_variables(
     return u_vals, p_vals, p_frac, jump, traction
 
 
-@pytest.mark.parametrize("biot_coefficient", [0, 0.5])
-@pytest.mark.parametrize("model", [TailoredPoromechanics, TailoredPoromechanicsTpsa])
-def test_without_fracture(biot_coefficient: float, model):
-    """Test that the solution is qualitatively sound for a domain without fractures.
-
-    Parameters:
-        biot_coefficient: Biot coefficient.
-        model: Model class to use.
-
-    """
-    fluid = pp.FluidConstants(constants={"compressibility": 0.5})
-    solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
-    params = {
-        "fracture_indices": [],
-        "material_constants": {"fluid": fluid, "solid": solid},
-        "u_north": [0, 0.001],
-        "cartesian": True,
-    }
-    m = model(params)
-    pp.run_time_dependent_model(m, {})
-
-    sd = m.mdg.subdomains(dim=m.nd)
-    u = m.displacement(sd).value(m.equation_system).reshape((m.nd, -1), order="F")
-    p = m.pressure(sd).value(m.equation_system)
-
-    # By symmetry (reasonable to expect from this grid), the average x displacement
-    # should be zero
-    tol = 1e-10
-    assert np.abs(np.sum(u[0])) < tol
-    # Check that y component lies between zero and applied boundary displacement
-    assert np.all(u[1] > 0)
-    assert np.all(u[1] < 0.001)
-    if biot_coefficient == 0:
-        # No coupling implies zero pressure.
-        assert np.allclose(p, 0)
-    else:
-        # Check that the expansion yields a negative pressure.
-        assert np.all(p < -tol)
-
-
 @pytest.mark.parametrize(
     "solid_vals,north_displacement",
     [
@@ -402,7 +362,10 @@ def test_poromechanics_model_no_modification():
 
 
 @pytest.mark.parametrize("biot_coefficient", [0.0, 0.5])
-def test_without_fracture(biot_coefficient):
+@pytest.mark.parametrize(
+    "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
+)
+def test_without_fracture(biot_coefficient, model_class):
     fluid = pp.FluidComponent(compressibility=0.5)
     solid = pp.SolidConstants(biot_coefficient=biot_coefficient)
     params = {
@@ -412,7 +375,7 @@ def test_without_fracture(biot_coefficient):
         "cartesian": True,
         "times_to_export": [],
     }
-    model = TailoredPoromechanics(params)
+    model = model_class(params)
     pp.run_time_dependent_model(model)
 
     sd = model.mdg.subdomains(dim=model.nd)
