@@ -204,7 +204,7 @@ class AngularMomentumEquation:
     approximation.
     """
 
-    _rotation_dimension: Callable[[], Literal[1, 3]]
+    rotation_dimension: Callable[[], Literal[1, 3]]
     """Dimension of the rotation variable. Defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
@@ -231,7 +231,7 @@ class AngularMomentumEquation:
 
         angular_momentum = self.angular_momentum_equation(matrix_subdomains)
         self.equation_system.set_equation(
-            angular_momentum, matrix_subdomains, {"cells": self._rotation_dimension()}
+            angular_momentum, matrix_subdomains, {"cells": self.rotation_dimension()}
         )
 
     def angular_momentum_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -255,7 +255,7 @@ class AngularMomentumEquation:
             / self.first_lame_parameter(subdomains)
             * self.rotation_stress(subdomains),
             subdomains,
-            dim=self._rotation_dimension(),
+            dim=self.rotation_dimension(),
         )
 
         source = self.source_angular_momentum(subdomains)
@@ -265,7 +265,7 @@ class AngularMomentumEquation:
             accumulation,
             total_rotation,
             source,
-            dim=self._rotation_dimension(),
+            dim=self.rotation_dimension(),
         )
         angular_momentum.set_name("angular_momentum_balance_equation")
 
@@ -284,7 +284,7 @@ class AngularMomentumEquation:
         """
         num_cells = sum(sd.num_cells for sd in subdomains)
         return pp.ad.DenseArray(
-            np.zeros(num_cells * self._rotation_dimension()),
+            np.zeros(num_cells * self.rotation_dimension()),
             "zero angular momentum source",
         )
 
@@ -517,10 +517,6 @@ class VariablesThreeFieldMomentumBalance:
     Normally defined in a mixin of instance
     :class:`~porepy.models.momentum_balance.SolutionStrategyThreeFieldMomentumBalance`.
     """
-    _rotation_dimension: Callable[[], Literal[1, 3]]
-    """Dimension of the rotation stress variable. Defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
-    """
 
     def create_variables(self) -> None:
         """Set variables related to the three-field formulation of momentum balance.
@@ -549,7 +545,7 @@ class VariablesThreeFieldMomentumBalance:
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
 
         self.equation_system.create_variables(
-            dof_info={"cells": self._rotation_dimension()},
+            dof_info={"cells": self.rotation_dimension()},
             name=self.rotation_stress_variable,
             subdomains=matrix_subdomains,
             tags={"si_units": "Pa"},
@@ -618,6 +614,15 @@ class VariablesThreeFieldMomentumBalance:
             raise ValueError(f"Subdomains must all be of dimension {self.nd}.")
 
         return self.equation_system.md_variable(self.total_pressure_variable, domains)
+
+    def rotation_dimension(self) -> Literal[1, 3]:
+        """Get the dimension of the rotation variable.
+
+        Returns:
+            1 for 2d problems, 3 for 3d problems.
+
+        """
+        return 1 if self.nd == 2 else 3
 
 
 class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
@@ -872,7 +877,7 @@ class InitialConditionsThreeFieldMomentumBalance:
     """Mixin for setting initial conditions for the rotation and total pressure
     variables."""
 
-    _rotation_dimension: Callable[[], Literal[1, 3]]
+    rotation_dimension: Callable[[], Literal[1, 3]]
     """Dimension of the rotation variable. Defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
@@ -928,7 +933,7 @@ class InitialConditionsThreeFieldMomentumBalance:
             ``shape=(sd.num_cells * rotation_dim,)``. Defaults to zero array.
 
         """
-        return np.zeros(sd.num_cells * self._rotation_dimension())
+        return np.zeros(sd.num_cells * self.rotation_dimension())
 
     def ic_values_total_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Initial values for total pressure.

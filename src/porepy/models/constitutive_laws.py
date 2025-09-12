@@ -3062,15 +3062,10 @@ class ThreeFieldLinearElasticMechanicalStress:
     """Operator returning the stiffness tensor. Can be defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ElasticModuli`.
     """
-
-    def _rotation_dimension(self) -> Literal[1, 3]:
-        """Get the dimension of the rotation variable.
-
-        Returns:
-            1 for 2d problems, 3 for 3d problems.
-
-        """
-        return 1 if self.nd == 2 else 3
+    rotation_dimension: Callable[[], Literal[1, 3]]
+    """Dimension of the rotation stress variable. Defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
+    """
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress [Pa] as defined in the three-field
