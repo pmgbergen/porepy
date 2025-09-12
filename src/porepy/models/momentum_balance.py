@@ -208,7 +208,7 @@ class AngularMomentumEquation:
     """Dimension of the rotation variable. Defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws._ThreeFieldLinearElasticMechanicalStress`.
     """
-    first_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
+    first_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Inverse of the first Lame parameter. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
@@ -251,7 +251,8 @@ class AngularMomentumEquation:
         # The accumulation term is what it is in the three-field formulation, see the
         # Tpsa paper for more information (reference in module-level docstring).
         accumulation = -self.volume_integral(
-            self.first_lame_parameter_inverted(subdomains)
+            pp.ad.Scalar(1)
+            / self.first_lame_parameter(subdomains)
             * self.rotation_stress(subdomains),
             subdomains,
             dim=self._rotation_dimension(),
@@ -300,8 +301,8 @@ class SolidMassEquation:
     approximation scheme. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
-    second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Inverse of the second Lame parameter. Normally defined in a mixin instance of
+    second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Second Lame parameter. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
     """
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -332,7 +333,8 @@ class SolidMassEquation:
 
         source = self.solid_mass_source(subdomains)
         accumulation = -self.volume_integral(
-            self.second_lame_parameter_inverted(subdomains)
+            pp.ad.Scalar(1)
+            / self.second_lame_parameter(subdomains)
             * self.total_pressure(subdomains),
             subdomains,
             dim=1,

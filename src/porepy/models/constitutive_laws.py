@@ -3252,10 +3252,8 @@ class ThreeFieldLinearElasticMechanicalStress:
         )
         return mass_flux
 
-    def first_lame_parameter_inverted(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Wrap the inverse of the first Lame parameter as an Ad operator.
+    def first_lame_parameter(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Wrap the first Lame parameter as an Ad operator.
 
         Parameters:
             subdomains: List of grids.
@@ -3264,31 +3262,22 @@ class ThreeFieldLinearElasticMechanicalStress:
             ValueError: If the stiffness tensor has a zero first Lame parameter.
 
         Returns:
-            Operator for the inverse first Lame parameter. The values are pulled from
-            the stiffness tensor.
+            Operator for the first Lame parameter. The values are pulled from the
+            stiffness tensor.
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(
-                0, size=0, name="first_lame_parameter_inverted"
-            )
+            return pp.wrap_as_dense_ad_array(0, size=0, name="first_lame_parameter")
 
         mu = []
         for sd in subdomains:
             stiffness = self.stiffness_tensor(sd)
-            if np.any(stiffness.mu == 0):
-                # If the parameter is actually zero, it is unclear if the three-field
-                # formulation can be applied. Raise an error for now.
-                raise ValueError("Cannot take the inverse of a zero Lame parameter.")
+            mu.append(np.repeat(stiffness.mu, self.rotation_dimension()))
 
-            mu.append(np.repeat(1.0 / stiffness.mu, self._rotation_dimension()))
+        return pp.ad.DenseArray(np.hstack(mu), name="first_lame_parameter")
 
-        return pp.ad.DenseArray(np.hstack(mu), name="inv_mu")
-
-    def second_lame_parameter_inverted(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Wrap the inverse of the second Lame parameter as an Ad operator.
+    def second_lame_parameter(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Wrap the second Lame parameter as an Ad operator.
 
         Parameters:
             subdomains: List of grids.
@@ -3297,24 +3286,19 @@ class ThreeFieldLinearElasticMechanicalStress:
             ValueError: If the stiffness tensor has a zero second Lame parameter.
 
         Returns:
-            Operator for the inverse second  Lame parameter. The values are pulled from
-            the stiffness tensor.
+            Operator for the second Lame parameter. The values are pulled from the
+            stiffness tensor.
 
         """
         if len(subdomains) == 0:
-            return pp.wrap_as_dense_ad_array(0, size=0, name="inv_lambda")
+            return pp.wrap_as_dense_ad_array(0, size=0, name="second_lame_parameter")
 
         lmbda = []
         for sd in subdomains:
             stiffness = self.stiffness_tensor(sd)
-            if np.any(stiffness.lmbda == 0):
-                # If the parameter is actually zero, it is unclear if the three-field
-                # formulation can be applied. Raise an error for now.
-                raise ValueError("Cannot take the inverse of a zero Lame parameter.")
+            lmbda.append(stiffness.lmbda)
 
-            lmbda.append(1.0 / stiffness.lmbda)
-
-        return pp.ad.DenseArray(np.hstack(lmbda), name="inv_lambda")
+        return pp.ad.DenseArray(np.hstack(lmbda), name="second_lame_parameter")
 
 
 class ConstitutiveLawsTpsaPoromechanics:
@@ -3392,11 +3376,11 @@ class ConstitutiveLawsTpsaPoromechanics:
 
         """
         alpha = self.biot_coefficient(subdomains)
-        inv_lambda = self.second_lame_parameter_inverted(subdomains)
+        lmbda = self.second_lame_parameter(subdomains)
 
         coeff = (
             alpha
-            * inv_lambda
+            / lmbda
             * (self.total_pressure(subdomains) + alpha * self.pressure(subdomains))
         )
 
