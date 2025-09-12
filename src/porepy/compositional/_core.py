@@ -152,6 +152,7 @@ COMPOSITIONAL_VARIABLE_SYMBOLS = {
     "element_fluid_fraction": "e",
     "element_chemical_potential": "yy",
     "equilibrium_stability_index": "zz",
+    "mineral_saturation": "ms",
 }
 """A dictionary mapping names of variables (key) to their symbol (value), which is used
 in the compositional framework.

@@ -781,7 +781,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         self.element_density_ratio: DomainFunctionType
         self.element_chemical_potential_of: dict[Element, ExtendedDomainFunctionType]
         self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
-        self.solid_components: list[FluidComponent] = []
+        self.solid_components: list[ComponentLike] = []
 
         for comp in components:
             double_names.append(comp.name)
@@ -821,7 +821,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         elif len(solidlike_phases) == 1:
             self.solid_phase = solidlike_phases[0]
 
-        solid_components: list[FluidComponent] = []
+        solid_components: list[ComponentLike] = []
         for phase in self._phases:
             if phase.state == PhysicalState.solid:
                 for comp in phase.components:

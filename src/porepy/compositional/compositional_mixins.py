@@ -459,6 +459,10 @@ class _MixtureDOFHandler(pp.PorePyModel):
         """Returns the name of the fraction variable assigned to ``component``."""
         return f"{symbols['overall_fraction']}_{component.name}"
 
+    def _mineral_saturation_variable(self, component: Component) -> str:
+        """Returns the name of the mineral_saturation variable assigned to ``component``."""
+        return f"{symbols['mineral_saturation']}_{component.name}"
+
     def _saturation_variable(self, phase: Phase) -> str:
         """Returns the name of the saturation variable assigned to ``phase``."""
         return f"{symbols['phase_saturation']}_{phase.name}"
@@ -1305,25 +1309,32 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains)
         ) * self.reactive_solid_density(domains)
 
+        return op
+
     def mineral_saturation(
         self,
         component: Component,
     ) -> DomainFunctionType:
+        """
+        def mineral_saturation(
+            domains: pp.SubdomainsOrBoundaries,
+        ) -> pp.ad.Operator:
+            s = (
+                self.total_molar_concentration(domains)
+                * component.fraction(domains)
+                * pp.ad.Scalar(component.molar_volume)
+                / pp.ad.Scalar(self.solid.total_porosity)
+            )
+            s.set_name(f"mineral_saturation_of_{component.name}")
+            return s
+
+        return mineral_saturation
+        """
         if component in self.fluid.solid_components:
-
-            def mineral_saturation(
-                domains: pp.SubdomainsOrBoundaries,
-            ) -> pp.ad.Operator:
-                s = (
-                    self.total_molar_concentration(domains)
-                    * component.fraction(domains)
-                    * pp.ad.Scalar(component.molar_volume)
-                    / pp.ad.Scalar(self.solid.total_porosity)
-                )
-                s.set_name(f"mineral_saturation_of_{component.name}")
-                return s
-
-            return mineral_saturation
+            fraction = self._fraction_factory(
+                self._mineral_saturation_variable(component)
+            )
+            return fraction
 
     def reactive_solid_density(
         self, domains: pp.SubdomainsOrBoundaries
@@ -1336,8 +1347,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         rho_s = pp.ad.sum_operator_list(
             [
-                self.total_molar_concentration(domains)
-                * comp.fraction(domains)
+                comp.mineral_saturation(domains)
+                * pp.ad.Scalar(self.solid.total_porosity)
+                / pp.ad.Scalar(comp.molar_volume)
                 / (pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains))
                 for comp in self.fluid.solid_components
             ]

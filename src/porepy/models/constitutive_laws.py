@@ -4449,3 +4449,27 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi
+
+
+class ReactiveTransportPorosity(pp.PorePyModel):
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity changes due to mineral dissolution and dissipation [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            The porosity represented as an Ad operator.
+
+        """
+
+        sum0 = pp.ad.sum_operator_list(
+            [
+                pp.ad.Scalar(self.solid.total_porosity)
+                * comp.mineral_saturation(subdomains)
+                for comp in self.fluid.solid_components
+            ]
+        )
+        phi = pp.ad.Scalar(self.solid.total_porosity) - sum0
+        phi.set_name("reactive_transport_porosity")
+        return phi
