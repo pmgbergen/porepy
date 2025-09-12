@@ -197,7 +197,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
 
 
-class AngularMomentumEquation(pp.BalanceEquation):
+class AngularMomentumEquation:
     """Conservation equation for the angular momentum balance.
 
     Intended used for mechanics formulations that employ the two-point stress
@@ -288,7 +288,7 @@ class AngularMomentumEquation(pp.BalanceEquation):
         )
 
 
-class SolidMassEquation(pp.BalanceEquation):
+class SolidMassEquation:
     """Conservation equation for the solid mass balance.
 
     Intended used for mechanics formulations that employ the two-point stress
@@ -493,7 +493,7 @@ class VariablesMomentumBalance(VariableMixin):
         )
 
 
-class VariablesThreeFieldMomentumBalance(pp.PorePyModel):
+class VariablesThreeFieldMomentumBalance:
     """Variables used in the three-field formulation of the momentum balance, needed to
     use the Tpsa discretization scheme.
 
@@ -696,7 +696,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class SolutionStrategyThreeFieldMomentumBalance(pp.SolutionStrategy):
+class SolutionStrategyThreeFieldMomentumBalance:
     """Solution strategy for the three-field formulation of the momentum balance.
 
     This class is not meant to be mixed in directly, but is used by other mixin classes,
@@ -866,7 +866,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         return np.zeros(intf.num_cells * self.nd)
 
 
-class InitialConditionsThreeFieldMomentumBalance(pp.InitialConditionMixin):
+class InitialConditionsThreeFieldMomentumBalance:
     """Mixin for setting initial conditions for the rotation and total pressure
     variables."""
 

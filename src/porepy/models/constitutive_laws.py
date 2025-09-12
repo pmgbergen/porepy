@@ -3015,7 +3015,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         return pp.ad.MpsaAd(self.stress_keyword, subdomains)
 
 
-class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
+class ThreeFieldLinearElasticMechanicalStress:
     """Constitutive laws related to the three-field formulation of a linear elastic
     medium.
 
@@ -3317,7 +3317,7 @@ class ThreeFieldLinearElasticMechanicalStress(pp.PorePyModel):
         return pp.ad.DenseArray(np.hstack(lmbda), name="inv_lambda")
 
 
-class ConstitutiveLawsTpsaPoromechanics(pp.PorePyModel):
+class ConstitutiveLawsTpsaPoromechanics:
     """Mixin class containing constitutive laws for Tpsa discretization of
     poromechanics.
 
