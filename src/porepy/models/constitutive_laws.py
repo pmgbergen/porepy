@@ -3031,41 +3031,20 @@ class ThreeFieldLinearElasticMechanicalStress:
     combine_boundary_operators_mechanical_stress: Callable[
         [Sequence[pp.Grid]], pp.ad.Operator
     ]
-    """Combine mechanical stress boundary operators for different types of boundary
-    conditions. Can be provided by a mixin class of type
-    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
-    """
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-    """Displacement variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    """
     interface_displacement: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
-    """Displacement variable on interfaces. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    """
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Rotation stress variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
-    """
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Total pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance._VariablesThreeFieldMomentumBalance`.
-    """
     stress_keyword: str
-    """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-    """
     stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
-    """Operator returning the stiffness tensor. Can be defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-    """
     rotation_dimension: Callable[[], Literal[1, 3]]
-    """Dimension of the rotation stress variable. Defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
-    """
+    nd: int
+    mdg: pp.MixedDimensionalGrid
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], pp.ad.Operator]
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress [Pa] as defined in the three-field
@@ -3084,8 +3063,10 @@ class ThreeFieldLinearElasticMechanicalStress:
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             return self.create_boundary_operator(
-                name=self.stress_keyword,
-                domains=cast(Sequence[pp.BoundaryGrid], domains),
+                name=self.stress_keyword,  # type: ignore[call-arg]
+                domains=cast(  # type: ignore[call-arg]
+                    Sequence[pp.BoundaryGrid], domains
+                ),
             )
 
         # Check that the subdomains are grids.
@@ -3155,8 +3136,10 @@ class ThreeFieldLinearElasticMechanicalStress:
             # The boundary condition for this term is posed in terms of the displacement
             # variable (or stresses).
             return self.create_boundary_operator(
-                name=self.stress_keyword,
-                domains=cast(Sequence[pp.BoundaryGrid], domains),
+                name=self.stress_keyword,  # type: ignore[call-arg]
+                domains=cast(  # type: ignore[call-arg]
+                    Sequence[pp.BoundaryGrid], domains
+                ),
             )
 
         # Check that the subdomains are grids.
@@ -3209,8 +3192,10 @@ class ThreeFieldLinearElasticMechanicalStress:
             # The boundary condition for this term is posed in terms of the displacement
             # variable (or stresses).
             return self.create_boundary_operator(
-                name=self.stress_keyword,
-                domains=cast(Sequence[pp.BoundaryGrid], domains),
+                name=self.stress_keyword,  # type: ignore[call-arg]
+                domains=cast(  # type: ignore[call-arg]
+                    Sequence[pp.BoundaryGrid], domains
+                ),
             )
 
         # Check that the subdomains are grids.
@@ -3310,31 +3295,13 @@ class ConstitutiveLawsTpsaPoromechanics:
     """
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Operator to define the mechanical stress. Can be provided by a mixin class of
-    type :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
-    """
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    """
     total_pressure: Callable[
         [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
     ]
-    """Total pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesThreeFieldMomentumBalance`.
-    """
     inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Inverse of the second Lame parameter. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
-    """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Biot coefficient. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
-    """
-    second_lame_parameter_inverted: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Inverse of the second Lame parameter. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
-    """
+    second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator [Pa].
