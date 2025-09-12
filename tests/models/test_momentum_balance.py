@@ -43,16 +43,18 @@ class TpsaLinearModel(
 )
 @pytest.mark.parametrize("model_class", [LinearModel, TpsaLinearModel])
 def test_2d_single_fracture(
-    solid_vals, numerical_vals, north_displacement, model_class
+    solid_vals: dict, numerical_vals: dict, north_displacement: float, model_class
 ):
     """Test that the solution is qualitatively sound.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants` and
+            corresponding values.
+        numerical_vals: Dictionary with keys as those in :class:`pp.NumericalConstants`
             and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        north_displacement: Value of displacement on the north boundary.
+        model_class: The model class to use, either :class:`LinearModel` or
+            :class:`TpsaLinearModel`.
 
     """
     # Instantiate constants and store in params.

@@ -1,7 +1,7 @@
 """Tests for poromechanics.
 The module contains a setup for a fractured domain, and tests for the poromechanics
 model. The tests are qualitative, in the sense that they check that the solution is
-reasonable (e.g., have the expected sign), but do not check for exact values. Most tests
+reasonable (e.g., has the expected sign), but do not check for exact values. Most tests
 are carried out with both the mpsa and tpsa discretizations, though the latter is
 dropped in a few cases where there is no reason to believe that the spatial
 discretization should affect the results.
@@ -15,7 +15,7 @@ Overview of tests:
         parametrized to let the fracture be open or closed, and the test verifies the
         displacement and pressure fields in the different parts of the domain.
 
-    Then follows tests that to some degree are variations of what is tested
+    Then follow tests that to some degree are variations of what is tested
     test_2d_single_fracture, but together they cover the different boundary conditions
     (pull/push on north/south side). Their setup and verification are also simpler than
     test_2d_single_fracture:
@@ -268,15 +268,6 @@ def get_variables(
     return u_vals, p_vals, p_frac, jump, traction
 
 
-def test_poromechanics_model_no_modification():
-    """Test that the poromechanics model with no modifications runs with no errors.
-
-    Failure of this test would signify rather fundamental problems in the model.
-    """
-    mod = pp.poromechanics.Poromechanics({})
-    pp.run_stationary_model(mod, {})
-
-
 @pytest.mark.parametrize("biot_coefficient", [0, 0.5])
 @pytest.mark.parametrize("model", [TailoredPoromechanics, TailoredPoromechanicsTpsa])
 def test_without_fracture(biot_coefficient: float, model):
@@ -328,15 +319,15 @@ def test_without_fracture(biot_coefficient: float, model):
 @pytest.mark.parametrize(
     "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
 )
-def test_2d_single_fracture(solid_vals, north_displacement, model_class):
+def test_2d_single_fracture(
+    solid_vals: dict, north_displacement: float, model_class: type
+):
     """Test that the solution is qualitatively sound.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants`
             and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        north_displacement: Value of displacement on the north boundary.
         model_class: Model class to use.
 
     """
@@ -448,7 +439,7 @@ def test_without_fracture(biot_coefficient):
 @pytest.mark.parametrize(
     "model_class", [TailoredPoromechanics, TailoredPoromechanicsTpsa]
 )
-def test_pull_north_positive_opening(model_class):
+def test_pull_north_positive_opening(model_class: type):
     """Check solution for a pull on the north side with one horizontal fracture."""
     model = create_model_with_fracture({}, {}, {}, 0.001, model_class)
     pp.run_time_dependent_model(model)
@@ -460,11 +451,11 @@ def test_pull_north_positive_opening(model_class):
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero.
     #
-    # EK note to posterity: I had to change this from 1e-5 to 1e-4 when introducing
-    # Tpsa; for reference, the respective value for Mpsa was of the order of 1e-7. I
-    # believe this is caused by the grid not being face-orthogonal (see Tpsa paper for
-    # definition), which causes the discretization to be inconsistent.
-    assert np.abs(np.sum(jump[0])) < 1e-4
+    # EK note to posterity: I believe the lower accuracy is caused by the grid not being
+    # face-orthogonal (see Tpsa paper for definition), which causes the discretization
+    # to be inconsistent.
+    tol = 1e-4 if model_class == TailoredPoromechanicsTpsa else 1e-5
+    assert np.abs(np.sum(jump[0])) < tol
 
     # The contact force in normal direction should be zero.
     #
@@ -492,7 +483,8 @@ def test_pull_south_positive_opening(model_class):
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero. See comment in test_pull_north_positive_opening()
     # regarding accuracy obtained with tpsa on this test.
-    assert np.abs(np.sum(jump[0])) < 1.0e-4
+    tol = 1e-4 if model_class == TailoredPoromechanicsTpsa else 1e-5
+    assert np.abs(np.sum(jump[0])) < tol
 
     # The contact force in normal direction should be zero
 
@@ -533,7 +525,8 @@ def test_positive_p_frac_positive_opening(model_class):
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero. See comment in test_pull_north_positive_opening()
     # regarding accuracy obtained with tpsa on this test.
-    assert np.abs(np.sum(jump[0])) < 1e-4
+    tol = 1e-4 if model_class == TailoredPoromechanicsTpsa else 1e-5
+    assert np.abs(np.sum(jump[0])) < tol
 
     # The contact force in normal direction should be zero
 

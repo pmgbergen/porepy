@@ -47,7 +47,7 @@ class TailoredThermoporomechanicsTpsa(
 
 
 def create_fractured_model(
-    solid_vals: dict, fluid_vals: dict, params: dict, model_class
+    solid_vals: dict, fluid_vals: dict, params: dict, model_class: type
 ) -> TailoredThermoporomechanics:
     """Create a model for a 2d problem with a single fracture.
 
@@ -111,7 +111,7 @@ def get_variables(model: TailoredThermoporomechanics) -> tuple[np.ndarray, ...]:
 @pytest.mark.parametrize(
     "model_class", [TailoredThermoporomechanicsTpsa, TailoredThermoporomechanics]
 )
-def test_2d_single_fracture(solid_vals: dict, uy_north: float, model_class):
+def test_2d_single_fracture(solid_vals: dict, uy_north: float, model_class: type):
     """Test that the solution is qualitatively sound.
 
     Parameters:
@@ -130,7 +130,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float, model_class):
 
     # Check that the pressure is linear
     sd = model.mdg.subdomains(dim=model.nd)[0]
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
+    u_vals, p_vals, _, jump, traction, t_vals, _ = get_variables(model)
 
     top = sd.cell_centers[1] > 0.5
     bottom = sd.cell_centers[1] < 0.5
@@ -202,7 +202,7 @@ def test_thermoporomechanics_model_no_modification():
 @pytest.mark.parametrize(
     "model_class", [TailoredThermoporomechanicsTpsa, TailoredThermoporomechanics]
 )
-def test_pull_north_positive_opening(model_class):
+def test_pull_north_positive_opening(model_class: type):
     model = create_fractured_model({}, {}, {"u_north": [0.0, 0.001]}, model_class)
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
@@ -211,11 +211,11 @@ def test_pull_north_positive_opening(model_class):
     assert np.all(jump[1] > 0)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
-    # deformation should be zero. EK note: I had to increase the tolerance from 1e-5 to
-    # 1e-4 when introducing Tpsa. This is likely caused by the unstructured grid not
-    # being face-orthogonal (see Tpsa paper for definition), which causes the
+    # deformation should be zero. EK note: I believe the lower accuracy is caused by the
+    # grid not being face-orthogonal (see Tpsa paper for definition), which causes the
     # discretization to be inconsistent.
-    assert np.abs(np.sum(jump[0])) < 1e-4
+    tol = 1e-4 if model_class == TailoredThermoporomechanicsTpsa else 1e-5
+    assert np.abs(np.sum(jump[0])) < tol
 
     # The contact force in normal direction should be zero
 
@@ -254,10 +254,10 @@ def test_pull_south_positive_opening():
 @pytest.mark.parametrize(
     "model_class", [TailoredThermoporomechanicsTpsa, TailoredThermoporomechanics]
 )
-def test_push_north_zero_opening(model_class):
+def test_push_north_zero_opening(model_class: type):
     model = create_fractured_model({}, {}, {"u_north": [0.0, -0.001]}, model_class)
     pp.run_time_dependent_model(model)
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
+    _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
 
     # All components should be closed in the normal direction
     assert np.allclose(jump[1], model.solid.fracture_gap)
@@ -286,7 +286,8 @@ def test_positive_p_frac_positive_opening(model_class):
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero. See comment in test_pull_north_positive_opening()
     # regarding accuracy obtained with tpsa on this test.
-    assert np.abs(np.sum(jump[0])) < 1e-4
+    tol = 1e-4 if model_class == TailoredThermoporomechanicsTpsa else 1e-5
+    assert np.abs(np.sum(jump[0])) < tol
 
     # The contact force in normal direction should be zero.
 
@@ -416,12 +417,13 @@ def test_robin_boundary_flux():
 @pytest.mark.parametrize(
     "model_class", [TailoredThermoporomechanicsTpsa, TailoredThermoporomechanics]
 )
-def test_unit_conversion(units, model_class):
+def test_unit_conversion(units: dict, model_class: type):
     """Test that solution is independent of units.
 
     Parameters:
         units: Dictionary with keys as those in
             :class:`~pp.compositional.materials.Constants`.
+        model_class: Model class to use.
 
     """
 
