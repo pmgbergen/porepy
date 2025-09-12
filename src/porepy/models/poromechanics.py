@@ -187,10 +187,10 @@ class TpsaPoromechanicsMixin(
     SolidMassEquation,
     pp.momentum_balance.TpsaMomentumBalanceMixin,
 ):
-    """Mixin for the TPSA poromechanics model. This can be mixed into a Poromechanics
-    class to get four-field (displacement, rotation stress, total pressure and fluid
-    pressure) formulation for poromechanics. The resulting model will be discretized
-    using Tpsa.
+    """Mixin for the TPSA poromechanics model. If mixed into a Poromechanics
+    class, the resulting objects will apply the four-field (displacement, rotation
+    stress, total pressure and fluid pressure) formulation for poromechanics,
+    discretized by the Tpsa method.
 
     Can also be used to define a THM model with Tpsa.
 

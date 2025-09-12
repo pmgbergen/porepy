@@ -991,8 +991,10 @@ class TpsaMomentumBalanceMixin(  # type: ignore[misc]
     SolutionStrategyThreeFieldMomentumBalance,
 ):
     """Full mixin class for the three-field momentum balance. If mixed into a
-    MomentumBalance class, the resulting objects will apply the three-field formulation
-    for elasticity, discretized by the Tpsa method.
+    MomentumBalance class, the resulting objects will apply the three-field
+    (displacement, rotation stress, and total pressure) formulation for elasticity,
+    discretized by the Tpsa method.
+
     """
 
     pass
