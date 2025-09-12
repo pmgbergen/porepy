@@ -107,7 +107,8 @@ class Component:
         self.fraction: DomainFunctionType
         self.equilibrium_stability_index: ExtendedDomainFunctionType
         self.molar_bulk_concentration: ExtendedDomainFunctionType
-        self.molar_volume: ExtendedDomainFunctionType
+        self.molar_volume: float = float(kwargs.get("molar_volume", 0))
+        # self.molar_volume: ExtendedDomainFunctionType #TODO
         self.mineral_saturation: ExtendedDomainFunctionType
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
@@ -819,6 +820,14 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             )
         elif len(solidlike_phases) == 1:
             self.solid_phase = solidlike_phases[0]
+
+        solid_components: list[FluidComponent] = []
+        for phase in self._phases:
+            if phase.state == PhysicalState.solid:
+                for comp in phase.components:
+                    if comp not in solid_components:
+                        solid_components.append(comp)
+        self.solid_components = solid_components
 
         # Checking no dangling components.
         for comp in self._components:

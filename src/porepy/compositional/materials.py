@@ -303,6 +303,7 @@ class FluidComponent(Constants, Component):
             "viscosity": "Pa * s",
             "thermal_conductivity": "W * m^-1 * K^-1",
             "normal_thermal_conductivity": "W * m^-1 * K^-1",
+            "molar_volume": "m^3 * mol^-1",
         }
     )
 
@@ -329,6 +330,8 @@ class FluidComponent(Constants, Component):
     specific_heat_capacity: number = 1.0
 
     viscosity: number = 1.0
+
+    molar_volume: number = 1.0
 
 
 # Strictly speaking, it is not necessary to have eq=False for SolidConstants. The issues

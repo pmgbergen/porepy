@@ -1303,7 +1303,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         """Total molar concentration of the fluid."""
         op = self.porosity(domains) * self.fluid.density(domains) + (
             pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains)
-        ) * self.fluid.solid_density(domains)
+        ) * self.reactive_solid_density(domains)
 
     def mineral_saturation(
         self,
@@ -1317,13 +1317,33 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 s = (
                     self.total_molar_concentration(domains)
                     * component.fraction(domains)
-                    * component.molar_volume(domains)
+                    * pp.ad.Scalar(component.molar_volume)
                     / pp.ad.Scalar(self.solid.total_porosity)
                 )
                 s.set_name(f"mineral_saturation_of_{component.name}")
                 return s
 
             return mineral_saturation
+
+    def reactive_solid_density(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Density of the solid phase."""
+        if len(self.fluid.solid_components) == 0:
+            raise CompositionalModellingError(
+                "No solid components in fluid, cannot compute solid density."
+            )
+
+        rho_s = pp.ad.sum_operator_list(
+            [
+                self.total_molar_concentration(domains)
+                * comp.fraction(domains)
+                / (pp.ad.Scalar(self.solid.total_porosity) - self.porosity(domains))
+                for comp in self.fluid.solid_components
+            ]
+        )
+        rho_s.set_name("reactive_solid_density")
+        return rho_s
 
 
 class FluidMixin(pp.PorePyModel):
