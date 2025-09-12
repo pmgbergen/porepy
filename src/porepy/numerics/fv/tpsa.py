@@ -22,10 +22,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids.grid import Grid
+from porepy.numerics.discretization import Discretization
 from porepy.numerics.fv import fvutils
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.params.tensor import FourthOrderTensor
-from porepy.numerics.discretization import Discretization
 
 
 @dataclass

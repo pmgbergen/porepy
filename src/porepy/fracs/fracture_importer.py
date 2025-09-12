@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import csv
 import warnings
-from typing import Optional, Union
 from pathlib import Path
+from typing import Optional, Union
+
 import gmsh
 import numpy as np
 from numpy.typing import ArrayLike
