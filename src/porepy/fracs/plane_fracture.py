@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
+import gmsh
 import numpy as np
 from numpy.typing import ArrayLike
 
@@ -43,6 +44,26 @@ class PlaneFracture(Fracture):
         assert self.is_planar(), "Points define non-planar fracture"
         if check_convexity:
             assert self.is_convex(), "Points form non-convex polygon"
+
+    def fracture_to_gmsh_3D(self):
+        """Creates a gmsh representation of the fracture and exports its tag.
+
+        Returns:
+            An integer representing the tag of the fracture.
+
+        """
+        pts = self.pts.T
+        num_pts = len(pts)
+        gmsh_pts = [gmsh.model.occ.addPoint(*pt) for pt in pts]
+        pt_indices = np.concatenate([np.arange(num_pts), [0]])
+        gmsh_lines = [
+            gmsh.model.occ.add_line(
+                gmsh_pts[pt_indices[i]], gmsh_pts[pt_indices[i + 1]]
+            )
+            for i in range(num_pts)
+        ]
+        loop = gmsh.model.occ.add_curve_loop(gmsh_lines)
+        return gmsh.model.occ.add_plane_surface([loop])
 
     def sort_points(self) -> np.ndarray:
         """Sort the points in a counter-clockwise (CCW) order.
