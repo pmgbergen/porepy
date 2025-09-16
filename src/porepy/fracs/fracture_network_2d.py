@@ -139,7 +139,7 @@ class FractureNetwork2d:
             logger.info(f"Domain specification : {str(domain)}")
 
 
-    def export_domain_to_gmsh(self):
+    def domain_to_gmsh_2D(self):
         """Export the rectangular domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a rectangle corresponding to the bounding box of the
@@ -157,17 +157,39 @@ class FractureNetwork2d:
                 so that the rectangle can be used in subsequent operations.
             * This method currently only supports rectangular domains.
 
-    """
+        """
         bb = self.domain.bounding_box
         xmin, xmax = bb["xmin"], bb["xmax"]
         ymin, ymax = bb["ymin"], bb["ymax"]
 
-        gmsh_representation_of_domain = gmsh.model.occ.addRectangle(
+        # Reasonable assumption that z is always the zero coordinate when working in
+        # 2D??
+        domain_tag = gmsh.model.occ.addRectangle(
             xmin, ymin, 0, xmax - xmin, ymax - ymin
         )
-        gmsh.model.occ.synchronize()
-        return gmsh_representation_of_domain
+        return domain_tag
 
+    def fractures_to_gmsh_2D(self):
+        """WIP: Take the tags of all fractures in the fracture network.
+        
+        By using the method for exporting a single fracture tag, we here collect the
+        tags of all the fractures in the fracture network. The tags are returned as
+        elements in a list.
+
+        Returns:
+            A list of integers which represent all fracture tags in the fracture
+            network.
+
+        NOTE:
+            The method fracture_to_gmsh_2D() does not exist yet, nor is its name
+            decided.
+        
+        """
+        fracture_tags = []
+        for fracture in self.fractures:
+            tag = fracture.fracture_to_gmsh_2D()
+            fracture_tags.append(tag)
+        return fracture_tags
 
     def mesh(
         self,
