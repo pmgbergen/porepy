@@ -6,6 +6,7 @@ The model relies heavily on functions in the computational geometry library.
 
 from __future__ import annotations
 
+import gmsh
 import copy
 import csv
 import logging
@@ -151,6 +152,52 @@ class FractureNetwork3d(object):
         Necessary pre-processing before meshing. Added by :meth:`split_intersections`.
 
         """
+
+    def domain_to_gmsh_3D(self):
+        """Export the box domain to Gmsh using the OpenCASCADE kernel.
+
+        This method creates a rectangle corresponding to the bounding box of the
+        fracture network domain and adds it to the current Gmsh model. The OpenCASCADE
+        CAD kernel is used for the geometry representation.
+
+        Returns:
+            The Gmsh tag ID of the created box. This can be used to reference the
+            box in further Gmsh operations, such as meshing or boolean operations.
+
+
+        """
+        bb = self.domain.bounding_box
+
+        xmin, xmax = bb["xmin"], bb["xmax"]
+        ymin, ymax = bb["ymin"], bb["ymax"]
+        zmin, zmax = bb["zmin"], bb["zmax"]
+
+        domain_tag = gmsh.model.occ.addBox(
+            xmin, ymin, zmin, xmax - xmin, ymax - ymin, zmax - zmin
+        )
+        return domain_tag
+
+    def fractures_to_gmsh_3D(self):
+        """WIP: Take the tags of all fractures in the fracture network.
+        
+        By using the method for exporting a single fracture tag, we here collect the
+        tags of all the fractures in the fracture network. The tags are returned as
+        elements in a list.
+
+        Returns:
+            A list of integers which represent all fracture tags in the fracture
+            network.
+            
+        NOTE:
+            The method fracture_to_gmsh_3D() does not exist yet, nor is its name
+            decided.
+
+        """
+        fracture_tags = []
+        for fracture in self.fractures:
+            tag = fracture.fracture_to_gmsh_3D()
+            fracture_tags.append(tag)
+        return fracture_tags
 
     def copy(self) -> FractureNetwork3d:
         """Create a deep copy of the fracture network.
