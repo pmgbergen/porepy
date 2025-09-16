@@ -153,7 +153,7 @@ class FractureNetwork3d(object):
 
         """
 
-    def domain_to_gmsh_3D(self):
+    def domain_to_gmsh_3D(self) -> int:
         """Export the box domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a rectangle corresponding to the bounding box of the
@@ -177,7 +177,7 @@ class FractureNetwork3d(object):
         )
         return domain_tag
 
-    def fractures_to_gmsh_3D(self):
+    def fractures_to_gmsh_3D(self) -> list[int]:
         """WIP: Take the tags of all fractures in the fracture network.
         
         By using the method for exporting a single fracture tag, we here collect the
@@ -188,10 +188,6 @@ class FractureNetwork3d(object):
             A list of integers which represent all fracture tags in the fracture
             network.
             
-        NOTE:
-            The method fracture_to_gmsh_3D() does not exist yet, nor is its name
-            decided.
-
         """
         fracture_tags = []
         for fracture in self.fractures:
