@@ -51,6 +51,7 @@ def distort_grid_1d(
          The grid, but with distorted nodes.
 
     """
+
     if fixed_nodes is None:
         fixed_nodes = np.array([0, g.num_nodes - 1], dtype=int)
     else:
@@ -250,6 +251,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
             Mapping from new to old cells.
 
     """
+
     # g needs to have face centers
     if not hasattr(g, "face_centers"):
         g.compute_geometry()
@@ -458,6 +460,7 @@ def structured_refinement(
         Column major sparse matrix mapping from coarse to fine cells.
 
     """
+
     # This method creates a mapping from fine to coarse cells by creating a matrix 'M'
     # where the rows represent the fine cells while the columns represent the coarse
     # cells. In practice this means that for an array 'p', of known values on a coarse
@@ -756,7 +759,7 @@ class GridSequenceFactory(abc.ABC):
         # unintentionally modified during operations.
         net = self._network.copy()
 
-        file_name = "gmsh_convergence"
+        file_name = Path("gmsh_convergence")
         # Generate data in a format suitable for defining a model in gmsh
         gmsh_data = net.prepare_for_gmsh(
             self._mesh_parameters,
@@ -785,16 +788,15 @@ class GridSequenceFactory(abc.ABC):
             The refined mixed dimensional grid.
 
         """
-        out_file = Path(self._out_file)
-        out_file = out_file.parent / out_file.stem
-        out_file_name = f"{out_file}_{counter}.msh"
+        out_file = self._out_file
+        out_file = out_file.parent / (out_file.stem + f"_{counter}.msh")
 
         # The first mesh is already done. Start refining all subsequent meshes.
         self._gmsh.model.mesh.refine()  # Refine the mesh
 
-        self._gmsh.write(out_file_name)  # Write the result to '.msh' file
+        self._gmsh.write(str(out_file))  # Write the result to '.msh' file
 
-        mdg = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
+        mdg = pp.fracture_importer.dfm_from_gmsh(out_file, self.dim)
         pp.set_local_coordinate_projections(mdg)
         return mdg
 

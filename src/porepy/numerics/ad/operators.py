@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import copy
+import inspect
 from collections import deque
 from enum import Enum
-from functools import reduce
+from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
@@ -45,6 +46,7 @@ __all__ = [
     "ProjectionList",
     "sum_operator_list",
     "sum_projection_list",
+    "cached_method",
 ]
 
 
@@ -433,7 +435,8 @@ class Operator:
         an operator) should override this method to return e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
+        of atomic operators; such operators should be evaluated by the method
+        :meth:`evaluate`.
 
         Parameters:
             mdg: Mixed-dimensional grid on which this operator is to be parsed.
@@ -445,7 +448,8 @@ class Operator:
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
     def viz(self):
-        """Draws a visualization of the operator tree that has this operator as its root."""
+        """Draws a visualization of the operator tree that has this operator as its
+        root."""
         import matplotlib.pyplot as plt
         import networkx as nx
 
@@ -573,7 +577,7 @@ class Operator:
             return AdArray(
                 ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
             )
-        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+        elif isinstance(ad, (sps.spmatrix, sps.sparray, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
             raise NotImplementedError(
@@ -901,7 +905,7 @@ class Operator:
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
             return [self, DenseArray(other)]
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             return [self, SparseArray(other)]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
@@ -1359,7 +1363,8 @@ class TimeDependentDenseArray(TimeDependentOperator):
     Attributes:
         previous_timestep: If True, the array will be evaluated using
             ``data[pp.TIME_STEP_SOLUTIONS]`` (data being the data dictionaries for
-            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
+            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is
+            used.
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.
@@ -2250,3 +2255,92 @@ def sum_projection_list(
             result = ProjectionList(new_operators, name)
 
     return result
+
+
+def cached_method(func: Callable) -> Callable:
+    """Decorator for caching function results.
+
+    The decorator is used to cache the results of a function. The cache is stored in the
+    `_operator_cache` attribute of the class instance.
+
+    It is assumed that any arguments (both positional and keyword) to the function to be
+    decorated are either hashable, or a list. This covers all known use cases within the
+    Ad module. If an unhashable argument is passed, a warning will be given, and the
+    function will be called every time.
+
+    Known limitations:
+        - A call with a (non-keyword) argument, and call with the same argument passed
+          as a keyword argument (respectively, func(1) and func(arg=1)) will be
+          conisedered different and lead to two actual function evaluations and two
+          different items in the cache. It may be possible to extend the caching
+          mechanism (really, the way the cache key is constructed) to fix this, but
+          considering the current use cases, this is not deemed necessary.
+
+    Note:
+        This caching mechanism should not be confused with hashing of individual Ad
+        Operators, see above classes. The difference is that the present caching is
+        invoked on a method that returns an Operator, without constructing the Operator
+        itself (this can be costly). In contrast, caching of Operators is done after
+        construction, and is primarily intended for Operator evaluation.
+
+    Parameters:
+        func: The function to be cached.
+
+    Returns:
+        The decorated function.
+
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs) -> Any:
+        # We will build a key from the function name, the arguments, and the keyword
+        # arguments. To that end, we need to convert all arguments to hashable types.
+
+        # If any argument is given as a list, convert it to a tuple to make it hashable.
+        #
+        # IMPLEMENTATION NOTE: It is possible to extend the below if-else to handle more
+        # cases, but this should be done as needed. The same applies to the keyword
+        # arguments just below.
+
+        # Create a list to be converted to a tuple below. Append the arguments as they
+        # are, unless they are lists, in which case they are converted to tuples.
+        args_as_tuples = []
+        for arg in args:
+            if isinstance(arg, list):
+                args_as_tuples.append(tuple(arg))
+            else:
+                args_as_tuples.append(arg)
+
+        # The keyword arguments can be made hashable by calling frozenset, but we first
+        # need to convert any list values to tuples.
+        kwargs_as_tuples = {
+            k: tuple(v) if isinstance(v, list) else v for k, v in kwargs.items()
+        }
+        kwargs_as_frozenset = frozenset(kwargs_as_tuples.items())
+
+        # Use qualname to get the full name of the function, including the class name if
+        # the function is a method. In this way, we should avoid collisions related to
+        # inheritance.
+        try:
+            key = (func.__qualname__, tuple(args_as_tuples), kwargs_as_frozenset)
+        except Exception as e:
+            s = "Error in caching function: {}\n".format(func.__qualname__)
+            s += "This is likely due to an unhashable argument in the function call.\n"
+            s += "Instead of caching, the function will be called every time.\n"
+            s += "The error message was: {}\n".format(str(e))
+            warn(s)
+            return func(self, *args, **kwargs)
+
+        if key not in self._operator_cache:
+            self._operator_cache[key] = func(self, *args, **kwargs)
+        return self._operator_cache[key]
+
+    # For testing purposes (specifically testing of constitutive laws and other tests
+    # that dynamically adapt to method signatures), we need to be able to access the
+    # signature of the original function. Calling inspect.signature on the wrapper would
+    # return the signature of the wrapper (*args, **kwargs, see above), which is not
+    # very useful. Therefore, we copy the signature from the original function to the
+    # wrapper.
+    wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
+
+    return wrapper

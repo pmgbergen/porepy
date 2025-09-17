@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from typing import Literal, Optional, Union
 
 import numpy as np
@@ -198,7 +199,7 @@ class ConvergenceAnalysis:
         self,
         list_of_results: list,
         variables_to_export: Optional[list[str]] = None,
-        file_name="error_analysis.txt",
+        file_name: Path = Path("error_analysis.txt"),
     ) -> None:
         """Write errors into a ``txt`` file.
 
@@ -590,7 +591,8 @@ class ConvergenceAnalysis:
         integration_weights: Optional[pp.number | np.ndarray] = None,
         p: pp.number = 2,
     ) -> float:
-        r"""The discrete :math:`L_p`-norm of a vector or function, with a given set of weights.
+        r"""The discrete :math:`L_p`-norm of a vector or function, with a given set of
+        weights.
 
         The respective norm of a function in the space :math:`L_p` can be obtained by
         approximating the integration with

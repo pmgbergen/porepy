@@ -4,8 +4,10 @@
 * Tests for the mortar grid.
 """
 
-import os
+from pathlib import Path
 import pickle
+
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -15,24 +17,69 @@ import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import setmembership
 
 
 @pytest.mark.parametrize(
-    "grid, expected_diameter",
+    "g, expected_diameters",
     [
         (
-            pp.CartGrid(np.array([3, 2]), np.array([1, 1])),
-            np.sqrt(0.5**2 + 1.0 / 3.0**2),
+            pp.CartGrid(np.array([2, 1]), np.array([1, 1])),  # 2d grid.
+            np.array(
+                [
+                    np.sqrt(1**2 + 0.5**2),  # Cell 0 has dx=0.5, dy=1.
+                    np.sqrt(1.5**2 + 2**2),  # Cell 1 is perturbed to have dx=1.5, dy=2.
+                ]
+            ),
         ),
-        (pp.CartGrid(np.array([3, 2, 1])), np.sqrt(3)),
+        (
+            pp.CartGrid(np.array([2, 1, 1]), np.array([1, 1, 1])),  # 3d grid.
+            np.array(
+                [
+                    np.sqrt(0.5**2 + 1**2 + 1**2),  # Cell 0 has dx=0.5, dy=dz=1.
+                    np.sqrt(1.5**2 + 2**2 + 1**2),  # Cell 1 has dx=1.5, dy=2, dz=1.
+                ]
+            ),
+        ),
     ],
 )
-def test_cell_diameters(grid, expected_diameter):
-    # The test is run for a 2d grid and a 3d grid.
-    cell_diameters = grid.cell_diameters()
-    known = np.repeat(expected_diameter, grid.num_cells)
-    assert np.allclose(cell_diameters, known)
+@pytest.mark.parametrize("cell_wise", [True, False])
+@pytest.mark.parametrize("func", [np.max, np.min, np.mean])
+def test_cell_diameters(
+    g: pp.Grid, expected_diameters: np.ndarray, cell_wise: bool, func: Callable
+):
+    """Test the computation of cell diameters.
+
+    Parameters:
+        g: Grid to be tested. This is expected to be of uniform size. The node of one of
+            the cells will be moved so that the cells have non-uniform diameter.
+        expected_diameters: Array of expected diameter for each cell.
+        cell_wise: Whether to compute the diameter cell-wise or not.
+        func: Function to apply to the expected diameters. Will only be used if
+            cell_wise=False, see Grid.cell_diameters() for details.
+
+    """
+    # Move the last node of the grid (it is easier to do this here than to modify the
+    # grid in the test parametrization). Since the grid is expected to be Cartesian,
+    # this will impact the diameter of cell 1, but not cell 0. Do not perturb the
+    # z-coordinate, so that a 2d grid stays 2d.
+    g.nodes[:2, -1] = 2
+
+    if cell_wise:
+        # When cell_wise is True, 'func' will not be used and a warning should be raised
+        # if func is not None. Check this.
+        with pytest.warns(UserWarning):
+            cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    else:
+        cell_diameters = g.cell_diameters(cell_wise=cell_wise, func=func)
+    if cell_wise:
+        # The returned array is an element-wise array of cell diameters, we can do a
+        # direct comparison.
+        assert np.allclose(cell_diameters, expected_diameters)
+    else:
+        # The returned value is a single value obtained by applying 'func' to the
+        # calculated cell diameters. Apply 'func' also to the expected diameters before
+        # comparing.
+        assert np.allclose(cell_diameters, func(expected_diameters))
 
 
 def test_repr():
@@ -213,7 +260,7 @@ class TestDivergenceTrace:
         # matrix. These will be identical if dim=1, but for dim > 1, there will be dim
         # boundary indices for each boundary face.
         bound_faces = self._boundary_faces(g)
-        bound_ind = pp.fvutils.expand_indices_nd(bound_faces, dim)
+        bound_ind = pp.array_operations.expand_indices_nd(bound_faces, dim)
         # The indices corresponding to internal faces are the complement of the boundary
         # indices.
         int_face_ind = np.setdiff1d(np.arange(g.num_faces * dim), bound_ind)
@@ -797,7 +844,7 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
     face_nodes = tetrahedral_grid.face_nodes.indices.reshape(
         (3, tetrahedral_grid.num_faces), order="F"
     )
-    ismem, ind_map = setmembership.ismember_rows(fn, face_nodes)
+    ismem, ind_map = pp.array_operations.ismember_columns(fn, face_nodes)
     assert np.all(ismem)
     assert np.allclose(tetrahedral_grid.face_centers[:, ind_map], fc)
     assert np.allclose(tetrahedral_grid.face_areas[ind_map], fa)
@@ -952,10 +999,10 @@ def test_boundary_grid():
 )
 def test_pickle_grid(g):
     """Test that grids can be pickled. Write, read and compare."""
-    fn = "tmp.grid"
+    fn = Path("tmp.grid")
     pickle.dump(g, open(fn, "wb"))
 
     g_read = pickle.load(open(fn, "rb"))
 
     pp.test_utils.grids.compare_grids(g, g_read)
-    os.unlink(fn)
+    fn.unlink()

@@ -5,8 +5,8 @@ Module for data IO from and to vtu format via meshio.
 
 from __future__ import annotations
 
-import os
 import sys
+import warnings
 import xml.etree.ElementTree as ET
 from collections import namedtuple
 from pathlib import Path
@@ -73,12 +73,11 @@ class Exporter:
                 (default True).
             binary (boolean): controlling whether data is stored in binary format
                 (default True).
-            export_constants_separately (boolean): controlling whether
-                constant data is exported in separate files, which may be of
-                interest when exporting large data sets (in particular of constant
-                data) for many time steps (default True); note, however, that the
-                mesh is exported to each vtu file, which may also require
-                significant amount of storage.
+            export_constants_separately (boolean): controlling whether constant data is
+                exported in separate files, which may be of interest when exporting
+                large data sets (in particular of constant data) for many time steps
+                (default False); note, however, that the mesh is exported to each vtu
+                file, which may also require significant amount of storage.
 
     Raises:
         TypeError: If grid has other type than :class:`~pp.grids.grid.Grid` or
@@ -109,8 +108,8 @@ class Exporter:
     def __init__(
         self,
         grid: Union[pp.Grid, pp.MixedDimensionalGrid],
-        file_name: str,
-        folder_name: Optional[str] = None,
+        file_name: Path,
+        folder_name: Optional[Path] = None,
         length_scale: float = 1.0,
         **kwargs,
     ) -> None:
@@ -128,10 +127,10 @@ class Exporter:
             )
 
         # Store target location for storing vtu and pvd files.
-        self._file_name: str = file_name
+        self._file_name: Path = Path(file_name)
         """Prefix for output files."""
 
-        self._folder_name: Optional[str] = folder_name
+        self._folder_name: Optional[Path] = Path(folder_name) if folder_name else None
         """Folder name for output."""
 
         # Check for optional keywords
@@ -142,7 +141,7 @@ class Exporter:
         """Flag controlling whether data is stored in binary format."""
 
         self._export_constants_separately: bool = kwargs.pop(
-            "export_constants_separately", True
+            "export_constants_separately", False
         )
         """Flag controlling whether constant data is exported to a separate file."""
 
@@ -157,9 +156,7 @@ class Exporter:
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
         # Generate infrastructure for storing fixed-dimensional grids in meshio format.
-        # Include all but the 0-d grids
-
-        self._dims = np.unique([sd.dim for sd in self._mdg.subdomains() if sd.dim > 0])
+        self._dims = np.unique([sd.dim for sd in self._mdg.subdomains()])
         """Array of dimensions of all present subdomains."""
 
         self.meshio_geom: MD_Meshio_Geom = dict()
@@ -321,7 +318,7 @@ class Exporter:
         mixed-dimensional grid is split in the usual way etc.
 
         Parameters:
-            vtu_files: path(s) to vtu file(s)
+            vtu_files: path(s) to vtu file(s).
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through pp.TIME_STEP_SOLUTIONS.
@@ -483,13 +480,13 @@ class Exporter:
             def _save_to_mdg(
                 key: str,
                 value: np.ndarray,
-                num_entities: Literal["num_cells", "num_nodes"],
+                grid_entity_type: Literal["cells", "nodes"],
             ) -> None:
                 # Chop data in pieces compatible with the subdomains and interfaces
                 offset = 0
                 if is_subdomain_data:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
-                        num_dofs = getattr(sd, num_entities)
+                        num_dofs = self._num_grid_entities(sd, grid_entity_type)
                         values = _from_vector_format(
                             value[offset : offset + num_dofs], num_dofs
                         )
@@ -503,7 +500,7 @@ class Exporter:
                     for intf, intf_data in self._mdg.interfaces(
                         dim=dim, return_data=True, codim=1
                     ):
-                        num_dofs = getattr(intf, num_entities)
+                        num_dofs = self._num_grid_entities(intf, grid_entity_type)
                         values = _from_vector_format(
                             value[offset : offset + num_dofs], num_dofs
                         )
@@ -525,13 +522,13 @@ class Exporter:
                     # grids). Accumulate the data again, assuming the same
                     # dimensionality in each cell.
                     value = np.concatenate(tuple(vtu_data.cell_data[key]), axis=0)
-                    _save_to_mdg(key, value, "num_cells")
+                    _save_to_mdg(key, value, "cells")
 
             if keys_pt is not None:
                 for key in keys_pt:
                     if key in vtu_data.point_data:
                         value = vtu_data.point_data[key]
-                        _save_to_mdg(key, value, "num_nodes")
+                        _save_to_mdg(key, value, "nodes")
 
     def add_constant_data(
         self,
@@ -551,8 +548,8 @@ class Exporter:
             data: subdomain and interface data, prescribed through strings, or tuples
                 of subdomains/interfaces, keys and values. If not provided, only
                 geometrical information is exported.
-            data_pt: point subdomain and interface data, prescribed through strings, or tuples
-                of subdomains/interfaces, keys and values. If not provided only
+            data_pt: point subdomain and interface data, prescribed through strings, or
+                tuples of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
 
                 NOTE: The user has to make sure that each unique key has associated
@@ -568,7 +565,7 @@ class Exporter:
         # 2. Unify data type.
         subdomain_data, interface_data = self._sort_and_unify_data(data)
         subdomain_data_pt, interface_data_pt = self._sort_and_unify_data(
-            data_pt, "num_nodes"
+            data_pt, "nodes"
         )
 
         # Add the user-defined data to the containers for constant data.
@@ -593,20 +590,20 @@ class Exporter:
     ) -> None:
         """Interface function to export the grid and additional data with meshio.
 
-        In 1d the cells are represented as lines, 2d the cells as polygon or triangle/
-        quad, while in 3d as polyhedra/tetrahedra/hexahedra. In all the dimensions the
-        geometry of the mesh needs to be computed.
+        In 0d the cells are represented as points, 1d the cells as lines, 2d the cells
+        as polygon or triangle/ quad, while in 3d as polyhedra/tetrahedra/hexahedra. In
+        all the dimensions the geometry of the mesh needs to be computed.
 
         Parameters:
             data: subdomain and interface data, prescribed through strings, or tuples
                 of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
-            data_pt: point subdomain and interface data, prescribed through strings, or tuples
-                of subdomains/interfaces, keys and values. If not provided only
+            data_pt: point subdomain and interface data, prescribed through strings, or
+                tuples of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
 
-                NOTE: The user has to make sure that each unique key has associated
-                data values for all or no grids of each specific dimension.
+                NOTE: The user has to make sure that each unique key has associated data
+                values for all or no grids of each specific dimension.
             time_dependent: If False (default), file names will not be appended with an
                 index that marks the time step. Can be overwritten by giving a value to
                 time_step; if not, the file names will subsequently be ending with 1, 2,
@@ -655,7 +652,7 @@ class Exporter:
         # 2. Unify data type.
         subdomain_data, interface_data = self._sort_and_unify_data(data)
         subdomain_data_pt, interface_data_pt = self._sort_and_unify_data(
-            data_pt, "num_nodes"
+            data_pt, "nodes"
         )
 
         # Export constant data to separate or standard files
@@ -707,8 +704,8 @@ class Exporter:
                 subdomain_data[key_sd] = value.copy()
             for key_intf, value in self._constant_interface_data.items():
                 interface_data[key_intf] = value.copy()
-            # Append constant subdomain and interface data point to the standard containers
-            # for subdomain and interface data.
+            # Append constant subdomain and interface data point to the standard
+            # containers for subdomain and interface data.
             for key_sd, value in self._constant_subdomain_data_pt.items():
                 subdomain_data_pt[key_sd] = value.copy()
             for key_intf, value in self._constant_interface_data_pt.items():
@@ -725,8 +722,10 @@ class Exporter:
             )
 
         # Export mixed-dimensional grid to pvd format
-        file_name = self._make_file_name(self._file_name, time_step, extension=".pvd")
-        file_name = self._append_folder_name(self._folder_name, file_name)
+        file_name = self._make_file_name(
+            self._file_name, time_step=time_step, extension=".pvd"
+        )
+        file_name = self._append_folder_name(file_name, self._folder_name)
         self._export_mdg_pvd(file_name, time_step)
 
     def write_pvd(
@@ -795,9 +794,9 @@ class Exporter:
             ]
 
         # Set up file name and check whether it already exists in storage.
-        pvd_file: Path = Path(
-            self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
-        )
+        pvd_file: Path = self._append_folder_name(
+            self._file_name, self._folder_name
+        ).with_suffix(".pvd")
         file_exists: bool = pvd_file.exists()
 
         # Define the header - either copy paste from availble previous output, or define
@@ -848,7 +847,8 @@ class Exporter:
             for dim in self._dims:
                 if self._has_subdomain_data and self.meshio_geom[dim] is not None:
                     o_file.write(
-                        fm % (time, self._make_file_name(self._file_name, fn, dim))
+                        fm
+                        % (time, self._make_file_name(self._file_name, None, fn, dim))
                     )
 
             # Interface data.
@@ -858,7 +858,7 @@ class Exporter:
                         fm
                         % (
                             time,
-                            self._make_file_name(self._file_name + "_mortar", fn, dim),
+                            self._make_file_name(self._file_name, "mortar", fn, dim),
                         )
                     )
 
@@ -876,7 +876,7 @@ class Exporter:
                             % (
                                 time,
                                 self._make_file_name(
-                                    self._file_name + "_constant", fn_constants, dim
+                                    self._file_name, "constant", fn_constants, dim
                                 ),
                             )
                         )
@@ -892,7 +892,8 @@ class Exporter:
                             % (
                                 time,
                                 self._make_file_name(
-                                    self._file_name + "_constant_mortar",
+                                    self._file_name,
+                                    "constant_mortar",
                                     fn_constants,
                                     dim,
                                 ),
@@ -908,7 +909,7 @@ class Exporter:
     def _sort_and_unify_data(
         self,
         data=None,
-        num_entities: Literal["num_cells", "num_nodes"] = "num_cells",
+        grid_entity_type: Literal["cells", "nodes"] = "cells",
         # ignore type which is essentially Union[DataInput, list[DataInput]]
     ) -> tuple[SubdomainData, InterfaceData]:
         """Preprocess data.
@@ -920,9 +921,9 @@ class Exporter:
 
         Parameters:
             data: data provided by the user in the form of strings and/or tuples of
-            subdomains/interfaces.
-            num_entities: type of data that should be processed: cell type by using
-                the (default) flag "num_cells" and node type by using the flag "num_nodes".
+                subdomains/interfaces.
+            grid_entity_type: type of data that should be processed: cell type by using
+                the (default) flag "cells" and node type by using the flag "nodes".
 
         Returns:
             Subdomain and interface data decomposed and brought into unified format.
@@ -960,7 +961,10 @@ class Exporter:
             if value.size == 0 and num_dofs == 0:
                 return value
             elif not value.size % num_dofs == 0:
-                # This line will raise an error if node or face data is exported.
+                # This line will raise an error if the size of the data to be exported
+                # does not match the number of degrees of freedom. As an example, this
+                # may happed if the user tries to export point data while setting
+                # num_dofs to the number of cells in the grid.
                 raise ValueError("The data array is not compatible with the grid.")
 
             # Convert to vectorial data if more data provided than grid cells available,
@@ -976,7 +980,7 @@ class Exporter:
             data_pt: str,
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal["num_cells", "num_nodes"],
+            grid_entity_type: Literal["cells", "nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided by a key of a field - could be both
             subdomain and interface data. If so, collect all data corresponding to
@@ -987,8 +991,8 @@ class Exporter:
                     ``pp.TIME_STEP_SOLUTIONS``.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                num_entities: type of data that should be processed: cell type by using
-                    the flag "num_cells" and node type by using the flag "num_nodes".
+                grid_entity_type: type of data that should be processed: cell type by
+                    using the flag "cells" and node type by using the flag "nodes".
 
             Returns:
                 Updated data containers and flag of success.
@@ -999,12 +1003,13 @@ class Exporter:
 
             """
 
-            # Only continue in case data is of type str
+            # Only continue in case data is of type str.
             if isinstance(data_pt, str):
                 # Identify the key provided through the data.
                 key = data_pt
 
-                # Initialize tag storing whether there exists data associated to the key
+                # Initialize tag storing whether there exists data associated to the
+                # key.
                 has_key = False
 
                 def _add_data(
@@ -1017,18 +1022,19 @@ class Exporter:
                         pp.TIME_STEP_SOLUTIONS in grid_data
                         and key in grid_data[pp.TIME_STEP_SOLUTIONS]
                     ):
-                        # Fetch data and convert to vectorial format if needed
+                        # Fetch data and convert to vectorial format if needed.
                         data_to_convert = pp.get_solution_values(
                             name=key, data=grid_data, time_step_index=0
                         )
                         value: np.ndarray = _to_vector_format(
-                            data_to_convert, getattr(grid, num_entities)
+                            data_to_convert,
+                            self._num_grid_entities(grid, grid_entity_type),
                         )
 
-                        # Add data point in correct format to the collection
+                        # Add data point in correct format to the collection.
                         export_data[(grid, key)] = value
 
-                        # Mark as success
+                        # Mark as success.
                         return True
                     else:
                         return False
@@ -1060,7 +1066,7 @@ class Exporter:
             data_pt: tuple[list[pp.Grid], str],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal["num_cells", "num_nodes"],
+            grid_entity_type: Literal["cells", "nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (subdomains, key), where
             subdomains is a list of subdomains, and key is a string. This routine
@@ -1071,8 +1077,8 @@ class Exporter:
                     and a specific subdomain.
                 subdomain_data: container for subdomain data
                 interface_data: container for interface data
-                num_entities: type of data that should be processed: cell type by using
-                    the flag "num_cells" and node type by using the flag "num_nodes".
+                grid_entity_type: type of data that should be processed: cell type by
+                    using the flag "cells" and node type by using the flag "nodes".
 
             Returns:
                 Updated data containers and flag of success.
@@ -1091,14 +1097,20 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_subdomains_str:
+                msg = (
+                    """This functionality is deprecated and will be removed in a """
+                    """future version."""
+                )
+                warnings.warn(msg, DeprecationWarning)
+
                 # By construction, the components are a list of grids and a key.
                 subdomains: list[pp.Grid] = data_pt[0]
                 key = data_pt[1]
 
                 # Loop over grids and fetch the time step solutions corresponding to the
-                # key
+                # key.
                 for sd in subdomains:
-                    # Fetch the data dictionary containing the data value
+                    # Fetch the data dictionary containing the data value.
                     sd_data = self._mdg.subdomain_data(sd)
 
                     # Make sure the data exists.
@@ -1111,15 +1123,15 @@ class Exporter:
                             available on selected subdomains."""
                         )
 
-                    # Fetch data and convert to vectorial format if suitable
+                    # Fetch data and convert to vectorial format if suitable.
                     data_to_convert = pp.get_solution_values(
                         name=key, data=sd_data, time_step_index=0
                     )
                     value = _to_vector_format(
-                        data_to_convert, getattr(sd, num_entities)
+                        data_to_convert, self._num_grid_entities(sd, grid_entity_type)
                     )
 
-                    # Add data point in correct format to collection
+                    # Add data point in correct format to collection.
                     subdomain_data[(sd, key)] = value
 
                 # Return updated dictionaries and indicate successful conversion.
@@ -1134,7 +1146,7 @@ class Exporter:
             data_pt: tuple[list[pp.MortarGrid], str],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal["num_cells", "num_nodes"],
+            grid_entity_type: Literal["cells", "nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (interfaces, key), where
             interfaces is a list of interfaces, and key is a string. This routine
@@ -1148,8 +1160,8 @@ class Exporter:
                     a key present in pp.TIME_STEP_SOLUTIONS.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                num_entities: type of data that should be processed: cell type by using
-                    the flag "num_cells" and node type by using the flag "num_nodes".
+                grid_entity_type: type of data that should be processed: cell type by
+                    using the flag "cells" and node type by using the flag "nodes".
 
             Returns:
                 Updated data containers and flag of success.
@@ -1168,6 +1180,12 @@ class Exporter:
 
             # If of correct type, convert to unique format and update subdomain data.
             if isinstance_tuple_interfaces_str:
+                msg = (
+                    """This functionality is deprecated and will be removed in a """
+                    """future version."""
+                )
+                warnings.warn(msg, DeprecationWarning)
+
                 # By construction, the components are a list of interfaces and a key.
                 interfaces: list[pp.MortarGrid] = data_pt[0]
                 key = data_pt[1]
@@ -1193,7 +1211,7 @@ class Exporter:
                         name=key, data=intf_data, time_step_index=0
                     )
                     value = _to_vector_format(
-                        data_to_convert, getattr(intf, num_entities)
+                        data_to_convert, self._num_grid_entities(intf, grid_entity_type)
                     )
 
                     # Add data point in correct format to collection
@@ -1210,7 +1228,7 @@ class Exporter:
             data_pt: tuple[pp.Grid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal["num_cells", "num_nodes"],
+            grid_entity_type: Literal["cells", "nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (sd, key, data),
             where sd is a single subdomain, key is a string, and data is a user-defined
@@ -1221,7 +1239,7 @@ class Exporter:
                     cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                num_entities: the type of entity considered: "num_cells" or "num_nodes".
+                grid_entity_type: the type of entity considered: "cells" or "nodes".
 
             Returns:
                 Updated data containers and flag of success.
@@ -1244,7 +1262,9 @@ class Exporter:
                 # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 sd = data_pt[0]
                 key = data_pt[1]
-                value = _to_vector_format(data_pt[2], getattr(sd, num_entities))
+                value = _to_vector_format(
+                    data_pt[2], self._num_grid_entities(sd, grid_entity_type)
+                )
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -1260,7 +1280,7 @@ class Exporter:
             data_pt: tuple[pp.MortarGrid, str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal["num_cells", "num_nodes"],
+            grid_entity_type: Literal["cells", "nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided as tuple (g, key, data), where e is a
             single interface, key is a string, and data is a user-defined data array.
@@ -1273,8 +1293,8 @@ class Exporter:
                     cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                num_entities: type of data that should be processed: cell type by using
-                    the flag "num_cells" and node type by using the flag "num_nodes".
+                grid_entity_type: type of data that should be processed: cell type by
+                    using the flag "cells" and node type by using the flag "nodes".
 
             Returns:
                 Updated data containers and flag of success.
@@ -1284,7 +1304,6 @@ class Exporter:
                     with given key.
 
             """
-
             # Implementation of isinstance(t, tuple[pp.MortarGrid, str, np.ndarray]).
             isinstance_tuple_interface_str_array = list(map(type, data_pt)) == [
                 pp.MortarGrid,
@@ -1297,7 +1316,9 @@ class Exporter:
                 # Interpret (intf, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 intf = data_pt[0]
                 key = data_pt[1]
-                value = _to_vector_format(data_pt[2], getattr(intf, num_entities))
+                value = _to_vector_format(
+                    data_pt[2], self._num_grid_entities(intf, grid_entity_type)
+                )
 
                 # Add data point in correct format to collection
                 interface_data[(intf, key)] = value
@@ -1313,7 +1334,7 @@ class Exporter:
             data: tuple[str, np.ndarray],
             subdomain_data: dict,
             interface_data: dict,
-            num_entities: Literal["num_cells", "num_nodes"],
+            grid_entity_type: Literal["cells", "nodes"],
         ) -> tuple[dict, dict, bool]:
             """Check whether data is provided by a tuple (key, data), where key is a
             string, and data is a user-defined data array.
@@ -1324,8 +1345,8 @@ class Exporter:
                 data: data tuple containing arbitrary key, and associated cell data.
                 subdomain_data: container for subdomain data.
                 interface_data: container for interface data.
-                num_entities: type of data that should be processed: cell type by using
-                    the flag "num_cells" and node type by using the flag "num_nodes".
+                grid_entity_type: type of data that should be processed: cell type by
+                    using the flag "cells" and node type by using the flag "nodes".
 
             Returns:
                 Updated data containers and flag of success.
@@ -1341,6 +1362,11 @@ class Exporter:
 
             # Convert data to unique format and update the interface data dictionary.
             if isinstance_tuple_str_array:
+                msg = (
+                    """This functionality is deprecated and will be removed in a """
+                    """future version."""
+                )
+                warnings.warn(msg, DeprecationWarning)
                 # Fetch the correct grid. This option is only supported for
                 # mixed-dimensional grids containing a single subdomain.
                 subdomains = self._mdg.subdomains()
@@ -1353,7 +1379,9 @@ class Exporter:
                 # Fetch remaining ingredients required to define subdomain data element
                 sd = subdomains[0]
                 key = data[0]
-                value = _to_vector_format(data[1], getattr(sd, num_entities))
+                value = _to_vector_format(
+                    data[1], self._num_grid_entities(sd, grid_entity_type)
+                )
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -1404,7 +1432,7 @@ class Exporter:
                 # Check whether data point of right type and convert to the unique data
                 # type.
                 subdomain_data, interface_data, success = method(
-                    data_pt, subdomain_data, interface_data, num_entities
+                    data_pt, subdomain_data, interface_data, grid_entity_type
                 )
 
                 # Stop, once a supported data format has been detected.
@@ -1453,8 +1481,9 @@ class Exporter:
             self._constant_subdomain_data[(sd, "mortar_side")] = (
                 pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
             )
+
             self._constant_subdomain_data_pt[(sd, "node_id")] = np.arange(
-                sd.num_nodes, dtype=int
+                self._num_grid_entities(sd, "nodes"), dtype=int
             )
 
         # Define constant interface data related to the mesh
@@ -1525,13 +1554,14 @@ class Exporter:
                 self._constant_interface_data_pt[(intf, "node_id")] = np.hstack(
                     (
                         self._constant_interface_data_pt[(intf, "node_id")],
-                        np.arange(grid.num_nodes, dtype=int) + side_grid_num_nodes,
+                        np.arange(self._num_grid_entities(grid, "nodes"), dtype=int)
+                        + side_grid_num_nodes,
                     )
                 )
 
                 # Update offset
                 side_grid_num_cells += grid.num_cells
-                side_grid_num_nodes += grid.num_nodes
+                side_grid_num_nodes += self._num_grid_entities(grid, "nodes")
 
     def _export_data_vtu(
         self,
@@ -1575,18 +1605,21 @@ class Exporter:
         dims = self._dims if is_subdomain_data else self._m_dims
 
         # Define file name base
-        file_name_base: str = self._file_name
+        file_name_stem: str = self._file_name.stem
         # Extend in case of constant data
-        file_name_base += "_constant" if self.constant_data else ""
+        file_name_stem += "_constant" if self.constant_data else ""
         # Extend in case of interface data
-        file_name_base += "_mortar" if self.interface_data else ""
+        file_name_stem += "_mortar" if self.interface_data else ""
         # Append folder name to file name base
-        file_name_base = self._append_folder_name(self._folder_name, file_name_base)
+        file_name_base: Path = self._append_folder_name(
+            Path(file_name_stem), self._folder_name
+        )
 
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _, key in data]))
         keys.sort()
-        # Collect unique keys for the point data, and for unique sorting, sort by alphabet
+        # Collect unique keys for the point data, and for unique sorting, sort
+        # alphabetically.
         keys_pt = list(set([key for _, key in data_pt]))
         keys_pt.sort()
 
@@ -1616,7 +1649,7 @@ class Exporter:
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
             # Define the full file name
-            file_name: str = self._make_file_name(file_name_base, time_step, dim)
+            file_name: Path = self._make_file_name(file_name_base, None, time_step, dim)
 
             # Get all geometrical entities of dimension dim:
             if is_subdomain_data:
@@ -1642,7 +1675,7 @@ class Exporter:
             if meshio_geom is not None:
                 self._write(fields, fields_pt, file_name, meshio_geom)
 
-    def _export_mdg_pvd(self, file_name: str, time_step: Optional[int]) -> None:
+    def _export_mdg_pvd(self, file_name: Path, time_step: Optional[int]) -> None:
         """Routine to export to pvd format and collect all data scattered over several
         files for distinct grid dimensions.
 
@@ -1669,14 +1702,15 @@ class Exporter:
         # Subdomain data.
         for dim in self._dims:
             if self._has_subdomain_data and self.meshio_geom[dim] is not None:
-                o_file.write(fm % self._make_file_name(self._file_name, time_step, dim))
+                o_file.write(
+                    fm % self._make_file_name(self._file_name, None, time_step, dim)
+                )
 
         # Interface data.
         for dim in self._m_dims:
             if self._has_interface_data and self.m_meshio_geom[dim] is not None:
                 o_file.write(
-                    fm
-                    % self._make_file_name(self._file_name + "_mortar", time_step, dim)
+                    fm % self._make_file_name(self._file_name, "mortar", time_step, dim)
                 )
 
         # If constant data is exported to separate vtu files, also include these here.
@@ -1692,7 +1726,8 @@ class Exporter:
                     o_file.write(
                         fm
                         % self._make_file_name(
-                            self._file_name + "_constant",
+                            self._file_name,
+                            "constant",
                             self._time_step_constant_data,
                             dim,
                         )
@@ -1707,7 +1742,8 @@ class Exporter:
                     o_file.write(
                         fm
                         % self._make_file_name(
-                            self._file_name + "_constant_mortar",
+                            self._file_name,
+                            "constant_mortar",
                             self._time_step_constant_data,
                             dim,
                         )
@@ -1761,7 +1797,7 @@ class Exporter:
 
         """
         if dim == 0:
-            return None
+            return self._export_grid_0d(grids)
         elif dim == 1:
             return self._export_grid_1d(grids)
         elif dim == 2:
@@ -1770,6 +1806,75 @@ class Exporter:
             return self._export_grid_3d(grids)
         else:
             raise ValueError(f"Unknown dimension {dim}")
+
+    def _export_grid_0d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
+        """Export the geometrical data for 0d PorePy grids to meshio.
+
+        The method collects all points from the input grids and represents them as
+        vertex-type cells in the meshio format. Each point in the grid becomes a vertex
+        cell with appropriate connectivity and cell IDs.
+
+            grids: Iterable of 0d PorePy grids to be exported.
+
+            Meshio_Geom: A named tuple containing:
+                - Points coordinates (scaled by self._length_scale)
+                - Cell blocks representing vertices
+                - Cell IDs for each vertex
+
+        Notes:
+            - Points from all grids are concatenated into a single array
+            - Each point becomes a "vertex" type cell in meshio format
+            - Node and cell offsets are tracked to maintain proper connectivity
+
+        Parameters:
+            grids: 0d grids.
+
+        Returns:
+            Meshio_Geom: Points, 0d cells (as vertices), and cell ids in meshio format.
+        """
+        # In 0d, each cell is a point (vertex).
+        cell_type = "vertex"
+        # Dictionary storing cell->nodes connectivity information. Each vertex has a
+        # trivial connectivity to itself.
+        cell_to_nodes: dict[str, np.ndarray] = {cell_type: np.empty((0, 1), dtype=int)}
+        # Dictionary collecting all cell ids for each cell type. Since each cell is a
+        # vertex, the list of cell ids is trivial.
+        cell_id: dict[str, list[int]] = {cell_type: []}
+        # In 0d, each point to be exported corresponds to a cell, as implemented in the
+        # num_dofs method.
+        num_pts = sum(self._num_grid_entities(grid, "nodes") for grid in grids)
+        # Data structure for storing node coordinates of all 0d grids.
+        # Each point is represented as a vertex cell in meshio format.
+        meshio_pts = np.empty((num_pts, 3))
+        nodes_offset = 0
+        cell_offset = 0
+        # Loop over all 0d grids.
+        for grid in grids:
+            # Store scaled node coordinates.
+            # 0d Grids don't have nodes, only cells. The cell centers are used as
+            # coordinates for the vertices.
+            meshio_pts[nodes_offset, :] = grid.cell_centers.T * self._length_scale
+            # Assign trivial cell-to-node connectivity for 0d cells.
+            cn_indices = np.atleast_2d([0]).astype(np.int32)
+            # Add to previous connectivity information.
+            cell_to_nodes[cell_type] = np.vstack(
+                (cell_to_nodes[cell_type], cn_indices + nodes_offset)
+            )
+            # Update offsets.
+            cell_id[cell_type] += (np.arange(grid.num_cells) + cell_offset).tolist()
+            nodes_offset += 1
+            cell_offset += grid.num_cells
+        # Construct the meshio data structure.
+        # For each cell_type, store the connectivity pattern cell_to_nodes for the
+        # corresponding cells with ids from cell_id.
+        meshio_cell_block = meshio.CellBlock(
+            cell_type, cell_to_nodes[cell_type].astype(int)
+        )
+        # Convert cell_id to numpy array for meshio compatibility.
+        meshio_cells = [meshio_cell_block]
+        meshio_cell_id = [np.array(cell_id[cell_type])]
+        # Return final meshio data: points, cell (connectivity), cell ids.
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _export_grid_1d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
         """Export the geometrical data (point coordinates) and connectivity information
@@ -2002,9 +2107,7 @@ class Exporter:
                     # Sort faces for each cell such that they form a chain. Use a
                     # function compiled with Numba. This step is the bottleneck of
                     # this routine.
-                    cfn = pp.utils.sort_points.sort_multiple_point_pairs(cfn).astype(
-                        int
-                    )
+                    cfn = pp.sort_points.sort_multiple_point_pairs(cfn).astype(int)
 
                     # For each cell pick the sorted nodes such that they form a chain
                     # and thereby define the connectivity, i.e., skip every second row.
@@ -2259,12 +2362,12 @@ class Exporter:
         """
 
         try:
-            import numba
+            from numba import njit, prange
         except ImportError:
             raise ImportError("Numba not available on the system")
 
         # Just in time compilation
-        @numba.njit("b1(f8[:,:], i4[:,:])", cache=True, parallel=True)
+        @njit("b1(f8[:,:], i4[:,:])", cache=True, parallel=True)
         def _function_to_compile(nodes, cn_indices):
             """Test whether the node numbering for each cell complies with the hardcoded
             numbering used by meshio, cf. documentation of meshio.
@@ -2287,7 +2390,7 @@ class Exporter:
             correct_format = True
 
             # Test each cell separately
-            for i in numba.prange(cn_indices.shape[0]):
+            for i in prange(cn_indices.shape[0]):
                 # Assume initially that the cell is a hex
                 is_hex = True
 
@@ -2415,10 +2518,10 @@ class Exporter:
                 # cells. Here, we make use of the fact that grid.face_nodes provides
                 # nodes ordered wrt. the right-hand rule.
 
-                # Fetch cells with n faces
+                # Fetch cells with n faces.
                 cells = g_cell_map[cell_type]
 
-                # Store shortcuts to cell-face and face-node information
+                # Store shortcuts to cell-face and face-node information.
                 cf_indptr = grid.cell_faces.indptr
                 cf_indices = grid.cell_faces.indices
                 fn_indptr = grid.face_nodes.indptr
@@ -2460,13 +2563,13 @@ class Exporter:
         self,
         fields: Iterable[Field],
         fields_pt: Iterable[Field],
-        file_name: str,
+        file_name: Path,
         meshio_geom: Meshio_Geom,
     ) -> None:
         """Interface to meshio for exporting cell data.
 
         Parameters:
-            fields: fields which shall be exported
+            fields: fields which shall be exported.
             file_name: name of final file of export.
             meshio_geom: Namedtuple of points, connectivity information, and cell ids in
                 meshio format (for a single dimension).
@@ -2487,10 +2590,10 @@ class Exporter:
             assert field.values is not None
 
             # For each field create a sub-vector for each geometrically uniform group
-            # of cells
+            # of cells.
             cell_data[field.name] = list()
 
-            # Fill up the data
+            # Fill up the data.
             for ids in meshio_geom.cell_ids:
                 if field.values.ndim == 1:
                     cell_data[field.name].append(field.values[ids])
@@ -2505,7 +2608,7 @@ class Exporter:
             assert field.values is not None
 
             # For each field create a sub-vector for each geometrically uniform group
-            # of cells
+            # of cells.
             point_data[field.name] = list()
 
             if field.values.ndim == 1:
@@ -2515,7 +2618,7 @@ class Exporter:
             else:
                 raise ValueError("Data values have wrong dimension")
 
-        # Create the meshio object
+        # Create the meshio object.
         meshio_grid_to_export = meshio.Mesh(
             meshio_geom.pts,
             meshio_geom.connectivity,
@@ -2527,8 +2630,8 @@ class Exporter:
         meshio.write(file_name, meshio_grid_to_export, binary=self._binary)
 
     def _append_folder_name(
-        self, folder_name: Optional[str] = None, name: str = ""
-    ) -> str:
+        self, name: Path, folder_name: Optional[Path] = None
+    ) -> Path:
         """Auxiliary method setting up potentially non-existent folder structure and
         setting up a path for exporting.
 
@@ -2544,22 +2647,22 @@ class Exporter:
         # If no folder_name is prescribed, the files will be stored in the working
         # directory.
         if folder_name is None:
-            return name
+            return Path(name)
 
         # Set up folder structure if not existent.
-        if not os.path.exists(folder_name):
-            os.makedirs(folder_name)
+        folder_name.mkdir(exist_ok=True, parents=True)
 
         # Return full path.
-        return os.path.join(folder_name, name)
+        return folder_name / name
 
     def _make_file_name(
         self,
-        file_name: str,
+        file_name: Path,
+        appendix: Optional[str] = None,
         time_step: Optional[int] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
-    ) -> str:
+    ) -> Path:
         """Auxiliary method to setting up file name.
 
         The final name is built as combination of a prescribed prefix, and possibly
@@ -2576,6 +2679,8 @@ class Exporter:
             Complete name of file.
 
         """
+        # Add appendix to file name if prescribed
+        appendix_extension = "" if appendix is None else "_" + appendix
 
         # Define non-empty time step extension including zero padding.
         time_extension = (
@@ -2585,5 +2690,28 @@ class Exporter:
         # Define non-empty dim extension
         dim_extension = "" if dim is None else "_" + str(dim)
 
-        # Combine prefix and extensions to define the complete name
-        return file_name + dim_extension + time_extension + extension
+        # Combine prefix and extensions to define the complete name.
+        return (
+            file_name.parent
+            / (file_name.stem + appendix_extension + dim_extension + time_extension)
+        ).with_suffix(extension)
+
+    def _num_grid_entities(
+        self, grid: pp.Grid | pp.MortarGrid, entity_type: str
+    ) -> int:
+        """Determine the number of grid entities as used for exporting for a grid.
+
+        Parameters:
+            grid: Grid for which the number of entities is determined.
+            entity_type: Type of entity, e.g., "nodes", "cells", etc.
+
+        Returns:
+            Number of entities.
+
+        """
+        if grid.dim == 0 and entity_type == "nodes":
+            # 0D grids don't have nodes in PorePy. However, for the purposes of
+            # exporting, we need to create a node for each cell.
+            return grid.num_cells
+        else:
+            return getattr(grid, "num_" + entity_type)

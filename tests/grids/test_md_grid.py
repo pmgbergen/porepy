@@ -2,7 +2,7 @@
 topological information on the bucket, and pickling and unpickling of buckets.
 """
 
-import os
+from pathlib import Path
 import pickle
 
 import numpy as np
@@ -30,7 +30,9 @@ class MockGrid(pp.CartGrid):
         self.box = box
         self.compute_geometry()
 
-    def cell_diameters(self):
+    def cell_diameters(self, cell_wise, func):
+        # Parameters cell_wise and func are needed to comply with the superclass, but
+        # are not used for the mock grid.
         return self.diameter
 
     def bounding_box(self):
@@ -522,11 +524,11 @@ def test_pickle_md_grid():
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
     mdg = pp.meshing.cart_grid(fracs, np.array([2, 2]))
 
-    fn = "tmp.md_grid"
+    fn = Path("tmp.md_grid")
     pickle.dump(mdg, open(fn, "wb"))
     mdg_read = pickle.load(open(fn, "rb"))
 
     compare_md_grids(mdg, mdg_read)
 
-    # Delete the temporary file
-    os.remove(fn)
+    # Delete the temporary file.
+    fn.unlink()

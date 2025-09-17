@@ -9,8 +9,8 @@ To define the manufactured solution, we introduce the auxiliary function
 .. math::
     f(x, y, z, t) = t * x * (1 - x) * (x - 1 / 2) * sin(2 * pi * y) * sin(2 * pi * z)
 
-Define the characteristic function $$\\chi$$, which is 1 if $$x > 0.5$$, $$y > 0.5$$, $$z
-> 0.5$$, and 0 otherwise. Also, define a heterogeneity factor $$\kappa$$. The exact
+Define the characteristic function $$\\chi$$, which is 1 if $$x > 0.5$$, $$y > 0.5$$,
+$$z > 0.5$$, and 0 otherwise. Also, define a heterogeneity factor $$\kappa$$. The exact
 solutions for the primary variables pressure, displacement, and temperature are then
 defined as
 
@@ -816,7 +816,7 @@ class UnitCubeGrid(pp.PorePyModel):
 
         sd = self.mdg.subdomains()[0]
         x, y, z = sd.nodes[0], sd.nodes[1], sd.nodes[2]
-        h = np.min(sd.cell_diameters())
+        h = sd.cell_diameters(cell_wise=False, func=np.min)
 
         pert_rate = self.params.get("perturbation", 0.0)
 
@@ -942,13 +942,13 @@ class ManuThermoPoroMechSolutionStrategy3d(
 
             return pp.wrap_as_dense_ad_array(bulk, name="bulk_modulus")
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
-        The parent class' definitions of permeability, stiffness parameters, and the Biot
-        and thermal stress tensors are owerwritten.
+        The parent class' definitions of permeability, stiffness parameters, and the
+        Biot and thermal stress tensors are owerwritten.
         """
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         x, y, z = sym.symbols("x y z")
 

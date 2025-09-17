@@ -93,10 +93,16 @@ class AdArray:
         self.jac: sps.spmatrix = jac.astype(float)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
         s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
-        s += " elements"
+        s += " elements."
+        return s
+
+    def __repr__(self) -> str:
+        s = f"Ad array of size {self.val.size}\n"
+        s += f"Value: {self.val}\n"
+        s += f"Jacobian: {self.jac}"
         return s
 
     def __getitem__(self, key: slice | np._ArrayLikeInt) -> AdArray:
@@ -175,7 +181,7 @@ class AdArray:
                 raise ValueError("Only 1d numpy arrays can be added to AdArrays")
             return AdArray(self.val + other, self.jac)
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             raise ValueError("Sparse matrices cannot be added to AdArrays")
 
         elif isinstance(other, pp.ad.AdArray):
@@ -268,7 +274,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac(other)
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             raise ValueError(
                 """Sparse matrices cannot be multiplied with  AdArrays elementwise.
                 Did you mean to use the @ operator?
@@ -315,7 +321,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, sps.spmatrix, np.ndarray, int)):
+        if isinstance(other, (float, sps.spmatrix, sps.sparray, np.ndarray, int)):
             # In these cases, there is no difference between left and right
             # multiplication, so we simply invoke the standard __mul__ function.
             return self.__mul__(other)
@@ -370,7 +376,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac(other * (self.val ** (other - 1)))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             raise ValueError("Cannot raise AdArrays to power of sparse matrices.")
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
@@ -427,20 +433,20 @@ class AdArray:
                 raise ValueError(
                     "Only 1d numpy arrays can be raised to the power of an AdArray."
                 )
-            # This is an exponent with different coefficients for each element
-            # in self.val. Numpy appears to be using dtype instead of values to determine
-            # the output type. Consequently, the multiplicative inverse / negative integer
-            # powers of a numpy's integer array lead to a float array raising a value
-            # error. As an example compare 1/np.array([1,2,3]) and np.array([1,2,3])**-1.
-            # As a workaround, we convert it to a float.
+            # This is an exponent with different coefficients for each element in
+            # self.val. Numpy appears to be using dtype instead of values to determine
+            # the output type. Consequently, the multiplicative inverse / negative
+            # integer powers of a numpy's integer array lead to a float array raising a
+            # value error. As an example compare 1/np.array([1,2,3]) and
+            # np.array([1,2,3])**-1. As a workaround, we convert it to a float.
             new_val = other.astype(float) ** self.val
-            # The Jacobian will have its columns scaled with the values in other,
-            # again in array-form. Achieve this by left-multiplying with other,
-            # represented as a diagonal matrix.
+            # The Jacobian will have its columns scaled with the values in other, again
+            # in array-form. Achieve this by left-multiplying with other, represented as
+            # a diagonal matrix.
             new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             raise ValueError("Cannot raise sparse matrices to the power of Ad arrays.")
 
         elif isinstance(other, pp.ad.AdArray):
@@ -482,7 +488,7 @@ class AdArray:
             new_jac = self._diagvec_mul_jac(other.astype(float) ** (-1.0))
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             raise ValueError("AdArrays cannot be divided by sparse matrices.")
 
         elif isinstance(other, pp.matrix_operations.ArraySlicer):
@@ -510,7 +516,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, int, np.ndarray, sps.spmatrix)):
+        if isinstance(other, (float, int, np.ndarray, sps.spmatrix, sps.sparray)):
             # Divide a float or a numpy array by self is the same as raising self to
             # the power of -1 and multiplying by the float. The multiplication will
             # end upcalling self.__mul__, which will do the right checks for numpy
@@ -545,7 +551,7 @@ class AdArray:
                 f""" {type(other)}."""
             )
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             # This goes against the way equations should be formulated in the AD
             # framework, variables should not be right-multiplied by anything. Raise
             # a value error to make sure this is not done.
@@ -574,7 +580,7 @@ class AdArray:
                 f""" {type(other)}."""
             )
 
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             # This is the standard matrix-vector multiplication
             if self.jac.shape[0] != other.shape[1]:
                 raise ValueError(

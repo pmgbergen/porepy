@@ -448,7 +448,8 @@ class MixedDimensionalGrid:
             raise ValueError("Grid already defined in MixedDimensionalGrid")
 
         for sd in ng:
-            # Add the grid to the dictionary of subdomains with an empty data dictionary.
+            # Add the grid to the dictionary of subdomains with an empty data
+            # dictionary.
             self._subdomain_data[sd] = {}
 
         # Generate boundary grids for each subdomain.
@@ -525,6 +526,7 @@ class MixedDimensionalGrid:
            sd: The subdomain to be removed.
 
         """
+
         # Delete from the subdomain list.
         del self._subdomain_data[sd]
 
@@ -810,7 +812,11 @@ class MixedDimensionalGrid:
         """
         if cond is None:
             cond = lambda g: True
-        diam_g = [np.amax(sd.cell_diameters()) for sd in self.subdomains() if cond(sd)]
+        diam_g = [
+            sd.cell_diameters(cell_wise=False, func=np.max)
+            for sd in self.subdomains()
+            if cond(sd)
+        ]
 
         diam_mg = [np.amax(mg.cell_diameters()) for mg in self.interfaces() if cond(mg)]
 
@@ -888,6 +894,7 @@ class MixedDimensionalGrid:
             The total number of mortar cells of the grid bucket.
 
         """
+
         if cond is None:
             cond = lambda g: True
         return np.sum(  # type: ignore

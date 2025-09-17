@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 from time import time
 from typing import Any, Literal, Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -74,7 +75,8 @@ class Mpsa(Discretization):
 
         """
         self.keyword = keyword
-        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'."""
+        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'.
+        """
         self.stress_matrix_key = "stress"
         """Keyword used to identify the discretization matrix for the stress. Defaults
         to 'stress'."""
@@ -193,6 +195,14 @@ class Mpsa(Discretization):
         # either specified_cells, _faces or _nodes should also be given, or else a full
         # new discretization will be computed
         update: bool = parameter_dictionary.get("update_discretization", False)
+        if update:
+            # EK comment: The functionality to update discretizations has not been
+            # thoroughly tested and should be used with extreme care.
+            msg = "Discretization update is not fully tested"
+            msg += " and should be used with care.\n"
+            msg += "If you do not want to run into trouble, it is recommended to"
+            msg += " set 'update_discretization' to False in the parameter dictionary."
+            warn(msg)
 
         # The discretization can be limited to a specified set of cells, faces or nodes
         # If none of these are specified, the entire grid will be discretized.
@@ -208,9 +218,7 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = (
-            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
-        )
+        active_constit = constit.restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -271,12 +279,8 @@ class Mpsa(Discretization):
             # Start timer for subproblem
             tic = time()
 
-            # Copy stiffness tensor, and restrict to local cells.
-            loc_c: pp.FourthOrderTensor = (
-                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
-                    active_constit, l2g_cells
-                )
-            )
+            # Restrict stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
@@ -385,7 +389,7 @@ class Mpsa(Discretization):
         )
 
         if update:
-            update_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
+            update_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
             matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
                 update_ind
             ]
@@ -1190,9 +1194,9 @@ class Mpsa(Discretization):
         For a subcell Ks associated with cell K and node s, the displacement at a point
         x is given by
             U_Ks + G_Ks (x - x_k),
-        x_K is the cell center of cell k. The point at which we evaluate the displacement
-        is given by eta, which is equivalent to the continuity points in mpsa.
-        For an internal subface we will obtain two values for the displacement,
+        x_K is the cell center of cell k. The point at which we evaluate the
+        displacement is given by eta, which is equivalent to the continuity points in
+        mpsa. For an internal subface we will obtain two values for the displacement,
         one for each of the cells associated with the subface. The displacement given
         here is the average of the two. Note that at the continuity points the two
         displacements will by construction be equal.
@@ -1642,7 +1646,9 @@ class Mpsa(Discretization):
 
             # Distribute (relevant parts of) Hook's law on subcells This will be nd
             # rows, thus cell ci is associated with indices ci*nd+np.arange(nd)
-            sub_cell_ind = pp.fvutils.expand_indices_nd(cell_node_blocks[0], nd)
+            sub_cell_ind = pp.array_operations.expand_indices_nd(
+                cell_node_blocks[0], nd
+            )
             sym_vals = sym_dim[sub_cell_ind]
             asym_vals = asym_dim[sub_cell_ind]
 

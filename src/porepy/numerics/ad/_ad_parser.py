@@ -139,7 +139,7 @@ class AdParser:
                     result_list[index] = pp.ad.AdArray(
                         res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
                     )
-                elif isinstance(res, (sps.spmatrix, np.ndarray)):
+                elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
                     # matrices.
                     #
@@ -420,7 +420,7 @@ class AdParser:
         msg += "The second argument represents the expression:\n " + msg_1 + nl
 
         # Finally some information on sizes
-        if isinstance(results[0], sps.spmatrix):
+        if isinstance(results[0], (sps.spmatrix, sps.sparray)):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
         elif isinstance(results[0], pp.ad.AdArray):
             msg += (
@@ -430,7 +430,7 @@ class AdParser:
         elif isinstance(results[0], np.ndarray):
             msg += f"First argument is a numpy array of size {results[0].size}\n"
 
-        if isinstance(results[1], sps.spmatrix):
+        if isinstance(results[1], (sps.spmatrix, sps.sparray)):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
         elif isinstance(results[1], pp.ad.AdArray):
             msg += (

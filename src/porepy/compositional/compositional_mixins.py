@@ -21,20 +21,17 @@ Important:
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, cast
-
-import numpy as np
+from typing import Callable, Sequence, cast
 
 import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
 from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
-from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
 __all__ = [
-    "get_equilibrium_type",
+    "get_local_equilibrium_condition",
     "has_unified_equilibrium",
     "CompositionalVariables",
     "FluidMixin",
@@ -64,22 +61,22 @@ def _get_surrogate_factory_as_property(
 
 
 # TODO move below two inquires once flash and CFLE are merged.
-def get_equilibrium_type(model: pp.PorePyModel) -> str | None:
+def get_local_equilibrium_condition(model: pp.PorePyModel) -> str | None:
     """
     Parameters:
         model: A PorePy model.
 
     Returns:
-        The local equilibrium type stored in ``model.params['equilibrium_type']`.
-        Defaults to None.
+        The local equilibrium condition stored in
+        ``model.params['equilibrium_condition']`. Defaults to None.
 
-        Expected equilibrium types are any combination of to state functions fixed at
-        equilibrium, e.g. ``'p-T'``, ``'p-h'``.
+        Expected equilibrium conditions are any combination of to state functions fixed
+        at equilibrium, e.g. ``'p-T'``, ``'p-h'``.
 
         Additional qualifiers also also allowed, e.g. ``'unified-p-h'``.
 
     """
-    et = model.params.get("equilibrium_type", None)
+    et = model.params.get("equilibrium_condition", None)
     if et is not None:
         return str(et)
     else:
@@ -92,12 +89,11 @@ def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
         model: A PorePy model.
 
     Returns:
-        True, if the keyword ``'unified'`` is in ``model.params['equilibrium_type']``,
-        if given at all. Defaults to False.
+        True, if the keyword ``'unified'`` is in
+        ``model.params['equilibrium_condition']``, if given at all. Defaults to False.
 
     """
-    et = str(get_equilibrium_type(model)).lower()
-    if "unified" in et:
+    if "unified" in str(get_local_equilibrium_condition(model)).lower():
         return True
     else:
         return False
@@ -166,9 +162,9 @@ class _MixtureDOFHandler(pp.PorePyModel):
         It is also guided by the flags ``'eliminate_reference_component'`` and
         ``'eliminate_reference_phase'``, which can be set in the model's :attr:`params`.
 
-        Finally, the ``'equilibrium_type'`` set in the model's :attr:`params` is used
-        to determine the independency of partial and extended fractions of components
-        in phases.
+        Finally, the ``'equilibrium_condition'`` set in the model's :attr:`params` is
+        used to determine the independency of partial and extended fractions of
+        components in phases.
 
     """
 
@@ -260,8 +256,9 @@ class _MixtureDOFHandler(pp.PorePyModel):
             True, if the ``tracer`` is in the compound``, False otherwise.
 
         """
-        if compound not in list(self.fluid.components):
+        if compound not in self.fluid.components:
             raise ValueError(f"Compound {compound} not in fluid mixture.")
+
         if tracer in compound.active_tracers:
             return True
         else:
@@ -304,7 +301,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         See also:
 
-            :func:`get_equilibrium_type`
+            :func:`get_local_equilibrium_condition`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -365,7 +362,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         See also:
 
-            :func:`get_equilibrium_type`
+            :func:`get_local_equilibrium_condition`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -386,7 +383,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if "unified" in str(get_equilibrium_type(self)).lower():
+        if has_unified_equilibrium(self):
             if component not in phase:
                 raise CompositionalModellingError(
                     f"Component {component} not in phase {phase}."
@@ -488,7 +485,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         """Names of independent phase :attr:`~porepy.compositional.base.Phase.fraction`
         variables created for this model."""
         names: list[str] = []
-        if get_equilibrium_type(self) is not None:
+        if get_local_equilibrium_condition(self) is not None:
             for phase in self.fluid.phases:
                 if self.has_independent_fraction(phase):
                     names.append(self._phase_fraction_variable(phase))
@@ -557,85 +554,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         fractions).
 
     """
-
-    def fractional_state_from_vector(
-        self,
-        subdomains: Sequence[pp.Grid],
-        state: Optional[np.ndarray] = None,
-    ) -> FluidProperties:
-        """Uses the AD framework to create a fluid state from currently stored values of
-        fractions.
-
-        Convenience function to get the values for fractions in iterative procedures.
-
-        Evaluates:
-
-        1. Overall fractions per component
-        2. Fractions per phase
-        3. Volumetric fractions per phase (saturations)
-        4. Fractions per phase per component
-           (extended if equilibrium defined, else partial)
-
-        Parameters:
-            state: ``default=None``
-
-                See :meth:`~porepy.numerics.ad.operators.Operator.value`.
-
-        Returns:
-            A partially filled fluid state data structure containing the above
-            fractional values.
-
-        """
-
-        z = np.array(
-            [
-                self.equation_system.evaluate(
-                    component.fraction(subdomains), state=state
-                )
-                for component in self.fluid.components
-            ]
-        )
-
-        y = np.array(
-            [
-                self.equation_system.evaluate(phase.fraction(subdomains), state=state)
-                for phase in self.fluid.phases
-            ]
-        )
-
-        sat = np.array(
-            [
-                self.equation_system.evaluate(phase.saturation(subdomains), state=state)
-                for phase in self.fluid.phases
-            ]
-        )
-
-        x = [
-            np.array(
-                [
-                    (
-                        self.equation_system.evaluate(
-                            phase.extended_fraction_of[component](subdomains),
-                            state=state,
-                        )
-                        if has_unified_equilibrium(self)
-                        else self.equation_system.evaluate(
-                            phase.partial_fraction_of[component](subdomains),
-                            state=state,
-                        )
-                    )
-                    for component in phase
-                ]
-            )
-            for phase in self.fluid.phases
-        ]
-
-        return FluidProperties(
-            z=z,
-            y=y,
-            sat=sat,
-            phases=[PhaseProperties(x=x_) for x_ in x],
-        )
 
     def create_variables(self) -> None:
         """Creates the sets of required variables for a fluid mixture.
@@ -856,7 +774,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
 
-        elif get_equilibrium_type(self) is None:
+        elif get_local_equilibrium_condition(self) is None:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(
@@ -1107,8 +1025,25 @@ class FluidMixin(pp.PorePyModel):
         components: list[pp.FluidComponent] = [c for c in self.get_components()]
 
         for config in self.get_phase_configuration(components):
-            eos, type_, name = config
-            phases.append(Phase(eos, type_, name))
+            # Configuration of phase with EoS.
+            if len(config) == 3:
+                phase_state, name, eos = config
+                assert isinstance(eos, EquationOfState), (
+                    f"Expecting an instance of `EquationOfState`, got {type(eos)}."
+                )
+            # Configuration of phase without EoS.
+            elif len(config) == 2:
+                phase_state, name = config
+                eos = None
+
+            assert phase_state in PhysicalState, (
+                f"Expecting a valid `PhysicalState`, got {phase_state}."
+            )
+            assert isinstance(name, str), (
+                f"Expecting a string as name for phase, got {type(name)}."
+            )
+
+            phases.append(Phase(phase_state, name, eos=eos))
 
         self.set_components_in_phases(components, phases)
 
@@ -1138,12 +1073,14 @@ class FluidMixin(pp.PorePyModel):
 
     def get_phase_configuration(
         self, components: Sequence[ComponentLike]
-    ) -> Sequence[tuple[EquationOfState, PhysicalState, str]]:
+    ) -> Sequence[
+        tuple[PhysicalState, str] | tuple[PhysicalState, str, EquationOfState]
+    ]:
         """Method to return a configuration of modelled phases.
 
-        The default implementation returns a liquid-like phase with an abstract EoS
-        instance (to be used in the standard set-up with heuristic fluid properties
-        implemented for 1-phase fluids).
+        The default implementation returns a liquid-like phase named ``'liquid'``
+        (to be used in the standard set-up with heuristic fluid properties implemented
+        for 1-phase fluids).
 
         Parameters:
             components: The list of components modelled by :meth:`get_components`.
@@ -1154,18 +1091,21 @@ class FluidMixin(pp.PorePyModel):
                     The user can use only a single EoS instance for all phases f.e.
 
         Returns:
-            A sequence of 3-tuples containing
+            A sequence of 2-tuples or 3-tuples containing
 
-            1. An instance of an EoS.
-            2. The phase state.
-            3. A name for the phase.
+            1. The phase state.
+            2. A name for the phase.
+            3. (optional) An instance of an EoS.
 
             Each tuple will be used to create a phase in the fluid mixture.
             For more information on the required return values see
             :class:`~porepy.compositional.base.Phase`.
 
+            Phase configurations which do not return an EoS are assumed to use
+            heuristics.
+
         """
-        return [(EquationOfState(components), PhysicalState.liquid, "liquid")]
+        return [(PhysicalState.liquid, "liquid")]
 
     def set_components_in_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
@@ -1209,7 +1149,7 @@ class FluidMixin(pp.PorePyModel):
         - :meth:`fugacity_coefficient` to
           :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`
           for each component in respective phase.
-          This is only done for mixtures with a defined equilibrium type
+          This is only done for mixtures with a defined equilibrium condition.
 
         Customization is possible in respective methods by mixing-in.
 
@@ -1291,7 +1231,9 @@ class FluidMixin(pp.PorePyModel):
                     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
 
                         dependencies = [self.pressure]
-                        if 'unified' in pp.get_equilibrium_type(self).lower():
+                        if 'unified' in pp.get_local_equilibrium_condition(
+                            self
+                        ).lower():
 
                             dependencies +=  [self.temperature] + [
                                 phase.extended_fraction_of[component]
@@ -1301,7 +1243,7 @@ class FluidMixin(pp.PorePyModel):
                                 )
                             ]
 
-                        elif pp.get_equilibrium_type(self):
+                        elif pp.get_local_equilibrium_condition(self):
 
                             dependencies += [self.temperature] + [
                                 phase.partial_fraction_of[component]

@@ -364,7 +364,8 @@ class SimplePipe2D(pp.PorePyModel):
 
 
 class TracerFluid_1p:
-    """Incompressible 2-component, 1-phase fluid with unit properties (everything is 1)."""
+    """Incompressible 2-component, 1-phase fluid with unit properties (everything is
+    1)."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
         # This fluid will be used for the heuristic thermodynamic properties of the
@@ -497,7 +498,6 @@ class TracerFlowModel_1p_ff(
     MassicPressureEquations,
     pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
     pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
-    pp.compositional_flow.SolutionStrategyNonlinearMPFA,
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.constitutive_laws.MassWeightedPermeability,
     pp.constitutive_laws.DarcysLawAd,
@@ -506,13 +506,13 @@ class TracerFlowModel_1p_ff(
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
-    """Tracer flow model using the pressure equation and a fractional flow formulation."""
+    """Tracer flow model using the pressure equation and a fractional flow
+    formulation."""
 
     exact_sol: LinearTracerExactSolution1D
     results: list[LinearTracerSaveData]
 
     def __init__(self, params=None):
-        params["rediscretize_darcy_flux"] = True
         params["fractional_flow"] = True
         super().__init__(params)
 
@@ -522,11 +522,17 @@ class TracerFlowModel_1p_ff(
         self.exact_sol = LinearTracerExactSolution1D(self)
         self.results: list[LinearTracerSaveData] = []
 
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Re-discretizes the Darcy flux on all subdomains."""
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        )
+
 
 class TrivialEoS(pp.compositional.EquationOfState):
     """Trivial EoS returning 1 for every property and zero derivatives."""
 
-    def compute_phase_properties(self, phase_state, *thermodynamic_input):
+    def compute_phase_properties(self, phase_state, *thermodynamic_input, params=None):
         # Number of derivatives and number of values per derivative.
         nd = len(thermodynamic_input)
         nx = len(thermodynamic_input[0])
@@ -545,6 +551,8 @@ class TrivialEoS(pp.compositional.EquationOfState):
             drho=d.copy(),
             dmu=d.copy(),
             dkappa=d.copy(),
+            phis=np.zeros((self._nc, nx)),
+            dphis=np.zeros((self._nc, nd, nx)),
         )
 
 
@@ -633,7 +641,8 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
 
 
 class TracerFluid_3p(TracerFluid_1p):
-    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1)."""
+    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are
+    1)."""
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Formal dependency of phase properties, though never used in dummy EoS."""
@@ -646,7 +655,7 @@ class TracerFluid_3p(TracerFluid_1p):
         """Returns configs for 3 phases with same dummy EoS."""
         eos = TrivialEoS(components)
         state = pp.compositional.PhysicalState.liquid
-        return [(eos, state, "1"), (eos, state, "2"), (eos, state, "3")]
+        return [(state, "1", eos), (state, "2", eos), (state, "3", eos)]
 
     def dependencies_of_phase_properties(
         self, phase: pp.Phase

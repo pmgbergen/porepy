@@ -33,3 +33,6 @@ For the more experienced user, some more specific tutorials are also available:
 15. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation.
 16. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #15, which arises in the linear elastisity equations.
 17. [Linear Tracer Flow](./tracer_flow.ipynb) describes the setup of a linear single-phase, 2-component model based on tutorial #6, and showcases a simulation of tracer transport through a fractured domain.
+19. [Fluid modeling](./fluid_modeling.ipynb) explains how to set up multicomponent, multiphase fluids in a model, and various approaches to modeling fluid properties.
+
+Also, see the [reference parameter dictionaries](../src/porepy/examples/example_params.py) for PorePy models. They can be used as a starting point for a PorePy user to copy the relevant parameters for your own problem.

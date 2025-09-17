@@ -24,17 +24,16 @@ def project_flux(
     mortar_key: str = "mortar_solution",
 ) -> None:
     """
-    Save in the grid bucket a piece-wise vector representation of the flux
-    for each grid.
+    Save in the md-grid a piece-wise vector representation of the flux for each grid.
 
-    Parameters
-    ---------
-    mdg: the grid bucket
-    discr: discretization class
-    flux: identifier of the flux, already split, in the grid bucket
-    P0_flux: identifier of the reconstructed flux which will be added to the grid bucket.
-    mortar_key (optional): identifier of the mortar variable, already split, in the
-        grid bucket. The default value is "mortar_solution".
+    Parameters:
+        mdg: the md-grid
+        discr: discretization class
+        flux: identifier of the flux, already split, in the md-grid
+        P0_flux: identifier of the reconstructed flux which will be added to the
+            md-grid.
+        mortar_key: identifier of the mortar variable, already split, in the md-grid.
+            The default value is "mortar_solution".
 
     """
 
@@ -52,14 +51,13 @@ def project_flux(
             sign = sps.diags(sd.cell_faces.data[indices], 0)
 
             for intf in mdg.subdomain_to_interfaces(sd):
-                # do not consider the contribution from the mortar grid when the latter is
-                # of the same dimension or codim > 1 (e.g., wells)
+                # do not consider the contribution from the mortar grid when the latter
+                # is of the same dimension or codim > 1 (e.g., wells)
                 if intf.dim == sd.dim or intf.codim > 1:
                     continue
 
                 data_intf = mdg.interface_data(intf)
-                # project the mortar variable back to the higher dimensional
-                # problem
+                # project the mortar variable back to the higher dimensional problem
                 # edge_flux += sign * g_m.mortar_to_primary_int() *
                 # d_e[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
                 mortar_values = pp.get_solution_values(
@@ -76,8 +74,8 @@ def project_flux(
 
 class DualElliptic(Discretization):
     """Parent class for methods based on the mixed variational form of the
-    elliptic equation. The class should not be used by itself, but provides a
-    sheared implementation of central methods.
+    elliptic equation. The class should not be used by itself, but provides a shared
+    implementation of central methods.
 
     Known subclasses that can be used for actual discretization are MVEM and RT0.
 
@@ -88,7 +86,8 @@ class DualElliptic(Discretization):
         self.keyword = keyword
         self.name = name
 
-        # Keywords used to identify individual terms in the discretization matrix dictionary
+        # Keywords used to identify individual terms in the discretization matrix
+        # dictionary.
         # Discretization of H_div mass matrix
         self.mass_matrix_key = "mass"
         # Discretization of divergence matrix
@@ -378,312 +377,6 @@ class DualElliptic(Discretization):
 
         hat_E_int = sps.bmat([[U * hat_E_int], [sps.csr_matrix(shape)]])
         return hat_E_int
-
-    def assemble_int_bound_flux(
-        self,
-        sd: pp.Grid,
-        data: dict,
-        intf: pp.MortarGrid,
-        data_edge: dict,
-        cc: np.ndarray,
-        matrix: np.ndarray,
-        rhs: np.ndarray,
-        self_ind: int,
-        use_secondary_proj: bool = False,
-    ) -> None:
-        """Abstract method. Assemble the contribution from an internal
-        boundary, manifested as a flux boundary condition.
-
-        The intended use is when the internal boundary is coupled to another
-        node in a mixed-dimensional method. Specific usage depends on the
-        interface condition between the nodes; this method will typically be
-        used to impose flux continuity on a higher-dimensional domain.
-
-        Implementations of this method will use an interplay between the grid on
-        the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
-                used. Needed for periodic boundary conditions.
-
-        """
-        msg = """This function is deprecated and will be removed, most likely in the
-        second half of 2022.
-
-        To assemble mixed-dimensional elliptic problems, the recommended solution is
-        either to use the models, or to use the automatic differentiation framework
-        directly.
-        """
-        warn(msg, DeprecationWarning, stacklevel=2)
-
-        # The matrix must be the VEM discretization matrix.
-        if use_secondary_proj:
-            proj = intf.mortar_to_secondary_int()
-        else:
-            proj = intf.mortar_to_primary_int()
-
-        hat_E_int = self._velocity_dof(sd, intf, proj)
-        cc[self_ind, 2] += matrix[self_ind, self_ind] * hat_E_int
-
-    def assemble_int_bound_source(
-        self,
-        sd: pp.Grid,
-        data: dict,
-        intf: pp.MortarGrid,
-        data_edge: dict,
-        cc: np.ndarray,
-        matrix: np.ndarray,
-        rhs: np.ndarray,
-        self_ind: int,
-    ) -> None:
-        """Abstract method. Assemble the contribution from an internal
-        boundary, manifested as a source term.
-
-        The intended use is when the internal boundary is coupled to another
-        node in a mixed-dimensional method. Specific usage depends on the
-        interface condition between the nodes; this method will typically be
-        used to impose flux continuity on a lower-dimensional domain.
-
-        Implementations of this method will use an interplay between the grid on
-        the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-
-        """
-        msg = """This function is deprecated and will be removed, most likely in the
-        second half of 2022.
-
-        To assemble mixed-dimensional elliptic problems, the recommended solution is
-        either to use the models, or to use the automatic differentiation framework
-        directly.
-        """
-        warn(msg, DeprecationWarning, stacklevel=2)
-        proj = intf.secondary_to_mortar_avg()
-
-        A = proj.T
-        shape = (sd.num_faces, A.shape[1])
-        cc[self_ind, 2] += sps.bmat([[sps.csr_matrix(shape)], [A]])
-
-    def assemble_int_bound_pressure_trace(
-        self,
-        sd: pp.Grid,
-        data: dict,
-        intf: pp.MortarGrid,
-        data_edge: dict,
-        cc: Optional[np.ndarray],
-        matrix: np.ndarray,
-        rhs: np.ndarray,
-        self_ind: int,
-        use_secondary_proj: bool = False,
-        assemble_matrix=True,
-        assemble_rhs=True,
-    ) -> None:
-        """Abstract method. Assemble the contribution from an internal
-        boundary, manifested as a condition on the boundary pressure.
-
-        The intended use is when the internal boundary is coupled to another
-        node in a mixed-dimensional method. Specific usage depends on the
-        interface condition between the nodes; this method will typically be
-        used to impose flux continuity on a higher-dimensional domain.
-
-        Implementations of this method will use an interplay between the grid on
-        the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
-                used. Needed for periodic boundary conditions.
-
-        """
-        msg = """This function is deprecated and will be removed, most likely in the
-        second half of 2022.
-
-        To assemble mixed-dimensional elliptic problems, the recommended solution is
-        either to use the models, or to use the automatic differentiation framework
-        directly.
-        """
-        warn(msg, DeprecationWarning, stacklevel=2)
-
-        if use_secondary_proj:
-            proj = intf.mortar_to_secondary_int()
-        else:
-            proj = intf.mortar_to_primary_int()
-
-        hat_E_int = self._velocity_dof(sd, intf, proj)
-
-        assert cc is not None
-
-        cc[2, self_ind] -= hat_E_int.T * matrix[self_ind, self_ind]
-        cc[2, 2] -= hat_E_int.T * matrix[self_ind, self_ind] * hat_E_int
-
-    def assemble_int_bound_pressure_trace_rhs(
-        self, sd, data, data_edge, cc, rhs, self_ind, use_secondary_proj=False
-    ):
-        """Assemble the rhs contribution from an internal
-        boundary, manifested as a condition on the boundary pressure.
-
-        For details, see self.assemble_int_bound_pressure_trace()
-
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
-                used. Needed for periodic boundary conditions.
-
-        """
-        # Nothing to do here.
-        pass
-
-    def assemble_int_bound_pressure_trace_between_interfaces(
-        self,
-        g: pp.Grid,
-        data_grid: dict,
-        data_primary_edge,
-        data_secondary_edge,
-        cc: np.ndarray,
-        matrix: np.ndarray,
-        rhs: np.ndarray,
-    ) -> None:
-        """Assemble the contribution from an internal
-        boundary, manifested as a condition on the boundary pressure.
-
-        No contribution for this method.
-
-        Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data_grid (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_primary_edge (dictionary): Data dictionary for the primary edge in the
-                mixed-dimensional grid.
-            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
-                coupling between variables on this interface. Index 0, 1 and 2
-                represent the primary grid, the primary and secondary interface,
-                respectively.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the primary grid,
-                the primary and secondary interface, respectively.
-
-        """
-        pass
-
-    def assemble_int_bound_pressure_cell(
-        self,
-        sd: pp.Grid,
-        data: dict,
-        intf: pp.MortarGrid,
-        data_edge: dict,
-        cc: np.ndarray,
-        matrix: np.ndarray,
-        rhs: np.ndarray,
-        self_ind: int,
-    ) -> None:
-        """Abstract method. Assemble the contribution from an internal
-        boundary, manifested as a condition on the cell pressure.
-
-        The intended use is when the internal boundary is coupled to another
-        node in a mixed-dimensional method. Specific usage depends on the
-        interface condition between the nodes; this method will typically be
-        used to impose flux continuity on a lower-dimensional domain.
-
-        Implementations of this method will use an interplay between the grid on
-        the node and the mortar grid on the relevant edge.
-
-        Parameters:
-            sd (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            grid_swap (boolean): If True, the grid g is identified with the @
-                secondary side of the mortar grid in data_adge.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
-                The first and second rows and columns are identified with the
-                primary and secondary side; the third belongs to the edge variable.
-                The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-
-        """
-        msg = """This function is deprecated and will be removed, most likely in the
-        second half of 2022.
-
-        To assemble mixed-dimensional elliptic problems, the recommended solution is
-        either to use the models, or to use the automatic differentiation framework
-        directly.
-        """
-        warn(msg, DeprecationWarning, stacklevel=2)
-
-        proj = intf.secondary_to_mortar_avg()
-
-        A = proj.T
-        shape = (sd.num_faces, A.shape[1])
-
-        cc[2, self_ind] -= sps.bmat([[sps.csr_matrix(shape)], [A]]).T
 
     def enforce_neumann_int_bound(
         self,

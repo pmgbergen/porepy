@@ -41,6 +41,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.CharacteristicTractionFromDisplacement,
     pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
@@ -69,7 +70,70 @@ class EquationsPoromechanics(
     pp.fluid_mass_balance.FluidMassBalanceEquations,
     pp.contact_mechanics.ContactMechanicsEquations,
 ):
-    """Combines mass and momentum balance and contact mechanics equations."""
+    """Combines mass and momentum balance and contact mechanics equations.
+    Adaptation is made to the body force taking into account solid and
+    fluid."""
+
+    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Body force integrated over the subdomain cells.
+
+        Parameters:
+            subdomains: List of subdomains where the body force is defined.
+
+        Returns:
+            Operator for the body force [kg*m*s^-2].
+
+        """
+        return self.volume_integral(
+            self.gravity_force(subdomains, "bulk"), subdomains, dim=self.nd
+        )
+
+
+class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
+    """Solid mass equation for poromechanics.
+
+    This is an extension of the solid mass equation in the three-field formulation of
+    the mechanics problem. The extension is the addition of the fluid pressure term.
+
+    """
+
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The Biot coefficient."""
+    second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The second Lamé parameter."""
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator representing the fluid pressure.."""
+
+    def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Extension of the solid mass equation to the poromechanics problem [-].
+
+        For details on the the solid mass equation, and the extension to poromechanical
+        systems, see https://arxiv.org/pdf/2405.10390 Section 2.1.
+
+        Parameters:
+            subdomains: List of subdomains where the solid mass equation is defined.
+
+        Returns:
+            Operator for the solid mass equation.
+
+        """
+        # The mechanics part of the solid mass equation is the same as in the momentum
+        # balance model.
+        momentum_term = super().solid_mass_equation(subdomains)
+
+        # Add the term related to the fluid pressure.
+        lmbda = self.second_lame_parameter(subdomains)
+        # Biot coefficient.
+        biot = self.biot_coefficient(subdomains)
+
+        pressure_term = self.volume_integral(
+            biot * self.pressure(subdomains) / lmbda, subdomains, 1
+        )
+        full_eq = momentum_term - pressure_term
+
+        full_eq.set_name("Solid_mass_equation_poromechanics")
+
+        return full_eq
 
 
 class VariablesPoromechanics(
@@ -110,6 +174,23 @@ class InitialConditionsPoromechanics(
     and associated primary variables."""
 
 
+class TpsaPoromechanicsMixin(
+    pp.constitutive_laws.ConstitutiveLawsTpsaPoromechanics,
+    SolidMassEquation,
+    pp.momentum_balance.TpsaMomentumBalanceMixin,
+):
+    """Mixin for the TPSA poromechanics model. If mixed into a Poromechanics
+    class, the resulting objects will apply the four-field (displacement, rotation
+    stress, total pressure and fluid pressure) formulation for poromechanics,
+    discretized by the Tpsa method.
+
+    Can also be used to define a THM model with Tpsa.
+
+    """
+
+    pass
+
+
 class SolutionStrategyPoromechanics(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.momentum_balance.SolutionStrategyMomentumBalance,
@@ -122,23 +203,15 @@ class SolutionStrategyPoromechanics(
 
     """
 
-    darcy_flux_discretization: Callable[
-        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
-    ]
-    """Discretization of the Darcy flux. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that defines the Biot tensor. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
 
         for sd, data in self.mdg.subdomains(dim=self.nd, return_data=True):
             # Set the Biot coefficient.
@@ -154,16 +227,19 @@ class SolutionStrategyPoromechanics(
         """The coupled problem is nonlinear."""
         return True
 
-    def set_nonlinear_discretizations(self) -> None:
-        """Collect discretizations for nonlinear terms."""
-        # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
-        # balance does not have any.
-        super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a re-discretization
-        # of the diffusive flux in subdomains where the aperture changes.
-        subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
-        self.add_nonlinear_discretization(
-            self.darcy_flux_discretization(subdomains).flux(),
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Poromechanics rely by default on Darcy flux re-discretization.
+
+        The re-discretization is performed only on subdomains with
+        ``dim < nd`` due to changes in aperture!
+        The default behavior defined here concerns only those domains.
+
+        """
+
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(
+                [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
+            ).flux(),
         )
 
 

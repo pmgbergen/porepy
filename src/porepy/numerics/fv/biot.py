@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 from time import time
 from typing import Any, Literal
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -259,14 +260,14 @@ class Biot(pp.Mpsa):
         In addition, the following parameters are optional:
             Related to coupling terms:
                 scalar_vector_mapping (dictionary): Coupling terms (think generalization
-                    of Biot's coefficient). On the form {key_1: alpha_1, key_2: alpha_2}.
-                    The keys are used to identify the coupling term, and the values are
-                    either floats or SecondOrderTensor objects. If a float is given, the
-                    float is expanded to a SecondOrderTensor with the same value in all
-                    cells. The discretization will produce coupling terms (see class
-                    documentation), stored as a dictionary among the discretization
-                    matrices. The keys in the dictionary are the same as the keys in the
-                    scalar_vector_mapping dictionary, on the form
+                    of Biot's coefficient). On the form {key_1: alpha_1, key_2:
+                    alpha_2}.The keys are used to identify the coupling term, and the
+                    values are either floats or SecondOrderTensor objects. If a float is
+                    given, the float is expanded to a SecondOrderTensor with the same
+                    value in all cells. The discretization will produce coupling terms
+                    (see class documentation), stored as a dictionary among the
+                    discretization matrices. The keys in the dictionary are the same as
+                    the keys in the scalar_vector_mapping dictionary, on the form
 
                     data[pp.DISCRETIZATION_MATRICES][self.keyword]['scalar_gradient']
                         = {key_1: matrix_1, key_2: matrix_2}
@@ -324,8 +325,16 @@ class Biot(pp.Mpsa):
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
-        # else a full new discretization will be computed
+        # else a full new discretization will be computed.
         update: bool = parameter_dictionary.get("update_discretization", False)
+        if update:
+            # EK comment: The functionality to update discretizations has not been
+            # thoroughly tested and should be used with extreme care.
+            msg = "Discretization update is not fully tested"
+            msg += " and should be used with care.\n"
+            msg += "If you do not want to run into trouble, it is recommended to"
+            msg += " set 'update_discretization' to False in the parameter dictionary."
+            warn(msg)
 
         # The discretization can be limited to a specified set of cells, faces or nodes
         # If none of these are specified, the entire grid will be discretized.
@@ -341,14 +350,11 @@ class Biot(pp.Mpsa):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = (
-            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
-        )
+        active_constit = constit.restrict_to_cells(active_cells)
+
         active_alphas: dict[str, pp.SecondOrderTensor] = {}
         for key, val in alphas.items():
-            active_alphas[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                alphas[key], active_cells
-            )
+            active_alphas[key] = alphas[key].restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -431,18 +437,13 @@ class Biot(pp.Mpsa):
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
             tic = time()
-            # Copy stiffness tensor, and restrict to local cells
-            loc_c: pp.FourthOrderTensor = (
-                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
-                    active_constit, l2g_cells
-                )
-            )
-            # Copy Biot coefficient, and restrict to local cells
+            # Restrict the stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
+
+            # Restrict the Biot coefficients to local cells
             loc_alphas = {}
             for key in active_alphas:
-                loc_alphas[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                    active_alphas[key], l2g_cells
-                )
+                loc_alphas[key] = active_alphas[key].restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
@@ -650,12 +651,14 @@ class Biot(pp.Mpsa):
         )
 
         # Either update the discretization scheme, or store the full one
-        matrices: dict[str, dict] = sd_data[pp.DISCRETIZATION_MATRICES]
-        matrices_m: dict[str, sps.spmatrix] = matrices[self.keyword]
+        matrices: dict[str, Any] = sd_data[pp.DISCRETIZATION_MATRICES]
+        matrices_m = matrices[self.keyword]
 
         if update:
             # The faces to be updated are given by active_faces
-            update_face_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
+            update_face_ind = pp.array_operations.expand_indices_nd(
+                active_faces, sd.dim
+            )
 
             matrices_m[self.stress_matrix_key][update_face_ind] = stress[
                 update_face_ind
@@ -664,27 +667,28 @@ class Biot(pp.Mpsa):
                 update_face_ind
             ]
 
-            matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = (
-                displacement_divergence[update_cell_ind]
-            )
-            matrices_m[self.bound_displacement_divergence_matrix_key][
-                update_cell_ind
-            ] = bound_displacement_divergence[update_cell_ind]
-            matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = (
-                scalar_gradient[update_face_ind]
-            )
-            matrices_m[self.consistency_matrix_key][update_cell_ind] = consistency[
-                update_cell_ind
-            ]
+            for key in coupling_keywords:
+                matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = (
+                    displacement_divergence[key][update_cell_ind]
+                )
+                matrices_m[self.bound_displacement_divergence_matrix_key][
+                    update_cell_ind
+                ] = bound_displacement_divergence[key][update_cell_ind]
+                matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = (
+                    scalar_gradient[key][update_face_ind]
+                )
+                matrices_m[self.consistency_matrix_key][update_cell_ind] = consistency[
+                    key
+                ][update_cell_ind]
+                matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
+                    bound_displacement_pressure[key][update_face_ind]
+                )
 
             matrices_m[self.bound_displacement_cell_matrix_key][update_face_ind] = (
                 bound_displacement_cell[update_face_ind]
             )
             matrices_m[self.bound_displacement_face_matrix_key][update_face_ind] = (
                 bound_displacement_face[update_face_ind]
-            )
-            matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
-                bound_displacement_pressure[update_face_ind]
             )
         else:
             matrices_m[self.stress_matrix_key] = stress
@@ -787,8 +791,8 @@ class Biot(pp.Mpsa):
             bound_stress = hf2f * bound_stress * hf2f.T
             stress = hf2f * stress
             rhs_bound = rhs_bound * hf2f.T
-            # hf2f sums the values, but here we need an average.
-            # For now, use simple average, although area weighted values may be more accurate
+            # hf2f sums the values, but here we need an average. For now, use simple
+            # average, although area weighted values may be more accurate.
             num_subfaces = hf2f.sum(axis=1).A.ravel()
             scaling = sps.dia_matrix(
                 (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
@@ -1020,9 +1024,9 @@ class Biot(pp.Mpsa):
         # faces. Note that this mapping acts on nAlpha_grad, not unique_nAlpha_grad,
         # that is a row contains only the force on one side of the face.
         vals = np.ones(num_subfno_unique * nd)
-        rows = pp.fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = pp.fvutils.expand_indices_incr(
-            subcell_topology.unique_subfno, nd, num_subhfno
+        rows = pp.array_operations.expand_indices_nd(subcell_topology.subfno_unique, nd)
+        cols = pp.array_operations.expand_indices_add_increment(
+            x=subcell_topology.unique_subfno, n=nd, increment=num_subhfno
         )
         map_unique_subfno = sps.coo_matrix(
             (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
@@ -1043,7 +1047,7 @@ class Biot(pp.Mpsa):
         """
         rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf), order="F")[0]
 
-        cols = pp.fvutils.expand_indices_nd(np.arange(nf), nd)
+        cols = pp.array_operations.expand_indices_nd(np.arange(nf), nd)
         vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 
@@ -1071,10 +1075,11 @@ class Biot(pp.Mpsa):
         col += incr.astype("int32")
 
         # Distribute the values of the alpha tensor to the subcells by using
-        # cell_node_blocks. For 2d grids, also drop the z-components of the alpha tensor.
-        # NOTE: This assumes that for a 2d grid, the grid is located in the xy-plane.
-        # This is a tacit assumption throughout the Biot and Mpsa implementations (but
-        # not mpfa, see the use of a rotation matrix in that module).
+        # cell_node_blocks. For 2d grids, also drop the z-components of the alpha
+        # tensor. NOTE: This assumes that for a 2d grid, the grid is located in the
+        # xy-plane. This is a tacit assumption throughout the Biot and Mpsa
+        # implementations (but not mpfa, see the use of a rotation matrix in that
+        # module).
         subcell_alpha_values = alpha.values[:nd, :nd, cell_node_blocks[0]]
 
         # Reorder the elements of the subcell_alpha_values (which is a 3-tensor), so

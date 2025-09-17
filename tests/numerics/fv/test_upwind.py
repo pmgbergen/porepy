@@ -361,12 +361,46 @@ class TestUpwind:
             rhs_known = self._rhs_collection[test_name]
             assert np.allclose(rhs, rhs_known, rtol, atol)
 
+    def test_upwind_default_boundary_condition(self):
+        """Test Upwind discretization with no boundary condition provided."""
+        sd = pp.CartGrid(3, 1)
+        sd.compute_geometry()
+        # Only provide darcy_flux, no 'bc' in parameters.
+        data = {
+            pp.PARAMETERS: {"transport": {"darcy_flux": np.ones(sd.num_faces)}},
+            pp.DISCRETIZATION_MATRICES: {"transport": {}},
+        }
+        upwind = pp.Upwind()
+        # Should use default Dirichlet boundary condition.
+        upwind.discretize(sd, data)
+        # Check that matrices are created and have expected shapes.
+        matrices = data[pp.DISCRETIZATION_MATRICES]["transport"]
+        assert matrices[upwind.upwind_matrix_key].shape == (sd.num_faces, sd.num_cells)
+        assert matrices[upwind.bound_transport_dir_matrix_key].shape == (
+            sd.num_faces,
+            sd.num_faces,
+        )
+        assert matrices[upwind.bound_transport_neu_matrix_key].shape == (
+            sd.num_faces,
+            sd.num_faces,
+        )
+        # A Dirichlet condition should be assigned by default. This will give a unit
+        # value in [0, 0] of the Dirichlet boundary matrix, since the assigned
+        # darcy_flux gives inflow over leftmost face into leftmost cell. The value on
+        # the rightmost face is zero, since Dirichlet conditions do not contribute on
+        # outflow faces.
+        assert matrices[upwind.bound_transport_dir_matrix_key].nnz == 1
+        assert matrices[upwind.bound_transport_dir_matrix_key][0, 0] == 1
+
+        # The Neumann boundary discretization should be all zeros.
+        assert matrices[upwind.bound_transport_neu_matrix_key].nnz == 0
+
 
 class TestMixedDimensionalUpwind:
     """Test the discretization and assembly functionality of the mixed-dimensional
     upwind discretization.
 
-    The tests are based on the the following steps:
+    The tests are based on the following steps:
         1. Specify a geometry and advection field
         2. Discretize the mixed-dimensional problem
         3. Assemble the discretization matrix and rhs vector for the md-problem.
@@ -392,14 +426,6 @@ class TestMixedDimensionalUpwind:
         for intf, data in mdg.interfaces(return_data=True):
             sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
             data[pp.PRIMARY_VARIABLES] = {"lambda_u": {"cells": 1}}
-            # Use the old Assembler-style specification of the coupling discretization
-            data[pp.COUPLING_DISCRETIZATION] = {
-                variable: {
-                    sd_primary: (variable, term),
-                    sd_secondary: (variable, term),
-                    intf: ("lambda_u", coupling_disc),
-                }
-            }
 
     """Helper function for adding a vector flux for faces."""
 
@@ -472,10 +498,9 @@ class TestMixedDimensionalUpwind:
             rhs_loc[0] = h_rhs
             rhs_loc[1] = l_rhs
 
-            # block scatter
-            # The block scatter operation takes the discretization matrix associated with
-            # each subdomain and inserts it into a sparse block structure (lhs and rhs) to
-            # construct the final algebraic representation.
+            # block scatter The block scatter operation takes the discretization matrix
+            # associated with each subdomain and inserts it into a sparse block
+            # structure (lhs and rhs) to construct the final algebraic representation.
             h_idx = hashes.index(hash(h_sd))
             l_idx = hashes.index(hash(l_sd))
             i_idx = hashes.index(hash(intf))

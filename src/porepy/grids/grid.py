@@ -16,16 +16,17 @@ from __future__ import annotations
 
 import copy
 import itertools
-import warnings
+from functools import lru_cache
 from itertools import count
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
+from warnings import warn
 
 import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import mcolon, tags
+from porepy.utils import tags
 
 
 class Grid:
@@ -452,7 +453,7 @@ class Grid:
         if not is_oriented:
             # The assumptions underlying the computation for general cells is broken.
             # Fall back to a legacy implementation which is only valid for convex cells.
-            warnings.warn(
+            warn(
                 "Orientations in face_nodes and cell_faces are inconsistent. "
                 "Fall back on an implementation that assumes all cells are convex."
             )
@@ -737,7 +738,7 @@ class Grid:
 
         """
         mat = (self.face_nodes @ np.abs(self.cell_faces)) > 0
-        return mat
+        return mat.tocsc()
 
     def num_cell_nodes(self) -> np.ndarray:
         """
@@ -755,6 +756,9 @@ class Grid:
             internal nodes.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         internal_nodes = np.setdiff1d(
             np.arange(self.num_nodes), self.get_boundary_nodes(), assume_unique=True
         )
@@ -795,6 +799,9 @@ class Grid:
             faces.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         return np.setdiff1d(
             np.arange(self.num_faces), self.get_all_boundary_faces(), assume_unique=True
         )
@@ -806,6 +813,9 @@ class Grid:
             boundary nodes.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         return self._indices(self.tags["domain_boundary_nodes"])
 
     def update_boundary_face_tag(self) -> None:
@@ -866,19 +876,49 @@ class Grid:
             if faces.size > 0:
                 first = self.face_nodes.indptr[faces]
                 second = self.face_nodes.indptr[faces + 1]
-                nodes = self.face_nodes.indices[mcolon.mcolon(first, second)]
+                nodes = self.face_nodes.indices[
+                    pp.array_operations.expand_index_pointers(first, second)
+                ]
                 self.tags[node_tag][nodes] = True
 
-    def cell_diameters(self, cn: Optional[sps.spmatrix] = None) -> np.ndarray:
+    @lru_cache
+    def cell_diameters(
+        self,
+        cn: Optional[sps.spmatrix] = None,
+        cell_wise: bool = True,
+        func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+    ) -> np.ndarray:
         """Computes the cell diameters.
 
         Parameters:
             cn: ``default=None``
-                Cell-to-nodes map, already computed previously.
-                If None, a call to :meth:`cell_nodes` is provided.
+                Cell-to-nodes map, already computed previously. If None, a call to
+                :meth:`cell_nodes` is provided.
+
+            cell_wise:
+                If True, returns the cell diameters. If False, the parameter ``func``
+                must be provided to specify the aggregation function.
+
+                The requirement that ``func`` is provided is linked to technical
+                limitations of the implementation.
+
+            func:
+                A function to apply to the computed diameters. Should operate on a 1d
+                numpy array and return a numpy array. For instance ``func=np.min`` will
+                return the minimum cell diameter in the grid.
+
+                The parameter must be provided if ``cell_wise`` is False. Will not be
+                applied if ``cell_wise`` is True.
+
+
+        Raises:
+            ValueError: If ``func`` is not provided when ``cell_wise`` is False.
 
         Returns:
-            Values of the cell diameter for each cell, ``(shape=(num_cells))``.
+
+            If ``cell_wise`` is True, the cell diameter for each cell,
+            ``(shape=(num_cells))``. If ``cell_wise`` is False, the maximum diameter of
+            all cells.
 
             If the dimension of the grid is zero, returns 0.
 
@@ -886,24 +926,102 @@ class Grid:
         if self.dim == 0:
             return np.zeros(1)
 
+        if cell_wise is False and func is None:
+            raise ValueError("func must be provided if cell_wise is False")
+
+        if cell_wise and func is not None:
+            warn("The parameter func is ignored when cell_wise is True")
+
+        if cn is None:
+            cn = self.cell_nodes()
+
         def comb(n):
+            # Helper function to get all combinations of two elements in n.
             return np.fromiter(
                 itertools.chain.from_iterable(itertools.combinations(n, 2)), n.dtype
             ).reshape((2, -1), order="F")
 
         def diam(n):
+            # Helper function to compute the diameter of a set of nodes.
             return np.amax(
                 np.linalg.norm(self.nodes[:, n[0, :]] - self.nodes[:, n[1, :]], axis=0)
             )
 
-        if cn is None:
-            cn = self.cell_nodes()
-        return np.array(
-            [
-                diam(comb(cn.indices[cn.indptr[c] : cn.indptr[c + 1]]))
-                for c in np.arange(self.num_cells)
-            ]
-        )
+        if cell_wise:
+            # Compute the diameter for each cell by 1) getting all node combinations for
+            # the cell and 2) computing the diameter of the cell. This implementation
+            # can likely be optimized using techniques similar to the ones used in
+            # the below else, but implementing this has not been a priority.
+            cell_diameters = np.array(
+                [
+                    diam(comb(cn.indices[cn.indptr[c] : cn.indptr[c + 1]]))
+                    for c in np.arange(self.num_cells)
+                ]
+            )
+            return cell_diameters
+
+        else:
+            # This is a faster implementation for the case where we only want the
+            # maximum diameter of all cells, e.g., during grid convergence studies.
+            # Compared to the implementation in the above if-statement, the idea is to
+            # get a unique combination of node pairs (thus considering only once those
+            # cases where two cells share a node pair, for instance along an edge), and
+            # then compute the diameter of only those node pairs. It should be possible
+            # to give a cell-wise diameter by using this technique, but that would
+            # require a mapping from the unique node pairs back to the cells (which
+            # could be trivial if all cells have equally many nodes, but will be more
+            # complex for general cases). This has not been prioritized, instead the
+            # cell-wise diameter is computed in the above if.
+
+            # Short-hand for the indices and indptr of the cell-to-node map.
+            ind = cn.indices
+            ptr = cn.indptr
+
+            # Profiling showed that constructing the combinations of indices (the nested
+            # calls to itertools in the above function comb) is quite slow. The
+            # combinations to be considered depend only on the number of nodes in each
+            # cell, and there will at most be a few different cases per grid. We
+            # therefore precompute all combinations for each unique number of nodes, and
+            # store these in the variable template.
+            num_nodes = np.diff(ptr)
+            template = {sz: comb(np.arange(sz)) for sz in np.unique(num_nodes)}
+
+            # Construct the indices of all node pairs in the grid. The indices of cell i
+            # start on ptr[i] and are formed by accessing the template for this number
+            # of cells.
+            all_node_pairs = np.hstack(
+                [ind[ptr[i] + template[sz]] for i, sz in enumerate(num_nodes)]
+            )
+
+            # Compute the diameter of each pair of nodes.
+            dist = np.linalg.norm(
+                self.nodes[:, all_node_pairs[0]] - self.nodes[:, all_node_pairs[1]],
+                axis=0,
+            )
+            # The cell diameter is the maximum of the distances associated to a cell. To
+            # find this, we first make an array of cell indices for all elements in
+            # dist. Spelled out: For each element in num_nodes (the number of nodes in
+            # each cell), create an array of cell indices (ci). The size of this array
+            # should be the number of node-node combinations within that cell (given by
+            # the number of columns in the corresponding template). Concatenate the
+            # arrays created for all cells by using np.hstack.
+            cell_index = np.hstack(
+                [np.full(template[sz].shape[1], ci) for ci, sz in enumerate(num_nodes)]
+            )
+            # Take the maximum over all distances associated with a cell. We will store
+            # the maximum in cell_diam.
+            cell_diam = np.zeros(self.num_cells)
+            # By numpy magic and copilot cleverness, the following two lines efficiently
+            # take the cell-wise maximum. It is equivalent to (but much faster than)
+            # the following code:
+            #   cell_diam = np.array([np.max(dist[cell_index == ci])
+            #                         for ci in range(self.num_cells)])
+            _, inverse_indices = np.unique(cell_index, return_inverse=True)
+            np.maximum.at(cell_diam, inverse_indices, dist)
+
+            assert func is not None  # For mypy.
+            # Apply the function to the computed diameters.
+            return func(cell_diam)
 
     def cell_faces_as_dense(self) -> np.ndarray:
         """Obtain the cell-face relation in the form of two rows, rather than a
@@ -1119,8 +1237,8 @@ class Grid:
         # Expand the indices to the correct size. The trace operator is a mapping from
         # cells to faces, so we need boundary cells in the columns and boundary faces in
         # the rows.
-        rows = pp.fvutils.expand_indices_nd(bound_faces, dim)
-        cols = pp.fvutils.expand_indices_nd(bound_cells, dim)
+        rows = pp.array_operations.expand_indices_nd(bound_faces, dim)
+        cols = pp.array_operations.expand_indices_nd(bound_cells, dim)
         trace = sps.coo_matrix(
             (np.ones(bound_faces.size * dim), (rows, cols)),
             shape=(self.num_faces * dim, self.num_cells * dim),

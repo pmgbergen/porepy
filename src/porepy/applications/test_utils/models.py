@@ -20,6 +20,7 @@ class NoPhysics(  # type: ignore[misc]
     pp.SolutionStrategy,
     pp.DataSavingMixin,
     pp.BoundaryConditionMixin,
+    pp.InitialConditionMixin,
     pp.FluidMixin,
 ):
     """A model with no physics, for testing purposes.
@@ -116,16 +117,20 @@ class ContactMechanicsTester(ContactMechanics):
 
 def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     """Model for tests."""
-    # Suppress output for tests
     fracture_indices = [i for i in range(num_fracs)]
-    params = {"times_to_export": [], "fracture_indices": fracture_indices}
+    params = {
+        # Suppress output for tests.
+        "times_to_export": [],
+        "fracture_indices": fracture_indices,
+        "cartesian": True,
+    }
 
     # To define the model we comine a geometry with a physics class.
     # First identify the two component classes from the user input, and then combine
     # them in a new class.
 
-    # Identify the geometry class
-    geometry: Any = None
+    # Identify the geometry class.
+    geometry: type
     if dim == 2:
         geometry = RectangularDomainThreeFractures
     elif dim == 3:
@@ -133,8 +138,8 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     else:
         raise ValueError(f"Unknown dimension {dim}")
 
-    # Identify the physics class
-    model_class: Any = None
+    # Identify the physics class.
+    model_class: type
     if model_type == "mass_balance":
         model_class = pp.SinglePhaseFlow
     elif model_type == "momentum_balance":
@@ -145,19 +150,20 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
         model_class = pp.Poromechanics
     elif model_type == "thermoporomechanics":
         model_class = pp.Thermoporomechanics
+    elif model_type == "contact_mechanics":
+        model_class = pp.ContactMechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
 
-    # Combine the two classes
+    # Combine the two classes.
     class Model(geometry, model_class):
         pass
 
-    # Create an instance of the combined class
-    model = cast(pp.PorePyModel, Model(params))
+    # Create an instance of the combined class.
+    model: pp.PorePyModel = Model(params)
 
-    # Prepare the simulation
-    # (create grids, variables, equations, discretize, etc.)
+    # Prepare the simulation (create grids, variables, equations, discretize, etc.)
     model.prepare_simulation()
     return model
 
@@ -276,14 +282,13 @@ def subdomains_or_interfaces_from_method_name(
     """Return the domains to be tested for a given method.
 
     The method to be tested is assumed to take as input only its domain of definition,
-    that is a list of subdomains or interfaces. The test framework is not compatible with
-    methods that take other arguments (and such a method would also break the implicit
-    contract of the constitutive laws). Note that for the ambiguity related to methods
-    defined on either subdomains or boundaries, only subdomains are considered.
+    that is a list of subdomains or interfaces. The test framework is not compatible
+    with methods that take other arguments (and such a method would also break the
+    implicit contract of the constitutive laws). Note that for the ambiguity related to
+    methods defined on either subdomains or boundaries, only subdomains are considered.
 
     Parameters:
-        mdg: Mixed-dimensional grid.
-        method_name: Name of the method to be tested.
+        mdg: Mixed-dimensional grid. method_name: Name of the method to be tested.
         domain_dimension: Only domains of the specified dimension will be tested.
 
     Returns:
@@ -305,7 +310,9 @@ def subdomains_or_interfaces_from_method_name(
     return domains
 
 
-def _add_mixin(mixin: type, parent: type) -> type:
+def add_mixin(
+    mixin: type[pp.PorePyModel], parent: type[pp.PorePyModel]
+) -> type[pp.PorePyModel]:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.
@@ -323,6 +330,23 @@ def _add_mixin(mixin: type, parent: type) -> type:
     # such an addition could not be made in the mixin class instead.
     cls = type(name, (mixin, parent), {})
     return cls
+
+
+def create_local_model_class(
+    model_class: type[pp.PorePyModel], mixin_models: list[type[pp.PorePyModel]]
+) -> type[pp.PorePyModel]:
+    """Helper method to add mixins to a model class for testing purpose.
+
+    Note that the order in ``mixin_models`` has an effect. First element will be mixed
+    in first, last element last.
+
+    """
+    local_model_class: type[pp.PorePyModel] = model_class
+
+    for mixin_model in mixin_models:
+        local_model_class = add_mixin(mixin_model, local_model_class)
+
+    return local_model_class
 
 
 def compare_scaled_primary_variables(

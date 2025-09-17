@@ -74,4 +74,8 @@ def test_order_of_convergence(actual_ooc: dict) -> None:
     # tip treatment and the inner domain. Raising the threshold to 15% yielded a
     # convergence order of ~2. Decreasing the threshold to 0% yielded a convergence
     # order of ~0.85.
-    assert np.isclose(1.66752, actual_ooc["ooc_displacement"])
+    # EK: Absolute tolerance is set to 1e-2 to account for discrepancies in grids as
+    # Gmsh is updated.
+    assert np.isclose(1.67, actual_ooc["ooc_displacement"], atol=1e-2), (
+        "Observed order of convergence for displacement does not match expected value."
+    )

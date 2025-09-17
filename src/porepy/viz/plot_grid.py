@@ -11,6 +11,7 @@ this folder.
 from __future__ import annotations
 
 import string
+from pathlib import Path
 from typing import Optional, Union
 
 import matplotlib as mpl
@@ -45,13 +46,14 @@ def plot_grid(
             be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
             cell_value is the name (key) of the scalar field as a string.
         vector_value: Same as cell_value, but for vector fields.
-        info: add extra information to the plot. C, F, and N add cell, face and node
-            numbers, respectively. O gives a plot of the face normals. See the funtion
-            add_info.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
             alpha: transparency of cells (2d) and faces (3d)
             cells: boolean array with length number of cells. Only plot cells c where
             cells[c]=True. Not valid for a MixedDimensionalGrid.
+
+    Raises:
+        ValueError: if the user passed neither a Grid nor a MixedDimensional grid.
 
     Example:
     # if grid is a single grid:
@@ -70,14 +72,19 @@ def plot_grid(
         plot_sd(grid, cell_value, vector_value, info, **kwargs)
 
     # Grid is a mixed-dimensional grid
-    if isinstance(grid, pp.MixedDimensionalGrid):
+    elif isinstance(grid, pp.MixedDimensionalGrid):
         assert cell_value is None or isinstance(cell_value, str)
         assert vector_value is None or isinstance(vector_value, str)
         plot_mdg(grid, cell_value, vector_value, info, **kwargs)
 
+    else:
+        raise ValueError(
+            f"You must pass either a Grid or a MixedDimensionalGrid, not {grid}."
+        )
+
 
 def save_img(
-    name: str,
+    name: Path,
     grid: Union[pp.Grid, pp.MixedDimensionalGrid],
     cell_value: Optional[Union[np.ndarray, str]] = None,
     vector_value: Optional[Union[np.ndarray, str]] = None,
@@ -92,14 +99,14 @@ def save_img(
     informations are displayed.
 
     Parameters:
-        name: the name of the file
+        name: The name of the file.
         grid: subdomain or mixed-dimensional grid.
-        cell_value: if grid is a single grid, cell_value is a cell scalar field to
+        cell_value: If grid is a single grid, cell_value is a cell scalar field to
             be represented (only 1d and 2d). If grid is a mixed-dimensional grid,
             cell_value is the name (key) of the scalar field as a string.
         vector_value: Same as cell_value, but for vector fields.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
-            info: add extra information to the plot, see plot_grid.
             alpha: transparency of cells (2d) and faces (3d)
 
     Example:
@@ -130,7 +137,7 @@ def plot_sd(
             cells.
         vector_value: vector values, one 3d vector for each cell or for each face (see
             the _quiver function).
-        info: Which geometry information to display, see add_info.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
             fig_size: Size of figure.
             fig_num: The number of the figure.
@@ -220,7 +227,7 @@ def plot_mdg(
         cell_value: key to scalar cell values, will be represented by the color of the
             cells.
         vector_value: key to vector cell or face values.
-        info: Which geometry information to display, see add_info.
+        info: Which geometry information to display, see _add_info.
         kwargs: Keyword arguments:
             fig_size: Size of figure.
             fig_num: The number of the figure.
@@ -742,28 +749,28 @@ def _plot_sd_2d(
     # Make mypy happy
     assert isinstance(cell_value, np.ndarray)
 
-    # Fetch mask defining which cells to plot
+    # Fetch mask defining which cells to plot.
     cells = kwargs.get("cells", np.ones(sd.num_cells, dtype=bool))
 
-    # Plot cells with coloring determined on the cell values
+    # Plot cells with coloring determined on the cell values.
     for c in np.arange(sd.num_cells):
         # Apply mask
         if not cells[c]:
             continue
-        # Determine the faces of the cell
+        # Determine the faces of the cell.
         loc_f = slice(sd.cell_faces.indptr[c], sd.cell_faces.indptr[c + 1])
         faces_loc = faces[loc_f]
-        # Determine the nodes of the fetched faces
+        # Determine the nodes of the fetched faces.
         loc_n = sd.face_nodes.indptr[faces_loc]
-        # Assign edges of the cell and sort them such that they form a circular chain
+        # Assign edges of the cell and sort them such that they form a circular chain.
         pts_pairs = np.array([nodes[loc_n], nodes[loc_n + 1]])
-        sorted_nodes, _ = pp.utils.sort_points.sort_point_pairs(pts_pairs)
+        sorted_nodes, _ = pp.geometry.sort_points.sort_point_pairs(pts_pairs)
         ordering = sorted_nodes[0, :]
         pts = sd.nodes[:, ordering]
 
-        # Distinguish between 2d and 3d (relevant if the ambient dimension is 3).
-        # In both cases, draw cells as polygons, fix the edge color, and color the
-        # cell (a face for a 3d polygon)
+        # Distinguish between 2d and 3d (relevant if the ambient dimension is 3). In
+        # both cases, draw cells as polygons, fix the edge color, and color the cell (a
+        # face for a 3d polygon).
         linewidth = kwargs.get("linewidth", 1)
         if kwargs.get("plot_2d", False):
             poly = PolyCollection([pts[:2].T], linewidth=linewidth)
@@ -826,7 +833,7 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
             # Determine nodes formin a chain
             loc_f = slice(sd.face_nodes.indptr[f], sd.face_nodes.indptr[f + 1])
             ptsId = nodes_faces[loc_f]
-            mask = pp.utils.sort_points.sort_point_plane(
+            mask = pp.sort_points.sort_point_plane(
                 sd.nodes[:, ptsId], sd.face_centers[:, f], sd.face_normals[:, f]
             )
             pts = sd.nodes[:, ptsId[mask]]

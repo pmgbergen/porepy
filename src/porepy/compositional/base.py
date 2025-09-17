@@ -48,7 +48,7 @@ Important:
 
 from __future__ import annotations
 
-from typing import Generator, Generic, Sequence, TypeVar
+from typing import Generator, Generic, Optional, Sequence, TypeVar
 
 import numpy as np
 
@@ -370,7 +370,10 @@ class EquationOfState:
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
     def compute_phase_properties(
-        self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
+        self,
+        phase_state: PhysicalState,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> PhaseProperties:
         """Method to compute the properties of a phase based any
         thermodynamic input and a given physical state.
@@ -393,9 +396,11 @@ class EquationOfState:
             phase_state: The physical phase state for which to compute values.
             *thermodynamic_input: Vectors with consistent shape ``(N,)`` representing
                 any combination of thermodynamic input variables.
+            params: A sequence of arrays or float containing parameters for the
+                evaluation.
 
         Returns:
-            A datastructure containing all relevant phase properties and their
+            A data structure containing all relevant phase properties and their
             derivatives w.r.t. the dependencies (``thermodynamic_input``).
 
         """
@@ -455,26 +460,29 @@ class Phase(Generic[ComponentLike]):
         created by normalization of fractions in :attr:`extended_fraction_of`.
 
         If the flow & transport model does not include an equilibrium formulation,
-        the extended fractions are meaningless and the partialf ractions are independent
+        the extended fractions are meaningless and the partial fractions are independent
         variables instead.
 
     The class supports some generic typing to narrow down the type of components
     contained within the class, e.g. ``phase: Phase[FluidComponent] = Phase(...)``.
 
     Parameters:
-        eos: An EoS which provides means to compute physical properties of the phase.
-            Can be different for different phases.
         state: The physical state this phase represents.
         name: Given name for this phase. Used as an unique identifier and for naming
             various variables and properties.
+        eos: ``default=None``
+
+            An EoS which provides means to compute physical properties of the phase.
+            Can be different for different phases, or None if no external computations
+            are used.
 
     """
 
     def __init__(
         self,
-        eos: EquationOfState,
         state: PhysicalState,
         name: str,
+        eos: Optional[EquationOfState] = None,
     ) -> None:
         self._ref_component_index: int = 0
         """See :meth:`reference_component_index`."""
@@ -487,11 +495,11 @@ class Phase(Generic[ComponentLike]):
         To be set by the user, or by some instance of
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`
 
-        Once set, it should not be modified. Avoid multiple occurences of components.
+        Once set, it should not be modified. Avoid multiple occurrences of components.
 
         """
 
-        self.eos: EquationOfState = eos
+        self.eos: Optional[EquationOfState] = eos
         """The EoS passed at instantiation."""
 
         self.state: PhysicalState = state
@@ -540,7 +548,7 @@ class Phase(Generic[ComponentLike]):
         """
 
         self.fugacity_coefficient_of: dict[Component, ExtendedDomainFunctionType]
-        """Fugacitiy coefficients per component in this phase.
+        """Fugacity coefficients per component in this phase.
 
         Dimensionless, scalar field.
 
@@ -667,11 +675,28 @@ class Phase(Generic[ComponentLike]):
         :meth:`reference_component_index`."""
         return self.components[self.reference_component_index]
 
-    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
+    def compute_properties(
+        self,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
+    ) -> PhaseProperties:
         """Shortcut to compute the properties calling
         :meth:`EquationOfState.compute_phase_state` of :attr:`eos` with :attr:`state` as
-        argument."""
-        return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
+        argument.
+
+        Raises:
+            CompositionalModellingError: If this phase has no EoS assigned.
+
+        """
+        if isinstance(self.eos, EquationOfState):
+            return self.eos.compute_phase_properties(
+                self.state, *thermodynamic_input, params=params
+            )
+        else:
+            raise CompositionalModellingError(
+                f"Phase ({self.state, self.name}) has no EoS assigned for computing "
+                + "phase properties."
+            )
 
 
 PhaseLike = TypeVar("PhaseLike", bound=Phase, covariant=True)
@@ -684,7 +709,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
     The fluid (mixture) serves as a container for components and phases and contains the
     specification of the reference component and phase.
 
-    It also provides general attributes for some thermodynamic properites of a fluid,
+    It also provides general attributes for some thermodynamic properties of a fluid,
     which are required by the remaining framework. Hence this class serves as an
     interface for e.g. PDE formulations.
 
@@ -920,7 +945,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
     @property
     def reference_phase(self) -> PhaseLike:
-        """Returns the reference phase as designated by :meth:`reference_phase_index`."""
+        """Returns the reference phase as designated by
+        :meth:`reference_phase_index`."""
         return self._phases[self.reference_phase_index]
 
     @property

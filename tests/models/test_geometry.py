@@ -30,11 +30,11 @@ from porepy.applications.test_utils.arrays import projection_matrix_from_array_s
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
 geometry_list: list[type[pp.ModelGeometry]] = [
-    models._add_mixin(
+    models.add_mixin(
         porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
         pp.ModelGeometry,
     ),
-    models._add_mixin(
+    models.add_mixin(
         porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
         pp.ModelGeometry,
     ),
@@ -76,6 +76,10 @@ class TestGeometry:
                 geometry_model.units = pp.Units()
                 # Set the geometry configuration.
                 geometry_model.set_geometry()
+
+                # The operator_cache is usually set by the SolutionStrategy, but since
+                # this class is used standalone, we need to set it here.
+                geometry_model._operator_cache = {}
 
                 self.geometries[(geometry_class, num_fracs)] = geometry_model
 

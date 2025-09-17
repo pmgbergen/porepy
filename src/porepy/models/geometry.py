@@ -150,6 +150,7 @@ class ModelGeometry(pp.PorePyModel):
             meshing_kwargs = {}
         return meshing_kwargs
 
+    @pp.ad.cached_method
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
     ) -> list[pp.MortarGrid]:
@@ -174,6 +175,7 @@ class ModelGeometry(pp.PorePyModel):
                     interfaces.append(intf)
         return self.mdg.sort_interfaces(interfaces)
 
+    @pp.ad.cached_method
     def interfaces_to_subdomains(
         self, interfaces: list[pp.MortarGrid]
     ) -> list[pp.Grid]:
@@ -304,7 +306,7 @@ class ModelGeometry(pp.PorePyModel):
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.SparseArrayArray, each of which represents a basis
+            List of pp.ad.SparseArray, each of which represents a basis
             function.
 
         """
@@ -315,6 +317,7 @@ class ModelGeometry(pp.PorePyModel):
         # Stack the basis functions horizontally.
         return basis
 
+    @pp.ad.cached_method
     def e_i(
         self, grids: Sequence[pp.GridLike], *, i: int, dim: int
     ) -> pp.ad.Projection:
@@ -351,7 +354,6 @@ class ModelGeometry(pp.PorePyModel):
             ValueError: If i is larger than dim - 1.
 
         """
-
         if dim is None:
             dim = self.nd
 
@@ -373,6 +375,7 @@ class ModelGeometry(pp.PorePyModel):
         return slicer
 
     # Local basis related methods
+    @pp.ad.cached_method
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Compute the tangential component of a vector field.
 
@@ -405,6 +408,7 @@ class ModelGeometry(pp.PorePyModel):
         op.set_name("tangential_component")
         return op
 
+    @pp.ad.cached_method
     def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Projection:
         """Compute the normal component of a vector field.
 
@@ -639,6 +643,7 @@ class ModelGeometry(pp.PorePyModel):
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
+    @pp.ad.cached_method
     def outwards_internal_boundary_normals(
         self,
         interfaces: list[pp.MortarGrid],

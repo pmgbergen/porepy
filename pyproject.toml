@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 # Project information.
 [project]
 name = "porepy"
-version = "1.10.0"
+version = "1.11.0"
 description = "Simulation tool for fractured and deformable porous media"
 readme = "Readme.md"
 license = { text = "GPL" }
@@ -31,7 +31,7 @@ dependencies = [
     "networkx",
     "numba",
     "numpy < 2.2",
-    "scipy",
+    "scipy < 1.16",
     "seaborn",
     "shapely",
     "six",
@@ -69,8 +69,12 @@ where = ["src"]
 python_files = "tests/*.py"
 addopts = "--cov=src/porepy --cov-report term-missing -p no:warnings"
 
+[tool.ruff]
+line-length = 88
+
 # Static analysis.
 [tool.ruff.lint]
+select = ["E501"]
 ignore = [
     "E731",  # do not assign a lambda expression, use a def
     "E266",  # too many leading '#' for block comment

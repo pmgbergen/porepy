@@ -10,7 +10,7 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -96,17 +96,18 @@ class DataSavingMixin(pp.PorePyModel):
 
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
+        self.time_manager.write_time_information(
+            Path(self.params["folder_name"]) / "times.json"
+        )
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
+        times = np.array(self.time_manager.exported_times)
         if self.restart_options.get("restart", False):
             # For a pvd file addressing all time steps (before and after restart
             # time), resume based on restart input pvd file through append.
             pvd_file = self.restart_options["pvd_file"]
-            self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
+            self.exporter.write_pvd(times=times, append=True, from_pvd_file=pvd_file)
         else:
-            self.exporter.write_pvd()
-        self.time_manager.write_time_information(
-            Path(self.params["folder_name"]) / "times.json"
-        )
+            self.exporter.write_pvd(times=times)
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -130,43 +131,65 @@ class DataSavingMixin(pp.PorePyModel):
         # Add secondary variables/derived quantities.
         # All models are expected to have the dimension reduction methods for aperture
         # and specific volume. More methods may be added as needed, e.g. by overriding
-        # this method:
+        # this method as follows:
         #   def data_to_export(self):
         #       data = super().data_to_export()
-        #       data.append(
-        #           (grid, "name", self._evaluate_and_scale(sd, "name", "units"))
-        #       )
+        #       sds = self.mdg.subdomains()
+        #       cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+        #       Add more derived quantities here:
+        #       q = self.evaluate_and_scale(sds, "some_derived_quantity", "m^3")
+        #       for id, sd in enumerate(sds):
+        #           data.append(
+        #               (
+        #                   sd,
+        #                   "some_derived_quantity",
+        #                   q[cell_offsets[id] : cell_offsets[id + 1]],
+        #               )
+        #           )
         #       return data
-        for dim in range(self.nd + 1):
-            for sd in self.mdg.subdomains(dim=dim):
-                if dim < self.nd:
-                    data.append(
-                        (sd, "aperture", self._evaluate_and_scale(sd, "aperture", "m"))
-                    )
-                data.append(
-                    (
-                        sd,
-                        "specific_volume",
-                        self._evaluate_and_scale(
-                            sd, "specific_volume", f"m^{self.nd - sd.dim}"
-                        ),
-                    )
+        sds = self.mdg.subdomains()
+        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+        apertures = self.evaluate_and_scale(sds, "aperture", "m")
+        # Can't use evaluate_and_scale here, since specific_volume's units depend on
+        # the subdomain dimension.
+        specific_volumes = cast(
+            np.ndarray, self.equation_system.evaluate(self.specific_volume(sds))
+        )
+        for id, sd in enumerate(sds):
+            data.append(
+                (
+                    sd,
+                    "aperture",
+                    apertures[cell_offsets[id] : cell_offsets[id + 1]],
                 )
+            )
+            data.append(
+                (
+                    sd,
+                    "specific_volume",
+                    self.units.convert_units(
+                        specific_volumes[cell_offsets[id] : cell_offsets[id + 1]],
+                        f"m^{self.nd - sd.dim}",
+                        to_si=True,
+                    ),
+                )
+            )
 
         # We combine grids and mortar grids. This is supported by the exporter, but not
         # by the type hints in the exporter module. Hence, we ignore the type hints.
         return data  # type: ignore[return-value]
 
-    def _evaluate_and_scale(
+    def evaluate_and_scale(
         self,
-        grid: Union[pp.Grid, pp.MortarGrid],
+        grids: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         method_name: str,
         units: str,
     ) -> np.ndarray:
         """Evaluate a method for a derived quantity and scale the result to SI units.
 
         Parameters:
-            grid: Grid or mortar grid for which the method should be evaluated.
+            grids: Sequence of grids or mortar grids for which the method should be
+                evaluated.
             method_name: Name of the method to be evaluated.
             units: Units of the quantity returned by the method. Should be parsable by
                 :meth:`porepy.models.units.Units.convert_units`.
@@ -177,7 +200,7 @@ class DataSavingMixin(pp.PorePyModel):
         """
         vals_scaled = cast(
             np.ndarray,
-            self.equation_system.evaluate(getattr(self, method_name)([grid])),
+            self.equation_system.evaluate(getattr(self, method_name)(grids)),
         )
         vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals

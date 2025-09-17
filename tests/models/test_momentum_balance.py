@@ -26,6 +26,13 @@ class LinearModel(
     pass
 
 
+class TpsaLinearModel(
+    pp.models.momentum_balance.TpsaMomentumBalanceMixin,
+    LinearModel,
+):
+    pass
+
+
 @pytest.mark.parametrize(
     "solid_vals,numerical_vals,north_displacement",
     [
@@ -34,15 +41,20 @@ class LinearModel(
         ({"porosity": 0.5}, {}, 0.2),
     ],
 )
-def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
+@pytest.mark.parametrize("model_class", [LinearModel, TpsaLinearModel])
+def test_2d_single_fracture(
+    solid_vals: dict, numerical_vals: dict, north_displacement: float, model_class
+):
     """Test that the solution is qualitatively sound.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants` and
+            corresponding values.
+        numerical_vals: Dictionary with keys as those in :class:`pp.NumericalConstants`
             and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        north_displacement: Value of displacement on the north boundary.
+        model_class: The model class to use, either :class:`LinearModel` or
+            :class:`TpsaLinearModel`.
 
     """
     # Instantiate constants and store in params.
@@ -53,9 +65,12 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
         "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
     }
+    if model_class == TpsaLinearModel:
+        # Tpsa is only consistent on Cartesian grids, so do the test there.
+        params["cartesian"] = True
 
     # Create model and run simulation
-    model = LinearModel(params)
+    model = model_class(params)
     pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear
@@ -98,7 +113,8 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
                 np.sign(vals[model.nd - 1 :: model.nd][top])
                 == np.sign(north_displacement)
             )
-            # Fracture cuts the domain in half, so the bottom half should be undisplaced.
+            # Fracture cuts the domain in half, so the bottom half should be
+            # undisplaced.
             bottom = matrix_subdomain.cell_centers[1] < 0.5
             assert np.allclose(vals[model.nd - 1 :: model.nd][bottom], 0)
             # No displacement in x direction
@@ -222,8 +238,8 @@ class LithostaticModel(pp.constitutive_laws.GravityForce, pp.MomentumBalance):
         return default_meshing_args
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Lateral sides: No motion in the x-direction (xy-plane for 3d), free motion in the
-        vertical direction. Bottom: No motion. Top: Free motion.
+        """Lateral sides: No motion in the x-direction (xy-plane for 3d), free motion in
+        the vertical direction. Bottom: No motion. Top: Free motion.
 
         """
         # Define boundary faces.
@@ -319,10 +335,10 @@ class ElastoplasticModel2d(
     pass
 
 
-# We set a high shear modulus to make the domain stiff (especially for shear), and a
-# low tangential fracture stiffness to make the fracture weak. This will make the
-# fracture deform significantly more than the surrounding domain. Still, the domain
-# will deform slightly, requiring a tolerance when comparing the results.
+# We set a high shear modulus to make the domain stiff (especially for shear), and a low
+# tangential fracture stiffness to make the fracture weak. This will make the fracture
+# deform significantly more than the surrounding domain. Still, the domain will deform
+# slightly, requiring a tolerance when comparing the results.
 solid_vals_elastoplastic = {
     "fracture_tangential_stiffness": 1e-5,
     "shear_modulus": 1e6,
@@ -626,8 +642,8 @@ class TimeDependentBCs(
             return values.ravel("F")
         if self.time_manager.time > 1e-5:
             # Create slip for second time step.
-            u_z = 50.0 if self.time_manager.time > 1.1 else 1.0
-            u_n = np.tile([1, -1, u_z], (bg.num_cells, 1)).T
+            u_z = 15.0 if self.time_manager.time > 1.1 else 1.0
+            u_n = np.tile([1, -0.5, u_z], (bg.num_cells, 1)).T
             values[:, domain_sides.north] += self.units.convert_units(u_n, "m")[
                 :, domain_sides.north
             ]
@@ -643,19 +659,23 @@ class ElastoplasticModelTimeDependentBCs(
 
 
 def test_time_dependent_bc():
+    # Note: The performance of the Newton solver is quite sensitive to the parameters
+    # of this test.
     solid = pp.SolidConstants(
         fracture_tangential_stiffness=1e-1,
         shear_modulus=1e0,
         lame_lambda=1e0,
     )
+    numerical = pp.NumericalConstants(characteristic_displacement=15)
     params = {
         "times_to_export": [],  # Suppress output for tests
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
         "fracture_indices": [1],
         "time_manager": pp.TimeManager([0.0, 1.0], 1.0, True),
+        "max_iterations": 30,
     }
 
-    # Create model and run simulation. The north displacement is 1, -1, 1.
+    # Create model and run simulation. The north displacement is [1, -0.5, 1].
     model = ElastoplasticModelTimeDependentBCs(params)
     pp.run_time_dependent_model(model, params)
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
@@ -665,21 +685,23 @@ def test_time_dependent_bc():
         [0.86, 0, 0.86],
         [0, 0, 0],
         [np.nan, np.nan, np.nan],
-        [0.086, -2.54, 0.086],
+        [0.086, -1.269, 0.086],
         tols,
     )
-    # Continue for one more time step. This time, the north displacement is 1, -1, 2.
+    # Continue for one more time step. This time, the north displacement is
+    # [1, -0.5, 15].
     model.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
     params["prepare_simulation"] = False
 
     # Fixed values from a previous run. Both normal value (u_y=0) and ratio of
-    # tangential displacements (1/50, see BC class) are correct.
-    u_e = np.array([0.50754939, 0.0, 25.37756547])
-    u_p = [0.40916401, 0.0, 20.45818325]
+    # tangential displacements (1/15, see BC class) are correct.
+    u_e = np.array([0.84420422, 0.0, 12.66319939])
+    u_p = [0.01726451, 0.0, 0.25888975]
     traction = u_e * 1e-1
-    traction[1] = -2.54
-    # Same goes here. We expect -0.75, since the top coordinate is 0.75.
-    u_top = [0.97917835, -0.75, 48.95893718]
+    traction[1] = -1.26913265
+    # Same goes here. We expect -0.375, since the top coordinate is 0.75 and we
+    # displace the top by 0.5 and have a linear displacement profile.
+    u_top = [0.96536718, -0.375, 14.48052228]
     pp.run_time_dependent_model(model, params)
     verify_elastoplastic_deformation(
         model,

@@ -249,7 +249,7 @@ def determine_mesh_size(
             # points
             pts_frac_aug = np.vstack((pts_frac, np.zeros(pts_frac.shape[1])))
             pts_frac_id = pts_frac_id[
-                pp.map_geometry.sort_points_on_line(pts_frac_aug, tol)
+                pp.sort_points.sort_points_on_line(pts_frac_aug, tol)
             ]
             pts_frac_id = np.vstack((pts_frac_id[:-1], pts_frac_id[1:]))
             other_info = np.tile(
@@ -367,7 +367,7 @@ def obtain_interdim_mappings(
         # This sometimes fails, so enforce it.
         if cn.ndim == 1:
             fn = fn.ravel()
-    is_mem, cell_2_face = pp.utils.setmembership.ismember_rows(
+    is_mem, cell_2_face = pp.array_operations.ismember_columns(
         cn.astype(np.int32), fn.astype(np.int32), sort=False
     )
     # An element in cell_2_face gives, for all cells in the lower-dimensional grid,

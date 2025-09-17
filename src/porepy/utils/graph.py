@@ -1,3 +1,5 @@
+from warnings import warn
+
 import numpy as np
 
 import porepy as pp
@@ -26,6 +28,13 @@ class Graph:
     """
 
     def __init__(self, node_connections):
+        # The Graph class is deprecated. The only known usage is when the function
+        # fracs.split_grid.duplicate_nodes is called with the argument offset > 0.
+        # That function will be either be updated or deprecated in a future version, and
+        # the Graph class will not be deleted until a resolution has been made for
+        # duplicate_nodes.
+        warn("This class is deprecated and will be removed in a future version.")
+
         if node_connections.getformat() != "csr":
             self.node_connections = node_connections.tocsr()
         else:

@@ -6,7 +6,7 @@ dimension of the highest-dimensional grid should be 2 at most.
 
 The two functions performing above are
 
-- :func:`extrude_grid_bucket`,
+- :func:`extrude_mdg`,
 - :func:`extrude_grid`.
 
 """
@@ -24,7 +24,7 @@ from porepy.grids import mortar_grid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
-def extrude_grid_bucket(
+def extrude_mdg(
     mdg: pp.MixedDimensionalGrid, z: np.ndarray
 ) -> tuple[pp.MixedDimensionalGrid, dict]:
     """Extrude a mixed-dimensional grid by extending all fixed-dimensional grids in the
@@ -365,7 +365,7 @@ def _extrude_2d(
         coord = g.nodes[:2, ni]
         # Sort the points.
         # IMPLEMENTATION NOTE: this probably assumes convexity of the 2d cell.
-        sort_ind = pp.utils.sort_points.sort_point_plane(
+        sort_ind = pp.sort_points.sort_point_plane(
             np.vstack((coord, np.zeros(coord.shape[1]))),
             g.cell_centers[:, idx].reshape((-1, 1)),
         )
@@ -804,7 +804,7 @@ def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """Auxiliary function to create the extruded cell and face maps for
-    :func:`extrude_grid` and :func:`extrude_grid_bucket`."""
+    :func:`extrude_grid` and :func:`extrude_mdg`."""
 
     cell_map = np.empty(g.num_cells, dtype=object)
     for c in range(g.num_cells):

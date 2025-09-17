@@ -9,6 +9,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
+from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
 import porepy as pp
@@ -213,6 +214,18 @@ class EquationSystem:
         """
 
         self._ad_parser = _ad_parser.AdParser(self.mdg)
+
+        self._secondary_block_permutation: dict[
+            Literal["row_perm_indices", "col_perm_indices", "block_sizes"], np.ndarray
+        ] = {}
+        """Stores the information on the permutations in the secondary block of the
+        linear system, which is to be eliminated when
+        ``model.params['apply_schur_complement_reduction'] == True``.
+
+        Permutations generated and stored using :func:`~porepy.numerics.linalg.
+        matrix_operations.generate_permutation_to_block_diag_matrix`.
+
+        """
 
     def SubSystem(
         self,
@@ -615,23 +628,30 @@ class EquationSystem:
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
-                :meth:`num_dofs`.
+            :meth:`num_dofs`.
 
         """
+        # Normalize the variable input.
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
+        var_ids = {var.id for var in variables}
+
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Loop over all blocks and process those requested.
-        # This ensures uniqueness and correct order.
+        # Cache for domain data to avoid recomputing it for the same domain.
+        data_cache = {}
+
         for id_ in self._variable_numbers:
             if id_ in var_ids:
                 variable = self._variables[id_]
+                domain = variable.domain
+
+                if domain not in data_cache:
+                    data_cache[domain] = self._get_data(domain)
 
                 val = pp.get_solution_values(
                     variable.name,
-                    self._get_data(variable.domain),
+                    data_cache[domain],
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                 )
@@ -639,11 +659,8 @@ class EquationSystem:
                 values.append(val)
 
         # If there are matching blocks, concatenate and return.
-        if values:
-            return np.concatenate(values)
         # Else return an empty vector.
-        else:
-            return np.array([])
+        return np.concatenate(values) if values else np.empty(0)
 
     def set_variable_values(
         self,
@@ -919,8 +936,8 @@ class EquationSystem:
         correct/does what it is supposed to do.
         """
 
-        # strings and md variables represent always a whole in the variable sense. Hence,
-        # the complement is empty
+        # strings and md variables represent always a whole in the variable sense.
+        # Hence, the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable)):
             # TODO: Can we drop this, or is it possible that a single variable has made
             # it into this subroutine?
@@ -1061,7 +1078,7 @@ class EquationSystem:
         assert len(variable) == 1, "Failed to find Variable corresponding to `dof`."
         return variable[0]
 
-    ### Equation management -------------------------------------------------------------------
+    ### Equation management ------------------------------------------------------------
 
     def set_equation(
         self,
@@ -1069,7 +1086,8 @@ class EquationSystem:
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
-        """Sets an equation using the passed operator and uses its name as an identifier.
+        """Sets an equation using the passed operator and uses its name as an
+        identifier.
 
         If an equation already exists under that name, it is overwritten.
 
@@ -1123,8 +1141,8 @@ class EquationSystem:
         # If no grids are specified, there is nothing to do
         if not grids:
             self._equation_image_space_composition.update({name: image_info})
-            # Information on the size of the equation, in terms of the grids it is defined
-            # on.
+            # Information on the size of the equation, in terms of the grids it is
+            # defined on.
             self._equation_image_size_info.update({name: equations_per_grid_entity})
             # Store the equation itself.
             self._equations.update({name: equation})
@@ -1248,7 +1266,7 @@ class EquationSystem:
             # Update local counting
             self._variable_num_dofs[self._variable_numbers[id_]] = num_dofs
 
-    ### System assembly and discretization ----------------------------------------------------
+    ### System assembly and discretization ---------------------------------------------
 
     @staticmethod
     def _recursive_discretization_search(operator: Operator, discr: list) -> list:
@@ -1666,7 +1684,8 @@ class EquationSystem:
         system as
 
         .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix} \right]
+            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
+            \right]
             \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
             = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right]
 
@@ -1684,34 +1703,18 @@ class EquationSystem:
         for :math:`A_{ss}` can be found.
         **The user must ensure both requirements are fulfilled.**
 
-        Note:
-            The optional arguments defining the secondary block, and the flag
-            ``excl_loc_prim_to_sec`` are meant for nested Schur-complements and
-            splitting solvers. This is an advanced usage and requires the user to be
-            careful, since the resulting blocks :math:`A_{pp}` and :math:`A_{ss}` might
-            end up to be not square. This will result in errors.
-
-        Examples:
-            The default inverter can be defined by
-
-            .. code-block:: python
-
-                import scipy.sparse as sps
-                inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
-
-            It is costly in terms of computational time and memory, though.
-
-            TODO: We should rather use the block inverter in pp.matrix_operations. This
-            will require some work on ensuring the system is block-diagonal.
-
         Parameters:
-            primary_equations: a subset of equations specifying the primary subspace in
+            primary_equations: A subset of equations specifying the primary subspace in
                 row-sense.
-            primary_variables: VariableType input specifying the primary subspace in
+            primary_variables: A subset of variables specifying the primary subspace in
                 column-sense.
-            inverter (optional): callable object to compute the inverse of the matrix
-                :math:`A_{ss}`. By default, the scipy direct sparse inverter is used.
-            state (optional): see :meth:`assemble`. Defaults to None.
+            inverter: ``default=None``
+
+                Callable to compute the inverse of the matrix :math:`A_{ss}`.
+                :meth:`default_schur_complement_inverter` is used if not provided.
+            state: ``default=None``
+
+                See :meth:`assemble`. Defaults to None.
 
         Returns:
             Tuple containing
@@ -1732,7 +1735,7 @@ class EquationSystem:
 
         """
         if inverter is None:
-            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+            inverter = self.default_schur_complement_inverter
 
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.
@@ -1865,7 +1868,8 @@ class EquationSystem:
         With ``reduced_solution`` as :math:`x_p` from
 
         .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix} \right]
+            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
+            \right]
             \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
             = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right],
 
@@ -1904,6 +1908,41 @@ class EquationSystem:
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
+
+    def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:
+        """The inverter for the secondary block in the Schur complement
+        reduction.
+
+        The default implementation assumes the secondary block to be a permuted, block
+        diagonal matrix (local equations), and computes and stores the permutation
+        only *once*. It then proceeds to call an efficient, parallelized block-diagonal
+        matrix inverter.
+
+        See also:
+
+            - :func:`~porepy.numerics.linalg.matrix_operations.
+              generate_permutation_to_block_diag_matrix`
+            - :func:`~porepy.numerics.linalg.matrix_operations.
+              invert_permuted_block_diag_matrix`
+
+        """
+
+        # Generate permutations only once, if not already present.
+        if not self._secondary_block_permutation:
+            row_perm, col_perm, block_sizes = (
+                pp.matrix_operations.generate_permutation_to_block_diag_matrix(A)
+            )
+            self._secondary_block_permutation["row_perm_indices"] = row_perm
+            self._secondary_block_permutation["col_perm_indices"] = col_perm
+            self._secondary_block_permutation["block_sizes"] = block_sizes
+        else:
+            row_perm = self._secondary_block_permutation["row_perm_indices"]
+            col_perm = self._secondary_block_permutation["col_perm_indices"]
+            block_sizes = self._secondary_block_permutation["block_sizes"]
+
+        return pp.matrix_operations.invert_permuted_block_diag_matrix(
+            A, row_perm, col_perm, block_sizes
+        )
 
     ### Evaluate Ad operators ----------------------------------------------------------
 

@@ -463,7 +463,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
         Wrapping in class methods and not calling equation_system directly allows for
         easier changes of primary variables. As long as all calls to enthalpy_flux()
         accept Operators as return values, we can in theory add it as a primary variable
-        and solved mixed form. Similarly for different formulations of enthalpy instead
+        and solve mixed form. Similarly for different formulations of enthalpy instead
         of temperature.
 
     """
@@ -916,6 +916,21 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
                     iterate_index=0,
                 )
 
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(
+                sd,
+                data,
+                self.enthalpy_keyword,
+                {"darcy_flux": np.zeros(sd.num_faces)},
+            )
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(
+                intf,
+                data,
+                self.enthalpy_keyword,
+                {"darcy_flux": np.zeros(intf.num_cells)},
+            )
+
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for temperature at iterate index 0.
 
@@ -1016,17 +1031,17 @@ class InitialConditionsEnthalpy(pp.InitialConditionMixin):
     """See :class:`EnthalpyVariable`."""
 
     def set_initial_values_primary_variables(self) -> None:
-        """Calls :meth:`initial_enthalpy` and sets the values to iterate index 0."""
+        """Calls :meth:`ic_values_enthalpy` and sets the values to iterate index 0."""
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():
             self.equation_system.set_variable_values(
-                self.initial_enthalpy(sd),
+                self.ic_values_enthalpy(sd),
                 [cast(pp.ad.Variable, self.enthalpy([sd]))],
                 iterate_index=0,
             )
 
-    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         """Initial values for (specific fluid) enthalpy.
 
         Override this method to customize the initialization.
@@ -1081,21 +1096,22 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
     """
     operator_to_SecondOrderTensor: Callable[
-        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+        [list[pp.Grid], pp.ad.Operator, pp.number], pp.SecondOrderTensor
     ]
     """Function that returns a SecondOrderTensor provided a method returning
     permeability as a Operator. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
+    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         # Generic solution strategy initialization in pp.SolutionStrategy and specific
         # initialization for the fluid mass balance (variables, discretizations...)
         super().__init__(params)
 
-        # Define the energy balance
-        # Variables
+        # Define the energy balance variables.
         self.temperature_variable: str = "temperature"
         """Name of the temperature variable."""
 
@@ -1111,7 +1127,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """Name of the primary variable representing the well enthalpy flux on
         interfaces of codimension two."""
 
-        # Discretization
+        # Discretization.
         self.fourier_keyword: str = "fourier_discretization"
         """Keyword for Fourier flux term.
 
@@ -1125,26 +1141,46 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the energy problem.
 
         The parameter fields of the data dictionaries are updated for all subdomains and
-        interfaces (of codimension 1).
+        interfaces (of codimension 1). The data to be set is related to:
+
+        - The temperature diffusion, e.g., the thermal conductivity and boundary
+          conditions for the temperature. This applies to subdomains and interfaces.
+        - Boundary conditions for the conductive heat flux. This applies to subdomains
+          only.
+
         """
-        super().set_discretization_parameters()
-        for sd, data in self.mdg.subdomains(return_data=True):
+        super().update_discretization_parameters()
+
+        # Do a joint evaluation of the thermal conductivity for all subdomains, then
+        # distribute the values to individual subdomains.
+        subdomains = self.mdg.subdomains()
+        conductivity_all_cells = self.operator_to_SecondOrderTensor(
+            subdomains,
+            self.thermal_conductivity(subdomains),
+            # Fall back to thermal conductivity of reference component.
+            self.fluid.reference_component.thermal_conductivity,
+        )
+        # Compute offsets for the individual subdomains in the concatenated conductivity
+        # tensor.
+        subdomain_offsets = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            data = self.mdg.subdomain_data(sd)
+            # Extract the conductivity for the current subdomain.
+            loc_cells = np.arange(subdomain_offsets[id], subdomain_offsets[id + 1])
+            loc_conductivity = conductivity_all_cells.restrict_to_cells(loc_cells)
+
             pp.initialize_data(
                 sd,
                 data,
                 self.fourier_keyword,
                 {
                     "bc": self.bc_type_fourier_flux(sd),
-                    "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd,
-                        self.thermal_conductivity([sd]),
-                        # Fall back to thermal conductivity of reference component.
-                        self.fluid.reference_component.thermal_conductivity,
-                    ),
+                    "second_order_tensor": loc_conductivity,
                     "ambient_dimension": self.nd,
                 },
             )
@@ -1157,49 +1193,54 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 },
             )
 
-    def initial_condition(self) -> None:
-        """Add darcy flux to discretization parameter dictionaries."""
-        super().initial_condition()
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.enthalpy_keyword,
-                {"darcy_flux": np.zeros(sd.num_faces)},
-            )
-        for intf, data in self.mdg.interfaces(return_data=True):
-            pp.initialize_data(
-                intf,
-                data,
-                self.enthalpy_keyword,
-                {"darcy_flux": np.zeros(intf.num_cells)},
-            )
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
 
-    def before_nonlinear_iteration(self):
-        """Evaluate Darcy flux (super) and copy to the enthalpy flux keyword, to be used
-        in upstream weighting.
+        Returns:
+            List of keywords for the Darcy flux values. This class adds
+            :attr:`enthalpy_keyword`.
 
         """
-        # Update parameters *before* the discretization matrices are re-computed.
-        for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.equation_system.evaluate(self.well_flux([intf]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        super().before_nonlinear_iteration()
+        return super().darcy_flux_storage_keywords() + [self.enthalpy_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
-        """Collect discretizations for nonlinear terms."""
+        """Adds Discretizations related to the energy problem.
+
+        - The enthalpy mobility discretization and
+        - the interface enthalpy mobility discretization
+
+        are added to :meth:`nonlinear_discretizations`.
+
+        Calls :meth:`add_nonlinear_fourier_flux_discretization`, to add (optional)
+        nonlinear discretizations of the Fourier flux.
+
+        """
+
         super().set_nonlinear_discretizations()
+
+        subdomains = self.mdg.subdomains()
         self.add_nonlinear_discretization(
-            self.enthalpy_discretization(self.mdg.subdomains()).upwind(),
+            self.enthalpy_discretization(subdomains).upwind(),
         )
         self.add_nonlinear_discretization(
             self.interface_enthalpy_discretization(self.mdg.interfaces()).flux(),
         )
+
+        self.add_nonlinear_fourier_flux_discretization()
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Method to be overridden to add the Fourier flux discretization to the
+        nonlinear update routines.
+
+        Example:
+
+            .. code:: python3
+
+                self.add_nonlinear_diffusive_flux_discretization(
+                    self.fourier_flux_discretization(self.mdg.subdomains()).flux()
+                )
+
+        This method is called as part of :meth:`set_nonlinear_discretizations`.
+        The base implementation adds nothing.
+
+        """

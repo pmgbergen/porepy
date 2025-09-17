@@ -56,6 +56,7 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
     - uses: actions/checkout@v4
+
     
     - name: Setup Python ${{ matrix.python-version}}
       uses: actions/setup-python@v5
@@ -64,15 +65,15 @@ jobs:
         python-version: ${{ matrix.python-version}}
         architecture: x64
         cache: 'pip'
-
-    # Cache pip dependencies
+        
+      # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      id: cache
-      with:
-        path: ${{ env.pythonLocation }}
-        key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
+    # - name: Cache dependencies
+    #   uses: actions/cache@v4
+    #   id: cache
+    #   with:
+    #     path: ${{ env.pythonLocation }}
+    #     key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
 
     - name: Cache mypy
       uses: actions/cache@v4
@@ -80,6 +81,13 @@ jobs:
       with:
         path: mypy-cache-${{ matrix.python-version}}
         key: ${{ runner.os }}-mypy
+          
+    # Make sure pip is up to date.
+    - name: Upgrade pip
+      run: |
+        pip cache purge
+        python -m pip install -U pip
+        pip --version
 
     # Install the dependencies, which is needed to make mypy happy. Unravelling of the
     # second command: The expression in the angular brackets is a python command that
@@ -88,7 +96,9 @@ jobs:
     # for the install (hence the installed packages are sure to be available also after
     # the build), while --no-deps will only install the specified packages (in this
     # case, the dependencies of PorePy). The third line similarly installs the
-    # development dependencies.
+    # development dependencies. Note that we do not use the --no-deps option for the
+    # development dependencies, since we need fully functioning versions of mypy, ruff,
+    # and isort to run the static checks.
     #
     # Thanks, copilot!
     - name: Install requirements
@@ -96,7 +106,7 @@ jobs:
         pip install -U pip
         pip install toml
         pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['dependencies']))")
-        pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['optional-dependencies']['development']))")
+        pip install --no-build-isolation -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['optional-dependencies']['development']))")
         pip freeze
 
     # Run the various checks

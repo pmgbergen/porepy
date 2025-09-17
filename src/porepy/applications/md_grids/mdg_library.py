@@ -249,17 +249,17 @@ def seven_fractures_one_L_intersection(
 
 
 def benchmark_regular_2d(
-    meshing_args: dict, is_coarse: bool = False, **meshing_kwargs
+    meshing_args: dict, **meshing_kwargs
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """
-    Create a grid bucket for a domain containing the network introduced as example 2 of
-    Berre et al. 2018: Benchmarks for single-phase flow in fractured porous media.
+    Create a MixedDimensionalGrid for a domain containing the network introduced as
+    example 2 of Berre et al. 2018: Benchmarks for single-phase flow in fractured porous
+    media.
 
     Parameters:
         meshing_args: Dictionary containing at least "mesh_size_frac". If the optional
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
             set by utils.set_mesh_sizes.
-        is_coarse: If True, coarsen the grid by volume.
         **meshing_kwargs: Keyword arguments for meshing as used by
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
@@ -281,8 +281,6 @@ def benchmark_regular_2d(
     )
     mdg = pp.create_mdg("simplex", meshing_args, fracture_network, **meshing_kwargs)
 
-    if is_coarse:
-        pp.coarsening.coarsen(mdg, "by_volume")
     return mdg, fracture_network
 
 
@@ -297,16 +295,16 @@ def benchmark_3d_case_3(
         direct way of prescribing meshing arguments.
 
     Reference:
-        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
-        E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
-        three-dimensional fractured porous media. Advances in Water Resources, 147,
-        103759.
+        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D.,
+        Keilegavlen, E., ... & Zulian, P. (2021). Verification benchmarks for
+        single-phase flow in three-dimensional fractured porous media. Advances in Water
+        Resources, 147, 103759.
 
     Parameters:
         refinement_level: An integer denoting the level of refinement. Use `0` to
-            generate a mixed-dimensional grid with approximately 30K 3D cells,
-            `1` for 140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells.
-            Default is `0`.
+            generate a mixed-dimensional grid with approximately 30K 3D cells, `1` for
+            140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells. Default is
+            `0`.
 
     Returns:
         Tuple containing a:
@@ -324,23 +322,21 @@ def benchmark_3d_case_3(
 
     # Get directory pointing to the `geo` file
     abs_path = Path(__file__)
-    benchmark_path = (
-        abs_path.parent / Path("gmsh_file_library") / Path("benchmark_3d_case_3")
-    )
+    benchmark_path = abs_path.parent / "gmsh_file_library" / "benchmark_3d_case_3"
     num_cells = [30, 140, 350, 500][refinement_level]
-    full_path = benchmark_path / Path(f"mesh{num_cells}k.geo")
+    full_path = benchmark_path / f"mesh{num_cells}k.geo"
 
     # Set file permissions. This turned out to be important for GH actions.
     full_path.chmod(777)
 
     # Create mixed-dimensional grid
-    mdg = pp.fracture_importer.dfm_from_gmsh(str(full_path), dim=3)
+    mdg = pp.fracture_importer.dfm_from_gmsh(full_path, dim=3)
 
     # Also import fracture network
-    fracture_network_path = benchmark_path / Path("fracture_network.csv")
+    fracture_network_path = benchmark_path / "fracture_network.csv"
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(str(fracture_network_path))
+    network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
 
     return mdg, network
