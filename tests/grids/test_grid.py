@@ -4,7 +4,7 @@
 * Tests for the mortar grid.
 """
 
-import os
+from pathlib import Path
 import pickle
 
 from typing import Callable
@@ -999,10 +999,10 @@ def test_boundary_grid():
 )
 def test_pickle_grid(g):
     """Test that grids can be pickled. Write, read and compare."""
-    fn = "tmp.grid"
+    fn = Path("tmp.grid")
     pickle.dump(g, open(fn, "wb"))
 
     g_read = pickle.load(open(fn, "rb"))
 
     pp.test_utils.grids.compare_grids(g, g_read)
-    os.unlink(fn)
+    fn.unlink()

@@ -6,6 +6,7 @@ import copy
 import csv
 import logging
 import time
+from pathlib import Path
 from typing import Optional
 
 import meshio
@@ -142,7 +143,7 @@ class FractureNetwork2d:
         tol: Optional[float] = None,
         do_snap: bool = True,
         constraints: Optional[np.ndarray] = None,
-        file_name: Optional[str] = None,
+        file_name: Optional[Path] = None,
         dfn: bool = False,
         tags_to_transfer: Optional[list[str]] = None,
         remove_small_fractures: bool = False,
@@ -217,7 +218,8 @@ class FractureNetwork2d:
 
         """
         if file_name is None:
-            file_name = "gmsh_frac_file.msh"
+            file_name = Path("gmsh_frac_file.msh")
+
         # No constraints if not available.
         if constraints is None:
             constraints = np.empty(0, dtype=int)
@@ -1028,7 +1030,7 @@ class FractureNetwork2d:
     def _bounding_box_to_points(self, box: dict[str, pp.number]) -> np.ndarray:
         """Helper function to convert a bounding box into a point set.
 
-        Todo:
+        TODO:
             Consider moving this method to :class:`~porepy.geometry.domain.Domain`.
 
         Parameters:
@@ -1209,7 +1211,7 @@ class FractureNetwork2d:
         """
         pp.plot_fractures(self._pts, self._edges, domain=self.domain, **kwargs)
 
-    def to_csv(self, file_name: str, with_header: bool = True) -> None:
+    def to_csv(self, file_name: Path, with_header: bool = True) -> None:
         """Save the 2D network on a CSV file with comma as separator.
 
         The format is ``FID, START_X, START_Y, END_X, END_Y``, where ``FID`` is the
@@ -1240,7 +1242,7 @@ class FractureNetwork2d:
                 csv_writer.writerow(data)
 
     def to_file(
-        self, file_name: str, data: Optional[dict[str, np.ndarray]] = None, **kwargs
+        self, file_name: Path, data: Optional[dict[str, np.ndarray]] = None, **kwargs
     ) -> None:
         """Export the fracture network to file.
 
@@ -1271,11 +1273,11 @@ class FractureNetwork2d:
 
                     Used to define the offset for a fracture id.
 
-                - ``'folder_name'`` (:obj:`str`): ``default="./"``
+                - ``'folder_name'`` (:obj:`Path`): ``default=Path("")``
 
                     Path to save the file.
 
-                - ``'extension'`` (:obj:`str`): ``default="vtu"``
+                - ``'extension'`` (:obj:`str`): ``default=".vtu"``
 
                     File extension.
 
@@ -1286,14 +1288,14 @@ class FractureNetwork2d:
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")
-        folder_name: str = kwargs.pop("folder_name", "")
+        folder_name: Path = Path(kwargs.pop("folder_name", ""))
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        if not file_name.endswith(extension):
-            file_name += extension
+        # Make sure the suffix is correct
+        file_name = file_name.with_suffix(extension)
 
         # in 1d we have only one cell type
         cell_type = "line"
@@ -1324,7 +1326,8 @@ class FractureNetwork2d:
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_cell_data
         )
-        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
+        path = folder_name / file_name
+        meshio.write(path, meshio_grid_to_export, binary=binary)
 
     def __str__(self):
         s = (
