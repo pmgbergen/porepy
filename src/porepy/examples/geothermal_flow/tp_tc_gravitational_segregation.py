@@ -16,7 +16,7 @@ expected_order_loss = 2
 mesh_2d_Q = False
 
 
-residual_tolerance = 20.0 ** (-expected_order_loss)
+residual_tolerance = 10.0 ** (-expected_order_loss)
 
 # define constant phase densities
 rho_l = 1000.0
@@ -53,7 +53,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(0.25, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -113,7 +113,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.5, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
