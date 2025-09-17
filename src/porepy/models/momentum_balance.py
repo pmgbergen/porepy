@@ -205,15 +205,23 @@ class AngularMomentumEquation:
     """
 
     rotation_dimension: Callable[[], Literal[1, 3]]
+    """Dimension of the rotation variable."""
     first_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The first Lamé parameter."""
     total_rotation: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator for the total rotation over a face."""
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Rotation stress variable."""
     nd: int
+    """Ambient spatial dimension."""
     mdg: pp.MixedDimensionalGrid
+    """The mixed-dimensional grid."""
     equation_system: pp.EquationSystem
+    """The equation system."""
     volume_integral: Callable[
         [pp.ad.Operator, pp.SubdomainsOrBoundaries, int], pp.ad.Operator
     ]
+    """Method to compute volume integrals."""
     balance_equation: Callable[
         [
             pp.SubdomainsOrBoundaries,
@@ -224,6 +232,7 @@ class AngularMomentumEquation:
         ],
         pp.ad.Operator,
     ]
+    """Method to construct balance equations."""
 
     def set_equations(self) -> None:
         """Add the angular momentum equation to the set of equations."""
@@ -301,14 +310,21 @@ class SolidMassEquation:
     """
 
     solid_mass_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator for the solid mass flux."""
     second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The second Lamé parameter."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The total pressure variable."""
     nd: int
+    """Ambient spatial dimension."""
     mdg: pp.MixedDimensionalGrid
+    """The mixed-dimensional grid."""
     equation_system: pp.EquationSystem
+    """The equation system."""
     volume_integral: Callable[
         [pp.ad.Operator, pp.SubdomainsOrBoundaries, int], pp.ad.Operator
     ]
+    """Method to compute volume integrals."""
     balance_equation: Callable[
         [
             pp.SubdomainsOrBoundaries,
@@ -319,6 +335,7 @@ class SolidMassEquation:
         ],
         pp.ad.Operator,
     ]
+    """Method to construct balance equations."""
 
     def set_equations(self) -> None:
         """Add the solid mass conservation equation to the system."""
@@ -508,10 +525,15 @@ class VariablesThreeFieldMomentumBalance:
     """
 
     rotation_stress_variable: str
+    """String name of the rotation stress variable."""
     total_pressure_variable: str
+    """String name of the total pressure variable."""
     nd: int
+    """Ambient spatial dimension."""
     mdg: pp.MixedDimensionalGrid
+    """The mixed-dimensional grid."""
     equation_system: pp.EquationSystem
+    """The equation system."""
 
     def create_variables(self) -> None:
         """Set variables related to the three-field formulation of momentum balance.
@@ -726,8 +748,9 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""
 
     displacement_variable: str
-
+    """Name of the displacement variable."""
     stress_keyword: str
+    """Keyword for the stress term."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -875,11 +898,17 @@ class InitialConditionsThreeFieldMomentumBalance:
     variables."""
 
     rotation_dimension: Callable[[], Literal[1, 3]]
+    """Dimension of the rotation variable. 1 for 2d problems, 3 for 3d problems."""
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator for the rotation stress variable."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator for the total pressure variable."""
     nd: int
+    """Ambient spatial dimension."""
     equation_system: pp.ad.EquationSystem
+    """The equation system."""
     mdg: pp.MixedDimensionalGrid
+    """The mixed-dimensional grid."""
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for displacement, contact traction and interface

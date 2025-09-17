@@ -98,8 +98,11 @@ class SolidMassEquation(pp.momentum_balance.SolidMassEquation):
     """
 
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The Biot coefficient."""
     second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The second Lamé parameter."""
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator representing the fluid pressure.."""
 
     def solid_mass_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Extension of the solid mass equation to the poromechanics problem [-].

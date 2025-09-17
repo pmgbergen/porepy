@@ -3031,20 +3031,34 @@ class ThreeFieldLinearElasticMechanicalStress:
     combine_boundary_operators_mechanical_stress: Callable[
         [Sequence[pp.Grid]], pp.ad.Operator
     ]
+    """Method that combines boundary operators to a single operator."""
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    """Displacement variable."""
     interface_displacement: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
+    """Displacement variable on interfaces."""
     rotation_stress: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Rotation stress variable."""
     total_pressure: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Total pressure variable."""
     stress_keyword: str
+    """Keyword used to identify the stress-related quantities."""
     stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
+    """The stiffness tensor, defined on a subdomain."""
     rotation_dimension: Callable[[], Literal[1, 3]]
+    """The dimension of the rotation variable. Either 1 (2D) or 3 (3D)."""
     nd: int
+    """The ambient dimension."""
     mdg: pp.MixedDimensionalGrid
+    """The mixed-dimensional grid."""
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    """Method that maps subdomains to their interfaces."""
     interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
+    """Method that maps interfaces to their subdomains."""
     create_boundary_operator: Callable[[str, Sequence[pp.BoundaryGrid]], pp.ad.Operator]
+    """Method that creates a boundary operator given a keyword and a list of
+    boundary grids."""
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress [Pa] as defined in the three-field
@@ -3295,13 +3309,17 @@ class ConstitutiveLawsTpsaPoromechanics:
     """
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator for the mechanical stress."""
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """The fluid pressure variable."""
     total_pressure: Callable[
         [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
     ]
-    inv_lambda: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The total pressure variable."""
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient."""
     second_lame_parameter: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Second Lame parameter."""
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator [Pa].
