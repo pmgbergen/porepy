@@ -170,7 +170,7 @@ class FractureNetwork2d:
         return domain_tag
 
     def fractures_to_gmsh_2D(self) -> list[int]:
-        """WIP: Take the tags of all fractures in the fracture network.
+        """Take the tags of all fractures in the fracture network.
         
         By using the method for exporting a single fracture tag, we here collect the
         tags of all the fractures in the fracture network. The tags are returned as
@@ -185,10 +185,8 @@ class FractureNetwork2d:
             decided.
         
         """
-        fracture_tags = []
-        for fracture in self.fractures:
-            tag = fracture.fracture_to_gmsh_2D()
-            fracture_tags.append(tag)
+        fracture_tags = [fracture.fracture_to_gmsh_2D() for fracture in self.fractures]
+
         return fracture_tags
 
     def mesh(
