@@ -53,10 +53,12 @@ visualization_dir = Path("visualization")
 def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ) -> TailoredPoromechanics:
-    # Create model with a fractured geometry
-    model = create_model_with_fracture(solid_vals, fluid_vals, {}, uy_north)
+    # Create model with a fractured geometry.
+    model = create_model_with_fracture(
+        solid_vals, fluid_vals, {}, uy_north, TailoredPoromechanics
+    )
 
-    # Fetch parameters for enhancing them
+    # Fetch parameters for enhancing them.
     params = model.params
 
     # Enable exporting
@@ -67,14 +69,14 @@ def create_restart_model(
         schedule=[0, 1], dt_init=0.5, constant_dt=True
     )
 
-    # Add restart possibility
+    # Add restart possibility.
     params["restart_options"] = {
         "restart": restart,
         "pvd_file": reference_dir / "previous_data.pvd",
         "times_file": reference_dir / "previous_times.json",
     }
 
-    # Redefine model
+    # Redefine model.
     model = TailoredPoromechanics(params)
     return model
 

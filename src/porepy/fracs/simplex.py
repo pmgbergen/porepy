@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
 from pathlib import Path
+from typing import Any, Optional
+
 import meshio
 import numpy as np
 
