@@ -162,8 +162,8 @@ class FractureNetwork2d:
         xmin, xmax = bb["xmin"], bb["xmax"]
         ymin, ymax = bb["ymin"], bb["ymax"]
 
-        # Reasonable assumption that z is always the zero coordinate when working in
-        # 2D??
+        # We assume that z is the zero coordinate when working in 2D, and thus the third
+        # input to addRectangle is set to be 0:
         domain_tag = gmsh.model.occ.addRectangle(
             xmin, ymin, 0, xmax - xmin, ymax - ymin
         )
