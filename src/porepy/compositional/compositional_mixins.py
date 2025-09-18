@@ -953,7 +953,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
-
+        elif phase.state == PhysicalState.solid:
+            # here set the fraction of solid phase to 0 because it is related to saturation
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(0.0, "solid_phase_fraction")
         elif self.has_independent_fraction(phase):
             fraction = self._fraction_factory(self._phase_fraction_variable(phase))
         elif phase == self.fluid.reference_phase:
@@ -1166,9 +1169,14 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # NOTE: If the reference component fraction is independent, below elif-clause
         # will be executed, instead of the next one.
         elif self.has_independent_fluid_fraction(element):
-            fraction = self._fraction_factory(
-                self._element_fluid_fraction_variable(element)
-            )
+            if self.fluid.enable_chemical_equilibrium:
+                fraction = self._fraction_factory(
+                    self._element_fluid_fraction_variable(element)
+                )
+            else:
+
+                def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(0.0, "could_not_care_less")
         elif element == self.fluid.reference_element:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -1230,7 +1238,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             ]
         )
 
-        scaling_factor = self.fluid.fluid_fraction(subdomains) ** pp.ad.Scalar(-1.0)
+        scaling_factor = self.fluid_molar_fraction(subdomains) ** pp.ad.Scalar(-1.0)
         total_op = total_op * scaling_factor
         total_op.set_name("element_density_ratio")
         return total_op
@@ -1252,7 +1260,14 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         yy: DomainFunctionType
 
-        yy = self._fraction_factory(self._element_chemical_potential_variable(element))
+        if self.fluid.enable_chemical_equilibrium:
+            yy = self._fraction_factory(
+                self._element_chemical_potential_variable(element)
+            )
+        else:
+
+            def yy(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(0.0, "could_not_care_less")
 
         return yy
 
@@ -1273,9 +1288,14 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         zz: DomainFunctionType
 
-        zz = self._fraction_factory(
-            self._equilibrium_stability_index_variable(component)
-        )
+        if self.fluid.enable_chemical_equilibrium:
+            zz = self._fraction_factory(
+                self._equilibrium_stability_index_variable(component)
+            )
+        else:
+
+            def zz(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                return pp.ad.Scalar(0.0, "could_not_care_less")
 
         return zz
 
@@ -2281,6 +2301,10 @@ class ChemicalSystem(FluidMixin):
 
         S = np.zeros((n_rxn, n_sp), dtype=float)
 
+        # Initialize flags and tracking
+        is_equilibrium_species = ["Non-reactive"] * n_sp
+        seen_species = set()
+
         for i, rxn in enumerate(reactions):
             # Your own parser (reactants negative, products positive)
             sp_list, coeffs = self.parse_reaction(rxn)
@@ -2294,11 +2318,24 @@ class ChemicalSystem(FluidMixin):
                         f"Species '{sp}' in reaction {i} is not in self.species_names. "
                         f"Known species: {self.species_names}"
                     )
+                seen_species.add(sp)
                 row_acc[sp] = row_acc.get(sp, 0.0) + float(c)
+
+                j = col_index[sp]
+                if not rxn.is_kinetic:
+                    is_equilibrium_species[j] = "equilibrium"
+                    self.fluid.enable_chemical_equilibrium = True
 
             # Write this reaction row
             for sp, c in row_acc.items():
                 S[i, col_index[sp]] = c
+
+        for comp in self.fluid.components:
+            if comp.name in self.species_names:
+                j = col_index[comp.name]
+                if sp in seen_species and is_equilibrium_species[j] != "equilibrium":
+                    is_equilibrium_species[j] = "kinetic"
+                comp.is_equilibrium_species = is_equilibrium_species[j]
 
         return S
 

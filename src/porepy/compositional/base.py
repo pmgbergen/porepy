@@ -110,6 +110,8 @@ class Component:
         self.molar_volume: float = float(kwargs.get("molar_volume", 0))
         # self.molar_volume: ExtendedDomainFunctionType #TODO
         self.mineral_saturation: ExtendedDomainFunctionType
+        self.is_equilibrium_species: str = "Non-reactive"
+
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
 
@@ -782,6 +784,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         self.element_chemical_potential_of: dict[Element, ExtendedDomainFunctionType]
         self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
         self.solid_components: list[ComponentLike] = []
+        self.enable_chemical_equilibrium: bool = False
 
         for comp in components:
             double_names.append(comp.name)
