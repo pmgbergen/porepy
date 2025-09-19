@@ -61,7 +61,7 @@ def create_3d_grids(
     """
 
     tet_cells = cells["tetra"]
-    g_3d = pp.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
+    g_3d: pp.Grid = pp.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
     # Create mapping to global numbering (will be a unit mapping, but is crucial for
     # consistency with lower dimensions).
     g_3d = tag_grid(g_3d, phys_names, cell_info)
@@ -163,7 +163,9 @@ def create_2d_grids(
             # Find unique points, and a mapping from local to global points.
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
             loc_tri_ind = p_map.reshape((-1, 3))
-            g = pp.TriangleGrid(pts[pind_loc, :].transpose(), loc_tri_ind.transpose())
+            g: pp.Grid = pp.TriangleGrid(
+                pts[pind_loc, :].transpose(), loc_tri_ind.transpose()
+            )
             g = tag_grid(g, phys_names, cell_info)
             # Add mapping to global point numbers.
             g.global_point_ind = pind_loc
@@ -360,7 +362,7 @@ def create_1d_grids(
         elif line_type == line_tag[:-1]:
             loc_pts_1d = np.unique(loc_line_pts)
             loc_coord = pts[loc_pts_1d, :].transpose()
-            g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
+            g: pp.Grid = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
             g = tag_grid(g, phys_names, cell_info)
             g.frac_num = int(frac_num)
             g_1d.append(g)
@@ -380,7 +382,7 @@ def create_0d_grids(
     phys_names: dict[int, str],
     cell_info: dict[str, np.ndarray],
     target_tag_stem: Optional[str] = None,
-) -> list[pp.PointGrid]:
+) -> list[pp.Grid]:
     """Create 0D grids for points of a specified type from a gmsh tesselation.
 
     Only points that were defined as 'physical' in the gmsh sense may have a grid
@@ -440,7 +442,7 @@ def create_0d_grids(
             # defined constant.
             if phys_name_vertex == target_tag_stem[:-1]:
                 # This should be a new grid.
-                g = pp.PointGrid(pts[point_cells[pi]])
+                g: pp.Grid = pp.PointGrid(pts[point_cells[pi]])
                 g = tag_grid(g, phys_names, cell_info)
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
@@ -567,9 +569,9 @@ def tag_grid(
         for tag_num in np.unique(cell_info[grid_element_type]):
             tag_name = phys_names[tag_num].lower()
 
-            # If an item in PhysicalNames is a prefix of tag_name, we skip it. This avoids
-            # creating tags for physical names that are mesh processing specific (e.g.,
-            # domain_boundary_line etc.).
+            # If an item in PhysicalNames is a prefix of tag_name, we skip it. This
+            # avoids creating tags for physical names that are mesh processing specific
+            # (e.g., domain_boundary_line etc.).
             if any(
                 tag_name.startswith(prefix.lower())
                 for prefix in PhysicalNames._member_map_
