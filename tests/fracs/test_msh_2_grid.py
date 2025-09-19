@@ -1,4 +1,14 @@
-"""Test functions in :module:`porepy.fracs.msh_2_grid`."""
+"""Test functions in :module:`porepy.fracs.msh_2_grid`.
+
+For now, the tests focus on ensuring that geometries with inclusions are properly
+handled, with the inclusion tag correctly applied to grids of the appropriate
+dimension.
+
+The functions in the module msh_2_grid are also tested indirectly through the tests of
+fracture mesh generation in :mod:`tests.fracs.test_fracture_network_2d` and
+:mod:`tests.fracs.test_fracture_network_3d`.
+
+"""
 
 import copy
 import pathlib
@@ -16,17 +26,17 @@ from porepy.fracs.msh_2_grid import (
     create_1d_grids,
     create_2d_grids,
     create_3d_grids,
-    gmsh_element_types,
-    tag_grid,
 )
 from porepy.fracs.simplex import _read_gmsh_file
 from porepy.grids.mdg_generation import _preprocess_simplex_args
 
-rng: np.random.Generator = np.random.default_rng(seed=42)
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
 
-@pytest.fixture
+INCLUSION_NAME: str = "inclusion"
+
+
+@pytest.fixture(scope="function")
 def dims(request: pytest.FixtureRequest) -> tuple:
     return request.param
 
@@ -40,7 +50,7 @@ def fracture_network(dims: tuple) -> pp.fracture_network:
             "ymin": 0,
             "ymax": dims[1],
         }
-        # Two intersecting line fractures
+        # Two intersecting line fractures.
         fractures = pp.fracture_sets.orthogonal_fractures_2d(size=dims[0])
 
     if len(dims) == 3:
@@ -147,7 +157,14 @@ def create_gmsh_file(
         loop = gmsh.model.geo.addCurveLoop([line_0, line_1, line_2, line_3])
         inclusion = gmsh.model.geo.addPlaneSurface([loop])
         gmsh.model.geo.synchronize()
-        gmsh.model.add_physical_group(2, [inclusion], name=INCLUSION_NAME)
+        # There were some issues with gmsh assigning the same tag (numerical value) to
+        # different objects. To circumvent this, make sure to assign a new tag that is
+        # higher than all existing tags (assuming gmsh uses consecutive numbering, which
+        # it does).
+        num_tags = len(gmsh.model.get_entities())
+        gmsh.model.add_physical_group(
+            2, [inclusion], tag=num_tags + 1, name=INCLUSION_NAME
+        )
 
     else:  # dim == 3
         # Add points spanning a cube.
@@ -235,31 +252,56 @@ def create_gmsh_file(
     ],
 )
 @pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
-@pytest.mark.parametrize("num_phys_names", [0, 1, 5], indirect=True)
-def test_create_grids(
+def test_create_grids_with_high_dim_inclusion(
     create_function,
     expected_grid_type,
     create_gmsh_file: str,
     dims,
-    num_phys_names,
 ) -> None:
-    """Test that create_nd_grids functions produce grids with correct tags."""
+    """Test that create_nd_grids functions produce grids with correct tags.
+
+    The test is designed to verify that the inclusion tag is correctly applied
+    to the generated grids based on their dimensions. See the function create_gmsh_file
+    for details on the inclusion and its geometry.
+
+    The test can be extended to include cover other types of tagging (though it is a bit
+    unclear to EK what this means at the moment), but  this should be done on an
+    on-demand basis.
+
+    Parameters:
+        create_function: The function to create the grids.
+        expected_grid_type: The expected type of the created grids.
+        create_gmsh_file: Fixture that creates a gmsh file with an inclusion.
+        dims: The dimensions of the domain.
+
+    """
+    # Read the gmsh file to get points, cells, cell_info and physical names.
     pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
 
-    if len(dims) == 2 and create_function.__name__ == "create_3d_grids":
+    nd = len(dims)
+
+    # By default we need no extra kwargs.
+    kwargs: dict = {}
+
+    if nd == 2 and create_function.__name__ == "create_3d_grids":
         # If the target geometry is 2d, we should not try to make a 3d grid (this will
         # fail with a key error since the gmsh file contains no tetrahedra in this
         # case).
         return
+    if nd == 3 and create_function.__name__ == "create_2d_grids":
+        # If the target dimension is 3d, 2d grids should be embedded.
+        kwargs = {"is_embedded": True}
 
-    grids = create_function(pts, cells, phys_names, cell_info)
+    # Create grids of the desired type.
+    grids = create_function(pts, cells, phys_names, cell_info, **kwargs)
 
     if isinstance(grids, tuple):
         grids, _ = grids
 
+    # Loop over the generated grids. If they are nd, they should have the inclusion tag.
+    # If they are of lower dimension, they should not have the inclusion tag.
     for g in grids:
         assert isinstance(g, expected_grid_type)
-
         if g.dim == nd:
             assert INCLUSION_NAME in g.tags
         else:
