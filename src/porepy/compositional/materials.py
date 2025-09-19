@@ -493,6 +493,27 @@ class ReferenceVariableValues(Constants):
     temperature: number = 0.0
 
 
+@dataclass(kw_only=True)
+class VariableScalings(Constants):
+    """A data class storing scaling factors for primary variables.
+
+    Intended use is for defining scaling factors for example for pressure and
+    temperature, where the scaled variable :math:`p / p_{scal}` is used
+    throughout the model.
+
+    """
+
+    pressure: number = 1.0
+    temperature: number = 1.0
+    displacement: number = 1.0
+    interface_displacement: number = 1.0
+    interface_darcy_flux: number = 1.0
+    interface_fourier_flux: number = 1.0
+    interface_enthalpy_flux: number = 1.0
+    rotation_stress: number = 1.0
+    total_pressure: number = 1.0
+
+
 def load_fluid_constants(names: list[str], package: str) -> list[FluidComponent]:
     """Creates a fluid species, if identifiable by ``name`` in ``package``.
 
