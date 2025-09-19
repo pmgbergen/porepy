@@ -10,9 +10,6 @@ processing of gmsh information is less than transparent. If you need to understa
 inner workings of these functions, and the treatment of 'cell_info' and 'phys_names' in
 particular, you may need to go through the code in detail, or preferably, step through
 with a debugger.
-Todo:
-    Elaborate more arguments ``cell_info`` and ``phys_names`` (admissible
-    keywords etc.).
 
 """
 
@@ -25,6 +22,7 @@ import numpy as np
 import porepy as pp
 
 from .gmsh_interface import PhysicalNames
+from typing import TypeVar
 
 gmsh_element_types: list[str] = [
     "vertex",
@@ -61,7 +59,7 @@ def create_3d_grids(
     """
 
     tet_cells = cells["tetra"]
-    g_3d: pp.Grid = pp.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
+    g_3d = pp.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
     # Create mapping to global numbering (will be a unit mapping, but is crucial for
     # consistency with lower dimensions).
     g_3d = tag_grid(g_3d, phys_names, cell_info)
@@ -107,11 +105,10 @@ def create_2d_grids(
             The target physical name. All surfaces that have this tag will be assigned a
             grid.
 
-            The string is assumed to be on the from between the physical names and the
-            line, up to the last underscore.
-
             If not provided, the physical names of fracture surfaces will be used as
-            target.
+            target. It is strongly suggested to use the default value, as the altering
+            this may lead to unexpected behavior during grid creation.
+
         constraints: ``default=None``
 
             Array with lists of lines that should not become grids. The array items
@@ -161,14 +158,14 @@ def create_2d_grids(
             loc_tri_cells = tri_cells[loc_cells, :].astype(int)
 
             # Find unique points, and a mapping from local to global points.
-            pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
-            loc_tri_ind = p_map.reshape((-1, 3))
-            g: pp.Grid = pp.TriangleGrid(
-                pts[pind_loc, :].transpose(), loc_tri_ind.transpose()
+            point_ind_loc, point_map = np.unique(loc_tri_cells, return_inverse=True)
+            loc_tri_ind = point_map.reshape((-1, 3))
+            g = pp.TriangleGrid(
+                pts[point_ind_loc, :].transpose(), loc_tri_ind.transpose()
             )
             g = tag_grid(g, phys_names, cell_info)
             # Add mapping to global point numbers.
-            g.global_point_ind = pind_loc
+            g.global_point_ind = point_ind_loc
 
             # Associate a fracture id (corresponding to the ordering of the fracture
             # planes in the original fracture list provided by the user).
@@ -185,7 +182,7 @@ def create_2d_grids(
 
         triangles = cells["triangle"].transpose()
         # Construct grid.
-        g_2d: pp.Grid = pp.TriangleGrid(pts.transpose(), triangles)
+        g_2d = pp.TriangleGrid(pts.transpose(), triangles)
         g_2d = tag_grid(g_2d, phys_names, cell_info)
         # We need to add the face tags from gmsh to the current mesh, however,
         # since there is not a cell-face relation from gmsh but only a cell-node
@@ -362,7 +359,7 @@ def create_1d_grids(
         elif line_type == line_tag[:-1]:
             loc_pts_1d = np.unique(loc_line_pts)
             loc_coord = pts[loc_pts_1d, :].transpose()
-            g: pp.Grid = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
+            g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
             g = tag_grid(g, phys_names, cell_info)
             g.frac_num = int(frac_num)
             g_1d.append(g)
@@ -494,30 +491,37 @@ def create_embedded_line_grid(
     return g
 
 
+# Type variable for grids, needed for type hinting of tag_grid function.
+T = TypeVar("T", bound="pp.Grid")
+
+
 def tag_grid(
-    sd: pp.Grid,
+    sd: T,
     phys_names: dict[int, str],
     cell_info: dict[str, np.ndarray],
-) -> pp.Grid:
+) -> T:
     """Translate gmsh tags to PorePy tags.
 
     This functions loops through all geometric elements of a gmsh grid and translates
-    gmsh tags, describing which physical entity each element belongs to, to tags in the
-    PorePy grid.
+    gmsh tags to tags in the PorePy grid.
 
-    Namely, for each geometric element type present in the grid, out of the possible
-    types
-        - "point"
-        - "line",
-        - "triangle"
-        - "tetrahedron"
-    and each physical entity name, the function creates a key ``f"{physical name}"`` in
-    ``sd.tags`` with a boolean array of the same length as the number of elements of the
-    given type in the grid. The array is ``True`` where the element belongs to the
-    physical entity and ``False`` otherwise. Tags related to mesh processing (those
-    added by PorePy when creating the mesh) are not included. Tags will only be added to
-    grids of the relevant dimension, e.g., if a tag 'foo' is specified (in the gmsh
-    file) for 2d grids, a 2d grid will get a tag 'foo', but not a 1d grid.
+    The tags in the PorePy grid are boolean arrays indicating whether or not a geometric
+    element belongs to a physical entity. Specifically, for each physical entity 'foo'
+    defined in the gmsh file, a tag 'foo' is added to the PorePy grid, e.g.,
+    sd.tags['foo']. This tag is a boolean array of the same length as the number of
+    cells in the grid, and is True where the cell belongs to the physical entity 'foo',
+    and False otherwise.
+
+    Tags will only be added to grids of the relevant dimension, e.g., if a tag 'foo' is
+    specified (in the gmsh file) for 2d grids, a 2d grid will get a tag 'foo', but not a
+    1d grid.
+
+    Tags related to mesh processing (those added by PorePy when creating the mesh) are
+    not included.
+
+    Note:
+        The function has mainly been tested for physical names are assigned to grids of
+        the ambient dimension. Use with care if tagging lower-dimensional grids.
 
     Parameters:
         sd: Grid to be tagged. Created from ``pts``, ``cells``, ``phys_names``, and
@@ -543,8 +547,8 @@ def tag_grid(
     # Build a mapping from the dimension of a geometric entity to the gmsh tags
     # associated with physical entities of that dimension.
     tags_of_dimension: dict[int, np.ndarray] = {}
-    # Array of tags identified in some dimension. Used to check that the same tag
-    # is not used in different dimensions.
+    # Array of tags identified in some dimension. Used to check that the same tag is not
+    # used in different dimensions.
     tags_all_dimensions = np.array([], dtype=int)
 
     for dim, grid_element_type in enumerate(["vertex", "line", "triangle", "tetra"]):
@@ -558,8 +562,8 @@ def tag_grid(
             tags_of_dimension[dim] = tags_this_dimension
             tags_all_dimensions = np.union1d(tags_all_dimensions, tags_this_dimension)
 
-    # The physical names map from gmsh tags (int) to physical names (str). We need
-    # the inverse mapping.
+    # The physical names map from gmsh tags (int) to physical names (str). We need the
+    # inverse mapping.
     inv_phys_names = {v: k for k, v in phys_names.items()}
 
     # Loop over all element types (expected to be a subset of vertex, lines, triangles
