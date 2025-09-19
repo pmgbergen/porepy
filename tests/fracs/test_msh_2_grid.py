@@ -79,10 +79,29 @@ def simplex_grids(fracture_network: pp.fracture_network) -> list[pp.Grid]:
 def create_gmsh_file(
     fracture_network: pp.fracture_network, tmp_path: pathlib.Path
 ) -> str:
-    """Create a gmsh file with the given number of physical names."""
-    msh_file: pathlib.Path = tmp_path / "test.msh"
-    msh_file = "test.msh"
+    """Create a gmsh file of the specified fracture network, with an inclusion
+    added.
 
+    The inclusion is a square in 2d and a cube in 3d, placed somewhere in the middle of
+    the domain. The inclusion is assigned a physical name, ``INCLUSION_NAME``.
+
+    Parameters:
+        fracture_network: The fracture network to create a gmsh file for.
+        tmp_path: Temporary path to store the gmsh file.
+
+    Returns:
+        The path to the created gmsh file.
+
+    """
+    # The idea behind the this function is to create a gmsh geometry for the given
+    # fracture network. Then we will add an inclusion, in the form of a square in 2d and
+    # a cube in 3d, to the geometry, and finally construct the mesh. The resulting gmsh
+    # mesh will have a physical name for the inclusion, which should be picked up
+    # during PorePy mesh generation from the gmsh file.
+
+    msh_file: pathlib.Path = tmp_path / "test.msh"
+
+    # Step 1: Create a gmsh geometry for the fracture network.
     # Use functionality from pp.create_mdg and fracture_network.mesh to create a gmsh
     # file from the fracture_network.
 
@@ -91,7 +110,7 @@ def create_gmsh_file(
 
     dim: int
 
-    # Without the if-else construction, _prepare_simplex_args fails.
+    # We need to differ between 2d and 3d fracture networks.
     if isinstance(fracture_network, FractureNetwork2d):
         dim = 2
         lower_level_args, *_ = _preprocess_simplex_args(
@@ -102,16 +121,19 @@ def create_gmsh_file(
         lower_level_args, *_ = _preprocess_simplex_args(
             {"cell_size": 0.5}, kwargs, FractureNetwork3d.mesh
         )
-
+    # Generate the mesh. We are not really interested in the returned grids, but we
+    # need to call the function to get the gmsh geometry created.
     fracture_network.mesh(
         mesh_args=lower_level_args,
-        file_name=str(msh_file),
+        file_name=msh_file,
         finalize_gmsh=False,
         clear_gmsh=False,
     )
 
+    # Step 2: Add an inclusion to the gmsh geometry.
     gmsh.open(str(msh_file))
 
+    # Define the geometry for the inclusion.
     domain = fracture_network.domain
     x_min = domain.bounding_box["xmin"]
     x_max = domain.bounding_box["xmax"]
@@ -128,11 +150,12 @@ def create_gmsh_file(
         z_max = 0.0
         dz = 0.0
 
+    # Hard-coded geometry for the inclusion. It is placed away from the fractures.
     if dim == 2:
         p_0 = gmsh.model.geo.addPoint(x_min + 0.1 * dx, y_min + 0.1 * dy, 0)
-        p_1 = gmsh.model.geo.addPoint(x_max + 0.2 * dx, y_min + 0.1 * dy, 0)
-        p_2 = gmsh.model.geo.addPoint(x_max + 0.2 * dx, y_max + 0.2 * dy, 0)
-        p_3 = gmsh.model.geo.addPoint(x_min + 0.1 * dx, y_max + 0.2 * dy, 0)
+        p_1 = gmsh.model.geo.addPoint(x_min + 0.2 * dx, y_min + 0.1 * dy, 0)
+        p_2 = gmsh.model.geo.addPoint(x_min + 0.2 * dx, y_min + 0.2 * dy, 0)
+        p_3 = gmsh.model.geo.addPoint(x_min + 0.1 * dx, y_min + 0.2 * dy, 0)
         line_0 = gmsh.model.geo.addLine(p_0, p_1)
         line_1 = gmsh.model.geo.addLine(p_1, p_2)
         line_2 = gmsh.model.geo.addLine(p_2, p_3)
@@ -140,7 +163,7 @@ def create_gmsh_file(
         loop = gmsh.model.geo.addCurveLoop([line_0, line_1, line_2, line_3])
         inclusion = gmsh.model.geo.addPlaneSurface([loop])
         gmsh.model.geo.synchronize()
-        gmsh.model.add_physical_group(2, [inclusion], name="inclusion")
+        gmsh.model.add_physical_group(2, [inclusion], name=INCLUSION_NAME)
 
     else:  # dim == 3
         # Add points spanning a cube.
@@ -148,25 +171,25 @@ def create_gmsh_file(
             x_min + 0.1 * dx, y_min + 0.1 * dy, z_min + 0.1 * dz
         )
         p_1 = gmsh.model.geo.addPoint(
-            x_max + 0.2 * dx, y_max + 0.1 * dy, z_min + 0.1 * dz
+            x_min + 0.2 * dx, y_min + 0.1 * dy, z_min + 0.1 * dz
         )
         p_2 = gmsh.model.geo.addPoint(
-            x_max + 0.2 * dx, y_max + 0.2 * dy, z_min + 0.1 * dz
+            x_min + 0.2 * dx, y_min + 0.2 * dy, z_min + 0.1 * dz
         )
         p_3 = gmsh.model.geo.addPoint(
-            x_min + 0.1 * dx, y_max + 0.2 * dy, z_min + 0.1 * dz
+            x_min + 0.1 * dx, y_min + 0.2 * dy, z_min + 0.1 * dz
         )
         p_4 = gmsh.model.geo.addPoint(
-            x_min + 0.1 * dx, y_min + 0.1 * dy, z_max + 0.2 * dz
+            x_min + 0.1 * dx, y_min + 0.1 * dy, z_min + 0.2 * dz
         )
         p_5 = gmsh.model.geo.addPoint(
-            x_max + 0.2 * dx, y_min + 0.1 * dy, z_max + 0.2 * dz
+            x_min + 0.2 * dx, y_min + 0.1 * dy, z_min + 0.2 * dz
         )
         p_6 = gmsh.model.geo.addPoint(
-            x_max + 0.2 * dx, y_max + 0.2 * dy, z_max + 0.2 * dz
+            x_min + 0.2 * dx, y_min + 0.2 * dy, z_min + 0.2 * dz
         )
         p_7 = gmsh.model.geo.addPoint(
-            x_min + 0.1 * dx, y_max + 0.2 * dy, z_max + 0.2 * dz
+            x_min + 0.1 * dx, y_min + 0.2 * dy, z_min + 0.2 * dz
         )
         # Add lines forming the wire basket of the cube.
         line_0 = gmsh.model.geo.addLine(p_0, p_1)
@@ -199,99 +222,21 @@ def create_gmsh_file(
         )
         inclusion = gmsh.model.geo.addVolume([surface_loop])
         gmsh.model.geo.synchronize()
-        gmsh.model.add_physical_group(3, [inclusion], name="inclusion")
 
+        # There were some issues with gmsh assigning the same tag (numerical value) to
+        # different objects. To circumvent this, make sure to assign a new tag that is
+        # higher than all existing tags (assuming gmsh uses consecutive numbering, which
+        # it does).
+        num_tags = len(gmsh.model.get_entities())
+        gmsh.model.add_physical_group(
+            3, [inclusion], tag=num_tags + 1, name=INCLUSION_NAME
+        )
+
+    # Step 3: Generate the mesh, and write the gmsh file.
     gmsh.model.geo.synchronize()
-
     gmsh.model.mesh.generate(dim)
     gmsh.write(str(msh_file))
     gmsh.clear()
-    # gmsh.finalize()
-
-    # pp.fracture_importer.dfm_from_gmsh(str(msh_file), dim=dim)
-
-    debug = []
-
-    # Add physical names.
-    # TODO Didn't manage this yet, it's tricky. Basically, we want to loop through all
-    # lines in the .msh file and assign different physical names to some of the cells,
-    # faces, lines, and vertices.
-    # TODO Also this takesa lot of time.
-    # with pathlib.Path(msh_file).open("r+") as f:
-    # data: list[str] = f.readlines()
-    # data_cp = []
-    # for line in data:
-    #     data_cp.append(line)
-    #     while line != "$PhysicalNames\n":
-    #         continue
-
-    # prev_num_phys_names = int(data[4][:-1])
-
-    # # Add physical names.
-    # for i in range(num_phys_names):
-    #     data.insert(5, f'0 1 "phys_name_{prev_num_phys_names + i}"\n')
-    # # Update the number of physical names.
-    # data[4] = f"{prev_num_phys_names + num_phys_names}\n"
-
-    # # Assign physical names to entities.
-    # for i in range(5, len(data)):
-    #     pass
-
-    # f.writelines(data)
-
-    # EK attemps below: The general idea is to insert the extra physical names before
-    # generating the gmsh file and the mesh itself (note the contrast to the approach
-    # outlined above). A few attempts to that end are pasted below. Unanswered questions
-    # are i) Is it actually possible to assign the same physical entity to different
-    # physical groups (gmsh documentation indicates the answer is yes, but I have not
-    # found an explicit confirmation)? ii) Is i) what we actually want? iii) Can several
-    # physical groups survive through gmsh meshing and meshio reading?
-    #
-    # It seems most important to figure out if the goal is to assign read in and assign
-    # multiple physical groups (e.g., beyond what is already there to make meshing work)
-    # to the same gmsh entity, or if we want to split the highest-dimensional domain
-    # into multiple facies. Both should be doable, but they are not the same.
-
-    # This is how to get hold of the gmsh-porepy interface.
-    # gmsh_info = fracture_network.prepare_for_gmsh(lower_level_args)
-    # gmsh_writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_info)
-
-    # EK: This is an attempt at deleting all physical names in the gmsh file, and then
-    # adding the same ones + some extra ones for the same gmsh entities. I am not sure
-    # if this can be made to work, I surely could not do so.
-    # physical_groups = gmsh.model.getPhysicalGroups()
-    # physical_names = [gmsh.model.getPhysicalName(*group) for group in physical_groups]
-
-    # gmsh.model.removePhysicalGroups()
-    # gmsh.model.geo.synchronize()
-
-    # for i, (group, name) in enumerate(zip(physical_groups, physical_names)):
-    #     tmp_id = gmsh.model.addPhysicalGroup(group[0], group[1:])
-    #     gmsh.model.setPhysicalName(group[0], tmp_id, name)
-    #     new_tag = len(physical_groups) + i
-    #     tmp_id_2 = gmsh.model.addPhysicalGroup(group[0], group[1:])
-    #     gmsh.model.setPhysicalName(group[0], tmp_id_2, f"extra_physical_name_{new_tag}")
-
-    # breakpoint()
-
-    # Different take: Fetch all physical groups, if it is a physical group we know we
-    # are interested in (note: there are some logical errors in the filtering), assign a
-    # new physical group to the same entity. This gave slightly different behavior from
-    # that outlined above, but the end result is more or less the same.
-    #
-    # known_physical_tags = ["FRACTURE_INTERSECTION_POINT_", "FRACTURE_", "DOMAIN_"]
-    # added_tag_counter = 0 for group in physical_groups: name =
-    #     gmsh.model.getPhysicalName(*group) # If the start of the name coincides with
-    #     one of the known physical tags, we # will assign a second tag. if
-    #     any(name.startswith(tag) for tag in known_physical_tags): # Assign a new tag
-    #     to the group. tmp_ind = gmsh.model.addPhysicalGroup(group[0], group[1:])
-    #         gmsh.model.setPhysicalName( group[0], tmp_ind,
-    #         f"extra_physical_name_{tmp_ind}_sameas_{group[1]}", ) added_tag_counter +=
-    #         1
-
-    # After changes, this will generate the mesh, readable for meshio.
-    # gmsh.model.geo.synchronize()
-    # gmsh_writer.generate(str(msh_file), dim)
 
     return str(msh_file)
 
