@@ -2344,3 +2344,28 @@ def cached_method(func: Callable) -> Callable:
     wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
 
     return wrapper
+
+
+def variable_scaling(func):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        # Get the name of the decorated function
+        method_name = func.__name__
+
+        # Fetch the scaling factor from VariableScalings
+        scaling_factor = getattr(self.variable_scalings, method_name, None)
+        if scaling_factor is None:
+            raise ValueError(
+                f"Scaling factor for '{method_name}' not found in VariableScalings."
+            )
+
+        # Call the original method
+        result = func(*args, **kwargs)
+
+        # Apply the scaling
+        if scaling_factor == 1:
+            return result
+        else:
+            return result / pp.ad.Scalar(scaling_factor)
+
+    return wrapper

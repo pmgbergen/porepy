@@ -748,6 +748,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             tags={"si_units": f"m^{self.nd} * Pa"},
         )
 
+    @pp.ad.VariableScaling
     def pressure(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Pressure term. Either a primary variable if subdomains are provided a
         boundary condition operator if boundary grids are provided.
