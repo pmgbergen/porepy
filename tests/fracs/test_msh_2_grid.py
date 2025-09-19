@@ -31,17 +31,7 @@ def dims(request: pytest.FixtureRequest) -> tuple:
     return request.param
 
 
-@pytest.fixture
-def num_phys_names(request: pytest.FixtureRequest) -> int:
-    return request.param
-
-
-@pytest.fixture
-def phys_names(num_phys_names: int) -> dict[int, str]:
-    return {i: f"phys_name_{i}" for i in range(num_phys_names)}
-
-
-@pytest.fixture
+@pytest.fixture(scope="function")
 def fracture_network(dims: tuple) -> pp.fracture_network:
     if len(dims) == 2:
         bounding_box = {
@@ -69,13 +59,7 @@ def fracture_network(dims: tuple) -> pp.fracture_network:
     return pp.create_fracture_network(fractures, domain)
 
 
-@pytest.fixture
-def simplex_grids(fracture_network: pp.fracture_network) -> list[pp.Grid]:
-    mdg = pp.create_mdg("simplex", {"cell_size": 0.5}, fracture_network)
-    return mdg.subdomains()
-
-
-@pytest.fixture
+@pytest.fixture(scope="function")
 def create_gmsh_file(
     fracture_network: pp.fracture_network, tmp_path: pathlib.Path
 ) -> str:
@@ -241,57 +225,6 @@ def create_gmsh_file(
     return str(msh_file)
 
 
-@pytest.fixture
-def cell_info_from_gmsh(create_gmsh_file: pathlib.Path) -> dict[str, np.ndarray]:
-    """Import a gmsh file and return the cell information, which has all possible gmsh
-    element types as keys.
-
-    """
-    # TODO This is a temporary solution. The file should be in the test directory and
-    # doesn't need to include 30k cells.
-    _, __, cell_info, ___ = _read_gmsh_file(str(create_gmsh_file))
-    breakpoint()
-    return cell_info
-
-
-@pytest.fixture
-def cell_info_from_mdg(
-    num_phys_names: int, simplex_grids: list[pp.Grid]
-) -> dict[str, np.ndarray]:
-    """Create a random cell_info dictionary for the given grid that assigns physical
-    names to each grid element.
-
-    """
-    simplex_grid = simplex_grids[0]
-    dic: dict[str, np.ndarray] = {}
-    for gmsh_element_type in gmsh_element_types:
-        # Find the number of elements of the given type present in the grid.
-        if gmsh_element_type == "vertex":
-            num_elements: int = simplex_grid.num_nodes
-        elif gmsh_element_type == "line":
-            if simplex_grid.dim == 2:
-                num_elements = simplex_grid.num_faces
-            else:
-                continue
-        elif gmsh_element_type == "triangle":
-            if simplex_grid.dim == 2:
-                num_elements = simplex_grid.num_cells
-            else:
-                num_elements = simplex_grid.num_faces
-        elif gmsh_element_type == "tetra":
-            if simplex_grid.dim == 3:
-                num_elements = simplex_grid.num_cells
-            else:
-                continue
-
-        # Add random tags for the elements.
-        if num_phys_names > 0:
-            dic[gmsh_element_type] = rng.integers(0, num_phys_names, num_elements)
-        else:
-            continue
-    return dic
-
-
 @pytest.mark.parametrize(
     "create_function, expected_grid_type",
     [
@@ -326,72 +259,8 @@ def test_create_grids(
 
     for g in grids:
         assert isinstance(g, expected_grid_type)
-        for gmsh_element_type in cell_info:
-            if g.dim == 3:
-                breakpoint()
-                debug = []
-            for tag in np.unique(cell_info[gmsh_element_type]):
-                phys_name = phys_names[tag].lower()
-                assert np.all(
-                    g.tags[f"{phys_name}_{gmsh_element_type}s"]
-                    == (cell_info[gmsh_element_type] == tag)
-                )
 
-
-@pytest.mark.parametrize(
-    "num_phys_names", [1], indirect=True
-)  # This parameter is needed to create the gmsh file.
-@pytest.mark.parametrize("dims", [(2, 2, 2)], indirect=True)
-def test_gmsh_elements(
-    cell_info_from_gmsh: dict[str, np.ndarray],
-    dims,
-    num_phys_names,
-) -> None:
-    """Test whether ``msh_2_grid.gmsh_element_types`` is exhaustive, i.e., whether it
-    contains all element types that can possibly be present in a gmsh file relevant for
-    PorePy.
-
-    TODO Might be removed after developing. This requires an gmsh file in the test
-    directory which isn't super pretty. On the other hand, this acts as a reminder to
-    extend ``gmsh_elements`` and update some functions in case the functionality in
-    ``msh_2_grid`` is ever expanded to non-simplex grids.
-
-    """
-    gmsh_element_types_copy: list[str] = copy.copy(gmsh_element_types)
-
-    for grid_element_type in cell_info_from_gmsh:
-        gmsh_element_types_copy.remove(grid_element_type)
-    assert len(gmsh_element_types_copy) == 0
-
-
-@pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
-@pytest.mark.parametrize("num_phys_names", [2], indirect=True)
-def test_tag_grids(
-    simplex_grids: list[pp.Grid],
-    phys_names: dict[int, str],
-    cell_info_from_mdg: dict[str, np.ndarray],
-    dims,
-    num_phys_names,
-) -> None:
-    """Test that ``tag_grids`` correctly assigns tags to the grid.
-
-    The test generates a list of subdomain grids (through the fixture ``simplex_grids``)
-    and randomly assigns physical names to the grid elements. It then checks that
-    ``tag_grids`` correctly assigns the tags.
-
-    Though the test uses gmsh for mesh generation, it does not use gmsh tags and
-    physical names beyond what is always done for meshing. A failure of this test would
-    thereby signify that something is wrong with the ``tag_grids`` function itself, not
-    with the meshing or gmsh reading (unless the test fails under mesh construction, but
-    then a host of other tests will fail as well).
-
-
-    """
-    for grid in simplex_grids:
-        tagged_grid: pp.Grid = tag_grid(grid, phys_names, cell_info_from_mdg)
-        for gmsh_element_type in cell_info_from_mdg:
-            for tag, phys_name in phys_names.items():
-                assert np.all(
-                    tagged_grid.tags[f"{phys_name}_{gmsh_element_type}s"]
-                    == (cell_info_from_mdg[gmsh_element_type] == tag)
-                )
+        if g.dim == nd:
+            assert INCLUSION_NAME in g.tags
+        else:
+            assert INCLUSION_NAME not in g.tags
