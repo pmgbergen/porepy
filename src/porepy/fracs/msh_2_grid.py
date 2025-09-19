@@ -492,10 +492,6 @@ def create_embedded_line_grid(
     return g
 
 
-# T = TypeVar("T", bound=pp.Grid)
-
-
-
 def tag_grid(
     sd: pp.Grid,
     phys_names: dict[int, str],
@@ -513,10 +509,13 @@ def tag_grid(
         - "line",
         - "triangle"
         - "tetrahedron"
-    , and each physical entity name, the function creates a key
-    ``f"{element type}_{physical name}"`` in ``sd.tags`` with a boolean array of the
-    same length as the number of elements of the given type in the grid. The array is
-    ``True`` where the element belongs to the physical entity and ``False`` otherwise.
+    and each physical entity name, the function creates a key ``f"{physical name}"`` in
+    ``sd.tags`` with a boolean array of the same length as the number of elements of the
+    given type in the grid. The array is ``True`` where the element belongs to the
+    physical entity and ``False`` otherwise. Tags related to mesh processing (those
+    added by PorePy when creating the mesh) are not included. Tags will only be added to
+    grids of the relevant dimension, e.g., if a tag 'foo' is specified (in the gmsh
+    file) for 2d grids, a 2d grid will get a tag 'foo', but not a 1d grid.
 
     Parameters:
         sd: Grid to be tagged. Created from ``pts``, ``cells``, ``phys_names``, and
@@ -527,20 +526,57 @@ def tag_grid(
             are :obj:`~numpy.ndarray` denoting the gmsh tags for all geometric entities
             of the given type.
 
+    Raises:
+        RuntimeError: If the same gmsh tag is used for physical entities of different
+            dimensions.
+
+        Though this possibly can be made to work from a technical standpoint, depending
+        on how the tags are intended used in a runscript, it is highly likely to lead to
+        confusion, and is therefore not supported.
+
     Returns:
         Grid with updated ``.tags`` attribute.
 
     """
-    # TODO: The physical names should be filtered on dimension. Also, we should avoid
-    # creating tags for physical names that are mesh processing specific (e.g.,
-    # domain_boundary_line etc.).
+    # Build a mapping from the dimension of a geometric entity to the gmsh tags
+    # associated with physical entities of that dimension.
+    tags_of_dimension: dict[int, np.ndarray] = {}
+    # Array of tags identified in some dimension. Used to check that the same tag
+    # is not used in different dimensions.
+    tags_all_dimensions = np.array([], dtype=int)
+
+    for dim, grid_element_type in enumerate(["vertex", "line", "triangle", "tetra"]):
+        if grid_element_type in cell_info:
+            tags_this_dimension = np.unique(cell_info[grid_element_type])
+            if np.any(np.isin(tags_this_dimension, tags_all_dimensions)):
+                raise RuntimeError(
+                    "The same gmsh tag is used for physical entities of different "
+                    "dimensions. This is not supported."
+                )
+            tags_of_dimension[dim] = tags_this_dimension
+            tags_all_dimensions = np.union1d(tags_all_dimensions, tags_this_dimension)
+
+    # The physical names map from gmsh tags (int) to physical names (str). We need
+    # the inverse mapping.
+    inv_phys_names = {v: k for k, v in phys_names.items()}
+
+    # Loop over all element types (expected to be a subset of vertex, lines, triangles
+    # and tetras, depending on the problem geometry).
     for grid_element_type in cell_info:
-        for tag in np.unique(cell_info[grid_element_type]):
-            tag_name = (
-                f"{phys_names[tag].lower()}_{grid_element_type}s"  # s for plural.
-            )
-            sd.tags[tag_name] = cell_info[grid_element_type] == tag
-            if sd.dim == 3:
-                breakpoint()
-                debug = []
+        # Loop over all physical names associated with this dimension.
+        for tag_num in np.unique(cell_info[grid_element_type]):
+            tag_name = phys_names[tag_num].lower()
+
+            # If an item in PhysicalNames is a prefix of tag_name, we skip it. This avoids
+            # creating tags for physical names that are mesh processing specific (e.g.,
+            # domain_boundary_line etc.).
+            if any(
+                tag_name.startswith(prefix.lower())
+                for prefix in PhysicalNames._member_map_
+            ):
+                continue
+            # If this physical name is used for grids of this dimension, we store it.
+            if inv_phys_names[tag_name] in tags_of_dimension[sd.dim]:
+                sd.tags[tag_name] = cell_info[grid_element_type] == tag_num
+
     return sd
