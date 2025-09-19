@@ -427,7 +427,7 @@ class SolidConstants(Constants):
 
     well_radius: number = 0.1
 
-    total_porosity: number = 1.0
+    total_porosity: number = 0.3
 
 
 @dataclass(kw_only=True, eq=False)
