@@ -87,7 +87,7 @@ def create_gmsh_file(
         The path to the created gmsh file.
 
     """
-    # The idea behind the this function is to create a gmsh geometry for the given
+    # The idea behind this function is to create a gmsh geometry for the given
     # fracture network. Then we will add an inclusion, in the form of a square in 2d and
     # a cube in 3d, to the geometry, and finally construct the mesh. The resulting gmsh
     # mesh will have a physical name for the inclusion, which should be picked up
