@@ -799,6 +799,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source += subdomain_projection.cell_restriction(subdomains) @ (
             subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
         )
+
+        if hasattr(self, "reactions") and self.reactions:
+            # Add reactive source term, if reactions are defined.
+            reactive_source = component.reactive_source(subdomains)
+            source += reactive_source
+
         return source
 
 

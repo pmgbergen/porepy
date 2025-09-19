@@ -111,7 +111,7 @@ class Component:
         # self.molar_volume: ExtendedDomainFunctionType #TODO
         self.mineral_saturation: ExtendedDomainFunctionType
         self.is_equilibrium_species: str = "Non-reactive"
-
+        self.reactive_source: ExtendedDomainFunctionType
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
 
@@ -785,6 +785,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         self.equilibrium_stability_index_of: dict[Component, ExtendedDomainFunctionType]
         self.solid_components: list[ComponentLike] = []
         self.enable_chemical_equilibrium: bool = False
+        self.stoichiometric_matrix: np.ndarray = None
 
         for comp in components:
             double_names.append(comp.name)

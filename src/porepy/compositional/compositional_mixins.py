@@ -761,6 +761,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 component
             )
             component.mineral_saturation = self.mineral_saturation(component)
+            component.reactive_source = self.reactive_source(component)
 
         # Creation of tracer fractions for compounds.
         for component in self.fluid.components:
@@ -1376,6 +1377,64 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         )
         rho_s.set_name("reactive_solid_density")
         return rho_s
+
+    def reactive_source(self, component: pp.Component) -> DomainFunctionType:
+        """Source term in a component's mass balance equation due to reactions.
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            subdomains: A list of subdomains in the :attr:`mdg`.
+        Returns:
+            The reactive source term for the given component.
+        """
+        # --- Validation
+
+        op: DomainFunctionType
+
+        def op(subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            if not hasattr(self.fluid, "stoichiometric_matrix"):
+                raise ValueError("stoichiometric_matrix is missing.")
+            if not hasattr(self, "species_names") or not self.species_names:
+                raise ValueError("self.species_names must be a non-empty list.")
+            if not hasattr(self, "reactions"):
+                raise ValueError("self.reactions is missing.")
+            S = self.fluid.stoichiometric_matrix
+            reactions = self.reactions
+            n_rxn, n_sp = S.shape
+            if n_sp != len(self.species_names):
+                raise ValueError(
+                    "Column count of stoichiometric matrix must equal len(self.species_names)."
+                )
+            if len(reactions) != n_rxn:
+                raise ValueError(
+                    "Number of reactions must match the number of rows in the stoichiometric matrix."
+                )
+
+            species_names = self.species_names
+            reaction_formulas = self.reaction_formulas
+
+            # Map species name -> AD function
+            r_funcs = {
+                reaction.formula: reaction.reaction_rate for reaction in reactions
+            }
+
+            # Evaluate z_ξ(subdomains) to get a list of Operators
+            try:
+                z_ops = [
+                    r_funcs[formula](subdomains) for formula in reaction_formulas
+                ]  # shape (C,)
+            except KeyError as e:
+                raise KeyError(f"Reaction '{e.args[0]}' not found.")
+
+            species_index = species_names.index(component.name)
+
+            total_op = pp.ad.sum_operator_list(
+                [pp.ad.Scalar(S[r, species_index]) * z for r, z in enumerate(z_ops)]
+            )
+
+            return total_op
+
+        return op
 
 
 class FluidMixin(pp.PorePyModel):
@@ -2054,12 +2113,14 @@ class ChemicalSystem(FluidMixin):
         self.element_objects = []
         self.print_formula_matrix()
         reactions = self.get_reactions()
+        reactions = self.set_kinetic_reaction_rates(reactions)
         self.set_reactions(reactions)
 
     def get_all_components_by_phase(self):
         """Return a dictionary of all components grouped by phase."""
         system_info = {}
-        self.create_fluid()
+        if not hasattr(self, "fluid"):
+            self.create_fluid()
         species_in_phase = {}
 
         # Handle fluid phases
@@ -2190,6 +2251,31 @@ class ChemicalSystem(FluidMixin):
         self.fluid.fluid_formula_matrix = fluid_formula_matrix
         self.fluid.fluid_species_names = fluid_species  # Optional: for reference
 
+    def set_kinetic_reaction_rates(
+        self, reactions: Sequence[Reaction]
+    ) -> Sequence[Reaction]:
+        """Sets the reaction rates for kinetic reactions.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        This needs to be overridden to provide actual reaction rates.
+        """
+
+        def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            return pp.ad.Scalar(1.0, "synthetic_kinetic_reaction_rate")
+
+        for reaction in reactions:
+            if reaction.is_kinetic:
+                reaction.reaction_rate = rr
+            else:
+
+                def rr_eq(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(0.0, "equilibrium_reaction_rate")
+
+                reaction.reaction_rate = rr_eq
+
+        return reactions
+
     def get_reactions(self) -> Sequence[pp.Reaction]:
         """Method to return a list of modelled components.
 
@@ -2218,11 +2304,12 @@ class ChemicalSystem(FluidMixin):
         Parameters:
             reactions: A list of Reaction objects defining the chemical reactions.
         """
+
+        self.fluid.reactions = reactions
+        self.fluid.num_reactions = len(reactions)
+        self.fluid.stoichiometric_matrix = self.build_stoichiometric_matrix(reactions)
+
         self.reactions = reactions
-        if hasattr(self, "fluid"):
-            self.fluid.reactions = reactions
-            self.fluid.num_reactions = len(reactions)
-        self.stoichiometrix_matrix = self.build_stoichiometric_matrix(reactions)
 
     _COEFF_RE = re.compile(
         r"""
@@ -2303,10 +2390,12 @@ class ChemicalSystem(FluidMixin):
 
         # Initialize flags and tracking
         is_equilibrium_species = ["Non-reactive"] * n_sp
+        reaction_formulas = [""] * n_rxn
         seen_species = set()
 
         for i, rxn in enumerate(reactions):
             # Your own parser (reactants negative, products positive)
+            reaction_formulas[i] = rxn.formula
             sp_list, coeffs = self.parse_reaction(rxn)
 
             # Accumulate duplicates within the same reaction
@@ -2329,6 +2418,8 @@ class ChemicalSystem(FluidMixin):
             # Write this reaction row
             for sp, c in row_acc.items():
                 S[i, col_index[sp]] = c
+
+        self.reaction_formulas = reaction_formulas
 
         for comp in self.fluid.components:
             if comp.name in self.species_names:
