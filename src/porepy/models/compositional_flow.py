@@ -1341,7 +1341,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
 
         """
         super().set_initial_values_primary_variables()
-
+        print("Setting initial values for overall fractions.")
         for sd in self.mdg.subdomains():
             # Setting overall fractions and tracer fractions.
             for component in self.fluid.components:

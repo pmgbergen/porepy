@@ -2262,7 +2262,7 @@ class ChemicalSystem(FluidMixin):
         """
 
         def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            return pp.ad.Scalar(1.0, "synthetic_kinetic_reaction_rate")
+            return pp.ad.Scalar(0.0, "synthetic_kinetic_reaction_rate")
 
         for reaction in reactions:
             if reaction.is_kinetic:
