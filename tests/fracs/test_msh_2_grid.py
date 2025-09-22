@@ -276,7 +276,7 @@ def test_create_grids_with_high_dim_inclusion(
     to the generated grids based on their dimensions. See the function create_gmsh_file
     for details on the inclusion and its geometry.
 
-    The test can be extended to include cover other types of tagging (though it is a bit
+    The test can be extended to include other types of tagging (though it is a bit
     unclear to EK what this means at the moment), but  this should be done on an
     on-demand basis.
 
