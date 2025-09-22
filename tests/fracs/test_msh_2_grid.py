@@ -30,19 +30,37 @@ from porepy.fracs.msh_2_grid import (
 from porepy.fracs.simplex import _read_gmsh_file
 from porepy.grids.mdg_generation import _preprocess_simplex_args
 
-dirname: pathlib.Path = pathlib.Path(__file__).parent
-
 
 INCLUSION_NAME: str = "inclusion"
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def dims(request: pytest.FixtureRequest) -> tuple:
     return request.param
 
 
-@pytest.fixture(scope="function")
-def fracture_network(dims: tuple) -> pp.fracture_network:
+@pytest.fixture(scope="module")
+def create_gmsh_file(dims: tuple) -> str:
+    """Create a gmsh file of the specified fracture network, with an inclusion
+    added.
+
+    The inclusion is a square in 2d and a cube in 3d, placed somewhere in the middle of
+    the domain. The inclusion is assigned a physical name, ``INCLUSION_NAME``.
+
+    Parameters:
+        fracture_network: The fracture network to create a gmsh file for.
+        tmp_path: Temporary path to store the gmsh file.
+
+    Returns:
+        The path to the created gmsh file.
+
+    """
+    # The idea behind this function is to create a gmsh geometry for the given
+    # fracture network. Then we will add an inclusion, in the form of a square in 2d and
+    # a cube in 3d, to the geometry, and finally construct the mesh. The resulting gmsh
+    # mesh will have a physical name for the inclusion, which should be picked up
+    # during PorePy mesh generation from the gmsh file.
+
     if len(dims) == 2:
         bounding_box = {
             "xmin": 0,
@@ -66,34 +84,9 @@ def fracture_network(dims: tuple) -> pp.fracture_network:
         # and a point fracture intersection.
         fractures = pp.fracture_sets.orthogonal_fractures_3d(size=dims[0])
     domain = pp.Domain(bounding_box)
-    return pp.create_fracture_network(fractures, domain)
+    fracture_network = pp.create_fracture_network(fractures, domain)
 
-
-@pytest.fixture(scope="function")
-def create_gmsh_file(
-    fracture_network: pp.fracture_network, tmp_path: pathlib.Path
-) -> str:
-    """Create a gmsh file of the specified fracture network, with an inclusion
-    added.
-
-    The inclusion is a square in 2d and a cube in 3d, placed somewhere in the middle of
-    the domain. The inclusion is assigned a physical name, ``INCLUSION_NAME``.
-
-    Parameters:
-        fracture_network: The fracture network to create a gmsh file for.
-        tmp_path: Temporary path to store the gmsh file.
-
-    Returns:
-        The path to the created gmsh file.
-
-    """
-    # The idea behind this function is to create a gmsh geometry for the given
-    # fracture network. Then we will add an inclusion, in the form of a square in 2d and
-    # a cube in 3d, to the geometry, and finally construct the mesh. The resulting gmsh
-    # mesh will have a physical name for the inclusion, which should be picked up
-    # during PorePy mesh generation from the gmsh file.
-
-    msh_file: pathlib.Path = tmp_path / "test.msh"
+    # msh_file: pathlib.Path = tmp_path / "test.msh"
     msh_file = pathlib.Path("test.msh")
 
     # Step 1: Create a gmsh geometry for the fracture network.
@@ -174,15 +167,6 @@ def create_gmsh_file(
         gmsh.model.mesh.embed(1, [line_0, line_1, line_2, line_3], 2, domain_tag)
         loop = gmsh.model.geo.addCurveLoop([line_0, line_1, line_2, line_3])
         inclusion = gmsh.model.geo.addPlaneSurface([loop])
-        gmsh.model.geo.synchronize()
-        # There were some issues with gmsh assigning the same tag (numerical value) to
-        # different objects. To circumvent this, make sure to assign a new tag that is
-        # higher than all existing tags (assuming gmsh uses consecutive numbering, which
-        # it does).
-        num_tags = len(gmsh.model.get_entities())
-        gmsh.model.add_physical_group(
-            2, [inclusion], tag=num_tags + 1, name=INCLUSION_NAME
-        )
 
     else:  # dim == 3
         # Add points spanning a cube.
@@ -222,32 +206,49 @@ def create_gmsh_file(
         surface_5 = gmsh.model.geo.addPlaneSurface([loop_5])
         # Embed the surfaces in the domain so that the grid conforms to the inclusion.
         gmsh.model.geo.synchronize()
-        gmsh.model.mesh.embed(
-            2,
-            [surface_0, surface_1, surface_2, surface_3, surface_4, surface_5],
-            3,
-            domain_tag,
-        )
+
+        # EK: To ensure that the inclusion is properly represented in the mesh, and
+        # specifically to pass the test that the cell centers of cells with the
+        # inclusion tag are indeed inside the inclusion, we should embed the surfaces
+        # bounding the inclusion in the domain (as is done for dim=2 above). However,
+        # doing so in 3d, with the lines commented out below, gave a host of errors from
+        # gmsh (the actual error depends on which technical solution is used for the
+        # embedding, and geometry definition in general). In EK's understanding, the
+        # error is connected with the inclusion being imposed on top of the domain,
+        # instead of being added as a carved-out piece of the domain. In the future,
+        # when the full geometry is treated using Gmsh's open cascade kernel, it could
+        # be that we can do this properly using boolean operations (only available
+        # through said kernel). For now, this turned out to be technically infeasible,
+        # and, since the meshes seem to be fine without the embedding, we leave it out
+        # for now.
+        #
+        # gmsh.model.mesh.embed(
+        #     2,
+        #     [surface_0, surface_1, surface_2, surface_3, surface_4, surface_5],
+        #     3,
+        #     domain_tag,
+        # )
+
         surface_loop = gmsh.model.geo.addSurfaceLoop(
             [surface_0, surface_1, surface_2, surface_3, surface_4, surface_5]
         )
         inclusion = gmsh.model.geo.addVolume([surface_loop])
-        gmsh.model.geo.synchronize()
 
-        # There were some issues with gmsh assigning the same tag (numerical value) to
-        # different objects. To circumvent this, make sure to assign a new tag that is
-        # higher than all existing tags (assuming gmsh uses consecutive numbering, which
-        # it does).
-        num_tags = len(gmsh.model.get_entities())
-        gmsh.model.add_physical_group(
-            3, [inclusion], tag=num_tags + 1, name=INCLUSION_NAME
-        )
+    # There were some issues with gmsh assigning the same tag (numerical value) to
+    # different objects. To circumvent this, make sure to assign a new tag that is
+    # higher than all existing tags (assuming gmsh uses consecutive numbering, which
+    # it does).
+    gmsh.model.geo.synchronize()
+    num_tags = len(gmsh.model.get_entities())
+    gmsh.model.add_physical_group(
+        dim, [inclusion], tag=num_tags + 1, name=INCLUSION_NAME
+    )
 
     # Step 3: Generate the mesh, and write the gmsh file.
     gmsh.model.geo.synchronize()
+    gmsh.write("final.geo_unrolled")
     gmsh.model.mesh.generate(dim)
     gmsh.write(str(msh_file))
-    gmsh.write("final.geo_unrolled")
     gmsh.clear()
 
     return str(msh_file), box_min, box_max
@@ -351,6 +352,9 @@ def test_create_grids_with_high_dim_inclusion(
                     np.logical_and(cy >= box_min[1], cy <= box_max[1]),
                 )
             else:
+                # If in the future this test fail, see comment in helper function
+                # create_gmsh_file regarding embedding of the surfaces bounding the
+                # inclusion.
                 inside_box = np.logical_and(
                     np.logical_and(cx >= box_min[0], cx <= box_max[0]),
                     np.logical_and(cy >= box_min[1], cy <= box_max[1]),
