@@ -571,13 +571,13 @@ def tag_grid(
     for grid_element_type in cell_info:
         # Loop over all physical names associated with this dimension.
         for tag_num in np.unique(cell_info[grid_element_type]):
-            tag_name = phys_names[tag_num].lower()
+            tag_name = phys_names[tag_num]
 
             # If an item in PhysicalNames is a prefix of tag_name, we skip it. This
             # avoids creating tags for physical names that are mesh processing specific
             # (e.g., domain_boundary_line etc.).
             if any(
-                tag_name.startswith(prefix.lower())
+                tag_name.lower().startswith(prefix.lower())
                 for prefix in PhysicalNames._member_map_
             ):
                 continue
