@@ -465,12 +465,8 @@ def shift_solution_values(
     The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
 
     Note:
-        The data stored must have support for ``.copy()`` in order to avoid faulty
-        referencing (e.g., numpy arrays or sparse matrices).
-
-    Note:
-        After this operation, values at index 0 and 1 will be the same.
-        Use :meth:`set_solution_values` to update the latest values at index 0.
+        After this operation, values at index 0 are moved to index 1.
+        Attempting to retrieve them will raise an error.
 
     Parameters:
         name: Key in ``data`` for which quantity the shift should be performed.
