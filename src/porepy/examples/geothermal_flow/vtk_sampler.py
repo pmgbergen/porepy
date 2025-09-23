@@ -1,127 +1,124 @@
 import time
 import numpy as np
 import pyvista
-from scipy.spatial import cKDTree
+from functools import cached_property
+from typing import Tuple
 
 
 class VTKSampler:
 
-    def __init__(self, file_name, extended_q=True):
+    def __init__(
+        self,
+        file_name: str,
+        extend_q: bool = True,
+        first_order_expansion: bool = False
+    ) -> None:
         self.file_name = file_name
-        self.taylor_extended_q = extended_q
-        self.__build_search_space()
+        self._extend_q = extend_q
+        self._conversion_factors = (1.0, 1.0, 1.0)  # Default values
+        self._translation_factors = (0.0, 0.0, 0.0)  # Default values
+        self._first_order_expansion = first_order_expansion
+        self._sampled_cloud = None
+        # self._load_search_space() #TODO: already done in the property by filename
 
     @property
-    def conversion_factors(self):
-        if hasattr(self, "_conversion_factors"):
-            return self._conversion_factors
-        else:
-            return (1.0, 1.0, 1.0)  # No conversion
+    def conversion_factors(self) -> Tuple[float, float, float]:
+        return self._conversion_factors
 
     @conversion_factors.setter
-    def conversion_factors(self, conversion_factors):
+    def conversion_factors(self, conversion_factors: Tuple[float, float, float]) -> None:
+        # TODO: Add sanity checks for the length of conversion_factors
         self._conversion_factors = conversion_factors
 
     @property
-    def translation_factors(self):
-        if hasattr(self, "_translation_factors"):
-            return self._translation_factors
-        else:
-            return (0.0, 0.0, 0.0)  # No translation
+    def translation_factors(self) -> Tuple[float, float, float]:
+        return self._translation_factors
 
     @translation_factors.setter
-    def translation_factors(self, translation_factors):
+    def translation_factors(self, translation_factors: Tuple[float, float, float]) -> None: 
+        # TODO: Add sanity checks for the length of conversion_factors
         self._translation_factors = translation_factors
 
     @property
-    def file_name(self):
+    def file_name(self) -> str:
         return self._file_name
 
     @file_name.setter
-    def file_name(self, file_name):
+    def file_name(self, file_name: str) -> None:
         self._file_name = file_name
+        self._refresh()
 
-    @property
+    @cached_property
     def search_space(self):
-        return self._search_space
+        return pyvista.read(self.file_name)
 
-    @property
+    @cached_property
     def bc_surface(self):
-        return self._bc_surface
+        return self.search_space.extract_surface()
+
+    @cached_property
+    def bc_surface_bounds(self):
+        return self.bc_surface.bounds
 
     @property
-    def sampled_could(self):
-        if hasattr(self, "_sampled_could"):
-            return self._sampled_could
-        else:
-            return None
+    def sampled_cloud(self):
+        return self._sampled_cloud
 
-    @sampled_could.setter
-    def sampled_could(self, sampled_could):
-        if hasattr(self, "_sampled_could"):
-            self._sampled_could.clear_data()
-        self._sampled_could = sampled_could.copy()
+    @sampled_cloud.setter
+    def sampled_cloud(self, sampled_cloud):
+        if self._sampled_cloud is not None:
+            self._sampled_cloud.clear_data()
+        self._sampled_cloud = sampled_cloud.copy() if sampled_cloud is not None else None
 
-    def sample_at(self, points):  # points: z,T,p // z,h,p
-        points = self._apply_conversion_factor(points)
-        points = self._apply_translation_factor(points)
-
-        point_cloud = pyvista.PolyData(points)
-        # if point_cloud fall outside the search space then interpolated values will be zero.
-        self.sampled_could = point_cloud.sample(self._search_space)  # Interpolation region
-        check_enclosed_points = point_cloud.select_enclosed_points(
-            self.bc_surface, 
-            check_surface=False,
-            tolerance=1.0e-7,
-        )
-        external_idx = np.logical_not(
-            check_enclosed_points.point_data["SelectedPoints"]
-        )
-        # Alternative, much faster, check of external points which avoids the use of
-        # pyvista. It is not clear if this is identical to the above (note that there is
-        # a tolerance argument in the above call which is not used here; however, if the
-        # tolerance is used in a meaningful way, it should be easy to add it here). *If*
-        # it turns out that the two methods can be made identical, we should avoid the
-        # call to pyvista.
-        is_external = self.capture_points_outside_bounds(points)
-        if any(is_external != external_idx):
-            from warnings import warn
-
-            warn(
-                "VTK sample: Mismatch between the two methods of checking external points. "
-            )
-        if self.taylor_extended_q:
-            self.__taylor_expansion(points, external_idx)
-
-        self._apply_conversion_factor_on_gradients()
-
-    def _apply_conversion_factor(self, points):
-        for i, scale in enumerate(self.conversion_factors):
-            points[:, i] *= 1.0 * scale
-        return points
-
-    def _apply_translation_factor(self, points):
-        for i, translation in enumerate(self.translation_factors):
-            points[:, i] += translation
-        return points
-
-    def _apply_conversion_factor_on_gradients(self):
-        for name, grad in self.sampled_could.point_data.items():
-            if name.startswith("grad_"):
-                for i, scale in enumerate(self.conversion_factors):
-                    grad[:, i] *= 1.0 * scale
-        return
-
-    def __build_search_space(self):
+    def _load_search_space(self):
+        """Pre-load the search space from the file to initialize cached properties."""
         tb = time.time()
-        # this is the grid to interpolate on
-        self._search_space = pyvista.read(self.file_name)  # grid with field data
-        self._bc_surface = self._search_space.extract_surface()
-        self._bc_surface_bounds = self._bc_surface.bounding_box().bounds
+        _ = self.search_space  # This will trigger the cached_property to load the data
+        _ = self.bc_surface_bounds  # This will also trigger the cached_property for _bc_surface_bounds
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
-    def capture_points_outside_bounds(self, points):
+    def sample_at(self, points: np.ndarray):  # points: z,T,p // z,h,p
+        points = self._apply_conversions(points)
+        # points = self._apply_translation_factor(points)
+
+        point_cloud = pyvista.PolyData(points)
+        # if point_cloud fall outside the search space then interpolated values will be zero.
+        self.sampled_cloud = point_cloud.sample(self.search_space)  # Interpolation region
+        
+        if self._extend_q:
+            is_external = self._capture_points_outside_bounds(points)
+            if np.any(is_external):
+                self._extrapolate(points, is_external)
+        
+        self._apply_conversion_factor_on_gradients()
+
+    def _apply_conversions_old(self, points):
+        """Applies scaling and translation to point coordinates."""
+        points = points.copy()  # Avoid modifying input array
+        return points * self._conversion_factors + self._translation_factors
+
+    def _apply_conversions(self, points):
+        """Applies scaling and translation to point coordinates."""
+        return points * self._conversion_factors + self._translation_factors
+    
+    def _refresh(self) -> None:
+        for attr in ['search_space', 'bc_surface', 'bc_surface_bounds']:
+            if attr in self.__dict__:
+                del self.__dict__[attr]
+        self._load_search_space()
+    
+    def _apply_conversion_factor_on_gradients(self):
+        """Efficiently applies conversion factors to all gradient fields in the point cloud."""
+        if self._sampled_cloud is None:
+            return
+
+        grad_fields = [name for name in self._sampled_cloud.point_data if name.startswith("grad_")]
+        for name in grad_fields:
+            grad = self._sampled_cloud[name]
+            grad *= self._conversion_factors  # Element-wise multiply each component (uses broadcasting)
+
+    def _capture_points_outside_bounds(self, points: np.ndarray) -> np.ndarray:
         """
         Function to capture points lying outside the specified bounds.
         Args:
@@ -131,7 +128,7 @@ class VTKSampler:
         Returns:
             numpy.ndarray: An array of points that lie outside the bounds
         """
-        x_min, x_max, y_min, y_max, z_min, z_max = self._bc_surface_bounds
+        x_min, x_max, y_min, y_max, z_min, z_max = self.bc_surface_bounds
         # Create a mask for points that are within the bounds
         within_bounds = (
             (points[:, 0] >= x_min)
@@ -141,12 +138,11 @@ class VTKSampler:
             & (points[:, 2] >= z_min)
             & (points[:, 2] <= z_max)  # z bound
         )
-        # Invert the mask to get points outside the bounds
-        outside_bounds = ~within_bounds
-        # Return points that lie outside the bounds
-        return outside_bounds
 
-    def __map_external_points_to_surface(self, xv):
+        # Return points that lie outside the bounds
+        return ~within_bounds
+
+    def _map_external_points_to_surface(self, points: np.ndarray) -> None:
         # Get the bounds of the search space
         xmin, xmax, ymin, ymax, zmin, zmax = self.search_space.bounds
 
@@ -163,35 +159,31 @@ class VTKSampler:
         zmax -= eps_z
 
         # Clip points to the nearest boundary within the bounds
-        xv[:, 0] = np.clip(xv[:, 0], xmin, xmax)  # Clip x-coordinates
-        xv[:, 1] = np.clip(xv[:, 1], ymin, ymax)  # Clip y-coordinates
-        xv[:, 2] = np.clip(xv[:, 2], zmin, zmax)  # Clip z-coordinates
+        points[:, 0] = np.clip(points[:, 0], xmin, xmax)  # Clip x-coordinates
+        points[:, 1] = np.clip(points[:, 1], ymin, ymax)  # Clip y-coordinates
+        points[:, 2] = np.clip(points[:, 2], zmin, zmax)  # Clip z-coordinates
 
-    def __taylor_expansion(self, points, external_idx):
+    def _extrapolate(self, points: list[np.ndarray], external_idx: np.ndarray) -> None:
         glob_idx = np.nonzero(external_idx)[0]
-        if glob_idx.size == 0:
-            # If no points are outside the bounds, return early.
-            return
+        # xv = points[external_idx].copy()
+        xv = points[external_idx]
+        self._map_external_points_to_surface(xv)
 
-        xv = points[external_idx].copy()
-        self.__map_external_points_to_surface(xv)
-        # compute data for zero order expansion
+        # Compute data for zero order expansion
         epoint_cloud = pyvista.PolyData(xv)
-        sampled_could = epoint_cloud.sample(self._search_space)
-        # for all the fields
-        # x = points[external_idx]
+        sampled_cloud = epoint_cloud.sample(self.search_space)
 
         # Build a list of gradient field names, iterate over these and populate the
         # extrapolated values.
-        keys = list(k for k in sampled_could.point_data if k.startswith("grad_"))
+        keys = [k for k in sampled_cloud.point_data if k.startswith("grad_")]
         for grad_field_name in keys:
-            field_name = grad_field_name.lstrip("grad_")
-            fv = sampled_could[field_name]
-            grad_fv = sampled_could[grad_field_name]
+            field_name = grad_field_name[5:]  # More efficient than lstrip
+            f_extrapolated = sampled_cloud[field_name]
+            grad_fv = sampled_cloud[grad_field_name]
 
-            # taylor expansion all at once
-            f_extrapolated = fv  # + np.sum(grad_fv * (x - xv), axis=1)
             # update fields
-            self.sampled_could[field_name][glob_idx] = f_extrapolated
-            self.sampled_could[grad_field_name][glob_idx] = grad_fv
-        return
+            # First order extrapolation using Taylor expansion
+            if self._first_order_expansion:
+                f_extrapolated += np.sum(grad_fv * (points[external_idx] - xv), axis=1)
+            self.sampled_cloud[field_name][glob_idx] = f_extrapolated
+            self.sampled_cloud[grad_field_name][glob_idx] = grad_fv
