@@ -5,6 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
@@ -1001,6 +1002,19 @@ class EquationSystem:
         else:
             return sps.csr_matrix((0, num_dofs))
 
+    @lru_cache(maxsize=1)
+    def _global_variable_dofs(self) -> np.ndarray:
+        """Returns an array containing the number of DOFs per variable in global order.
+
+        The order is given by the order of creation and subsequent clustering of DOFs.
+
+        Returns:
+            An array of size ``(num_variables,)`` containing the number of DOFs per
+            variable.
+
+        """
+        return np.hstack((0, np.cumsum(self._variable_num_dofs)))
+
     def dofs_of(self, variables: VariableList) -> np.ndarray:
         """Get the indices in the global vector of unknowns belonging to the variables.
 
@@ -1016,7 +1030,7 @@ class EquationSystem:
 
         """
         variables = self._parse_variable_type(variables)
-        global_variable_dofs = np.hstack((0, np.cumsum(self._variable_num_dofs)))
+        global_variable_dofs = self._global_variable_dofs()
 
         indices: list[np.ndarray] = []
 
