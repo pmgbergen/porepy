@@ -85,12 +85,10 @@ class AdArray:
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
 
-        # Enforce float format of all data to limit the number of cases we need to
-        # handle and test.
-        self.val: np.ndarray = val.astype(float)
+        self.val: np.ndarray = val
         """The value of the AdArray, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix = jac.astype(float)
+        self.jac: sps.spmatrix = jac
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __str__(self) -> str:
