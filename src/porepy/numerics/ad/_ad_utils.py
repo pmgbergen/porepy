@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABCMeta
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -442,13 +442,15 @@ def get_solution_values(
     loc, index = loc_index[0]
 
     try:
-        value = data[loc][name][index].copy()
+        value = cast(np.ndarray, data[loc][name][index])
     except KeyError as err:
         raise KeyError(
             f"No values stored for {name} at {(loc, index)}: {str(err)}."
         ) from err
 
-    return value
+    view_of_value = value.view()
+    view_of_value.flags.writeable = False
+    return view_of_value
 
 
 def shift_solution_values(
