@@ -75,30 +75,30 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
         n = len(p)  # same for all input (number of cells)
 
         # Mass density of phase
-        rho = self.vtk_sampler.sampled_could.point_data["Rho_l"]
-        drhodz = self.vtk_sampler.sampled_could.point_data["grad_Rho_l"][:, 0]
-        drhodH = self.vtk_sampler.sampled_could.point_data["grad_Rho_l"][:, 1]
-        drhodp = self.vtk_sampler.sampled_could.point_data["grad_Rho_l"][:, 2]
+        rho = self.vtk_sampler.sampled_cloud.point_data["Rho_l"]
+        drhodz = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_l"][:, 0]
+        drhodH = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_l"][:, 1]
+        drhodp = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_l"][:, 2]
         drho = [drhodp, drhodH]
         if len(thermodynamic_input) == 3:
             drho.append(drhodz)
         drho = np.vstack(drho)
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_l"]
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0]
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1]
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 2]
+        h = self.vtk_sampler.sampled_cloud.point_data["H_l"]
+        dhdz = self.vtk_sampler.sampled_cloud.point_data["grad_H_l"][:, 0]
+        dhdH = self.vtk_sampler.sampled_cloud.point_data["grad_H_l"][:, 1]
+        dhdp = self.vtk_sampler.sampled_cloud.point_data["grad_H_l"][:, 2]
         dh = [dhdp, dhdH]
         if len(thermodynamic_input) == 3:
             dh.append(dhdz)
         dh = np.vstack(dh)
 
         # dynamic viscosity of phase
-        mu = self.vtk_sampler.sampled_could.point_data["mu_l"]
-        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 0]
-        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 1]
-        dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 2]
+        mu = self.vtk_sampler.sampled_cloud.point_data["mu_l"]
+        dmudz = self.vtk_sampler.sampled_cloud.point_data["grad_mu_l"][:, 0]
+        dmudH = self.vtk_sampler.sampled_cloud.point_data["grad_mu_l"][:, 1]
+        dmudp = self.vtk_sampler.sampled_cloud.point_data["grad_mu_l"][:, 2]
         dmu = [dmudp, dmudH]
         if len(thermodynamic_input) == 3:
             dmu.append(dmudz)
@@ -179,30 +179,30 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         n = len(p)  # same for all input (number of cells)
 
         # Mass density of phase
-        rho = self.vtk_sampler.sampled_could.point_data["Rho_v"]
-        drhodz = self.vtk_sampler.sampled_could.point_data["grad_Rho_v"][:, 0]
-        drhodH = self.vtk_sampler.sampled_could.point_data["grad_Rho_v"][:, 1]
-        drhodp = self.vtk_sampler.sampled_could.point_data["grad_Rho_v"][:, 2]
+        rho = self.vtk_sampler.sampled_cloud.point_data["Rho_v"]
+        drhodz = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_v"][:, 0]
+        drhodH = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_v"][:, 1]
+        drhodp = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_v"][:, 2]
         drho = [drhodp, drhodH]
         if len(thermodynamic_input) == 3:
             drho.append(drhodz)
         drho = np.vstack(drho)
         
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_v"]
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0]
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1]
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 2]
+        h = self.vtk_sampler.sampled_cloud.point_data["H_v"]
+        dhdz = self.vtk_sampler.sampled_cloud.point_data["grad_H_v"][:, 0]
+        dhdH = self.vtk_sampler.sampled_cloud.point_data["grad_H_v"][:, 1]
+        dhdp = self.vtk_sampler.sampled_cloud.point_data["grad_H_v"][:, 2]
         dh = [dhdp, dhdH]
         if len(thermodynamic_input) == 3:
             dh.append(dhdz)
         dh = np.vstack(dh)
 
         # dynamic viscosity of phase
-        mu = self.vtk_sampler.sampled_could.point_data["mu_v"]
-        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 0]
-        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 1]
-        dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 2]
+        mu = self.vtk_sampler.sampled_cloud.point_data["mu_v"]
+        dmudz = self.vtk_sampler.sampled_cloud.point_data["grad_mu_v"][:, 0]
+        dmudH = self.vtk_sampler.sampled_cloud.point_data["grad_mu_v"][:, 1]
+        dmudp = self.vtk_sampler.sampled_cloud.point_data["grad_mu_v"][:, 2]
         dmu = [dmudp, dmudH]
         if len(thermodynamic_input) == 3:
             dmu.append(dmudz)
@@ -278,17 +278,17 @@ class HaliteDriesnerCorrelations(pp.compositional.EquationOfState):
         n = len(p)  # same for all input (number of cells)
 
         # Mass density of phase
-        rho = self.vtk_sampler.sampled_could.point_data["Rho_h"]
-        drhodz = self.vtk_sampler.sampled_could.point_data["grad_Rho_h"][:, 0]
-        drhodH = self.vtk_sampler.sampled_could.point_data["grad_Rho_h"][:, 1]
-        drhodp = self.vtk_sampler.sampled_could.point_data["grad_Rho_h"][:, 2]
+        rho = self.vtk_sampler.sampled_cloud.point_data["Rho_h"]
+        drhodz = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_h"][:, 0]
+        drhodH = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_h"][:, 1]
+        drhodp = self.vtk_sampler.sampled_cloud.point_data["grad_Rho_h"][:, 2]
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_h"]
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_h"][:, 0]
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_h"][:, 1]
-        dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_h"][:, 2]
+        h = self.vtk_sampler.sampled_cloud.point_data["H_h"]
+        dhdz = self.vtk_sampler.sampled_cloud.point_data["grad_H_h"][:, 0]
+        dhdH = self.vtk_sampler.sampled_cloud.point_data["grad_H_h"][:, 1]
+        dhdp = self.vtk_sampler.sampled_cloud.point_data["grad_H_h"][:, 2]
         dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase. No mu_h, I need to check this out.
@@ -435,10 +435,10 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Gas saturation
-        S_v = self.vtk_sampler.sampled_could.point_data["S_v"]
-        dS_vdz = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 0]
-        dS_vdH = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 1]
-        dS_vdp = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 2]
+        S_v = self.vtk_sampler.sampled_cloud.point_data["S_v"]
+        dS_vdz = self.vtk_sampler.sampled_cloud.point_data["grad_S_v"][:, 0]
+        dS_vdH = self.vtk_sampler.sampled_cloud.point_data["grad_S_v"][:, 1]
+        dS_vdp = self.vtk_sampler.sampled_cloud.point_data["grad_S_v"][:, 2]
         dS_v = [dS_vdp, dS_vdH]
         if len(thermodynamic_dependencies) == 3:
             dS_v.append(dS_vdz)
@@ -457,10 +457,10 @@ class SecondaryEquations(LocalElimination):
         # par_points = copy.deepcopy(par_points_ini)
         self.vtk_sampler.sample_at(par_points)
         # Halite saturation
-        S_h = self.vtk_sampler.sampled_could.point_data["S_h"]
-        dS_hdz = self.vtk_sampler.sampled_could.point_data["grad_S_h"][:, 0]
-        dS_hdH = self.vtk_sampler.sampled_could.point_data["grad_S_h"][:, 1]
-        dS_hdp = self.vtk_sampler.sampled_could.point_data["grad_S_h"][:, 2]
+        S_h = self.vtk_sampler.sampled_cloud.point_data["S_h"]
+        dS_hdz = self.vtk_sampler.sampled_cloud.point_data["grad_S_h"][:, 0]
+        dS_hdH = self.vtk_sampler.sampled_cloud.point_data["grad_S_h"][:, 1]
+        dS_hdp = self.vtk_sampler.sampled_cloud.point_data["grad_S_h"][:, 2]
         dS_h = np.vstack((dS_hdp, dS_hdH, dS_hdz))
         return S_h, dS_h
 
@@ -479,10 +479,10 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Overall temperature
-        T = self.vtk_sampler.sampled_could.point_data["Temperature"] # [K]
-        dTdz = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 0]
-        dTdH = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 1]
-        dTdp = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 2]
+        T = self.vtk_sampler.sampled_cloud.point_data["Temperature"] # [K]
+        dTdz = self.vtk_sampler.sampled_cloud.point_data["grad_Temperature"][:, 0]
+        dTdH = self.vtk_sampler.sampled_cloud.point_data["grad_Temperature"][:, 1]
+        dTdp = self.vtk_sampler.sampled_cloud.point_data["grad_Temperature"][:, 2]
         dT = [dTdp, dTdH]
         if len(thermodynamic_dependencies) == 3:
             dT.append(dTdz)
@@ -504,10 +504,10 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Partial fraction of water in liquid phase
-        X_w = 1.0 - self.vtk_sampler.sampled_could.point_data["Xl"]
-        dX_wdz = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 0]
-        dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
-        dX_wdp = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 2]
+        X_w = 1.0 - self.vtk_sampler.sampled_cloud.point_data["Xl"]
+        dX_wdz = -self.vtk_sampler.sampled_cloud.point_data["grad_Xl"][:, 0]
+        dX_wdH = -self.vtk_sampler.sampled_cloud.point_data["grad_Xl"][:, 1]
+        dX_wdp = -self.vtk_sampler.sampled_cloud.point_data["grad_Xl"][:, 2]
         dX_w = [dX_wdp, dX_wdH]
         if len(thermodynamic_dependencies) == 3:
             dX_w.append(dX_wdz)
@@ -524,10 +524,10 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Partial fraction of salt in liquid phase
-        X_s = self.vtk_sampler.sampled_could.point_data["Xl"]
-        dX_sdz = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 0]
-        dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
-        dX_sdp = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 2]
+        X_s = self.vtk_sampler.sampled_cloud.point_data["Xl"]
+        dX_sdz = self.vtk_sampler.sampled_cloud.point_data["grad_Xl"][:, 0]
+        dX_sdH = self.vtk_sampler.sampled_cloud.point_data["grad_Xl"][:, 1]
+        dX_sdp = self.vtk_sampler.sampled_cloud.point_data["grad_Xl"][:, 2]
         dX_s = [dX_sdp, dX_sdH]
         if len(thermodynamic_dependencies) == 3:
             dX_s.append(dX_sdz)
@@ -548,10 +548,10 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Partial fraction of water in gas phase
-        X_w = 1.0 - self.vtk_sampler.sampled_could.point_data["Xv"]
-        dX_wdz = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 0]
-        dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
-        dX_wdp = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 2]
+        X_w = 1.0 - self.vtk_sampler.sampled_cloud.point_data["Xv"]
+        dX_wdz = -self.vtk_sampler.sampled_cloud.point_data["grad_Xv"][:, 0]
+        dX_wdH = -self.vtk_sampler.sampled_cloud.point_data["grad_Xv"][:, 1]
+        dX_wdp = -self.vtk_sampler.sampled_cloud.point_data["grad_Xv"][:, 2]
         dX_w = [dX_wdp, dX_wdH]
         if len(thermodynamic_dependencies) == 3:
             dX_w.append(dX_wdz)
@@ -568,10 +568,10 @@ class SecondaryEquations(LocalElimination):
         self.vtk_sampler.sample_at(par_points)
 
         # Partial fraction of salt in gas phase
-        X_s = self.vtk_sampler.sampled_could.point_data["Xv"]
-        dX_sdz = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 0]
-        dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
-        dX_sdp = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 2]
+        X_s = self.vtk_sampler.sampled_cloud.point_data["Xv"]
+        dX_sdz = self.vtk_sampler.sampled_cloud.point_data["grad_Xv"][:, 0]
+        dX_sdH = self.vtk_sampler.sampled_cloud.point_data["grad_Xv"][:, 1]
+        dX_sdp = self.vtk_sampler.sampled_cloud.point_data["grad_Xv"][:, 2]
         dX_s = [dX_sdp, dX_sdH]
         if len(thermodynamic_dependencies) == 3:
             dX_s.append(dX_sdz)
