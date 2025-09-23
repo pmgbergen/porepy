@@ -390,9 +390,19 @@ def set_solution_values(
                     f"Cannot set value additively for {name} at {(loc, index)}:"
                     + " No values stored to add to."
                 )
-            data[loc][name][index] += values
+            data[loc][name][index] = data[loc][name][index] + values
         else:
-            data[loc][name][index] = values.copy()
+            data[loc][name][index] = values
+            # In any case, we make the stored values read-only, to avoid accidental
+            # modification.
+            values.flags.writeable = False
+            # If the values to be stored are a view into some other array,
+            # we need to make a copy (like slice of global array).
+            if values.base is not None:
+                data[loc][name][index] = values.copy()
+            # If it is a true array, we store it as is.
+            else:
+                data[loc][name][index] = values
 
 
 def get_solution_values(
@@ -448,6 +458,10 @@ def get_solution_values(
             f"No values stored for {name} at {(loc, index)}: {str(err)}."
         ) from err
 
+    # NOTE: To avoid an unnecessary copy, we return a read-only view of the stored
+    # values. This should be safe, as long as the user uses the values for something.
+    # If the user wants to modify the values directly, it will raise an error which says
+    # read-only. It is clear that the user should then make a copy.
     view_of_value = value.view()
     view_of_value.flags.writeable = False
     return view_of_value
