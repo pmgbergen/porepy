@@ -783,11 +783,12 @@ def test_set_get_methods(
     )
     assert np.allclose(new_vals, retrieved_vals_state_2)
 
-    # Set the values again, this time with additive=True. This should double the
+    # Set the values again, this time with additively. This should double the
     # retrieved values.
     if iterate:
+        prev_vals = equation_system.get_variable_values(variables, iterate_index=0)
         equation_system.set_variable_values(
-            new_vals, variables, iterate_index=0, additive=True
+            prev_vals + new_vals, variables, iterate_index=0
         )
         retrieved_vals3 = equation_system.get_variable_values(
             variables, iterate_index=0
@@ -803,15 +804,17 @@ def test_set_get_methods(
         # This was fetched from stored time step solutions, which still has new_vals
         assert np.allclose(new_vals, retrieved_vals3)
 
-    # Set to time step solutions, with additive=True. This should double the retrieved
+    # Set to time step solutions additively. This should double the retrieved
+    prev_time_vals = equation_system.get_variable_values(variables, time_step_index=0)
+    equation_system.set_variable_values(
+        prev_time_vals + new_vals, variables, time_step_index=0
+    )
     if iterate:
+        prev_iter_vals = equation_system.get_variable_values(variables, iterate_index=0)
         equation_system.set_variable_values(
-            new_vals, variables, iterate_index=0, time_step_index=0, additive=True
+            prev_iter_vals + new_vals, variables, iterate_index=0
         )
-    else:
-        equation_system.set_variable_values(
-            new_vals, variables, time_step_index=0, additive=True
-        )
+
     retrieved_vals_state_3 = equation_system.get_variable_values(
         variables, time_step_index=0
     )
@@ -826,9 +829,26 @@ def test_set_get_methods(
         # Helper method to retrieve values from time step solutions and check that they
         # are as expected.
         for ind, val in enumerate(known_values):
-            assert np.allclose(
-                equation_system.get_variable_values(variables, time_step_index=ind), val
-            )
+            if val is None:
+                # None means that no value should be stored at this index if variables
+                # are defined. Otherwise it should return an empty array
+                if variables:
+                    with pytest.raises(KeyError):
+                        equation_system.get_variable_values(
+                            variables, time_step_index=ind
+                        )
+                else:
+                    assert (
+                        equation_system.get_variable_values(
+                            variables, time_step_index=ind
+                        ).size
+                        == 0
+                    )
+            else:
+                assert np.allclose(
+                    equation_system.get_variable_values(variables, time_step_index=ind),
+                    val,
+                )
 
     # Building a few solution vectors and defining the desired solution indices
     vals0 = vals
@@ -849,14 +869,19 @@ def test_set_get_methods(
     # Test functionality that shifts values to prepare setting of the most recent
     # solution values.
     equation_system.shift_time_step_values(max_index=len(solution_indices))
+    # The expected result is that key 2 has now the values previously at key 1, key 1
+    # has the values previously at key 0, and key 0 has None.
     # The expected result is that key 0 and 1 has the same values, and key 2 have the
     # values that were at key 1 before the values were shifted.
-    _retrieve_and_check_time_step([vals0, vals0, vals1])
+    _retrieve_and_check_time_step([None, vals0, vals1])
 
     # Test additive = True to make sure only the most recently stored values are added
     # to.
+    prev_vals = equation_system.get_variable_values(variables, time_step_index=1)
     equation_system.set_variable_values(
-        values=vals0, variables=variables, time_step_index=0, additive=True
+        values=prev_vals + vals0,
+        variables=variables,
+        time_step_index=0,
     )
     _retrieve_and_check_time_step([2 * vals0, vals0, vals1])
 

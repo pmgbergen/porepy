@@ -345,7 +345,6 @@ def set_solution_values(
     data: dict,
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
-    additive: bool = False,
 ) -> None:
     """Function for setting values in the data dictionary, for some time-dependent or
     iterative term.
@@ -364,10 +363,6 @@ def set_solution_values(
             Determines the key of where ``values`` are to be stored in
             ``data[pp.ITERATE_SOLUTIONS][name]``.
             0 is the current iterate, 1 the previous iterate, and so on.
-        additive: ``default=False``
-
-            Flag to decide whether the values already stored in the data dictionary
-            should be added to or overwritten.
 
     Raises:
         ValueError: In the case of inconsistent usage of indices (both None, or negative
@@ -384,25 +379,17 @@ def set_solution_values(
         if name not in data[loc]:
             data[loc][name] = {}
 
-        if additive:
-            if index not in data[loc][name]:
-                raise ValueError(
-                    f"Cannot set value additively for {name} at {(loc, index)}:"
-                    + " No values stored to add to."
-                )
-            data[loc][name][index] = data[loc][name][index] + values
+        data[loc][name][index] = values
+        # In any case, we make the stored values read-only, to avoid accidental
+        # modification.
+        values.flags.writeable = False
+        # If the values to be stored are a view into some other array,
+        # we need to make a copy (like slice of global array).
+        if values.base is not None:
+            data[loc][name][index] = values.copy()
+        # If it is a true array, we store it as is.
         else:
             data[loc][name][index] = values
-            # In any case, we make the stored values read-only, to avoid accidental
-            # modification.
-            values.flags.writeable = False
-            # If the values to be stored are a view into some other array,
-            # we need to make a copy (like slice of global array).
-            if values.base is not None:
-                data[loc][name][index] = values.copy()
-            # If it is a true array, we store it as is.
-            else:
-                data[loc][name][index] = values
 
 
 def get_solution_values(
