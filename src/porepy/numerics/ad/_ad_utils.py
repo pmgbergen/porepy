@@ -462,7 +462,7 @@ def shift_solution_values(
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
-    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
+    The shift is implemented s.t. values at index ``i`` are moved to index ``i + 1``.
 
     Note:
         After this operation, values at index 0 are moved to index 1.
