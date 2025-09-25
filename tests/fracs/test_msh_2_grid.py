@@ -86,7 +86,6 @@ def create_gmsh_file(dims: tuple) -> str:
     domain = pp.Domain(bounding_box)
     fracture_network = pp.create_fracture_network(fractures, domain)
 
-    # msh_file: pathlib.Path = tmp_path / "test.msh"
     msh_file = pathlib.Path("test.msh")
 
     # Step 1: Create a gmsh geometry for the fracture network.

@@ -106,7 +106,7 @@ def create_2d_grids(
             grid.
 
             If not provided, the physical names of fracture surfaces will be used as
-            target. It is strongly suggested to use the default value, as the altering
+            target. It is strongly suggested to use the default value, as altering
             this may lead to unexpected behavior during grid creation.
 
         constraints: ``default=None``
@@ -507,7 +507,7 @@ def tag_grid(
 
     The tags in the PorePy grid are boolean arrays indicating whether or not a geometric
     element belongs to a physical entity. Specifically, for each physical entity 'foo'
-    defined in the gmsh file, a tag 'foo' is added to the PorePy grid, e.g.,
+    defined in the gmsh file, a tag 'foo' is added to the PorePy grid, i.e.,
     sd.tags['foo']. This tag is a boolean array of the same length as the number of
     cells in the grid, and is True where the cell belongs to the physical entity 'foo',
     and False otherwise.
@@ -520,7 +520,7 @@ def tag_grid(
     not included.
 
     Note:
-        The function has mainly been tested for physical names are assigned to grids of
+        The function has mainly been tested for physical names assigned to grids of
         the ambient dimension. Use with care if tagging lower-dimensional grids.
 
     Parameters:
