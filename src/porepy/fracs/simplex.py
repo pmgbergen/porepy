@@ -251,7 +251,12 @@ def tetrahedral_grid_from_gmsh(
     # Call upon helper functions to create grids in various dimensions. The
     # constructors require somewhat different information, reflecting the different
     # nature of the grids.
-    g_3d = msh_2_grid.create_3d_grids(pts, cells)
+    g_3d = msh_2_grid.create_3d_grids(
+        pts,
+        cells,
+        phys_names=phys_names,
+        cell_info=cell_info,
+    )
     g_2d = msh_2_grid.create_2d_grids(
         pts,
         cells,
@@ -300,16 +305,16 @@ def _read_gmsh_file(
     Returns:
         A 4-tuple containing
 
-        :obj:`~numpy.ndarray`: ``shape=(npt, dim)``
+        ``pts``: :obj:`~numpy.ndarray`, ``shape=(npt, dim)``
             Coordinates of all vertices in the grid, where ``npt`` is the number of
             vertices and ``dim`` the ambient dimension.
-        :obj:`dict`:
+        ``cells``: :obj:`dict`:
             Mapping between cells of different shapes, and the indices of
             vertices constituting the cell wrapped in a numpy array.
-        :obj:`dict`:
+        ``cell_info``: :obj:`dict`:
             Mapping between cells of different shapes, and the ``gmsh`` tags of each
             cell wrapped in a numpy array.
-        :obj:`dict`:
+        ``phys_names``: :obj:`dict`:
             Mapping from ``gmsh`` tags to the physical names (strings) assigned in the
             ``*.geo``-file.
 
