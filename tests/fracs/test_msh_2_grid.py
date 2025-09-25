@@ -13,10 +13,9 @@ fracture mesh generation in :mod:`tests.fracs.test_fracture_network_2d` and
 import copy
 import pathlib
 
+import gmsh
 import numpy as np
 import pytest
-
-import gmsh
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
@@ -29,7 +28,6 @@ from porepy.fracs.msh_2_grid import (
 )
 from porepy.fracs.simplex import _read_gmsh_file
 from porepy.grids.mdg_generation import _preprocess_simplex_args
-
 
 INCLUSION_NAME: str = "inclusion"
 

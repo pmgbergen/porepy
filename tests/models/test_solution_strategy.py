@@ -24,24 +24,24 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Optional, Callable, cast
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.md_grids.mdg_library import (
+    cube_with_orthogonal_fractures,
+    square_with_orthogonal_fractures,
+)
 from porepy.applications.test_utils import models
+from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
-from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
-from porepy.applications.md_grids.mdg_library import (
-    square_with_orthogonal_fractures,
-    cube_with_orthogonal_fractures,
-)
-from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.applications.test_utils.models import add_mixin
+from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
