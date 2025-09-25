@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gmsh
 import copy
 import csv
 import logging
@@ -10,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import gmsh
 import meshio
 import numpy as np
 
@@ -22,6 +22,9 @@ from .gmsh_interface import GmshData2d, GmshWriter
 from .gmsh_interface import Tags as GmshInterfaceTags
 
 logger = logging.getLogger(__name__)
+
+# Shortcut for the OpenCaste CAD kernel in gmsh.
+fac = gmsh.model.occ
 
 
 class FractureNetwork2d:
@@ -138,8 +141,7 @@ class FractureNetwork2d:
         if domain is not None:
             logger.info(f"Domain specification : {str(domain)}")
 
-
-    def domain_to_gmsh_2D(self):
+    def domain_to_gmsh_2D(self) -> int:
         """Export the rectangular domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a rectangle corresponding to the bounding box of the
@@ -164,14 +166,12 @@ class FractureNetwork2d:
 
         # We assume that z is the zero coordinate when working in 2D, and thus the third
         # input to addRectangle is set to be 0:
-        domain_tag = gmsh.model.occ.addRectangle(
-            xmin, ymin, 0, xmax - xmin, ymax - ymin
-        )
+        domain_tag = fac.addRectangle(xmin, ymin, 0, xmax - xmin, ymax - ymin)
         return domain_tag
 
     def fractures_to_gmsh_2D(self) -> list[int]:
         """Take the tags of all fractures in the fracture network.
-        
+
         By using the method for exporting a single fracture tag, we here collect the
         tags of all the fractures in the fracture network. The tags are returned as
         elements in a list.
@@ -183,11 +183,213 @@ class FractureNetwork2d:
         NOTE:
             The method fracture_to_gmsh_2D() does not exist yet, nor is its name
             decided.
-        
+
         """
         fracture_tags = [fracture.fracture_to_gmsh_2D() for fracture in self.fractures]
-
         return fracture_tags
+
+    def mesh_with_gmsh(
+        self,
+        mesh_args: dict[str, float],
+        file_name: Optional[Path] = None,
+        constraints: Optional[np.ndarray] = None,
+        dfn: bool = False,
+        tags_to_transfer: Optional[list[str]] = None,
+        write_geo: bool = True,
+        **kwargs,
+    ) -> pp.MixedDimensionalGrid:
+        """Mesh the fracture network and generate a mixed-dimensional grid.
+
+        Note that the mesh generation process is outsourced to gmsh.
+
+        Returns:
+            Mixed-dimensional grid for this fracture network.
+
+        """
+        if file_name is None:
+            file_name = Path("gmsh_frac_file.msh")
+
+        gmsh.initialize()
+
+        # For the sake of a better overview, I use VSCode's regions to identify roughly
+        # which method the new code corresponds to. This should make it easier to create
+        # a logical split into methods later. Currently, the method is too long for my
+        # taste.
+
+        # region prepare_for_gmsh
+
+        # Get gmsh tags of domain and fractures.
+        # TODO Here, the question arises whether we should already enrich the tags with
+        # dimensionality, e.g.,
+        # gmsh_fractures = [(1, f) for f in self.fractures_to_gmsh_2D()]
+        # Both are needed later, so not sure what is best. Having both seems
+        # unnecessary.
+        domain_tag = self.domain_to_gmsh_2D()
+        fracture_tags = self.fractures_to_gmsh_2D()
+
+        # Identify fractures fully/partially outside the domain and remove/truncate
+        # them.
+        # NOTE This is done in such a way that the order of ``fracture_tags`` is
+        # preserved. E.g., [0, 1, 2, 3, 4] -> [0, 2, 5, 4] if the fracture with gmsh tag
+        # 1 is removed and fracture 3 is replaced with the truncated fracture 5.
+        new_fractures = {}
+        removed_fractures = []
+
+        for ind, fracture_tag in enumerate(fracture_tags):
+            truncated_fracture, parent_map = fac.intersect(
+                [(1, fracture_tag)],
+                [(2, domain_tag)],
+                removeTool=False,
+                removeObject=False,
+            )
+            if len(truncated_fracture) > 0:
+                # The fracture was partly outside the domain. It will be replaced.
+                new_fractures[ind] = truncated_fracture[0]
+            elif len(parent_map[0]) == 0:
+                # The fracture was fully outside the domain. It will be deleted.
+                removed_fractures.append(ind)
+
+        # Remove the fractures from the gmsh representation. Recursive is critical here,
+        # or else the boundary of 'fracture' will continue to be present.
+        for ind in removed_fractures:
+            fac.remove([fracture_tags[ind]], recursive=True)
+
+        # Remove fractures that were truncated from the gmsh representation and update
+        # ``fractures`` with the tag of the truncated fracture.
+        for old_fracture, new_fracture in new_fractures.items():
+            fac.remove([fracture_tags[old_fracture]], recursive=True)
+            fracture_tags[old_fracture] = new_fracture
+
+        fracture_tags = [
+            ft for i, ft in enumerate(fracture_tags) if i not in removed_fractures
+        ]
+
+        fac.synchronize()
+
+        # Make gmsh calculate the intersections between fractures, using the domain as a
+        # secondary object (the latter will by magic ensure that the fractures are
+        # embedded in the domain, hence the mesh will conform to the fractures). The
+        # removal statements here will replace the old (possibly intersecting) fractures
+        # with new, split lines. Similarly, the removal of the domain (removeTool, no
+        # idea why) avoids the domain being present twice.
+        _, isect_mapping = fac.fragment(
+            [(1, ft) for ft in fracture_tags],
+            [(2, domain_tag)],
+            removeObject=True,
+            removeTool=True,
+        )
+
+        fac.synchronize()
+
+        # During intersection removal, gmsh will add intersection points and replace the
+        # fractures with non-intersecting polylines (example: Two fractures intersecting
+        # as a cross become four fractures with a common point). We need to identify
+        # these intersecting points.
+        # Annoyingly, gmsh also reassigns tags during fragmentation. Hence we need to
+        # find intersection points on our own, as is done below.
+        intersection_points = []
+
+        # Loop over the mappings from old fractures to new segments. The idea is to find
+        # the boundary points of all segments, identify those that occur more than once
+        # - these will be intersections - and store the tag that gmsh has assigned them.
+        for old_fracture in isect_mapping:
+            all_boundary_points_of_segments = []
+            for segment in old_fracture:
+                all_boundary_points_of_segments += gmsh.model.get_boundary([segment])
+
+            # Find the unique boundary points and obtain a mapping from the full set of
+            # boundary points to the unique ones.
+            unique_boundary_points, u2a_ind = np.unique(
+                all_boundary_points_of_segments, axis=0, return_index=True
+            )
+            # Count the number of occurrences of each unique boundary point. Points that
+            # occur more than once will be intersections.
+            multiple_occs = np.where(np.bincount(u2a_ind) > 1)[0]
+            # Store the gmsh representation of the intersection points.
+            intersection_points += [unique_boundary_points[i] for i in multiple_occs]
+
+        # Finally, we need to uniquify the intersection points, since the same point
+        # will have been identified in at least two old fractures.
+        if len(intersection_points) > 0:
+            unique_intersection_points = np.unique(
+                np.vstack(intersection_points), axis=0
+            )
+        else:
+            unique_intersection_points = np.empty((0, 2))
+
+        # Collect intersection points, fractures, and domain in physical groups in gmsh.
+        # TODO I don't think this synchronization is needed? Nothing happened in gmsh
+        # since the last sync call.
+        fac.synchronize()
+
+        # TODO I don't have a full overview of how physical groups in gmsh and PorePy
+        # interact, but shouldn't we use the hardcoded strings from
+        # ``gmsh_interface.py`` here?
+        # Intersection points can be dealt with right away.
+        for i, pt in enumerate(unique_intersection_points):
+            gmsh.model.addPhysicalGroup(
+                0, [pt[1]], -1, f"FRACTURE_INTERSECTION_POINT_{i}"
+            )
+
+        fac.synchronize()
+
+        # Since fractures may have been split at intersection points, we need to collect
+        # all the segments (found in isect_mapping) into a single physical group.
+        for i, line_group in enumerate(isect_mapping):
+            all_lines = []
+            for line in line_group:
+                if line[0] == 1:
+                    all_lines.append(line[1])
+            if all_lines:
+                gmsh.model.addPhysicalGroup(1, all_lines, -1, f"FRACTURE_{i}")
+
+        gmsh.model.addPhysicalGroup(2, [domain_tag], -1, "DOMAIN")
+
+        fac.synchronize()
+
+        # endregion
+
+        # region GmshWriter.generate
+        if write_geo:
+            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
+
+        # Consider the dimension of the problem. Normally 2D, but if ``dfn`` is True 1D.
+        ndim = 2 - int(dfn)
+
+        # Create a gmsh mesh.
+        gmsh.model.mesh.generate(ndim)
+        gmsh.write(str(file_name))
+
+        # FIXME Just for debugging. Remove once done.
+        entities = gmsh.model.get_entities()
+        # endregion
+
+        # Create list of grids.
+t         if dfn:
+            # FIXME The constraint weren't considered until here, so this will probably
+            # not work when constraints is not None.
+            subdomains = porepy.fracs.simplex.line_grid_from_gmsh(
+                file_name, constraints=constraints
+            )
+
+        else:
+            subdomains = porepy.fracs.simplex.triangle_grid_from_gmsh(
+                file_name, constraints=constraints
+            )
+
+        # if tags_to_transfer:
+        #     # Preserve tags for the fractures from the network. We assume a coherent
+        #     # numeration between the network and the created grids.
+        #     frac = np.setdiff1d(
+        #         np.arange(self._edges.shape[1]), constraints, assume_unique=True
+        #     )
+        #     for idg, g in enumerate(subdomains[1 - int(dfn)]):
+        #         for key in np.atleast_1d(tags_to_transfer):
+        #             if key not in g.tags:
+        #                 g.tags[key] = self.tags[key][frac][idg]
+
+        # Assemble all subdomains in mixed-dimensional grid.
+        return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
     def mesh(
         self,
