@@ -22,7 +22,6 @@ import numpy as np
 import porepy as pp
 
 from .gmsh_interface import PhysicalNames
-from typing import TypeVar
 
 gmsh_element_types: list[str] = [
     "vertex",
