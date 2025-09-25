@@ -48,9 +48,7 @@ def create_gmsh_file(dims: tuple) -> str:
     the domain. The inclusion is assigned a physical name, ``INCLUSION_NAME``.
 
     Parameters:
-        fracture_network: The fracture network to create a gmsh file for.
-        tmp_path: Temporary path to store the gmsh file.
-
+        dims: The dimensions of the domain. Should be a tuple of length 2 or 3.
     Returns:
         The path to the created gmsh file.
 
