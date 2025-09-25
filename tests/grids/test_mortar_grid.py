@@ -11,8 +11,8 @@ A further description is given for each of the groups of tests.
 
 """
 
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pytest

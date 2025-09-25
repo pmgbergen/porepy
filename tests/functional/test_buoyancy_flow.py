@@ -21,20 +21,19 @@ time step the following are tested:
    discretization of the energy convective buoyancy terms.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 import porepy as pp
-from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D, ModelGeometry3D
-from tests.functional.setups.buoyancy_flow_model import (
-    ModelMDGeometry2D,
-    ModelMDGeometry3D,
-)
 from tests.functional.setups.buoyancy_flow_model import (
     BuoyancyFlowModel2N,
     BuoyancyFlowModel3N,
+    ModelGeometry2D,
+    ModelGeometry3D,
+    ModelMDGeometry2D,
+    ModelMDGeometry3D,
+    to_Mega,
 )
-from tests.functional.setups.buoyancy_flow_model import to_Mega
-
 
 # Parameterization list for both tests
 Parameterization = [
