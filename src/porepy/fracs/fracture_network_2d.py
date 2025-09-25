@@ -365,7 +365,7 @@ class FractureNetwork2d:
         # endregion
 
         # Create list of grids.
-t         if dfn:
+        if dfn:
             # FIXME The constraint weren't considered until here, so this will probably
             # not work when constraints is not None.
             subdomains = porepy.fracs.simplex.line_grid_from_gmsh(
