@@ -104,6 +104,7 @@ def _run_buoyancy_model(
 
         model = Model3D(params)
     pp.run_time_dependent_model(model, params)
+    print(model.mdg)
 
 
 @pytest.mark.skipped  # reason: slow
@@ -114,3 +115,10 @@ def _run_buoyancy_model(
 def test_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md):
     """Test buoyancy-driven flow model (FD)."""
     _run_buoyancy_model(model_class, mesh_2d_Q, expected_order_loss, md=md)
+
+
+from time import time
+
+tic = time()
+test_buoyancy_model(BuoyancyFlowModel2N, True, 2, md=True)  # type: ignore
+print("Time elapsed test_buoyancy_flow.py:", time() - tic)
