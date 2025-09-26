@@ -211,6 +211,8 @@ class FractureNetwork2d:
 
         gmsh.initialize()
 
+        nd = self.domain.dim
+
         # For the sake of a better overview, I use VSCode's regions to identify roughly
         # which method the new code corresponds to. This should make it easier to create
         # a logical split into methods later. Currently, the method is too long for my
@@ -226,6 +228,7 @@ class FractureNetwork2d:
         # unnecessary.
         domain_tag = self.domain_to_gmsh_2D()
         fracture_tags = self.fractures_to_gmsh_2D()
+        gmsh.model.occ.synchronize()
 
         # Identify fractures fully/partially outside the domain and remove/truncate
         # them.
@@ -236,30 +239,50 @@ class FractureNetwork2d:
         removed_fractures = []
 
         for ind, fracture_tag in enumerate(fracture_tags):
-            truncated_fracture, parent_map = fac.intersect(
-                [(1, fracture_tag)],
-                [(2, domain_tag)],
+            # According to gmsh documentation (v4.14), the function intersect should be
+            # able to identify fractures that do not intersect with the domain. The
+            # expected result is that the map from the old fracture to the new one, that
+            # is, the second return variable from the call to intersect is empty.
+            # However, this does not seem to work unless the parameters removeTool and
+            # removeObject are set to True (either both or one of them must be True, EK
+            # is not sure exactly what counts). However, using these will remove the
+            # fracture and/or the domain from the gmsh model, and even though we could
+            # reintroduce them if it turns out that the fracture is indeed (partially)
+            # within the domain, that will lead to a host of questions regarding
+            # preserving tags etc. Instead, we therefore compute the distance between
+            # the fracture and the domain, and if this is larger than tol (NOTE: the
+            # sensitivity to this parameter is not thoroughly tested), the fracture will
+            # be removed.
+            distance = fac.getDistance(nd - 1, fracture_tag, nd, domain_tag)[0]
+            if distance > self.tol:
+                # The fracture is fully outside the domain. It will be deleted.
+                removed_fractures.append(ind)
+                continue
+
+            # The fracture is either fully or partly inside the domain. We call
+            # intersect to truncate the fracture if necessary.
+            truncated_fracture, _ = fac.intersect(
+                [(nd - 1, fracture_tag)],
+                [(nd, domain_tag)],
                 removeTool=False,
                 removeObject=False,
             )
-            if len(truncated_fracture) > 0:
+            if len(truncated_fracture) > 0 and truncated_fracture[0][1] != fracture_tag:
                 # The fracture was partly outside the domain. It will be replaced.
                 new_fractures[ind] = truncated_fracture[0]
-            elif len(parent_map[0]) == 0:
-                # The fracture was fully outside the domain. It will be deleted.
-                removed_fractures.append(ind)
 
         # Remove the fractures from the gmsh representation. Recursive is critical here,
         # or else the boundary of 'fracture' will continue to be present.
         for ind in removed_fractures:
-            fac.remove([fracture_tags[ind]], recursive=True)
+            fac.remove([(nd - 1, fracture_tags[ind])], recursive=True)
 
         # Remove fractures that were truncated from the gmsh representation and update
         # ``fractures`` with the tag of the truncated fracture.
         for old_fracture, new_fracture in new_fractures.items():
-            fac.remove([fracture_tags[old_fracture]], recursive=True)
-            fracture_tags[old_fracture] = new_fracture
+            fac.remove([(nd - 1, fracture_tags[old_fracture])], recursive=True)
+            fracture_tags[old_fracture] = new_fracture[1]
 
+        # Remove from fracture_tags those indices that are present in removed_fractures
         fracture_tags = [
             ft for i, ft in enumerate(fracture_tags) if i not in removed_fractures
         ]
@@ -273,8 +296,8 @@ class FractureNetwork2d:
         # with new, split lines. Similarly, the removal of the domain (removeTool, no
         # idea why) avoids the domain being present twice.
         _, isect_mapping = fac.fragment(
-            [(1, ft) for ft in fracture_tags],
-            [(2, domain_tag)],
+            [(nd - 1, ft) for ft in fracture_tags],
+            [(nd, domain_tag)],
             removeObject=True,
             removeTool=True,
         )
