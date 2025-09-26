@@ -211,6 +211,14 @@ class FractureNetwork2d:
         if file_name is None:
             file_name = Path("gmsh_frac_file.msh")
 
+        # No constraints if not available.
+        if constraints is None:
+            constraints = np.empty(0, dtype=int)
+        else:
+            constraints = np.atleast_1d(constraints)
+            constraints.sort()
+        assert isinstance(constraints, np.ndarray)
+
         gmsh.initialize()
 
         nd = self.domain.dim
@@ -277,6 +285,16 @@ class FractureNetwork2d:
         # or else the boundary of 'fracture' will continue to be present.
         for ind in removed_fractures:
             fac.remove([(nd - 1, fracture_tags[ind])], recursive=True)
+        # Also update the constraints: Each fracture removal in effect shifts the
+        # indices, but only for those with a higher index.
+        for i in range(len(removed_fractures)):
+            constraints = np.array(
+                [
+                    c - np.sum(removed_fractures < c)
+                    for c in constraints
+                    if c != removed_fractures[i]
+                ]
+            )
 
         # Remove fractures that were truncated from the gmsh representation and update
         # ``fractures`` with the tag of the truncated fracture.
@@ -295,8 +313,8 @@ class FractureNetwork2d:
         # secondary object (the latter will by magic ensure that the fractures are
         # embedded in the domain, hence the mesh will conform to the fractures). The
         # removal statements here will replace the old (possibly intersecting) fractures
-        # with new, split lines. Similarly, the removal of the domain (removeTool, no
-        # idea why) avoids the domain being present twice.
+        # with new, split lines. Similarly, the removal of the domain (removeTool)
+        # avoids the domain being present twice.
         _, isect_mapping = fac.fragment(
             [(nd - 1, ft) for ft in fracture_tags],
             [(nd, domain_tag)],
@@ -317,7 +335,17 @@ class FractureNetwork2d:
         # Loop over the mappings from old fractures to new segments. The idea is to find
         # the boundary points of all segments, identify those that occur more than once
         # - these will be intersections - and store the tag that gmsh has assigned them.
-        for old_fracture in isect_mapping:
+        for fi, old_fracture in enumerate(isect_mapping):
+            if len(old_fracture) > 0 and old_fracture[0][0] == nd:
+                # It is unclear if processing the domain will make any harm, but there
+                # is no need to take any chances. Skip it.
+                continue
+
+            if fi in constraints:
+                # Constrained fractures are not to be considered for intersection
+                # identification.
+                continue
+
             all_boundary_points_of_segments = []
             for segment in old_fracture:
                 all_boundary_points_of_segments += gmsh.model.get_boundary([segment])
@@ -336,25 +364,36 @@ class FractureNetwork2d:
         # Finally, we need to uniquify the intersection points, since the same point
         # will have been identified in at least two old fractures.
         if len(intersection_points) > 0:
-            unique_intersection_points = np.unique(
-                np.vstack(intersection_points), axis=0
+            # Some extra gymnastics: intersection_points is a list of points at the
+            # intersection between 1d lines, but Gmsh fragment makes no difference
+            # between lines that we consider real fractures and constraints. Points that
+            # form part of a constraints are not added to intersection_points, since we
+            # skipped constraints in the previous loop. To identify those points that
+            # are on the intersection between real fractures, we filter away points that
+            # occur less than twice in intersection_points.
+
+            candidate_intersection_points, unique_2_all = np.unique(
+                # Take the second column, which contains the point tags. The first
+                # column is the dimension, which is always 0 here.
+                np.vstack(intersection_points)[:, 1],
+                axis=0,
+                return_inverse=True,
             )
+            found_by_multiple_fractures = np.where(np.bincount(unique_2_all) > 1)[0]
+            unique_intersection_points = candidate_intersection_points[
+                found_by_multiple_fractures
+            ]
         else:
-            unique_intersection_points = np.empty((0, 2))
+            # No intersections, simply create an empty list.
+            unique_intersection_points = np.array([], dtype=int)
 
         # Collect intersection points, fractures, and domain in physical groups in gmsh.
-        # TODO I don't think this synchronization is needed? Nothing happened in gmsh
-        # since the last sync call.
-        fac.synchronize()
 
-        # TODO I don't have a full overview of how physical groups in gmsh and PorePy
-        # interact, but shouldn't we use the hardcoded strings from
-        # ``gmsh_interface.py`` here?
         # Intersection points can be dealt with right away.
         for i, pt in enumerate(unique_intersection_points):
             gmsh.model.addPhysicalGroup(
                 nd - 2,
-                [pt[1]],
+                [pt],
                 -1,
                 f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}",
             )
@@ -369,9 +408,17 @@ class FractureNetwork2d:
                 if line[0] == 1:
                     all_lines.append(line[1])
             if all_lines:
-                gmsh.model.addPhysicalGroup(
-                    nd - 1, all_lines, -1, f"{PhysicalNames.FRACTURE.value}{i}"
-                )
+                if i in constraints:
+                    gmsh.model.addPhysicalGroup(
+                        nd - 1,
+                        all_lines,
+                        -1,
+                        f"{PhysicalNames.AUXILIARY_LINE.value}{i}",
+                    )
+                else:
+                    gmsh.model.addPhysicalGroup(
+                        nd - 1, all_lines, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                    )
         gmsh.model.addPhysicalGroup(
             nd, [domain_tag], -1, f"{PhysicalNames.DOMAIN.value}"
         )
@@ -385,7 +432,7 @@ class FractureNetwork2d:
             gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
 
         # Consider the dimension of the problem. Normally 2D, but if ``dfn`` is True 1D.
-        ndim = 2 - int(dfn)
+        ndim = nd - int(dfn)
 
         # Create a gmsh mesh.
         gmsh.model.mesh.generate(ndim)
