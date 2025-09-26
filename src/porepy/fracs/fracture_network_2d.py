@@ -323,7 +323,7 @@ class FractureNetwork2d:
             # Find the unique boundary points and obtain a mapping from the full set of
             # boundary points to the unique ones.
             unique_boundary_points, u2a_ind = np.unique(
-                all_boundary_points_of_segments, axis=0, return_index=True
+                all_boundary_points_of_segments, axis=0, return_inverse=True
             )
             # Count the number of occurrences of each unique boundary point. Points that
             # occur more than once will be intersections.
