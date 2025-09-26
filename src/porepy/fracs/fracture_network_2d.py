@@ -188,7 +188,7 @@ class FractureNetwork2d:
         fracture_tags = [fracture.fracture_to_gmsh_2D() for fracture in self.fractures]
         return fracture_tags
 
-    def mesh_with_gmsh(
+    def mesh(
         self,
         mesh_args: dict[str, float],
         file_name: Optional[Path] = None,
@@ -474,7 +474,7 @@ class FractureNetwork2d:
         # Assemble all subdomains in mixed-dimensional grid.
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
-    def mesh(
+    def mesh_old(
         self,
         mesh_args: dict[str, float],
         tol: Optional[float] = None,
