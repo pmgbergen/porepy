@@ -18,7 +18,7 @@ import porepy.fracs.simplex
 from porepy.fracs import tools
 from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
 
-from .gmsh_interface import GmshData2d, GmshWriter
+from .gmsh_interface import GmshData2d, GmshWriter, PhysicalNames
 from .gmsh_interface import Tags as GmshInterfaceTags
 
 logger = logging.getLogger(__name__)
@@ -351,7 +351,10 @@ class FractureNetwork2d:
         # Intersection points can be dealt with right away.
         for i, pt in enumerate(unique_intersection_points):
             gmsh.model.addPhysicalGroup(
-                0, [pt[1]], -1, f"FRACTURE_INTERSECTION_POINT_{i}"
+                nd - 2,
+                [pt[1]],
+                -1,
+                f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}",
             )
 
         fac.synchronize()
@@ -364,9 +367,12 @@ class FractureNetwork2d:
                 if line[0] == 1:
                     all_lines.append(line[1])
             if all_lines:
-                gmsh.model.addPhysicalGroup(1, all_lines, -1, f"FRACTURE_{i}")
-
-        gmsh.model.addPhysicalGroup(2, [domain_tag], -1, "DOMAIN")
+                gmsh.model.addPhysicalGroup(
+                    nd - 1, all_lines, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                )
+        gmsh.model.addPhysicalGroup(
+            nd, [domain_tag], -1, f"{PhysicalNames.DOMAIN.value}"
+        )
 
         fac.synchronize()
 
