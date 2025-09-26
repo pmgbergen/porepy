@@ -252,6 +252,9 @@ class FractureNetwork3d(object):
         clear_gmsh: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
+        if file_name is None:
+            file_name = Path("gmsh_frac_file.msh")
+
         if constraints is None:
             constraints = np.array([], dtype=int)
         else:
@@ -341,7 +344,7 @@ class FractureNetwork3d(object):
         # T-style intersection? Should be embedded in the other then? EK thinks this
         # should be the case. Similarly, L-style intersection (boundary on both) should
         # be picked up here.
-        num_lines_occ = np.bincount(np.abs(bnd_lines))
+        num_lines_occ = np.bincount(np.abs(bnd_lines).astype(int))
         # Find the 'interesting' boundary lines, i.e. those occuring more than once.
         boundary_lines = np.where(num_lines_occ > 1)[0]
         all_lines = np.hstack((embedded_lines, boundary_lines))
@@ -417,7 +420,7 @@ class FractureNetwork3d(object):
         # Intersection points.
         for i in intersection_points:
             gmsh.model.addPhysicalGroup(
-                0, [i], -1, f"{PhysicalNames.INTERSECTION_POINT.value}{i}"
+                0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
             )
         # Intersection lines.
         for li in range(num_line_parent_counter):
