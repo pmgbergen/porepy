@@ -196,6 +196,8 @@ class FractureNetwork2d:
         dfn: bool = False,
         tags_to_transfer: Optional[list[str]] = None,
         write_geo: bool = True,
+        finalize_gmsh: bool = True,
+        clear_gmsh: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
         """Mesh the fracture network and generate a mixed-dimensional grid.
@@ -405,6 +407,11 @@ class FractureNetwork2d:
             subdomains = porepy.fracs.simplex.triangle_grid_from_gmsh(
                 file_name, constraints=constraints
             )
+
+        if clear_gmsh:
+            gmsh.clear()
+        if finalize_gmsh:
+            gmsh.finalize()
 
         # if tags_to_transfer:
         #     # Preserve tags for the fractures from the network. We assume a coherent
