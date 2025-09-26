@@ -264,14 +264,24 @@ class FractureNetwork3d(object):
 
         nd = 3
 
-        domain_tag = self.domain_to_gmsh_3D()
+        if self.domain is not None:
+            domain_tag = self.domain_to_gmsh_3D()
+        else:
+            domain_tag = -1
+
         fracture_tags = self.fractures_to_gmsh_3D()
         fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
         gmsh.model.occ.synchronize()
 
-        _, isect_mapping = fac.fragment(
-            fracture_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
-        )
+        if domain_tag >= 0:
+            _, isect_mapping = fac.fragment(
+                fracture_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
+            )
+        else:
+            # Special handling of DFN-style meshing.
+            _, isect_mapping = fac.fragment(
+                fracture_tags, [], removeObject=True, removeTool=True
+            )
 
         fac.synchronize()
 
