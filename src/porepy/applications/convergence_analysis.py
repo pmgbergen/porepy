@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from typing import Literal, Optional, Union
 
 import numpy as np

@@ -1,5 +1,7 @@
 """Testing functionality related to FractureNetwork2d."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 

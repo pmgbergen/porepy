@@ -1,14 +1,14 @@
-import pytest
 import numpy as np
+import pytest
+
 import porepy as pp
-from tests.functional.setups.buoyancy_flow_model import ModelGeometry2D
-from tests.functional.setups.buoyancy_flow_model import ModelMDGeometry2D
 from tests.functional.setups.buoyancy_flow_model import (
     BuoyancyFlowModel2N,
     BuoyancyFlowModel3N,
+    ModelGeometry2D,
+    ModelMDGeometry2D,
+    to_Mega,
 )
-from tests.functional.setups.buoyancy_flow_model import to_Mega
-
 
 # Test suite for FluidBuoyancy class functionality.
 # Validates buoyancy operators by instantiating models and evaluating
