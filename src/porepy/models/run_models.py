@@ -8,10 +8,11 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

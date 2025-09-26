@@ -1,5 +1,7 @@
 """Testing functionality related to FractureNetwork2d."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -10,7 +12,6 @@ from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.geometry.domain import Domain
-from pathlib import Path
 
 
 def check_mdg_from_polytopal_2d_domain(
