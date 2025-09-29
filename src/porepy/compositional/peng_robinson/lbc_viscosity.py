@@ -20,7 +20,7 @@ from typing import Sequence
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 
@@ -429,8 +429,8 @@ class LBCViscosity(EoSCompiler):
 
     """
 
-    def __init__(self, components: Sequence[FluidComponent]) -> None:
-        super().__init__(components)
+    def __init__(self, components: Sequence[FluidComponent], *args, **kwargs) -> None:
+        super().__init__(components, *args, **kwargs)
 
         self._mws = np.array([c.molar_mass for c in components])
         """Molar weight per component in [kg/mol]."""
