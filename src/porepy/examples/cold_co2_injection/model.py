@@ -76,9 +76,25 @@ class FluidMixture(pp.PorePyModel):
     ) -> Sequence[
         tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
+        # Import here to avoid triggering computation before model setup.
         import porepy.compositional.peng_robinson as pr
+        import porepy.compositional.peng_robinson.lbc_viscosity as lbc
+        import numba as nb
 
-        eos = pr.PengRobinsonCompiler(
+        class EoS(lbc.LBCViscosity, pr.PengRobinsonCompiler):
+            def get_conductivity_function(self):
+                @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+                def kappa_c(
+                    prearg: np.ndarray, p: float, T: float, xn: np.ndarray
+                ) -> float:
+                    if prearg[3] > 0:
+                        return 0.03
+                    else:
+                        return 0.6
+
+                return kappa_c
+
+        eos = EoS(
             components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
         )
         return [
