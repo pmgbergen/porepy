@@ -547,9 +547,16 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             Above expression in AD operator form.
 
         """
-        mass_density = self.total_molar_concentration(subdomains) * component.fraction(
-            subdomains
-        )
+        if component in self.fluid.solid_components:
+            mass_density = (
+                component.mineral_saturation(subdomains)
+                * pp.ad.Scalar(self.solid.total_porosity)
+                / pp.ad.Scalar(component.molar_volume)
+            )
+        else:
+            mass_density = self.total_molar_concentration(
+                subdomains
+            ) * component.fraction(subdomains)
         mass_density.set_name(f"component_mass_{component.name}")
         return mass_density
 

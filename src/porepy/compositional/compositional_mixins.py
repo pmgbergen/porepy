@@ -1309,7 +1309,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         """
 
-        if len(self.fluid.solid_components) > 1:
+        if len(self.fluid.solid_components) > 0:
             op = (
                 self.porosity(domains)
                 * self.fluid.density(domains)
@@ -1366,6 +1366,14 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 self._mineral_saturation_variable(component)
             )
             return fraction
+        else:
+
+            def mineral_saturation(
+                domains: pp.SubdomainsOrBoundaries,
+            ) -> pp.ad.Operator:
+                return pp.ad.Scalar(0.0, f"{component.name} is not a mineral")
+
+            return mineral_saturation
 
     def reactive_solid_density(
         self, domains: pp.SubdomainsOrBoundaries

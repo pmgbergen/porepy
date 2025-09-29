@@ -390,12 +390,12 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
 
         if hasattr(self, "reactions") and self.reactions:
             # Add reactive source term, if reactions are defined.
-            reactive_source = self.reactive_source(subdomains)
+            reactive_source = self.total_reactive_source(subdomains)
             source += reactive_source
 
         return source
 
-    def reactive_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def total_reactive_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Source term in a mass balance equation due to reactions.
 
         Parameters:
@@ -445,7 +445,7 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
                 for species_index, component in enumerate(self.fluid.components)
             ]
         )
-        total_op.set_name("reactive_source")
+        total_op.set_name("total_reactive_source")
         return total_op
 
 
