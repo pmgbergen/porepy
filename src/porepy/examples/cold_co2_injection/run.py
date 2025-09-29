@@ -542,7 +542,7 @@ if __name__ == "__main__":
         "material_constants": material_params,
         "time_manager": time_manager,
         "prepare_simulation": False,
-        "buoyancy_on": BUOYANCY_ON,
+        "enable_buoyancy_effects": BUOYANCY_ON,
         "compile": True,
         "flash_compiler_args": ("p-T", "p-h"),
     }
