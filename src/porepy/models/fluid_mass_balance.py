@@ -183,7 +183,11 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
             Operator representing the cell-wise fluid mass.
 
         """
-        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
+        # adding the solid molar concentration for reactive transport
+        if len(self.fluid.solid_components) > 0:
+            mass_density = self.total_molar_concentration(subdomains)
+        else:
+            mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
         return mass
@@ -383,7 +387,66 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
         source += subdomain_projection.cell_restriction(subdomains) @ (
             subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
         )
+
+        if hasattr(self, "reactions") and self.reactions:
+            # Add reactive source term, if reactions are defined.
+            reactive_source = self.reactive_source(subdomains)
+            source += reactive_source
+
         return source
+
+    def reactive_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Source term in a mass balance equation due to reactions.
+
+        Parameters:
+            subdomains: A list of subdomains in the :attr:`mdg`.
+        Returns:
+            The reactive source term for the given subdomains.
+        """
+        # --- Validation
+
+        if not hasattr(self.fluid, "stoichiometric_matrix"):
+            raise ValueError("stoichiometric_matrix is missing.")
+        if not hasattr(self, "species_names") or not self.species_names:
+            raise ValueError("self.species_names must be a non-empty list.")
+        if not hasattr(self, "reactions"):
+            raise ValueError("self.reactions is missing.")
+        S = self.fluid.stoichiometric_matrix
+        reactions = self.reactions
+        n_rxn, n_sp = S.shape
+        if n_sp != len(self.species_names):
+            raise ValueError(
+                "Column count of stoichiometric matrix must equal len(self.species_names)."
+            )
+        if len(reactions) != n_rxn:
+            raise ValueError(
+                "Number of reactions must match the number of rows in the stoichiometric matrix."
+            )
+
+        species_names = self.species_names
+        reaction_formulas = self.reaction_formulas
+
+        # Map species name -> AD function
+        r_funcs = {reaction.formula: reaction.reaction_rate for reaction in reactions}
+
+        # Evaluate z_ξ(subdomains) to get a list of Operators
+        try:
+            z_ops = [
+                r_funcs[formula](subdomains) for formula in reaction_formulas
+            ]  # shape (C,)
+        except KeyError as e:
+            raise KeyError(f"Reaction '{e.args[0]}' not found.")
+
+        total_op = pp.ad.sum_operator_list(
+            [
+                pp.ad.sum_operator_list(
+                    [pp.ad.Scalar(S[r, species_index]) * z for r, z in enumerate(z_ops)]
+                )
+                for species_index, component in enumerate(self.fluid.components)
+            ]
+        )
+        total_op.set_name("reactive_source")
+        return total_op
 
 
 class ConstitutiveLawsSinglePhaseFlow(
