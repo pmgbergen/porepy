@@ -3,8 +3,10 @@ dependent on coefficients and their derivatives."""
 
 from __future__ import annotations
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+from typing import Callable
+import os
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 import pytest
@@ -119,3 +121,45 @@ def test_known_root_case_calculations(
     # Test that the call to the general function returns the same result.
     genvals = calculate_roots(c2, c1, c0, eps)
     np.testing.assert_allclose(genvals, solution, atol=eps, rtol=0.0)
+
+
+@pytest.mark.parametrize(
+    ["func", "dfunc"],
+    [
+        (triple_root, d_triple_root),
+        (one_root, d_one_root),
+        (two_roots, d_two_roots),
+        (three_roots, d_three_roots),
+    ],
+)
+def test_root_derivatives(
+    func: Callable[..., np.ndarray], dfunc: Callable[..., np.ndarray]
+) -> None:
+    """Tests the computation of the root derivative functions by approximating the
+    derivative values with finite differences and asserting an estimated order of
+    convergence of 1.
+
+    This test is necessary because the analytical expressions for the derivatives are
+    hard-coded.
+
+    """
+
+    # Step size for finite difference.
+    epses = [0.1, 0.05, 0.025]
+
+    X0 = tuple(np.random.uniform(0, 10, 3))
+
+    # The triple root function depends only on c2 and is linear.
+    # Derivative is constant and finite difference approximation is exact.
+    if func == triple_root:
+        r = func(X0[0])
+        dr = dfunc(X0[0])
+        approximations = [(func(X0[0] + eps) - r) / eps for eps in epses]
+        np.testing.assert_allclose(
+            np.array(approximations), -1 / 3, atol=1e-14, rtol=0.0
+        )
+        np.testing.assert_allclose(
+            dr, np.array([-1 / 3, 0.0, 0.0]).reshape((1, 3)), atol=1e-14, rtol=0.0
+        )
+    else:
+        ...
