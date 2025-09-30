@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABCMeta
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -345,7 +345,6 @@ def set_solution_values(
     data: dict,
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
-    additive: bool = False,
 ) -> None:
     """Function for setting values in the data dictionary, for some time-dependent or
     iterative term.
@@ -364,10 +363,6 @@ def set_solution_values(
             Determines the key of where ``values`` are to be stored in
             ``data[pp.ITERATE_SOLUTIONS][name]``.
             0 is the current iterate, 1 the previous iterate, and so on.
-        additive: ``default=False``
-
-            Flag to decide whether the values already stored in the data dictionary
-            should be added to or overwritten.
 
     Raises:
         ValueError: In the case of inconsistent usage of indices (both None, or negative
@@ -384,15 +379,17 @@ def set_solution_values(
         if name not in data[loc]:
             data[loc][name] = {}
 
-        if additive:
-            if index not in data[loc][name]:
-                raise ValueError(
-                    f"Cannot set value additively for {name} at {(loc, index)}:"
-                    + " No values stored to add to."
-                )
-            data[loc][name][index] += values
-        else:
+        data[loc][name][index] = values
+        # In any case, we make the stored values read-only, to avoid accidental
+        # modification.
+        values.flags.writeable = False
+        # If the values to be stored are a view into some other array,
+        # we need to make a copy (like slice of global array).
+        if values.base is not None:
             data[loc][name][index] = values.copy()
+        # If it is a true array, we store it as is.
+        else:
+            data[loc][name][index] = values
 
 
 def get_solution_values(
@@ -442,13 +439,19 @@ def get_solution_values(
     loc, index = loc_index[0]
 
     try:
-        value = data[loc][name][index].copy()
+        value = cast(np.ndarray, data[loc][name][index])
     except KeyError as err:
         raise KeyError(
             f"No values stored for {name} at {(loc, index)}: {str(err)}."
         ) from err
 
-    return value
+    # NOTE: To avoid an unnecessary copy, we return a read-only view of the stored
+    # values. This should be safe, as long as the user uses the values for something.
+    # If the user wants to modify the values directly, it will raise an error which says
+    # read-only. It is clear that the user should then make a copy.
+    view_of_value = value.view()
+    view_of_value.flags.writeable = False
+    return view_of_value
 
 
 def shift_solution_values(
@@ -459,15 +462,11 @@ def shift_solution_values(
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
-    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
+    The shift is implemented s.t. values at index ``i`` are moved to index ``i + 1``.
 
     Note:
-        The data stored must have support for ``.copy()`` in order to avoid faulty
-        referencing (e.g., numpy arrays or sparse matrices).
-
-    Note:
-        After this operation, values at index 0 and 1 will be the same.
-        Use :meth:`set_solution_values` to update the latest values at index 0.
+        After this operation, values at index 0 are moved to index 1.
+        Attempting to retrieve them will raise an error.
 
     Parameters:
         name: Key in ``data`` for which quantity the shift should be performed.
@@ -497,24 +496,19 @@ def shift_solution_values(
     if name not in data[location]:
         return
 
-    num_stored = len(data[location][name])
-
+    sub_data = cast(dict, data[location][name])
+    # NOTE: We make a proper shift operation without copying the stored values by
+    # creating a new dictionary with the shifted keys.
+    # The resulting dictionary now has no entry for index 0, which is what we want after
+    # a true shift operation.
     if max_index is not None:
         if max_index < 0:
             raise ValueError("Maximal index must be non-negative.")
-
-        # Allow the number of stored values to increase
-        if max_index > num_stored:
-            range_ = range(num_stored, 0, -1)
-        # don't allow it to increase
-        else:
-            range_ = range(max_index - 1, 0, -1)
-            # TODO What should we do if for some reason already more stored?
+        sub_data = {k + 1: v for k, v in sub_data.items() if k + 1 <= max_index}
     else:
-        range_ = range(num_stored, 0, -1)
+        sub_data = {k + 1: v for k, v in sub_data.items()}
 
-    for i in range_:
-        data[location][name][i] = data[location][name][i - 1].copy()
+    data[location][name] = sub_data
 
 
 class MergedOperator(operators.Operator):

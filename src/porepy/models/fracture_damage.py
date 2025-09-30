@@ -100,9 +100,7 @@ class DamageHistoryVariable(pp.PorePyModel):
             max_index=len(self.time_step_indices), variables=other_vars
         )
 
-        self.equation_system.set_variable_values(
-            values=solution, time_step_index=0, additive=False
-        )
+        self.equation_system.set_variable_values(values=solution, time_step_index=0)
 
     def variables_stored_all_time_steps(self) -> list[pp.ad.Variable]:
         """Return the variables stored at all time steps.

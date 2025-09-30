@@ -579,10 +579,10 @@ class SolutionStrategy(pp.PorePyModel):
             nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
+        prev_vals = self.equation_system.get_variable_values(iterate_index=0)
+        new_vals = prev_vals + nonlinear_increment
         self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
-        self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
-        )
+        self.equation_system.set_variable_values(values=new_vals, iterate_index=0)
         self.update_derived_quantities()
         self.nonlinear_solver_statistics.num_iteration += 1
 
@@ -616,9 +616,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
-        self.equation_system.set_variable_values(
-            values=solution, time_step_index=0, additive=False
-        )
+        self.equation_system.set_variable_values(values=solution, time_step_index=0)
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
