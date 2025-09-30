@@ -3,9 +3,8 @@ dependent on coefficients and their derivatives."""
 
 from __future__ import annotations
 
-import os
-
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 import pytest
@@ -118,5 +117,5 @@ def test_known_root_case_calculations(
     np.testing.assert_allclose(residual, 0.0, atol=eps, rtol=0.0)
 
     # Test that the call to the general function returns the same result.
-    genvals = calculate_roots(c2, c1, c0, False, eps)
+    genvals = calculate_roots(c2, c1, c0, eps)
     np.testing.assert_allclose(genvals, solution, atol=eps, rtol=0.0)

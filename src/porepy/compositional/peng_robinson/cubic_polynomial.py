@@ -454,16 +454,47 @@ def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
 
 @_COMPILE_DECORATOR(
-    [
-        nb.f8[:](nb.f8, nb.f8, nb.f8, nb.bool, nb.f8),
-        nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.bool, nb.f8),
-    ],
+    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
-def calculate_roots(
-    c2: float, c1: float, c0: float, derivative: bool, eps: float
+def calculate_roots(c2: float, c1: float, c0: float, eps: float) -> np.ndarray:
+    """Calculate the roots of a cubic polynomial represented by its coefficients
+    :math:`c_2, c_1, c_0`.
+
+    Parameters:
+        c2: Coefficient of the quadratic term in the cubic polynomial.
+        c1: Coefficient of the linear term in the cubic polynomial.
+        c0: Coefficient of the constant term in the cubic polynomial.
+        eps: Tolerance for determining whether the discriminant is zero.
+
+    Returns:
+        A 1D array containing the real root(s) in ascending order.
+
+    """
+    match get_root_case(c2, c1, c0, eps):
+        case 0:
+            val = triple_root(c2)
+        case 1:
+            val = one_root(c2, c1, c0)
+        case 2:
+            val = two_roots(c2, c1, c0)
+        case 3:
+            val = three_roots(c2, c1, c0)
+        case _:
+            # Should never happen.
+            raise NotImplementedError(f"Uncovered root case encountered.")
+
+    return val
+
+
+@_COMPILE_DECORATOR(
+    nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8),
+    **_COMPILE_KWARGS,
+)
+def calculate_root_derivatives(
+    c2: float, c1: float, c0: float, eps: float
 ) -> np.ndarray:
-    """Calculate the roots or its derivatives of a cubic polynomial represented by its
+    """Calculate the derivative of roots of a cubic polynomial with respect to its
     coefficients :math:`c_2, c_1, c_0`.
 
     Parameters:
@@ -473,33 +504,20 @@ def calculate_roots(
         eps: Tolerance for determining whether the discriminant is zero.
 
     Returns:
-        A 1D array containing the root(s). If ``derivative==True``, a
-        2D array is returned containing the derivatives per coefficient in the second
-        axis. The derivatives per row correspond to a root/entry of the return value if
-        ``derivative==False``.
+        A 2D array containing the derivatives w.r.t. :math:`c_2, c_1, c_0` column wise.
+        Row-wise the derivatives correspond to the root returned by
+        :func:`calculate_roots`.
 
     """
-    # Function calls per root case.
-    if derivative:
-        f0 = d_triple_root
-        f1 = d_one_root
-        f2 = d_two_roots
-        f3 = d_three_roots
-    else:
-        f0 = triple_root
-        f1 = one_root
-        f2 = two_roots
-        f3 = three_roots
-
     match get_root_case(c2, c1, c0, eps):
         case 0:
-            val = f0(c2)
+            val = d_triple_root(c2)
         case 1:
-            val = f1(c2, c1, c0)
+            val = d_one_root(c2, c1, c0)
         case 2:
-            val = f2(c2, c1, c0)
+            val = d_two_roots(c2, c1, c0)
         case 3:
-            val = f3(c2, c1, c0)
+            val = d_three_roots(c2, c1, c0)
         case _:
             # Should never happen.
             raise NotImplementedError(f"Uncovered root case encountered.")
