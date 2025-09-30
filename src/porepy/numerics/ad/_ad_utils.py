@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABCMeta
+from line_profiler import profile
 from typing import Any, Optional
 
 import numpy as np
@@ -338,7 +339,7 @@ def _validate_indices(
 
     return out
 
-
+@profile
 def set_solution_values(
     name: str,
     values: np.ndarray,
@@ -394,7 +395,7 @@ def set_solution_values(
         else:
             data[loc][name][index] = values.copy()
 
-
+@profile
 def get_solution_values(
     name: str,
     data: dict,
@@ -450,7 +451,7 @@ def get_solution_values(
 
     return value
 
-
+@profile
 def shift_solution_values(
     name: str,
     data: dict,
