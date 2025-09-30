@@ -109,6 +109,7 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as compositional
+from porepy.models.abstract_equations import EquationMixin
 
 logger = logging.getLogger(__name__)
 
@@ -815,6 +816,82 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return source
 
 
+class EquationsChemical(EquationMixin):
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    def set_equations(self):
+        super().set_equations()
+        subdomains = self.mdg.subdomains()
+
+        if self.fluid.num_fluid_phases > 1:
+            raise NotImplementedError(
+                "This example only covers single-phase flow settings."
+            )
+        for phase in self.fluid.phases:
+            # Distribute masses equally accross phases.
+            # For the gas phase, which has two components, we say that half of the mass
+            # of the independent component in the reference phase, undergoes phase
+            # change and appears in the gas phase.
+            if len(phase.components) > 1:
+                for component in phase:
+                    if self.has_independent_partial_fraction(component, phase):
+                        equ = component.fraction(
+                            subdomains
+                        ) - phase.partial_fraction_of[component](
+                            subdomains
+                        ) * self.fluid_molar_fraction(subdomains)
+                        equ.set_name(
+                            f"partial_fraction_equation_{component.name}_{phase.name}"
+                        )
+                        self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+        # set the relation between temperature and enthalpy
+        equ = self.mixture_enthalpy_constraint(subdomains)
+        self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+        # set the equation for mineral saturation
+        for comp in self.fluid.solid_components:
+            equ = comp.mineral_saturation(subdomains) - comp.fraction(
+                subdomains
+            ) * self.total_molar_concentration(subdomains) * pp.ad.Scalar(
+                comp.molar_volume
+            ) / pp.ad.Scalar(self.solid.total_porosity)
+            equ.set_name(f"mineral_saturation_equation_{comp.name}")
+            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+    def mixture_enthalpy_constraint(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Constructs the enthalpy constraint for the mixture enthalpy and the
+        transported enthalpy variable.
+
+        .. math::
+
+            \\sum_j y_j h_j  - h = 0~,~
+            (\\sum_j y_j h_j) / h - 1= 0~
+
+        - :math:`y_j`: Phase :attr:`~porepy.compositional.base.Phase.fraction`.
+        - :math:`h_j`: Phase :attr:`~porepy.compositional.base.Phase.specific_enthalpy`.
+        - :math:`h`: The transported enthalpy :attr:`enthalpy`.
+
+        The first term represents the mixture enthalpy based on the thermodynamic state.
+        The second term represents the target enthalpy in the equilibrium problem.
+        The target enthalpy is a transportable quantity in flow and transport.
+
+        Parameters:
+            subdomains: A list of subdomains on which to define the equation.
+
+        Returns:
+            The left-hand side of above equations. If the normalization of state
+            constraints is required by the solution strategy, the second form is
+            returned.
+
+        """
+        equ = self.fluid.specific_enthalpy(subdomains) - self.enthalpy(subdomains)
+        equ.set_name("local_fluid_enthalpy_constraint")
+        return equ
+
+
 # endregion
 # region Intermediate mixins collecting variables, equations and constitutive laws.
 
@@ -1493,6 +1570,80 @@ class InitialConditionsCF(
 
 # endregion
 # region Solution strategies.
+class InitialConditionsChemical(pp.InitialConditionMixin):
+    # we don't set initial conditions for partial fractions, instead we let the system compute them.
+    # this only works for secondary variables.
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    def ic_values_partial_fraction(
+        self, component: pp.Component, phase: pp.Phase, sd: pp.Grid
+    ) -> np.ndarray:
+        """
+        Parameters:
+            component: A component in the :attr:`fluid` with an independent partial
+                fraction.
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial partial fraction values for a component on a subdomain. Defaults
+            to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
+
+    def ic_values_mineral_saturation(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        """
+        Parameters:
+            component: A component in the :attr:`fluid` with an independent partial
+                fraction.
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial partial fraction values for a component on a subdomain. Defaults
+            to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
+
+    def set_initial_values_primary_variables(self) -> None:
+        """Method to set initial values for fractions at iterate index 0.
+
+        See also:
+
+            - :meth:`ic_values_overall_fraction`
+            - :meth:`ic_values_tracer_fraction`
+
+        """
+        super().set_initial_values_primary_variables()
+        print(
+            "Setting initial values for independent partial fractions and mineral saturations."
+        )
+        for sd in self.mdg.subdomains():
+            # Setting overall fractions and tracer fractions.
+            for j, phase in enumerate(self.fluid.phases):
+                for k, comp in enumerate(phase.components):
+                    # independent overall fractions must have an initial value.
+                    if self.has_independent_partial_fraction(comp, phase):
+                        self.equation_system.set_variable_values(
+                            self.ic_values_partial_fraction(comp, phase, sd),
+                            [
+                                cast(
+                                    pp.ad.Variable,
+                                    phase.partial_fraction_of[comp]([sd]),
+                                )
+                            ],  # type: ignore[arg-type]
+                            iterate_index=0,
+                        )
+
+            for component in self.fluid.solid_components:
+                # independent overall fractions must have an initial value.
+                self.equation_system.set_variable_values(
+                    self.ic_values_mineral_saturation(component, sd),
+                    [cast(pp.ad.Variable, component.mineral_saturation([sd]))],
+                    iterate_index=0,
+                )
 
 
 class SolutionStrategyPhaseProperties(pp.PorePyModel):
