@@ -81,11 +81,12 @@ def test_known_root_case_calculations(
 
     """
 
-    eps = 1e-12
+    eps = 1e-14
     c2, c1, c0 = coefficients
 
     calculated_root_case = get_root_case(c2, c1, c0, eps)
 
+    # Test the calculated root case.
     assert calculated_root_case == root_case
 
     # Custom computations are supposed to be returned sorted as well (ascending).
