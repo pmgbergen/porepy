@@ -26,12 +26,12 @@ from __future__ import annotations
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_FAST_MATH
+from .._core import NUMBA_FAST_MATH, NUMBA_CACHE
 
 
 # _COMPILE_KWARGS = dict(nopython=True, cache=True)
 # _COMPILE_DECORATOR = nb.cfunc
-_COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=True)
+_COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 _COMPILE_DECORATOR = nb.njit
 
 
@@ -157,14 +157,10 @@ def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
         - 0: One real root with multiplicity three (triple root).
 
     Parameters:
-        c2:
-            Coefficient of the quadratic term in the cubic polynomial.
-        c1:
-            Coefficient of the linear term in the cubic polynomial.
-        c0:
-            Coefficient of the constant term in the cubic polynomial.
-        eps:
-            Tolerance for determining whether the discriminant is zero.
+        c2: Coefficient of the quadratic term in the cubic polynomial.
+        c1: Coefficient of the linear term in the cubic polynomial.
+        c0: Coefficient of the constant term in the cubic polynomial.
+        eps: Tolerance for determining whether the discriminant is zero.
 
     Returns:
         An integer indicating the case (0, 1, 2 or 3).
@@ -192,10 +188,10 @@ def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
 
 
 @_COMPILE_DECORATOR(
-    nb.f8(nb.f8),
+    nb.f8[:](nb.f8),
     **_COMPILE_KWARGS,
 )
-def triple_root(c2: float) -> float:
+def triple_root(c2: float) -> np.ndarray:
     """Calculate the triple root of the cubic polynomial.
 
     Parameters:
@@ -206,19 +202,29 @@ def triple_root(c2: float) -> float:
         The triple root.
 
     """
-    return -c2 / 3.0
-
-
-d_triple_root = np.array([-1.0 / 3.0, 0.0, 0.0])
-"""Derivatives of the triple root with respect to c2, c1 and c0.
-This is a constant array with values (-1/3, 0, 0)."""
+    return np.array([-c2 / 3.0])
 
 
 @_COMPILE_DECORATOR(
-    nb.f8(nb.f8, nb.f8, nb.f8),
+    nb.f8[:, :](nb.f8),
     **_COMPILE_KWARGS,
 )
-def single_root(c2: float, c1: float, c0: float) -> float:
+def d_triple_root(c2: float) -> np.ndarray:
+    """Derivatives of the triple root with respect to c2, c1 and c0.
+    This is a constant array with values (-1/3, 0, 0).
+
+    Note:
+        Though always a constant array, we keep the method format for simplicity of code
+        using the root computations.
+    """
+    return np.array([-1.0 / 3.0, 0.0, 0.0]).reshape((1, 3))
+
+
+@_COMPILE_DECORATOR(
+    nb.f8[:](nb.f8, nb.f8, nb.f8),
+    **_COMPILE_KWARGS,
+)
+def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     """Calculate the single (real) root of the cubic polynomial, when there is only one.
 
     Parameters:
@@ -253,14 +259,14 @@ def single_root(c2: float, c1: float, c0: float) -> float:
     # C_plus = (-r_0 / 2.0 + sqrt_D) ** (1.0 / 3.0)
     # C_minus = (-r_0 / 2.0 - sqrt_D) ** (1.0 / 3.0)
     # return C_plus + C_minus - c2 / 3.0
-    return u + v - c2 / 3.0
+    return np.array([u + v - c2 / 3.0])
 
 
 @_COMPILE_DECORATOR(
-    nb.f8[:](nb.f8, nb.f8, nb.f8),
+    nb.f8[:, :](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
-def d_single_root(c2: float, c1: float, c0: float) -> np.ndarray:
+def d_one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     """Derivatives of the single (real) root with respect to c2, c1 and c0.
 
     Parameters:
@@ -312,7 +318,7 @@ def d_single_root(c2: float, c1: float, c0: float) -> np.ndarray:
     dv_dc = dv_dr1 * dr_1 + dv_dr0 * dr_0
 
     # NOTE: d_triple_root is equivalent to the derivative of -c2/3
-    return du_dc + dv_dc + d_triple_root
+    return (du_dc + dv_dc + np.array([-1.0 / 3.0, 0.0, 0.0])).reshape((1, 3))
 
 
 @_COMPILE_DECORATOR(
@@ -386,8 +392,10 @@ def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
     du_dc = du_dr1 * dr_1 + du_dr0 * dr_0
 
-    dz1_dc = 2.0 * du_dc + d_triple_root
-    dz2_dc = -du_dc + d_triple_root
+    dc2 = np.array([-1.0 / 3.0, 0.0, 0.0])
+
+    dz1_dc = 2.0 * du_dc + dc2
+    dz2_dc = -du_dc + dc2
 
     if 2.0 * u - c2 / 3.0 < -u - c2 / 3.0:
         return np.vstack((dz1_dc, dz2_dc))
@@ -434,3 +442,66 @@ def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     # roots.sort()
 
     # return roots
+
+
+@_COMPILE_DECORATOR(
+    nb.f8[:, :](nb.f8, nb.f8, nb.f8),
+    **_COMPILE_KWARGS,
+)
+def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
+    """"""
+    return np.eye(3)
+
+
+@_COMPILE_DECORATOR(
+    [
+        nb.f8[:](nb.f8, nb.f8, nb.f8, nb.bool, nb.f8),
+        nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.bool, nb.f8),
+    ],
+    **_COMPILE_KWARGS,
+)
+def calculate_roots(
+    c2: float, c1: float, c0: float, derivative: bool, eps: float
+) -> np.ndarray:
+    """Calculate the roots or its derivatives of a cubic polynomial represented by its
+    coefficients :math:`c_2, c_1, c_0`.
+
+    Parameters:
+        c2: Coefficient of the quadratic term in the cubic polynomial.
+        c1: Coefficient of the linear term in the cubic polynomial.
+        c0: Coefficient of the constant term in the cubic polynomial.
+        eps: Tolerance for determining whether the discriminant is zero.
+
+    Returns:
+        A 1D array containing the root(s). If ``derivative==True``, a
+        2D array is returned containing the derivatives per coefficient in the second
+        axis. The derivatives per row correspond to a root/entry of the return value if
+        ``derivative==False``.
+
+    """
+    # Function calls per root case.
+    if derivative:
+        f0 = d_triple_root
+        f1 = d_one_root
+        f2 = d_two_roots
+        f3 = d_three_roots
+    else:
+        f0 = triple_root
+        f1 = one_root
+        f2 = two_roots
+        f3 = three_roots
+
+    match get_root_case(c2, c1, c0, eps):
+        case 0:
+            val = f0(c2)
+        case 1:
+            val = f1(c2, c1, c0)
+        case 2:
+            val = f2(c2, c1, c0)
+        case 3:
+            val = f3(c2, c1, c0)
+        case _:
+            # Should never happen.
+            raise NotImplementedError(f"Uncovered root case encountered.")
+
+    return val
