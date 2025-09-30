@@ -496,19 +496,24 @@ def shift_solution_values(
     if name not in data[location]:
         return
 
-    sub_data = cast(dict, data[location][name])
-    # NOTE: We make a proper shift operation without copying the stored values by
-    # creating a new dictionary with the shifted keys.
-    # The resulting dictionary now has no entry for index 0, which is what we want after
-    # a true shift operation.
+    num_stored = len(data[location][name])
+
     if max_index is not None:
         if max_index < 0:
             raise ValueError("Maximal index must be non-negative.")
-        sub_data = {k + 1: v for k, v in sub_data.items() if k + 1 <= max_index}
-    else:
-        sub_data = {k + 1: v for k, v in sub_data.items()}
 
-    data[location][name] = sub_data
+        # Allow the number of stored values to increase
+        if max_index > num_stored:
+            range_ = range(num_stored, 0, -1)
+        # don't allow it to increase
+        else:
+            range_ = range(max_index - 1, 0, -1)
+            # TODO What should we do if for some reason already more stored?
+    else:
+        range_ = range(num_stored, 0, -1)
+
+    for i in range_:
+        data[location][name][i] = data[location][name][i - 1].copy()
 
 
 class MergedOperator(operators.Operator):
