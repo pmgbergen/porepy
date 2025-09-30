@@ -7,6 +7,7 @@ the functionality is thoroughly tested through the test suit for the models.
 
 from __future__ import annotations
 
+from line_profiler import profile
 from typing import Any, Literal, overload
 
 import numpy as np
@@ -167,6 +168,7 @@ class AdParser:
         else:
             return result_list[0]
 
+    @profile
     def _evaluate_single(
         self,
         op: pp.ad.Operator,
