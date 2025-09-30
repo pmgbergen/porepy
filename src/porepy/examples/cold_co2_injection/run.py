@@ -463,7 +463,7 @@ if __name__ == "__main__":
     dt_init = pp.DAY
 
     if RUN_WITH_SCHEDULE:
-        time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS)]
+        time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
         dt_max = 30 * pp.DAY
     else:
         time_schedule = [0, NUM_MONTHS * 30 * pp.DAY]
