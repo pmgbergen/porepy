@@ -345,6 +345,7 @@ def set_solution_values(
     data: dict,
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
+    additive: bool = False,
 ) -> None:
     """Function for setting values in the data dictionary, for some time-dependent or
     iterative term.
@@ -363,6 +364,10 @@ def set_solution_values(
             Determines the key of where ``values`` are to be stored in
             ``data[pp.ITERATE_SOLUTIONS][name]``.
             0 is the current iterate, 1 the previous iterate, and so on.
+        additive: ``default=False``
+
+            Flag to decide whether the values already stored in the data dictionary
+            should be added to or overwritten.
 
     Raises:
         ValueError: In the case of inconsistent usage of indices (both None, or negative
@@ -370,6 +375,9 @@ def set_solution_values(
         ValueError: If the user attempts to set values additively at an index where no
             values were set before.
 
+    Note:
+        The stored array is always a **copy** of the provided values. This prevents
+            later mutations of the user-provided array from propagating into the stored state.
     """
     loc_index = _validate_indices(time_step_index, iterate_index)
 
@@ -379,17 +387,16 @@ def set_solution_values(
         if name not in data[loc]:
             data[loc][name] = {}
 
-        data[loc][name][index] = values
-        # In any case, we make the stored values read-only, to avoid accidental
-        # modification.
-        values.flags.writeable = False
-        # If the values to be stored are a view into some other array,
-        # we need to make a copy (like slice of global array).
-        if values.base is not None:
-            data[loc][name][index] = values.copy()
-        # If it is a true array, we store it as is.
+        if additive:
+            if index not in data[loc][name]:
+                raise ValueError(
+                    f"Cannot set value additively for {name} at {(loc, index)}:"
+                    + " No values stored to add to."
+                )
+            data[loc][name][index] = data[loc][name][index] + values
         else:
-            data[loc][name][index] = values
+            # Defensive copy: isolate from caller
+            data[loc][name][index] = np.array(values, copy=True)
 
 
 def get_solution_values(
@@ -462,11 +469,15 @@ def shift_solution_values(
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
-    The shift is implemented s.t. values at index ``i`` are moved to index ``i + 1``.
+    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
 
     Note:
-        After this operation, values at index 0 are moved to index 1.
-        Attempting to retrieve them will raise an error.
+        The data stored must have support for ``.copy()`` in order to avoid faulty
+        referencing (e.g., numpy arrays or sparse matrices).
+
+    Note:
+        After this operation, values at index 0 and 1 will be the same.
+        Use :meth:`set_solution_values` to update the latest values at index 0.
 
     Parameters:
         name: Key in ``data`` for which quantity the shift should be performed.
@@ -491,26 +502,21 @@ def shift_solution_values(
 
     # NOTE return because nothing to be shifted. Avoid confusion by introducing data
     # dictionaries for values which were never set using pp.set_solution_values.
-    if location not in data:
-        return
-    if name not in data[location]:
+    if location not in data or name not in data[location]:
         return
 
-    num_stored = len(data[location][name])
+    sub_data = cast(dict, data[location][name])
+    num_stored = len(sub_data)
 
-    if max_index is not None:
-        if max_index < 0:
-            raise ValueError("Maximal index must be non-negative.")
+    if max_index is not None and max_index < 0:
+        raise ValueError("Maximal index must be non-negative.")
 
-        # Allow the number of stored values to increase
-        if max_index > num_stored:
-            range_ = range(num_stored, 0, -1)
-        # don't allow it to increase
-        else:
-            range_ = range(max_index - 1, 0, -1)
-            # TODO What should we do if for some reason already more stored?
-    else:
+    # Range to shift: highest index down to 0.
+    if max_index is None:
         range_ = range(num_stored, 0, -1)
+    else:
+        # Cap shift at max_index
+        range_ = range(min(num_stored, max_index), 0, -1)
 
     for i in range_:
         data[location][name][i] = data[location][name][i - 1].copy()
