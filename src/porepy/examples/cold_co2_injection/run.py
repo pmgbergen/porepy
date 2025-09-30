@@ -15,7 +15,7 @@ NUM_MONTHS: int = 24
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
-RUN_WITH_SCHEDULE: bool = True
+RUN_WITH_SCHEDULE: bool = False
 """Ïf running without schedule for the time steps, there is no maximum admissible time
 step size and no time to be hit between start and end of simulation.
 
@@ -564,6 +564,8 @@ if __name__ == "__main__":
 
     if RUN_WITH_SCHEDULE:
         model_params["times_to_export"] = time_schedule
+    else:
+        model_params["times_to_export"] = []
 
     model_params.update(phase_property_params)
     model_params.update(restart_params)
