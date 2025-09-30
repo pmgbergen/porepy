@@ -1182,6 +1182,53 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
         return f"element_flux_{element.name}"
 
 
+class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
+    """Mixin for providing BC values for an independent enthalpy variable.
+
+    Note:
+        Though strictly speaking not appearing in the flux terms, this method is
+        required for completeness reasons. E.g., for cases where phase properties depend
+        on the fluid enthalpy. They subsequently appear in non-linear weight of
+        advective fluxes.
+
+    """
+
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    def update_all_boundary_conditions(self):
+        super().update_all_boundary_conditions()
+
+        sds = self.mdg.subdomains()
+
+        for phase in self.fluid.phases:
+            for comp in phase:
+                if self.has_independent_partial_fraction(comp, phase):
+                    x_bc = cast(
+                        Callable[[pp.BoundaryGrid], np.ndarray],
+                        partial(self.bc_values_partial_fraction, comp, phase),
+                    )
+                    self.update_boundary_condition(
+                        phase.partial_fraction_of[comp](sds).name, x_bc
+                    )
+
+    def bc_values_partial_fraction(
+        self, component: pp.Component, phase: pp.Phase, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """BC values for overall fraction of a component (primary variable).
+
+        Used to evaluate secondary expressions and variables on the boundary.
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            bg: A boundary grid in the domain.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the value of the overall
+            fraction.
+        """
+        return np.zeros(bg.num_cells)
+
+
 class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
     """Intermediate mixin layer to provide an interface for calculating values of phase
     properties on the boundary, which are represented by surrogate factories.
