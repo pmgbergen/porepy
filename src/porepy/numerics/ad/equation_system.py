@@ -9,6 +9,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 import numpy as np
 import scipy.sparse as sps
+from line_profiler import profile
 from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
@@ -600,6 +601,7 @@ class EquationSystem:
 
         return filtered_variables
 
+    @profile
     def get_variable_values(
         self,
         variables: Optional[VariableList] = None,
@@ -662,6 +664,7 @@ class EquationSystem:
         # Else return an empty vector.
         return np.concatenate(values) if values else np.empty(0)
 
+    @profile
     def set_variable_values(
         self,
         values: np.ndarray,
@@ -738,6 +741,7 @@ class EquationSystem:
         # since we only require a vector of at least this size.
         assert dof_end == values.size
 
+    @profile
     def shift_time_step_values(
         self,
         variables: Optional[VariableList] = None,
@@ -765,6 +769,7 @@ class EquationSystem:
                 var.name, self._get_data(var.domain), pp.TIME_STEP_SOLUTIONS, max_index
             )
 
+    @profile
     def shift_iterate_values(
         self,
         variables: Optional[VariableList] = None,
@@ -1534,6 +1539,7 @@ class EquationSystem:
         state: Optional[np.ndarray] = None,
     ) -> np.ndarray: ...
 
+    @profile
     def assemble(
         self,
         evaluate_jacobian: bool = True,
@@ -1670,6 +1676,7 @@ class EquationSystem:
         column_projection = self.projection_to(variables).transpose()
         return A * column_projection, -rhs_cat
 
+    @profile
     def assemble_schur_complement_system(
         self,
         primary_equations: EquationList | EquationRestriction,
