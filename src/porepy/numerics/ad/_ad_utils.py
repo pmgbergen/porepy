@@ -502,24 +502,26 @@ def shift_solution_values(
 
     # NOTE return because nothing to be shifted. Avoid confusion by introducing data
     # dictionaries for values which were never set using pp.set_solution_values.
-    if location not in data or name not in data[location]:
+    if location not in data:
+        return
+    if name not in data[location]:
         return
 
     sub_data = cast(dict, data[location][name])
-    num_stored = len(sub_data)
-
-    if max_index is not None and max_index < 0:
-        raise ValueError("Maximal index must be non-negative.")
-
-    # Range to shift: highest index down to 0.
-    if max_index is None:
-        range_ = range(num_stored, 0, -1)
+    # NOTE: We make a proper shift operation without copying the stored values by
+    # creating a new dictionary with the shifted keys.
+    # The resulting dictionary now has no entry for index 0, which is what we want after
+    # a true shift operation.
+    if max_index is not None:
+        if max_index < 0:
+            raise ValueError("Maximal index must be non-negative.")
+        shifted = {k + 1: v for k, v in sub_data.items() if k + 1 <= max_index}
     else:
-        # Cap shift at max_index
-        range_ = range(min(num_stored, max_index), 0, -1)
+        shifted = {k + 1: v for k, v in sub_data.items()}
 
-    for i in range_:
-        data[location][name][i] = data[location][name][i - 1].copy()
+    # Re-insert the old index 0 at key 0.
+    shifted[0] = sub_data[0]
+    data[location][name] = shifted
 
 
 class MergedOperator(operators.Operator):
