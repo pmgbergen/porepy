@@ -668,6 +668,7 @@ class EquationSystem:
         variables: Optional[VariableList] = None,
         time_step_index: Optional[int] = None,
         iterate_index: Optional[int] = None,
+        additive: bool = False,
     ) -> None:
         """Sets values for a (sub) vector of the global vector of unknowns.
 
@@ -723,6 +724,7 @@ class EquationSystem:
                     self._get_data(grid=variable.domain),
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
+                    additive=additive,
                 )
 
                 # 3. Move dissection forward.
