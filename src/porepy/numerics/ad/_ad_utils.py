@@ -441,7 +441,8 @@ def get_solution_values(
     loc, index = loc_index[0]
 
     try:
-        value = cast(np.ndarray, data[loc][name][index])
+        # value = cast(np.ndarray, data[loc][name][index])
+        value = data[loc][name][index]
     except KeyError as err:
         raise KeyError(
             f"No values stored for {name} at {(loc, index)}: {str(err)}."
