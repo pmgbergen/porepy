@@ -103,10 +103,10 @@ from __future__ import annotations
 
 import logging
 from functools import partial
+from line_profiler import profile
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 import porepy.compositional as compositional
@@ -114,6 +114,7 @@ import porepy.compositional as compositional
 logger = logging.getLogger(__name__)
 
 
+@profile
 def update_phase_properties(
     sd: pp.Grid,
     phase: pp.Phase,
