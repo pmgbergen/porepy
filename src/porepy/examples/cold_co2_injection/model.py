@@ -94,7 +94,7 @@ class FluidMixture(pp.PorePyModel):
 
                 return kappa_c
 
-        eos = EoS(
+        eos = pr.PengRobinsonCompiler(
             components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
         )
         return [

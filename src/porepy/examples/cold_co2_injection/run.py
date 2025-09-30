@@ -71,6 +71,9 @@ from typing import Any, Literal, Optional, cast
 
 import numpy as np
 
+os.environ["LINE_PROFILE"] = "1"
+from line_profiler import profile
+
 if DISABLE_COMPILATION:
     os.environ["NUMBA_DISABLE_JIT"] = "1"
 
@@ -157,23 +160,35 @@ class DataCollectionMixin(pp.PorePyModel):
 
         return data
 
+    @profile
     def assemble_linear_system(self) -> None:
         start = time.time()
         super().assemble_linear_system()
         self._time_tracker["assembly"].append(time.time() - start)
 
+    @profile
     def solve_linear_system(self) -> np.ndarray:
         start = time.time()
         sol = super().solve_linear_system()
         self._time_tracker["linsolve"].append(time.time() - start)
         return sol
 
+    @profile
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
         self._cum_flash_iter_per_grid.clear()
         self._flash_iter_counter = 0
         self.nonlinear_solver_statistics.num_iteration_armijo = 0
 
+    @profile
+    def before_nonlinear_iteration(self):
+        return super().before_nonlinear_iteration()
+
+    @profile
+    def after_nonlinear_iteration(self, increment: np.ndarray) -> None:
+        return super().after_nonlinear_iteration(increment)
+
+    @profile
     def after_nonlinear_convergence(self):
         # Get data before reset and recomputation in super-call.
         self._num_global_iter.append(self.nonlinear_solver_statistics.num_iteration)

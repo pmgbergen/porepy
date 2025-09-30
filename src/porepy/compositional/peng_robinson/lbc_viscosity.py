@@ -140,7 +140,7 @@ def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
 
 
 @nb.njit(
-    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )

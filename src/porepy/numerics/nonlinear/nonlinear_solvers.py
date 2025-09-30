@@ -95,10 +95,10 @@ class NewtonSolver:
                     self.params["nl_convergence_tol_res"] is not np.inf
                     or self.params["nl_divergence_tol"] is not np.inf
                 ):
-                    # Note: The residual is extracted after the solution has been updated by
-                    # the after_nonlinear_iteration() method. This is required if the
-                    # residual is used to check convergence or divergence, i.e., the
-                    # tolerance of one of them is not np.inf.
+                    # Note: The residual is extracted after the solution has been
+                    # updated by the after_nonlinear_iteration() method. This is
+                    # required if the residual is used to check convergence or
+                    # divergence, i.e., the tolerance of one of them is not np.inf.
                     residual = model.equation_system.assemble(evaluate_jacobian=False)
                 else:
                     residual = None
@@ -109,6 +109,7 @@ class NewtonSolver:
             except Exception as err:
                 if self.params["flag_failure_as_diverged"]:
                     import traceback
+
                     logger.warning(
                         "\nNewton step failure:\n%s\nFlagging as diverged.\n"
                         % (traceback.format_exc())
