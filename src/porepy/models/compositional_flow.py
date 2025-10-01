@@ -851,12 +851,21 @@ class EquationsChemical(EquationMixin):
 
         # set the equation for mineral saturation
         for comp in self.fluid.solid_components:
-            equ = comp.mineral_saturation(subdomains) - comp.fraction(
-                subdomains
-            ) * self.total_molar_concentration(subdomains) * pp.ad.Scalar(
-                comp.molar_volume
-            ) / pp.ad.Scalar(self.solid.total_porosity)
-            equ.set_name(f"mineral_saturation_equation_{comp.name}")
+            #            equ = comp.mineral_saturation(subdomains) - comp.fraction(
+            #                subdomains
+            #            ) * self.total_molar_concentration(subdomains) * pp.ad.Scalar(
+            #                comp.molar_volume
+            #            ) / pp.ad.Scalar(self.solid.total_porosity)
+            #            equ.set_name(f"mineral_saturation_equation_{comp.name}")
+            #            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+            # set the time derivative for mineral saturation
+            dt_operator = pp.ad.time_derivatives.dt
+            time_step = self.ad_time_step
+            equ = dt_operator(
+                comp.mineral_saturation(subdomains), time_step
+            ) - comp.reactive_source(subdomains)
+            equ.set_name(f"mineral_saturation_time_derivative_{comp.name}")
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
     def mixture_enthalpy_constraint(
