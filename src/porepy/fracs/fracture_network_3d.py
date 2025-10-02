@@ -473,6 +473,9 @@ class FractureNetwork3d(object):
 
         fac.synchronize()
 
+        if write_geo:
+            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
+
         if dfn:
             dim_meshing = 2
         else:
