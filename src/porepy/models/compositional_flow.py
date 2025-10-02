@@ -902,6 +902,56 @@ class EquationsChemical(EquationMixin):
         return equ
 
 
+class EquationsChemicalWithoutEnergy(EquationMixin):
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
+
+    def set_equations(self):
+        super().set_equations()
+        subdomains = self.mdg.subdomains()
+
+        if self.fluid.num_fluid_phases > 1:
+            raise NotImplementedError(
+                "This example only covers single-phase flow settings."
+            )
+        for phase in self.fluid.phases:
+            # Distribute masses equally accross phases.
+            # For the gas phase, which has two components, we say that half of the mass
+            # of the independent component in the reference phase, undergoes phase
+            # change and appears in the gas phase.
+            if len(phase.components) > 1:
+                for component in phase:
+                    if self.has_independent_partial_fraction(component, phase):
+                        equ = component.fraction(
+                            subdomains
+                        ) - phase.partial_fraction_of[component](
+                            subdomains
+                        ) * self.fluid_molar_fraction(subdomains)
+                        equ.set_name(
+                            f"partial_fraction_equation_{component.name}_{phase.name}"
+                        )
+                        self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+        # set the equation for mineral saturation
+        for comp in self.fluid.solid_components:
+            equ = comp.mineral_saturation(subdomains) - comp.fraction(
+                subdomains
+            ) * self.total_molar_concentration(subdomains) * pp.ad.Scalar(
+                comp.molar_volume
+            ) / pp.ad.Scalar(self.solid.total_porosity)
+            equ.set_name(f"mineral_saturation_equation_{comp.name}")
+            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+            """
+            # set the time derivative for mineral saturation
+            dt_operator = pp.ad.time_derivatives.dt
+            time_step = self.ad_time_step
+            equ = dt_operator(
+                comp.mineral_saturation(subdomains), time_step
+            ) - comp.reactive_source(subdomains)
+            equ.set_name(f"mineral_saturation_time_derivative_{comp.name}")
+            self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+            """
+
+
 # endregion
 # region Intermediate mixins collecting variables, equations and constitutive laws.
 
