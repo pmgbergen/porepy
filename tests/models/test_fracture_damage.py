@@ -76,6 +76,7 @@ def setup(
             "time_manager": pp.TimeManager(np.arange(0, time_steps), 1, True),
             # Trim displacement BCs to requested dimension
             "north_displacements": params_local["north_displacements"][:dim],
+            "adaptive_indicator_scaling": True,
         }
     )
 
@@ -87,7 +88,6 @@ def setup(
         "nl_convergence_tol_res": 1e-8,
         "nl_convergence_tol": 1e-8,
         "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
-        "adaptive_indicator_scaling": True,
         "local_line_search": True,
     }
 
@@ -137,7 +137,7 @@ def run_displacement_controlled_setup(
 
 @pytest.mark.parametrize("dim", [2, 3])
 # The tests take about a minute and are not critical, rather a supplement to test_damage
-# @pytest.mark.skipped  # reason: slow
+@pytest.mark.skipped  # reason: slow
 def test_isotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
     sensible/intuitive expectations.
@@ -252,7 +252,7 @@ def test_isotropic_damage(dim: int):
 
 @pytest.mark.parametrize("dim", [2, 3])
 # The tests take about a minute and are not critical, rather a supplement to test_damage
-# @pytest.mark.skipped  # reason: slow
+@pytest.mark.skipped  # reason: slow
 def test_anisotropic_damage(dim: int):
     """Run one time step with both dilation and friction and verify against physically
     sensible/intuitive expectations.
