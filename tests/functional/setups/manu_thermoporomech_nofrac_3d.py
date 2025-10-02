@@ -816,7 +816,7 @@ class UnitCubeGrid(pp.PorePyModel):
 
         sd = self.mdg.subdomains()[0]
         x, y, z = sd.nodes[0], sd.nodes[1], sd.nodes[2]
-        h = np.min(sd.cell_diameters())
+        h = sd.cell_diameters(cell_wise=False, func=np.min)
 
         pert_rate = self.params.get("perturbation", 0.0)
 

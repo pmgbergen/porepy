@@ -8,10 +8,11 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -121,7 +122,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
                 )
             )
             time_progressbar = progressbar_class(
-                expected_time_steps,
+                range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,
@@ -222,7 +223,7 @@ def _run_iterative_model(model, params: dict) -> None:
                 )
             )
             time_progressbar = progressbar_class(
-                expected_time_steps,
+                range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,

@@ -11,7 +11,6 @@ import abc
 import logging
 from pathlib import Path
 from typing import Literal, Optional
-from warnings import warn
 
 import gmsh
 import numpy as np
@@ -760,7 +759,7 @@ class GridSequenceFactory(abc.ABC):
         # unintentionally modified during operations.
         net = self._network.copy()
 
-        file_name = "gmsh_convergence"
+        file_name = Path("gmsh_convergence")
         # Generate data in a format suitable for defining a model in gmsh
         gmsh_data = net.prepare_for_gmsh(
             self._mesh_parameters,
@@ -789,16 +788,15 @@ class GridSequenceFactory(abc.ABC):
             The refined mixed dimensional grid.
 
         """
-        out_file = Path(self._out_file)
-        out_file = out_file.parent / out_file.stem
-        out_file_name = f"{out_file}_{counter}.msh"
+        out_file = self._out_file
+        out_file = out_file.parent / (out_file.stem + f"_{counter}.msh")
 
         # The first mesh is already done. Start refining all subsequent meshes.
         self._gmsh.model.mesh.refine()  # Refine the mesh
 
-        self._gmsh.write(out_file_name)  # Write the result to '.msh' file
+        self._gmsh.write(str(out_file))  # Write the result to '.msh' file
 
-        mdg = pp.fracture_importer.dfm_from_gmsh(out_file_name, self.dim)
+        mdg = pp.fracture_importer.dfm_from_gmsh(out_file, self.dim)
         pp.set_local_coordinate_projections(mdg)
         return mdg
 
