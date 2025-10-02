@@ -36,7 +36,7 @@ class Units:
     Parameters:
         **kwargs: Dictionary of units. The keys are the name of the unit, and the
             values are the scaling factor. For example, if the user wants to specify
-            length in kilometers, time in hours and substance amount in millimolar,
+            length in kilometers, weight in grams and substance amount in millimolar,
             the dictionary should be
 
             .. code-block:: Python

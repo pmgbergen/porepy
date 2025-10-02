@@ -51,6 +51,7 @@ SECOND = 1.0
 MINUTE = 60 * SECOND
 HOUR = 60 * MINUTE
 DAY = 24 * HOUR
+WEEK = 7 * DAY
 YEAR = 365 * DAY
 
 # Weight
