@@ -11,8 +11,8 @@ A further description is given for each of the groups of tests.
 
 """
 
-import os
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -1114,11 +1114,11 @@ def test_pickle_mortar_grid(g):
     mg = pp.MortarGrid(g.dim, {0: g, 1: g})
 
     # Dump the grid to file using pickle.
-    file_name = "tmp.grid"
+    file_name = Path("tmp.grid")
     pickle.dump(mg, open(file_name, "wb"))
-    # Read back
+    # Read back.
     mg_read = pickle.load(open(file_name, "rb"))
-    # Compare the grids
+    # Compare the grids.
     pp.test_utils.grids.compare_mortar_grids(mg, mg_read)
 
     # Do the same operation with the one-sided grid.
@@ -1127,5 +1127,5 @@ def test_pickle_mortar_grid(g):
     mg_read = pickle.load(open(file_name, "rb"))
     pp.test_utils.grids.compare_mortar_grids(mg_one_sided, mg_read)
 
-    # Delete the file
-    os.unlink(file_name)
+    # Delete the file.
+    file_name.unlink()

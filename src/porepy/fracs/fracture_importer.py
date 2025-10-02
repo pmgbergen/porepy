@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import warnings
+from pathlib import Path
 from typing import Optional, Union
 
 import gmsh
@@ -15,7 +16,7 @@ from porepy.fracs.utils import pts_edges_to_linefractures
 
 
 def network_3d_from_csv(
-    file_name: str, has_domain: bool = True, tol: float = 1e-4, **kwargs
+    file_name: Path, has_domain: bool = True, tol: float = 1e-4, **kwargs
 ) -> FractureNetwork3d:
     """Create the fracture network from a set of 3d fractures stored in a CSV file.
 
@@ -106,7 +107,7 @@ def network_3d_from_csv(
 
 
 def elliptic_network_3d_from_csv(
-    file_name: str, has_domain: bool = True, tol: float = 1e-4, degrees: bool = False
+    file_name: Path, has_domain: bool = True, tol: float = 1e-4, degrees: bool = False
 ) -> pp.fracture_network:
     """Create fracture network from a set of elliptic fractures stored in a CSV file.
 
@@ -194,7 +195,7 @@ def elliptic_network_3d_from_csv(
 
 
 def network_2d_from_csv(
-    f_name: str,
+    f_name: Path,
     tagcols: Optional[ArrayLike] = None,
     tol: float = 1e-8,
     max_num_fracs: Optional[int] = None,
@@ -355,7 +356,7 @@ def network_2d_from_csv(
         return network
 
 
-def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid:
+def dfm_from_gmsh(file_name: Path, dim: int, **kwargs) -> pp.MixedDimensionalGrid:
     """Generate a mixed-dimensional grid from a gmsh file.
 
     If the provided extension of the input file for gmsh is ``.geo`` (not ``.msh``),
@@ -379,28 +380,28 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
 
     Returns:
         Mixed-dimensional grid as contained in the gmsh file.
-
+        The physical names are stored in pp.Grid.tags of the subdomains.
     """
 
     # run gmsh to create .msh file if
-    if file_name[-4:] == ".msh":
+    if file_name.suffix == ".msh":
         out_file = file_name
     else:
-        if file_name[-4:] == ".geo":
-            file_name = file_name[:-4]
-        in_file = file_name + ".geo"
-        out_file = file_name + ".msh"
+        if file_name.suffix == ".geo":
+            file_name = file_name.with_suffix("")
+        in_file = file_name.with_suffix(".geo")
+        out_file = file_name.with_suffix(".msh")
 
         # initialize gmsh
         gmsh.initialize()
         # Reduce verbosity
         gmsh.option.setNumber("General.Verbosity", 3)
         # read the specified file.
-        gmsh.merge(in_file)
+        gmsh.merge(str(in_file))
 
         # Generate mesh, write
         gmsh.model.mesh.generate(dim=dim)
-        gmsh.write(out_file)
+        gmsh.write(str(out_file))
 
         # Wipe Gmsh's memory
         gmsh.finalize()
@@ -417,7 +418,7 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
 
 
 def dfm_3d_from_fab(
-    file_name: str,
+    file_name: Path,
     tol: float = 1e-4,
     domain: Optional[pp.Domain] = None,
     return_domain: bool = False,
@@ -464,7 +465,7 @@ def dfm_3d_from_fab(
 
 
 def network_3d_from_fab(
-    f_name: str, return_all: bool = False, tol: Optional[float] = None
+    f_name: Path, return_all: bool = False, tol: Optional[float] = None
 ) -> Union[FractureNetwork3d, tuple[FractureNetwork3d, list[np.ndarray], np.ndarray]]:
     """Create 3D fracture network from a ``.fab`` file, as specified by FracMan.
 

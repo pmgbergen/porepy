@@ -122,7 +122,7 @@ jobs:
       # should use that instead of isort.
     - name: isort 
       if: ${{ always() }}
-      run: isort src tests
+      run: isort --check src tests
 
     - name: mypy
       if: ${{ always() }}
