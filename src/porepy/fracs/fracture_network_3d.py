@@ -308,8 +308,12 @@ class FractureNetwork3d(object):
         # here, and not considered in the current implementation of md dynamics in
         # general.
         for fi, new_frac in enumerate(isect_mapping):
-            # A fracture can be split into multiple sub-fractures if they are fully cut by
-            # other fractures.
+            # Constraints do not contribute to intersection lines.
+            if fi in constraints:
+                continue
+
+            # A fracture can be split into multiple sub-fractures if they are fully cut
+            # by other fractures.
             for subfrac in new_frac:
                 if subfrac[0] == 3:  # This is the domain.
                     continue
@@ -391,6 +395,11 @@ class FractureNetwork3d(object):
 
         # Loop over all unique parent counts.
         for n in np.unique(num_parents):
+            if n < 2:
+                # At most one of the parents was not a constraint. This should not
+                # produce a line.
+                continue
+
             # Find all intersection lines that has this number of parents.
             inds = np.where(num_parents == n)[0]
             # Find the unique number of parents and the map from all intersection lines
@@ -406,9 +415,13 @@ class FractureNetwork3d(object):
 
         # Find intersection points: These by definition lie on the boundary of
         # intersection lines, so we loop over the latter, store their boundary points
-        # and identify which points occur more than once.u
+        # and identify which points occur more than once.
         points_of_intersection_lines = []
-        for line in intersection_lines:
+        for li, line in enumerate(intersection_lines):
+            if num_parents[li] < 2:
+                # At most one of the parents was not a constraint. This line should not
+                # produce a point.
+                continue
             for bp in gmsh.model.get_boundary([(1, line)]):
                 points_of_intersection_lines.append(bp[1])
 
@@ -422,13 +435,18 @@ class FractureNetwork3d(object):
             gmsh.model.addPhysicalGroup(
                 0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
             )
+
         # Intersection lines.
-        for li in range(num_line_parent_counter):
-            this_parent = np.where(parent_of_intersection_lines == li)[0]
+        # for li in range(num_line_parent_counter):
+        for li, line in enumerate(intersection_lines):
+            # this_parent = np.where(parent_of_intersection_lines == li)[0]
+            if num_parents[li] < 2:
+                continue
 
             gmsh.model.addPhysicalGroup(
                 1,
-                intersection_lines[this_parent].tolist(),
+                # intersection_lines[this_parent].tolist(),
+                [int(line)],
                 -1,
                 f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
             )
@@ -439,9 +457,15 @@ class FractureNetwork3d(object):
                 if subfrac[0] == 2:
                     subfracs.append(subfrac[1])
             if subfracs:
-                gmsh.model.addPhysicalGroup(
-                    2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
-                )
+                if i in constraints:
+                    gmsh.model.addPhysicalGroup(
+                        2, subfracs, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
+                    )
+
+                else:
+                    gmsh.model.addPhysicalGroup(
+                        2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                    )
         # The domain.
         gmsh.model.addPhysicalGroup(
             3, [domain_tag], -1, f"{PhysicalNames.DOMAIN.value}"
