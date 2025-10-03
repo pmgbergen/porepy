@@ -811,7 +811,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         if hasattr(self, "reactions") and self.reactions:
             # Add reactive source term, if reactions are defined.
             reactive_source = component.reactive_source(subdomains)
-            source += reactive_source
+
+            reactive_source_volume = self.volume_integral(
+                reactive_source, subdomains, dim=1
+            )
+
+            source += reactive_source_volume
 
         return source
 

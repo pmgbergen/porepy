@@ -403,7 +403,12 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
                 val.append(2 * np.ones(sd.num_cells))
             reactive_source = pp.wrap_as_dense_ad_array(np.hstack(val))
             """
-            source += reactive_source
+
+            reactive_source_volume = self.volume_integral(
+                reactive_source, subdomains, dim=1
+            )
+
+            source += reactive_source_volume
 
         return source
 
