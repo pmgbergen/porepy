@@ -390,7 +390,19 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
 
         if hasattr(self, "reactions") and self.reactions:
             # Add reactive source term, if reactions are defined.
+            """
+            reactive_source = pp.ad.TimeDependentDenseArray(
+                name="total_reactive_source",
+                domains=self.mdg.subdomains(),
+            )
+            """
             reactive_source = self.total_reactive_source(subdomains)
+            """
+            val = []
+            for sd in subdomains:
+                val.append(2 * np.ones(sd.num_cells))
+            reactive_source = pp.wrap_as_dense_ad_array(np.hstack(val))
+            """
             source += reactive_source
 
         return source

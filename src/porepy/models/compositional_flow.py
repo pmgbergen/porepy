@@ -850,6 +850,7 @@ class EquationsChemical(EquationMixin):
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # set the equation for mineral saturation
+        """
         for comp in self.fluid.solid_components:
             equ = comp.mineral_saturation(subdomains) - comp.fraction(
                 subdomains
@@ -858,7 +859,7 @@ class EquationsChemical(EquationMixin):
             ) / pp.ad.Scalar(self.solid.total_porosity)
             equ.set_name(f"mineral_saturation_equation_{comp.name}")
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-            """
+            
             # set the time derivative for mineral saturation
             dt_operator = pp.ad.time_derivatives.dt
             time_step = self.ad_time_step
@@ -932,6 +933,7 @@ class EquationsChemicalWithoutEnergy(EquationMixin):
                         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # set the equation for mineral saturation
+        """
         for comp in self.fluid.solid_components:
             equ = comp.mineral_saturation(subdomains) - comp.fraction(
                 subdomains
@@ -940,7 +942,6 @@ class EquationsChemicalWithoutEnergy(EquationMixin):
             ) / pp.ad.Scalar(self.solid.total_porosity)
             equ.set_name(f"mineral_saturation_equation_{comp.name}")
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
-            """
             # set the time derivative for mineral saturation
             dt_operator = pp.ad.time_derivatives.dt
             time_step = self.ad_time_step
@@ -1253,6 +1254,8 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
 
     """
 
+    has_independent_fraction: Callable[[pp.Component], bool]
+
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
 
     def update_all_boundary_conditions(self):
@@ -1271,8 +1274,36 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
                         phase.partial_fraction_of[comp](sds).name, x_bc
                     )
 
+        for component in self.fluid.solid_components:
+            if self.has_independent_fraction(component):
+                bc_vals = cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_mineral_saturation, component),
+                )
+                self.update_boundary_condition(
+                    name=self._mineral_saturation_variable(component),
+                    function=bc_vals,
+                )
+
     def bc_values_partial_fraction(
         self, component: pp.Component, phase: pp.Phase, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """BC values for overall fraction of a component (primary variable).
+
+        Used to evaluate secondary expressions and variables on the boundary.
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            bg: A boundary grid in the domain.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the value of the overall
+            fraction.
+        """
+        return np.zeros(bg.num_cells)
+
+    def bc_values_mineral_saturation(
+        self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for overall fraction of a component (primary variable).
 
@@ -1537,7 +1568,9 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
             # Setting overall fractions and tracer fractions.
             for component in self.fluid.components:
                 # independent overall fractions must have an initial value.
-                if self.has_independent_fraction(component):
+                if self.has_independent_fraction(component) and isinstance(
+                    component.fraction([sd]), pp.ad.Variable
+                ):
                     self.equation_system.set_variable_values(
                         self.ic_values_overall_fraction(component, sd),
                         [cast(pp.ad.Variable, component.fraction([sd]))],

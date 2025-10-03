@@ -835,7 +835,16 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_feed_fraction")
+        elif component in self.fluid.solid_components:
 
+            def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                z = (
+                    component.mineral_saturation(domains)
+                    * pp.ad.Scalar(self.solid.total_porosity / component.molar_volume)
+                    / self.total_molar_concentration(domains)
+                )
+                z.set_name(f"mineral_overall_fraction_{component.name}")
+                return z
         # NOTE: If the reference component fraction is independent, below elif-clause
         # will be executed, instead of the next one.
         elif self.has_independent_fraction(component):
