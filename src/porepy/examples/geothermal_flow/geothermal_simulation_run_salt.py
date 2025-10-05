@@ -29,7 +29,7 @@ from porepy.examples.geothermal_flow.model_configuration.flow_model_configuratio
     ThreePhaseFlowModelConfiguration as ThreePhaseFlowModel,
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
-import porepy.examples.geothermal_flow.data_extractor_util as data_util
+# import porepy.examples.geothermal_flow.data_extractor_util as data_util
 
 # Import geometric setup for the model domain
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import SimpleGeometryHorizontal as ModelGeometry
@@ -448,8 +448,8 @@ def run_simulation(
 # ------------------------------------------------------
 
 # Define file paths for VTK files used for thermodynamic property sampling
-correl_vtk_ptz_salt = VTK_DIR / "XTP_l2_original_salt.vtk"
-correl_vtk_phz_salt = VTK_DIR / "XHP_l2_original_salt.vtk"
+correl_vtk_ptz_salt = VTK_DIR / "XTP_l2_original_salt_new.vtk"
+correl_vtk_phz_salt = VTK_DIR / "XHP_l2_original_salt_new.vtk"
 
 for case_name, config in SIMULATION_CASES.items():
     run_simulation(

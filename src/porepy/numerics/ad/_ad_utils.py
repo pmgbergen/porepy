@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import warnings
 from abc import ABCMeta
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -442,7 +442,69 @@ def get_solution_values(
     loc, index = loc_index[0]
 
     try:
-        value = data[loc][name][index].copy()
+        value = cast(np.ndarray, data[loc][name][index])
+    except KeyError as err:
+        raise KeyError(
+            f"No values stored for {name} at {(loc, index)}: {str(err)}."
+        ) from err
+
+    # NOTE: To avoid an unnecessary copy, we return a read-only view of the stored
+    # values. This should be safe, as long as the user uses the values for something.
+    # If the user wants to modify the values directly, it will raise an error which says
+    # read-only. It is clear that the user should then make a copy.
+    view_of_value = value.view()
+    view_of_value.flags.writeable = False
+    return view_of_value
+
+
+def get_solution_values_old(
+    name: str,
+    data: dict,
+    time_step_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+) -> np.ndarray:
+    """Function for fetching values stored in the data dictionary, for some
+    time-dependent or iterative term.
+
+    Note:
+        Compared to :func:`set_solution_values` the getter works only for 1 defined
+        index, whereas the setter can take both a time and iterate index.
+
+    Parameters:
+        name: Name of the parameter whose values we are interested in.
+        data: The data dictionary.
+        time_step_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
+            0 is the most recent time step, 1 the one before that and so on.
+        iterate_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.ITERATE_SOLUTIONS][name]``.
+            0 is the current iterate, 1 the previous iterate, and so on.
+
+    Raises:
+        ValueError: In the case of inconsistent usage of indices (both None or negative
+            values).
+        ValueError: If the user attempts to get multiple iterate and time step values
+            simultanously. Only 1 index is permitted in the getter.
+        KeyError: If no values are stored for the passed index.
+
+    Returns:
+        A copy of the values stored at the passed index.
+
+    """
+    loc_index = _validate_indices(time_step_index, iterate_index)
+    if len(loc_index) != 1:
+        raise ValueError(
+            "Cannot get value from both iterate and time step at once. Call separately."
+        )
+
+    loc, index = loc_index[0]
+
+    try:
+        value = data[loc][name][index] #.copy()
     except KeyError as err:
         raise KeyError(
             f"No values stored for {name} at {(loc, index)}: {str(err)}."
@@ -452,6 +514,69 @@ def get_solution_values(
 
 
 def shift_solution_values(
+    name: str,
+    data: dict,
+    location: Any,
+    max_index: Optional[int] = None,
+) -> None:
+    """Function to shift numerical values stored in the data dictionary.
+
+    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
+
+    Note:
+        The data stored must have support for ``.copy()`` in order to avoid faulty
+        referencing (e.g., numpy arrays or sparse matrices).
+
+    Note:
+        After this operation, values at index 0 and 1 will be the same.
+        Use :meth:`set_solution_values` to update the latest values at index 0.
+
+    Parameters:
+        name: Key in ``data`` for which quantity the shift should be performed.
+        data: A grid data dictionary.
+        location: Either :data:`~porepy.utils.common_constants.TIME_STEP_SOLUTIONS`
+            or :data:`~porepy.utils.common_constants.ITERATE_SOLUTIONS`.
+        max_index: ``default=None``
+
+            A non-negative integer, capping the range of the shift operation to
+            ``i -> max_index``.
+            If called repeatedly with ``None``, the depth in ``location`` keeps
+            increasing. To be used in schemes with a defined maximal depth of stored
+            iterate or time step values.
+
+    Raises:
+        ValueError: If unsupported ``location`` is passed.
+        ValueError: if ``max_index`` is negative.
+
+    """
+    if location not in [pp.ITERATE_SOLUTIONS, pp.TIME_STEP_SOLUTIONS]:
+        raise ValueError(f"Shifting values not implemented for location {location}")
+
+    # NOTE return because nothing to be shifted. Avoid confusion by introducing data
+    # dictionaries for values which were never set using pp.set_solution_values.
+    if location not in data:
+        return
+    if name not in data[location]:
+        return
+
+    sub_data = cast(dict, data[location][name])
+    # NOTE: We make a proper shift operation without copying the stored values by
+    # creating a new dictionary with the shifted keys.
+    # The resulting dictionary now has no entry for index 0, which is what we want after
+    # a true shift operation.
+    if max_index is not None:
+        if max_index < 0:
+            raise ValueError("Maximal index must be non-negative.")
+        shifted = {k + 1: v for k, v in sub_data.items() if k + 1 <= max_index}
+    else:
+        shifted = {k + 1: v for k, v in sub_data.items()}
+
+    # Re-insert the old index 0 at key 0.
+    shifted[0] = sub_data[0].copy()
+    data[location][name] = shifted
+
+
+def shift_solution_values_old(
     name: str,
     data: dict,
     location: Any,

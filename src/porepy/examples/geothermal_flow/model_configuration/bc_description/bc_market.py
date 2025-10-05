@@ -703,3 +703,120 @@ class BCLiquidPhaseLowPressure_SmallBox(pp.PorePyModel):
             return self._z_INIT.get(component.name, 0.0) * np.ones(bg.num_cells)
         return self._z_INJ.get(component.name, 0.0) * np.ones(bg.num_cells)
 
+
+class BCLiquidPhaseLowPressure_Well_Flux_Dir_Left_old(pp.PorePyModel):
+    """ Boundary conditions for low-pressure liquid phase system with left outlet. """
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # We have dirichlet BC only on the top for temperature
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "neu")
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # We have dirichlet BC only on the top for pressure
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "dir")
+   
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "neu")
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "neu")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        _, outlet = self.get_inlet_outlet_sides(boundary_grid)
+        p = np.zeros(boundary_grid.num_cells)
+        p[outlet] = self._p_INIT
+        return p
+    
+    # def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    #     _, outlet_facet_indx = self.get_inlet_outlet_sides(boundary_grid)
+    #     bc_val = np.zeros(boundary_grid.num_cells)        # initialize all faces with 0
+    #     bc_val[outlet_facet_indx] = 0.0005  # set desired flux [kg/s/m^2] or [m/s] depending on formulation
+    #     return bc_val
+    
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        "Neumann on all sides except dirichlet on pressure"
+        return np.zeros(boundary_grid.num_cells)
+    
+    def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        "Neumann on all sides except dirichlet on outlet for pressure"
+        return np.zeros(boundary_grid.num_cells)
+    
+    def bc_values_overall_fraction(
+        self, component: pp.Component,
+        bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        "Outflow do not impose composition (Zero neumann)"
+        return np.zeros(bg.num_cells)
+
+
+
+class BCLiquidPhaseLowPressure_Well_Flux_Dir_Left(pp.PorePyModel):
+    """ Boundary conditions for low-pressure liquid phase system with left outlet. """
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # We have dirichlet BC only on the top for temperature
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "neu")
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # We have dirichlet BC only on the top for pressure
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "dir")
+   
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "neu")
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        _, outlet_facet_indx = self.get_inlet_outlet_sides(sd)
+        return pp.BoundaryCondition(sd, outlet_facet_indx, "neu")
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        _, outlet = self.get_inlet_outlet_sides(boundary_grid)
+        p = np.zeros(boundary_grid.num_cells)
+        p[outlet] = self._p_INIT
+        return p
+    
+    # def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    #     "Neumann on all sides except dirichlet on pressure"
+    #     _, outlet = self.get_inlet_outlet_sides(boundary_grid)
+    #     T = np.zeros(boundary_grid.num_cells)
+    #     T[outlet] = self._T_INIT
+    #     return T
+    
+    # def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    #     "Neumann on all sides except dirichlet on outlet for pressure"
+    #     return np.zeros(boundary_grid.num_cells)
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = self._z_INIT["NaCl"]*np.ones_like(p)
+        assert len(p) == len(t) == len(z_NaCl)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h = self.vtk_sampler_ptz.sampled_cloud.point_data['H']
+        return h*0.0
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component,
+        bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        "Outflow do not impose composition (Zero neumann)"
+        _, outlet = self.get_inlet_outlet_sides(bg)
+        z = np.zeros(bg.num_cells)
+        z_values = self._z_INIT.get(component.name, 0.0)
+        z[outlet] = z_values
+        return z

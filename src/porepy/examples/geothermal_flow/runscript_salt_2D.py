@@ -217,8 +217,8 @@ def run_simulation(
 
 
 # Define file paths for VTK files used for thermodynamic property sampling
-correl_vtk_ptz = VTK_DIR / "XTP_l2_original.vtk"
-correl_vtk_phz = VTK_DIR / "XHP_l2_original.vtk"
+correl_vtk_ptz = VTK_DIR / "XTP_l2_original_salt_new.vtk"
+correl_vtk_phz = VTK_DIR / "XHP_l2_original_salt_new.vtk"
 
 for case_name, config in SIMULATION_CASES.items():
     run_simulation(

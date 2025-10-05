@@ -724,7 +724,7 @@ class DomainPointGridWellsFracture2D(Geometry):
         ]))
         self._fractures = [frac1]
     
-    def set_fractures(self) -> None:
+    def set_fractures_near(self) -> None:
         """Define one diagonal fracture and add randomly generated ones."""
         np.random.seed(42)  # Optional for reproducibility
         x_min, y_min = 0.0, 0.0
@@ -760,8 +760,8 @@ class DomainPointGridWellsFracture2D(Geometry):
         # return self.params.get("grid_type", "cartesian")
     
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(2.0, "m")
-        frac_cell_size = self.units.convert_units(2.0, "m")
+        cell_size = self.units.convert_units(50.0, "m")
+        frac_cell_size = self.units.convert_units(50.0, "m")
         mesh_args: dict[str, float] = {
             "cell_size": cell_size,
             "cell_size_fracture": frac_cell_size
@@ -914,8 +914,9 @@ class DomainConnectedFracture2D(Geometry):
         ]))
         
         self._fractures = [
-            frac1,f2,f3
-            # frac1
+            # f1,
+            f2,f3,
+            frac1
             # frac1, frac2, frac3,
             # frac4, frac5
             # frac7
@@ -965,15 +966,15 @@ class DomainConnectedFracture2D(Geometry):
             "cell_size_fracture": frac_cell_size
         }
         # set to trigger adaptive meshing arround production well.
-        GI.BACKGROUND_FIELD_CB = install_annulus_bg(
-            x0=self._production_points[0][0],
-            y0=self._production_points[0][1],
-            coarse=cell_size,
-            fine=1.5,  # .5 without fracture
-            radius_in=0.0,  # with r =0.0, refinement is is uniform!
-            radius_out=6.0,
-            k=100.0
-        )
+        # GI.BACKGROUND_FIELD_CB = install_annulus_bg(
+        #     x0=self._production_points[0][0],
+        #     y0=self._production_points[0][1],
+        #     coarse=cell_size,
+        #     fine=1.5,  # .5 without fracture
+        #     radius_in=0.0,  # with r =0.0, refinement is is uniform!
+        #     radius_out=6.0,
+        #     k=100.0
+        # )
         # GI.BACKGROUND_FIELD_CB_I = install_triangle_bg(
         #     x0=self._injection_points[0][0],
         #     y0=self._injection_points[0][1],
@@ -1148,22 +1149,6 @@ class SmallBoxPointGridWellsFracture2D(Geometry):
     """A class to represent a simple 2D geometry for a simulation domain. 
 
     """
-    # _dist_from_ref_point: float = 5.0                         
-    # _outlet_coverage: tuple[np.ndarray, np.ndarray] = (
-    #     np.array([100.0, 0.0, 0.0]),
-    #     np.array([100.0, 0.0, 0.0])
-    # )
-    # _inlet_coverage: list[tuple[np.ndarray, np.ndarray]] = [
-    #     (np.array([0.0, 0.0, 0.0]), np.array([0.0, 100.0, 0.0])),
-    #     (np.array([0.0, 100.0, 0.0]), np.array([100.0, 100.0, 0.0])),
-    #     (np.array([100.0, 100.0, 0.0]), np.array([100.0, 0.0, 0.0])),
-    #     (np.array([100.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0])),
-    # ]
-    # _injection_points: list[np.ndarray] = [np.array([25.0, 25.0])]
-    # _production_points: list[np.ndarray] = [np.array([25.0, 25.0])]
-
-    # _domain_x_length: float = 100.0
-    # _domain_y_length: float = 30.0
 
     # Domain size
     _domain_x_length: float = 100.0
@@ -1376,6 +1361,619 @@ class SmallBoxPointGridWellsFracture2D(Geometry):
         inlet_facets = filter_facets_by_lines(self._inlet_coverage)
         return inlet_facets, outlet_facets
 
+    def get_well_cells(self, well_type: str) -> list[pp.Grid]:
+        return [sd for sd in self.mdg.subdomains(dim=0) if sd.tags.get(f"{well_type}_well") is not None]
+    
+    def filter_wells(
+        self,
+        subdomains: Sequence[pp.Grid],
+        well_type: Literal["production", "injection"],
+    ) -> tuple[list[pp.Grid], list[pp.Grid]]:
+        """Helper method to return the partitioning of subdomains into wells of defined
+        ``well_type`` and other grids.
+
+        Parameters:
+            subdomains: A list of subdomains.
+            well_type: Well type to filter out (injector or producer).
+
+        Returns:
+            A  2-tuple containing
+            1. All 0D grids tagged as wells of type ``well_type``.
+            2. All other grids found in ``subdomains``.
+
+        """
+        tag = f"{well_type}_well"
+        wells = [sd for sd in subdomains if sd.dim == 0 and tag in sd.tags]
+        other_sds = [sd for sd in subdomains if sd not in wells]
+        return wells, other_sds
+
+
+class DomainFractureWellLeftDirichlet2D_old(Geometry):
+    """A class to represent a simple 2D geometry for a simulation domain. 
+
+    """
+
+    _number_of_fractures: int = 15
+    _domain_x_length: float = 100.0
+    _domain_y_length: float = 30.0
+    _dist_from_ref_point: float = 5.0
+
+    # Corners of the rectangle (in CCW order)
+    _bottom_left = np.array([0.0, 0.0, 0.0])
+    _bottom_right = np.array([_domain_x_length, 0.0, 0.0])
+    _top_right = np.array([_domain_x_length, _domain_y_length, 0.0])
+    _top_left = np.array([0.0, _domain_y_length, 0.0])
+
+    # Outlet coverage (example: right boundary)
+    _outlet_coverage: list[tuple[np.ndarray, np.ndarray]] = [
+        (_top_left, _bottom_left)
+    ]
+
+    # Inlet coverage (all 4 sides)
+    _inlet_coverage: list[tuple[np.ndarray, np.ndarray]] = [
+        # (_bottom_left,  _bottom_right),  # bottom
+        # (_bottom_right, _top_right),     # right
+        # (_top_right,    _top_left),      # top
+        # (_top_left,     _bottom_left),   # left
+    ]
+    prod_x_point: float = _domain_x_length - 15.0
+    prod_y_point: float = _domain_y_length*0.5
+
+    _injection_points: list[np.ndarray] = [
+        np.array([_domain_x_length-prod_x_point, prod_y_point])
+    ]
+    _production_points: list[np.ndarray] = [
+        np.array([prod_x_point, prod_y_point])
+    ]
+
+    def set_domain(self) -> None:
+        x_length_in_m = self.units.convert_units(self._domain_x_length, "m")
+        y_length_in_m = self.units.convert_units(self._domain_y_length, "m")
+        box: dict[str, pp.number] = {
+            "xmax": x_length_in_m,
+            "ymax": y_length_in_m
+        }
+        self._domain = pp.Domain(box)
+    
+    def set_fractures(self) -> None:
+        # """Define fractures that are connected!"""
+        # x_start, x_end = 15.0, self._domain_x_length - 15.0
+        # y_start, y_end = 10.0, self._domain_y_length - 15.0
+        
+        f1 = pp.LineFracture(np.array([
+            [self._production_points[0][0]-4, 90],
+            [11.0, 11.0]
+        ]))
+        f2 = pp.LineFracture(np.array([
+            [self._production_points[0][0]-40, 90-30],
+            [14.0, 14.0]
+        ]))
+        f3 = pp.LineFracture(np.array([
+            [self._production_points[0][0]-35, 90-30],
+            [14.5, 8.0]
+        ]))
+        frac1 = pp.LineFracture(np.array([
+            [self._production_points[0][0], self._production_points[0][0]+7.0],
+            [self._production_points[0][1], self._production_points[0][1]- 5.0]
+        ]))
+        ### Connect to left boundary
+        f4 = pp.LineFracture(np.array([
+            [0.0, 13.0],
+            [20.0, 18.0]
+        ]))
+        f5 = pp.LineFracture(np.array([
+            [0.0, 12.0],
+            [15.0, 14.0]
+        ]))
+        f6 = pp.LineFracture(np.array([
+            [0.0, 12.0],
+            [10.0, 15.0]
+        ]))
+        f7 = pp.LineFracture(np.array([
+            [0.0, 12.0],
+            [5.0, 12.0]
+        ]))
+        f8 = pp.LineFracture(np.array([
+            [0.0, 12.0],
+            [25.0, 20.0]
+        ]))
+
+        f9 = pp.LineFracture(np.array([
+            [15.0, 20.0],
+            [6.0, 4.0]
+        ]))
+        f10 = pp.LineFracture(np.array([
+            [10.0, 30.0],
+            [3.0, 10.0]
+        ]))
+        
+        self._fractures = [
+            f2, f3,
+            frac1,
+            f4, f5, f6, f7, f8,
+            f9, f10
+            # frac1, frac2, frac3,
+            # frac4, frac5
+            # frac7
+            # f2, f3, f4, f5, f6
+        ]
+    
+    def set_fractures_many(self) -> None:
+        """Define one diagonal fracture and add randomly generated ones."""
+        np.random.seed(42)  # Optional for reproducibility
+        x_min, y_min = 0.0, 0.0
+        x_max = self._domain_x_length
+        y_max = self._domain_y_length
+        domain_width = x_max - x_min
+        domain_height = y_max - y_min
+        min_length = 3.0
+        max_length = 15.0
+
+        fractures = []
+        for _ in range(self._number_of_fractures):
+            # Random center within bounds
+            x_center = np.random.uniform(x_min + 0.1 * domain_width, x_max - 0.1 * domain_width)
+            y_center = np.random.uniform(y_min + 0.1 * domain_height, y_max - 0.1 * domain_height)
+
+            # Random angle and length
+            theta = np.random.uniform(0, np.pi)
+            length = np.random.uniform(min_length, max_length)
+
+            dx = 0.5 * length * np.cos(theta)
+            dy = 0.5 * length * np.sin(theta)
+
+            x0, x1 = x_center - dx, x_center + dx
+            y0, y1 = y_center - dy, y_center + dy
+
+            coords = np.array([[x0, x1], [y0, y1]])
+            fractures.append(pp.LineFracture(coords))
+        self._fractures = fractures
+      
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "simplex")
+        # return self.params.get("grid_type", "cartesian")
+ 
+    def meshing_arguments(self) -> dict:
+        cell_size = self.units.convert_units(2.0, "m")
+        frac_cell_size = self.units.convert_units(2.0, "m")
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+            "cell_size_fracture": frac_cell_size
+        }
+        return mesh_args
+    
+    def set_geometry(self):
+        """Create the injection and production wells."""
+
+        super().set_geometry()
+        for i, injection_point in enumerate(self._injection_points):
+            self._add_well(injection_point, i, "injection", is_multiple_cells=False)
+
+        for i, production_point in enumerate(self._production_points):
+            self._add_well(production_point, i, "production", is_multiple_cells=False)
+    
+    def closest_face(self, grid: pp.Grid, point: np.ndarray) -> int:
+        """Return index of closest face center to given point."""
+        dists = np.linalg.norm(grid.face_centers - point.reshape(-1, 1), axis=0)
+        return int(np.argmin(dists))
+    
+    def _add_well(
+        self, point,
+        well_index,
+        well_type,
+        radius=1.1,
+        is_multiple_cells: bool = False
+    ):
+        """Insert well as multiple 0D grids, each coupled to one matrix cell."""
+
+        matrix = self.mdg.subdomains(dim=self.domain.dim)[0]
+
+        # Find candidate cells within radius
+        dist = np.linalg.norm(matrix.cell_centers[:2, :] - point[:, None], axis=0)
+        candidate_cells = np.where(dist < radius)[0]
+        if is_multiple_cells:
+            for c in candidate_cells:
+                # Create 0D grid for each connection
+                p = np.zeros(3)
+                p[:2] = point
+                sd_0d = pp.PointGrid(p)
+                sd_0d.tags[f"{well_type}_well"] = well_index
+                sd_0d.compute_geometry()
+                self.mdg.add_subdomains(sd_0d)
+
+                # One-to-one mapping: single well cell → single matrix cell
+                cell_well = np.array([0], dtype=int)
+                cell_cell_map = sps.coo_matrix(
+                    (np.ones(1, dtype=bool), (cell_well, np.array([c]))),
+                    shape=(sd_0d.num_cells, matrix.num_cells),
+                )
+
+                # Add interface
+                _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
+        else:
+            self._add_well_inj(point, well_index, well_type)
+
+    def _add_well_inj(
+        self,
+        point: np.ndarray,
+        well_index: int,
+        well_type: Literal["injection", "production"],
+    ) -> None:
+        """Insert single well as point grid and connect to matrix."""
+
+        # Convert to 3D coordinates (for porepy PointGrid)
+        p = np.zeros(3)
+        p[:2] = point
+
+        # Create 0D grid
+        sd_0d = pp.PointGrid(p)
+        sd_0d.tags[f"{well_type}_well"] = well_index
+        sd_0d.compute_geometry()
+
+        # This object must have been passed or prepared by a mixin
+        self.mdg.add_subdomains(sd_0d)
+
+        # Couple well to the matrix (0D <--> 2D coupling is allowed with wells in PorePy)
+        matrix = self.mdg.subdomains(dim=self.domain.dim)[0]
+        cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
+        cell_well = np.array([0], dtype=int)
+        cell_cell_map = sps.coo_matrix(
+            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
+            shape=(sd_0d.num_cells, matrix.num_cells),
+        )
+        _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
+
+    def point_line_distance(self, point: np.ndarray, start: np.ndarray, end: np.ndarray) -> float:
+        """Shortest distance between a point and a line segment in 2D or 3D."""
+        line_vec = end - start
+        p_vec = point - start
+        line_len2 = np.dot(line_vec, line_vec)
+        if line_len2 == 0:
+            return np.linalg.norm(p_vec)  # start == end (degenerate segment)
+        t = np.clip(np.dot(p_vec, line_vec) / line_len2, 0, 1)
+        projection = start + t * line_vec
+        return np.linalg.norm(point - projection)
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> tuple[np.ndarray, np.ndarray]:
+        if isinstance(sd, pp.Grid):
+            coords = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            coords = sd.cell_centers.T
+        else:
+            raise ValueError(f"Unsupported type {type(sd)}. Expected Grid or BoundaryGrid.")
+
+        boundary_faces = self.domain_boundary_sides(sd)
+        bf_indices = boundary_faces.all_bf
+
+        def filter_facets_by_lines(
+            coverages: list[tuple[np.ndarray, np.ndarray]],
+            tol: float = 1e-8
+        ) -> np.ndarray:
+            selected = []
+            for i, pt in enumerate(coords[bf_indices]):
+                for start, end in coverages:
+                    if self.point_line_distance(pt, start, end) < tol:
+                        selected.append(bf_indices[i])
+                        break
+            return np.array(selected, dtype=int)
+
+        inlet_facets = np.array([], dtype=int)
+        # inlet_facets = filter_facets_by_box(self._inlet_coverage)
+        outlet_facets = filter_facets_by_lines(self._outlet_coverage)
+        return inlet_facets, outlet_facets
+    
+    def get_well_cells(self, well_type: str) -> list[pp.Grid]:
+        return [sd for sd in self.mdg.subdomains(dim=0) if sd.tags.get(f"{well_type}_well") is not None]
+    
+    def filter_wells(
+        self,
+        subdomains: Sequence[pp.Grid],
+        well_type: Literal["production", "injection"],
+    ) -> tuple[list[pp.Grid], list[pp.Grid]]:
+        """Helper method to return the partitioning of subdomains into wells of defined
+        ``well_type`` and other grids.
+
+        Parameters:
+            subdomains: A list of subdomains.
+            well_type: Well type to filter out (injector or producer).
+
+        Returns:
+            A  2-tuple containing
+            1. All 0D grids tagged as wells of type ``well_type``.
+            2. All other grids found in ``subdomains``.
+
+        """
+        tag = f"{well_type}_well"
+        wells = [sd for sd in subdomains if sd.dim == 0 and tag in sd.tags]
+        other_sds = [sd for sd in subdomains if sd not in wells]
+        return wells, other_sds
+
+
+class DomainFractureWellLeftDirichlet2D(Geometry):
+    """A class to represent a simple 2D geometry for a simulation domain. 
+
+    """
+
+    _number_of_fractures: int = 15
+    _domain_x_length: float = 100.0
+    _domain_y_length: float = 30.0
+    _dist_from_ref_point: float = 5.0
+
+    # Corners of the rectangle (in CCW order)
+    _bottom_left = np.array([0.0, 0.0, 0.0])
+    _bottom_right = np.array([_domain_x_length, 0.0, 0.0])
+    _top_right = np.array([_domain_x_length, _domain_y_length, 0.0])
+    _top_left = np.array([0.0, _domain_y_length, 0.0])
+
+    # Outlet coverage (example: right boundary)
+    _outlet_coverage: list[tuple[np.ndarray, np.ndarray]] = [
+        (_top_left, _bottom_left)
+    ]
+
+    # Inlet coverage (all 4 sides)
+    _inlet_coverage: list[tuple[np.ndarray, np.ndarray]] = [
+        # (_bottom_left,  _bottom_right),  # bottom
+        # (_bottom_right, _top_right),     # right
+        # (_top_right,    _top_left),      # top
+        # (_top_left,     _bottom_left),   # left
+    ]
+    prod_x_point: float = _domain_x_length - 15.0
+    prod_y_point: float = _domain_y_length*0.5
+
+    _injection_points: list[np.ndarray] = [
+        np.array([_domain_x_length-prod_x_point, prod_y_point])
+    ]
+    _production_points: list[np.ndarray] = [
+        np.array([prod_x_point, prod_y_point])
+    ]
+
+    def set_domain(self) -> None:
+        x_length_in_m = self.units.convert_units(self._domain_x_length, "m")
+        y_length_in_m = self.units.convert_units(self._domain_y_length, "m")
+        box: dict[str, pp.number] = {
+            "xmax": x_length_in_m,
+            "ymax": y_length_in_m
+        }
+        self._domain = pp.Domain(box)
+    
+    def set_fractures(self) -> None:
+        # """Define fractures that are connected!"""
+        # x_start, x_end = 15.0, self._domain_x_length - 15.0
+        # y_start, y_end = 10.0, self._domain_y_length - 15.0
+        
+        f1 = pp.LineFracture(np.array([
+            [self._production_points[0][0]-4, 90],
+            [11.0, 11.0]
+        ]))
+        f2 = pp.LineFracture(np.array([
+            [self._production_points[0][0]-40, 90-30],
+            [14.0, 14.0]
+        ]))
+        f3 = pp.LineFracture(np.array([
+            [self._production_points[0][0]-35, 90-30],
+            [14.5, 8.0]
+        ]))
+        frac1 = pp.LineFracture(np.array([
+            [self._production_points[0][0], self._production_points[0][0]+7.0],
+            [self._production_points[0][1], self._production_points[0][1]- 5.0]
+        ]))
+        ### Connect to left boundary
+        f4 = pp.LineFracture(np.array([
+            [1.0, 10.0],
+            [20.0, 18.0]
+        ]))
+        f5 = pp.LineFracture(np.array([
+            [1.0, 12.0],
+            [15.0, 14.0]
+        ]))
+        f6 = pp.LineFracture(np.array([
+            [1.0, 12.0],
+            [10.0, 15.0]
+        ]))
+        f7 = pp.LineFracture(np.array([
+            [1.0, 12.0],
+            [5.0, 12.0]
+        ]))
+        f8 = pp.LineFracture(np.array([
+            [1.0, 12.0],
+            [25.0, 20.0]
+        ]))
+
+        f9 = pp.LineFracture(np.array([
+            [15.0, 20.0],
+            [6.0, 4.0]
+        ]))
+        f10 = pp.LineFracture(np.array([
+            [10.0, 30.0],
+            [3.0, 10.0]
+        ]))
+        
+        self._fractures = [
+            f2, f3,
+            #frac1, 
+            f1,
+            f4, f5, f6, f7, f8,
+            f10  # f9
+            # frac1, frac2, frac3,
+            # frac4, frac5
+            # frac7
+            # f2, f3, f4, f5, f6
+        ]
+    
+    def set_fractures_many(self) -> None:
+        """Define one diagonal fracture and add randomly generated ones."""
+        np.random.seed(42)  # Optional for reproducibility
+        x_min, y_min = 0.0, 0.0
+        x_max = self._domain_x_length
+        y_max = self._domain_y_length
+        domain_width = x_max - x_min
+        domain_height = y_max - y_min
+        min_length = 3.0
+        max_length = 15.0
+
+        fractures = []
+        for _ in range(self._number_of_fractures):
+            # Random center within bounds
+            x_center = np.random.uniform(x_min + 0.1 * domain_width, x_max - 0.1 * domain_width)
+            y_center = np.random.uniform(y_min + 0.1 * domain_height, y_max - 0.1 * domain_height)
+
+            # Random angle and length
+            theta = np.random.uniform(0, np.pi)
+            length = np.random.uniform(min_length, max_length)
+
+            dx = 0.5 * length * np.cos(theta)
+            dy = 0.5 * length * np.sin(theta)
+
+            x0, x1 = x_center - dx, x_center + dx
+            y0, y1 = y_center - dy, y_center + dy
+
+            coords = np.array([[x0, x1], [y0, y1]])
+            fractures.append(pp.LineFracture(coords))
+        self._fractures = fractures
+      
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "simplex")
+        # return self.params.get("grid_type", "cartesian")
+ 
+    def meshing_arguments(self) -> dict:
+        cell_size = self.units.convert_units(2.0, "m")
+        frac_cell_size = self.units.convert_units(2.0, "m")
+        mesh_args: dict[str, float] = {
+            "cell_size": cell_size,
+            "cell_size_fracture": frac_cell_size
+        }
+        # set to trigger adaptive meshing arround production well.
+        GI.BACKGROUND_FIELD_CB = install_annulus_bg(
+            x0=self._production_points[0][0],
+            y0=self._production_points[0][1],
+            coarse=cell_size,
+            fine=1.5,  # .5 without fracture
+            radius_in=0.0,  # with r =0.0, refinement is is uniform!
+            radius_out=6.0,
+            k=100.0
+        )
+        return mesh_args
+    
+    def set_geometry(self):
+        """Create the injection and production wells."""
+
+        super().set_geometry()
+        for i, injection_point in enumerate(self._injection_points):
+            self._add_well(injection_point, i, "injection", is_multiple_cells=False)
+
+        for i, production_point in enumerate(self._production_points):
+            self._add_well(production_point, i, "production", is_multiple_cells=False)
+    
+    def closest_face(self, grid: pp.Grid, point: np.ndarray) -> int:
+        """Return index of closest face center to given point."""
+        dists = np.linalg.norm(grid.face_centers - point.reshape(-1, 1), axis=0)
+        return int(np.argmin(dists))
+    
+    def _add_well(
+        self, point,
+        well_index,
+        well_type,
+        radius=1.1,
+        is_multiple_cells: bool = False
+    ):
+        """Insert well as multiple 0D grids, each coupled to one matrix cell."""
+
+        matrix = self.mdg.subdomains(dim=self.domain.dim)[0]
+
+        # Find candidate cells within radius
+        dist = np.linalg.norm(matrix.cell_centers[:2, :] - point[:, None], axis=0)
+        candidate_cells = np.where(dist < radius)[0]
+        if is_multiple_cells:
+            for c in candidate_cells:
+                # Create 0D grid for each connection
+                p = np.zeros(3)
+                p[:2] = point
+                sd_0d = pp.PointGrid(p)
+                sd_0d.tags[f"{well_type}_well"] = well_index
+                sd_0d.compute_geometry()
+                self.mdg.add_subdomains(sd_0d)
+
+                # One-to-one mapping: single well cell → single matrix cell
+                cell_well = np.array([0], dtype=int)
+                cell_cell_map = sps.coo_matrix(
+                    (np.ones(1, dtype=bool), (cell_well, np.array([c]))),
+                    shape=(sd_0d.num_cells, matrix.num_cells),
+                )
+
+                # Add interface
+                _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
+        else:
+            self._add_well_inj(point, well_index, well_type)
+
+    def _add_well_inj(
+        self,
+        point: np.ndarray,
+        well_index: int,
+        well_type: Literal["injection", "production"],
+    ) -> None:
+        """Insert single well as point grid and connect to matrix."""
+
+        # Convert to 3D coordinates (for porepy PointGrid)
+        p = np.zeros(3)
+        p[:2] = point
+
+        # Create 0D grid
+        sd_0d = pp.PointGrid(p)
+        sd_0d.tags[f"{well_type}_well"] = well_index
+        sd_0d.compute_geometry()
+
+        # This object must have been passed or prepared by a mixin
+        self.mdg.add_subdomains(sd_0d)
+
+        # Couple well to the matrix (0D <--> 2D coupling is allowed with wells in PorePy)
+        matrix = self.mdg.subdomains(dim=self.domain.dim)[0]
+        cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
+        cell_well = np.array([0], dtype=int)
+        cell_cell_map = sps.coo_matrix(
+            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
+            shape=(sd_0d.num_cells, matrix.num_cells),
+        )
+        _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
+
+    def point_line_distance(self, point: np.ndarray, start: np.ndarray, end: np.ndarray) -> float:
+        """Shortest distance between a point and a line segment in 2D or 3D."""
+        line_vec = end - start
+        p_vec = point - start
+        line_len2 = np.dot(line_vec, line_vec)
+        if line_len2 == 0:
+            return np.linalg.norm(p_vec)  # start == end (degenerate segment)
+        t = np.clip(np.dot(p_vec, line_vec) / line_len2, 0, 1)
+        projection = start + t * line_vec
+        return np.linalg.norm(point - projection)
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> tuple[np.ndarray, np.ndarray]:
+        if isinstance(sd, pp.Grid):
+            coords = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            coords = sd.cell_centers.T
+        else:
+            raise ValueError(f"Unsupported type {type(sd)}. Expected Grid or BoundaryGrid.")
+
+        boundary_faces = self.domain_boundary_sides(sd)
+        bf_indices = boundary_faces.all_bf
+
+        def filter_facets_by_lines(
+            coverages: list[tuple[np.ndarray, np.ndarray]],
+            tol: float = 1e-8
+        ) -> np.ndarray:
+            selected = []
+            for i, pt in enumerate(coords[bf_indices]):
+                for start, end in coverages:
+                    if self.point_line_distance(pt, start, end) < tol:
+                        selected.append(bf_indices[i])
+                        break
+            return np.array(selected, dtype=int)
+
+        inlet_facets = np.array([], dtype=int)
+        # inlet_facets = filter_facets_by_box(self._inlet_coverage)
+        outlet_facets = filter_facets_by_lines(self._outlet_coverage)
+        return inlet_facets, outlet_facets
+    
     def get_well_cells(self, well_type: str) -> list[pp.Grid]:
         return [sd for sd in self.mdg.subdomains(dim=0) if sd.tags.get(f"{well_type}_well") is not None]
     
