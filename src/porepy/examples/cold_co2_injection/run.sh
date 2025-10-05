@@ -46,10 +46,10 @@ echo "--- SIMULATION 19 / 22 COMPLETED ---"
 #Run most refined cases, with pT expected to fail.
 python3 ./run.py -e ph -r 3 -t 2 -s 3 -m 24
 echo "--- SIMULATION 20 / 22 COMPLETED ---"
-python3 ./run.py -e pT -r 3 -t 2 -s 3 -m 24
-echo "--- SIMULATION 21 / 22 COMPLETED ---"
-# Run Simulation for 2D plot
+# Run Simulation for 2D plot, like above but with times scheduled in time stepping
 python3 ./run.py -p
+echo "--- SIMULATION 21 / 22 COMPLETED ---"
+python3 ./run.py -e pT -r 3 -t 2 -s 3 -m 24
 echo "--- SIMULATION 22 / 22 COMPLETED ---"
 #Plot results for analysis.
 python3 ./plot.py

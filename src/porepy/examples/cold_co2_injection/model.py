@@ -17,12 +17,66 @@ from collections import deque
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 import numpy as np
+import numba as nb
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.fracs.wells_3d import _add_interface
+from porepy.compositional.compiled_flash.eos_compiler import (
+    EoSCompiler,
+    ScalarFunction,
+    VectorFunction,
+)
+
+
+class ConstantTransportProperties(EoSCompiler):
+    """Constant viscosity and thermal conductivity for all phases.
+
+    Viscosity is set to 1e-3, thermal conductivity to 1.
+
+    """
+
+    def get_viscosity_function(self) -> ScalarFunction:
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1e-3
+
+        return mu_c
+
+    def get_viscosity_derivative_function(self) -> VectorFunction:
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def dmu_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dmu_c
+
+    def get_conductivity_function(self) -> ScalarFunction:
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            return 1.0
+
+        return kappa_c
+
+    def get_conductivity_derivative_function(self) -> VectorFunction:
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        def dkappa_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+        return dkappa_c
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -80,16 +134,20 @@ class FluidMixture(pp.PorePyModel):
         import porepy.compositional.peng_robinson.lbc_viscosity as lbc
         import numba as nb
 
-        class EoS(lbc.LBCViscosity, pr.PengRobinsonCompiler):
+        class PRLBC(lbc.LBCViscosity, pr.PengRobinsonCompiler):
+            """Peng-Robinson with LBC model for viscosity and constant thermal
+            conductivity with reference values for water in liquid (0.6) and vapor form
+            (0.06)."""
+
             def get_conductivity_function(self):
                 @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
                 def kappa_c(
                     prearg: np.ndarray, p: float, T: float, xn: np.ndarray
                 ) -> float:
                     if prearg[3] > 0:
-                        return 0.1
+                        return 0.06
                     else:
-                        return 1.0
+                        return 0.6
 
                 return kappa_c
 
@@ -106,7 +164,10 @@ class FluidMixture(pp.PorePyModel):
 
                 return dkappa_c
 
-        eos = pr.PengRobinsonCompiler(
+        class PRCT(ConstantTransportProperties, pr.PengRobinsonCompiler):
+            """Peng-Robinson with Constant Transport properties."""
+
+        eos = PRCT(
             components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
         )
         return [
@@ -775,14 +836,15 @@ class Permeability(pp.PorePyModel):
         assert len(subdomains) <= 1, "Expecting at most 1 grid as matrix."
 
         K_vals: list[np.ndarray] = [np.zeros((0,))]
+        K_w = float(self.params["_well_surrounding_permeability"])
 
         for sd in subdomains:
             k = np.ones(sd.num_cells)
             if sd.dim == self.nd:
                 k *= self.solid.permeability
                 l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
-                k[sd.cell_centers[0] < l] *= 1e1
-                k[sd.cell_centers[0] > r] *= 1e1
+                k[sd.cell_centers[0] < l] = K_w
+                k[sd.cell_centers[0] > r] = K_w
             K_vals.append(k)
 
         K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(

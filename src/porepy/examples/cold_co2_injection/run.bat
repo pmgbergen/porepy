@@ -1,5 +1,4 @@
 :: Call the ph flash with the first refinement and minimal local tolerance and test strides.
-goto :testing
 echo "--- SIMULATION 0 / 22 COMPLETED ---"
 :optimalstride
 call python.exe ./run.py -e ph -r 0 -t 7 -s -1 -m 6
@@ -49,13 +48,10 @@ echo "--- SIMULATION 19 / 22 COMPLETED ---"
 :: Run most refined cases, with pT expected to fail.
 :highrefinement
 call python.exe ./run.py -e ph -r 3 -t 2 -s 3 -m 24
-echo "--- SIMULATION 20 / 22 COMPLETED ---"
-:testing
-call python.exe ./run.py -e pT -r 3 -t 2 -s 3 -m 24
-echo "--- SIMULATION 21 / 22 COMPLETED ---"
-:: Run Simulation for 2D plot
-:plot2d
+:: Run Simulation for 2D plot, like above but with times scheduled in time stepping
 call python.exe ./run.py -p
+echo "--- SIMULATION 21 / 22 COMPLETED ---"
+call python.exe ./run.py -e pT -r 3 -t 2 -s 3 -m 24
 echo "--- SIMULATION 22 / 22 COMPLETED ---"
 :: Plot results for analysis.
 :plot

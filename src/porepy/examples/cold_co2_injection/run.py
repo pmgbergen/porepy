@@ -89,6 +89,20 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # mypy: ignore-errors
 
 
+def get_file_name(
+    condition: str,
+    refinement: int,
+    flash_tol_case: int = 7,
+    flash_stride: int = 3,
+    rel_perm: Literal["quadratic", "linear"] = "linear",
+    num_months: int = 24,
+) -> str:
+    return (
+        f"{condition}_h{refinement}_ftol{flash_tol_case}"
+        f"_fstride{flash_stride}_{rel_perm}_m{num_months}"
+    )
+
+
 def get_path(
     condition: str,
     refinement: int,
@@ -100,10 +114,10 @@ def get_path(
 ) -> pathlib.Path:
     """ "Returns path to result data for a simulation case."""
     if file_name is None:
-        file_name = (
-            f"stats_{condition}_h{refinement}"
-            f"_ftol{flash_tol_case}_fstride{flash_stride}_{rel_perm}_m{num_months}.json"
+        file_name = get_file_name(
+            condition, refinement, flash_tol_case, flash_stride, rel_perm, num_months
         )
+        file_name = f"stats_{file_name}.json"
     return pathlib.Path(f"{FOLDER}{file_name}")
 
 
@@ -472,7 +486,7 @@ if __name__ == "__main__":
     }
 
     basalt_ = basalt.copy()
-    basalt_["permeability"] = 1e-14
+    well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 
     flash_params: dict[Any, Any] = {
@@ -547,15 +561,25 @@ if __name__ == "__main__":
         "flash_compiler_args": ("p-T", "p-h"),
     }
 
-    if not RUN_WITH_SCHEDULE:
-        model_params["times_to_export"] = []
-    # else:
-    #     model_params["times_to_export"] = time_schedule
-
     model_params.update(phase_property_params)
     model_params.update(restart_params)
     model_params.update(meshing_params)
     model_params.update(solver_params)
+    model_params["_well_surrounding_permeability"] = well_surrounding_permeability
+    # Storing simulation results in individual folder.
+
+    if file_name is None:
+        data_path = get_file_name(
+            condition=EQUILIBRIUM_CONDITION,
+            refinement=REFINEMENT_LEVEL,
+            flash_tol_case=FLASH_TOL_CASE,
+            flash_stride=LOCAL_SOLVER_STRIDE,
+            rel_perm=REL_PERM,
+            num_months=NUM_MONTHS,
+        )
+    else:
+        data_path = "ph_scheduled"
+    model_params["folder_name"] = f"visualization/{data_path}"
 
     if FRACTIONAL_FLOW:
         model_class = ColdCO2InjectionModelFF
