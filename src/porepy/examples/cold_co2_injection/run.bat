@@ -29,7 +29,7 @@ call python.exe ./run.py -e ph -r 0 -t 5 -s 3 -m 6
 echo "--- SIMULATION 12 / 22 COMPLETED ---"
 call python.exe ./run.py -e ph -r 0 -t 6 -s 3 -m 6
 echo "--- SIMULATION 13 / 22 COMPLETED ---"
-:: NOTE below config is also run in line 7
+:: NOTE below config is also run in line 10
 :: call python.exe ./run.py -e ph -r 0 -t 7 -s 3 -m 6
 :: Run all cases with optimal stride and local tolerance.
 :comparison
@@ -45,7 +45,7 @@ call python.exe ./run.py -e pT -r 2 -t 2 -s 3 -m 24
 echo "--- SIMULATION 18 / 22 COMPLETED ---"
 call python.exe ./run.py -e ph -r 2 -t 2 -s 3 -m 24
 echo "--- SIMULATION 19 / 22 COMPLETED ---"
-:: Run most refined cases, with pT expected to fail.
+:: Run most refined cases.
 :highrefinement
 call python.exe ./run.py -e ph -r 3 -t 2 -s 3 -m 24
 :: Run Simulation for 2D plot, like above but with times scheduled in time stepping

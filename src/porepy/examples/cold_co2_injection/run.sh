@@ -43,7 +43,7 @@ python3 ./run.py -e pT -r 2 -t 2 -s 3 -m 24
 echo "--- SIMULATION 18 / 22 COMPLETED ---"
 python3 ./run.py -e ph -r 2 -t 2 -s 3 -m 24
 echo "--- SIMULATION 19 / 22 COMPLETED ---"
-#Run most refined cases, with pT expected to fail.
+#Run most refined cases.
 python3 ./run.py -e ph -r 3 -t 2 -s 3 -m 24
 echo "--- SIMULATION 20 / 22 COMPLETED ---"
 # Run Simulation for 2D plot, like above but with times scheduled in time stepping
