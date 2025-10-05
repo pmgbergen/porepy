@@ -26,7 +26,15 @@ from ..materials import FluidComponent
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8,
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -68,7 +76,15 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8,
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -112,7 +128,14 @@ def _dmu_pure_dT(
     return mus
 
 
-@nb.njit(nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@nb.njit(
+    [
+        nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8(nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
+    ],
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
     """Mixture viscosity at low pressure..
 
@@ -136,7 +159,15 @@ def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
 
 
 @nb.njit(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
+        nb.f8[:](
+            nb.f8[:],
+            nb.f8[:],
+            nb.f8[:, :],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -182,7 +213,15 @@ def _dmu_zero(
 
 
 @nb.njit(
-    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8(
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -214,7 +253,15 @@ def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> flo
 
 
 @nb.njit(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -253,7 +300,14 @@ def _dxi(
     return (dn * d - n * dd) / (d**2)
 
 
-@nb.njit(nb.f8(nb.f8, nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8[:], nb.f8[:]),
+        nb.f8(nb.f8, nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
+    ],
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def _reduced_pseudo_density(
     rho: float,
     x: np.ndarray,
@@ -279,7 +333,14 @@ def _reduced_pseudo_density(
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8, nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)
+        ),
+    ],
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def _d_reduced_pseudo_density(
     rho: float,
@@ -310,7 +371,17 @@ def _d_reduced_pseudo_density(
 
 
 @nb.njit(
-    nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8(
+            nb.f8,
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -361,7 +432,18 @@ def _mu_correction(
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8,
+            nb.f8[:],
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -457,10 +539,10 @@ class LBCViscosity(EoSCompiler):
         """Critical specific volume per component in [m^3/mol]."""
 
     def get_viscosity_function(self) -> ScalarFunction:
-        mws = self._mws
-        tc = self._tc
-        pc = self._pc
-        vc = self._vc
+        mws = self._mws.copy()
+        tc = self._tc.copy()
+        pc = self._pc.copy()
+        vc = self._vc.copy()
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
@@ -482,10 +564,10 @@ class LBCViscosity(EoSCompiler):
         return mu_c
 
     def get_viscosity_derivative_function(self) -> VectorFunction:
-        mws = self._mws
-        tc = self._tc
-        pc = self._pc
-        vc = self._vc
+        mws = self._mws.copy()
+        tc = self._tc.copy()
+        pc = self._pc.copy()
+        vc = self._vc.copy()
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]

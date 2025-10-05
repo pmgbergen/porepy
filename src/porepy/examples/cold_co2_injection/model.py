@@ -13,7 +13,6 @@ Note:
 
 from __future__ import annotations
 
-import time
 from collections import deque
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
@@ -88,11 +87,24 @@ class FluidMixture(pp.PorePyModel):
                     prearg: np.ndarray, p: float, T: float, xn: np.ndarray
                 ) -> float:
                     if prearg[3] > 0:
-                        return 0.03
+                        return 0.1
                     else:
-                        return 0.6
+                        return 1.0
 
                 return kappa_c
+
+            def get_conductivity_derivative_function(self):
+                @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+                def dkappa_c(
+                    prearg_val: np.ndarray,
+                    prearg_jac: np.ndarray,
+                    p: float,
+                    T: float,
+                    xn: np.ndarray,
+                ) -> np.ndarray:
+                    return np.zeros(2 + xn.shape[0], dtype=np.float64)
+
+                return dkappa_c
 
         eos = pr.PengRobinsonCompiler(
             components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)

@@ -445,7 +445,7 @@ if __name__ == "__main__":
 
     newton_tol = 1e-7
     newton_tol_increment = 5e-6
-    dt_init = pp.DAY
+    dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
         time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
@@ -462,7 +462,7 @@ if __name__ == "__main__":
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
         recomp_factor=0.6,
-        recomp_max=15,
+        recomp_max=10,
         print_info=True,
         rtol=0.0,
     )
@@ -547,10 +547,10 @@ if __name__ == "__main__":
         "flash_compiler_args": ("p-T", "p-h"),
     }
 
-    if RUN_WITH_SCHEDULE:
-        model_params["times_to_export"] = time_schedule
-    else:
+    if not RUN_WITH_SCHEDULE:
         model_params["times_to_export"] = []
+    # else:
+    #     model_params["times_to_export"] = time_schedule
 
     model_params.update(phase_property_params)
     model_params.update(restart_params)
