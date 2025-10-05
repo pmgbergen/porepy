@@ -417,9 +417,19 @@ if __name__ == "__main__":
         NUM_MONTHS = 24
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
-        file_name = "stats_ph_scheduled.json"
+        data_path = "ph_scheduled"
+        file_name = f"stats_{data_path}.json"
     else:
         print("--- start of run script ---\n")
+        data_path = get_file_name(
+            condition=EQUILIBRIUM_CONDITION,
+            refinement=REFINEMENT_LEVEL,
+            flash_tol_case=FLASH_TOL_CASE,
+            flash_stride=LOCAL_SOLVER_STRIDE,
+            rel_perm=REL_PERM,
+            num_months=NUM_MONTHS,
+        )
+    data_path = f"visualization/{data_path}"
 
     print(
         f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
@@ -428,20 +438,7 @@ if __name__ == "__main__":
         f"Local iteration stride: {LOCAL_SOLVER_STRIDE}\n"
         f"Number of months: {NUM_MONTHS}\n"
         f"Relative permeability: {REL_PERM}\n"
-        f"Time schedule: {RUN_WITH_SCHEDULE}"
-    )
-    print(
-        f"Results stored in: {
-            get_path(
-                condition=EQUILIBRIUM_CONDITION,
-                refinement=REFINEMENT_LEVEL,
-                flash_tol_case=FLASH_TOL_CASE,
-                flash_stride=LOCAL_SOLVER_STRIDE,
-                rel_perm=REL_PERM,
-                num_months=NUM_MONTHS,
-                file_name=file_name,
-            ).resolve()
-        }\n"
+        f"Time schedule: {RUN_WITH_SCHEDULE}\n"
     )
 
     # endregion
@@ -486,6 +483,7 @@ if __name__ == "__main__":
     }
 
     basalt_ = basalt.copy()
+    basalt_["permeability"] = 1e-15
     well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 
@@ -567,19 +565,7 @@ if __name__ == "__main__":
     model_params.update(solver_params)
     model_params["_well_surrounding_permeability"] = well_surrounding_permeability
     # Storing simulation results in individual folder.
-
-    if file_name is None:
-        data_path = get_file_name(
-            condition=EQUILIBRIUM_CONDITION,
-            refinement=REFINEMENT_LEVEL,
-            flash_tol_case=FLASH_TOL_CASE,
-            flash_stride=LOCAL_SOLVER_STRIDE,
-            rel_perm=REL_PERM,
-            num_months=NUM_MONTHS,
-        )
-    else:
-        data_path = "ph_scheduled"
-    model_params["folder_name"] = f"visualization/{data_path}"
+    model_params["folder_name"] = data_path
 
     if FRACTIONAL_FLOW:
         model_class = ColdCO2InjectionModelFF
@@ -628,7 +614,7 @@ if __name__ == "__main__":
         pp.run_time_dependent_model(model, model_params)
     except Exception as err:
         SIMULATION_SUCCESS = False
-        print(f"SIMULATION FAILED: {err}")
+        print(f"\nSIMULATION FAILED: {err}")
         n = model.nonlinear_solver_statistics.num_iteration
         model._time_tracker["linsolve"] = model._time_tracker["linsolve"][:-n]
         model._time_tracker["assembly"] = model._time_tracker["assembly"][:-n]
@@ -689,5 +675,6 @@ if __name__ == "__main__":
         "w",
     ) as result_file:
         json.dump(data, result_file)
-    print(f"Results saved at {str(path.resolve())}")
-    print("\n--- end of run script ---")
+    print(f"\nStatistics saved in: {str(path.resolve())}")
+    print(f"Visualization data saved in: {str(pathlib.Path(data_path).resolve())}\n")
+    print("--- end of run script ---")
