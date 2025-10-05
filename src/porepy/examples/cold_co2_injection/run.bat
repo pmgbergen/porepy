@@ -48,7 +48,8 @@ echo "--- SIMULATION 19 / 22 COMPLETED ---"
 :: Run most refined cases.
 :highrefinement
 call python.exe ./run.py -e ph -r 3 -t 2 -s 3 -m 24
-:: Run Simulation for 2D plot, like above but with times scheduled in time stepping
+echo "--- SIMULATION 20 / 22 COMPLETED ---"
+:: Run Simulation for 2D plot with time schedule
 call python.exe ./run.py -p
 echo "--- SIMULATION 21 / 22 COMPLETED ---"
 call python.exe ./run.py -e pT -r 3 -t 2 -s 3 -m 24

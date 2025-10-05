@@ -483,7 +483,7 @@ if __name__ == "__main__":
     }
 
     basalt_ = basalt.copy()
-    basalt_["permeability"] = 1e-15
+    basalt_["permeability"] = 1e-14
     well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 
