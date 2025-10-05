@@ -32,7 +32,7 @@ FLASH_TOL_CASE: int = 2
 """Define the flash tolerance used in the solution procedure."""
 LOCAL_SOLVER_STRIDE: int = 3
 """Ïnteger determining every which global iteration to start the local solver."""
-NUM_MONTHS: int = 24
+NUM_MONTHS: int = 20
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
@@ -435,7 +435,7 @@ if __name__ == "__main__":
         REFINEMENT_LEVEL = 3
         FLASH_TOL_CASE = 2
         LOCAL_SOLVER_STRIDE = 3
-        NUM_MONTHS = 24
+        NUM_MONTHS = 20
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
         data_path = "ph_scheduled"
