@@ -370,7 +370,7 @@ if __name__ == "__main__":
         "-p",
         "--plot",
         action="store_true",
-        help="Run simulation with settings for 2D plot, including quadratic rel-perms.",
+        help="Run simulation with settings for 2D plot, including a time schedule every 30 days in the time stepping.",
     )
 
     args = parser.parse_args()
