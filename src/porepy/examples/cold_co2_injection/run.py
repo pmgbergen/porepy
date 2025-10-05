@@ -1,4 +1,25 @@
-""" "Run script for the CO2 injection model."""
+"""Run script for the cold CO2 injection model.
+
+Script is executable from command line. For a list of possible flags and
+model configurations run
+
+Windows:
+
+> python.exe ./run.py --help
+
+Linux:
+
+> python run.py --help
+
+
+Note:
+    The code within the docker image from Zenodo should be static and unchanging for
+    all time.
+    There is also a repository on Github containing a snapshot of the code, which is
+    perhaps easier accessible. But the continuous availability of that repo is not
+    guaranteed.
+
+"""
 
 from __future__ import annotations
 
