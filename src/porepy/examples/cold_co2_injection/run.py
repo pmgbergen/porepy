@@ -372,7 +372,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--plot",
-        action="store_true",
+        # action="store_true",
+        nargs=1,
+        default=0,
+        type=int,
         help="Run simulation with settings for 2D plot, including a time schedule every 30 days in the time stepping.",
     )
 
@@ -496,7 +499,7 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(10 * pp.MINUTE, dt_max),
+        dt_min_max=(1 * pp.HOUR, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),

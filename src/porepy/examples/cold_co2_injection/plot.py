@@ -103,7 +103,7 @@ def load_data(
     flash_tol_case: int = 2,
     flash_stride: int | None = 3,
     rel_perm: Literal["quadratic", "linear"] = "linear",
-    num_months: int = 24,
+    num_months: int = 20,
 ) -> SimulationData:
     path = get_path(
         condition=condition,
@@ -350,7 +350,7 @@ data: dict[EquilibriumCondition, dict[int, SimulationData]] = {
                     flash_tol_case=2,
                     flash_stride=3,
                     rel_perm="linear",
-                    num_months=24,
+                    num_months=20,
                 ),
             )
             for i in range(len(MESH_SIZES))
@@ -366,7 +366,7 @@ data: dict[EquilibriumCondition, dict[int, SimulationData]] = {
                     flash_tol_case=2,
                     flash_stride=3,
                     rel_perm="linear",
-                    num_months=24,
+                    num_months=20,
                 ),
             )
             for i in range(len(MESH_SIZES))
@@ -569,7 +569,7 @@ D = load_data(
     flash_tol_case=2,
     flash_stride=3,
     rel_perm="linear",
-    num_months=24,
+    num_months=20,
 )
 
 t = np.array(D["t"]) / (3600 * 24)
@@ -737,7 +737,7 @@ ax.set_yscale("symlog", linthresh=1)
 ticks = np.concatenate((ax.get_xticks(), np.array([t_indices.max()]))).astype(int)
 ax.set_xticks(ticks)
 ticks = ax.get_yticks()
-ticks = np.concatenate([ticks, np.array([24 * 30]).astype(int)])
+ticks = np.concatenate([ticks, np.array([20 * 30]).astype(int)])
 ax.set_yticks(ticks)
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
