@@ -19,6 +19,11 @@ Note:
     perhaps easier accessible. But the continuous availability of that repo is not
     guaranteed.
 
+Note:
+    For some reason, the flag ``-p`` must be given a value, otherwise the parsing won't
+    work when executing from bash script. Any integer must be given, value is meaningless.
+    Just a work-around.    
+
 """
 
 from __future__ import annotations
@@ -52,6 +57,9 @@ BUOYANCY_ON: bool = False
 """Turn on buoyancy. NOTE: This is still under development."""
 FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
+LBC_VISCOSITY: bool = False
+"""Uses the LBC model for viscosity. Otherwise it uses constant transport properties,
+equal for all phases."""
 
 MESH_SIZES: dict[int, float] = {
     0: 4.0,  # 308 cells
@@ -369,7 +377,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--plot",
-        action="store_true",
+        # action="store_true",
+        nargs=1,
+        default=0,
+        type=int,
         help="Run simulation with settings for 2D plot, including a time schedule every 30 days in the time stepping.",
     )
 
@@ -475,8 +486,12 @@ if __name__ == "__main__":
         max_iterations = 50
         iter_range = (36, 45)
 
-    newton_tol = 1e-7
-    newton_tol_increment = 5e-6
+    if LBC_VISCOSITY:
+        newton_tol = 2e-5
+        newton_tol_increment = 1e-5
+    else:
+        newton_tol = 1e-7
+        newton_tol_increment = 5e-6
     dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
@@ -489,7 +504,7 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(10 * pp.MINUTE, dt_max),
+        dt_min_max=(1 * pp.HOUR, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
@@ -587,6 +602,7 @@ if __name__ == "__main__":
     model_params["_well_surrounding_permeability"] = well_surrounding_permeability
     # Storing simulation results in individual folder.
     model_params["folder_name"] = data_path
+    model_params["_lbc_viscosity"] = LBC_VISCOSITY
 
     if FRACTIONAL_FLOW:
         model_class = ColdCO2InjectionModelFF
