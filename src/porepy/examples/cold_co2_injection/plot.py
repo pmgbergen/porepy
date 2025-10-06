@@ -872,7 +872,7 @@ for i, hmesh in MESH_SIZES.items():
             f"{ngiph} ({dph['total_num_global_iter'] - ngiph})"
         )
         rows["Total number of local iterations"].append(
-            f"{nfiph} ({dph['total_num_flash_iter'] - nfiph})"
+            f"{dph['total_num_flash_iter']}"
         )
     else:
         for k in rows:
@@ -888,7 +888,7 @@ for i, hmesh in MESH_SIZES.items():
             f"{ngipt} ({dpt['total_num_global_iter'] - ngipt})"
         )
         rows["Total number of local iterations"].append(
-            f"{nfipt} ({dpt['total_num_flash_iter'] - nfipt})"
+            f"{dpt['total_num_flash_iter']}"
         )
     else:
         for k in rows:
