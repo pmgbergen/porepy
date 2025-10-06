@@ -231,28 +231,37 @@ ax.set_xlabel("Local tolerance", fontsize=FONTSIZE + 2)
 ax.set_xticks(ftols)
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_xscale("log")
+ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
 ax.set_yscale("log")
-ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-ax.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+
+mav = tngi.max()
+miv = tngi.min()
+ticks = ax.get_yticks()
+ticks = ticks[ticks < mav - 200]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
+ax.set_yticks(ticks)
 ticks = ax.get_yticks(minor=True)
-mv = tngi.max()
-ticks = ticks[ticks < mv]
-ticks = np.concatenate([ticks, np.array([tngi.max()])]).astype(int)
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
 ax.set_yticks(ticks, minor=True)
+ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+# ax.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
 
 axr.set_ylabel("Total local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
-ticks = axr.get_yticks(minor=True)
+# axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+ticks = axr.get_yticks()
 miv = tnfi.min()
 mav = tnfi.max()
 ticks = ticks[ticks < mav]
 ticks = ticks[ticks > miv]
 ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
-axr.set_yticks(ticks, minor=True)
+axr.set_yticks(ticks)
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
 
 ax.margins(0.10)
 axr.margins(0.10)
@@ -304,6 +313,7 @@ ax.set_xlabel("Iteration stride", fontsize=FONTSIZE + 2)
 ax.set_xticks(strides, [str(None)] + LOCAL_STRIDES[1:])
 ax.set_ylabel("Total global iterations", color="black", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
+ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_yscale("log")
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
@@ -321,6 +331,7 @@ ticks = ticks[ticks < mav]
 ticks = ticks[ticks > miv]
 ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
 axr.set_yticks(ticks)
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
 
 ax.margins(0.1)
 axr.margins(0.1)
@@ -437,8 +448,17 @@ M = int(np.hstack((ngi[1], nli[1])).max())
 if np.any(~success):
     print("pT failures", ngi[0][~success])
     ax.plot(
-        ngi[0][~success],
-        ngi[1][~success],
+        np.concatenate([ngi[0][~success], nli[0][~success]]),
+        np.concatenate([ngi[1][~success], nli[1][~success]]),
+        color="red",
+        marker="X",
+        markersize=MARKERSIZE + 3,
+        linestyle="",
+        label="pT-failure",
+    )
+    axr.plot(
+        nfi[0][~success],
+        nfi[1][~success],
         color="red",
         marker="X",
         markersize=MARKERSIZE + 3,
@@ -503,8 +523,17 @@ if m > M:
 if np.any(~success):
     print("ph failures", ngi[0][~success])
     ax.plot(
-        ngi[0][~success],
-        ngi[1][~success],
+        np.concatenate([ngi[0][~success], nli[0][~success]]),
+        np.concatenate([ngi[1][~success], nli[1][~success]]),
+        color="red",
+        marker="X",
+        markersize=MARKERSIZE + 3,
+        linestyle="",
+        label="ph-failure",
+    )
+    axr.plot(
+        nfi[0][~success],
+        nfi[1][~success],
         color="red",
         marker="X",
         markersize=MARKERSIZE + 3,
@@ -521,12 +550,13 @@ ax.get_xaxis().set_minor_formatter(matplotlib.ticker.NullFormatter())
 ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_ylabel("Total global iterations", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="major", labelsize=FONTSIZE)
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 axr.get_yaxis().set_major_formatter(
     matplotlib.ticker.ScalarFormatter(useOffset=False, useMathText=True)
 )
 axr.set_ylabel("Total local iterations", fontsize=FONTSIZE + 2)
-axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
-axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
+axr.tick_params(axis="y", which="both", labelcolor="salmon", labelsize=FONTSIZE)
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
 
 ticks = ax.get_yticks()
 ticks = ticks[ticks < M - 90]
@@ -636,7 +666,8 @@ if np.any(rcid):
     b = n - a * m
     sizes = a * rid + b
 
-    ypos = float(np.max([ngi.max(), nli.max()]) + 20)
+    mav = np.max([ngi.max(), nli.max()])
+    ypos = float(1.1 * mav)
     imgs += [
         ax.scatter(
             tid,
@@ -672,6 +703,25 @@ axr.set_ylabel("Cell-averaged local iterations", color=color, fontsize=FONTSIZE 
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 
+mav = np.max((nli.max(), ngi.max()))
+miv = np.min((nli.min(), ngi.min()))
+ticks = ax.get_yticks()
+ticks = ticks[ticks > miv]
+ticks = ticks[ticks < mav]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
+ax.set_yticks(ticks)
+
+miv = nfi.min()
+mav = nfi.max()
+ticks = axr.get_yticks()
+ticks = ticks[ticks > miv]
+ticks = ticks[ticks < mav]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
+axr.set_yticks(ticks)
+
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+axr.yaxis.grid(visible=True, which="both", color=color, alpha=0.3, linewidth=0.5)
+
 ax.margins(0.05)
 axr.margins(0.05)
 
@@ -679,13 +729,13 @@ ax.legend(
     [i.get_label() for i in imgs],
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 1),
+    bbox_to_anchor=(1.15, 1),
 )
 axr.legend(
     [i.get_label() for i in imgsr],
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 0.6),
+    bbox_to_anchor=(1.15, 0.6),
 )
 fig.tight_layout(pad=FIGUREPAD)
 name = f"{FIGUREPATH}iterations_per_time_ph.png"
@@ -732,9 +782,13 @@ imgsr += axr.plot(
 
 ax.set_xlabel("Time step index", fontsize=FONTSIZE + 2)
 ax.set_ylabel("Time [d]", color="black", fontsize=FONTSIZE + 2)
+ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
 ax.set_yscale("symlog", linthresh=1)
-ticks = np.concatenate((ax.get_xticks(), np.array([t_indices.max()]))).astype(int)
+mav = t_indices.max()
+ticks = ax.get_xticks()
+ticks = ticks[ticks < mav-3]
+ticks = np.concatenate((ticks, np.array([mav]))).astype(int)
 ax.set_xticks(ticks)
 ticks = ax.get_yticks()
 ticks = np.concatenate([ticks, np.array([20 * 30]).astype(int)])
@@ -745,11 +799,19 @@ axr.set_ylabel("Time step size [d]", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.set_yscale("symlog", linthresh=1)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-axr.yaxis.grid(visible=True, which="major", color="orange", alpha=0.3, linewidth=0.5)
+axr.yaxis.grid(visible=True, which="major", color=color, alpha=0.3, linewidth=0.5)
 lim = axr.get_ylim()
+mav = dt.max()
+miv = dt.min()
 ticks = axr.get_yticks()
-ticks = np.concatenate([ticks, np.array([dt.max()])])
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
 axr.set_yticks(ticks)
+ticks = axr.get_yticks(minor=True)
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+axr.set_yticks(ticks, minor=True)
 
 ax.margins(0.1)
 axr.margins(0.1)
