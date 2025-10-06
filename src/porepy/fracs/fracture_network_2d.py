@@ -419,8 +419,14 @@ class FractureNetwork2d:
                     gmsh.model.addPhysicalGroup(
                         nd - 1, all_lines, -1, f"{PhysicalNames.FRACTURE.value}{i}"
                     )
+
+        # It turns out that if fractures split the domain into disjoint parts, gmsh may
+        # choose to redefine the domain as the sum of these parts. Therefore, we
+        # redefine the domain tags here, using all volumes in the model.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
+
         gmsh.model.addPhysicalGroup(
-            nd, [domain_tag], -1, f"{PhysicalNames.DOMAIN.value}"
+            nd, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}"
         )
 
         fac.synchronize()
