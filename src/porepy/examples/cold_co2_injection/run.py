@@ -19,6 +19,11 @@ Note:
     perhaps easier accessible. But the continuous availability of that repo is not
     guaranteed.
 
+Note:
+    For some reason, the flag ``-p`` must be given a value, otherwise the parsing won't
+    work when executing from bash script. Any integer must be given, value is meaningless.
+    Just a work-around.    
+
 """
 
 from __future__ import annotations
