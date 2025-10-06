@@ -377,10 +377,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--plot",
-        # action="store_true",
-        nargs=1,
-        default=0,
-        type=int,
+        action="store_true",
+        # nargs=1,
+        # default=0,
+        # type=int,
         help="Run simulation with settings for 2D plot, including a time schedule every 30 days in the time stepping.",
     )
 
@@ -487,7 +487,7 @@ if __name__ == "__main__":
         iter_range = (36, 45)
 
     if LBC_VISCOSITY:
-        newton_tol = 2e-5
+        newton_tol = 1e-5
         newton_tol_increment = 1e-5
     else:
         newton_tol = 1e-7
