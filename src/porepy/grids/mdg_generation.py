@@ -814,15 +814,8 @@ def create_mdg(
         fractures = [f.pts for f in fracture_network.fractures]
         if dim == 3:
             # In 3d the bounding polygons for the fractures are added to the set of
-            # fractures in the network. Since we will feed only the fractures, not
-            # the fracture network, into the structured mesh generator, we need to
-            # filter out those fractures that are tagged as being part of the
-            # boundary.
-            fractures = [
-                f.pts
-                for (fi, f) in enumerate(fracture_network.fractures)
-                if not fracture_network.tags["boundary"][fi]
-            ]
+            # fractures in the network.
+            fractures = [f.pts for (fi, f) in enumerate(fracture_network.fractures)]
 
         if grid_type == "cartesian":
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(
