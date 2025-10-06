@@ -11,7 +11,7 @@ FLASH_TOL_CASE: int = 2
 """Define the flash tolerance used in the solution procedure."""
 LOCAL_SOLVER_STRIDE: int = 3
 """Ïnteger determining every which global iteration to start the local solver."""
-NUM_MONTHS: int = 24
+NUM_MONTHS: int = 20
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
@@ -483,7 +483,7 @@ if __name__ == "__main__":
     }
 
     basalt_ = basalt.copy()
-    basalt_["permeability"] = 1e-15
+    basalt_["permeability"] = 1e-14
     well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 

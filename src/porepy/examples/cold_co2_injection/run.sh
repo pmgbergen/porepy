@@ -31,25 +31,25 @@ echo "--- SIMULATION 13 / 22 COMPLETED ---"
 # NOTE below config is also run in line 7
 # python3 ./run.py -e ph -r 0 -t 7 -s 3 -m 6
 # Run all cases with optimal stride and local tolerance.
-python3 ./run.py -e pT -r 0 -t 2 -s 3 -m 24
+python3 ./run.py -e pT -r 0 -t 2 -s 3 -m 20
 echo "--- SIMULATION 14 / 22 COMPLETED ---"
-python3 ./run.py -e ph -r 0 -t 2 -s 3 -m 24
+python3 ./run.py -e ph -r 0 -t 2 -s 3 -m 20
 echo "--- SIMULATION 15 / 22 COMPLETED ---"
-python3 ./run.py -e pT -r 1 -t 2 -s 3 -m 24
+python3 ./run.py -e pT -r 1 -t 2 -s 3 -m 20
 echo "--- SIMULATION 16 / 22 COMPLETED ---"
-python3 ./run.py -e ph -r 1 -t 2 -s 3 -m 24
+python3 ./run.py -e ph -r 1 -t 2 -s 3 -m 20
 echo "--- SIMULATION 17 / 22 COMPLETED ---"
-python3 ./run.py -e pT -r 2 -t 2 -s 3 -m 24
+python3 ./run.py -e pT -r 2 -t 2 -s 3 -m 20
 echo "--- SIMULATION 18 / 22 COMPLETED ---"
-python3 ./run.py -e ph -r 2 -t 2 -s 3 -m 24
+python3 ./run.py -e ph -r 2 -t 2 -s 3 -m 20
 echo "--- SIMULATION 19 / 22 COMPLETED ---"
 #Run most refined cases.
-python3 ./run.py -e ph -r 3 -t 2 -s 3 -m 24
+python3 ./run.py -e ph -r 3 -t 2 -s 3 -m 20
 echo "--- SIMULATION 20 / 22 COMPLETED ---"
 # Run Simulation for 2D plot, like above but with times scheduled in time stepping
 python3 ./run.py -p
 echo "--- SIMULATION 21 / 22 COMPLETED ---"
-python3 ./run.py -e pT -r 3 -t 2 -s 3 -m 24
+python3 ./run.py -e pT -r 3 -t 2 -s 3 -m 20
 echo "--- SIMULATION 22 / 22 COMPLETED ---"
 #Plot results for analysis.
 python3 ./plot.py
