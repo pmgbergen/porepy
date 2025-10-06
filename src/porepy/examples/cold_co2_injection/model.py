@@ -167,9 +167,18 @@ class FluidMixture(pp.PorePyModel):
         class PRCT(ConstantTransportProperties, pr.PengRobinsonCompiler):
             """Peng-Robinson with Constant Transport properties."""
 
-        eos = PRCT(
-            components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
-        )
+        if self.params.get("_lbc_viscosity", False):
+            eos = PRLBC(
+                components,
+                [pr.h_ideal_H2O, pr.h_ideal_CO2],
+                pr.get_bip_matrix(components),
+            )
+        else:
+            eos = PRCT(
+                components,
+                [pr.h_ideal_H2O, pr.h_ideal_CO2],
+                pr.get_bip_matrix(components),
+            )
         return [
             (pp.compositional.PhysicalState.liquid, "L", eos),
             (pp.compositional.PhysicalState.gas, "G", eos),

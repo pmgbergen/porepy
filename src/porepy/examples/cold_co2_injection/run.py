@@ -31,6 +31,9 @@ BUOYANCY_ON: bool = False
 """Turn on buoyancy. NOTE: This is still under development."""
 FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
+LBC_VISCOSITY: bool = False
+"""Uses the LBC model for viscosity. Otherwise it uses constant transport properties,
+equal for all phases."""
 
 MESH_SIZES: dict[int, float] = {
     0: 4.0,  # 308 cells
@@ -414,7 +417,7 @@ if __name__ == "__main__":
         REFINEMENT_LEVEL = 3
         FLASH_TOL_CASE = 2
         LOCAL_SOLVER_STRIDE = 3
-        NUM_MONTHS = 24
+        NUM_MONTHS = 20
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
         data_path = "ph_scheduled"
@@ -454,8 +457,12 @@ if __name__ == "__main__":
         max_iterations = 50
         iter_range = (36, 45)
 
-    newton_tol = 1e-7
-    newton_tol_increment = 5e-6
+    if LBC_VISCOSITY:
+        newton_tol = 2e-5
+        newton_tol_increment = 1e-5
+    else:
+        newton_tol = 1e-7
+        newton_tol_increment = 5e-6
     dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
@@ -566,6 +573,7 @@ if __name__ == "__main__":
     model_params["_well_surrounding_permeability"] = well_surrounding_permeability
     # Storing simulation results in individual folder.
     model_params["folder_name"] = data_path
+    model_params["_lbc_viscosity"] = LBC_VISCOSITY
 
     if FRACTIONAL_FLOW:
         model_class = ColdCO2InjectionModelFF
