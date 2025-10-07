@@ -19,6 +19,13 @@ PorePy currently has the following distinguishing features:
 
 PorePy is developed by the Porous Media Group at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway, the European Research Council and Equinor.
 
+# Showcase
+The video below showcases a fully coupled flow and heat transport simulation in a fractured porous medium with 52 plane fractures and ~300k cells. 
+In the simulation, cold fluid is injected through an injection well into a preheated domain and produced from a production well on the opposite side.
+
+<p align="center">
+    <img src='tutorials/img/showcase_thermohydro.gif' width=540>
+</p>
 
 # Installation
 We recommend using PorePy through a Docker image. The development and stable versions can be obtained, respectively, by 
