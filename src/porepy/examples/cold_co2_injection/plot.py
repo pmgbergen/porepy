@@ -833,7 +833,7 @@ print(f"\nSaved fig: {name}")
 
 def format_times(vals: tuple[float, float]) -> str:
     """Format the clock time values."""
-    return f"{vals[0]:.6f} ({vals[1]:.2f})"
+    return f"{vals[0]:.4f} ({vals[1]:.2f})"
 
 
 headers = [""]
@@ -854,11 +854,14 @@ for i, hmesh in MESH_SIZES.items():
     dph = data["unified-p-h"].get(i)
     dpt = data["unified-p-T"].get(i)
 
+    # NOTE: The time step inforrmation also contains the start time of T=0, which we
+    # must account for with -0 to get the actual computations
+
     ngipt = int(dpt["num_global_iter"].sum())
-    ntpt = int(dpt["t"].size)
+    ntpt = int(dpt["t"].size) - 1
     nfipt = int(dpt["num_flash_iter"].sum())
     ngiph = int(dph["num_global_iter"].sum())
-    ntph = int(dph["t"].size)
+    ntph = int(dph["t"].size) - 1
     nfiph = int(dph["num_flash_iter"].sum())
 
     if dph is not None:
@@ -866,7 +869,7 @@ for i, hmesh in MESH_SIZES.items():
         rows["Linear solver time"].append(format_times(dph["clock_time_global_solver"]))
         rows["Flash solver time"].append(format_times(dph["clock_time_flash_solver"]))
         rows["Number of time steps"].append(
-            f"{ntph} ({dph['total_num_time_steps'] - ntph})"
+            f"{ntph} ({dph['total_num_time_steps'] - 1 - ntph})"
         )
         rows["Number of global iterations"].append(
             f"{ngiph} ({dph['total_num_global_iter'] - ngiph})"
@@ -882,7 +885,7 @@ for i, hmesh in MESH_SIZES.items():
         rows["Linear solver time"].append(format_times(dpt["clock_time_global_solver"]))
         rows["Flash solver time"].append(format_times(dpt["clock_time_flash_solver"]))
         rows["Number of time steps"].append(
-            f"{ntpt} ({dpt['total_num_time_steps'] - ntpt})"
+            f"{ntpt} ({dpt['total_num_time_steps'] - 1 - ntpt})"
         )
         rows["Number of global iterations"].append(
             f"{ngipt} ({dpt['total_num_global_iter'] - ngipt})"
