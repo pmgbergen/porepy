@@ -267,7 +267,9 @@ class Test2dDomain:
 
         self.p1 = np.array([[0.2, 0.8], [0.2, 0.8]])
         self.e1 = np.array([[0], [1]])
-        self.p2 = np.array([[0.2, 0.8, 0.2, 0.8], [0.2, 0.8, 0.8, 0.2]])
+        # Two intersecting fractures. These extend to the boundary of the domain; hence
+        # the domain will be split into smaller units by these fractures.
+        self.p2 = np.array([[0.0, 1.0, 0.0, 1.0], [0.0, 1.0, 1.0, 0.0]])
         self.e2 = np.array([[0, 2], [1, 3]])
 
     def _verify_num_grids(self, mdg: pp.MixedDimensionalGrid, num_grids: list[int]):
