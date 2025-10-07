@@ -410,8 +410,8 @@ success = np.array(success).astype(bool)
 markevery_tol = np.where(success)[0].tolist()
 ngi = np.array(ngi).T
 imgs += ax.plot(
-    ngi[0],
-    ngi[1],
+    ngi[0][success],
+    ngi[1][success],
     color=color,
     linestyle="solid",
     marker="^",
@@ -422,8 +422,8 @@ imgs += ax.plot(
 )
 nfi = np.array(nfi).T
 imgsr += axr.plot(
-    nfi[0],
-    nfi[1],
+    nfi[0][success],
+    nfi[1][success],
     color=color,
     linestyle="dashed",
     marker="s",
@@ -434,8 +434,8 @@ imgsr += axr.plot(
 )
 nli = np.array(nli).T
 imgs += ax.plot(
-    nli[0],
-    nli[1],
+    nli[0][success],
+    nli[1][success],
     color=color,
     linestyle="dotted",
     marker="P",
@@ -445,7 +445,7 @@ imgs += ax.plot(
 )
 M = int(np.hstack((ngi[1], nli[1])).max())
 
-if np.any(~success):
+if np.any(~success) and False:
     print("pT failures", ngi[0][~success])
     ax.plot(
         np.concatenate([ngi[0][~success], nli[0][~success]]),
@@ -570,13 +570,13 @@ ax.legend(
     handles=imgs,
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 1),
+    bbox_to_anchor=(1.15, 1),
 )
 axr.legend(
     handles=imgsr,
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 0.45),
+    bbox_to_anchor=(1.15, 0.45),
 )
 fig.tight_layout(pad=FIGUREPAD)
 name = f"{FIGUREPATH}total_iter_per_refinement.png"
