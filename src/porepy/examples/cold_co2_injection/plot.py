@@ -410,8 +410,8 @@ success = np.array(success).astype(bool)
 markevery_tol = np.where(success)[0].tolist()
 ngi = np.array(ngi).T
 imgs += ax.plot(
-    ngi[0],
-    ngi[1],
+    ngi[0][success],
+    ngi[1][success],
     color=color,
     linestyle="solid",
     marker="^",
@@ -422,8 +422,8 @@ imgs += ax.plot(
 )
 nfi = np.array(nfi).T
 imgsr += axr.plot(
-    nfi[0],
-    nfi[1],
+    nfi[0][success],
+    nfi[1][success],
     color=color,
     linestyle="dashed",
     marker="s",
@@ -434,8 +434,8 @@ imgsr += axr.plot(
 )
 nli = np.array(nli).T
 imgs += ax.plot(
-    nli[0],
-    nli[1],
+    nli[0][success],
+    nli[1][success],
     color=color,
     linestyle="dotted",
     marker="P",
@@ -445,7 +445,7 @@ imgs += ax.plot(
 )
 M = int(np.hstack((ngi[1], nli[1])).max())
 
-if np.any(~success):
+if np.any(~success) and False:
     print("pT failures", ngi[0][~success])
     ax.plot(
         np.concatenate([ngi[0][~success], nli[0][~success]]),
@@ -570,13 +570,13 @@ ax.legend(
     handles=imgs,
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 1),
+    bbox_to_anchor=(1.15, 1),
 )
 axr.legend(
     handles=imgsr,
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 0.45),
+    bbox_to_anchor=(1.15, 0.45),
 )
 fig.tight_layout(pad=FIGUREPAD)
 name = f"{FIGUREPATH}total_iter_per_refinement.png"
@@ -833,7 +833,7 @@ print(f"\nSaved fig: {name}")
 
 def format_times(vals: tuple[float, float]) -> str:
     """Format the clock time values."""
-    return f"{vals[0]:.6f} ({vals[1]:.2f})"
+    return f"{vals[0]:.4f} ({vals[1]:.2f})"
 
 
 headers = [""]
@@ -854,11 +854,14 @@ for i, hmesh in MESH_SIZES.items():
     dph = data["unified-p-h"].get(i)
     dpt = data["unified-p-T"].get(i)
 
+    # NOTE: The time step inforrmation also contains the start time of T=0, which we
+    # must account for with -0 to get the actual computations
+
     ngipt = int(dpt["num_global_iter"].sum())
-    ntpt = int(dpt["t"].size)
+    ntpt = int(dpt["t"].size) - 1
     nfipt = int(dpt["num_flash_iter"].sum())
     ngiph = int(dph["num_global_iter"].sum())
-    ntph = int(dph["t"].size)
+    ntph = int(dph["t"].size) - 1
     nfiph = int(dph["num_flash_iter"].sum())
 
     if dph is not None:
@@ -866,7 +869,7 @@ for i, hmesh in MESH_SIZES.items():
         rows["Linear solver time"].append(format_times(dph["clock_time_global_solver"]))
         rows["Flash solver time"].append(format_times(dph["clock_time_flash_solver"]))
         rows["Number of time steps"].append(
-            f"{ntph} ({dph['total_num_time_steps'] - ntph})"
+            f"{ntph} ({dph['total_num_time_steps'] - 1 - ntph})"
         )
         rows["Number of global iterations"].append(
             f"{ngiph} ({dph['total_num_global_iter'] - ngiph})"
@@ -882,7 +885,7 @@ for i, hmesh in MESH_SIZES.items():
         rows["Linear solver time"].append(format_times(dpt["clock_time_global_solver"]))
         rows["Flash solver time"].append(format_times(dpt["clock_time_flash_solver"]))
         rows["Number of time steps"].append(
-            f"{ntpt} ({dpt['total_num_time_steps'] - ntpt})"
+            f"{ntpt} ({dpt['total_num_time_steps'] - 1 - ntpt})"
         )
         rows["Number of global iterations"].append(
             f"{ngipt} ({dpt['total_num_global_iter'] - ngipt})"
