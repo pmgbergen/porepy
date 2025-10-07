@@ -184,10 +184,11 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
 
         """
         # adding the solid molar concentration for reactive transport
-        if len(self.fluid.solid_components) > 0:
-            mass_density = self.total_molar_concentration(subdomains)
-        else:
-            mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
+        # if len(self.fluid.solid_components) > 0:
+        #     mass_density = self.total_molar_concentration(subdomains)
+        # else:
+        #     mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
+        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
         return mass
@@ -407,8 +408,8 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
             reactive_source_volume = self.volume_integral(
                 reactive_source, subdomains, dim=1
             )
-
-            source += reactive_source_volume
+            # forget about the reactive source for now
+            # source += reactive_source_volume
 
         return source
 
@@ -460,6 +461,7 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
                     [pp.ad.Scalar(S[r, species_index]) * z for r, z in enumerate(z_ops)]
                 )
                 for species_index, component in enumerate(self.fluid.components)
+                if component not in self.fluid.solid_components
             ]
         )
         total_op.set_name("total_reactive_source")
