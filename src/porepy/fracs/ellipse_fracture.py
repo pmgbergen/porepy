@@ -1,8 +1,4 @@
-"""Contains classes representing two-dimensional fractures.
-
-That is, manifolds of dimension 2 embedded in 3D.
-
-"""
+"""Contains classes representing two-dimensional fractures in 3D."""
 
 from __future__ import annotations
 
@@ -21,6 +17,7 @@ import math
 import numpy as np
 import gmsh
 
+
 class EllipticFracture:
     """
     Class representing an elliptic fracture embedded in a 3D domain.
@@ -30,7 +27,7 @@ class EllipticFracture:
     (elliptic face) that can be used for meshing and geometric Boolean operations.
 
     The fracture is defined by its center position, major and minor axes,
-    and its spatial orientation given by three rotation angles in radians. 
+    and its spatial orientation given by three rotation angles in radians.
 
     Example:
         >>> import numpy as np
@@ -65,13 +62,13 @@ class EllipticFracture:
         Parameters:
             center: Array of ``shape=(3, 1)``
                 Coordinates of the fracture center in 3D space.
-            major_axis: Length of the major semi-axis (radius-like, not diameter).
+            major_axis: Length of the major semi-axis.
             minor_axis: Length of the minor semi-axis.
-            major_axis_angle: rotation of the major axis in radians from the x-axis 
+            major_axis_angle: rotation of the major axis in radians from the x-axis
                 before strike-dip rotation.
             strike_angle: the direction of the strike line (rotation axis for dip)
                 in radians, measured from the x-axis in the xy-plane.
-            dip_angle: rotation of the fracture plane around the strike line in 
+            dip_angle: rotation of the fracture plane around the strike line in
                 radians, defining the inclination of the fracture.
             index: Optional integer index to be assigned to the fracture.
         """
@@ -114,7 +111,7 @@ class EllipticFracture:
             int: Tag of the generated 2D OCC surface.
 
         Notes:
-            The rotation order and axis definitions match those 
+            The rotation order and axis definitions match those
             in PorePy’s `create_elliptic_fracture`, ensuring consistent geometry.
 
         """
@@ -125,8 +122,12 @@ class EllipticFracture:
         # 2) Rotate around the Z-axis by the in-plane major axis angle
         gmsh.model.occ.rotate(
             dimTags,
-            0.0, 0.0, 0.0,
-            0.0, 0.0, 1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
             self.major_axis_angle,
         )
 
@@ -137,19 +138,20 @@ class EllipticFracture:
 
         gmsh.model.occ.rotate(
             dimTags,
-            0.0, 0.0, 0.0,
+            0.0,
+            0.0,
+            0.0,
             strike_x,
             strike_y,
             strike_z,
             self.dip_angle,
         )
-        
+
         # 4) Translate the surface to the specified center
-        gmsh.model.occ.translate(dimTags, self.center[0], self.center[1], self.center[2])
+        gmsh.model.occ.translate(
+            dimTags, self.center[0], self.center[1], self.center[2]
+        )
 
         # gmsh.model.occ.synchronize()
 
         return surface_tag
-
-
-    

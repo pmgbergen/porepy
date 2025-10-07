@@ -50,7 +50,8 @@ def create_fracture_network(
         fractures: ``default=None``
 
             List of fractures. Each item of the list should be either an instance of
-            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3D or an instance
+            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3D or an instance of
+            :class:`~porepy.fracs.ellipse_fracture.EllipticFracture` for 3D or an instance
             of :class:`~porepy.fracs.line_fracture.LineFracture` for 2D. Default is
             ``None``, meaning, no fractures. If an empty list is given, it will be
             treated as ``None``.
