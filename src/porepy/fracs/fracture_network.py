@@ -13,9 +13,10 @@ from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 # Custom typings
-FractureList = Union[
-    list[pp.LineFracture], Optional[list[pp.PlaneFracture | pp.EllipticFracture]]
+FractureList = Optional[
+    list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]
 ]
+
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
