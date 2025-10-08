@@ -145,10 +145,11 @@ class FluidMixture(pp.PorePyModel):
                 def kappa_c(
                     prearg: np.ndarray, p: float, T: float, xn: np.ndarray
                 ) -> float:
-                    if prearg[3] > 0:
-                        return 0.06
-                    else:
-                        return 0.6
+                    return 1.
+                    # if prearg[3] > 0:
+                    #     return 0.06
+                    # else:
+                    #     return 0.6
 
                 return kappa_c
 
@@ -916,10 +917,15 @@ class BuoyancyModel(pp.PorePyModel):
         self.set_nonlinear_buoyancy_discretization()
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        # g_constant = pp.GRAVITY_ACCELERATION
+        # val = self.units.convert_units(g_constant, "m*s^-2")
+        # size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        # gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        # gravity_field.set_name("gravity_field")
+        # return gravity_field
         g_constant = pp.GRAVITY_ACCELERATION
         val = self.units.convert_units(g_constant, "m*s^-2")
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field = pp.ad.Scalar(val)
         gravity_field.set_name("gravity_field")
         return gravity_field
 

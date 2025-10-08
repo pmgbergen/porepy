@@ -509,10 +509,12 @@ class MixedDimensionalGrid:
         # The higher-dimensional grid is the first subdomain of the subdomain pair.
 
         # Couplings of co-dimension zero to two are allowed. Sort the pair.
-        if np.abs(sd_pair[0].dim - sd_pair[1].dim) < 3:
-            sd_pair = self.sort_subdomain_tuple(sd_pair)
-        else:
-            raise ValueError("Can only handle subdomain coupling of co-dimension <= 2")
+        sd_pair = self.sort_subdomain_tuple(sd_pair)
+        # NOTE TODO JUST FOR TESTING
+        # if np.abs(sd_pair[0].dim - sd_pair[1].dim) < 3:
+        #     sd_pair = self.sort_subdomain_tuple(sd_pair)
+        # else:
+        #     raise ValueError("Can only handle subdomain coupling of co-dimension <= 2")
 
         self._interface_to_subdomains[intf] = sd_pair
 

@@ -7,7 +7,7 @@ import os
 import time
 from typing import Any, Callable
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 
