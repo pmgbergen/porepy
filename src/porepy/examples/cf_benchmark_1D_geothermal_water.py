@@ -280,7 +280,10 @@ class BoundaryConditions(pp.PorePyModel):
         return self.bc_type_darcy_flux(sd)
 
     def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_darcy_flux(sd)
+        if sd.dim < self.nd:
+            return pp.BoundaryCondition(sd)
+        else:
+            return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         vals = np.zeros(boundary_grid.num_cells)

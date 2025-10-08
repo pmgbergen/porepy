@@ -134,6 +134,32 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         dx *= self.armijo_line_search(model, dx)
         dx = self.appleyard_chop(model, dx)
 
+        if self.params.get("anderson_acceleration", False):
+            iteration = model.nonlinear_solver_statistics.num_iteration
+            x = model.equation_system.get_variable_values(iterate_index=0)
+            x_temp = x + dx
+            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
+                try:
+                    xp1 = self.apply(x_temp, dx.copy(), iteration)
+                    res = model.equation_system.assemble(evaluate_jacobian=False)
+                    # TODO Wrong reference residual
+                    res_norm = model.compute_residual_norm(res, res)  # type:ignore
+                    if res_norm <= self.params.get(
+                        "anderson_start_after_residual_reaches", np.inf
+                    ) and res_norm >= self.params.get(
+                        "anderson_stop_after_residual_reaches", 0.0
+                    ):
+                        dx = xp1 - x
+                        print("Applying Anderson")
+                    else:
+                        print("Not applying anderson")
+                except Exception:
+                    logger.warning(
+                        f"Resetting Anderson acceleration at"
+                        f" T={model.time_manager.time}; i={iteration} due to failure."
+                    )
+                    self.reset()
+
         return dx
 
     def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
@@ -141,10 +167,18 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         res = model.equation_system.assemble(evaluate_jacobian=False)
         # TODO Wrong reference residual
         res_norm = model.compute_residual_norm(res, res)  # type:ignore
-        if not self.params.get(
-            "armijo_line_search", False
-        ) or res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0):
+        if (
+            not self.params.get("armijo_line_search", False)
+            or (res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0))
+            or (
+                res_norm
+                >= self.params.get("armijo_start_after_residual_reaches", np.inf)
+            )
+        ):
+            print("Not Applying Armijo")
             return 1.0
+        else:
+            print("applying Armijo")
 
         rho = float(self.params.get("armijo_line_search_weight", 0.9))
         kappa = float(self.params.get("armijo_line_search_incline", 0.4))

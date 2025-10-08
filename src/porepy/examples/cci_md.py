@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.compositional_flow as cf
@@ -26,10 +27,97 @@ from porepy.examples.cold_co2_injection.model import (
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 from porepy.examples.flow_benchmark_3d_case_4 import Geometry
+from porepy.applications.test_utils.models import add_mixin
+from porepy.fracs.wells_3d import _add_interface
+
+BUOYANCY_ON = False
 
 
 class GeometryWithPointWells(PointWells, Geometry):
     """Combining Pointwell (0d-nd coupling) with benchmark geometry."""
+
+    def _add_well(
+        self,
+        point: np.ndarray,
+        well_index: int,
+        well_type: Literal["injection", "production"],
+    ) -> None:
+        """Helper method to construct a well in 2D as a PointGrid and add respective
+        interface.
+
+        Parameters:
+            point: Point in space representing well.
+            well_index: Assigned number for well of type ``well_type``.
+            well_type: Label to add a tag to the point grid labelng as injector or
+            producer.
+
+        """
+        assert isinstance(point, np.ndarray)
+        p: np.ndarray
+        if point.shape == (2,):
+            p = np.zeros(3)
+            p[:2] = point
+        elif point.shape == (3,):
+            p = point
+        else:
+            raise ValueError(
+                f"Point for well {(well_type, well_index)} must be 1D array of length "
+                + "2 or 3."
+            )
+
+        sd_2d, pf = self._find_closes_fracture_and_fracture_cell_center(p)
+
+        sd_0d = pp.PointGrid(self.units.convert_units(pf, "m"))
+        # Tag for processing of equations.
+        sd_0d.tags[f"{well_type}_well"] = well_index
+        sd_0d.compute_geometry()
+
+        self.mdg.add_subdomains(sd_0d)
+
+        # Motivated by wells_3d.py#L828
+        cell_matrix = sd_2d.closest_cell(sd_0d.cell_centers)
+        cell_well = np.array([0], dtype=int)
+        cell_cell_map = sps.coo_matrix(
+            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
+            shape=(sd_0d.num_cells, sd_2d.num_cells),
+        )
+
+        _add_interface(0, sd_2d, sd_0d, self.mdg, cell_cell_map)
+
+    def _find_closes_fracture_and_fracture_cell_center(
+        self, p: np.ndarray
+    ) -> tuple[pp.Grid, np.ndarray]:
+        """For a random point in the domain ``p`` locate the closest cell center in
+        a fracture of dim=nd-1 and the respective fracture."""
+
+        fracs = [sd for sd in self.mdg.subdomains() if sd.dim == self.nd - 1]
+
+        # Find coordinates of closes fracture cell center
+        x, y, z = np.concatenate([sd.cell_centers for sd in fracs], axis=1)
+        xwell, ywell, zwell = p
+        source_loc_x = x.min() + xwell * (x.max() - x.min())
+        source_loc_y = y.min() + ywell * (y.max() - y.min())
+        source_loc_z = z.min() + zwell * (z.max() - z.min())
+        source_loc = np.argmin(
+            (x - source_loc_x) ** 2 + (y - source_loc_y) ** 2 + (z - source_loc_z) ** 2
+        )
+
+        # find fracture belonging to that and respective cell center
+        cncells = np.cumsum(np.array([sd.num_cells for sd in fracs]))
+        frac_index = np.argmax(cncells > source_loc)
+
+        frac = fracs[frac_index]
+        frac_cell = np.array([x[source_loc], y[source_loc], z[source_loc]])
+
+        # test
+        s = np.array([source_loc_x, source_loc_y, source_loc_z]).reshape((3, 1))
+        idx = frac.closest_cell(s)
+        fc = frac.cell_centers[:, idx]
+        assert np.all(fc.reshape((3,)) == frac_cell.reshape((3,))), (
+            "Failed to locate fracture cell."
+        )
+
+        return frac, frac_cell
 
 
 class BoundaryConditionsBenchmark(BoundaryConditions):
@@ -65,7 +153,6 @@ class BoundaryConditionsBenchmark(BoundaryConditions):
         return np.zeros(bg.num_cells)
 
     def bc_values_fractional_flow_energy(self, bg: pp.BoundaryGrid) -> np.ndarray:
-
         return np.zeros(bg.num_cells)
 
 
@@ -110,7 +197,7 @@ class Permeability(pp.PorePyModel):
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Set with model parameter 'fracture_permeability'."""
         N = sum([sd.num_cells for sd in subdomains])
-        K_val = self.params["fracture_permeability"]
+        K_val = self.params.get("fracture_permeability", 1.0)
         K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
             float(K_val), size=N, name="base_well_permeability"
         )
@@ -137,16 +224,15 @@ class Permeability(pp.PorePyModel):
         return K
 
 
-class BenchmarkModel(  #type:ignore
+class BenchmarkModel(  # type:ignore
     Permeability,
-    BuoyancyModel,
     GeometryWithPointWells,
     AdjustedPointWellModel,
     FluidMixture,
     InitialConditions,
     BoundaryConditionsBenchmark,
     SolutionStrategy,
-    cfle.EnthalpyBasedCFFLETemplate,
+    cfle.EnthalpyBasedCFFLETemplate if BUOYANCY_ON else cfle.EnthalpyBasedCFLETemplate,
 ):
     """'Yippee Ki Yay, motherfucker' - John McClane, Die Hard."""
 
@@ -177,8 +263,10 @@ class BenchmarkModel(  #type:ignore
     }
 
     # Coordinates of injection and production wells in meters
-    _INJECTION_POINTS: list[np.ndarray] = [np.array([200.0, 200.0, 0.0])]
-    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([-400, 1300.0, 400.0])]
+    # _INJECTION_POINTS: list[np.ndarray] = [np.array([200.0, 200.0, 0.0])]
+    # _PRODUCTION_POINTS: list[np.ndarray] = [np.array([-400, 1300.0, 400.0])]
+    _INJECTION_POINTS: list[np.ndarray] = [np.array([1, 0, 0.05])]
+    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([0, 1, 0.95])]
 
 
 max_iterations = 40
@@ -188,8 +276,8 @@ newton_tol_increment = 1e-5
 T_end_months = 24
 
 time_schedule = [i * 30 * pp.DAY for i in range(T_end_months + 1)]
-dt_init = pp.HOUR
-dt_min = 10 * pp.MINUTE
+dt_init = pp.MINUTE
+dt_min = pp.SECOND
 dt_max = 30 * pp.DAY
 
 time_manager = pp.TimeManager(
@@ -259,11 +347,11 @@ model_params: dict[str, Any] = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "flash_params": flash_params,
-    "fractional_flow": True,
+    "fractional_flow": BUOYANCY_ON,
     "material_constants": material_params,
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "enable_buoyancy_effects": True,
+    "enable_buoyancy_effects": BUOYANCY_ON,
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
     "_lbc_viscosity": True,
@@ -275,7 +363,10 @@ model_params.update(solver_params)
 model_params["_well_surrounding_permeability"] = well_surrounding_permeability
 
 if __name__ == "__main__":
-    model = BenchmarkModel(model_params)
+    if BUOYANCY_ON:
+        model = add_mixin(BuoyancyModel, BenchmarkModel)(model_params)
+    else:
+        model = BenchmarkModel(model_params)
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -305,10 +396,5 @@ if __name__ == "__main__":
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
-    try:
-        pp.run_time_dependent_model(model, model_params)
-    except Exception as err:
-        SIMULATION_SUCCESS = False
-        print(f"\nSIMULATION FAILED: {err}")
-        model.save_data_time_step()
+    pp.run_time_dependent_model(model, model_params)
     sim_time = time.time() - t_0
