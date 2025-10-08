@@ -409,7 +409,7 @@ class FluidMassBalanceEquations(pp.BalanceEquation):
                 reactive_source, subdomains, dim=1
             )
             # forget about the reactive source for now
-            # source += reactive_source_volume
+            source += reactive_source_volume
 
         return source
 
