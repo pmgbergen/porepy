@@ -59,6 +59,15 @@ class BoundaryConditionsBenchmark(BoundaryConditions):
 
         return heated
 
+    def bc_values_fractional_flow_component(
+        self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        return np.zeros(bg.num_cells)
+
+    def bc_values_fractional_flow_energy(self, bg: pp.BoundaryGrid) -> np.ndarray:
+
+        return np.zeros(bg.num_cells)
+
 
 class Permeability(pp.PorePyModel):
     """Custom permeability allowing to define fracture permeability and setting the
