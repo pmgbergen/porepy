@@ -189,6 +189,11 @@ ax = fig.add_subplot(1, 2, 2)
 imgs = []
 imgsr = []
 
+print("Chosen tolerances with stride=3: ", ftols)
+print("Succes:", success_tol)
+print("Total num glob iter:", tngi)
+print("Total num loc iter: ", tnfi)
+
 imgs += ax.plot(
     ftols,
     tngi,
@@ -270,6 +275,11 @@ axr.margins(0.10)
 ax = fig.add_subplot(1, 2, 1)
 imgs = []
 imgsr = []
+
+print("Strides for chosen tolerance 1e-8: ", strides)
+print("Succes:", success_strides)
+print("Total num glob iter:", tngis)
+print("Total num loc iter: ", tnfis)
 
 imgs += ax.plot(
     strides,
@@ -787,7 +797,7 @@ ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE
 ax.set_yscale("symlog", linthresh=1)
 mav = t_indices.max()
 ticks = ax.get_xticks()
-ticks = ticks[ticks < mav-3]
+ticks = ticks[ticks < mav - 3]
 ticks = np.concatenate((ticks, np.array([mav]))).astype(int)
 ax.set_xticks(ticks)
 ticks = ax.get_yticks()

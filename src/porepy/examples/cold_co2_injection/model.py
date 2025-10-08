@@ -16,19 +16,19 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
-import numpy as np
 import numba as nb
+import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.fracs.wells_3d import _add_interface
 from porepy.compositional.compiled_flash.eos_compiler import (
     EoSCompiler,
     ScalarFunction,
     VectorFunction,
 )
+from porepy.fracs.wells_3d import _add_interface
 
 
 class ConstantTransportProperties(EoSCompiler):
@@ -130,9 +130,10 @@ class FluidMixture(pp.PorePyModel):
         tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
         # Import here to avoid triggering computation before model setup.
+        import numba as nb
+
         import porepy.compositional.peng_robinson as pr
         import porepy.compositional.peng_robinson.lbc_viscosity as lbc
-        import numba as nb
 
         class PRLBC(lbc.LBCViscosity, pr.PengRobinsonCompiler):
             """Peng-Robinson with LBC model for viscosity and constant thermal
@@ -362,22 +363,8 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
     #     pass
 
 
-class PointWells2D(_FlowConfiguration):
-    """2D matrix with point grids as injection and production points.
-
-    Alternative for the ``WellNetwork3d`` in 2d.
-
-    """
-
-    def set_domain(self) -> None:
-        self._domain = pp.Domain(
-            {
-                "xmin": 0.0,
-                "xmax": self.units.convert_units(100.0, "m"),
-                "ymin": 0.0,
-                "ymax": self.units.convert_units(20.0, "m"),
-            }
-        )
+class PointWells(_FlowConfiguration):
+    """Geometry adding point grids as wells after super-call in set_geometry."""
 
     def set_geometry(self):
         super().set_geometry()
@@ -436,7 +423,25 @@ class PointWells2D(_FlowConfiguration):
         _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
 
 
-class AdjustedWellModel2D(_FlowConfiguration):
+class PointWells2D(PointWells):
+    """2D matrix with point grids as injection and production points.
+
+    Alternative for the ``WellNetwork3d`` in 2d.
+
+    """
+
+    def set_domain(self) -> None:
+        self._domain = pp.Domain(
+            {
+                "xmin": 0.0,
+                "xmax": self.units.convert_units(100.0, "m"),
+                "ymin": 0.0,
+                "ymax": self.units.convert_units(20.0, "m"),
+            }
+        )
+
+
+class AdjustedPointWellModel(_FlowConfiguration):
     """Adjustment of a 2D model which has wells modelled as point grids.
 
     Two types of point grids are expected: ``'injection_well'`` and
@@ -768,7 +773,7 @@ class BoundaryConditions(_FlowConfiguration):
         return heated
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             heated = self._heated_boundary_faces(sd)
             return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC
@@ -794,7 +799,7 @@ class BoundaryConditions(_FlowConfiguration):
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._p_INIT
@@ -805,7 +810,7 @@ class BoundaryConditions(_FlowConfiguration):
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._T_HEATED
@@ -818,7 +823,7 @@ class BoundaryConditions(_FlowConfiguration):
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._z_INIT[component.name]
@@ -888,13 +893,35 @@ class Permeability(pp.PorePyModel):
 class _ModelMixins(
     Permeability,
     PointWells2D,
-    AdjustedWellModel2D,
+    AdjustedPointWellModel,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
     SolutionStrategy,
 ):
     """Collection of used mixins, including a quadratic relative permeability law."""
+
+
+class BuoyancyModel(pp.PorePyModel):
+    def initial_condition(self):
+        super().initial_condition()
+        self.set_buoyancy_discretization_parameters()
+
+    def update_flux_values(self):
+        super().update_flux_values()
+        self.update_buoyancy_driven_fluxes()
+
+    def set_nonlinear_discretizations(self):
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2")
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
 
 
 class ColdCO2InjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
