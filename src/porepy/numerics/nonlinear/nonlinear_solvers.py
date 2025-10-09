@@ -157,6 +157,7 @@ class NewtonSolver:
                     ):
                         solver_progressbar.set_postfix_str(
                             f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
+                            f" Residual {model.nonlinear_solver_statistics.residual_norms[-1]:.2e}"  # noqa: E501
                         )
 
                 if is_diverged:

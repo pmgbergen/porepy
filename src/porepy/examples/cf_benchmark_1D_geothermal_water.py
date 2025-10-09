@@ -280,7 +280,10 @@ class BoundaryConditions(pp.PorePyModel):
         return self.bc_type_darcy_flux(sd)
 
     def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_darcy_flux(sd)
+        if sd.dim < self.nd:
+            return pp.BoundaryCondition(sd)
+        else:
+            return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         vals = np.zeros(boundary_grid.num_cells)
@@ -642,8 +645,6 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     model.schur_complement_primary_equations = cfle.cf.get_primary_equations_cf(model)
     model.schur_complement_primary_variables = cfle.cf.get_primary_variables_cf(model)

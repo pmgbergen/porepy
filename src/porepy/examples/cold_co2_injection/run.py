@@ -21,8 +21,8 @@ Note:
 
 Note:
     For some reason, the flag ``-p`` must be given a value, otherwise the parsing won't
-    work when executing from bash script. Any integer must be given, value is meaningless.
-    Just a work-around.    
+    work when executing from bash script. Any integer must be given, value is
+    meaningless. Just a work-around.
 
 """
 
@@ -108,6 +108,7 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_co2_injection.model import (
+    BuoyancyModel,
     ColdCO2InjectionModel,
     ColdCO2InjectionModelFF,
 )
@@ -293,28 +294,6 @@ class DataCollectionMixin(pp.PorePyModel):
             return None
 
 
-class BuoyancyModel(pp.PorePyModel):
-    def initial_condition(self):
-        super().initial_condition()
-        self.set_buoyancy_discretization_parameters()
-
-    def update_flux_values(self):
-        super().update_flux_values()
-        self.update_buoyancy_driven_fluxes()
-
-    def set_nonlinear_discretizations(self):
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2")
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
-
 class QuadraticRelPerm(pp.PorePyModel):
     """ "Contains the quadratic relative permeability law."""
 
@@ -381,7 +360,10 @@ if __name__ == "__main__":
         # nargs=1,
         # default=0,
         # type=int,
-        help="Run simulation with settings for 2D plot, including a time schedule every 30 days in the time stepping.",
+        help=(
+            "Run simulation with settings for 2D plot, including a time schedule every "
+            "30 days in the time stepping."
+        ),
     )
 
     args = parser.parse_args()
@@ -625,8 +607,6 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
