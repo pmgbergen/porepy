@@ -269,8 +269,8 @@ class BenchmarkModel(  # type:ignore
     _PRODUCTION_POINTS: list[np.ndarray] = [np.array([0, 1, 0.95])]
 
 
-max_iterations = 40
-iter_range = (21, 35)
+max_iterations = 40 if BUOYANCY_ON else 30
+iter_range = (21, 35) if BUOYANCY_ON else (15, 25)
 newton_tol = 1e-5
 newton_tol_increment = 1e-5
 T_end_months = 24
@@ -325,19 +325,22 @@ solver_params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "apply_schur_complement_reduction": True,
-    "linear_solver": "scipy_sparse",
+    "linear_solver": "pypardiso",
     "nonlinear_solver": NewtonArmijoAndersonSolver,
     "armijo_line_search": True,
     "armijo_line_search_weight": 0.95,
     "armijo_line_search_incline": 0.2,
     "armijo_line_search_max_iterations": 20,
-    "armijo_stop_after_residual_reaches": 1e-1,
+    "armijo_start_after_residual_reaches": np.inf,
+    "armijo_stop_after_residual_reaches": 1e-3,
     "appplyard_chop": 0.2,
     "anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
-    "anderson_acceleration_constrained": False,
+    "anderson_acceleration_constrained": True,
     "anderson_acceleration_regularization_parameter": 1e-3,
-    "anderson_start_after_residual_reaches": 1e2,
+    "anderson_acceleration_relaxation_parameter": 0.,
+    "anderson_start_after_residual_reaches": np.inf,
+    "anderson_stop_after_residual_reaches": newton_tol,
     "solver_statistics_file_name": "solver_statistics.json",
     "flag_failure_as_diverged": True,
 }
@@ -355,9 +358,9 @@ model_params: dict[str, Any] = {
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
     "_lbc_viscosity": True,
-    "fracture_permeability": 1e-2,
+    "fracture_permeability": 1e-13,
+    "progressbar": True,
 }
-
 model_params.update(phase_property_params)
 model_params.update(solver_params)
 model_params["_well_surrounding_permeability"] = well_surrounding_permeability
@@ -374,8 +377,6 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)

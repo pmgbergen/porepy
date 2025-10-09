@@ -5,11 +5,13 @@ from __future__ import annotations
 import logging
 import os
 import time
+import warnings
 
 from typing import Any
 
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
+import numpy as np
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
@@ -23,14 +25,14 @@ from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 from porepy.applications.test_utils.models import add_mixin
 
 
-buoyancy_on = False
-fractional_flow = False
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+BUOYANCY_ON = False
 
-max_iterations = 40 if fractional_flow else 30
-iter_range = (21, 35) if fractional_flow else (15, 25)
+max_iterations = 40 if BUOYANCY_ON else 30
+iter_range = (21, 35) if BUOYANCY_ON else (15, 25)
 newton_tol = 1e-5
 newton_tol_increment = 1e-5
-T_end_months = 24
+T_end_months = 100
 
 time_schedule = [i * 30 * pp.DAY for i in range(T_end_months + 1)]
 dt_init = pp.HOUR
@@ -55,8 +57,8 @@ phase_property_params = {
 }
 
 basalt_ = basalt.copy()
-basalt_["permeability"] = 1e-14
-well_surrounding_permeability = 1e-13
+basalt_["permeability"] = 1e-15
+well_surrounding_permeability = 1e-14
 material_params = {"solid": pp.SolidConstants(**basalt_)}
 
 flash_params: dict[Any, Any] = {
@@ -87,17 +89,18 @@ solver_params = {
     "nonlinear_solver": NewtonArmijoAndersonSolver,
     "armijo_line_search": True,
     "armijo_line_search_weight": 0.95,
-    "armijo_line_search_incline": 0.2,
-    "armijo_line_search_max_iterations": 10,
-    "armijo_start_after_residual_reaches": 1e0,
-    "armijo_stop_after_residual_reaches": newton_tol,
+    "armijo_line_search_incline": 0.3,
+    "armijo_line_search_max_iterations": 15,
+    "armijo_start_after_residual_reaches": np.inf,
+    "armijo_stop_after_residual_reaches": 1e-3,
     "appplyard_chop": 0.2,
-    "anderson_acceleration": True,
+    "anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
     "anderson_acceleration_constrained": True,
     "anderson_acceleration_regularization_parameter": 1e-3,
-    "anderson_start_after_residual_reaches": 1e10,
-    "anderson_stop_after_residual_reaches": 1e0,
+    "anderson_acceleration_relaxation_parameter": 0.,
+    "anderson_start_after_residual_reaches": np.inf,
+    "anderson_stop_after_residual_reaches": 1e1,
     "solver_statistics_file_name": "solver_statistics.json",
     "flag_failure_as_diverged": True,
 }
@@ -105,8 +108,8 @@ solver_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 4.0,
-        "cell_size_fracture": 0.2,
+        "cell_size": 2.,
+        "cell_size_fracture": 1.,
     },
 }
 
@@ -115,20 +118,20 @@ model_params: dict[str, Any] = {
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "flash_params": flash_params,
-    "fractional_flow": fractional_flow,
+    "fractional_flow": BUOYANCY_ON,
     "material_constants": material_params,
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "enable_buoyancy_effects": buoyancy_on,
+    "enable_buoyancy_effects": BUOYANCY_ON,
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
     "_lbc_viscosity": False,
-    "fracture_permeability": 1e-12,
-    "impermeable_fracture_permeability": 1e-16,
-    "_num_fractures": 5,
+    "fracture_permeability": 1e-10,
+    "impermeable_fracture_permeability": 1e-17,
+    "_num_fractures": 7,
     "_well_surrounding_permeability": well_surrounding_permeability,
     "folder_name": f"visualization/md_case/",
-    "progressbars": False,
+    "progressbars": True,
 }
 
 model_params.update(phase_property_params)
@@ -137,15 +140,11 @@ model_params.update(meshing_params)
 
 
 if __name__ == "__main__":
-    if fractional_flow:
-        model_class = ColdCO2InjectionModelFF
+    if BUOYANCY_ON:
+        model_class = add_mixin(BuoyancyModel, ColdCO2InjectionModelFF)
+        # model_class = add_mixin(pp.constitutive_laws.DarcysLawAd, model_class)
     else:
-        model_class = ColdCO2InjectionModel
-    if buoyancy_on:
-        assert fractional_flow, "Require fractional flow for Buoyancy"
-        model_class = add_mixin(BuoyancyModel, model_class)
-
-    model_class = add_mixin(NoFluxRediscretization, model_class)
+        model_class = add_mixin(NoFluxRediscretization, ColdCO2InjectionModel)
 
     model = model_class(model_params)
 
@@ -154,9 +153,7 @@ if __name__ == "__main__":
     t_0 = time.time()
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
-    logging.getLogger("porepy").setLevel(logging.DEBUG)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
+    logging.getLogger("porepy").setLevel(logging.WARNING)
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)

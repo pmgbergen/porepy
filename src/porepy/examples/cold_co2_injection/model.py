@@ -456,7 +456,7 @@ class RandomFracturedMatrixWithPointWells2D(PointWells):
         domain_width = x_max - x_min
         domain_height = y_max - y_min
         min_length = 3.0
-        max_length = domain_width * 2 / 3
+        max_length = domain_width / 2
 
         num_fracs = int(self.params.get("_num_fractures", 0))
         fractures = []
