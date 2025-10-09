@@ -85,8 +85,7 @@ FLASH_TOLERANCES: dict[int, float] = {
 LOCAL_STRIDES: list[int] = [-1, 1, 2, 3, 4, 5]
 """"Tested iteration strides for applying local solver."""
 
-# FOLDER: str = "src/porepy/examples/cold_co2_injection/"
-FOLDER: str = ""
+FOLDER: str = "visualization"
 """For storing simulation results."""
 
 import argparse
@@ -126,10 +125,13 @@ def get_file_name(
     rel_perm: Literal["quadratic", "linear"] = "linear",
     num_months: int = 24,
 ) -> str:
-    return (
+    name =(
         f"{condition}_h{refinement}_ftol{flash_tol_case}"
         f"_fstride{flash_stride}_{rel_perm}_m{num_months}"
     )
+    if LBC_VISCOSITY:
+        name += "_LBC"
+    return name
 
 
 def get_path(
@@ -384,6 +386,16 @@ if __name__ == "__main__":
         help="Run simulation with settings for 2D plot, including a time schedule every 30 days in the time stepping.",
     )
 
+    parser.add_argument(
+        "-L",
+        "--lohrenz",
+        action="store_true",
+        # nargs=1,
+        # default=0,
+        # type=int,
+        help="Run simulation with Lohrenz-Bray-Clark correlations for viscosity.",
+    )
+
     args = parser.parse_args()
 
     if args.equilibrium:
@@ -440,6 +452,12 @@ if __name__ == "__main__":
 
     file_name: str | None = None
 
+    if args.lohrenz:
+        print("Using LBC viscosity correlation.\n")
+        LBC_VISCOSITY: bool = True
+    else:
+        LBC_VISCOSITY: bool = False
+
     if args.plot:
         print("Configuring simulation for 2D plot.\n")
         EQUILIBRIUM_CONDITION = "unified-p-h"
@@ -450,7 +468,7 @@ if __name__ == "__main__":
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
         data_path = "ph_scheduled"
-        file_name = f"stats_{data_path}.json"
+        file_name = f"stats_{data_path}{"_LBC" if LBC_VISCOSITY else ""}.json"
     else:
         print("--- start of run script ---\n")
         data_path = get_file_name(
@@ -461,7 +479,9 @@ if __name__ == "__main__":
             rel_perm=REL_PERM,
             num_months=NUM_MONTHS,
         )
-    data_path = f"visualization/{data_path}"
+    if LBC_VISCOSITY:
+        data_path += "_LBC"
+    data_path = f"{FOLDER}/{data_path}"
 
     print(
         f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
@@ -470,6 +490,7 @@ if __name__ == "__main__":
         f"Local iteration stride: {LOCAL_SOLVER_STRIDE}\n"
         f"Number of months: {NUM_MONTHS}\n"
         f"Relative permeability: {REL_PERM}\n"
+        f"Transport properties: {"LBC" if LBC_VISCOSITY else "constant"}\n"
         f"Time schedule: {RUN_WITH_SCHEDULE}\n"
     )
 
@@ -487,8 +508,8 @@ if __name__ == "__main__":
         iter_range = (36, 45)
 
     if LBC_VISCOSITY:
-        newton_tol = 1e-5
-        newton_tol_increment = 1e-5
+        newton_tol = 2e-5
+        newton_tol_increment = 2e-5
     else:
         newton_tol = 1e-7
         newton_tol_increment = 5e-6
@@ -504,7 +525,7 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(1 * pp.HOUR, dt_max),
+        dt_min_max=(pp.MINUTE if LBC_VISCOSITY and "ph_scheduled" in file_name else pp.HOUR, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
@@ -541,16 +562,6 @@ if __name__ == "__main__":
     }
     flash_params.update(phase_property_params)
 
-    restart_params = {
-        "restart_options": {
-            "restart": False,
-            "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
-            "is_mdg_pvd": False,
-            "vtu_files": None,
-            "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
-        },
-    }
-
     meshing_params = {
         "grid_type": "simplex",
         "meshing_arguments": {
@@ -564,7 +575,7 @@ if __name__ == "__main__":
         "nl_convergence_tol": newton_tol_increment,
         "nl_convergence_tol_res": newton_tol,
         "apply_schur_complement_reduction": True,
-        "linear_solver": "scipy_sparse",
+        "linear_solver": "pypardiso",
         "nonlinear_solver": NewtonArmijoAndersonSolver,
         "armijo_line_search": True,
         "armijo_line_search_weight": 0.95,
@@ -596,7 +607,6 @@ if __name__ == "__main__":
     }
 
     model_params.update(phase_property_params)
-    model_params.update(restart_params)
     model_params.update(meshing_params)
     model_params.update(solver_params)
     model_params["_well_surrounding_permeability"] = well_surrounding_permeability

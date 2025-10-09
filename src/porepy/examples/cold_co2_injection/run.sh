@@ -51,6 +51,8 @@ python3 run.py -p
 echo "--- SIMULATION 21 / 22 COMPLETED ---"
 python3 run.py -e pT -r 3 -t 2 -s 3 -m 20
 echo "--- SIMULATION 22 / 22 COMPLETED ---"
+# Run simulation with LBC correlation for comparison
+python3 run.py -p -L
 #Plot results for analysis.
 python3 plot.py
 
