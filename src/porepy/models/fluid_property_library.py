@@ -118,6 +118,40 @@ class FluidDensityFromPressure(pp.PorePyModel):
         c = self.fluid_compressibility(subdomains)
         return exp(c * dp)
 
+    def perturbation_from_reference(self, name: str, grids: list[pp.Grid]):
+        """Perturbation of some quantity ``name`` from its reference value.
+
+        The parameter ``name`` should be the name of a mixed-in method, returning an
+        AD operator for given ``grids``.
+
+        ``name`` should also be defined in the model's :attr:`reference_values`.
+
+        This method calls the model method with given ``name`` on given ``grids`` to
+        create an operator ``A``. It then fetches the respective reference value and
+        wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
+
+        Parameters:
+            name: Name of the quantity to be perturbed from a reference value.
+            grids: List of subdomain or interface grids on which the quantity is
+                defined.
+
+        Returns:
+            Operator for the perturbation.
+
+        """
+        quantity = getattr(self, name)
+        # This will throw an error if the attribute is not callable
+        quantity_op = cast(pp.ad.Operator, quantity(grids))
+        # the reference values are a data class instance storing only numbers
+        quantity_ref = cast(
+            pp.number, getattr(self.reference_variable_values, name) + 1
+        )
+        # The casting reflects the expected outcome, and is used to help linters find
+        # the set_name method
+        quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)
+        quantity_perturbed.set_name(f"{name}_perturbation")
+        return quantity_perturbed
+
 
 class FluidDensityFromTemperature(pp.PorePyModel):
     """Fluid density as a function of temperature for a single-phase, single-component
@@ -478,18 +512,54 @@ class FluidMobility(pp.PorePyModel):
             Above expression in operator form.
 
         """
+        # if self.fluid.num_fluid_phases > 1:
+        #     raise NotImplementedError("Not implemented!")
+        # else:
+        #     mobility = (
+        #         self.fluid.reference_phase.density(domains)
+        #         * self.phase_mobility(self.fluid.reference_phase, domains)
+        #         * element.fluid_fraction(domains)
+        #         * self.fluid.element_density_ratio(domains)
+        #     )
+
+        # element mobility is just a combination of component mobilities
         if self.fluid.num_fluid_phases > 1:
             raise NotImplementedError("Not implemented!")
         else:
-            mobility = (
-                self.fluid.reference_phase.density(domains)
-                * self.phase_mobility(self.fluid.reference_phase, domains)
-                * element.fluid_fraction(domains)
-                * self.fluid.element_density_ratio(domains)
+            W = self.fluid.fluid_formula_matrix  # shape (E, C)
+            species_names = self.fluid.fluid_species_names
+            components = self.fluid.components
+
+            # Map species name -> AD function
+            z_funcs = {
+                comp.name: self.component_mass_mobility(comp, domains)
+                for comp in components
+            }
+
+            # Evaluate z_ξ(subdomains) to get a list of Operators
+            try:
+                z_ops = [z_funcs[name] for name in species_names]  # shape (C,)
+            except KeyError as e:
+                raise KeyError(
+                    f"Species name '{e.args[0]}' not found in fluid components."
+                )
+
+            # Extract row for the element
+            # find the row index according to element name
+            try:
+                element_index = self.fluid.element_names.index(element.name)
+            except ValueError as e:
+                raise ValueError(
+                    f"Element name '{e.args[0]}' not found in fluid elements."
+                )
+            W_row = W[element_index, :]  # shape (C,)
+            # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
+            total_op = pp.ad.sum_operator_list(
+                [pp.ad.Scalar(w) * z for w, z in zip(W_row, z_ops)]
             )
 
-        mobility.set_name(f"element_mass_mobility_{element.name}")
-        return mobility
+        total_op.set_name(f"element_mass_mobility_{element.name}")
+        return total_op
 
 
 class ConstantViscosity(pp.PorePyModel):

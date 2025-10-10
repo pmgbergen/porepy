@@ -1179,6 +1179,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # NOTE: If the reference component fraction is independent, below elif-clause
         # will be executed, instead of the next one.
         elif self.has_independent_fluid_fraction(element):
+            # we enable chemical equilibrium only for testing purposes
+            # self.fluid.enable_chemical_equilibrium = True
             if self.fluid.enable_chemical_equilibrium:
                 fraction = self._fraction_factory(
                     self._element_fluid_fraction_variable(element)
@@ -1248,8 +1250,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             ]
         )
 
-        scaling_factor = self.fluid_molar_fraction(subdomains) ** pp.ad.Scalar(-1.0)
-        total_op = total_op * scaling_factor
+        # scaling_factor = self.fluid_molar_fraction(subdomains) ** pp.ad.Scalar(-1.0)
+        # total_op = total_op * scaling_factor
         total_op.set_name("element_density_ratio")
         return total_op
 
@@ -1269,8 +1271,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         """
 
         yy: DomainFunctionType
-
-        if self.fluid.enable_chemical_equilibrium:
+        # disable this for now
+        if self.fluid.enable_chemical_equilibrium and 1 == 0:
             yy = self._fraction_factory(
                 self._element_chemical_potential_variable(element)
             )
@@ -1297,8 +1299,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         """
 
         zz: DomainFunctionType
-
-        if self.fluid.enable_chemical_equilibrium:
+        # disable this for now
+        if self.fluid.enable_chemical_equilibrium and 1 == 0:
             zz = self._fraction_factory(
                 self._equilibrium_stability_index_variable(component)
             )
@@ -2262,6 +2264,7 @@ class ChemicalSystem(FluidMixin):
         ]
         self.fluid.elements = self.element_objects
         self.fluid.num_elements = len(self.element_objects)
+        self.fluid.element_names = working_elements
 
         # === Extract fluid formula matrix ===
         fluid_species = [

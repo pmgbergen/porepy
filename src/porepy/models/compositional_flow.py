@@ -1113,6 +1113,15 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
                 ),
             )
 
+        for ele in self.fluid.elements:
+            self.update_boundary_condition(
+                name=self.bc_data_element_flux_key(ele),
+                function=cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_element_flux, ele),
+                ),
+            )
+
     def update_boundary_values_primary_variables(self) -> None:
         """Calls the user-provided data for overall fractions and tracer fractions after
         a super-call.
@@ -1233,6 +1242,67 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
         """
         return np.zeros(bg.num_cells)
 
+    def bc_values_element_flux(
+        self, element: pp.Element, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        r"""**Massic** component flux values on the boundary flagged as ``'neu'`` by
+        :meth:`bc_type_fluid_flux`.
+
+        The value of the component flux is given by :math:`\mathbf{f}\cdot\mathbf{n}`,
+        where :math:`\mathbf{f} = a\mathbf{d}`. I.e. the massic component flux is
+        given by the Darcy flux and an additional advection weight.
+
+        Important:
+            The component flux must be given for **each** component on the boundary,
+            also for the (dependent) reference component. Otherwise the total advective
+            flux on the boundary cannot be consistently computed.
+
+        See also:
+            :class:`ComponentMassBalance`
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            bg: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the mass
+            component flux values on the provided boundary grid.
+            Defaults to a zero array.
+
+        """
+        # return np.zeros(bg.num_cells)
+
+        # the element flux is computed as a weighted sum of component fluxes
+        W = self.fluid.fluid_formula_matrix  # shape (E, C)
+        species_names = self.fluid.fluid_species_names
+        components = self.fluid.components
+
+        # Map species name -> AD function
+        z_funcs = {
+            comp.name: self.bc_values_component_flux(comp, bg) for comp in components
+        }
+
+        # Evaluate z_ξ(subdomains) to get a list of Operators
+        try:
+            z_ops = [z_funcs[name] for name in species_names]  # shape (C,)
+        except KeyError as e:
+            raise KeyError(f"Species name '{e.args[0]}' not found in fluid components.")
+
+        # Extract row for the element
+        # find the row index according to element name
+        try:
+            element_index = self.fluid.element_names.index(element.name)
+        except ValueError as e:
+            raise ValueError(f"Element name '{e.args[0]}' not found in fluid elements.")
+        W_row = W[element_index, :]  # shape (C,)
+        # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
+
+        element_flux = np.zeros(bg.num_cells)
+        for w, z in zip(W_row, z_ops):
+            element_flux += w * z
+
+        return element_flux
+
     def bc_data_element_flux_key(self, element: pp.Element) -> str:
         r"""
         Parameters:
@@ -1259,6 +1329,8 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
 
     """
 
+    bc_data_fluid_flux_key_reactive_transport: str = "fluid_flux_reactive_transport"
+    bc_values_element_flux: Callable[[pp.Element, pp.BoundaryGrid], np.ndarray]
     has_independent_fraction: Callable[[pp.Component], bool]
 
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
@@ -1289,6 +1361,11 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
                     name=self._mineral_saturation_variable(component),
                     function=bc_vals,
                 )
+
+        self.update_boundary_condition(
+            name=self.bc_data_fluid_flux_key_reactive_transport,
+            function=self.bc_values_fluid_flux_reactive_transport,
+        )
 
     def bc_values_partial_fraction(
         self, component: pp.Component, phase: pp.Phase, bg: pp.BoundaryGrid
@@ -1323,6 +1400,14 @@ class BoundaryConditionsFractions(pp.BoundaryConditionMixin):
             fraction.
         """
         return np.zeros(bg.num_cells)
+
+    def bc_values_fluid_flux_reactive_transport(
+        self, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        total_flux = np.zeros(bg.num_cells)
+        for ele in self.fluid.elements:
+            total_flux += self.bc_values_element_flux(ele, bg)
+        return total_flux
 
 
 class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
@@ -1720,6 +1805,10 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
     # this only works for secondary variables.
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
 
+    has_independent_fluid_fraction: Callable[[pp.Element], bool]
+
+    ic_values_overall_fraction: Callable[[pp.Component, pp.Grid], np.ndarray]
+
     def ic_values_partial_fraction(
         self, component: pp.Component, phase: pp.Phase, sd: pp.Grid
     ) -> np.ndarray:
@@ -1766,6 +1855,14 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
             "Setting initial values for independent partial fractions and mineral saturations."
         )
         for sd in self.mdg.subdomains():
+            for component in self.fluid.solid_components:
+                # independent overall fractions must have an initial value.
+                self.equation_system.set_variable_values(
+                    self.ic_values_mineral_saturation(component, sd),
+                    [cast(pp.ad.Variable, component.mineral_saturation([sd]))],
+                    iterate_index=0,
+                )
+
             # Setting overall fractions and tracer fractions.
             for j, phase in enumerate(self.fluid.phases):
                 for k, comp in enumerate(phase.components):
@@ -1782,13 +1879,62 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
                             iterate_index=0,
                         )
 
-            for component in self.fluid.solid_components:
-                # independent overall fractions must have an initial value.
-                self.equation_system.set_variable_values(
-                    self.ic_values_mineral_saturation(component, sd),
-                    [cast(pp.ad.Variable, component.mineral_saturation([sd]))],
-                    iterate_index=0,
-                )
+            for ele in self.fluid.elements:
+                if self.has_independent_fluid_fraction(ele) and isinstance(
+                    ele.fluid_fraction([sd]), pp.ad.Variable
+                ):
+                    self.equation_system.set_variable_values(
+                        self.ic_values_element_fraction(ele, sd),
+                        [cast(pp.ad.Variable, ele.fluid_fraction([sd]))],
+                        iterate_index=0,
+                    )
+
+    def ic_values_element_fraction(
+        self, element: pp.Element, sd: pp.Grid
+    ) -> np.ndarray:
+        """
+        Parameters:
+            component: A component in the :attr:`fluid` with an independent partial
+                fraction.
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial partial fraction values for a component on a subdomain. Defaults
+            to zero array.
+
+        """
+        # return np.zeros(sd.num_cells)
+
+        # the initial element fraction is computed as a weighted sum of component fractions
+        W = self.fluid.fluid_formula_matrix  # shape (E, C)
+        species_names = self.fluid.fluid_species_names
+        components = self.fluid.components
+
+        # Map species name -> AD function
+        z_funcs = {
+            comp.name: self.ic_values_overall_fraction(comp, sd) for comp in components
+        }
+
+        # Evaluate z_ξ(subdomains) to get a list of Operators
+        try:
+            z_ops = [z_funcs[name] for name in species_names]  # shape (C,)
+        except KeyError as e:
+            raise KeyError(f"Species name '{e.args[0]}' not found in fluid components.")
+
+        # Extract row for the element
+        # find the row index according to element name
+        try:
+            element_index = self.fluid.element_names.index(element.name)
+        except ValueError as e:
+            raise ValueError(f"Element name '{e.args[0]}' not found in fluid elements.")
+        W_row = W[element_index, :]  # shape (C,)
+        # Compute ∑_{e} ∑_{ξ} W[e, ξ] * z_ξ
+
+        element_fraction = np.zeros(sd.num_cells)
+        for w, z in zip(W_row, z_ops):
+            element_fraction += w * z
+
+        return element_fraction
 
 
 class SolutionStrategyPhaseProperties(pp.PorePyModel):
@@ -2156,7 +2302,10 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
         subdomains = self.mdg.subdomains()
 
         for element in self.fluid.elements:
-            if self.has_independent_fluid_fraction(element):
+            if (
+                self.has_independent_fluid_fraction(element)
+                and self.fluid.enable_chemical_equilibrium
+            ):
                 sd_eq = self.element_mass_balance_equation(element, subdomains)
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
@@ -2208,8 +2357,7 @@ class ElementMassBalanceEquations(pp.BalanceEquation):
 
         """
         mass_density = (
-            self.porosity(subdomains)
-            * self.fluid.density(subdomains)
+            self.total_molar_concentration(subdomains)
             * element.fluid_fraction(subdomains)
             * self.fluid.element_density_ratio(subdomains)
         )

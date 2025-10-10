@@ -777,6 +777,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         self.elements: list[Element] = []
         self.num_elements: int = 0
+        self.element_names: list[str] = []
         self.fluid_formula_matrix = None
         self.fluid_species_names = []
         self.reference_element = None
