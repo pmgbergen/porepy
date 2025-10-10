@@ -4462,14 +4462,16 @@ class ReactiveTransportPorosity(pp.PorePyModel):
             The porosity represented as an Ad operator.
 
         """
-
-        sum0 = pp.ad.sum_operator_list(
-            [
-                pp.ad.Scalar(self.solid.total_porosity)
-                * comp.mineral_saturation(subdomains)
-                for comp in self.fluid.solid_components
-            ]
-        )
+        if len(self.fluid.solid_components) > 0:
+            sum0 = pp.ad.sum_operator_list(
+                [
+                    pp.ad.Scalar(self.solid.total_porosity)
+                    * comp.mineral_saturation(subdomains)
+                    for comp in self.fluid.solid_components
+                ]
+            )
+        else:
+            sum0 = pp.ad.Scalar(0.0)
         phi = pp.ad.Scalar(self.solid.total_porosity) - sum0
         phi.set_name("reactive_transport_porosity")
         return phi

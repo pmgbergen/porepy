@@ -1337,20 +1337,21 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """Total molar concentration of the fluid."""
+        if len(self.fluid.solid_components) > 0:
+            solid_molar_concentration = pp.ad.sum_operator_list(
+                [
+                    comp.mineral_saturation(domains)
+                    * pp.ad.Scalar(self.solid.total_porosity)
+                    / pp.ad.Scalar(comp.molar_volume)
+                    for comp in self.fluid.solid_components
+                ]
+            )
 
-        solid_molar_concentration = pp.ad.sum_operator_list(
-            [
-                comp.mineral_saturation(domains)
-                * pp.ad.Scalar(self.solid.total_porosity)
-                / pp.ad.Scalar(comp.molar_volume)
-                for comp in self.fluid.solid_components
-            ]
-        )
-
-        op = (
-            self.porosity(domains) * self.fluid.density(domains)
-        ) + solid_molar_concentration
-
+            op = (
+                self.porosity(domains) * self.fluid.density(domains)
+            ) + solid_molar_concentration
+        else:
+            op = self.porosity(domains) * self.fluid.density(domains)
         return op
 
     def mineral_saturation(
