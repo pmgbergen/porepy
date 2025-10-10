@@ -13,6 +13,7 @@ Note:
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
@@ -29,6 +30,8 @@ from porepy.compositional.compiled_flash.eos_compiler import (
     ScalarFunction,
     VectorFunction,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConstantTransportProperties(EoSCompiler):
@@ -280,7 +283,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 False,
             )
             if status[0]:
-                print("\nConverged with relaxed CFLE criteria.\n")
+                logging.info("Converged with relaxed CFLE criteria.")
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -310,7 +313,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 and tol_inc != np.inf
             )
             if residual_stationary and increment_stationary and not status[0]:
-                print("Detected stationary point. Flagging as diverged.")
+                logging.info("Detected stationary point. Flagging as diverged.")
                 status = (False, True)
 
         return status

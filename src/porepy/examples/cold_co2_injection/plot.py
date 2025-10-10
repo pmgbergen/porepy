@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 from typing import Literal, TypeAlias, TypedDict
 
 import matplotlib
@@ -16,6 +17,7 @@ from porepy.examples.cold_co2_injection.run import (
     LOCAL_STRIDES,
     MESH_SIZES,
     get_path,
+    get_case_name
 )
 
 EquilibriumCondition: TypeAlias = Literal["unified-p-T", "unified-p-h"]
@@ -104,16 +106,19 @@ def load_data(
     flash_stride: int | None = 3,
     rel_perm: Literal["quadratic", "linear"] = "linear",
     num_months: int = 20,
+    lbc: bool = False,
 ) -> SimulationData:
-    path = get_path(
+    case_name = get_case_name(
         condition=condition,
         refinement=refinement,
         flash_tol_case=flash_tol_case,
         flash_stride=flash_stride,
         rel_perm=rel_perm,
         num_months=num_months,
-        file_name=None,
-    ).resolve()
+    )
+    if lbc:
+        case_name += "_LBC"
+    path = pathlib.Path(f"{FOLDER}/stats_{case_name}.json").resolve()
     if not path.is_file():
         raise ValueError(
             "Simulation data not found for\n"
@@ -149,7 +154,7 @@ def load_data(
 
 # endregion
 
-# region Plotting total num iterations per flash tolerance and stride.
+# region Plotting total num iterations per flash tolerance.
 
 strides = np.array(LOCAL_STRIDES).astype(int)
 ftols = np.array(list(FLASH_TOLERANCES.values())).astype(float)
@@ -176,16 +181,12 @@ DDS: list[SimulationData] = [
 ]
 tngi = np.array([d["total_num_global_iter"] for d in DD]).astype(int)
 tnfi = np.array([d["total_num_flash_iter"] for d in DD]).astype(int)
-tngis = np.array([d["total_num_global_iter"] for d in DDS]).astype(int)
-tnfis = np.array([d["total_num_flash_iter"] for d in DDS]).astype(int)
 
 success_tol = np.array([d["simulation_success"] for d in DD]).astype(bool)
 markevery_tol = np.where(success_tol)[0].tolist()
-success_strides = np.array([d["simulation_success"] for d in DDS]).astype(bool)
-markevery_strides = np.where(success_strides)[0].tolist()
 
-fig = plt.figure(figsize=(FIGUREWIDTH, 0.6 * FIGUREHEIGHT))
-ax = fig.add_subplot(1, 2, 2)
+fig = plt.figure(figsize=(FIGUREHEIGHT, 0.5 * FIGUREHEIGHT))
+ax = fig.add_subplot(1, 1, 1)
 imgs = []
 imgsr = []
 
@@ -238,7 +239,8 @@ ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_xscale("log")
 ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
-ax.set_yscale("log")
+ax.set_ylabel("Total global iterations", color="black", fontsize=FONTSIZE + 2)
+ax.set_yscale("log", subs=[])
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 
 mav = tngi.max()
@@ -271,8 +273,26 @@ axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=
 ax.margins(0.10)
 axr.margins(0.10)
 
+fig.tight_layout(pad=FIGUREPAD)
+name = f"{FIGUREPATH}/total_iter_per_ftol.png"
+fig.savefig(
+    name,
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+)
+print(f"\nSaved fig: {name}")
 
-ax = fig.add_subplot(1, 2, 1)
+# endregion
+# region TOtal iter per stride
+
+tngis = np.array([d["total_num_global_iter"] for d in DDS]).astype(int)
+tnfis = np.array([d["total_num_flash_iter"] for d in DDS]).astype(int)
+success_strides = np.array([d["simulation_success"] for d in DDS]).astype(bool)
+markevery_strides = np.where(success_strides)[0].tolist()
+
+fig = plt.figure(figsize=(FIGUREHEIGHT, 0.5 * FIGUREHEIGHT))
+ax = fig.add_subplot(1, 1, 1)
 imgs = []
 imgsr = []
 
@@ -327,10 +347,14 @@ ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5
 ax.set_yscale("log")
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
-ticks = ax.get_yticks()
-ticks = np.concatenate([ticks, np.array([tngis.max(), tngis.min()]).astype(int)])
+ax.set_yticks([], minor=True)
+miv = tngis.min()
+mav = tngis.max()
+ticks = np.array([miv, 10**np.ceil(np.log10(miv)), 10 **np.floor(np.log10(mav)), mav]).astype(int)
 ax.set_yticks(ticks)
+# ax.set_yticks(ticks, minor=True)
 
+axr.set_ylabel("Total local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
@@ -347,7 +371,7 @@ ax.margins(0.1)
 axr.margins(0.1)
 
 fig.tight_layout(pad=FIGUREPAD)
-name = f"{FIGUREPATH}total_iter_per_ftol_and_stride.png"
+name = f"{FIGUREPATH}/total_iter_per_stride.png"
 fig.savefig(
     name,
     format="png",
@@ -589,7 +613,7 @@ axr.legend(
     bbox_to_anchor=(1.15, 0.45),
 )
 fig.tight_layout(pad=FIGUREPAD)
-name = f"{FIGUREPATH}total_iter_per_refinement.png"
+name = f"{FIGUREPATH}/total_iter_per_refinement.png"
 fig.savefig(
     name,
     format="png",
@@ -748,7 +772,7 @@ axr.legend(
     bbox_to_anchor=(1.15, 0.6),
 )
 fig.tight_layout(pad=FIGUREPAD)
-name = f"{FIGUREPATH}iterations_per_time_ph.png"
+name = f"{FIGUREPATH}/iterations_per_time_ph.png"
 fig.savefig(
     name,
     format="png",
@@ -827,7 +851,7 @@ ax.margins(0.1)
 axr.margins(0.1)
 
 fig.tight_layout(pad=FIGUREPAD)
-name = f"{FIGUREPATH}time_progress_ph.png"
+name = f"{FIGUREPATH}/time_progress_ph.png"
 fig.savefig(
     name,
     format="png",

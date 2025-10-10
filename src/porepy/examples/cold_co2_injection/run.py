@@ -88,6 +88,9 @@ LOCAL_STRIDES: list[int] = [-1, 1, 2, 3, 4, 5]
 FOLDER: str = "visualization"
 """For storing simulation results."""
 
+VERBOSE: bool = False
+"""Activate logger instead of progress bar."""
+
 import argparse
 import json
 import logging
@@ -117,7 +120,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # mypy: ignore-errors
 
 
-def get_file_name(
+def get_case_name(
     condition: str,
     refinement: int,
     flash_tol_case: int = 7,
@@ -129,8 +132,6 @@ def get_file_name(
         f"{condition}_h{refinement}_ftol{flash_tol_case}"
         f"_fstride{flash_stride}_{rel_perm}_m{num_months}"
     )
-    if LBC_VISCOSITY:
-        name += "_LBC"
     return name
 
 
@@ -145,11 +146,11 @@ def get_path(
 ) -> pathlib.Path:
     """ "Returns path to result data for a simulation case."""
     if file_name is None:
-        file_name = get_file_name(
+        file_name = get_case_name(
             condition, refinement, flash_tol_case, flash_stride, rel_perm, num_months
         )
         file_name = f"stats_{file_name}.json"
-    return pathlib.Path(f"{FOLDER}{file_name}")
+    return pathlib.Path(f"{FOLDER}/{file_name}")
 
 
 class DataCollectionMixin(pp.PorePyModel):
@@ -450,8 +451,6 @@ if __name__ == "__main__":
         NUM_MONTHS = int(a)
         assert NUM_MONTHS > 0, "Number of months to simulate must be positive."
 
-    file_name: str | None = None
-
     if args.lohrenz:
         print("Using LBC viscosity correlation.\n")
         LBC_VISCOSITY: bool = True
@@ -467,11 +466,10 @@ if __name__ == "__main__":
         NUM_MONTHS = 20
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
-        data_path = "ph_scheduled"
-        file_name = f"stats_{data_path}{"_LBC" if LBC_VISCOSITY else ""}.json"
+        case_name = "ph_scheduled"
     else:
         print("--- start of run script ---\n")
-        data_path = get_file_name(
+        case_name = get_case_name(
             condition=EQUILIBRIUM_CONDITION,
             refinement=REFINEMENT_LEVEL,
             flash_tol_case=FLASH_TOL_CASE,
@@ -480,8 +478,10 @@ if __name__ == "__main__":
             num_months=NUM_MONTHS,
         )
     if LBC_VISCOSITY:
-        data_path += "_LBC"
-    data_path = f"{FOLDER}/{data_path}"
+        case_name += "_LBC"
+
+    
+    data_path = f"{FOLDER}/{case_name}/"
 
     print(
         f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
@@ -492,6 +492,8 @@ if __name__ == "__main__":
         f"Relative permeability: {REL_PERM}\n"
         f"Transport properties: {"LBC" if LBC_VISCOSITY else "constant"}\n"
         f"Time schedule: {RUN_WITH_SCHEDULE}\n"
+        f"Case name: {case_name}\n"
+        f"Results path: {data_path}\n"
     )
 
     # endregion
@@ -522,16 +524,20 @@ if __name__ == "__main__":
         time_schedule = [0, NUM_MONTHS * 30 * pp.DAY]
         dt_max = time_schedule[-1]
 
+    dt_min = pp.HOUR    
+    if LBC_VISCOSITY and "ph_scheduled" in case_name:
+        dt_min = pp.MINUTE
+
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(pp.MINUTE if LBC_VISCOSITY and "ph_scheduled" in file_name else pp.HOUR, dt_max),
+        dt_min_max=(dt_min, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
         recomp_factor=0.6,
         recomp_max=10,
-        print_info=True,
+        print_info=VERBOSE,
         rtol=0.0,
     )
 
@@ -604,6 +610,7 @@ if __name__ == "__main__":
         "enable_buoyancy_effects": BUOYANCY_ON,
         "compile": True,
         "flash_compiler_args": ("p-T", "p-h"),
+        "progressbars": not VERBOSE,
     }
 
     model_params.update(phase_property_params)
@@ -630,11 +637,16 @@ if __name__ == "__main__":
     model = cast(DataCollectionMixin, model_class(model_params))
 
     logging.basicConfig(level=logging.INFO)
-    logging.getLogger("porepy").setLevel(logging.DEBUG)
+    if VERBOSE:
+        logging.getLogger("porepy").setLevel(logging.DEBUG)
     t_0 = time.time()
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
-    logging.getLogger("porepy").setLevel(logging.INFO)
+    if VERBOSE:
+        logging.getLogger("porepy").setLevel(logging.INFO)
+    else:
+        logging.getLogger("porepy").setLevel(logging.WARNING)
+
 
     model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
@@ -708,15 +720,7 @@ if __name__ == "__main__":
 
     # NOTE To avoid accidently overwriting data, we do not export the one we intend
     # to visualize in 2D.
-    path = get_path(
-        condition=EQUILIBRIUM_CONDITION,
-        refinement=REFINEMENT_LEVEL,
-        flash_tol_case=FLASH_TOL_CASE,
-        flash_stride=LOCAL_SOLVER_STRIDE,
-        rel_perm=REL_PERM,
-        num_months=NUM_MONTHS,
-        file_name=file_name,
-    )
+    path = pathlib.Path(f"{FOLDER}/stats_{case_name}.json")
     with open(
         path.resolve(),
         "w",
