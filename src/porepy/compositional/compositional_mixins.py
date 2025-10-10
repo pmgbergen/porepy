@@ -2134,7 +2134,7 @@ class SolidMixin(pp.PorePyModel):
 class ChemicalSystem(FluidMixin):
     def __init__(self, params: Optional[dict] = None):
         """Initialize the ChemicalSystem with empty fluid and solid."""
-        super().__init__()
+        super().__init__(params)
         self.species_in_phase = {}
         self.species_names = []
         self.element_names = []
