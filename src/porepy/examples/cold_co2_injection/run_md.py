@@ -27,6 +27,7 @@ from porepy.applications.test_utils.models import add_mixin
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 BUOYANCY_ON = False
+VERBOSE = True
 
 max_iterations = 40 if BUOYANCY_ON else 30
 iter_range = (21, 35) if BUOYANCY_ON else (15, 25)
@@ -48,7 +49,7 @@ time_manager = pp.TimeManager(
     iter_relax_factors=(0.75, 2),
     recomp_factor=0.6,
     recomp_max=10,
-    print_info=False,
+    print_info=VERBOSE,
     rtol=0.0,
 )
 
@@ -57,8 +58,8 @@ phase_property_params = {
 }
 
 basalt_ = basalt.copy()
-basalt_["permeability"] = 1e-15
-well_surrounding_permeability = 1e-14
+basalt_["permeability"] = 1e-14
+well_surrounding_permeability = 1e-13
 material_params = {"solid": pp.SolidConstants(**basalt_)}
 
 flash_params: dict[Any, Any] = {
@@ -89,8 +90,8 @@ solver_params = {
     "nonlinear_solver": NewtonArmijoAndersonSolver,
     "armijo_line_search": True,
     "armijo_line_search_weight": 0.95,
-    "armijo_line_search_incline": 0.3,
-    "armijo_line_search_max_iterations": 15,
+    "armijo_line_search_incline": 0.2,
+    "armijo_line_search_max_iterations": 10,
     "armijo_start_after_residual_reaches": np.inf,
     "armijo_stop_after_residual_reaches": 1e-3,
     "appplyard_chop": 0.2,
@@ -126,12 +127,12 @@ model_params: dict[str, Any] = {
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
     "_lbc_viscosity": False,
-    "fracture_permeability": 1e-10,
-    "impermeable_fracture_permeability": 1e-17,
-    "_num_fractures": 7,
+    "fracture_permeability": 1e-12,
+    "impermeable_fracture_permeability": 1e-12,
+    "_num_fractures": 5,
     "_well_surrounding_permeability": well_surrounding_permeability,
     "folder_name": f"visualization/md_case/",
-    "progressbars": True,
+    "progressbars": not VERBOSE,
 }
 
 model_params.update(phase_property_params)
@@ -153,7 +154,10 @@ if __name__ == "__main__":
     t_0 = time.time()
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
-    logging.getLogger("porepy").setLevel(logging.WARNING)
+    if VERBOSE:
+        logging.getLogger("porepy").setLevel(logging.INFO)
+    else:
+        logging.getLogger("porepy").setLevel(logging.WARNING)
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)

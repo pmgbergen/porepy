@@ -31,7 +31,11 @@ from porepy.compositional.compiled_flash.eos_compiler import (
 from porepy.fracs.wells_3d import _add_interface
 
 
-np.random.seed(16102025)
+def _set_random_seed(*args):
+    s = 2025
+    for a in args:
+        s+= int(a)
+    np.random.seed(s)
 
 
 class ConstantTransportProperties(EoSCompiler):
@@ -455,11 +459,12 @@ class RandomFracturedMatrixWithPointWells2D(PointWells):
         y_max = self._domain_y_length
         domain_width = x_max - x_min
         domain_height = y_max - y_min
-        min_length = 3.0
-        max_length = domain_width / 2
+        min_length = domain_height
+        max_length = domain_width * 0.7
 
         num_fracs = int(self.params.get("_num_fractures", 0))
         fractures = []
+        _set_random_seed(num_fracs)
         for _ in range(num_fracs):
             # Random center within bounds
             x_center = np.random.uniform(
@@ -470,7 +475,7 @@ class RandomFracturedMatrixWithPointWells2D(PointWells):
             )
 
             # Random angle and length
-            theta = np.random.uniform(0, np.pi)
+            theta = np.random.uniform(-np.pi/4, np.pi/4)
             length = np.random.uniform(min_length, max_length)
 
             dx = 0.5 * length * np.cos(theta)
@@ -932,6 +937,8 @@ class Permeability(pp.PorePyModel):
 
         K_low = float(self.params.get("impermeable_fracture_permeability", 1.0))
         K_high = float(self.params.get("fracture_permeability", 1.0))
+
+        _set_random_seed(int(self.params.get("_num_fractures", 0)))
 
         for sd in subdomains:
             k = np.ones(sd.num_cells)
