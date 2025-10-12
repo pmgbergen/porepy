@@ -621,10 +621,7 @@ class SolutionStrategy(pp.PorePyModel):
         if not self._is_nonlinear_problem():
             raise ValueError("Failed to solve linear system for the linear problem.")
 
-        if self.time_manager.is_constant:
-            # We cannot decrease the constant time step.
-            raise ValueError("Nonlinear iterations did not converge.")
-        else:
+        if not self.time_manager.is_constant:
             # Update the time step magnitude if the dynamic scheme is used.
             # Note: It will also raise a ValueError if the minimal time step is reached.
             self.time_manager.compute_time_step(recompute_solution=True)
