@@ -5,19 +5,22 @@ Implemented classes
 """
 
 import logging
-
 from typing import Tuple
+
 import numpy as np
 
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
+from porepy.numerics.nonlinear.convergence_check import (
+    AbsoluteConvergenceCriterion,
+    NanConvergenceCriterion,
+    ConvergenceInfo,
+    ConvergenceStatus,
+    ConvergenceTolerance,
+)
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceStatus,
-    AbsoluteConvergenceCriterion,
-    NanConvergenceCriterion,
-)
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -29,15 +32,17 @@ class NewtonSolver:
             params = {}
 
         default_options = {
-            "nl_max_iterations": 10,
-            "nl_convergence_tol_inc": 1e-10,
-            "nl_convergence_tol_res": np.inf,
-            "nl_divergence_tol_res": np.inf,
+            "nl_convergence_tol": ConvergenceTolerance(
+                increment=1e-10, max_iterations=10
+            ),
             "nl_convergence_criterion": AbsoluteConvergenceCriterion,
         }
         default_options.update(params)
         self.params = default_options
         """Dictionary of parameters for the nonlinear solver."""
+
+        self.tol: ConvergenceTolerance = self.params["nl_convergence_tol"]
+        """Convergence tolerance used in in the convergence check."""
 
         self.convergence_criterion = self.params.get("nl_convergence_criterion")()
         """Convergence criterion to be used in the nonlinear solver."""
@@ -63,7 +68,7 @@ class NewtonSolver:
 
             # Length is the maximal number of Newton iterations.
             self.solver_progressbar = progressbar_class(  # type: ignore
-                range(int(self.params["nl_max_iterations"])),
+                range(self.tol.max_iterations),
                 desc="Newton loop",
                 position=progress_bar_position,
                 leave=False,
@@ -90,40 +95,41 @@ class NewtonSolver:
         with logging_redirect_tqdm([logging.root]):
             # Newton loop.
             while True:
-                # Perform a single Newton iteration.
+                # Prepare a nonlinear iteration.
                 model.before_nonlinear_iteration()
+
+                # Perform a single Newton iteration.
                 nonlinear_increment = self.nonlinear_iteration(model)
-                model.after_nonlinear_iteration(nonlinear_increment)
 
                 # Monitor convergence.
-                convergence_status, nonlinear_increment_norm, residual_norm = (
-                    self.check_nonlinear_convergence(model, nonlinear_increment)
+                status, info = self.check_nonlinear_convergence(
+                    model, nonlinear_increment
                 )
 
                 # Logging and progress bar update.
-                self.logging(model, nonlinear_increment_norm, residual_norm)
+                self.logging(model, info)
+
+                # Update model status.
+                model.after_nonlinear_iteration(nonlinear_increment)
+
+                # Update model statistics.
+                self.update_solver_statistics(model, status, info)
 
                 # Exit the Newton loop.
-                if (
-                    convergence_status.is_converged()
-                    or convergence_status.is_diverged()
-                    or model.nonlinear_solver_statistics.num_iteration
-                    >= self.params["nl_max_iterations"]
-                ):
+                if status.is_converged() or status.is_failed():
                     break
 
         # Close the progress bar.
         self.solver_progressbar.close()
 
         # React to convergence status.
-        if convergence_status.is_converged():
+        if status.is_converged():
             model.after_nonlinear_convergence()
-        elif convergence_status.is_diverged():
+        elif status.is_failed():
             model.after_nonlinear_failure()
         else:
             raise ValueError
-
-        return convergence_status
+        return status
 
     def nonlinear_iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.
@@ -146,8 +152,8 @@ class NewtonSolver:
         self,
         model,
         nonlinear_increment: np.ndarray,
-    ) -> Tuple[ConvergenceStatus, float, float]:
-        """Implements a convergence check, to be called by a non-linear solver.
+    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+        """Implements a nonlinear convergence check.
 
         The convergence check implicitly assumes relative errors and passes reference
         norms for both increments and residuals to the managing `convergence_criterion`.
@@ -161,9 +167,8 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            ConvergenceStatus: The convergence status of the non-linear iteration.
-            float: Norm of the nonlinear increment.
-            float: Norm of the residual.
+            ConvergenceStatus: Convergence status of the nonlinear solver.
+            ConvergenceInfo: Norms of the error quantities.
 
         """
         # Fetch the residual and current iterate.
@@ -174,24 +179,24 @@ class NewtonSolver:
         # TODO: How important is this? Newton is only called for nonlinear problems, by default.
         if not model._is_nonlinear_problem():
             convergence_criterion = NanConvergenceCriterion()
-            convergence_status = convergence_criterion.check(
+            status, info = convergence_criterion.check(
                 nonlinear_increment, residual, self.params
             )
-            norm_value = np.nan if convergence_status.is_diverged() else 0.0
-            return convergence_status, norm_value, norm_value
+            return status, info
 
-        # Start with trivial nan-check.
-        if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
-            return ConvergenceStatus.DIVERGED, np.nan, np.nan
+        # Trivial nan-check (do not care about the residual and wait until it propagates).
+        if np.isnan(nonlinear_increment).any():  # or np.isnan(residual).any():
+            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
 
-        # Compute norms of the nonlinear increment and residual. Potentially a scalar,
-        # but also dictionaries are possible if equation-based norms are used, e.g.
+        # Model-specific check. Compute norms of the nonlinear increment and residual.
+        # Potentially a scalar, but also dictionaries are possible if equation-based
+        # norms are used.
         nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
         residual_norm = model.residual_norm(residual)
         iterate_norm = model.variable_norm(iterate)
 
         # Each iteration requires a new reference value for the convergence criterion.
-        if model.nonlinear_solver_statistics.num_iteration == 1:
+        if model.nonlinear_solver_statistics.num_iteration == 0:
             self.convergence_criterion.reset_reference_values()
 
         # Cache reference values for convergence checks.
@@ -201,28 +206,27 @@ class NewtonSolver:
         )
 
         # Check convergence using the convergence criterion.
-        convergence_status, scalar_nonlinear_increment_norm, scalar_residual_norm = (
-            self.convergence_criterion.check(
-                nonlinear_increment_norm,
-                residual_norm,
-                self.params,
-            )
+        status, info = self.convergence_criterion.check(
+            nonlinear_increment_norm,
+            residual_norm,
+            self.tol,
         )
 
-        return (
-            convergence_status,
-            scalar_nonlinear_increment_norm,
-            scalar_residual_norm,
-        )
+        # Overwrite convergence status if maximum iterations have been reached.
+        if model.nonlinear_solver_statistics.num_iteration >= self.tol.max_iterations:
+            status = ConvergenceStatus.MAX_ITERATIONS_REACHED
+
+        return status, info
 
     def logging(
-        self, model, nonlinear_increment_norm: float, residual_norm: float
+        self,
+        model,
+        info: ConvergenceInfo,
     ) -> None:
         """Log the current state of the nonlinear solver.
 
-        This includes updating the solver statistics and printing the current
-        iteration number, nonlinear increment norm, and residual norm, as well
-        as updating the progress bar.
+        This includes printing the current iteration number, nonlinear increment norm,
+        and residual norm, as well as updating the progress bar.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
@@ -230,20 +234,50 @@ class NewtonSolver:
             residual_norm: The norm of the residual.
 
         """
-        model.nonlinear_solver_statistics.log_error(
-            nonlinear_increment_norm, residual_norm
-        )
         logger.info(
             "Newton iteration number "
             + f"{model.nonlinear_solver_statistics.num_iteration}"
-            + f" of {self.params['nl_max_iterations']}"
+            + f" of {self.tol.max_iterations}"
         )
         logger.info(
-            f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
-            f"Nonlinear residual norm: {residual_norm:.2e}"
+            f"Nonlinear increment norm: {info.nonlinear_increment_norm:.2e}, "
+            f"Nonlinear residual norm: {info.residual_norm:.2e}"
         )
         self.solver_progressbar.update(n=1)
         self.solver_progressbar.set_postfix_str(
-            f"""Increment {nonlinear_increment_norm:.2e} """
-            f"""Residual {residual_norm:.2e}"""
+            f"""Increment {info.nonlinear_increment_norm:.2e} """
+            f"""Residual {info.residual_norm:.2e}"""
         )
+
+    def update_solver_statistics(
+        self,
+        model,
+        status: ConvergenceStatus,
+        info: ConvergenceInfo,
+    ) -> None:
+        """Update the solver statistics in the model.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+            status (ConvergenceStatus): Convergence status of the solver.
+            info (dict): Dictionary containing norms and other information.
+
+        """
+        # Administration of solver statistics.
+        # TODO: Currently done by model.after_nonlinear_iteration(), but
+        # could be moved here.
+        # model.nonlinear_solver_statistics.advance_iteration()
+
+        # Convergence-related information.
+        model.nonlinear_solver_statistics.log_convergence_status(status)
+        model.nonlinear_solver_statistics.log_error(info)
+
+        # Basic discretization-related information.
+        model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
+        if model._is_time_dependent():
+            model.nonlinear_solver_statistics.log_time_information(
+                model.time_manager.time_index,
+                model.time_manager.time,
+                model.time_manager.dt,
+                model.time_manager.final_time_reached(),
+            )
