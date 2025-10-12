@@ -9,16 +9,23 @@ This includes:
 
 """
 
-from enum import Enum
-import numpy as np
 from abc import abstractmethod
+from enum import StrEnum
 from typing import Callable, Tuple
 
+import numpy as np
 
-class ConvergenceStatus(Enum):
+
+class ConvergenceStatus(StrEnum):
+    """Enumeration of potential convergence statuses."""
+
     CONVERGED = "converged"
     NOT_CONVERGED = "not_converged"
     DIVERGED = "diverged"
+    CYCLED = "cycled"
+    STAGNATED = "stagnated"
+    NAN = "nan"
+    MAX_ITERATIONS_REACHED = "max_iterations_reached"
 
     def __str__(self):
         return self.value
@@ -34,6 +41,35 @@ class ConvergenceStatus(Enum):
     def is_diverged(self) -> bool:
         """Check if the status indicates divergence."""
         return self == ConvergenceStatus.DIVERGED
+
+    def is_cycled(self) -> bool:
+        """Check if the status indicates cycling."""
+        return self == ConvergenceStatus.CYCLED
+
+    def is_stagnated(self) -> bool:
+        """Check if the status indicates stagnation."""
+        return self == ConvergenceStatus.STAGNATED
+
+    def is_nan(self) -> bool:
+        """Check if the status indicates NaN."""
+        return self == ConvergenceStatus.NAN
+
+    def is_max_iterations_reached(self) -> bool:
+        """Check if the status indicates that the maximum number of iterations
+        was reached.
+
+        """
+        return self == ConvergenceStatus.MAX_ITERATIONS_REACHED
+
+    def is_failed(self) -> bool:
+        """Check if the status indicates a failure."""
+        return self in {
+            ConvergenceStatus.DIVERGED,
+            ConvergenceStatus.CYCLED,
+            ConvergenceStatus.STAGNATED,
+            ConvergenceStatus.NAN,
+            ConvergenceStatus.MAX_ITERATIONS_REACHED,
+        }
 
 
 class ReferenceValue:
