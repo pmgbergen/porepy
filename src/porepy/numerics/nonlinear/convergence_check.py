@@ -10,6 +10,7 @@ This includes:
 """
 
 from abc import abstractmethod
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Callable, Tuple
 
@@ -70,6 +71,14 @@ class ConvergenceStatus(StrEnum):
             ConvergenceStatus.NAN,
             ConvergenceStatus.MAX_ITERATIONS_REACHED,
         }
+
+
+@dataclass
+class ConvergenceInfo:
+    nonlinear_increment_norm: float
+    """Global norm of the nonlinear increment."""
+    residual_norm: float
+    """Global norm of the residual."""
 
 
 class ReferenceValue:
@@ -134,7 +143,26 @@ class ReferenceValue:
         self.reference_value = {key: None for key in self.reference_value.keys()}
 
 
-### Base convergence criterion classes
+### Standard tolerances for assessing convergence.
+
+
+@dataclass
+class ConvergenceTolerance:
+    """Collection of standard tolerance for assessing convergence and divergence."""
+
+    increment: float = np.inf
+    """Tolerance for increments for convergence."""
+    residual: float = np.inf
+    """Tolerance for residuals for convergence."""
+    max_increment: float = np.inf
+    """Tolerance for increments for divergence."""
+    max_residual: float = np.inf
+    """Tolerance for residuals for divergence."""
+    max_iterations: int = 10000  # TODO replace with max int
+    """Upper bound for number of iterations for divergence."""
+
+
+### Base convergence criterion classes.
 
 
 class ConvergenceCriterion:
@@ -148,18 +176,19 @@ class ConvergenceCriterion:
         self,
         nonlinear_increment: float | dict[str, float],
         residual: float | dict[str, float],
-        params: dict,
-    ) -> Tuple[ConvergenceStatus, float, float]:
+        tol: ConvergenceTolerance,
+    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
         Parameters:
             nonlinear_increment: The increment in the solution variables from the
                 previous nonlinear iteration.
             residual: The current residual vector of the nonlinear system.
-            params: Dictionary of parameters for the convergence check.
+            tol: Collection of tolerances for assessing convergence and divergence.
 
         Returns:
-            ConvergenceStatus: The convergence status of the non-linear iteration.
+            ConvergenceStatus: Convergence status of the non-linear iteration.
+            ConvergenceInfo: Information about the convergence check.
 
         """
         # Convert values to dict format
@@ -167,7 +196,7 @@ class ConvergenceCriterion:
         residual = self._make_dict(residual)
 
         # Call the actual comparison
-        return self._check(nonlinear_increment, residual, params)
+        return self._check(nonlinear_increment, residual, tol)
 
     def _check_dicts(self, dict1: dict[str, float], dict2: dict[str, float]) -> None:
         """Check if two dictionaries have the same keys.
@@ -206,18 +235,19 @@ class ConvergenceCriterion:
         self,
         nonlinear_increment: dict[str, float],
         residual: dict[str, float],
-        params: dict,
-    ) -> Tuple[ConvergenceStatus, float, float]:
+        tol: ConvergenceTolerance,
+    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
         Parameters:
             nonlinear_increment: The increment in the solution variables from the
                 previous nonlinear iteration.
             residual: The current residual vector of the nonlinear system.
-            params: Dictionary of parameters for the convergence check.
+            tol: Collection of tolerances for assessing convergence.
 
         Returns:
-            ConvergenceStatus: The convergence status of the non-linear iteration.
+            ConvergenceStatus: Convergence status of the non-linear iteration.
+            ConvergenceInfo: Information about the convergence check.
 
         """
         pass
@@ -291,19 +321,18 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         self,
         nonlinear_increment_norm: dict[str, float],
         residual_norm: dict[str, float],
-        params: dict,
-    ) -> Tuple[ConvergenceStatus, float, float]:
+        tol: ConvergenceTolerance,
+    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence using relative norms.
 
         Parameters:
             nonlinear_increment_norm: Norm of the nonlinear increment.
             residual_norm: Norm of the residual.
-            params: Dictionary of parameters for the convergence check.
+            ConvergenceTolerance: Tolerances for the convergence check.
 
         Returns:
-            ConvergenceStatus: The convergence status of the non-linear iteration.
-            float: Global norm of the nonlinear increment.
-            float: Global norm of the residual.
+            ConvergenceStatus: Convergence status of the non-linear iteration.
+            ConvergenceInfo: Information about the convergence check.
 
         """
         # Consistency checks
@@ -314,8 +343,10 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 
         # Check divergence.
         is_diverged = any(
-            res_norm > params["nl_divergence_tol_res"]
-            for res_norm in residual_norm.values()
+            res_norm > tol.max_residual for res_norm in residual_norm.values()
+        ) or any(
+            inc_norm > tol.max_increment
+            for inc_norm in nonlinear_increment_norm.values()
         )
 
         # Reduce norms to floats using l-infinity norm over combined
@@ -330,10 +361,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         )
 
         # Check convergence using relative norms.
-        converged_inc = (
-            reduced_nonlinear_increment_norm < params["nl_convergence_tol_inc"]
-        )
-        converged_res = reduced_residual_norm < params["nl_convergence_tol_res"]
+        converged_inc = reduced_nonlinear_increment_norm < tol.increment
+        converged_res = reduced_residual_norm < tol.residual
         is_converged = converged_inc and converged_res
 
         # Determine convergence status.
@@ -343,11 +372,13 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         elif is_converged:
             convergence_status = ConvergenceStatus.CONVERGED
 
-        return (
-            convergence_status,
-            reduced_nonlinear_increment_norm,
-            reduced_residual_norm,
+        # Collect information about the convergence check.
+        info = ConvergenceInfo(
+            nonlinear_increment_norm=reduced_nonlinear_increment_norm,
+            residual_norm=reduced_residual_norm,
         )
+
+        return convergence_status, info
 
 
 ### Concrete convergence criteria
@@ -360,27 +391,29 @@ class NanConvergenceCriterion(ConvergenceCriterion):
         self,
         nonlinear_increment: dict[str, float],
         residual: dict[str, float],
-        params: dict = {},
-    ) -> Tuple[ConvergenceStatus, float, float]:
+        tol: ConvergenceTolerance,
+    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check for NaN values in the nonlinear increment and residual.
 
         Parameters:
             nonlinear_increment: The increment in the solution variables from the
                 previous nonlinear iteration.
             residual: The current residual vector of the nonlinear system.
+            tol: Not used, but required for complying with super class.
 
         Returns:
-            ConvergenceStatus: The convergence status of the non-linear iteration.
+            ConvergenceStatus: Convergence status of the non-linear iteration.
+            ConverenceInfo: Information about the convergence check.
 
         """
         has_nan_increment = any(
             np.isnan(value) for value in nonlinear_increment.values()
         )
-        has_nan_residual = any(np.isnan(value) for value in residual.values())
-        if has_nan_increment or has_nan_residual:
-            return ConvergenceStatus.DIVERGED, np.nan, np.nan
+        # has_nan_residual = any(np.isnan(value) for value in residual.values())
+        if has_nan_increment:  # or has_nan_residual:
+            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
         else:
-            return ConvergenceStatus.CONVERGED, 0.0, 0.0
+            return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
 
 
 class AbsoluteConvergenceCriterion(RelativeConvergenceCriterion):
