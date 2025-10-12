@@ -861,6 +861,151 @@ fig.savefig(
 print(f"\nSaved fig: {name}")
 # endregion
 
+# region Plot num iterations for LBC and constant case
+
+D = load_data(
+    condition="unified-p-h",
+    refinement=3,
+    flash_tol_case=2,
+    flash_stride=3,
+    rel_perm="linear",
+    num_months=20,
+    lbc=False,
+)
+Dlbc = load_data(
+    condition="unified-p-h",
+    refinement=3,
+    flash_tol_case=2,
+    flash_stride=3,
+    rel_perm="linear",
+    num_months=20,
+    lbc=True,
+)
+
+def _format_t(t: np.ndarray) -> np.ndarray:
+    return np.hstack([t / (3600 * 24), np.ones(1)*600.])
+
+def _format_iter(i: np.ndarray) -> np.ndarray:
+    return np.hstack([np.zeros(1), np.cumsum(i)])
+
+t = _format_t(D['t'])
+csngi = _format_iter(D["num_global_iter"])
+csnfi = _format_iter(D["num_flash_iter"])
+tlbc = _format_t(Dlbc["t"])
+csngilbc = _format_iter(Dlbc["num_global_iter"])
+csnfilbc = _format_iter(Dlbc["num_flash_iter"])
+
+print("CUMULATIVE Iteration values:")
+print("Constant viscosity:")
+print(f"Global: {csngi.max()}, Local: {csnfi.max()}")
+print("LBC viscosity:")
+print(f"Global: {csngilbc.max()}, Local: {csnfilbc.max()}")
+
+# fig = plt.figure(figsize=(FIGUREHEIGHT, 0.5 * FIGUREHEIGHT))
+fig = plt.figure(figsize=(0.65 * FIGUREWIDTH, 0.7 * FIGUREHEIGHT))
+ax = fig.add_subplot(1, 1, 1)
+axr = ax.twinx()
+ax.set_zorder(axr.get_zorder() + 1)
+ax.patch.set_visible(False)
+imgs = []
+imgsr = []
+
+imgs += ax.plot(
+    t,
+    csngi,
+    color="black",
+    marker="^",
+    markersize=MARKERSIZE - 5,
+    linewidth=LINEWIDTH,
+    label="global const",
+)
+imgs += ax.plot(
+    tlbc,
+    csngilbc,
+    color="black",
+    marker="^",
+    markersize=MARKERSIZE - 5,
+    linewidth=LINEWIDTH,
+    linestyle='dashed',
+    label="global lbc",
+)
+imgsr += axr.plot(
+    t,
+    csnfi,
+    color=color,
+    marker="s",
+    markersize=MARKERSIZE - 5,
+    linewidth=LINEWIDTH,
+    label="local const",
+)
+imgsr += axr.plot(
+    tlbc,
+    csnfilbc,
+    color=color,
+    marker="s",
+    markersize=MARKERSIZE - 5,
+    linewidth=LINEWIDTH,
+    linestyle='dashed',
+    label="local lbc",
+)
+
+color='salmon'
+
+ax.set_xlabel("Time [d]", fontsize=FONTSIZE + 2)
+ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
+ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
+ax.set_ylabel("Global iterations", color="black", fontsize=FONTSIZE + 2)
+# ax.set_yscale("log", subs=[])
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+gmax = np.max([csngi.max(), csngilbc.max()])
+ticks = ax.get_yticks()
+ticks = ticks[ticks < gmax]
+ticks = np.hstack([ticks, np.array([gmax])])
+ax.set_yticks(ticks)
+
+axr.set_ylabel("Cell-averaged local iterations", color=color, fontsize=FONTSIZE + 2)
+axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
+# axr.set_yscale("log", subs=[])
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
+axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+# axr.set_yticks(ticks)
+lmax = np.max([csnfi.max(), csnfilbc.max()])
+ticks = axr.get_yticks()
+ticks = ticks[ticks < lmax]
+ticks = np.hstack([ticks, np.array([lmax])])
+axr.set_yticks(ticks)
+
+
+ax.margins(0.05)
+axr.margins(0.05)
+
+ax.legend(
+    handles=imgs,
+    fontsize=FONTSIZE,
+    loc="upper left",
+    bbox_to_anchor=(1.15, 1),
+)
+axr.legend(
+    handles=imgsr,
+    fontsize=FONTSIZE,
+    loc="upper left",
+    bbox_to_anchor=(1.15, 0.7),
+)
+
+fig.tight_layout(pad=FIGUREPAD)
+name = f"{FIGUREPATH}/lbc_comparison_iter.png"
+fig.savefig(
+    name,
+    format="png",
+    dpi=DPI,
+    bbox_inches="tight",
+)
+print(f"\nSaved fig: {name}")
+
+# endregion
+
 # region Printing table with clock times, at maximum refinement where both equilibrium
 # conditions converge.
 
