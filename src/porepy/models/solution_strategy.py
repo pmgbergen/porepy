@@ -581,7 +581,6 @@ class SolutionStrategy(pp.PorePyModel):
             values=nonlinear_increment, additive=True, iterate_index=0
         )
         self.update_derived_quantities()
-        self.nonlinear_solver_statistics.num_iteration += 1
 
     def after_nonlinear_convergence(self) -> None:
         """Method to be called after the non-linear iterations converge.

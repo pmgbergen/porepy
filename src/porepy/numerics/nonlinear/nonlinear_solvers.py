@@ -112,7 +112,7 @@ class NewtonSolver:
                 # Update model status.
                 model.after_nonlinear_iteration(nonlinear_increment)
 
-                # Update model statistics.
+                # Update solver statistics.
                 self.update_solver_statistics(model, status, info)
 
                 # Exit the Newton loop.
@@ -264,9 +264,7 @@ class NewtonSolver:
 
         """
         # Administration of solver statistics.
-        # TODO: Currently done by model.after_nonlinear_iteration(), but
-        # could be moved here.
-        # model.nonlinear_solver_statistics.advance_iteration()
+        model.nonlinear_solver_statistics.advance_iteration()
 
         # Convergence-related information.
         model.nonlinear_solver_statistics.log_convergence_status(status)
