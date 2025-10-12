@@ -137,10 +137,13 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
             time_progressbar.set_description_str(
                 f"Time step {model.time_manager.time_index + 1}"
             )
-            status: ConvergenceStatus = time_step()
+            status = time_step()
             # Update progressbar length.
             if status.is_converged():
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
+            elif status.is_failed():
+                logging.info("Time step failed. Aborting simulation.")
+                break
 
     model.after_simulation()
 
