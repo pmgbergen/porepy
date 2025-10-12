@@ -9,12 +9,11 @@ This includes:
 
 """
 
-from abc import abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Callable, Tuple
-
 import numpy as np
+from abc import abstractmethod
+from typing import Callable
 
 
 class ConvergenceStatus(StrEnum):
@@ -177,7 +176,7 @@ class ConvergenceCriterion:
         nonlinear_increment: float | dict[str, float],
         residual: float | dict[str, float],
         tol: ConvergenceTolerance,
-    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
+    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
         Parameters:
@@ -236,7 +235,7 @@ class ConvergenceCriterion:
         nonlinear_increment: dict[str, float],
         residual: dict[str, float],
         tol: ConvergenceTolerance,
-    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
+    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
 
         Parameters:
@@ -322,7 +321,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         nonlinear_increment_norm: dict[str, float],
         residual_norm: dict[str, float],
         tol: ConvergenceTolerance,
-    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
+    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence using relative norms.
 
         Parameters:
@@ -392,7 +391,7 @@ class NanConvergenceCriterion(ConvergenceCriterion):
         nonlinear_increment: dict[str, float],
         residual: dict[str, float],
         tol: ConvergenceTolerance,
-    ) -> Tuple[ConvergenceStatus, ConvergenceInfo]:
+    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check for NaN values in the nonlinear increment and residual.
 
         Parameters:
