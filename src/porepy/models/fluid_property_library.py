@@ -28,9 +28,10 @@ Note:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast, Union, Literal, List
-import numpy as np
 from itertools import combinations
+from typing import Callable, List, Literal, Sequence, Union, cast
+
+import numpy as np
 
 import porepy as pp
 

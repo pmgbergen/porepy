@@ -16,14 +16,16 @@ Fixed- and mixed-dimensional meshes are defined on cartesian grids.
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, cast, Any
+from abc import abstractmethod
+from typing import Any, Callable, Optional, Sequence, cast
+
 import numpy as np
+
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
-from abc import abstractmethod
 
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)

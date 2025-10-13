@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import copy
 import itertools
-from itertools import count
-from typing import Any, Optional, Union, Callable
 from functools import lru_cache
+from itertools import count
+from typing import Any, Callable, Optional, Union
 from warnings import warn
 
 import numpy as np
