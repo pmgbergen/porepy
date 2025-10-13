@@ -982,7 +982,7 @@ class FractureNetwork3d(object):
 
         return intersections, is_first
 
-    def find_intersections(self, use_orig_points=False) -> None:
+    def find_intersections_old(self, use_orig_points=False) -> None:
         """Find intersections between fractures in terms of coordinates.
 
         The intersections are stored in :attr:`intersections`.
@@ -1076,7 +1076,7 @@ class FractureNetwork3d(object):
             time.time() - start_time,
         )
 
-    def split_intersections(self) -> None:
+    def split_intersections_old(self) -> None:
         """Decompose fractures into non-intersecting sub-polygons.
 
         The decomposition is done based on the fracture network, and their known
