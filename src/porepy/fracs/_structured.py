@@ -17,7 +17,7 @@ import gmsh
 from . import msh_2_grid
 
 
-def _cart_grid_3d(
+def cart_grid_3d(
     fracs: list[np.ndarray], nx: np.ndarray, physdims: Optional[np.ndarray] = None
 ) -> list[list[pp.Grid]]:
     """Creates grids for a domain with possibly intersecting fractures in 3D.
@@ -57,7 +57,7 @@ def _cart_grid_3d(
     return _create_lower_dim_grids_3d(g_3d, fracs, nx, physdims)
 
 
-def _tensor_grid_3d(
+def tensor_grid_3d(
     fracs: list[np.ndarray], x: np.ndarray, y: np.ndarray, z: np.ndarray
 ) -> list[list[pp.Grid]]:
     """
@@ -88,7 +88,7 @@ def _tensor_grid_3d(
     return _create_lower_dim_grids_3d(g_3d, fracs, nx)
 
 
-def _cart_grid_2d(
+def cart_grid_2d(
     fracs: list[np.ndarray], nx: np.ndarray, physdims: Optional[np.ndarray] = None
 ) -> list[list[pp.Grid]]:
     """Creates grids for a domain with possibly intersecting fractures in 2D.
@@ -126,7 +126,7 @@ def _cart_grid_2d(
     return _create_lower_dim_grids_2d(g_2d, fracs, nx)
 
 
-def _tensor_grid_2d(
+def tensor_grid_2d(
     fracs: list[np.ndarray], x: np.ndarray, y: np.ndarray
 ) -> list[list[pp.Grid]]:
     """Creates a grid for a domain with possibly intersecting fractures in 2D.
