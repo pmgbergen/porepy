@@ -1,4 +1,4 @@
-"""Module for creating fractured cartesian grids in 2 and 3 dimensions.
+"""Module for creating fractured Cartesian grids in 2 and 3 dimensions.
 
 The functions in this module can be accessed through the meshing wrapper module.
 
@@ -13,9 +13,8 @@ import numpy as np
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-
+import gmsh
 from . import msh_2_grid
-from .gmsh_interface import Tags
 
 
 def _cart_grid_3d(
@@ -273,19 +272,14 @@ def _create_lower_dim_grids_3d(
 
     # Create 1D grids.
 
-    # Here we make use of the network class to find the intersection of fracture
-    # planes. We could maybe avoid this by doing something similar as for the
-    # 2D-case, and count the number of faces belonging to each edge, but we use the
-    # FractureNetwork class for now.
-
+    # Make use of the network class to find the intersection of fracture planes.
+    #
     # We need to use the snapped fractures to be sure the identified intersections are
     # resolved in the grid.
     frac_list = []
     for f in snapped_fractures:
         frac_list.append(pp.PlaneFracture(f))
 
-    # Combine the fractures into a network
-    network = FractureNetwork3d(fractures=frac_list)
     # Impose domain boundary. For the moment, the network should be immersed in the
     # domain, or else gmsh will complain.
     if physdims is None:
@@ -304,71 +298,50 @@ def _create_lower_dim_grids_3d(
             "ymax": physdims[1],
             "zmax": physdims[2],
         }
-    network.impose_external_boundary(pp.Domain(box))
+    domain = pp.Domain(box)
+    # Combine the fractures into a network
+    network = FractureNetwork3d(fractures=frac_list, domain=domain)
 
-    # Find intersections and split them.
-    network.find_intersections()
-    network.split_intersections()
+    gmsh.initialize()
 
-    # Extract geometrical network information.
-    pts = network.decomposition["points"]
-    edges = network.decomposition["edges"]
-    poly = network._poly_2_segment()
-    # And tags identifying points and edges corresponding to normal fractures, domain
-    # boundaries and subdomain boundaries. Only the entities corresponding to normal
-    # fractures should actually be gridded.
+    domain_tag = network.domain_to_gmsh_3D()
+    nd = 3
+    fracture_tags = network.fractures_to_gmsh_3D()
+    fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
+    gmsh.model.occ.synchronize()
 
-    # Simply pass nothing for now, not sure how do deal with this, or if it at all is
-    # meaningful.
-    edge_tags, _, _ = network._classify_edges(poly, np.array([]))
-
-    auxiliary_points, edge_tags = network._on_domain_boundary(edges, edge_tags)
-    bound_and_aux = np.array(
-        [Tags.DOMAIN_BOUNDARY_LINE.value, Tags.AUXILIARY_LINE.value]
+    (intersection_points, intersection_lines, isect_mapping, _) = (
+        network.process_intersections(fracture_tags, domain_tag, np.array([]))
     )
+    # Create 1D grids.
+    for line in intersection_lines:
+        pts = np.array(gmsh.model.get_bounding_box(1, int(line))).reshape(
+            (3, -1), order="F"
+        )
+        assert pts.shape[1] == 2, "Bounding box of line should have two points"
 
-    # From information of which lines are internal, we can find intersection points.
-    # This part will become more elaborate if we introduce constraints, see the
-    # FractureNetwork3d class.
-
-    # Find all points on fracture intersection lines
-    isect_p = edges[:, edge_tags == Tags.FRACTURE_INTERSECTION_LINE.value].ravel()
-    # Count the number of occurrences
-    num_occ_pt = np.bincount(isect_p)
-    # Intersection points if
-    intersection_points = np.where(num_occ_pt > 1)[0]
-
-    edges = np.vstack((edges, edge_tags))
-
-    # Loop through the edges to make 1D grids. Omit the auxiliary edges.
-    for e in np.ravel(np.where(edges[2] == Tags.FRACTURE_INTERSECTION_LINE.value)):
-        # We find the start and end point of each fracture intersection (1D grid) and
-        # then the corresponding global node index.
-        if np.isin(edge_tags[e], bound_and_aux):
-            continue
-        s_pt = pts[:, edges[0, e]]
-        e_pt = pts[:, edges[1, e]]
-        nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
-        loc_coord = g_3d.nodes[:, nodes]
+        all_nodes = _find_nodes_on_line(g_3d, nx, pts[:, 0], pts[:, 1])
+        loc_coord = g_3d.nodes[:, all_nodes]
         assert loc_coord.shape[1] > 1, (
             "1d grid in intersection should span\
             more than one node"
         )
-        g = msh_2_grid.create_embedded_line_grid(loc_coord, nodes)
+        g = msh_2_grid.create_embedded_line_grid(loc_coord, all_nodes)
         g_1d.append(g)
 
     # Create 0D grids
-
     # Here we also use the intersection information from the FractureNetwork class.
-    # No grids for auxiliary points.
-    for p in intersection_points:
-        if auxiliary_points[p] == Tags.DOMAIN_BOUNDARY_POINT:
-            continue
-        node = np.argmin(pp.distances.point_pointset(pts[:, p], g_3d.nodes))
-        assert np.allclose(g_3d.nodes[:, node], pts[:, p])
+    for pi in intersection_points:
+        pts = np.array(gmsh.model.get_bounding_box(0, int(pi))).reshape(
+            (3, -1), order="F"
+        )
+        node = np.argmin(pp.distances.point_pointset(pts[:, 0], g_3d.nodes))
+        assert np.allclose(g_3d.nodes[:, node], pts[:, 0])
         g = pp.PointGrid(g_3d.nodes[:, node])
         g.global_point_ind = np.asarray(node)
         g_0d.append(g)
+
+    gmsh.finalize()
 
     grids: list[list[pp.Grid]] = [[g_3d], g_2d, g_1d, g_0d]
     return grids
