@@ -90,7 +90,7 @@ class FluidDensityFromPressure(pp.PorePyModel):
                 self.fluid.reference_component.density, "reference_fluid_density"
             )
             rho_ = rho_ref * self.pressure_exponential(cast(list[pp.Grid], domains))
-            rho_.set_name("fluid_density")
+            rho_.set_name("fluid_density_from_pressure")
             return rho_
 
         return rho
@@ -143,9 +143,15 @@ class FluidDensityFromPressure(pp.PorePyModel):
         # This will throw an error if the attribute is not callable
         quantity_op = cast(pp.ad.Operator, quantity(grids))
         # the reference values are a data class instance storing only numbers
-        quantity_ref = cast(
-            pp.number, getattr(self.reference_variable_values, name) + 1
-        )
+
+        if name == "pressure":
+            quantity_ref = cast(
+                pp.number, getattr(self.reference_variable_values, name) + 1
+            )
+        else:
+            quantity_ref = cast(
+                pp.number, getattr(self.reference_variable_values, name)
+            )
         # The casting reflects the expected outcome, and is used to help linters find
         # the set_name method
         quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)

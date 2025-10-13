@@ -1466,6 +1466,15 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         return op
 
+    def molar_bulk_concentration(
+        self, comp: pp.Component, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Total molar concentration of the fluid."""
+
+        op = self.total_molar_concentration(domains) * comp.fraction(domains)
+        op.set_name(f"molar_bulk_concentration_of_{comp.name}")
+        return op
+
 
 class FluidMixin(pp.PorePyModel):
     """Mixin class for introducing a general fluid (mixture) into a PorePy model and

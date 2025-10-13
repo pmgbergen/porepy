@@ -1034,7 +1034,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         else:
             op = self.reference_phase.density(domains)
-            op.set_name("fluid_density")
+            op.set_name("reference_fluid_density")
 
         return op
 
