@@ -41,9 +41,9 @@ class SolverStatistics:
 
     """
 
-    counter: int = 0
+    counter: int = field(default=0)
     """Counter for the number of times the statistics object has been updated."""
-    num_iteration: int = 0
+    num_iteration: int = field(default=0)
     """Number of non-linear iterations performed for current time step."""
     nonlinear_increment_norms: list[float] = field(default_factory=list)
     """List of increment magnitudes for each non-linear iteration."""
@@ -51,18 +51,12 @@ class SolverStatistics:
     """List of residual for each non-linear iteration."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
-    convergence_status: ConvergenceStatus = ConvergenceStatus.NOT_CONVERGED
+    convergence_status: ConvergenceStatus = field(
+        default=ConvergenceStatus.NOT_CONVERGED
+    )
     """Convergence status of the solver."""
     global_num_iteration: list[int] = field(default_factory=list)
     """List of number of iterations for entire run."""
-    time_index: int = 0
-    """Current time step index."""
-    time: float = 0.0
-    """Current time."""
-    dt: float = 0.0
-    """Current time step size."""
-    final_time_reached: bool = False
-    """Whether the final time has been reached."""
     num_cells: list[int] = field(default_factory=list)
     """Number of cells in each dimension."""
     custom_data: dict[str, Any] = field(default_factory=dict)
@@ -71,28 +65,6 @@ class SolverStatistics:
     def advance_iteration(self) -> None:
         """Advance the iteration count by one."""
         self.num_iteration += 1
-
-    def log_time_information(
-        self,
-        time_index: int,
-        time: float,
-        dt: float,
-        final_time_reached: bool,
-        **kwargs,
-    ) -> None:
-        """Log time information.
-
-        Parameters:
-            time_index (int): Current time step index.
-            time (float): Current time.
-            dt (float): Current time step size.
-            **kwargs: Additional keyword arguments, for potential extension.
-
-        """
-        self.time_index = time_index
-        self.time = time
-        self.dt = dt
-        self.final_time_reached = final_time_reached
 
     def log_mesh_information(self, subdomains: list, **kwargs) -> None:
         """Collect mesh information.
@@ -213,7 +185,6 @@ class SolverStatistics:
         data["global"] = {
             "num_cells": self.num_cells,
             "num_iteration": self.global_num_iteration,
-            "final_time_reached": int(self.final_time_reached),
             "convergence_status": str(self.convergence_status),
             "latest_counter": self.counter,
         }
@@ -223,10 +194,6 @@ class SolverStatistics:
         """Append the current statistics to the data dictionary."""
         # Store time dependent data.
         data[str(self.counter)] = {
-            "final_time_reached": int(self.final_time_reached),
-            "time_index": self.time_index,
-            "time": self.time,
-            "dt": self.dt,
             "num_iteration": self.num_iteration,
             "nonlinear_increment_norms": self.nonlinear_increment_norms,
             "residual_norms": self.residual_norms,
@@ -271,3 +238,92 @@ class SolverStatistics:
             # Save to file
             with self.path.open("w") as file:
                 json.dump(data, file, indent=4)
+
+
+@dataclass
+class TimeStatistics:
+    """Mixin making SolverStatistics aware of time information for each iteration."""
+
+    time_index: int = field(default=0)
+    """Current time step index."""
+    time: float = field(default=0.0)
+    """Current time."""
+    dt: float = field(default=0.0)
+    """Current time step size."""
+    final_time_reached: bool = field(default=False)
+    """Whether the final time has been reached."""
+
+    def log_time_information(
+        self,
+        time_index: int,
+        time: float,
+        dt: float,
+        final_time_reached: bool,
+        **kwargs,
+    ) -> None:
+        """Log time information.
+
+        Parameters:
+            time_index (int): Current time step index.
+            time (float): Current time.
+            dt (float): Current time step size.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        self.time_index = time_index
+        self.time = time
+        self.dt = dt
+        self.final_time_reached = final_time_reached
+
+    def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
+        """Append the current statistics to the data dictionary."""
+        data["global"].update(
+            {
+                "final_time_reached": int(self.final_time_reached),
+            }
+        )
+        return data
+
+    def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
+        """Append the current statistics to the data dictionary."""
+        # Store time dependent data.
+        data[str(self.counter)] = {
+            "final_time_reached": int(self.final_time_reached),
+            "time_index": self.time_index,
+            "time": self.time,
+            "dt": self.dt,
+        }
+        return data
+
+
+class SolverStatisticsFactory:
+    """Factory to select the solver statistics class depending on problem characteristics."""
+
+    @staticmethod
+    def create_statistics_type(nonlinear: bool, time_dependent: bool) -> None:
+        if nonlinear:
+            if time_dependent:
+
+                class _SolverStatistics(SolverStatistics, TimeStatistics):
+                    def append_global_data(
+                        self, data: dict[str, dict]
+                    ) -> dict[str, dict]:
+                        data = SolverStatistics.append_global_data(self, data)
+                        data = TimeStatistics.append_global_data(self, data)
+                        return data
+
+                    def append_iterative_data(
+                        self, data: dict[str, dict]
+                    ) -> dict[str, dict]:
+                        data = SolverStatistics.append_iterative_data(self, data)
+                        data = TimeStatistics.append_iterative_data(self, data)
+                        return data
+            else:
+
+                class _SolverStatistics(SolverStatistics): ...
+        else:
+            raise NotImplementedError(
+                "SolverStatistics only supported for nonlinear problems."
+            )
+
+        return _SolverStatistics
