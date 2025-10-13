@@ -24,24 +24,24 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Optional, Callable, cast
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.md_grids.mdg_library import (
+    cube_with_orthogonal_fractures,
+    square_with_orthogonal_fractures,
+)
 from porepy.applications.test_utils import models
+from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
-from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
-from porepy.applications.md_grids.mdg_library import (
-    square_with_orthogonal_fractures,
-    cube_with_orthogonal_fractures,
-)
-from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.applications.test_utils.models import add_mixin
+from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -53,10 +53,12 @@ visualization_dir = Path("visualization")
 def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ) -> TailoredPoromechanics:
-    # Create model with a fractured geometry
-    model = create_model_with_fracture(solid_vals, fluid_vals, {}, uy_north)
+    # Create model with a fractured geometry.
+    model = create_model_with_fracture(
+        solid_vals, fluid_vals, {}, uy_north, TailoredPoromechanics
+    )
 
-    # Fetch parameters for enhancing them
+    # Fetch parameters for enhancing them.
     params = model.params
 
     # Enable exporting
@@ -67,14 +69,14 @@ def create_restart_model(
         schedule=[0, 1], dt_init=0.5, constant_dt=True
     )
 
-    # Add restart possibility
+    # Add restart possibility.
     params["restart_options"] = {
         "restart": restart,
         "pvd_file": reference_dir / "previous_data.pvd",
         "times_file": reference_dir / "previous_times.json",
     }
 
-    # Redefine model
+    # Redefine model.
     model = TailoredPoromechanics(params)
     return model
 

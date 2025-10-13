@@ -14,18 +14,20 @@ Plotting is controlled by an environment variable. To generate plots, run:
 from __future__ import annotations
 
 import os
-import pytest
-from typing import Callable, Optional, Sequence, cast, Any
+from abc import abstractmethod
+from typing import Any, Callable, Optional, Sequence, cast
+
+import matplotlib.pyplot as plt
 import numpy as np
-import porepy as pp
+import pytest
 from scipy.interpolate import interp1d
+
+import porepy as pp
+from porepy.applications.test_utils import reference_arrays_buoyancy_discretization
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
-from abc import abstractmethod
-import matplotlib.pyplot as plt
-from porepy.applications.test_utils import reference_arrays_buoyancy_discretization
 
 
 @pytest.mark.skipped  # reason: slow
