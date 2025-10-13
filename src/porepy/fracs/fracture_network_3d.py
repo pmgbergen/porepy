@@ -276,17 +276,110 @@ class FractureNetwork3d(object):
         fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
         gmsh.model.occ.synchronize()
 
+        (
+            intersection_points,
+            intersection_lines,
+            isect_mapping,
+            num_parents_of_lines,
+        ) = self.process_intersections(
+            fracture_tags, domain_tag, constraints=constraints
+        )
+
+        ## Export physical entities to gmsh.
+
+        # Intersection points.
+        for i in intersection_points:
+            gmsh.model.addPhysicalGroup(
+                0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
+            )
+
+        # Intersection lines.
+        for li, line in enumerate(intersection_lines):
+            if num_parents_of_lines[li] < 2:
+                continue
+
+            gmsh.model.addPhysicalGroup(
+                1,
+                [int(line)],
+                -1,
+                f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
+            )
+
+        # Fractures.
+        for i, frac in enumerate(isect_mapping):
+            subfracs = []
+            for subfrac in frac:
+                if subfrac[0] == 2:
+                    subfracs.append(subfrac[1])
+            if subfracs:
+                if i in constraints:
+                    gmsh.model.addPhysicalGroup(
+                        2, subfracs, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
+                    )
+
+                else:
+                    gmsh.model.addPhysicalGroup(
+                        2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                    )
+
+        # It turns out that if fractures split the domain into disjoint parts, gmsh may
+        # choose to redefine the domain as the sum of these parts. Therefore, we
+        # redefine the domain tags here, using all volumes in the model.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
+
+        # The domain.
+        gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
+
+        fac.synchronize()
+
+        if write_geo:
+            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
+
+        if dfn:
+            dim_meshing = 2
+        else:
+            dim_meshing = 3
+        gmsh.model.mesh.generate(dim_meshing)
+
+        gmsh.write(str(file_name))
+        if clear_gmsh:
+            gmsh.clear()
+        if finalize_gmsh:
+            gmsh.finalize()
+
+        if dfn:
+            subdomains = pp.fracs.simplex.triangle_grid_embedded(file_name)
+        else:
+            # Process the gmsh .msh output file, to make a list of grids.
+            subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+                file_name, constraints
+            )
+
+        if tags_to_transfer:
+            for id_g, g in enumerate(subdomains[1 - int(dfn)]):
+                for key in tags_to_transfer:
+                    if key not in g.tags:
+                        g.tags[key] = self.tags[key][id_g]
+
+        # Merge the grids into a mixed-dimensional grid.
+        mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
+        return mdg
+
+    def process_intersections(
+        self, fracture_tags: list[int], domain_tag: int, constraints: list[int]
+    ) -> None:
+        nd = 3
         if domain_tag >= 0:
-            _, isect_mapping = fac.fragment(
+            _, isect_mapping = gmsh.model.occ.fragment(
                 fracture_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
             )
         else:
             # Special handling of DFN-style meshing.
-            _, isect_mapping = fac.fragment(
+            _, isect_mapping = gmsh.model.occ.fragment(
                 fracture_tags, [], removeObject=True, removeTool=True
             )
 
-        fac.synchronize()
+        gmsh.model.occ.synchronize()
 
         # Partial implementation. Intersection lines are either on the boundary or
         # embedded in fractures. Make a list of both.
@@ -428,88 +521,12 @@ class FractureNetwork3d(object):
         num_point_occ = np.bincount(points_of_intersection_lines)
         intersection_points = np.where(num_point_occ > 1)[0]
 
-        ## Export physical entities to gmsh.
-
-        # Intersection points.
-        for i in intersection_points:
-            gmsh.model.addPhysicalGroup(
-                0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
-            )
-
-        # Intersection lines.
-        # for li in range(num_line_parent_counter):
-        for li, line in enumerate(intersection_lines):
-            # this_parent = np.where(parent_of_intersection_lines == li)[0]
-            if num_parents[li] < 2:
-                continue
-
-            gmsh.model.addPhysicalGroup(
-                1,
-                # intersection_lines[this_parent].tolist(),
-                [int(line)],
-                -1,
-                f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
-            )
-
-        # Fractures.
-        for i, frac in enumerate(isect_mapping):
-            subfracs = []
-            for subfrac in frac:
-                if subfrac[0] == 2:
-                    subfracs.append(subfrac[1])
-            if subfracs:
-                if i in constraints:
-                    gmsh.model.addPhysicalGroup(
-                        2, subfracs, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
-                    )
-
-                else:
-                    gmsh.model.addPhysicalGroup(
-                        2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
-                    )
-
-        # It turns out that if fractures split the domain into disjoint parts, gmsh may
-        # choose to redefine the domain as the sum of these parts. Therefore, we
-        # redefine the domain tags here, using all volumes in the model.
-        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
-
-        # The domain.
-        gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
-
-        fac.synchronize()
-
-        if write_geo:
-            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
-
-        if dfn:
-            dim_meshing = 2
-        else:
-            dim_meshing = 3
-        gmsh.model.mesh.generate(dim_meshing)
-
-        gmsh.write(str(file_name))
-        if clear_gmsh:
-            gmsh.clear()
-        if finalize_gmsh:
-            gmsh.finalize()
-
-        if dfn:
-            subdomains = pp.fracs.simplex.triangle_grid_embedded(file_name)
-        else:
-            # Process the gmsh .msh output file, to make a list of grids.
-            subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
-                file_name, constraints
-            )
-
-        if tags_to_transfer:
-            for id_g, g in enumerate(subdomains[1 - int(dfn)]):
-                for key in tags_to_transfer:
-                    if key not in g.tags:
-                        g.tags[key] = self.tags[key][id_g]
-
-        # Merge the grids into a mixed-dimensional grid.
-        mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
-        return mdg
+        return (
+            intersection_points,
+            intersection_lines,
+            isect_mapping,
+            num_parents,
+        )
 
     def mesh_old(
         self,
