@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gmsh
 import copy
 import csv
 import logging
@@ -141,7 +142,7 @@ class FractureNetwork2d:
         if domain is not None:
             logger.info(f"Domain specification : {str(domain)}")
 
-    def domain_to_gmsh_2D(self) -> int:
+    def domain_to_gmsh_2D(self):
         """Export the rectangular domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a rectangle corresponding to the bounding box of the
@@ -166,7 +167,9 @@ class FractureNetwork2d:
 
         # We assume that z is the zero coordinate when working in 2D, and thus the third
         # input to addRectangle is set to be 0:
-        domain_tag = fac.addRectangle(xmin, ymin, 0, xmax - xmin, ymax - ymin)
+        domain_tag = gmsh.model.occ.addRectangle(
+            xmin, ymin, 0, xmax - xmin, ymax - ymin
+        )
         return domain_tag
 
     def fractures_to_gmsh_2D(self) -> list[int]:
@@ -186,6 +189,7 @@ class FractureNetwork2d:
 
         """
         fracture_tags = [fracture.fracture_to_gmsh_2D() for fracture in self.fractures]
+
         return fracture_tags
 
     def mesh(
