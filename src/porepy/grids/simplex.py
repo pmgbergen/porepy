@@ -98,6 +98,17 @@ class TriangleGrid(Grid):
         )
         face_nodes = cell_wise_face_nodes[face_node_mapping]
 
+        # Check that the orientation of the faces is consistent, in that the neighboring
+        # cells of each face have different signs in the cell-face relation. If not,
+        # we flip the sign of the last occurrence of the face in question.
+        cf_weights = np.bincount(cell_face_mapping, weights=cf_data)
+        inconsistent_orientation = np.where(np.abs(cf_weights) > 1)[0]
+        for ind in inconsistent_orientation:
+            # In principle, we can flip any of the two occurences of the face. Pick the
+            # last one, somewhat arbitrarily, it is not clear to EK that this matters.
+            hit = np.where(cell_face_mapping == ind)[0][-1]
+            cf_data[hit] *= -1
+
         num_faces = face_nodes.shape[0]
         num_cells = tri.shape[1]
 
