@@ -65,7 +65,7 @@ class TriangleGrid(Grid):
 
         num_nodes = p.shape[1]
 
-        # Add a zero z-coordinate
+        # Add a zero z-coordinate.
         if p.shape[0] == 2:
             nodes = np.vstack((p, np.zeros(num_nodes)))
         else:
@@ -74,16 +74,29 @@ class TriangleGrid(Grid):
         assert num_nodes > 2  # Check of transposes of point array
 
         # Tabulate the nodes in [first, second, third] faces of each triangle in
-        # counterclockwise order
-        face_nodes = np.hstack((tri[[0, 1]], tri[[1, 2]], tri[[2, 0]])).transpose()
+        # counterclockwise order.
+        cell_wise_face_nodes = np.hstack(
+            (tri[[0, 1]], tri[[1, 2]], tri[[2, 0]])
+        ).transpose()
 
         # The cell-face orientation is positive if it coincides with the face
         # orientation from low to high node index
-        cf_data = np.sign(face_nodes[:, 1] - face_nodes[:, 0])
+        cf_data = np.sign(cell_wise_face_nodes[:, 1] - cell_wise_face_nodes[:, 0])
 
-        # Face node relations. Each face is oriented from low to high node index.
-        face_nodes.sort(axis=1)
-        face_nodes, cell_faces = np.unique(face_nodes, axis=0, return_inverse=True)
+        # Uniquify the face-nodes (match the faces on two neighboring cells). Sort of
+        # each row, so that faces with the same nodes but different orientation are
+        # recognized as the same face. We cannot use the result from np.unique directly,
+        # since the sorted face-nodes will have a different ordering than the original.
+        # Hence, get a mapping to the unique faces and construct the face-node relation
+        # using this mapping. Also return the mapping back to the original ordering,
+        # this will give us the cell-face relation.
+        _, face_node_mapping, cell_face_mapping = np.unique(
+            np.sort(cell_wise_face_nodes, axis=1),
+            axis=0,
+            return_index=True,
+            return_inverse=True,
+        )
+        face_nodes = cell_wise_face_nodes[face_node_mapping]
 
         num_faces = face_nodes.shape[0]
         num_cells = tri.shape[1]
@@ -101,11 +114,15 @@ class TriangleGrid(Grid):
             (data, face_nodes, indptr), shape=(num_nodes, num_faces)
         )
 
-        # Cell face relation
+        # Cell-face relation. This can be constructed from the mapping back to the
+        # cell-wise face-node relation, recalling that the cell-nodes were stacked so
+        # that the faces of all first cells came first, etc.
         num_faces_per_cell = 3
-        cell_faces = cell_faces.reshape(num_faces_per_cell, num_cells).ravel("F")
+        # Reshape and ravel in Fortran order to get the faces of the first cells first.
+        cell_face_indices = cell_face_mapping.reshape(
+            num_faces_per_cell, num_cells
+        ).ravel("F")
         cf_data = cf_data.reshape(num_faces_per_cell, num_cells).ravel("F").astype(int)
-
         indptr = np.hstack(
             (
                 np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
@@ -113,7 +130,7 @@ class TriangleGrid(Grid):
             )
         )
         cell_faces = sps.csc_matrix(
-            (cf_data, cell_faces, indptr), shape=(num_faces, num_cells)
+            (cf_data, cell_face_indices, indptr), shape=(num_faces, num_cells)
         )
 
         super().__init__(2, nodes, face_nodes, cell_faces, name)
