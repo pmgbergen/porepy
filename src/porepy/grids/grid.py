@@ -58,6 +58,9 @@ class Grid:
 
             External tags for nodes and grids. Will be added to :attr:`~tags`.
 
+    Raises:
+        ValueError: If the cell_faces are not consistently oriented.
+
     """
 
     _counter = count(0)
@@ -97,6 +100,12 @@ class Grid:
         # at third-party code.
         cell_faces.data = cell_faces.data.astype(int)
         face_nodes.data = face_nodes.data.astype(int)
+
+        # There are no fixed rules on the orientation of the faces and cells (which of
+        # the neighboring cell is associated with a +1 and -1), but they should not both
+        # be positive or negative.
+        if np.any(np.abs(cell_faces.sum(axis=1)) > 1):
+            raise ValueError("Cell faces are not consistently oriented.")
 
         self.cell_faces: sps.csc_matrix = cell_faces
         """An array with ``shape=(num_faces, num_cells)`` representing the map from
