@@ -1,4 +1,4 @@
-"""Test functionality related to plane_fracture module."""
+"""Test functionality related to ellipse_fracture module."""
 
 import numpy as np
 import pytest
@@ -9,9 +9,7 @@ from porepy.fracs import ellipse_fracture
 @pytest.mark.parametrize(
     "ellipse_fracture_params",
     [
-        # Center away from xy-plane
         (np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0),
-        # Fracture plane defined by x + y + z = 1
         (np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0),
     ],
 )
