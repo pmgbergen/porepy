@@ -268,9 +268,8 @@ class TetrahedralGrid(Grid):
     ) -> None:
         self.dim = 3
 
-        # Transform points to column vector if necessary (scipy.Delaunay requires this
-        # format)
         if tet is None:
+            # Transform points to column vector (scipy.Delaunay requires this format).
             tesselation = scipy.spatial.Delaunay(p.transpose())
             tet = tesselation.simplices.transpose()
 
@@ -280,14 +279,31 @@ class TetrahedralGrid(Grid):
         num_nodes = p.shape[1]
 
         nodes = p
-        assert num_nodes > 3  # Check of transposes of point array
+        assert num_nodes > 3  # Check of transposes of point array.
 
         num_cells = tet.shape[1]
+
+        # As a preparatory step to construct the face-node and cell-face relations,
+        # permute the nodes for all tetrahedra. After this step, the nodes in each cell
+        # will be ordered so that, if taking the cross product of the vector from node 0
+        # to node 1 and the vector from node 0 to node 2, this will point in the
+        # opposite direction to the vector from node 0 to node 3 (to see this, read the
+        # code in _permute_nodes carefully). In EK's understanding, the point is to get
+        # a systematic ordering of the nodes, hereunder a system that let us deal with
+        # the two cells sharing a face in a consistent manner (see construction of the
+        # cell-face relation below).
         tet = self._permute_nodes(p, tet)
-        # This is apparently needed to appease mypy
+        # This is apparently needed to appease mypy.
         assert tet is not None
 
-        # Define face-nodes so that the first column contains fn of cell 0, etc.
+        # Define face-nodes so that the first column contains fn of cell 0, etc. Due to
+        # the permutation of the nodes in the previous step, and the order in which the
+        # nodes are listed in the definition of face_nodes, the nodes of each face is
+        # ordered so that normal vector formed by the cross product of the vector from
+        # node 0 to node 1 and the vector from node 0 to node 2 points points in the
+        # same direction as the vector from node 0 to node 3 (to see this, draw an
+        # example and verify). This implies that the two cells sharing a face will have
+        # that face represented with opposite ordering of the nodes.
         face_nodes = np.vstack(
             (tet[[1, 0, 2]], tet[[0, 1, 3]], tet[[2, 0, 3]], tet[[1, 2, 3]])
         )
@@ -295,20 +311,21 @@ class TetrahedralGrid(Grid):
         # belonging to cell 0.
         face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
-        face_nodes_sorted = np.sort(face_nodes, axis=0)
 
         # Now find the unique face-nodes, by comparing columns in the sorted array.
         # Internal faces will be found twice, once  for ecah cell, while external faces
         # only occur once. The second returned value gives the index of the cells which
-        # the face belongs to.
+        # the face belongs to. Do unique on an array with sorted columns, so that faces
+        # with the same nodes but with different ordering are recognized as the same
+        # face.
         face_nodes, cell_faces = np.unique(
-            face_nodes_sorted, axis=1, return_inverse=True
+            np.sort(face_nodes, axis=0), axis=1, return_inverse=True
         )
-        # Numpy may return cell-faces as a 2d array, so we need to flatten it.
+        # Numpy may return cell-faces as a 2d array, so we need to ravel it.
         cell_faces = cell_faces.ravel(order="F")
 
         num_faces = face_nodes.shape[1]
-
+        # Construct the face-node relation. Each face has three nodes.
         num_nodes_per_face = 3
         face_nodes = face_nodes.ravel(order="F")
         indptr = np.hstack(
@@ -322,7 +339,8 @@ class TetrahedralGrid(Grid):
             (data, face_nodes, indptr), shape=(num_nodes, num_faces)
         )
 
-        # Cell face relation
+        # Cell-face relation. Index pointers are straightforward, since we know that
+        # each cell has exactly 4 faces.
         num_faces_per_cell = 4
         indptr = np.hstack(
             (
@@ -330,6 +348,16 @@ class TetrahedralGrid(Grid):
                 num_faces_per_cell * num_cells,
             )
         )
+        # The data should be +1 or -1, depending on the orientation of the face relative
+        # to the cell. Due to the ordering of the nodes in each face (see construction
+        # above), the orientation is different for the two cells sharing a face. Hence
+        # the sorting permutation is different for the two cells, and  it turns out (try
+        # and see) that one of the cells will have a cyclic permutation of (0, 1, 2) as
+        # the sorting permutation, while the other cell will have a permutation that can
+        # be obtained by swapping two elements in (0, 1, 2). The former can be
+        # identified by checking if the difference between two consecutive elements in
+        # the sorting permutation is 1. For these cells, we set the sign to -1, for the
+        # others +1.
         data = np.ones(cell_faces.shape, dtype=int)
         sgn_change = np.where(np.any(np.diff(sort_ind, axis=0) == 1, axis=0))[0]
         data[sgn_change] = -1
