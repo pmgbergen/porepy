@@ -142,7 +142,7 @@ class FractureNetwork2d:
         if domain is not None:
             logger.info(f"Domain specification : {str(domain)}")
 
-    def domain_to_gmsh_2D(self):
+    def domain_to_gmsh_2D(self) -> int:
         """Export the rectangular domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a rectangle corresponding to the bounding box of the
@@ -161,15 +161,38 @@ class FractureNetwork2d:
             * This method currently only supports rectangular domains.
 
         """
-        bb = self.domain.bounding_box
-        xmin, xmax = bb["xmin"], bb["xmax"]
-        ymin, ymax = bb["ymin"], bb["ymax"]
+        domain = self.domain
+        if domain is None:
+            return -1
+        if domain.is_boxed:
+            bb = self.domain.bounding_box
+            xmin, xmax = bb["xmin"], bb["xmax"]
+            ymin, ymax = bb["ymin"], bb["ymax"]
 
-        # We assume that z is the zero coordinate when working in 2D, and thus the third
-        # input to addRectangle is set to be 0:
-        domain_tag = gmsh.model.occ.addRectangle(
-            xmin, ymin, 0, xmax - xmin, ymax - ymin
-        )
+            # We assume that z is the zero coordinate when working in 2D, and thus the
+            # third input to addRectangle is set to be 0:
+            domain_tag = gmsh.model.occ.addRectangle(
+                xmin, ymin, 0, xmax - xmin, ymax - ymin
+            )
+        else:
+            # The domain is a general polygon.
+            polygon = domain.polytope
+            # Get the points of the polygon. We can do this by taking the first column
+            # (first point) of each polygon in the list.
+            pts = [poly[:, 0] for poly in polygon]
+            # Add the points to gmsh.
+            pt_tags = [gmsh.model.occ.addPoint(p[0], p[1], 0) for p in pts]
+            # Close the list of points, represented as gmsh tags.
+            pt_tags.append(pt_tags[0])
+            # The lines of the polygon, the line loop, and the plane surface can all be
+            # created, assuming that the lines are specificed in a consecutive manner.
+            lines = [
+                gmsh.model.occ.addLine(pt_tags[i], pt_tags[i + 1])
+                for i in range(len(pts))
+            ]
+            line_loop = gmsh.model.occ.addCurveLoop(lines)
+            domain_tag = gmsh.model.occ.addPlaneSurface([line_loop])
+
         return domain_tag
 
     def fractures_to_gmsh_2D(self) -> list[int]:
