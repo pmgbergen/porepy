@@ -166,11 +166,16 @@ class FractureNetwork3d(object):
 
 
         """
-        bb = self.domain.bounding_box
+        if self.domain is None:
+            raise ValueError("No domain has been specified for this fracture network.")
 
-        xmin, xmax = bb["xmin"], bb["xmax"]
-        ymin, ymax = bb["ymin"], bb["ymax"]
-        zmin, zmax = bb["zmin"], bb["zmax"]
+        if self.domain.is_boxed:
+            # Defining a box domain in Gmsh's OpenCASCADE kernel is straightforward.
+            bb = self.domain.bounding_box
+
+            xmin, xmax = bb["xmin"], bb["xmax"]
+            ymin, ymax = bb["ymin"], bb["ymax"]
+            zmin, zmax = bb["zmin"], bb["zmax"]
 
             domain_tag = gmsh.model.occ.addBox(
                 xmin, ymin, zmin, xmax - xmin, ymax - ymin, zmax - zmin
@@ -183,20 +188,6 @@ class FractureNetwork3d(object):
             # be uniquely defined, so that if two surfaces in the polytope description
             # share a line, this must be represented by a single line in Gmsh, and the
             # surfaces' Gmsh representation must reference this single line.
-
-            # First raise a warning about the immature state of this functionality. To
-            # anyone reading this later: Meshing of non-box domains is little used in
-            # practice, and it has therefore not been a priority to make sure the code
-            # covers all configurations of such domains and fracture geometries. It is
-            # also an open question to which it is possible to facilitate robust meshing
-            # in these cases. If you wonder about whether your case is covered, please
-            # inspect the grid generated carefully (assuming a grid is generated at all
-            # - if not the answer is negative) to see if the domain and the fractures
-            # are represented as expected.
-            warnings.warn(
-                "Meshing of non-box domains is not fully tested. Proceed with care.",
-                UserWarning,
-            )
 
             # For bookkeeping.
             polytope = self.domain.polytope

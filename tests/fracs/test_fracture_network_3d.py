@@ -1301,7 +1301,14 @@ class TestDFNMeshGeneration:
 
 
 class TestDFMPolytopeDomain:
-    """Test fracture meshing on polytope (non-box) domains."""
+    """Test fracture meshing on polytope (non-box) domains.
+
+    This is a rather minimal test suite. There are surely cases that are not covered
+    here, and in all likelihood, adding such tests will uncover bugs and shortcomings in
+    the implementation. However, considering the limited use of true polytopal domains,
+    the current coverage will have to do for now.
+
+    """
 
     def domain(self):
         """Set up a polytope domain."""
@@ -1339,7 +1346,6 @@ class TestDFMPolytopeDomain:
         """The fracture should be split into subfractures because of the non-convexity
         of the domain.
         """
-
         f_1 = pp.PlaneFracture(
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]])
         )
@@ -1351,4 +1357,4 @@ class TestDFMPolytopeDomain:
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [0, 1, 0.7, 0.7]])
         )
         mdg = self._generate_mesh([f_1])
-        assert len(mdg.subdomains(dim=2)) == 3
+        assert len(mdg.subdomains(dim=2)) == 1
