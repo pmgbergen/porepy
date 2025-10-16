@@ -214,6 +214,8 @@ class MultiphysicsLebesgueMetric:
             for name in self.equation_system._equations
         }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
+            if len(sd) == 0:
+                continue
             residual_values = values[indices].reshape((eq_dim, -1), order="F")
             cell_weights = np.hstack([_sd.cell_volumes for _sd in sd])
             intensive_residual_values = pp.ad.DenseArray(
