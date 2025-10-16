@@ -165,18 +165,18 @@ def test_constrain_to_domain(
             "expected": [0, 1, 1],
             "fracs": [pp.LineFracture(np.array([[0, 1], [0, 1]]))],
         },
-        # Test a grid where the outer domain is a concave pentagon, one fracture is
+        # Test a grid where the outer domain is a convex pentagon, one fracture is
         # partially immersed which results in two 1d grids.
         {
             "lines": [
                 [[0, 1], [0, 0]],
                 [[1, 1], [0, 1]],
-                [[1, 0.5], [1, 0.5]],
-                [[0.5, 0], [0.5, 1]],
+                [[1, 0.5], [1, 1.5]],
+                [[0.5, 0], [1.5, 1]],
                 [[0, 0], [1, 0]],
             ],
-            "expected": [0, 2, 1],
-            "fracs": [pp.LineFracture(np.array([[0.2, 0.8], [0.6, 0.6]]))],
+            "expected": [0, 1, 1],
+            "fracs": [pp.LineFracture(np.array([[0.2, 0.8], [1.3, 1.3]]))],
         },
     ],
 )
