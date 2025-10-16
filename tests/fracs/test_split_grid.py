@@ -4,6 +4,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils.grids import fix_cell_faces
 
 
 def test_duplicate_nodes():
@@ -50,9 +51,13 @@ def test_duplicate_nodes():
 
     cf_rows = np.hstack((cf_0_6, cf_7_12, cf_13_16, cf_17_19, cf_20_25, cf_26_28))
     cf_cols = np.tile(np.arange(nc), (3, 1)).ravel("f")
-    # Will not need +- sign on cell_faces for this test
+    # The +- sign of cell-faces is not important for this test. Assign all positive and
+    # call a helper function to make sure the internal faces have one positive and one
+    # negative entry.
     cf_data = np.ones(3 * nc)
-    cell_faces = sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf, nc)).tocsc()
+    cell_faces = fix_cell_faces(
+        sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf, nc)).tocsc()
+    )
 
     # Random node coordinates, these are not important for the test
     nodes = np.random.rand(3, nn)
