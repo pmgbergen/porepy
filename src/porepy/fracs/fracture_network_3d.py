@@ -172,9 +172,95 @@ class FractureNetwork3d(object):
         ymin, ymax = bb["ymin"], bb["ymax"]
         zmin, zmax = bb["zmin"], bb["zmax"]
 
-        domain_tag = gmsh.model.occ.addBox(
-            xmin, ymin, zmin, xmax - xmin, ymax - ymin, zmax - zmin
-        )
+            domain_tag = gmsh.model.occ.addBox(
+                xmin, ymin, zmin, xmax - xmin, ymax - ymin, zmax - zmin
+            )
+        else:
+            # General polytopes require a more involved procedure: Listed backwards, we
+            # need to define the surfaces of the polytope domain and define a volume
+            # from these. Each surface is defined by a set of lines, which in turn are
+            # defined by their endpoints. The challenge is that lines and points need to
+            # be uniquely defined, so that if two surfaces in the polytope description
+            # share a line, this must be represented by a single line in Gmsh, and the
+            # surfaces' Gmsh representation must reference this single line.
+
+            # First raise a warning about the immature state of this functionality. To
+            # anyone reading this later: Meshing of non-box domains is little used in
+            # practice, and it has therefore not been a priority to make sure the code
+            # covers all configurations of such domains and fracture geometries. It is
+            # also an open question to which it is possible to facilitate robust meshing
+            # in these cases. If you wonder about whether your case is covered, please
+            # inspect the grid generated carefully (assuming a grid is generated at all
+            # - if not the answer is negative) to see if the domain and the fractures
+            # are represented as expected.
+            warnings.warn(
+                "Meshing of non-box domains is not fully tested. Proceed with care.",
+                UserWarning,
+            )
+
+            # For bookkeeping.
+            polytope = self.domain.polytope
+            polytope_sizes = [poly.shape[1] for poly in polytope]
+            offsets = np.hstack(([0], np.cumsum(polytope_sizes)))
+
+            # First find all unique points in the polytope description. Export them to
+            # Gmsh.
+            pts = np.hstack([poly for poly in polytope])
+            unique_pts, _, unique_pt_map = pp.array_operations.uniquify_point_set(
+                pts, self.tol
+            )
+            # These are the tags which Gmsh assigns to the points.
+            pt_tags = [gmsh.model.occ.addPoint(*pt) for pt in unique_pts.T]
+
+            # Define the lines making up the polygons in the polytope. Use offsets to
+            # define the lines for a common set of point indices (i.e. the colummns in
+            # variable pts above).
+            polytope_lines = np.hstack(
+                [
+                    offsets[pi]
+                    # The use of np.roll ensures that the last point connects to the
+                    # first point.
+                    + np.vstack((np.arange(size), np.roll(np.arange(size), -1)))
+                    for pi, size in enumerate(polytope_sizes)
+                ]
+            )
+            # Use the mapping to unique points to get the actual point indices
+            # (referring to unique_pts above).
+            lines_with_unique_points = unique_pt_map[polytope_lines]
+            # Now we need to find the unique lines, which should be exported to gmsh,
+            # and a mapping from all lines to the unique ones. Do a sort along axis 0,
+            # so that lines that share nodes but have the opposite direction are
+            # identified as the same line. Thankfully, the Gmsh OpenCascade kernel does
+            # not mind if we define surfaces that contain lines with inconsistent
+            # orientation, or else this would have been more complicated.
+            unique_lines, line_mapping = np.unique(
+                np.sort(lines_with_unique_points, axis=0), axis=1, return_inverse=True
+            )
+            # Now we can export the unique set of lines to Gmsh. We need to refer to the
+            # points according to their Gmsh tags.
+            line_tags = [
+                gmsh.model.occ.addLine(
+                    pt_tags[unique_lines[0, i]], pt_tags[unique_lines[1, i]]
+                )
+                for i in range(unique_lines.shape[1])
+            ]
+            # Gather the surfaces making up the polytope.
+            surfaces = []
+
+            for pi in range(len(polytope)):
+                # Define the line loop for this polygon. We need to use the line mapping
+                # to get referrals to the unique lines, and then the line tags to get
+                # the Gmsh tags.
+                line_loop = gmsh.model.occ.addCurveLoop(
+                    [line_tags[i] for i in line_mapping[offsets[pi] : offsets[pi + 1]]]
+                )
+                surfaces.append(gmsh.model.occ.addPlaneSurface([line_loop]))
+            # Finally, we need to create a surface loop for the polytope and then create
+            # the volume.
+            surf_loop = gmsh.model.occ.addSurfaceLoop(surfaces)
+            domain_tag = gmsh.model.occ.addVolume([surf_loop])
+
+        gmsh.model.occ.synchronize()
         return domain_tag
 
     def fractures_to_gmsh_3D(self) -> list[int]:
@@ -380,6 +466,35 @@ class FractureNetwork3d(object):
             )
 
         gmsh.model.occ.synchronize()
+
+        if self.domain is not None and not self.domain.is_boxed:
+            # It turns out (...) that for non-box domains, the fragmentation process may
+            # not eliminate parts of fractures that lie outside the domain. To
+            # understand why this is so might require a deep dive into OpenCascade. For
+            # now, we do a simple fix to eliminate (parts of) fractures that are outside
+            # the domain: Identify the vertexes of each fracture part, compute their
+            # distance to the domain. If any of these distances is larger than the
+            # tolerance, we drop the fracture from further consideration. There are
+            # surely cases where this simple approach fails, but it will have to do for
+            # now.
+
+            keep = np.ones(len(isect_mapping[0]), dtype=bool)
+            for fi, frac in enumerate(isect_mapping[0]):
+                bounding_lines = gmsh.model.get_boundary([frac])
+                bounding_points = []
+                for line in bounding_lines:
+                    bounding_points += gmsh.model.get_boundary([line])
+
+                distances = [
+                    gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
+                    for pt in bounding_points
+                ]
+                if np.any(np.array(distances) > self.tol):
+                    keep[fi] = False
+
+            isect_mapping[0] = [
+                isect_mapping[0][i] for i in range(len(keep)) if keep[i]
+            ]
 
         # Partial implementation. Intersection lines are either on the boundary or
         # embedded in fractures. Make a list of both.
