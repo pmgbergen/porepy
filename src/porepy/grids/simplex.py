@@ -289,7 +289,7 @@ class TetrahedralGrid(Grid):
         # to node 1 and the vector from node 0 to node 2, this will point in the
         # opposite direction to the vector from node 0 to node 3 (to see this, read the
         # code in _permute_nodes carefully). In EK's understanding, the point is to get
-        # a systematic ordering of the nodes, hereunder a system that let us deal with
+        # a systematic ordering of the nodes, including a system that lets us deal with
         # the two cells sharing a face in a consistent manner (see construction of the
         # cell-face relation below).
         tet = self._permute_nodes(p, tet)
@@ -298,8 +298,8 @@ class TetrahedralGrid(Grid):
 
         # Define face-nodes so that the first column contains fn of cell 0, etc. Due to
         # the permutation of the nodes in the previous step, and the order in which the
-        # nodes are listed in the definition of face_nodes, the nodes of each face is
-        # ordered so that normal vector formed by the cross product of the vector from
+        # nodes are listed in the definition of face_nodes, the nodes of each face are
+        # ordered so that the normal vector formed by the cross product of the vector from
         # node 0 to node 1 and the vector from node 0 to node 2 points points in the
         # same direction as the vector from node 0 to node 3 (to see this, draw an
         # example and verify). This implies that the two cells sharing a face will have
@@ -340,7 +340,7 @@ class TetrahedralGrid(Grid):
         )
 
         # Cell-face relation. Index pointers are straightforward, since we know that
-        # each cell has exactly 4 faces.
+        # each cell has exactly four faces.
         num_faces_per_cell = 4
         indptr = np.hstack(
             (
