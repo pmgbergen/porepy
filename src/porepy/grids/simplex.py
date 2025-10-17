@@ -127,7 +127,8 @@ class TriangleGrid(Grid):
 
         # Cell-face relation. This can be constructed from the mapping back to the
         # cell-wise face-node relation, recalling that the cell-nodes were stacked so
-        # that the faces of all first cells came first, etc.
+        # that the first face of each cell came first, then the second face of each cell
+        # etc.
         num_faces_per_cell = 3
         # Reshape and ravel in Fortran order to get the faces of the first cells first.
         cell_face_indices = cell_face_mapping.reshape(
@@ -258,6 +259,9 @@ class TetrahedralGrid(Grid):
 
             Name of grid type. If None, ``'TetrahedralGrid'`` will be assigned.
 
+    Raises:
+        ValueError: If not enough points are provided to construct the grid.
+
     """
 
     def __init__(
@@ -277,10 +281,10 @@ class TetrahedralGrid(Grid):
             name = "TetrahedralGrid"
 
         num_nodes = p.shape[1]
+        if num_nodes <= 3:
+            raise ValueError("Not enough points to construct tetrahedral grid.")
 
         nodes = p
-        assert num_nodes > 3  # Check of transposes of point array.
-
         num_cells = tet.shape[1]
 
         # As a preparatory step to construct the face-node and cell-face relations,
@@ -299,9 +303,9 @@ class TetrahedralGrid(Grid):
         # Define face-nodes so that the first column contains fn of cell 0, etc. Due to
         # the permutation of the nodes in the previous step, and the order in which the
         # nodes are listed in the definition of face_nodes, the nodes of each face are
-        # ordered so that the normal vector formed by the cross product of the vector from
-        # node 0 to node 1 and the vector from node 0 to node 2 points points in the
-        # same direction as the vector from node 0 to node 3 (to see this, draw an
+        # ordered so that the normal vector formed by the cross product of the vector
+        # from node 0 to node 1 and the vector from node 0 to node 2 points points in
+        # the same direction as the vector from node 0 to node 3 (to see this, draw an
         # example and verify). This implies that the two cells sharing a face will have
         # that face represented with opposite ordering of the nodes.
         face_nodes = np.vstack(
