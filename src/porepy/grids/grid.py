@@ -102,7 +102,7 @@ class Grid:
         face_nodes.data = face_nodes.data.astype(int)
 
         # There are no fixed rules on the orientation of the faces and cells (which of
-        # the neighboring cell is associated with a +1 and -1), but they should not both
+        # the neighboring cells is associated with a +1 and -1), but they should not both
         # be positive or negative.
         if np.any(np.abs(cell_faces.sum(axis=1)) > 1):
             raise ValueError("Cell faces are not consistently oriented.")
