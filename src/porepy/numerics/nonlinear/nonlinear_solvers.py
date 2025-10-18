@@ -33,7 +33,7 @@ class NewtonSolver:
 
         default_options = {
             "nl_convergence_tol": ConvergenceTolerance(
-                increment=1e-10, max_iterations=10
+                tol_increment=1e-10, max_iterations=10
             ),
             "nl_convergence_criterion": AbsoluteConvergenceCriterion,
         }

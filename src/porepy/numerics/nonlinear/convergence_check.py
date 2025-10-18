@@ -149,9 +149,9 @@ class ReferenceValue:
 class ConvergenceTolerance:
     """Collection of standard tolerance for assessing convergence and divergence."""
 
-    increment: float = np.inf
+    tol_increment: float = np.inf
     """Tolerance for increments for convergence."""
-    residual: float = np.inf
+    tol_residual: float = np.inf
     """Tolerance for residuals for convergence."""
     max_increment: float = np.inf
     """Tolerance for increments for divergence."""
@@ -360,8 +360,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         )
 
         # Check convergence using relative norms.
-        converged_inc = reduced_nonlinear_increment_norm < tol.increment
-        converged_res = reduced_residual_norm < tol.residual
+        converged_inc = reduced_nonlinear_increment_norm < tol.tol_increment
+        converged_res = reduced_residual_norm < tol.tol_residual
         is_converged = converged_inc and converged_res
 
         # Determine convergence status.
