@@ -457,10 +457,10 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     """
 
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin 
-    instance of either 
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of either
     :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
+    or
     :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
