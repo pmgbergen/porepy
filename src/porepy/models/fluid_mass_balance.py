@@ -706,42 +706,42 @@ class FluidMassBalanceEquationsReactiveTransport(pp.BalanceEquation):
 
         return total_op
 
-    def boundary_fluid_flux(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
-        """Combined representation of the fluid flux on the boundaries of
-        ``subdomains``.
+    # def boundary_fluid_flux(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
+    #     """Combined representation of the fluid flux on the boundaries of
+    #     ``subdomains``.
 
-        This base uses the :meth:`fluid_flux` as the Neumann-type operator, and the
-        :meth:`advection_weight_mass_balance` as the Dirichlet-type operator.
-        The former assumes that the total fluid flux on the Neumann-type boundary is
-        explicitly given by the user.
+    #     This base uses the :meth:`fluid_flux` as the Neumann-type operator, and the
+    #     :meth:`advection_weight_mass_balance` as the Dirichlet-type operator.
+    #     The former assumes that the total fluid flux on the Neumann-type boundary is
+    #     explicitly given by the user.
 
-        The boundary fluid flux is used in Upwinding (see :meth:`advective_flux`), i.e.
-        it is a massic flux. Note however, that this is a numerical approximation of the
-        otherwise diffusive total fluid flux.
+    #     The boundary fluid flux is used in Upwinding (see :meth:`advective_flux`), i.e.
+    #     it is a massic flux. Note however, that this is a numerical approximation of the
+    #     otherwise diffusive total fluid flux.
 
-        Note:
-            This operator does not necessarily contain flux values per se. If
-            ``bc_type_fluid_flux`` indicates that the in/out-flux is given using
-            Dirichlet-type data, the values correspond to the values of the non-linear
-            weight in the massic flux.
+    #     Note:
+    #         This operator does not necessarily contain flux values per se. If
+    #         ``bc_type_fluid_flux`` indicates that the in/out-flux is given using
+    #         Dirichlet-type data, the values correspond to the values of the non-linear
+    #         weight in the massic flux.
 
-        Parameters:
-            subdomains: A sequence of grids on whose boundaries the fluid flux is
-                accessed.
+    #     Parameters:
+    #         subdomains: A sequence of grids on whose boundaries the fluid flux is
+    #             accessed.
 
-        Returns:
-            The massic fluid flux on the boundary to be used for the Upwinding scheme.
+    #     Returns:
+    #         The massic fluid flux on the boundary to be used for the Upwinding scheme.
 
-        """
-        return self._combine_boundary_operators(
-            subdomains=subdomains,
-            dirichlet_operator=self.advection_weight_mass_balance,
-            neumann_operator=self.fluid_flux,
-            # Robin operator is not relevant for advective fluxes.
-            robin_operator=None,
-            bc_type=self.bc_type_fluid_flux,
-            name="bc_values_fluid_flux",
-        )
+    #     """
+    #     return self._combine_boundary_operators(
+    #         subdomains=subdomains,
+    #         dirichlet_operator=self.advection_weight_mass_balance,
+    #         neumann_operator=self.fluid_flux,
+    #         # Robin operator is not relevant for advective fluxes.
+    #         robin_operator=None,
+    #         bc_type=self.bc_type_fluid_flux,
+    #         name="bc_values_fluid_flux",
+    #     )
 
     def interface_flux_equation(
         self, interfaces: list[pp.MortarGrid]
