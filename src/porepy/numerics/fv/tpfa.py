@@ -200,8 +200,10 @@ class Tpfa(pp.FVElliptic):
 
         # For primal-like discretizations like the TPFA, internal boundaries
         # are handled by assigning Neumann conditions.
-        is_dir = np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
-        is_neu = np.logical_or(bnd.is_neu, bnd.is_internal)
+        is_dir = (
+            bnd.is_dir
+        )  # np.logical_and(bnd.is_dir, np.logical_not(bnd.is_internal))
+        is_neu = bnd.is_neu  # np.logical_or(bnd.is_neu, bnd.is_internal)
 
         # Move Neumann faces to Neumann transmissibility
         bndr_ind = sd.get_all_boundary_faces()

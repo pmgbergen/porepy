@@ -729,7 +729,7 @@ class Mpfa(pp.FVElliptic):
 
         if sd.dim == 2:
             # Rotate the grid into the xy plane and delete third dimension. First make a
-            # copy to avoid alterations to the input grid
+            # copy to avoid alterations to the input grid.
             sd = sd.copy()
             (
                 cell_centers,
@@ -744,7 +744,7 @@ class Mpfa(pp.FVElliptic):
             sd.face_centers = face_centers
             sd.nodes = nodes
 
-            # Rotate the permeability tensor and delete last dimension
+            # Rotate the permeability tensor and delete last dimension.
             k = k.copy()
             k.values = np.tensordot(R.T, np.tensordot(R, k.values, (1, 0)), (0, 1))
             k.values = np.delete(k.values, (2), axis=0)

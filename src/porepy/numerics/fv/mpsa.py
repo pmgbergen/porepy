@@ -653,7 +653,7 @@ class Mpsa(Discretization):
         if eta is None:
             eta = pp.fvutils.determine_eta(sd)
 
-        if bound.bc_type != "vectorial":
+        if bound.bc_type != "vectorial" and sd.dim > 1:
             raise AttributeError("MPSA must be given a vectorial boundary condition")
 
         if hasattr(sd, "periodic_face_map"):
@@ -669,11 +669,11 @@ class Mpsa(Discretization):
             # Implicitly set Neumann boundary conditions on the whole domain. More
             # general values should be permissible, but it will require handling of
             # rotated boundary conditions.
-            if np.any(bound.is_dir):
-                # T
-                raise ValueError("have not considered Dirichlet boundary values here")
+            # if np.any(bound.is_dir):
+            #     # T
+            #     raise ValueError("have not considered Dirichlet boundary values here")
 
-            bnd = pp.BoundaryCondition(sd)
+            bnd = bound
             params["bc"] = bnd
 
             # The elasticity tensor here is set to 2*mu + lmbda, that is, the standard
