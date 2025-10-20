@@ -557,7 +557,7 @@ class ArraySlicer:
             domain_size=self._range_size,
         )
 
-        obj._is_transposed = not obj._is_transposed
+        obj._is_transposed = not self._is_transposed
         return obj
 
     def __getattr__(self, name: str) -> ArraySlicer:
