@@ -11,14 +11,15 @@ A further description is given for each of the groups of tests.
 
 """
 
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils.grids import fix_cell_faces
 from porepy.fracs import meshing
 
 """Simple testing of 1d mortar grid mapping"""
@@ -851,7 +852,12 @@ def _grid_3d(include_1d: bool, pert: bool) -> pp.Grid:
     face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
 
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-    cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # The +- sign of cell-faces is not important for this test. Assign all positive and
+    # call a helper function to make sure the internal faces have one positive and one
+    # negative entry.
+    cell_faces = fix_cell_faces(
+        sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    )
 
     cell_centers = np.array(
         [
@@ -953,7 +959,12 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
     cols = np.tile(np.arange(fn.shape[1]), (fn.shape[0], 1)).ravel("F")
     face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-    cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # The +- sign of cell-faces is not important for this test. Assign all positive and
+    # call a helper function to make sure the internal faces have one positive and one
+    # negative entry.
+    cell_faces = fix_cell_faces(
+        sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    )
     # Set arbitrary values for face areas. We do not use them in the tests.
     face_areas = np.ones(face_nodes.shape[1])
 
@@ -1062,7 +1073,13 @@ def _grid_2d_four_cells(
     face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
 
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
-    cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # The +- sign of cell-faces is not important for this test. Assign all positive and
+    # call a helper function to make sure the internal faces have one positive and one
+    # negative entry.
+    cell_faces = fix_cell_faces(
+        sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    )
+
     # Set arbitrary values for face areas. We do not use them in the tests.
     face_areas = np.ones(face_nodes.shape[1])
 

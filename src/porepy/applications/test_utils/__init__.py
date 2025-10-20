@@ -11,9 +11,9 @@ from . import (
     grids,
     models,
     partial_discretization,
+    reference_arrays_buoyancy_discretization,
     reference_dense_arrays,
     reference_sparse_arrays,
-    reference_arrays_buoyancy_discretization,
     vtk,
 )
 

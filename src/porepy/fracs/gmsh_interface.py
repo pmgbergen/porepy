@@ -26,8 +26,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Union
 from pathlib import Path
+from typing import Optional, Union
+
 import gmsh
 import numpy as np
 

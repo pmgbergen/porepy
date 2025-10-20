@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import copy
 import itertools
-from itertools import count
-from typing import Any, Optional, Union, Callable
 from functools import lru_cache
+from itertools import count
+from typing import Any, Callable, Optional, Union
 from warnings import warn
 
 import numpy as np
@@ -57,6 +57,9 @@ class Grid:
         external_tags: ``default=None``
 
             External tags for nodes and grids. Will be added to :attr:`~tags`.
+
+    Raises:
+        ValueError: If the cell_faces are not consistently oriented.
 
     """
 
@@ -97,6 +100,12 @@ class Grid:
         # at third-party code.
         cell_faces.data = cell_faces.data.astype(int)
         face_nodes.data = face_nodes.data.astype(int)
+
+        # There are no fixed rules on the orientation of the faces and cells (which of
+        # the neighboring cells is associated with a +1 and -1), but they should not
+        # both be positive or negative.
+        if np.any(np.abs(cell_faces.sum(axis=1)) > 1):
+            raise ValueError("Cell faces are not consistently oriented.")
 
         self.cell_faces: sps.csc_matrix = cell_faces
         """An array with ``shape=(num_faces, num_cells)`` representing the map from

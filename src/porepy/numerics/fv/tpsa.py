@@ -22,6 +22,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids.grid import Grid
+from porepy.numerics.discretization import Discretization
 from porepy.numerics.fv import fvutils
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.params.tensor import FourthOrderTensor
@@ -133,7 +134,7 @@ class _Distances:
     included."""
 
 
-class Tpsa:
+class Tpsa(Discretization):
     """Implementation of the two-point stress approximation derived in
 
         Nordbotten and Keilegavlen, Two-point stress approximation: A simple and robust
@@ -329,6 +330,49 @@ class Tpsa:
         """Keyword used to identify the discretization matrix for the cell center
         solid pressure contribution to boundary displacement reconstrution. Defaults to
         'bound_displacement_solid_pressure_cell'."""
+
+    def ndof(self, sd: pp.Grid) -> int:
+        """Return the number of degrees of freedom associated to the method.
+
+        Parameters:
+            sd: A grid.
+
+        Returns:
+            int: The number of degrees of freedom.
+
+        """
+        if sd.dim == 2:
+            return sd.num_cells * (2 + sd.dim)
+        elif sd.dim == 3:
+            return sd.num_cells * (1 + 2 * sd.dim)
+        else:
+            raise NotImplementedError("Tpsa is only implemented for 2d and 3d grids.")
+
+    def assemble_matrix_rhs(
+        self, sd: pp.Grid, sd_data: dict
+    ) -> tuple[sps.spmatrix, np.ndarray]:
+        """Method inherited from superclass should not be used.
+
+        Parameters:
+            sd: Grid to be discretized.
+            sd_data: Data dictionary for this grid.
+
+        Returns:
+            scipy.sparse.csr_matrix: System matrix of this discretization. The size of
+                the matrix will depend on the specific discretization.
+            np.ndarray: Right-hand side vector with representation of boundary
+                conditions. The size of the vector will depend on the discretization.
+
+        Raises:
+            NotImplementedError: If invoked. The method is included to be compatible
+                with the wider discretization class, but assembly should be handled
+                by :class:`~porepy.models.poromechanics.Poromechanics`.
+
+        """
+        raise NotImplementedError(
+            """This class cannot be used for assembly.
+            Use a multiphysics model class instead."""
+        )
 
     def discretize(self, sd: Grid, data: dict) -> None:
         """Discretize linear elasticity equation using a two-point stress approximation

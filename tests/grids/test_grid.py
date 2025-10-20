@@ -4,9 +4,8 @@
 * Tests for the mortar grid.
 """
 
-from pathlib import Path
 import pickle
-
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
