@@ -5,6 +5,7 @@ interfaces between two subdomains in the mixed-dimensional sense.
 
 from __future__ import annotations
 
+import copy
 from enum import Enum
 from itertools import count
 from typing import Generator, Optional, Union
@@ -233,19 +234,21 @@ class MortarGrid:
             g.compute_geometry()
 
         # Update the attributes
-        self.num_cells = np.sum(  # type: ignore
-            [g.num_cells for g in self.side_grids.values()], dtype=int
-        )
-        self.num_nodes = np.sum(  # type: ignore
-            [g.num_nodes for g in self.side_grids.values()], dtype=int
-        )
-        self.cell_volumes = np.hstack(
-            [g.cell_volumes for g in self.side_grids.values()]
-        )
-        self.cell_centers = np.hstack(
-            [g.cell_centers for g in self.side_grids.values()]
-        )
-        self.nodes = np.hstack([g.nodes for g in self.side_grids.values()])
+        for num in ["num_cells", "num_nodes", "num_faces"]:
+            combined = np.sum(
+                [getattr(g, num) for g in self.side_grids.values()], dtype=int
+            )
+            setattr(self, num, combined)
+        for attr in [
+            "cell_volumes",
+            "cell_centers",
+            "nodes",
+            "face_normals",
+            "face_areas",
+            "face_centers",
+        ]:
+            combined = np.hstack([getattr(g, attr) for g in self.side_grids.values()])
+            setattr(self, attr, combined)
 
     ### Methods to update the mortar grid, or the neighboring grids.
 
@@ -983,3 +986,45 @@ class MortarGrid:
                     self._secondary_to_mortar_int.T
                 )
             )
+
+    def get_all_boundary_faces(self) -> np.ndarray:
+        """Get all faces on the boundary of the mortar grid.
+
+        Returns:
+            An array containing the indices of all faces on the boundary of the mortar
+            grid, and ``shape=(n,)``.
+
+        """
+        # Call method of the Grid class.
+        return pp.Grid.get_all_boundary_faces(self)
+
+    @staticmethod
+    def _indices(true_false: np.ndarray) -> np.ndarray:
+        """Auxiliary function for :obj:`~numpy.argwhere` with ``ravel('F')."""
+        return np.argwhere(true_false).ravel("F")
+
+    def signs_and_cells_of_boundary_faces(
+        self, faces: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return pp.Grid.signs_and_cells_of_boundary_faces(self, faces)
+
+    def divergence(self, dim: int) -> sps.csr_matrix:
+        return pp.Grid.divergence(self, dim)
+
+    def trace(self, dim: int = 1) -> sps.csr_matrix:
+        return pp.Grid.trace(self, dim)
+
+    def copy(self) -> MortarGrid:
+        """Create a deep copy of the MortarGrid.
+
+        Returns:
+            A deep copy of the MortarGrid.
+
+        """
+        return copy.deepcopy(self)
+
+    def cell_nodes(self) -> sps.csc_matrix:
+        return pp.Grid.cell_nodes(self)
+
+    def num_cell_nodes(self) -> int:
+        return pp.Grid.num_cell_nodes(self)
