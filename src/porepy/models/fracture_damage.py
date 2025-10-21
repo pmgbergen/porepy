@@ -166,7 +166,6 @@ class DamageHistoryEquation(pp.PorePyModel):
             equations_per_grid_entity={"cells": 1},
         )
 
-
     def damage_history_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Return the damage history equation.
 
