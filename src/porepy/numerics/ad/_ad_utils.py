@@ -469,7 +469,7 @@ def shift_solution_values(
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
-    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
+    The method is implemented s.t. values at index ``i`` are shifted to index ``i + 1``.
 
     Note:
         The data stored must have support for ``.copy()`` in order to avoid faulty
@@ -519,8 +519,8 @@ def shift_solution_values(
     else:
         shifted = {k + 1: v for k, v in sub_data.items()}
 
-    # Re-insert the old index 0 at key 0.
-    shifted[0] = sub_data[0]
+    # Re-insert the old index 0 at key 0
+    shifted[0] = sub_data[0].copy()
     data[location][name] = shifted
 
 
