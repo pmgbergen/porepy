@@ -893,17 +893,12 @@ class Grid:
     @lru_cache
     def cell_diameters(
         self,
-        cn: Optional[sps.spmatrix] = None,
         cell_wise: bool = True,
         func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> np.ndarray:
         """Computes the cell diameters.
 
         Parameters:
-            cn: ``default=None``
-                Cell-to-nodes map, already computed previously. If None, a call to
-                :meth:`cell_nodes` is provided.
-
             cell_wise:
                 If True, returns the cell diameters. If False, the parameter ``func``
                 must be provided to specify the aggregation function.
@@ -941,9 +936,6 @@ class Grid:
         if cell_wise and func is not None:
             warn("The parameter func is ignored when cell_wise is True")
 
-        if cn is None:
-            cn = self.cell_nodes()
-
         def comb(n):
             # Helper function to get all combinations of two elements in n.
             return np.fromiter(
@@ -955,6 +947,8 @@ class Grid:
             return np.amax(
                 np.linalg.norm(self.nodes[:, n[0, :]] - self.nodes[:, n[1, :]], axis=0)
             )
+
+        cn = self.cell_nodes()
 
         if cell_wise:
             # Compute the diameter for each cell by 1) getting all node combinations for
