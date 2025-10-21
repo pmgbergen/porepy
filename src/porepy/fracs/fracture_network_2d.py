@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import gmsh
 import copy
 import csv
@@ -458,7 +459,10 @@ class FractureNetwork2d:
 
         fac.synchronize()
 
-        # endregion
+        # Set the mesh sizes after all geometry processing is done so that the
+        # identification of objects is not disturbed by retagging of objects.
+        self.set_mesh_size(mesh_args)
+        gmsh.model.occ.synchronize()
 
         # region GmshWriter.generate
         if write_geo:
@@ -470,10 +474,6 @@ class FractureNetwork2d:
         # Create a gmsh mesh.
         gmsh.model.mesh.generate(ndim)
         gmsh.write(str(file_name))
-
-        # FIXME Just for debugging. Remove once done.
-        entities = gmsh.model.get_entities()
-        # endregion
 
         # Create list of grids.
         if dfn:
@@ -493,19 +493,333 @@ class FractureNetwork2d:
         if finalize_gmsh:
             gmsh.finalize()
 
-        # if tags_to_transfer:
-        #     # Preserve tags for the fractures from the network. We assume a coherent
-        #     # numeration between the network and the created grids.
-        #     frac = np.setdiff1d(
-        #         np.arange(self._edges.shape[1]), constraints, assume_unique=True
-        #     )
-        #     for idg, g in enumerate(subdomains[1 - int(dfn)]):
-        #         for key in np.atleast_1d(tags_to_transfer):
-        #             if key not in g.tags:
-        #                 g.tags[key] = self.tags[key][frac][idg]
-
         # Assemble all subdomains in mixed-dimensional grid.
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
+
+    def set_mesh_size(self, mesh_args: dict[str, float]) -> None:
+        factory = gmsh.model.occ
+
+        # Define a threshold for when to consider refining along fractures. This is a
+        # heuristic value which should be reconsidered. Scaling with mesh size on
+        # fractures is reasonable, but the factor 2 is arbitrary.
+        THRESHOLD_REFINEMENT = 0.5 * mesh_args["mesh_size_frac"]
+
+        domain_entities = gmsh.model.get_entities(2)
+        # TODO: If there is more than one domain entity (the domain is split into parts
+        # by fractures), we need to pick out the outer boundary, that is, the ones which
+        # only occurs once.
+        boundaries = gmsh.model.get_boundary([(2, tag) for _, tag in domain_entities])
+        fractures = [f for f in gmsh.model.getEntities(1) if f not in boundaries]
+
+        line_tags = [tag for _, tag in gmsh.model.getEntities(1)]
+        fracture_tags = [tag for _, tag in fractures]
+        boundary_tags = [tag for _, tag in boundaries]
+
+        mesh_size_points = {}
+
+        mesh_size_fractures = {}
+
+        def process_parallel_lines(inds, close_points, distance_info, line_1, line_2):
+            """Helper function to process (almost) parallel lines, in cases where the
+            lines are partially overlapping (but not the case where one short line is
+            fully overlapping with a longer line - that is covered elsewhere). The lines
+            may or may not be crossing.
+
+            """
+
+            if not np.all(close_points[inds]):
+                # At most one of the points were close to the other line. This points to
+                # a geometry close to a T-intersection (though the lines may not be
+                # intersecting). The case is handled elsewhere.
+                return
+
+            # If we reach this point, we have a case of (almost) parallel lines. Below
+            # we assume that inds[0] is associated with line_1 and inds[1] with line_2.
+            i_1, i_2 = inds
+
+            if distance_info[i_1][0] < self.tol:
+                # The first point is an intersection point. This is handled elsewhere.
+                pass
+            else:
+                # Store information on the closest point and the distance, and
+                # associated it with line 2.
+                info_2 = mesh_size_points.get(line_2, [])
+                info_2.append((distance_info[i_1][4:7], distance_info[i_1][0]))
+                mesh_size_points[line_2] = info_2
+
+            if distance_info[i_2][0] < self.tol:
+                pass
+            else:
+                info_1 = mesh_size_points.get(line_1, [])
+                info_1.append((distance_info[i_2][1:4], distance_info[i_2][0]))
+                mesh_size_points[line_1] = info_1
+
+        for line_1, line_2 in itertools.combinations(line_tags, 2):
+            if (line_1 in boundary_tags) and (line_2 in boundary_tags):
+                # Both lines are on the boundary, so we do not need to consider their
+                # mutual distance.
+                continue
+
+            distances = factory.getDistance(1, line_1, 1, line_2)
+
+            if distances[0] < THRESHOLD_REFINEMENT:
+                # Associate the closest points and distances with each line for later
+                # processing. This will either be an intersection point or just a close
+                # point.
+                info_1 = mesh_size_points.get(line_1, [])
+                info_1.append((distances[1:4], distances[0]))
+                mesh_size_points[line_1] = info_1
+                info_2 = mesh_size_points.get(line_2, [])
+                info_2.append((distances[4:7], distances[0]))
+                mesh_size_points[line_2] = info_2
+
+                # We also need to check check all combinations of endpoints of ecah
+                # fracture with the line on the other, to detect cases of (almost)
+                # parallel lines, which may require fine meshing along the one or
+                # both of the fractures.
+
+                # For each of the endpoints of each the two lines, end_point_distance
+                # will store the distance and the closest points on the other line.
+                end_point_distances = []
+                for line in [line_1, line_2]:
+                    other_line = line_2 if line == line_1 else line_1
+                    end_points_line = gmsh.model.getBoundary(
+                        [(1, line)], combined=False, oriented=False
+                    )
+                    distance_point_line = [
+                        factory.getDistance(0, pt, 1, other_line)
+                        for _, pt in end_points_line
+                    ]
+                    end_point_distances += distance_point_line
+
+                # Check whether the endpoints of each line is close to the other line.
+                end_point_close = np.array(
+                    [dist[0] < THRESHOLD_REFINEMENT for dist in end_point_distances]
+                )
+                if np.sum(end_point_close) >= 2:
+                    # At least two endpoints are close to the other line, which means
+                    # that the lines are classified as almost parallel. A line can
+                    # either run fully parallel to the other, in which case the first
+                    # line should be refined along its full length, or it can be
+                    # parallel only along a section, in which case both lines should be
+                    # refined along the parallel section.
+
+                    # First cover the cases of fully parallel lines. NOTE: This is a
+                    # case where the current definition of THRESHOLD_REFINEMENT may give
+                    # less than ideal results: For an almost T-style intersection (but
+                    # no actual intersection), where one of the lines are very short,
+                    # both endpoints of that line may be very close, and the line will
+                    # be classified as almost parallel, even in cases where the lines
+                    # are perpendicular. Besides the confusing terminology, this may
+                    # lead to meshes that are overly refined along the short line, and
+                    # in particular in the end that is far from the other line.
+                    if end_point_close[0] and end_point_close[1]:
+                        # Both endpoints of line_1 are close to line_2. Refine full
+                        # length of line_1.
+                        existing_size = mesh_size_fractures.get(line_1, np.inf)
+                        min_dist = [dist[0] for dist in end_point_distances[:2]]
+                        if min(min_dist) < self.tol:
+                            # One of the endpoints is an intersection point.
+                            mesh_size_fractures[line_1] = max(min_dist)
+                        else:
+                            # The lines are almost parallel.
+                            mesh_size_fractures[line_1] = min(
+                                existing_size, min(min_dist)
+                            )
+                    if end_point_close[2] and end_point_close[3]:
+                        # Both endpoints of line_2 are close to line_1. Refine full
+                        # length of line_2.
+                        existing_size = mesh_size_fractures.get(line_2, np.inf)
+                        min_dist = [dist[0] for dist in end_point_distances[2:4]]
+                        if min(min_dist) < self.tol:
+                            # One of the endpoints is an intersection point.
+                            mesh_size_fractures[line_2] = max(min_dist)
+                        else:
+                            # The lines are almost parallel.
+                            mesh_size_fractures[line_2] = min(
+                                existing_size, min(min_dist)
+                            )
+
+                    # Now cover the cases of partial parallel lines. Do this by
+                    # considering all pairs of endpoints of the two lines. The actual
+                    # processing is done in a helper function. Need to use lists for the
+                    # index pairs to facilitate numpy indexing.
+                    for inds in [[0, 2], [0, 3], [1, 2], [1, 3]]:
+                        process_parallel_lines(
+                            inds, end_point_close, end_point_distances, line_1, line_2
+                        )
+
+        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
+        # BETA and make them user parameters, IF the concept turns out to be useful and
+        # extendable to 3d.
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+
+        h_frac = mesh_args["mesh_size_frac"]
+        h_bound = mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.u
+        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
+
+        gmsh_fields = []
+
+        # Add fields for points close to other objects. The points are stored per line,
+        # take one line at a time.
+        for line, info in mesh_size_points.items():
+            # Uniquify the point set (the same point may have been identified multiple
+            # times).
+            end_points = np.array(
+                [
+                    gmsh.model.occ.get_bounding_box(0, p[1])[:3]
+                    for p in gmsh.model.get_boundary([(1, line)], combined=False)
+                ]
+            ).T
+            length = np.linalg.norm(end_points[:, 1] - end_points[:, 0])
+            tol = min(length, h_frac) / 2
+            extra_points = np.array([d[0] for d in info]).T
+            points, _, ind_map = pp.array_operations.uniquify_point_set(
+                np.hstack((end_points, extra_points)), tol=tol
+            )
+            # Distance to other objects for each point, as computed previously.
+            other_object_distances_all = np.hstack(
+                (np.array([np.inf, np.inf]), np.array([d[1] for d in info]))
+            )
+            # Reduce to one distance per unique point, picking the minimum distance if
+            # multiple distances were associated with the same geometric point.
+            other_object_distances = []
+            for i in range(points.shape[1]):
+                inds = np.where(ind_map == i)[0]
+                min_dist = np.min(other_object_distances_all[inds - 2])
+                other_object_distances.append(min_dist)
+            other_object_distances = np.array(other_object_distances)
+
+            # Mesh size information that relates to either endpoints or points close to
+            # end points (which were filtered out) must be assigned to endpoints.
+
+            if points.shape[1] > 2:
+                # If there is more than one point in addition to the end points, we can
+                # compute the point-point distances in pairs along this line.
+                point_point_distances = pp.distances.pointset(points, max_diag=True)
+                min_dist_point = np.min(point_point_distances, axis=0)
+            else:
+                # This is an isolated point. There is no reason to do refinement for
+                # this line, though, if the same point is identified for other lines, it
+                # may be added there. Note to self: A standard X-intersection with no
+                # other lines in the vicinity will end up here.
+                continue
+
+            # The final distance to be used for mesh size calculation is the minimum of
+            # the distance to other objects and the distance to other close points on
+            # the same line.
+            dist = np.minimum(other_object_distances, min_dist_point)
+            for i, d in enumerate(dist):
+                # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
+                # related to almost intersection points.
+                size = max(h_min, d) / ALPHA
+                field = gmsh.model.mesh.field.add("Distance")
+                pi = gmsh.model.occ.add_point(points[0, i], points[1, i], points[2, i])
+                gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
+                threshold = gmsh.model.mesh.field.add("Threshold")
+                gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+                gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+                gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+                gmsh_fields.append(threshold)
+
+        for line, size_info in mesh_size_fractures.items():
+            # Adapt the mesh size along fractures that are 'almost parallel' to other
+            # fractures, or the boundary. These should have the same size along the
+            # entire line, with the size computed from the distance information.
+
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "CurvesList", [line])
+            # Adapt the number of sampling points along the line to its length and the
+            # fracture mesh size. There should be at least two points, though.
+            end_points = gmsh.model.getBoundary([(1, line)], combined=False)
+            length = gmsh.model.occ.get_distance(
+                end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
+            )[0]
+            num_points = max(2, int(np.ceil(length / h_frac)) + 1)
+            num_points = 2
+            gmsh.model.mesh.field.setNumber(field, "Sampling", num_points)
+
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMin", size_info / ALPHA)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size_info / ALPHA)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+            gmsh_fields.append(threshold)
+            # if line == 22:
+            #    breakpoint()
+            debug = []
+
+        for line in fracture_tags:
+            # Assign mesh size along fractures that were not identified as 'almost
+            # parallel' (previous loop). These get the standard mesh size h_frac along
+            # their full length.
+            if line in mesh_size_fractures:
+                # Already processed above.
+                continue
+
+            # Adapt the number of sampling points along the line to its length and the
+            # fracture mesh size. There should be at least two points, though.
+            end_points = gmsh.model.getBoundary([(1, line)], combined=False)
+            length = gmsh.model.occ.get_distance(
+                end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
+            )[0]
+            num_points = max(2, int(np.ceil(length / h_frac)) + 1)
+
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "CurvesList", [line])
+            gmsh.model.mesh.field.setNumber(field, "Sampling", num_points)
+
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+            # Start coarsening immediately from zero distance.
+            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+            # TODO: This enforces at least ALPHA elements along each fracture. Do we want
+            # this?
+            gmsh.model.mesh.field.setNumber(
+                threshold, "SizeMin", min(h_frac, length / ALPHA)
+            )
+            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+            gmsh_fields.append(threshold)
+
+        for line in boundary_tags:
+            # Set mesh size along the boundary.
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "CurvesList", [line])
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMin", h_bound)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_bound)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+            gmsh_fields.append(threshold)
+
+        # Finally, as the background mesh, we take the minimum of all the created
+        # fields.
+        min_field = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
+        gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
+
+        # The background mesh incorporates all mesh size specifications. We turn off
+        # other mesh size specifications.
+        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+        debug = []
 
     def mesh_old(
         self,
