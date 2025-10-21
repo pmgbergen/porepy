@@ -38,6 +38,8 @@ T_end_months = 100
 time_schedule = [i * pp.DAY for i in range(121)]
 assert T_end_months > 5
 time_schedule += [i * 30 * pp.DAY for i in range(5, T_end_months + 1)]
+
+time_schedule = time_schedule[:4]
 dt_init = 20 * pp.MINUTE
 dt_min = 10 * pp.MINUTE
 dt_max = 3 * pp.HOUR
