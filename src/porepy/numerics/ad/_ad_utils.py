@@ -377,7 +377,9 @@ def set_solution_values(
 
     Note:
         The stored array is always a **copy** of the provided values. This prevents
-            later mutations of the user-provided array from propagating into the stored state.
+        later mutations of the user-provided array from propagating into the stored
+        state.
+
     """
     loc_index = _validate_indices(time_step_index, iterate_index)
 
