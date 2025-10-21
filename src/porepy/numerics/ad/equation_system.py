@@ -1236,6 +1236,36 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_equation(
+        self,
+        equation_name: str,
+        new_equation: Operator,
+        grids: DomainList,
+        equations_per_grid_entity: dict[GridEntity, int],
+    ) -> None:
+        """Updates an existing equation with a new equation operator.
+        
+        This method removes the existing equation and sets a new equation under the same
+        name as the old equation. 
+
+        Parameters:
+            equation_name: Name of the equation to be updated.
+            new_equation: New equation in AD form. 
+            grids: A list of subdomain *or* interface grids on which the equation is
+                defined.
+            equations_per_grid_entity: a dictionary describing how many equations
+                ``equation_operator`` provides. This is a temporary work-around until
+                operators are able to provide information on their image space. The
+                dictionary must contain the number of equations per grid entity (cells,
+                faces, nodes) for the operator.
+
+        """
+        self.remove_equation(equation_name)
+        new_equation.set_name(equation_name)
+        self.set_equation(
+            equation=new_equation, grids=grids, equations_per_grid_entity=equations_per_grid_entity
+        )  # type: ignore
+
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
