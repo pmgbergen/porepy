@@ -522,8 +522,8 @@ def shift_solution_values(
     else:
         shifted = {k + 1: v for k, v in sub_data.items()}
 
-    # Re-insert the old index 0 at key 0.
-    shifted[0] = sub_data[0]
+    # Re-insert the old index 0 at key 0
+    shifted[0] = sub_data[0].copy()
     data[location][name] = shifted
 
 
