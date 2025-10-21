@@ -350,6 +350,11 @@ def set_solution_values(
     """Function for setting values in the data dictionary, for some time-dependent or
     iterative term.
 
+    Note:
+        The stored array is always a **copy** of the provided values. This prevents
+        later mutations of the user-provided array from propagating into the stored
+        state.
+
     Parameters:
         name: Name of the quantity that is to be assigned values.
         values: The values that are set in the data dictionary.
@@ -374,11 +379,6 @@ def set_solution_values(
             values).
         ValueError: If the user attempts to set values additively at an index where no
             values were set before.
-
-    Note:
-        The stored array is always a **copy** of the provided values. This prevents
-        later mutations of the user-provided array from propagating into the stored
-        state.
 
     """
     loc_index = _validate_indices(time_step_index, iterate_index)
@@ -432,11 +432,11 @@ def get_solution_values(
         ValueError: In the case of inconsistent usage of indices (both None or negative
             values).
         ValueError: If the user attempts to get multiple iterate and time step values
-            simultanously. Only 1 index is permitted in the getter.
+            simultaneously. Only 1 index is permitted in the getter.
         KeyError: If no values are stored for the passed index.
 
     Returns:
-        A copy of the values stored at the passed index.
+        A read-only view of the values stored at the passed index.
 
     """
     loc_index = _validate_indices(time_step_index, iterate_index)
@@ -471,7 +471,8 @@ def shift_solution_values(
 ) -> None:
     """Function to shift numerical values stored in the data dictionary.
 
-    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
+    The shift is implemented s.t. values at index ``i`` are moved to index ``i + 1``.
+    Values at index 1 are copied to index 0 for consistency of the framework.
 
     Note:
         The data stored must have support for ``.copy()`` in order to avoid faulty
