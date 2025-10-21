@@ -623,6 +623,7 @@ class Phase(Generic[ComponentLike]):
         Dimensionless, scalar field.
 
         """
+        self.activity_of: dict[Component, DomainFunctionType]
 
     def __iter__(self) -> Generator[ComponentLike, None, None]:
         """Iterator over components present in this phase.

@@ -53,6 +53,8 @@ __all__ = [
     "has_unified_equilibrium",
     "CompositionalVariables",
     "FluidMixin",
+    "ActivityModels",
+    "ReactionRatesKineticArrhenius",
 ]
 
 DomainFunctionType = pp.DomainFunctionType
@@ -798,6 +800,12 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             for comp in phase:
                 phase.partial_fraction_of[comp] = self.partial_fraction(comp, phase)
 
+        # Creation of activities.
+        for phase in self.fluid.phases:
+            phase.activity_of = {}
+            for comp in phase:
+                phase.activity_of[comp] = self.activity_model(comp, phase)
+
         # Creation of element fluid fractions.
         for element in self.fluid.elements:
             element.fluid_fraction = self.element_fluid_fraction(element)
@@ -806,6 +814,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             )
 
         self.fluid.element_density_ratio = self.element_density_ratio
+
+        if self.reactions:
+            self.set_kinetic_reaction_rates(self.reactions)
 
     def overall_fraction(
         self,
@@ -2152,7 +2163,6 @@ class ChemicalSystem(FluidMixin):
         self.element_objects = []
         self.print_formula_matrix()
         reactions = self.get_reactions()
-        reactions = self.set_kinetic_reaction_rates(reactions)
         self.set_reactions(reactions)
 
     def get_all_components_by_phase(self):
@@ -2349,6 +2359,8 @@ class ChemicalSystem(FluidMixin):
         self.fluid.num_reactions = len(reactions)
         self.fluid.stoichiometric_matrix = self.build_stoichiometric_matrix(reactions)
 
+        # reactions = self.set_kinetic_reaction_rates(reactions)
+
         self.reactions = reactions
 
     _COEFF_RE = re.compile(
@@ -2478,11 +2490,11 @@ class ActivityModels(pp.PorePyModel):
         """
         return 8.3144621
 
-    def water_molar_mass():
+    def water_molar_mass(self):
         "The molar mass of water (in kg/mol)"
         return 0.01801528
 
-    def activityModelIdeal(
+    def activity_model(
         self, component: pp.Component, phase: pp.Phase
     ) -> ExtendedDomainFunctionType:
         """
@@ -2498,7 +2510,7 @@ class ActivityModels(pp.PorePyModel):
         For minerals, the activity is 1.0.
         """
         gamma = pp.ad.Scalar(1.0, "activity_coefficient_ideal")
-        water_mole_mass = pp.ad.Scalar(self.water_molar_mass(), "water_molar_mass")
+        water_mole_mass = pp.ad.Scalar(self.water_molar_mass())
         if self.fluid.num_fluid_phases > 1:
             raise NotImplementedError("Multiphase flow not implemented yet.")
         if phase.name == "aqueous":
@@ -2506,16 +2518,19 @@ class ActivityModels(pp.PorePyModel):
             def activity(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 if component.name == "H2O":
                     # Special case for water, molality is defined as mole fraction in the aqueous phase.
-                    molality = component.fraction(domains)
+                    molality = phase.partial_fraction_of[component](domains)
                 else:
                     for comp in self.fluid.components:
                         if comp.name == "H2O":
-                            water_fraction = comp.fraction(domains)
-                    if water_fraction > 0:
-                        molality = component.fraction(domains) / (
-                            water_fraction * water_mole_mass
-                        )
-                op = pp.ad.log(molality)
+                            water_fraction = phase.partial_fraction_of[component](
+                                domains
+                            )
+
+                    molality = phase.partial_fraction_of[component](domains) / (
+                        water_fraction * water_mole_mass
+                    )
+                # op = pp.ad.log(molality)
+                op = gamma * molality
                 op.set_name(f"activity_ideal_{component.name}_in_{phase.name}")
                 return op
 
@@ -2523,7 +2538,93 @@ class ActivityModels(pp.PorePyModel):
         else:
             # For minerals, the activity is 1.0
             def activity(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-                op = pp.ad.Scalar(0.0)
+                op = pp.ad.Scalar(1.0, "activity_mineral")
                 return op
 
             return activity
+
+
+class ReactionRatesKineticArrhenius:
+    def set_kinetic_reaction_rates(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> Sequence[pp.Reaction]:
+        """Sets the reaction rates for kinetic reactions.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        This needs to be overridden to provide actual reaction rates.
+        """
+        S = self.fluid.stoichiometric_matrix
+        reaction_formulas = self.reaction_formulas
+        for reaction in reactions:
+            if reaction.is_kinetic:
+                K = self.equilibrium_constant(reaction)
+                k_0 = 1000.0  # unit: mol/m2/s
+                Abar = 6.0  # unit: m2/m3
+                rxn_index = reaction_formulas.index(reaction.formula)
+
+                nu = S[rxn_index, :]
+                reactive_species = []
+                reactive_coeffs = []
+                for comp in self.fluid.components:
+                    if comp.name in self.species_names:
+                        sp_index = self.species_names.index(comp.name)
+                        if nu[sp_index] != 0:
+                            # Build subarrays for reactive species and their coefficients in this reaction
+                            reactive_species.append(comp)
+                            reactive_coeffs.append(nu[sp_index])
+                reactive_activities = {}
+                # finding the activities of the reactive species
+                for phase in self.fluid.phases:
+                    if phase.state == PhysicalState.solid:
+                        mineral_count = 0
+                    for comp in reactive_species:
+                        if comp in phase.components:
+                            if phase.state == PhysicalState.solid:
+                                mineral_count += 1
+                            reactive_activities[comp.name] = phase.activity_of[comp]
+                if mineral_count > 1:
+                    raise NotImplementedError(
+                        "Multiple minerals in one reaction not implemented yet."
+                    )
+
+                def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    # get the corrsponding stoichiometric coefficients
+
+                    # calculated the ion activity product
+                    # lnQ = pp.ad.sum_operator_list(
+                    #     [
+                    #         reactive_activities[comp.name](domains)
+                    #         * pp.ad.Scalar(reactive_coeffs[i])
+                    #         for i, comp in enumerate(reactive_species)
+                    #     ]
+                    # )
+                    # Q = pp.ad.exp(lnQ)
+                    for i, comp in enumerate(reactive_species):
+                        if i == 0:
+                            Q = pp.ad.Scalar(1.0)
+                        Q = Q * reactive_activities[comp.name](domains) ** pp.ad.Scalar(
+                            reactive_coeffs[i]
+                        )
+                    Omega = Q / pp.ad.Scalar(K)
+                    for comp in reactive_species:
+                        if comp in self.fluid.solid_components:
+                            A = comp.mineral_saturation(domains) * pp.ad.Scalar(
+                                self.solid.total_porosity * Abar
+                            )
+                    r = pp.ad.Scalar(k_0) * A * (pp.ad.Scalar(1.0) - Omega)
+                    return r
+
+                reaction.reaction_rate = rr
+            else:
+
+                def rr_eq(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(0.0, "equilibrium_reaction_rate")
+
+                reaction.reaction_rate = rr_eq
+
+        return reactions
+
+    def equilibrium_constant(self, reaction: pp.Reaction):
+        return 2.5e6
+        # set a fake equilibrium constant
