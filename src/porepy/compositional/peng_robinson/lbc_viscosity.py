@@ -26,7 +26,15 @@ from ..materials import FluidComponent
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8,
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -34,9 +42,7 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
     """Pure component viscosities at low pressure in Centipoise.
 
     Parameters:
-        T: float
-
-            Temperature in [K].
+        T: Temperature in [K].
         Tcs: ``shape=(n,)``
 
             Critical temperatures of components in [K].
@@ -70,7 +76,15 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8,
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -80,9 +94,7 @@ def _dmu_pure_dT(
     """Derivative pure component viscosities at low pressure w.r.t. temperature.
 
     Parameters:
-        T: float
-
-            Temperature in [K].
+        T: Temperature in [K].
         Tcs: ``shape=(n,)``
 
             Critical temperatures of components in [K].
@@ -116,7 +128,14 @@ def _dmu_pure_dT(
     return mus
 
 
-@nb.njit(nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@nb.njit(
+    [
+        nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8(nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
+    ],
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
     """Mixture viscosity at low pressure..
 
@@ -140,7 +159,15 @@ def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
 
 
 @nb.njit(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
+        nb.f8[:](
+            nb.f8[:],
+            nb.f8[:],
+            nb.f8[:, :],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -186,7 +213,15 @@ def _dmu_zero(
 
 
 @nb.njit(
-    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8(
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -218,7 +253,15 @@ def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> flo
 
 
 @nb.njit(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -258,37 +301,87 @@ def _dxi(
 
 
 @nb.njit(
-    nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True
+    [
+        nb.f8(nb.f8, nb.f8[:], nb.f8[:]),
+        nb.f8(nb.f8, nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
+    ],
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def _reduced_pseudo_density(
-    rho: float, x: np.ndarray, vcs: np.ndarray, mws: np.ndarray
+    rho: float,
+    x: np.ndarray,
+    vcs: np.ndarray,
 ) -> float:
     """Reduced pseudo-density using a mixing rule to obtain pseudo-critical values for
     the specific volume of the mixture.
 
     Parameters:
-        rho: float
-
-            Density in [mol / m^3].
+        rho: Density in [mol / m^3].
         x: ``shape=(n,)``
 
             Mole fractions per components in [-].
         vcs: ``shape=(n,)``
 
             Critical specific volumes of components in [m^3 / mol].
-        mws: ``shape=(n,)``
-
-            Molar weights of components in [kg/mol].
 
     Returns:
         The reduced pseudo-density in [-].
 
     """
-    return rho * np.sum(x * vcs) / np.sum(x * mws)
+    return rho * np.sum(x * vcs)
 
 
 @nb.njit(
-    nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8, nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)
+        ),
+    ],
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def _d_reduced_pseudo_density(
+    rho: float,
+    drho: np.ndarray,
+    x: np.ndarray,
+    vcs: np.ndarray,
+) -> float:
+    """Derivative of the reduced pseudo-critical density with respect to the derivatives
+    contained in the density derivative, and some additional terms from the
+    pseudo-critical approximation.
+
+    Parameters:
+        rho: Density in [mol / m^3].
+        drho: ``shape(2 + n,)``
+
+            Derivatives of the density with respect to pressure, temperature and
+            fractions.
+        x: ``shape=(n,)``
+
+            Mole fractions per components in [-].
+        vcs: ``shape=(n,)``
+
+            Critical specific volumes of components in [m^3 / mol].
+    """
+    drho_r = drho * np.sum(x * vcs)
+    drho_r[2:] += rho * vcs
+    return drho_r
+
+
+@nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8(
+            nb.f8,
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -303,9 +396,7 @@ def _mu_correction(
     """Density correction term for viscosity.
 
     Parameters:
-        rho: float
-
-            Mixture density in [mol / m^3].
+        rho: Mixture density in [mol / m^3].
         x: ``shape=(n,)``
 
             Mole fractions per components in [-].
@@ -328,7 +419,7 @@ def _mu_correction(
         approximation of the reduced density
 
     """
-    rho_r = _reduced_pseudo_density(rho, x, vcs, mws)
+    rho_r = _reduced_pseudo_density(rho, x, vcs)
     xi = _xi(x, Tcs, pcs, mws)
     n = (
         0.1023
@@ -341,7 +432,18 @@ def _mu_correction(
 
 
 @nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    [
+        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+        nb.f8[:](
+            nb.f8,
+            nb.f8[:],
+            nb.f8[:],
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+        ),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -357,9 +459,7 @@ def _dmu_correction(
     """pTx derivatives of density correction term for viscosity.
 
     Parameters:
-        rho: float
-
-            Mixture density in [mol / m^3].
+        rho: Mixture density in [mol / m^3].
         drho: ``shape=(2 + n,)``
 
             Derivative of density with respect to pressure, temperature and fractions.
@@ -387,13 +487,10 @@ def _dmu_correction(
 
     """
 
-    rho_r = _reduced_pseudo_density(rho, x, vcs, mws)
+    rho_r = _reduced_pseudo_density(rho, x, vcs)
     xi = _xi(x, Tcs, pcs, mws)
 
-    drho_r = np.sum(x * vcs) / np.sum(x * mws) * drho
-    drho_r[2:] += (
-        rho * (vcs * np.sum(x * mws) - mws * np.sum(x * vcs)) / np.sum(x * mws) ** 2
-    )
+    drho_r = _d_reduced_pseudo_density(rho, drho, x, vcs)
     dxi = np.zeros(2 + x.size)
     dxi[2:] = _dxi(x, Tcs, pcs, mws)
 
@@ -442,10 +539,10 @@ class LBCViscosity(EoSCompiler):
         """Critical specific volume per component in [m^3/mol]."""
 
     def get_viscosity_function(self) -> ScalarFunction:
-        mws = self._mws
-        tc = self._tc
-        pc = self._pc
-        vc = self._vc
+        mws = self._mws.copy()
+        tc = self._tc.copy()
+        pc = self._pc.copy()
+        vc = self._vc.copy()
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
@@ -467,10 +564,10 @@ class LBCViscosity(EoSCompiler):
         return mu_c
 
     def get_viscosity_derivative_function(self) -> VectorFunction:
-        mws = self._mws
-        tc = self._tc
-        pc = self._pc
-        vc = self._vc
+        mws = self._mws.copy()
+        tc = self._tc.copy()
+        pc = self._pc.copy()
+        vc = self._vc.copy()
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]

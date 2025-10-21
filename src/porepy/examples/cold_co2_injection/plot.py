@@ -103,7 +103,7 @@ def load_data(
     flash_tol_case: int = 2,
     flash_stride: int | None = 3,
     rel_perm: Literal["quadratic", "linear"] = "linear",
-    num_months: int = 24,
+    num_months: int = 20,
 ) -> SimulationData:
     path = get_path(
         condition=condition,
@@ -189,6 +189,11 @@ ax = fig.add_subplot(1, 2, 2)
 imgs = []
 imgsr = []
 
+print("Chosen tolerances with stride=3: ", ftols)
+print("Succes:", success_tol)
+print("Total num glob iter:", tngi)
+print("Total num loc iter: ", tnfi)
+
 imgs += ax.plot(
     ftols,
     tngi,
@@ -231,15 +236,37 @@ ax.set_xlabel("Local tolerance", fontsize=FONTSIZE + 2)
 ax.set_xticks(ftols)
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_xscale("log")
+ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
-ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.set_yscale("log")
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+
+mav = tngi.max()
+miv = tngi.min()
 ticks = ax.get_yticks()
-ticks = np.concatenate([ticks, np.array([tngi.max()])]).astype(int)
+ticks = ticks[ticks < mav - 200]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
 ax.set_yticks(ticks)
+ticks = ax.get_yticks(minor=True)
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ax.set_yticks(ticks, minor=True)
+ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+# ax.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+
 axr.set_ylabel("Total local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+# axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+ticks = axr.get_yticks()
+miv = tnfi.min()
+mav = tnfi.max()
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
+axr.set_yticks(ticks)
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
 
 ax.margins(0.10)
 axr.margins(0.10)
@@ -248,6 +275,11 @@ axr.margins(0.10)
 ax = fig.add_subplot(1, 2, 1)
 imgs = []
 imgsr = []
+
+print("Strides for chosen tolerance 1e-8: ", strides)
+print("Succes:", success_strides)
+print("Total num glob iter:", tngis)
+print("Total num loc iter: ", tnfis)
 
 imgs += ax.plot(
     strides,
@@ -291,6 +323,7 @@ ax.set_xlabel("Iteration stride", fontsize=FONTSIZE + 2)
 ax.set_xticks(strides, [str(None)] + LOCAL_STRIDES[1:])
 ax.set_ylabel("Total global iterations", color="black", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
+ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_yscale("log")
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
@@ -300,6 +333,15 @@ ax.set_yticks(ticks)
 
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+ticks = axr.get_yticks()
+miv = tnfis.min()
+mav = tnfis.max()
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
+axr.set_yticks(ticks)
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
 
 ax.margins(0.1)
 axr.margins(0.1)
@@ -329,7 +371,7 @@ data: dict[EquilibriumCondition, dict[int, SimulationData]] = {
                     flash_tol_case=2,
                     flash_stride=3,
                     rel_perm="linear",
-                    num_months=24,
+                    num_months=20,
                 ),
             )
             for i in range(len(MESH_SIZES))
@@ -345,7 +387,7 @@ data: dict[EquilibriumCondition, dict[int, SimulationData]] = {
                     flash_tol_case=2,
                     flash_stride=3,
                     rel_perm="linear",
-                    num_months=24,
+                    num_months=20,
                 ),
             )
             for i in range(len(MESH_SIZES))
@@ -378,8 +420,8 @@ success = np.array(success).astype(bool)
 markevery_tol = np.where(success)[0].tolist()
 ngi = np.array(ngi).T
 imgs += ax.plot(
-    ngi[0],
-    ngi[1],
+    ngi[0][success],
+    ngi[1][success],
     color=color,
     linestyle="solid",
     marker="^",
@@ -390,8 +432,8 @@ imgs += ax.plot(
 )
 nfi = np.array(nfi).T
 imgsr += axr.plot(
-    nfi[0],
-    nfi[1],
+    nfi[0][success],
+    nfi[1][success],
     color=color,
     linestyle="dashed",
     marker="s",
@@ -402,8 +444,8 @@ imgsr += axr.plot(
 )
 nli = np.array(nli).T
 imgs += ax.plot(
-    nli[0],
-    nli[1],
+    nli[0][success],
+    nli[1][success],
     color=color,
     linestyle="dotted",
     marker="P",
@@ -413,11 +455,20 @@ imgs += ax.plot(
 )
 M = int(np.hstack((ngi[1], nli[1])).max())
 
-if np.any(~success):
+if np.any(~success) and False:
     print("pT failures", ngi[0][~success])
     ax.plot(
-        ngi[0][~success],
-        ngi[1][~success],
+        np.concatenate([ngi[0][~success], nli[0][~success]]),
+        np.concatenate([ngi[1][~success], nli[1][~success]]),
+        color="red",
+        marker="X",
+        markersize=MARKERSIZE + 3,
+        linestyle="",
+        label="pT-failure",
+    )
+    axr.plot(
+        nfi[0][~success],
+        nfi[1][~success],
         color="red",
         marker="X",
         markersize=MARKERSIZE + 3,
@@ -482,8 +533,17 @@ if m > M:
 if np.any(~success):
     print("ph failures", ngi[0][~success])
     ax.plot(
-        ngi[0][~success],
-        ngi[1][~success],
+        np.concatenate([ngi[0][~success], nli[0][~success]]),
+        np.concatenate([ngi[1][~success], nli[1][~success]]),
+        color="red",
+        marker="X",
+        markersize=MARKERSIZE + 3,
+        linestyle="",
+        label="ph-failure",
+    )
+    axr.plot(
+        nfi[0][~success],
+        nfi[1][~success],
         color="red",
         marker="X",
         markersize=MARKERSIZE + 3,
@@ -500,15 +560,17 @@ ax.get_xaxis().set_minor_formatter(matplotlib.ticker.NullFormatter())
 ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.set_ylabel("Total global iterations", fontsize=FONTSIZE + 2)
 ax.tick_params(axis="both", which="major", labelsize=FONTSIZE)
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 axr.get_yaxis().set_major_formatter(
     matplotlib.ticker.ScalarFormatter(useOffset=False, useMathText=True)
 )
 axr.set_ylabel("Total local iterations", fontsize=FONTSIZE + 2)
-axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
-axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
+axr.tick_params(axis="y", which="both", labelcolor="salmon", labelsize=FONTSIZE)
+axr.yaxis.grid(visible=True, which="both", color="salmon", alpha=0.3, linewidth=0.5)
 
 ticks = ax.get_yticks()
-ticks = np.concatenate([ticks, np.array([M]).astype(int)])
+ticks = ticks[ticks < M - 90]
+ticks = np.concatenate([ticks, np.array([M])]).astype(int)
 ax.set_yticks(ticks)
 
 ax.margins(0.05)
@@ -518,13 +580,13 @@ ax.legend(
     handles=imgs,
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 1),
+    bbox_to_anchor=(1.15, 1),
 )
 axr.legend(
     handles=imgsr,
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 0.45),
+    bbox_to_anchor=(1.15, 0.45),
 )
 fig.tight_layout(pad=FIGUREPAD)
 name = f"{FIGUREPATH}total_iter_per_refinement.png"
@@ -547,7 +609,7 @@ D = load_data(
     flash_tol_case=2,
     flash_stride=3,
     rel_perm="linear",
-    num_months=24,
+    num_months=20,
 )
 
 t = np.array(D["t"]) / (3600 * 24)
@@ -602,39 +664,41 @@ imgsr += axr.plot(
 rcomps = np.array(D["recomputations"]).astype(int)
 assert np.all(rcomps >= 0)
 rcid = rcomps > 0
-tid = t[rcid]
-ngiid = ngi[rcid] + 2
-rid = rcomps[rcid]
-n = 3e2
-N = 1e3
-m = rid.min()
-M = rid.max()
-a = (N - n) / (M - m)
-b = n - a * m
-sizes = a * rid + b
+if np.any(rcid):
+    tid = t[rcid]
+    ngiid = ngi[rcid] + 2
+    rid = rcomps[rcid]
+    n = 3e2
+    N = 1e3
+    m = rid.min()
+    M = rid.max()
+    a = (N - n) / (M - m)
+    b = n - a * m
+    sizes = a * rid + b
 
-ypos = float(np.max([ngi.max(), nli.max()]) + 20)
-imgs += [
-    ax.scatter(
-        tid,
-        np.ones_like(tid).astype(int) * ypos,
-        s=sizes,
-        alpha=0.5,
-        label="halving",
+    mav = np.max([ngi.max(), nli.max()])
+    ypos = float(1.1 * mav)
+    imgs += [
+        ax.scatter(
+            tid,
+            np.ones_like(tid).astype(int) * ypos,
+            s=sizes,
+            alpha=0.5,
+            label="halving",
+        )
+    ]
+
+    idx = rid == M
+
+    ax.text(
+        tid[idx][0],
+        ypos,
+        M,
+        fontsize=FONTSIZE + 2,
+        fontweight="heavy",
+        horizontalalignment="center",
+        verticalalignment="center",
     )
-]
-
-idx = rid == M
-
-ax.text(
-    tid[idx][0],
-    ypos,
-    M,
-    fontsize=FONTSIZE + 2,
-    fontweight="heavy",
-    horizontalalignment="center",
-    verticalalignment="center",
-)
 
 ax.set_xscale("symlog", linthresh=1)
 ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
@@ -649,6 +713,25 @@ axr.set_ylabel("Cell-averaged local iterations", color=color, fontsize=FONTSIZE 
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 
+mav = np.max((nli.max(), ngi.max()))
+miv = np.min((nli.min(), ngi.min()))
+ticks = ax.get_yticks()
+ticks = ticks[ticks > miv]
+ticks = ticks[ticks < mav]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
+ax.set_yticks(ticks)
+
+miv = nfi.min()
+mav = nfi.max()
+ticks = axr.get_yticks()
+ticks = ticks[ticks > miv]
+ticks = ticks[ticks < mav]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
+axr.set_yticks(ticks)
+
+ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
+axr.yaxis.grid(visible=True, which="both", color=color, alpha=0.3, linewidth=0.5)
+
 ax.margins(0.05)
 axr.margins(0.05)
 
@@ -656,13 +739,13 @@ ax.legend(
     [i.get_label() for i in imgs],
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 1),
+    bbox_to_anchor=(1.15, 1),
 )
 axr.legend(
     [i.get_label() for i in imgsr],
     fontsize=FONTSIZE,
     loc="upper left",
-    bbox_to_anchor=(1.1, 0.6),
+    bbox_to_anchor=(1.15, 0.6),
 )
 fig.tight_layout(pad=FIGUREPAD)
 name = f"{FIGUREPATH}iterations_per_time_ph.png"
@@ -709,12 +792,16 @@ imgsr += axr.plot(
 
 ax.set_xlabel("Time step index", fontsize=FONTSIZE + 2)
 ax.set_ylabel("Time [d]", color="black", fontsize=FONTSIZE + 2)
+ax.xaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
 ax.set_yscale("symlog", linthresh=1)
-ticks = np.concatenate((ax.get_xticks(), np.array([t_indices.max()]))).astype(int)
+mav = t_indices.max()
+ticks = ax.get_xticks()
+ticks = ticks[ticks < mav - 3]
+ticks = np.concatenate((ticks, np.array([mav]))).astype(int)
 ax.set_xticks(ticks)
 ticks = ax.get_yticks()
-ticks = np.concatenate([ticks, np.array([24 * 30]).astype(int)])
+ticks = np.concatenate([ticks, np.array([20 * 30]).astype(int)])
 ax.set_yticks(ticks)
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
@@ -722,11 +809,19 @@ axr.set_ylabel("Time step size [d]", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.set_yscale("symlog", linthresh=1)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-axr.yaxis.grid(visible=True, which="major", color="orange", alpha=0.3, linewidth=0.5)
+axr.yaxis.grid(visible=True, which="major", color=color, alpha=0.3, linewidth=0.5)
 lim = axr.get_ylim()
+mav = dt.max()
+miv = dt.min()
 ticks = axr.get_yticks()
-ticks = np.concatenate([ticks, np.array([dt.max()])])
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])])
 axr.set_yticks(ticks)
+ticks = axr.get_yticks(minor=True)
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+axr.set_yticks(ticks, minor=True)
 
 ax.margins(0.1)
 axr.margins(0.1)
@@ -745,53 +840,79 @@ print(f"\nSaved fig: {name}")
 # region Printing table with clock times, at maximum refinement where both equilibrium
 # conditions converge.
 
-Dph: SimulationData = data["unified-p-h"][PRINT_STATS_ph_pT_REFINEMENT]
-DpT: SimulationData = data["unified-p-T"][PRINT_STATS_ph_pT_REFINEMENT]
-ngipt = int(DpT["num_global_iter"].sum())
-ntpt = int(DpT["t"].size)
-nfipt = int(DpT["num_flash_iter"].sum())
-ngiph = int(Dph["num_global_iter"].sum())
-ntph = int(Dph["t"].size)
-nfiph = int(Dph["num_flash_iter"].sum())
-
 
 def format_times(vals: tuple[float, float]) -> str:
     """Format the clock time values."""
-    return f"{vals[0]:.6f} ({vals[1]:.2f})"
+    return f"{vals[0]:.4f} ({vals[1]:.2f})"
 
+
+headers = [""]
+
+rows = {
+    "Assembly time": [],
+    "Linear solver time": [],
+    "Flash solver time": [],
+    "Number of time steps": [],
+    "Number of global iterations": [],
+    "Total number of local iterations": [],
+}
+
+for i, hmesh in MESH_SIZES.items():
+    headers.append(f"ph({hmesh})")
+    headers.append(f"pT({hmesh})")
+
+    dph = data["unified-p-h"].get(i)
+    dpt = data["unified-p-T"].get(i)
+
+    # NOTE: The time step inforrmation also contains the start time of T=0, which we
+    # must account for with -0 to get the actual computations
+
+    ngipt = int(dpt["num_global_iter"].sum())
+    ntpt = int(dpt["t"].size) - 1
+    nfipt = int(dpt["num_flash_iter"].sum())
+    ngiph = int(dph["num_global_iter"].sum())
+    ntph = int(dph["t"].size) - 1
+    nfiph = int(dph["num_flash_iter"].sum())
+
+    if dph is not None:
+        rows["Assembly time"].append(format_times(dph["clock_time_assembly"]))
+        rows["Linear solver time"].append(format_times(dph["clock_time_global_solver"]))
+        rows["Flash solver time"].append(format_times(dph["clock_time_flash_solver"]))
+        rows["Number of time steps"].append(
+            f"{ntph} ({dph['total_num_time_steps'] - 1 - ntph})"
+        )
+        rows["Number of global iterations"].append(
+            f"{ngiph} ({dph['total_num_global_iter'] - ngiph})"
+        )
+        rows["Total number of local iterations"].append(
+            f"{dph['total_num_flash_iter']}"
+        )
+    else:
+        for k in rows:
+            rows[k].append("-")
+    if dpt is not None:
+        rows["Assembly time"].append(format_times(dpt["clock_time_assembly"]))
+        rows["Linear solver time"].append(format_times(dpt["clock_time_global_solver"]))
+        rows["Flash solver time"].append(format_times(dpt["clock_time_flash_solver"]))
+        rows["Number of time steps"].append(
+            f"{ntpt} ({dpt['total_num_time_steps'] - 1 - ntpt})"
+        )
+        rows["Number of global iterations"].append(
+            f"{ngipt} ({dpt['total_num_global_iter'] - ngipt})"
+        )
+        rows["Total number of local iterations"].append(
+            f"{dpt['total_num_flash_iter']}"
+        )
+    else:
+        for k in rows:
+            rows[k].append("-")
 
 table = tabulate(
-    [
-        [
-            "unified-p-h",
-            format_times(Dph["clock_time_assembly"]),
-            format_times(Dph["clock_time_global_solver"]),
-            format_times(Dph["clock_time_flash_solver"]),
-            f"{ntph} ({Dph['total_num_time_steps'] - ntph})",
-            f"{ngiph} ({Dph['total_num_global_iter'] - ngiph})",
-            Dph["total_num_flash_iter"],
-        ],
-        [
-            "unified-p-T",
-            format_times(DpT["clock_time_assembly"]),
-            format_times(DpT["clock_time_global_solver"]),
-            format_times(DpT["clock_time_flash_solver"]),
-            f"{ntpt} ({DpT['total_num_time_steps'] - ntpt})",
-            f"{ngipt} ({DpT['total_num_global_iter'] - ngipt})",
-            DpT["total_num_flash_iter"],
-        ],
-    ],
-    headers=[
-        "Equilibrium condition",
-        "Assembly time",
-        "Linear solver time",
-        "Flash solver time",
-        "Number of time steps",
-        "Number of global iterations",
-        "Total number of local iterations",
-    ],
+    [[k] + v for k, v in rows.items()],
+    headers=headers,
     tablefmt="orgtbl",
 )
+
 print(table)
 
 # endregion

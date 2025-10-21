@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 import numpy as np
 from scipy.linalg import lstsq
@@ -18,28 +19,17 @@ class AndersonAcceleration:
 
     def __init__(
         self,
-        dimension: int,
-        depth: int,
-        constrain_acceleration: bool = False,
-        regularization_parameter: float = 0.0,
+        params: Optional[dict] = None,
     ) -> None:
-        self._dimension = int(dimension)
-        self._depth = int(depth)
-        self._constrain_acceleration: bool = bool(constrain_acceleration)
-        self._reg_param: float = float(regularization_parameter)
+        if params is None:
+            params = {}
+        self._depth = int(params.get("anderson_acceleration_depth", 3))
+        self._constrain_acceleration: bool = bool(params.get("anderson_acceleration_constrained", False))
+        self._reg_param: float = float(params.get("anderson_acceleration_regularization_parameter", 0.0))
+        self._beta: float = float(params.get("anderson_acceleration_relaxation_parameter", 0.0))
 
-        # Initialize arrays for iterates.
-        self.reset()
-        self._fkm1: np.ndarray = np.zeros(self._dimension)
-        self._gkm1: np.ndarray = np.zeros(self._dimension)
-
-    def reset(self) -> None:
-        self._Fk: np.ndarray = np.zeros(
-            (self._dimension, self._depth)
-        )  # changes in increments
-        self._Gk: np.ndarray = np.zeros(
-            (self._dimension, self._depth)
-        )  # changes in fixed point applications
+        assert 0 <= self._reg_param < 1
+        assert 0 <= self._beta < 1
 
     def apply(self, gk: np.ndarray, fk: np.ndarray, iteration: int) -> np.ndarray:
         """Apply Anderson acceleration.
@@ -57,7 +47,13 @@ class AndersonAcceleration:
         """
 
         if iteration == 0:
-            self.reset()
+            dimension = gk.size
+            assert dimension == fk.size
+            self._Fk: np.ndarray = np.zeros((dimension, self._depth))
+            self._Gk: np.ndarray = np.zeros((dimension, self._depth))
+            self._xk: np.ndarray = np.zeros((dimension, self._depth))
+            # self._fkm1: np.ndarray = np.zeros(dimension)
+            # self._gkm1: np.ndarray = np.zeros(dimension)
 
         mk = min(iteration, self._depth)
 
@@ -65,22 +61,22 @@ class AndersonAcceleration:
         if mk > 0:
             # Build matrices of changes.
             col = (iteration - 1) % self._depth
-            self._Fk[:, col] = fk - self._fkm1
-            self._Gk[:, col] = gk - self._gkm1
+            self._Fk[:, col] = fk # - self._fkm1
+            self._Gk[:, col] = gk # - self._gkm1
 
             # Solve least squares problem.
             A = self._Fk[:, 0:mk]
             b = fk
             if self._constrain_acceleration:
-                A = np.vstack((A, np.ones((1, self._depth))))
+                A = np.vstack((A, np.ones((1, mk))))
                 b = np.concatenate((b, np.ones(1)))
 
             direct_solve = False
 
             if self._reg_param > 0:
                 b = A.T @ b
-                A = A.T @ A + self._reg_param * np.eye(A.shape[1])
-                direct_solve = np.linalg.matrix_rank(A) >= A.shape[1]
+                A = A.T @ A + self._reg_param * np.eye(mk)
+                direct_solve = np.linalg.matrix_rank(A) >= mk
 
             if direct_solve:
                 gamma_k = np.linalg.solve(A, b)
@@ -88,13 +84,19 @@ class AndersonAcceleration:
                 gamma_k = lstsq(A, b)[0]
 
             # Do the mixing
-            x_k_plus_1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
+            # x_k_plus_1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
+            x_k_plus_1 = np.dot(self._Gk[:, 0:mk], gamma_k)
+            if self._beta > 0:
+                x_k_plus_1 *= self._beta
+                x_k_plus_1 += (1 - self._beta) * np.dot(self._xk[:, 0:mk], gamma_k)
         else:
             x_k_plus_1 = gk
 
+        self._xk[:, :-1] = self._xk[:, 1:]
+        self._xk[:, -1] = x_k_plus_1
         # Store values for next iteration.
-        self._fkm1 = fk.copy()
-        self._gkm1 = gk.copy()
+        # self._fkm1 = fk.copy()
+        # self._gkm1 = gk.copy()
 
         return x_k_plus_1
 
@@ -110,19 +112,8 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
 
     def __init__(self, params: dict | None = None):
         pp.NewtonSolver.__init__(self, params)
-        if params is None:
-            params = {}
-        depth = int(params.get("anderson_acceleration_depth", 3))
-        dimension = int(params["anderson_acceleration_dimension"])
-        constrain = params.get("anderson_acceleration_constrained", False)
-        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
-        AndersonAcceleration.__init__(
-            self,
-            dimension,
-            depth,
-            constrain_acceleration=constrain,
-            regularization_parameter=reg_param,
-        )
+        AndersonAcceleration.__init__(self, params)
+        self._last_res_norm: float = 0.
 
     def iteration(self, model: pp.PorePyModel):
         """An iteration consists of performing the Newton step and obtaining the step
@@ -134,16 +125,35 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         dx *= self.armijo_line_search(model, dx)
         dx = self.appleyard_chop(model, dx)
 
+        res = model.equation_system.assemble(evaluate_jacobian=False)
+        self._last_res_norm = model.compute_residual_norm(res, res)
+
+        if self.params.get("anderson_acceleration", False):
+            iteration = model.nonlinear_solver_statistics.num_iteration
+            x = model.equation_system.get_variable_values(iterate_index=0)
+            x_temp = x + dx
+            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
+                xp1 = self.apply(x_temp, dx, iteration)
+
+                if self._last_res_norm <= self.params.get(
+                    "anderson_start_after_residual_reaches", np.inf
+                ) and self._last_res_norm >= self.params.get(
+                    "anderson_stop_after_residual_reaches", 0.0
+                ):
+                    dx = xp1 - x
+
         return dx
 
     def armijo_line_search(self, model: pp.PorePyModel, dx: np.ndarray) -> float:
         """Performs the Armijo line search."""
-        res = model.equation_system.assemble(evaluate_jacobian=False)
-        # TODO Wrong reference residual
-        res_norm = model.compute_residual_norm(res, res)  # type:ignore
-        if not self.params.get(
-            "armijo_line_search", False
-        ) or res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0):
+        if (
+            not self.params.get("armijo_line_search", False)
+            or (self._last_res_norm <= self.params.get("armijo_stop_after_residual_reaches", 0.0))
+            or (
+                self._last_res_norm
+                >= self.params.get("armijo_start_after_residual_reaches", np.inf)
+            )
+        ):
             return 1.0
 
         rho = float(self.params.get("armijo_line_search_weight", 0.9))
