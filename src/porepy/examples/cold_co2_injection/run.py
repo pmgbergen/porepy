@@ -1,4 +1,30 @@
-""" "Run script for the CO2 injection model."""
+"""Run script for the cold CO2 injection model.
+
+Script is executable from command line. For a list of possible flags and
+model configurations run
+
+Windows:
+
+> python.exe ./run.py --help
+
+Linux:
+
+> python run.py --help
+
+
+Note:
+    The code within the docker image from Zenodo should be static and unchanging for
+    all time.
+    There is also a repository on Github containing a snapshot of the code, which is
+    perhaps easier accessible. But the continuous availability of that repo is not
+    guaranteed.
+
+Note:
+    For some reason, the flag ``-p`` must be given a value, otherwise the parsing won't
+    work when executing from bash script. Any integer must be given, value is
+    meaningless. Just a work-around.
+
+"""
 
 from __future__ import annotations
 
@@ -11,7 +37,7 @@ FLASH_TOL_CASE: int = 2
 """Define the flash tolerance used in the solution procedure."""
 LOCAL_SOLVER_STRIDE: int = 3
 """Ïnteger determining every which global iteration to start the local solver."""
-NUM_MONTHS: int = 24
+NUM_MONTHS: int = 20
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
@@ -31,6 +57,9 @@ BUOYANCY_ON: bool = False
 """Turn on buoyancy. NOTE: This is still under development."""
 FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
+LBC_VISCOSITY: bool = False
+"""Uses the LBC model for viscosity. Otherwise it uses constant transport properties,
+equal for all phases."""
 
 MESH_SIZES: dict[int, float] = {
     0: 4.0,  # 308 cells
@@ -71,9 +100,6 @@ from typing import Any, Literal, Optional, cast
 
 import numpy as np
 
-os.environ["LINE_PROFILE"] = "1"
-from line_profiler import profile
-
 if DISABLE_COMPILATION:
     os.environ["NUMBA_DISABLE_JIT"] = "1"
 
@@ -82,14 +108,29 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_co2_injection.model import (
-    ColdCO2InjectionModel,
-    ColdCO2InjectionModelFF,
+    BuoyancyModel,
+    ColdInjectionModel,
+    ColdInjectionModelFF,
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 # mypy: ignore-errors
+
+
+def get_file_name(
+    condition: str,
+    refinement: int,
+    flash_tol_case: int = 7,
+    flash_stride: int = 3,
+    rel_perm: Literal["quadratic", "linear"] = "linear",
+    num_months: int = 24,
+) -> str:
+    return (
+        f"{condition}_h{refinement}_ftol{flash_tol_case}"
+        f"_fstride{flash_stride}_{rel_perm}_m{num_months}"
+    )
 
 
 def get_path(
@@ -103,10 +144,10 @@ def get_path(
 ) -> pathlib.Path:
     """ "Returns path to result data for a simulation case."""
     if file_name is None:
-        file_name = (
-            f"stats_{condition}_h{refinement}"
-            f"_ftol{flash_tol_case}_fstride{flash_stride}_{rel_perm}_m{num_months}.json"
+        file_name = get_file_name(
+            condition, refinement, flash_tol_case, flash_stride, rel_perm, num_months
         )
+        file_name = f"stats_{file_name}.json"
     return pathlib.Path(f"{FOLDER}{file_name}")
 
 
@@ -160,35 +201,23 @@ class DataCollectionMixin(pp.PorePyModel):
 
         return data
 
-    @profile
     def assemble_linear_system(self) -> None:
         start = time.time()
         super().assemble_linear_system()
         self._time_tracker["assembly"].append(time.time() - start)
 
-    @profile
     def solve_linear_system(self) -> np.ndarray:
         start = time.time()
         sol = super().solve_linear_system()
         self._time_tracker["linsolve"].append(time.time() - start)
         return sol
 
-    @profile
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()
         self._cum_flash_iter_per_grid.clear()
         self._flash_iter_counter = 0
         self.nonlinear_solver_statistics.num_iteration_armijo = 0
 
-    @profile
-    def before_nonlinear_iteration(self):
-        return super().before_nonlinear_iteration()
-
-    @profile
-    def after_nonlinear_iteration(self, increment: np.ndarray) -> None:
-        return super().after_nonlinear_iteration(increment)
-
-    @profile
     def after_nonlinear_convergence(self):
         # Get data before reset and recomputation in super-call.
         self._num_global_iter.append(self.nonlinear_solver_statistics.num_iteration)
@@ -265,28 +294,6 @@ class DataCollectionMixin(pp.PorePyModel):
             return None
 
 
-class BuoyancyModel(pp.PorePyModel):
-    def initial_condition(self):
-        super().initial_condition()
-        self.set_buoyancy_discretization_parameters()
-
-    def update_flux_values(self):
-        super().update_flux_values()
-        self.update_buoyancy_driven_fluxes()
-
-    def set_nonlinear_discretizations(self):
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2")
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
-
 class QuadraticRelPerm(pp.PorePyModel):
     """ "Contains the quadratic relative permeability law."""
 
@@ -350,7 +357,13 @@ if __name__ == "__main__":
         "-p",
         "--plot",
         action="store_true",
-        help="Run simulation with settings for 2D plot, including quadratic rel-perms.",
+        # nargs=1,
+        # default=0,
+        # type=int,
+        help=(
+            "Run simulation with settings for 2D plot, including a time schedule every "
+            "30 days in the time stepping."
+        ),
     )
 
     args = parser.parse_args()
@@ -415,12 +428,22 @@ if __name__ == "__main__":
         REFINEMENT_LEVEL = 3
         FLASH_TOL_CASE = 2
         LOCAL_SOLVER_STRIDE = 3
-        NUM_MONTHS = 24
+        NUM_MONTHS = 20
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
-        file_name = "stats_ph_scheduled.json"
+        data_path = "ph_scheduled"
+        file_name = f"stats_{data_path}.json"
     else:
         print("--- start of run script ---\n")
+        data_path = get_file_name(
+            condition=EQUILIBRIUM_CONDITION,
+            refinement=REFINEMENT_LEVEL,
+            flash_tol_case=FLASH_TOL_CASE,
+            flash_stride=LOCAL_SOLVER_STRIDE,
+            rel_perm=REL_PERM,
+            num_months=NUM_MONTHS,
+        )
+    data_path = f"visualization/{data_path}"
 
     print(
         f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
@@ -429,20 +452,7 @@ if __name__ == "__main__":
         f"Local iteration stride: {LOCAL_SOLVER_STRIDE}\n"
         f"Number of months: {NUM_MONTHS}\n"
         f"Relative permeability: {REL_PERM}\n"
-        f"Time schedule: {RUN_WITH_SCHEDULE}"
-    )
-    print(
-        f"Results stored in: {
-            get_path(
-                condition=EQUILIBRIUM_CONDITION,
-                refinement=REFINEMENT_LEVEL,
-                flash_tol_case=FLASH_TOL_CASE,
-                flash_stride=LOCAL_SOLVER_STRIDE,
-                rel_perm=REL_PERM,
-                num_months=NUM_MONTHS,
-                file_name=file_name,
-            ).resolve()
-        }\n"
+        f"Time schedule: {RUN_WITH_SCHEDULE}\n"
     )
 
     # endregion
@@ -458,9 +468,13 @@ if __name__ == "__main__":
         max_iterations = 50
         iter_range = (36, 45)
 
-    newton_tol = 1e-7
-    newton_tol_increment = 5e-6
-    dt_init = pp.DAY
+    if LBC_VISCOSITY:
+        newton_tol = 1e-5
+        newton_tol_increment = 1e-5
+    else:
+        newton_tol = 1e-7
+        newton_tol_increment = 5e-6
+    dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
         time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
@@ -472,12 +486,12 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(10 * pp.MINUTE, dt_max),
+        dt_min_max=(1 * pp.HOUR, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
         recomp_factor=0.6,
-        recomp_max=15,
+        recomp_max=10,
         print_info=True,
         rtol=0.0,
     )
@@ -488,6 +502,7 @@ if __name__ == "__main__":
 
     basalt_ = basalt.copy()
     basalt_["permeability"] = 1e-14
+    well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 
     flash_params: dict[Any, Any] = {
@@ -562,20 +577,19 @@ if __name__ == "__main__":
         "flash_compiler_args": ("p-T", "p-h"),
     }
 
-    if RUN_WITH_SCHEDULE:
-        model_params["times_to_export"] = time_schedule
-    else:
-        model_params["times_to_export"] = []
-
     model_params.update(phase_property_params)
     model_params.update(restart_params)
     model_params.update(meshing_params)
     model_params.update(solver_params)
+    model_params["_well_surrounding_permeability"] = well_surrounding_permeability
+    # Storing simulation results in individual folder.
+    model_params["folder_name"] = data_path
+    model_params["_lbc_viscosity"] = LBC_VISCOSITY
 
     if FRACTIONAL_FLOW:
-        model_class = ColdCO2InjectionModelFF
+        model_class = ColdInjectionModelFF
     else:
-        model_class = ColdCO2InjectionModel
+        model_class = ColdInjectionModel
 
     model_class = add_mixin(DataCollectionMixin, model_class)
 
@@ -593,8 +607,6 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
@@ -619,7 +631,7 @@ if __name__ == "__main__":
         pp.run_time_dependent_model(model, model_params)
     except Exception as err:
         SIMULATION_SUCCESS = False
-        print(f"SIMULATION FAILED: {err}")
+        print(f"\nSIMULATION FAILED: {err}")
         n = model.nonlinear_solver_statistics.num_iteration
         model._time_tracker["linsolve"] = model._time_tracker["linsolve"][:-n]
         model._time_tracker["assembly"] = model._time_tracker["assembly"][:-n]
@@ -680,5 +692,6 @@ if __name__ == "__main__":
         "w",
     ) as result_file:
         json.dump(data, result_file)
-    print(f"Results saved at {str(path.resolve())}")
-    print("\n--- end of run script ---")
+    print(f"\nStatistics saved in: {str(path.resolve())}")
+    print(f"Visualization data saved in: {str(pathlib.Path(data_path).resolve())}\n")
+    print("--- end of run script ---")

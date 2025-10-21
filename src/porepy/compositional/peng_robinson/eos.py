@@ -1457,47 +1457,6 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return drho_c
 
-    # TODO need models for below functions
-    def get_viscosity_function(self) -> ScalarFunction:
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1e-3
-
-        return mu_c
-
-    def get_viscosity_derivative_function(self) -> VectorFunction:
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def dmu_c(
-            prearg_val: np.ndarray,
-            prearg_jac: np.ndarray,
-            p: float,
-            T: float,
-            xn: np.ndarray,
-        ) -> np.ndarray:
-            return np.zeros(2 + xn.shape[0], dtype=np.float64)
-
-        return dmu_c
-
-    def get_conductivity_function(self) -> ScalarFunction:
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1.0
-
-        return kappa_c
-
-    def get_conductivity_derivative_function(self) -> VectorFunction:
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-        def dkappa_c(
-            prearg_val: np.ndarray,
-            prearg_jac: np.ndarray,
-            p: float,
-            T: float,
-            xn: np.ndarray,
-        ) -> np.ndarray:
-            return np.zeros(2 + xn.shape[0], dtype=np.float64)
-
-        return dkappa_c
-
 
 logger.info(
     f"{_import_msg} Done" + " (elapsed time: %.5f (s))." % (time.time() - _import_start)
