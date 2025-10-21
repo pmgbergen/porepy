@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+import gmsh
 
 from porepy.fracs import ellipse_fracture
 
@@ -24,3 +25,16 @@ def test_ellipse_fracture_center(ellipse_fracture_params):
         center, major_axis, minor_axis, major_axis_angle, strike_angle, dip_angle
     )
     assert np.allclose(center_known, fracture.center)
+
+
+def test_ellipse_fracture_tags():
+    gmsh.initialize()
+    frac1 = ellipse_fracture.EllipticFracture(
+        np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+    )
+    frac2 = ellipse_fracture.EllipticFracture(
+        np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+    )
+    tag1 = frac1.fracture_to_gmsh_3D()
+    tag2 = frac2.fracture_to_gmsh_3D()
+    assert tag1 != tag2
