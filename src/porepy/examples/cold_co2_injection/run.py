@@ -109,8 +109,8 @@ from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_co2_injection.model import (
     BuoyancyModel,
-    ColdCO2InjectionModel,
-    ColdCO2InjectionModelFF,
+    ColdInjectionModel,
+    ColdInjectionModelFF,
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
@@ -587,9 +587,9 @@ if __name__ == "__main__":
     model_params["_lbc_viscosity"] = LBC_VISCOSITY
 
     if FRACTIONAL_FLOW:
-        model_class = ColdCO2InjectionModelFF
+        model_class = ColdInjectionModelFF
     else:
-        model_class = ColdCO2InjectionModel
+        model_class = ColdInjectionModel
 
     model_class = add_mixin(DataCollectionMixin, model_class)
 

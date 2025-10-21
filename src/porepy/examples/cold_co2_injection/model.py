@@ -93,12 +93,12 @@ class _FlowConfiguration(pp.PorePyModel):
     # Initial values.
     _p_INIT: float = 20e6
     _T_INIT: float = 450.0
-    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+    _z_INIT: dict[str, float] = {"H2O": 0.995, "H2S": 0.005}
 
     # In- and outflow values.
     _T_HEATED: float = 640.0
     _T_IN: float = 300.0
-    _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
+    _z_IN: dict[str, float] = {"H2O": 0.9, "H2S": 0.1}
 
     _p_OUT: float = _p_INIT - 1e6
 
@@ -114,7 +114,7 @@ class _FlowConfiguration(pp.PorePyModel):
 
     _INJECTED_MASS: dict[str, dict[int, float]] = {
         "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
-        "CO2": {0: _TOTAL_INJECTED_MASS * _z_IN["CO2"]},
+        "H2S": {0: _TOTAL_INJECTED_MASS * _z_IN["H2S"]},
     }
 
     # Coordinates of injection and production wells in meters
@@ -129,7 +129,7 @@ class FluidMixture(pp.PorePyModel):
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
+        return pp.compositional.load_fluid_constants(["H2O", "H2S"], "chemicals")
 
     def get_phase_configuration(
         self, components: Sequence[pp.FluidComponent]
@@ -179,13 +179,13 @@ class FluidMixture(pp.PorePyModel):
         if self.params.get("_lbc_viscosity", False):
             eos = PRLBC(
                 components,
-                [pr.h_ideal_H2O, pr.h_ideal_CO2],
+                [pr.h_ideal_H2O, pr.h_ideal_H2S],
                 pr.get_bip_matrix(components),
             )
         else:
             eos = PRCT(
                 components,
-                [pr.h_ideal_H2O, pr.h_ideal_CO2],
+                [pr.h_ideal_H2O, pr.h_ideal_H2S],
                 pr.get_bip_matrix(components),
             )
         return [
@@ -289,7 +289,8 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 False,
             )
             if status[0]:
-                print("\nConverged with relaxed CFLE criteria.\n")
+                # print("\nConverged with relaxed CFLE criteria.\n")
+                ...
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -319,7 +320,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 and tol_inc != np.inf
             )
             if residual_stationary and increment_stationary and not status[0]:
-                print("Detected stationary point. Flagging as diverged.")
+                # print("Detected stationary point. Flagging as diverged.")
                 status = (False, True)
 
         return status
@@ -1045,11 +1046,11 @@ class NoFluxRediscretization(pp.PorePyModel):
         # )
 
 
-class ColdCO2InjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
+class ColdInjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
     """2-phase 2-component model simulating the injection of a cold water-co2 mixture
     into an initially hot and water saturated domain."""
 
 
-class ColdCO2InjectionModelFF(_ModelMixins, cfle.EnthalpyBasedCFFLETemplate):  # type:ignore
+class ColdInjectionModelFF(_ModelMixins, cfle.EnthalpyBasedCFFLETemplate):  # type:ignore
     """Analogous to class:`ColdCO2InjectionModel` but based on the fractional flow
     template."""
