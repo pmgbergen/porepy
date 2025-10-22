@@ -983,13 +983,14 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         offset += intf.num_cells * dof_info_interface["cells"]
 
     # Test updating an existing equation. Here we update the equation with a different
-    # equation expression and a different number of degrees of freedom per cell.
+    # equation expression and a different number of degrees of freedom per cell. We
+    # switch the order of the interfaces here as well, similarly to in the test above.
     mock_equation = model.intf_variable * model.intf_variable * model.intf_variable
     dof_all_interfaces = {"cells": 3}
     equation_system.update_equation(
         new_equation=mock_equation,
         equation_name="eq_all_interfaces",
-        grids=model.interfaces,
+        grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_all_interfaces,
     )
 
@@ -1014,6 +1015,8 @@ def test_set_remove_equations(model: EquationSystemMockModel):
             offset + np.arange(intf.num_cells * dof_all_interfaces["cells"]),
         )
         offset += intf.num_cells * dof_all_interfaces["cells"]
+
+    assert list(blocks["eq_all_interfaces"].keys()) == model.interfaces
 
 
 def test_parse_variable_like(model: EquationSystemMockModel):
