@@ -1263,9 +1263,9 @@ class EquationSystem:
 
         """
         if grids is None:
-            grids = list(
+            grids = list(  # type: ignore
                 self._equation_image_space_composition[equation_name].keys()
-            )  
+            )
         if equations_per_grid_entity is None:
             equations_per_grid_entity = self._equation_image_size_info[equation_name]
 
@@ -1273,7 +1273,7 @@ class EquationSystem:
         new_equation.set_name(equation_name)
         self.set_equation(
             equation=new_equation,
-            grids=grids,
+            grids=grids,  # type: ignore
             equations_per_grid_entity=equations_per_grid_entity,
         )  # type: ignore
 
