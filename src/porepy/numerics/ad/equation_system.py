@@ -1263,13 +1263,11 @@ class EquationSystem:
 
         """
         if grids is None:
-            grids = []
-            for grid in self._equation_image_space_composition[equation_name]:
-                grids.append(grid)
+            grids = list(
+                self._equation_image_space_composition[equation_name].keys()
+            )  
         if equations_per_grid_entity is None:
-            equations_per_grid_entity = self._equation_image_size_info[
-                equation_name
-            ]
+            equations_per_grid_entity = self._equation_image_size_info[equation_name]
 
         self.remove_equation(equation_name)
         new_equation.set_name(equation_name)
