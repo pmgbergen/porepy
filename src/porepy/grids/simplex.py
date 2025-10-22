@@ -125,6 +125,10 @@ class TriangleGrid(Grid):
             (data, face_nodes, indptr), shape=(num_nodes, num_faces)
         )
 
+        # Sort the face-node indices so that we can easily decide
+        # if the grid is oriented in compute_geometry() downstream
+        face_nodes.sort_indices()
+
         # Cell-face relation. This can be constructed from the mapping back to the
         # cell-wise face-node relation, recalling that the cell-nodes were stacked so
         # that the first face of each cell came first, then the second face of each cell
