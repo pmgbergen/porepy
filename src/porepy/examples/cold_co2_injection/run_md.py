@@ -9,6 +9,9 @@ import warnings
 
 from typing import Any
 
+os.environ["LINE_PROFILE"] = "1"
+from line_profiler import profile
+
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
@@ -25,8 +28,8 @@ from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-BUOYANCY_ON = True
-VERBOSE = False
+BUOYANCY_ON = False
+VERBOSE = True
 
 # max_iterations = 40 if BUOYANCY_ON else 30
 max_iterations = 30
@@ -133,7 +136,7 @@ model_params: dict[str, Any] = {
     "_lbc_viscosity": False,
     "fracture_permeability": 1e-11,
     "impermeable_fracture_permeability": 1e-11,
-    "_num_fractures": 7,
+    "_num_fractures": 50,
     "_well_surrounding_permeability": well_surrounding_permeability,
     "folder_name": f"visualization/md_case/",
     "progressbars": not VERBOSE,
@@ -170,15 +173,15 @@ if __name__ == "__main__":
 
     model = ModelSetup(model_params)
 
-    # logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("porepy").setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("porepy").setLevel(logging.DEBUG)
     t_0 = time.time()
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
-    # if VERBOSE:
-    #     logging.getLogger("porepy").setLevel(logging.INFO)
-    # else:
-    #     logging.getLogger("porepy").setLevel(logging.WARNING)
+    if VERBOSE:
+        logging.getLogger("porepy").setLevel(logging.DEBUG)
+    else:
+        logging.getLogger("porepy").setLevel(logging.WARNING)
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
