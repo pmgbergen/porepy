@@ -195,24 +195,18 @@ def test_elementary_wrappers(field):
     assert compare(obj, wrapped_copy.parse(None))
     assert compare(obj, wrapped_deep_copy.parse(None))
 
-    # Next modify the value of the underlying object.
-    # This must be done in slightly different ways, depending on the implementation of
-    # the underlying data structures.
-    if isinstance(obj, sps.spmatrix):
-        obj[0, 0] += 1
-    else:
-        obj += 1.0
+    # Next, ensuring that it is impossible to modify the underlying object.
+    if not isinstance(wrapped_obj, pp.ad.Scalar):
+        with pytest.raises(ValueError):
+            if isinstance(obj, sps.spmatrix):
+                obj[0, 0] += 1
+            else:
+                obj += 1
 
-    # The shallow copy of the Ad quantity should also pick up the modification.
-    # The exception is the scalar, which is a wrapper of a Python immutable, and thus
-    # does not copy by reference.
-    if isinstance(wrapped_obj, pp.ad.Scalar):
+    else:
+        # Scalar is a wrapper of a Python immutable and thus does not copy by reference.
+        obj += 1
         assert not compare(obj, wrapped_copy.parse(None))
-    else:
-        assert compare(obj, wrapped_copy.parse(None))
-
-    # The deep copy should differ independent of which type of Ad quantity this is
-    assert not compare(obj, wrapped_deep_copy.parse(None))
 
 
 @pytest.mark.parametrize("field", fields)
