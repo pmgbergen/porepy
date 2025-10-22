@@ -458,7 +458,7 @@ class Grid:
         # Consistency check: For each cell, the nodes should occur twice in the
         # face-node relation: Once as a start node and once as an end node. Summed over
         # all faces of the cell, the result should be zero.
-        is_oriented = (fn_orient * self.cell_faces).nnz == 0
+        is_oriented = (fn_orient @ self.cell_faces).nnz == 0
         if not is_oriented:
             # The assumptions underlying the computation for general cells is broken.
             # Fall back to a legacy implementation which is only valid for convex cells.
@@ -468,7 +468,7 @@ class Grid:
             )
 
         # Compute the tangent vectors and use them to compute face attributes
-        tangent = self.nodes * fn_orient
+        tangent = self.nodes @ fn_orient
         self.face_areas = np.sqrt(np.square(tangent).sum(axis=0))
         self.face_centers = 0.5 * self.nodes * np.abs(fn_orient)
 
@@ -504,10 +504,20 @@ class Grid:
         # that nodes that are oriented counter clock-wise give positive values.
         subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-        # In case of inconsistent orientation, the sub-simplex volumes and normals need
-        # to be corrected.
+        # In case of an oriented grid, we can quickly compute the cell volumes
+        if is_oriented:
+            # Using the Gauss divergence theorem, we have
+            # volume = 0.5 * \int div(x) = 0.5 * \int_bdry dot(n, x)
+            weights = np.sum(self.face_normals * self.face_centers, axis=0)
+            self.cell_volumes = weights @ self.cell_faces / 2
+
+            # In some cases, the orientation can flip between subdomains,
+            # leading to negative cell volumes. We consider that to be unoriented
+            # and use the more general implementation, below.
+            is_oriented = np.all(self.cell_volumes >= 0)
+
         if not is_oriented:
-            # The volume is still correct, but it may be negative. Fix this.
+            # The subvolumes are still correct, but may be negative. Fix this.
             subsimplex_volumes = np.abs(subsimplex_volumes)
 
             # We flip the normal if the inner product between the height (face_center -
@@ -524,8 +534,8 @@ class Grid:
             flip = np.bincount(faceno, weights=flip).astype(bool)
             self.face_normals[:, flip] *= -1
 
-        # Compute the cell volumes by adding all relevant sub-simplex volumes.
-        self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
+            # Compute the cell volumes by adding all relevant sub-simplex volumes.
+            self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
 
         # Sanity check on the cell_volumes
         assert np.all(self.cell_volumes >= 0)
