@@ -1240,8 +1240,8 @@ class EquationSystem:
         self,
         equation_name: str,
         new_equation: Operator,
-        grids: DomainList,
-        equations_per_grid_entity: dict[GridEntity, int],
+        grids: Optional[DomainList] = None,
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
     ) -> None:
         """Updates an existing equation with a new equation operator.
 
@@ -1252,14 +1252,25 @@ class EquationSystem:
             equation_name: Name of the equation to be updated.
             new_equation: New equation in AD form.
             grids: A list of subdomain *or* interface grids on which the equation is
-                defined.
+                defined. The default value is None, and in that case, the grids of the
+                previous equation are used.
             equations_per_grid_entity: a dictionary describing how many equations
                 ``equation_operator`` provides. This is a temporary work-around until
                 operators are able to provide information on their image space. The
                 dictionary must contain the number of equations per grid entity (cells,
-                faces, nodes) for the operator.
+                faces, nodes) for the operator. The default value is None, and in that
+                case, the equations_per_grid_entity of the previous equation are used.
 
         """
+        if grids is None:
+            grids = []
+            for grid in self._equation_image_space_composition[equation_name]:
+                grids.append(grid)
+        if equations_per_grid_entity is None:
+            equations_per_grid_entity = self._equation_image_size_info[
+                equation_name
+            ]
+
         self.remove_equation(equation_name)
         new_equation.set_name(equation_name)
         self.set_equation(
