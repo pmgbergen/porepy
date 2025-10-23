@@ -459,13 +459,6 @@ class Grid:
         # face-node relation: Once as a start node and once as an end node. Summed over
         # all faces of the cell, the result should be zero.
         is_oriented = (fn_orient @ self.cell_faces).nnz == 0
-        if not is_oriented:
-            # The assumptions underlying the computation for general cells is broken.
-            # Fall back to a legacy implementation which is only valid for convex cells.
-            warn(
-                "Orientations in face_nodes and cell_faces are inconsistent. "
-                "Fall back on an implementation that assumes all cells are convex."
-            )
 
         # Compute the tangent vectors and use them to compute face attributes
         tangent = self.nodes @ fn_orient
@@ -491,34 +484,49 @@ class Grid:
         # Construct the unit normal of the grid as planar object
         if is_oriented:
             plane_normal = subsimplex_normals.sum(axis=1)
-            plane_normal /= np.linalg.norm(plane_normal)
-        else:
+            len_normal = np.linalg.norm(plane_normal)
+
+            # In an edge case where exactly half the domain is oriented oppositely,
+            # the computed plane normal will be zero. We consider that "unoriented" and
+            # move on.
+            if len_normal < 1e-5 * np.mean(self.face_areas) ** 2:
+                is_oriented = False
+            else:
+                # Normalize the vector
+                plane_normal /= len_normal
+
+        if not is_oriented:
+            # Fall back to the general implementation
             plane_normal = pp.map_geometry.compute_normal(self.nodes)
 
         # Compute the face normals by rotating the tangent according to the orientation
-        # of the plane
+        # of the plane.
         self.face_normals = np.cross(tangent, plane_normal, axis=0)
 
-        # Compute the signed volumes of sub-simplexes. Positive values indicate that
-        # cell_faces and face_nodes are consistently oriented; in practice, this means
-        # that nodes that are oriented counter clock-wise give positive values.
-        subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
-
-        # In case of an oriented grid, we can quickly compute the cell volumes
         if is_oriented:
-            # Using the Gauss divergence theorem, we have
-            # volume = 0.5 * \int div(x) = 0.5 * \int_bdry dot(n, x)
-            weights = np.sum(self.face_normals * self.face_centers, axis=0)
-            self.cell_volumes = weights @ self.cell_faces / 2
+            # Compute the signed volumes of sub-simplexes. Positive values indicate that
+            # cell_faces and face_nodes are consistently oriented; in practice, this
+            # means that nodes that are oriented counter clock-wise give positive values
+            subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-            # In some cases, the orientation can flip between subdomains,
-            # leading to negative cell volumes. We consider that to be unoriented
-            # and use the more general implementation, below.
+            # In case of an oriented grid, we can quickly compute the cell volumes
+            self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
+
+            # If the orientation flips between subdomains, then negative cell volumes
+            # occur. We consider that "unoriented" and move on.
             is_oriented = np.all(self.cell_volumes >= 0)
 
         if not is_oriented:
-            # The subvolumes are still correct, but may be negative. Fix this.
-            subsimplex_volumes = np.abs(subsimplex_volumes)
+            # The assumptions underlying the computation for general cells is broken.
+            # Fall back to a legacy implementation which is only valid for convex cells.
+            warn(
+                "Orientations in face_nodes and cell_faces are inconsistent. "
+                "Fall back on an implementation that assumes all cells are convex."
+            )
+
+            # Assuming that the cells are star-shaped, then the subsimplex volumes
+            # are given by the norm of the cross product computed above.
+            subsimplex_volumes = np.sqrt(np.square(subsimplex_normals).sum(axis=0))
 
             # We flip the normal if the inner product between the height (face_center -
             # cell_center) and the face normal is different from what is expected from
@@ -537,10 +545,10 @@ class Grid:
             # Compute the cell volumes by adding all relevant sub-simplex volumes.
             self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
 
-        # Sanity check on the cell_volumes
+        # Sanity check on the cell_volumes.
         assert np.all(self.cell_volumes >= 0)
 
-        # Compute cells centroids as weighted average of the sub-simplex centroids
+        # Compute cells centroids as weighted average of the sub-simplex centroids.
         sub_centroids = (
             temp_cell_centers[:, cellno] + 2 * self.face_centers[:, faceno]
         ) / 3
