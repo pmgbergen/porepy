@@ -460,12 +460,12 @@ class Grid:
         # all faces of the cell, the result should be zero.
         is_oriented = (fn_orient @ self.cell_faces).nnz == 0
 
-        # Compute the tangent vectors and use them to compute face attributes
+        # Compute the tangent vectors and use them to compute face attributes.
         tangent = self.nodes @ fn_orient
         self.face_areas = np.sqrt(np.square(tangent).sum(axis=0))
         self.face_centers = 0.5 * self.nodes * np.abs(fn_orient)
 
-        # Compute the temporary cell centers as average of the cell nodes
+        # Compute the temporary cell centers as average of the cell nodes.
         faceno, cellno, cf_orient = sparse_array_to_row_col_data(self.cell_faces)
         cx = np.bincount(cellno, weights=self.face_centers[0, faceno])
         cy = np.bincount(cellno, weights=self.face_centers[1, faceno])
@@ -481,22 +481,22 @@ class Grid:
             subsimplex_heights, cf_orient * tangent[:, faceno], axis=0
         )
 
-        # Construct the unit normal of the grid as planar object
+        # Construct the unit normal of the grid as planar object.
         if is_oriented:
             plane_normal = subsimplex_normals.sum(axis=1)
             len_normal = np.linalg.norm(plane_normal)
 
-            # In an edge case where exactly half the domain is oriented oppositely,
-            # the computed plane normal will be zero. We consider that "unoriented" and
-            # move on.
+            # In an edge case where exactly half the domain is oriented oppositely, the
+            # computed plane normal will be zero. We consider that "unoriented" and move
+            # on.
             if len_normal < 1e-5 * np.mean(self.face_areas) ** 2:
                 is_oriented = False
             else:
-                # Normalize the vector
+                # Normalize the vector.
                 plane_normal /= len_normal
 
         if not is_oriented:
-            # Fall back to the general implementation
+            # Fall back to the general implementation.
             plane_normal = pp.map_geometry.compute_normal(self.nodes)
 
         # Compute the face normals by rotating the tangent according to the orientation
@@ -509,7 +509,7 @@ class Grid:
             # means that nodes that are oriented counter clock-wise give positive values
             subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-            # In case of an oriented grid, we can quickly compute the cell volumes
+            # In case of an oriented grid, we can quickly compute the cell volumes.
             self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
 
             # If the orientation flips between subdomains, then negative cell volumes
