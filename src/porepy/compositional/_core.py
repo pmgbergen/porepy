@@ -48,14 +48,26 @@ If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
 
 """
 
+njit: Callable[..., Callable[[Callable], Callable]]
+"""JIT-compilation decorator without Python fallback for Callables, depending on whether
+numba is enabled or not.
+
+If enabled, uses :obj:`numba.njit`, otherwise the identity.
+
+"""
+
 if _IS_JIT_DISABLED:
     typeof = lambda x: type(x)
 
     def cfunc(*args, **kwargs):
         return lambda x: x
+
+    def njit(*args, **kwargs):
+        return lambda x: x
 else:
     typeof = nb.typeof
     cfunc = nb.cfunc
+    njit = nb.njit
 
 
 NUMBA_CACHE: bool = True

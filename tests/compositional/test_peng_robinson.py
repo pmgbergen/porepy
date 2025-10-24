@@ -13,10 +13,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-# NOTE uncomment for fast debugging without numba compilation
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import porepy as pp
 from porepy.compositional import compiled_flash as cflash
 from porepy.compositional import peng_robinson as pr
@@ -27,6 +23,10 @@ from porepy.compositional.peng_robinson.utils import (
     h_ideal_CO2,
     h_ideal_H2O,
 )
+
+# NOTE uncomment for fast debugging without numba compilation
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 # NOTE Fixtures created here are expensive because of compilation
