@@ -29,12 +29,81 @@ def test_ellipse_fracture_center(ellipse_fracture_params):
 
 def test_ellipse_fracture_tags():
     gmsh.initialize()
-    frac1 = ellipse_fracture.EllipticFracture(
-        np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+    try: 
+        frac1 = ellipse_fracture.EllipticFracture(
+            np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+        )
+        frac2 = ellipse_fracture.EllipticFracture(
+            np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+        )
+        tag1 = frac1.fracture_to_gmsh_3D()
+        tag2 = frac2.fracture_to_gmsh_3D()
+        assert tag1 != tag2
+    finally:
+        gmsh.finalize()
+
+
+@pytest.mark.parametrize(
+    "ellipse_fracture_params",
+    [
+        (np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0),
+        (np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0),
+    ],
+)
+def test_occ_surface_properties(ellipse_fracture_params):
+    center, major_axis, minor_axis, major_axis_angle, strike_angle, dip_angle = (
+        ellipse_fracture_params
     )
-    frac2 = ellipse_fracture.EllipticFracture(
-        np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
-    )
-    tag1 = frac1.fracture_to_gmsh_3D()
-    tag2 = frac2.fracture_to_gmsh_3D()
-    assert tag1 != tag2
+    gmsh.initialize()
+    try:
+        fracture = ellipse_fracture.EllipticFracture(
+            center, major_axis, minor_axis, major_axis_angle, strike_angle, dip_angle
+        )
+        tag = fracture.fracture_to_gmsh_3D()
+
+        gmsh.model.occ.synchronize()
+
+        boundary_curves = gmsh.model.getBoundary([(2, tag)], oriented=False, recursive=False)
+
+        gmsh.model.mesh.generate(2)
+
+        node_tags_all = []
+        for dim, ctag in boundary_curves:
+            node_tags, _, _ = gmsh.model.mesh.getNodes(1, ctag, includeBoundary=True)
+            if len(node_tags):
+               node_tags_all.append(np.array(node_tags, dtype=np.int64))
+
+        boundary_node_tags = np.unique(np.concatenate(node_tags_all))
+
+        pts = []
+        for t in boundary_node_tags:
+            coord, _, _, _ = gmsh.model.mesh.getNode(int(t))
+            pts.append(coord)  
+
+
+        boundary_points = np.array(pts).reshape(-1, 3)
+
+        dis = plane_check(
+            boundary_points, center, strike_angle, dip_angle
+        )
+
+        assert np.abs(dis).max() <= 1e-3
+    finally:
+        gmsh.finalize()
+
+def plane_check(points_xyz, center, strike_angle, dip_angle):
+    """
+    Check whether the given points are located in the plane defined by strike and dip. 
+    """
+    P = np.asarray(points_xyz, dtype=float)
+    c = np.asarray(center, dtype=float).ravel()
+    phi = float(strike_angle)
+    theta = float(dip_angle)
+
+    n = np.array([np.sin(theta) * np.sin(phi),
+                  -np.sin(theta) * np.cos(phi),
+                  np.cos(theta)], dtype=float)
+    n /= np.linalg.norm(n)
+
+    dis = (P - c) @ n                 
+    return dis
