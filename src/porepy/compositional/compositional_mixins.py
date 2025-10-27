@@ -2522,9 +2522,7 @@ class ActivityModels(pp.PorePyModel):
                 else:
                     for comp in self.fluid.components:
                         if comp.name == "H2O":
-                            water_fraction = phase.partial_fraction_of[component](
-                                domains
-                            )
+                            water_fraction = phase.partial_fraction_of[comp](domains)
 
                     molality = phase.partial_fraction_of[component](domains) / (
                         water_fraction * water_mole_mass
