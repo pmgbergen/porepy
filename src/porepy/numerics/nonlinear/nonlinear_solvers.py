@@ -175,13 +175,15 @@ class NewtonSolver:
         residual = model.equation_system.assemble(evaluate_jacobian=False)
         iterate = model.equation_system.get_variable_values(iterate_index=0)
 
-        # If the model is linear, we do not need to check convergence.
-        if not model._is_nonlinear_problem():
-            convergence_criterion = NanConvergenceCriterion()
-            status, info = convergence_criterion.check(
-                nonlinear_increment, residual, self.params
-            )
-            return status, info
+        # # TODO: How important is this? Newton is only called for nonlinear problems, by default.
+        # # Suggestion: Remove - kept for now for discussion.
+        # # If the model is linear, we do not need to check convergence.
+        # if not model._is_nonlinear_problem():
+        #     convergence_criterion = NanConvergenceCriterion()
+        #     status, info = convergence_criterion.check(
+        #         nonlinear_increment, residual, self.params
+        #     )
+        #     return status, info
 
         # Trivial nan-check (do not care about the residual and wait until it propagates).
         if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
