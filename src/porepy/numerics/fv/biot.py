@@ -880,7 +880,7 @@ class Biot(pp.Mpsa):
     def _create_rhs_scalar_gradient(
         self,
         sd: pp.Grid,
-        subcell_topology: pp.__annotations_fvutils.SubcellTopology,
+        subcell_topology: pp._fvutils.SubcellTopology,
         alpha: pp.SecondOrderTensor,
         bound_exclusion: pp._fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:

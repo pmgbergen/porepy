@@ -15,7 +15,7 @@ from porepy.applications.md_grids.mdg_library import (
     cube_with_orthogonal_fractures,
     square_with_orthogonal_fractures,
 )
-from porepy.applications.test_utils.arrays import compare_matrices, compare_arrays
+from porepy.applications.test_utils.arrays import compare_arrays, compare_matrices
 
 # ------------------ Test zero_columns -----------------------
 
