@@ -57,7 +57,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         """Minimum weight for the line search weights."""
         return self.params.get("min_line_search_weight", 1e-10)
 
-    def iteration(self, model) -> np.ndarray:
+    def nonlinear_iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.
 
         Add line search to the iteration method. First, call the super method to compute
@@ -71,7 +71,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             The solution update.
 
         """
-        dx = super().iteration(model)
+        dx = super().nonlinear_iteration(model)
         relaxation_vector = self.nonlinear_line_search(model, dx)
 
         # Update the solution
