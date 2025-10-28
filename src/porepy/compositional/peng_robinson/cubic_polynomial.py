@@ -268,13 +268,13 @@ def two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
     u = 3.0 * r0 / r1
 
-    z1 = u - c2 / 3.0
-    z2 = -u / 2.0 - c2 / 3.0
+    z1 = u
+    z2 = -u / 2.0
 
     if z1 < z2:
-        return np.array([z1, z2])
+        return np.array([z1, z2]) - c2 / 3.0
     else:
-        return np.array([z2, z1])
+        return np.array([z2, z1]) - c2 / 3.0
 
 
 @_COMPILE_DECORATOR(
@@ -304,8 +304,6 @@ def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     dr0 = get_dr0(c2, c1)
 
     u = 3.0 * r0 / r1
-    z1 = u - c2 / 3.0
-    z2 = -u / 2.0 - c2 / 3.0
 
     du = -3.0 * r0 / r1**2 * dr1 + 3.0 / r1 * dr0
 
@@ -314,7 +312,7 @@ def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     dz1_dc = du + dc2
     dz2_dc = -du / 2.0 + dc2
 
-    if z1 < z2:
+    if u < -u / 2.0:
         return np.vstack((dz1_dc, dz2_dc))
     else:
         return np.vstack((dz2_dc, dz1_dc))
@@ -407,7 +405,7 @@ def _get_dt1(r1: float) -> float:
     **_COMPILE_KWARGS,
 )
 def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
-    """Calculate the single (real) root of the cubic polynomial, when there is only one.
+    """Calculate the single (real) root of the cubic polynomial, where applicable.
 
     See also:
         https://en.wikipedia.org/wiki/
@@ -447,8 +445,7 @@ def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     else:
         raise ValueError("r1 cannot be zero for one real root.")
 
-    z = t1 * t2 - c2 / 3.0
-    return np.array([z])
+    return np.array([t1 * t2]) - c2 / 3.0
 
 
 @_COMPILE_DECORATOR(

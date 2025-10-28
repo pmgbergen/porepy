@@ -6,12 +6,16 @@ from __future__ import annotations
 import os
 from typing import Callable
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
 import pytest
 
-from porepy.compositional.peng_robinson import A_CRIT, B_CRIT, Z_CRIT
+from porepy.compositional.peng_robinson.compressibility_factor import (
+    A_CRIT,
+    B_CRIT,
+    Z_CRIT,
+)
 from porepy.compositional.peng_robinson.cubic_polynomial import (
     calculate_root_derivatives,
     calculate_roots,
