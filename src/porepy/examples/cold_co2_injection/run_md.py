@@ -114,7 +114,7 @@ solver_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 1.,
+        "cell_size": 0.25,
         "cell_size_fracture": 1.,
     },
 }
