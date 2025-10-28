@@ -138,7 +138,8 @@ class MultiphysicsLebesgueMetric:
             float: measure of values
 
         """
-        # Mypy...
+        # Complicated way of making sure subdomains is actually of type
+        # list[pp.Grid] | list[pp.MortarGrid]:
         grids: list[pp.Grid] = [sd for sd in subdomains if isinstance(sd, pp.Grid)]
         mortar_grids: list[pp.MortarGrid] = [
             sd for sd in subdomains if isinstance(sd, pp.MortarGrid)
