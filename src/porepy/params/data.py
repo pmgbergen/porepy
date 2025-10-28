@@ -77,6 +77,16 @@ from typing import Any, Optional, overload
 
 import porepy as pp
 
+try:
+    from warnings import deprecated
+except ImportError:
+    # It exists starting from Python 3.13
+    def deprecated(msg):  # type: ignore[no-redef]
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 # The new signature. To only one the users should use, and the only one to be preserved.
 @overload
@@ -90,7 +100,7 @@ def initialize_data(
 
 # The old signature to be deprecated. Using it will result in a warning now.
 @overload
-@warnings.deprecated(
+@deprecated(
     "Signature of pp.initialize_data has changed. Remove the first parameter (grid)."
 )
 def initialize_data(
