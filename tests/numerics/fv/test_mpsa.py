@@ -164,8 +164,7 @@ def test_partial_discretization_one_cell_at_a_time():
     stiffness = pp.FourthOrderTensor(mu=mu, lmbda=lmbda)
     bnd = pp.BoundaryConditionVectorial(g)
     specified_data = partial_update_parameters(stiffness, bnd)
-    data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-    )
+    data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
     discr.discretize(g, data)
 
     stress_full = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
@@ -239,8 +238,7 @@ class TestMpsaExactReproduction:
             "bc_values": bc_values,
             "source": np.zeros(g.num_cells * g.dim),
         }
-        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
@@ -421,8 +419,7 @@ class TestUpdateMpsaDiscretization(TestMpsaExactReproduction):
             "bc": bc,
             "inverter": "python",
         }
-        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         discr.discretize(g, data)
         return data, discr
@@ -791,8 +788,7 @@ class TestMpsaRotation:
             "bc_values": bc_val,
             "source": np.zeros(g.num_cells * g.dim),
         }
-        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
@@ -820,8 +816,7 @@ class TestMpsaRotation:
             "bc_values": bc_val_b,
             "source": np.zeros(g.num_cells * g.dim),
         }
-        data_b = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data_b = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         discr.discretize(g, data_b)
         A_b, b_b = discr.assemble_matrix_rhs(g, data_b)
@@ -847,8 +842,7 @@ class TestMpsaRotation:
             "source": np.zeros(g.num_cells * g.dim),
         }
 
-        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
@@ -1117,8 +1111,7 @@ class RobinBoundTest:
             "bc_values": bc_val,
         }
 
-        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
@@ -1283,8 +1276,7 @@ class TestMpsaReproduceKnownValues:
             "mpsa_eta": 0,
         }
 
-        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
-        )
+        data = pp.initialize_data({}, keyword, specified_parameters=specified_data)
 
         # Discretize
         discr = pp.Mpsa(keyword)

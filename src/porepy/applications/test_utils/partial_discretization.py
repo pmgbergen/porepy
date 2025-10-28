@@ -33,8 +33,7 @@ def perform_partial_discretization_specified_nodes(
     ind[cell_id] = 1
     nodes = np.squeeze(np.where(g.cell_nodes() @ ind > 0))
     specified_data["specified_nodes"] = nodes
-    data = pp.initialize_data( {}, discr.keyword, specified_parameters=specified_data
-    )
+    data = pp.initialize_data({}, discr.keyword, specified_parameters=specified_data)
 
     discr.discretize(g, data)
     return data

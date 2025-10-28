@@ -68,11 +68,10 @@ whereas data such as BC values are stored similarly to in the Parameters class, 
 
 from __future__ import annotations
 
-from typing import Optional, Any, overload
+import warnings
+from typing import Any, Optional, overload
 
 import porepy as pp
-
-import warnings
 
 
 # The new signature. To only one the users should use, and the only one to be preserved.

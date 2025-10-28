@@ -690,7 +690,7 @@ class Mpfa(pp.FVElliptic):
             params = {
                 "bc": bnd,
                 "second_order_tensor": k,
-                "ambient_dimension": ambient_dimension
+                "ambient_dimension": ambient_dimension,
             }
 
             d: dict = {

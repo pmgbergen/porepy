@@ -57,8 +57,7 @@ class TestRaviartThomasDiscretization:
     def _matrix(self, sd, perm, bc):
         """Compute stiffness and projector operators for a given subdomain"""
         solver = pp.RT0(keyword="flow")
-        data = pp.initialize_data( {}, "flow", {"second_order_tensor": perm, "bc": bc}
-        )
+        data = pp.initialize_data({}, "flow", {"second_order_tensor": perm, "bc": bc})
         solver.discretize(sd, data)
         M = solver.assemble_matrix(sd, data).todense()
         P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key].todense()

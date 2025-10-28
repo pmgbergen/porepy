@@ -17,8 +17,7 @@ class TestMVEMDiscretization:
         """Compute stiffness operator for a given subdomain"""
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data( {}, "flow", {"second_order_tensor": perm, "bc": bc}
-        )
+        data = pp.initialize_data({}, "flow", {"second_order_tensor": perm, "bc": bc})
         solver.discretize(sd, data)
 
         return solver.assemble_matrix(sd, data).todense()
@@ -388,7 +387,8 @@ class TestMVEMDiscretization:
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_data( {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
+        data = pp.initialize_data(
+            {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
         )
         solver.discretize(sd, data)
         M, rhs = solver.assemble_matrix_rhs(sd, data)
