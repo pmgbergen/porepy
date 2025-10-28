@@ -50,7 +50,7 @@ def test_ellipse_fracture_tags():
         (np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0),
     ],
 )
-def test_occ_surface_properties(ellipse_fracture_params):
+def test_gmsh_ellipse_nodes(ellipse_fracture_params):
     center, major_axis, minor_axis, major_axis_angle, strike_angle, dip_angle = (
         ellipse_fracture_params
     )
