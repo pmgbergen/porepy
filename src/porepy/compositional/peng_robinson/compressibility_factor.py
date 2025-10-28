@@ -25,23 +25,22 @@ I.e., it provides an additional root in the 1-root area.
 
 from __future__ import annotations
 
-import numpy as np
 import numba as nb
+import numpy as np
 
-from .._core import NUMBA_FAST_MATH, NUMBA_CACHE
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from .cubic_polynomial import (
-    calculate_roots,
     calculate_root_derivatives,
+    calculate_roots,
     get_root_case,
     one_root,
 )
-
 
 _COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 """Keyword arguments for compiling functions in this module."""
 
 
-_COMPILE_DECORATOR = nb.njit
+_COMPILER = nb.njit
 """Decorator for compiling functions in this module.
 
 Alternative compilers are the :obj:`numba.cfunc` call-back decorator, or future AOT
@@ -77,7 +76,7 @@ Z_CRIT: float = (
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
 
 
-@_COMPILE_DECORATOR(nb.f8[:](nb.f8, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(nb.f8[:](nb.f8, nb.f8), **_COMPILE_KWARGS)
 def c_from_AB(A: float, B: float) -> np.ndarray:
     """Implements the formula for the coefficients of the normalized cubic polynomial
     dependeng on cohesion and covolume.
@@ -109,7 +108,7 @@ def c_from_AB(A: float, B: float) -> np.ndarray:
     )
 
 
-@_COMPILE_DECORATOR(nb.f8[:, :](nb.f8, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(nb.f8[:, :](nb.f8, nb.f8), **_COMPILE_KWARGS)
 def dc_from_AB(A: float, B: float) -> np.ndarray:
     """Returns the Jacobian of the function implemented by :func:`c_from_AB`.
 
@@ -131,7 +130,7 @@ def dc_from_AB(A: float, B: float) -> np.ndarray:
     )
 
 
-@_COMPILE_DECORATOR(nb.f8(nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(nb.f8(nb.f8), **_COMPILE_KWARGS)
 def critical_line(A: float) -> float:
     r"""Parametrization of the critical line for the PR EoS in the A-B space.
 
@@ -149,7 +148,7 @@ def critical_line(A: float) -> float:
     return (B_CRIT / A_CRIT) * A
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.bool(nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -171,7 +170,7 @@ def is_supercritical(A: float, B: float) -> bool:
     return B >= critical_line(A) or B >= B_CRIT
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     [
         nb.void(nb.f8[:], nb.f8, nb.bool, nb.f8[:]),
         nb.void(nb.f8[:], nb.f8, nb.bool, nb.f8[:, :]),
@@ -223,28 +222,31 @@ def _smooth_3root_region(
     out[i] = out[i] * (1 - w) + (out[1] + out[i]) * 0.5 * w
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     [
-        nb.void(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8[:]),
-        nb.void(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8[:, :]),
+        nb.void(nb.f8, nb.f8, nb.f8, nb.f8[:]),
+        nb.void(nb.f8, nb.f8, nb.f8, nb.f8[:, :]),
     ],
     **_COMPILE_KWARGS,
 )
-def _smooth_scl_transition(B: float, W: float, T: float, s: float, out: float) -> None:
+def _smooth_scl_transition(B: float, W: float, T: float, out: np.ndarray) -> None:
     """Smoothing the super-critical liquid-like root when it comes close to a target
     value.
 
-    The distance ``d`` between ``W`` and ``T`` is normalized using the distance between
-    ``B`` and ``T`` as a reference.
-    With ``s`` denoting a fraction of the reference distance, a convex smoothing is
-    applied as ``W`` approaches ``T`` using a a weight ``w``. If ``d < s`` it holds
+    The smoothing is performed using a cubic function which is 1 if ``W==B`` and zero
+    if ``W==T``, decreasing monotonously in between, assuming ``B <= W <= T``.
+    I.e., assuming a threshold ``T`` the value ``W`` is smoothed towards ``B`` once it
+    falls below that threshold.
 
     .. math::
 
+        d = \\lvert W - B \\rvert
+        s = \\lvert T - B \\rvert
         w = 1 - (\\frac{d}{s})^2 (3 - 2 \\frac{d}{s})
         out[0] = out[0](1 - w) + out[1] w
 
-    ``out`` is manipulated directly.
+    ``out`` is operated on by reference. This design-choice is made so that this
+    function can be used to smooth both, ``W`` and potentially it's derivatives.
 
     Parameters:
         B: Reference value for distance.
@@ -255,18 +257,22 @@ def _smooth_scl_transition(B: float, W: float, T: float, s: float, out: float) -
             index 0 and the values towards which it is smoothed at index 1.
 
     """
-    assert 0 < s < 1, "Smoothing factor needs to be in (0,1)."
-    d = np.abs((W - B)) / np.abs((T - B))
+    d = np.abs((W - B))
+    s = np.abs((T - B))
+    assert s >= d, "Expecting the |W-B| <= |T - B|"
+    assert B <= W, "Expecting B <= W"
 
     if d >= s:
         w = 0.0
+    elif d <= 0.0:
+        w = 1.0
     else:
         w = 1.0 - (d / s) ** 2 * (3 - 2 * d / s)
 
     out[0] = out[0] * (1 - w) + out[1] * w
 
 
-@_COMPILE_DECORATOR(nb.f8(nb.f8, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(nb.f8(nb.f8, nb.f8), **_COMPILE_KWARGS)
 def W_sub(Z: float, B: float) -> float:
     """Extended compressibility factor in the sub-critical area (Ben Gharbia 2021).
 
@@ -285,7 +291,7 @@ def W_sub(Z: float, B: float) -> float:
     return (1 - B - Z) * 0.5
 
 
-@_COMPILE_DECORATOR(nb.f8[:](nb.f8[:]), **_COMPILE_KWARGS)
+@_COMPILER(nb.f8[:](nb.f8[:]), **_COMPILE_KWARGS)
 def dW_sub(dZ: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -300,72 +306,7 @@ def dW_sub(dZ: np.ndarray) -> np.ndarray:
     return -0.5 * np.array([dZ[0], 1 + dZ[1]])
 
 
-@_COMPILE_DECORATOR(nb.f8(nb.f8, nb.f8), **_COMPILE_KWARGS)
-def W_scl(Zg: float, B: float) -> float:
-    """Extended liquidlike compressibility factor in the super-critical region, where
-    the real root is used for the gaslike phase.
-
-    Parameters:
-        Zg: Existing, gas-like compressibility factor. This is a real root of the
-            polynomial.
-        B: Dimensionless co-volume.
-
-    Returns:
-        :math:`B + \\frac{Z - B}{2}`
-
-    """
-    # return B + (Zg - B) * 0.5
-    return (Zg + B) * 0.5
-
-
-@_COMPILE_DECORATOR(nb.f8[:](nb.f8[:]), **_COMPILE_KWARGS)
-def dW_scl(dZg: np.ndarray) -> np.ndarray:
-    """
-    Parameters:
-        d_Z: ``shape=(2,)``
-
-            The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-
-    Returns:
-        The derivative of :func:`W_scl` w.r.t. the cohesion and covolume.
-
-    """
-    return np.array([dZg[0], dZg[1] + 1]) * 0.5
-
-
-# @_COMPILE_DECORATOR(nb.f8(nb.f8, nb.f8), **_COMPILE_KWARGS)
-# def W_scg(Zl: float, B: float) -> float:
-#     """Extended gas-like compressibility factor in the super-critical region, where
-#     the liquid-like phase is flagged as present.
-
-#     Parameters:
-#         Z: Existing, liquid-like compressibility factor.
-#         B: Dimensionless co-volume.
-
-#     Returns:
-#         :math:`B + \\frac{1 - B - Z}{2}`, i.r. the regular sub-critical extension plus
-#         an extra :math:`B`.
-
-#     """
-#     return B + W_sub(Zl, B)
-
-
-# @_COMPILE_DECORATOR(nb.f8[:](nb.f8[:]), **_COMPILE_KWARGS)
-# def dW_scg(dZl: np.ndarray) -> np.ndarray:
-#     """
-#     Parameters:
-#         dZ: ``shape=(2,)``
-
-#             The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-
-#     Returns:
-#         The derivative of :func:`W_scg` w.r.t. the cohesion and covolume.
-
-#     """
-#     return np.array([0., 1.]) + dW_sub(dZl)
-
-
-@_COMPILE_DECORATOR(nb.i1(nb.f8, nb.f8, nb.bool, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(nb.i1(nb.f8, nb.f8, nb.bool, nb.f8), **_COMPILE_KWARGS)
 def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
     """Method implementing the extension procedure logic to defining the zone and
     method of providing a value for the compressibility factor, where it is physically
@@ -390,9 +331,11 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
           extended. The liquidlike root is real.
         - 2: The indicated root is liquidlike and in the subcritical area, where it is
           extended. The gaslike root is real.
-        - 3: The indicated root is liquidlike and in the super-critical area, where it
+        - 3: The indicated root is gaslike and in the super-critical area, where it is
+          extended. The liquidlike root is real.
+        - 4: The indicated root is liquidlike and in the super-critical area, where it
           is extended. The gaslike root is real.
-        - 4: The indicated root is liquidlike and in the super-critical area with
+        - 5: The indicated root is liquidlike and in the super-critical area with
           3-root-regime, where the smallest root violates the constraint by B from
           below. The gaslike root is real.
 
@@ -406,37 +349,35 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
 
     if nroot == 1:
         Z = one_root(c[0], c[1], c[2])
-        W = W_sub(Z[0], B)
+        Wsub = W_sub(Z[0], B)
         # Subcritical area
-        if not is_sc:
-            if gaslike and Z < W:
-                is_extended = 1
-            elif not gaslike and W < Z:
-                is_extended = 2
-        # Supercritical area
-        else:
-            if not gaslike and W <= Z:
-                is_extended = 3
+        if gaslike and Z < Wsub:
+            is_extended = 1
+        elif not gaslike and Wsub < Z:
+            is_extended = 2
+        # If super-critical and we are in the extension case, shift the code by two.
+        if is_sc and is_extended > 0:
+            is_extended += 2
+
     # Supercritical area with where non-physical 3-root regimes can appear.
     # The smallest root (liquid-like) needs a correction as it can take values below
     # the B. That would introduce all kind of numerical instability.
     elif nroot == 3:
         if is_sc and not gaslike:
-            is_extended = 4
+            is_extended = 5
 
     return is_extended
 
 
-# @_COMPILE_DECORATOR(
-#     nb.f8(nb.f8, nb.f8, nb.bool, nb.f8, nb.f8, nb.f8),
-#     **_COMPILE_KWARGS,
-# )
+@_COMPILER(
+    nb.f8(nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
+    **_COMPILE_KWARGS,
+)
 def Z(
     A: float,
     B: float,
     gaslike: bool,
     eps: float,
-    smoothE: float,
     smooth3: float,
 ) -> float:
     """Compute the compressibility factor for given :math:`A` and :math:`B`.
@@ -454,7 +395,6 @@ def Z(
         gaslike: Flag indicating whether to return the gas-like (True) or liquid-like
             (False) root.
         eps: Tolerance for detection of degeneracy/two-root and triple root case.
-        smoothE: Smoothing parameter for the extension procedure.
         smooth3: Smoothing parameter for the three-root area.
 
     Returns:
@@ -471,6 +411,9 @@ def Z(
 
     extension_case = is_extended_root(A, B, gaslike, eps)
 
+    B_thresh = 1.1 * B
+    B_thresh_smoothing = 2.0 * B
+
     match extension_case:
         # No root is extended.
         case 0:
@@ -481,37 +424,46 @@ def Z(
                 _smooth_3root_region(roots, smooth3, gaslike, roots)
         # Root extension in the subcritical 1-root area. Note that in both cases, the
         # real root calculations contains only 1 value.
-        case 1 | 2:
-            assert roots.size == 1, "Expecting only 1 real root in extension cases 1,2."
+        # We also use the same procedure in the supercritical area where gas is extended
+        # since Wsub is greater there than the real root, hence the extension is fine.
+        # NOTE The super-critical extension is rudimentary. Especially the border
+        # demarking transion from gas-like to liquid-like requires work. Technically it
+        # does not exist, but there must be one in the unified case.
+        case 1 | 2 | 3:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 1-3."
             roots[0] = W_sub(roots[0], B)
         # Liquid-like root extension in the super-critical 1-root area
-        case 3 | 4:
-            assert roots.size in [1, 3], (
-                "Expecting only 1 or 3 real roots in extension case 3, 4."
-            )
+        # The idea is to use Wsub as usual, but correct it with B multiplied with some
+        # threshold >1 where it becomes too small. The derivatives must go to zero in
+        # that case.
+        case 4:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 4."
             Z = roots[-1]
-            W = W_scl(Z, B)
+            W = W_sub(Z, B)
 
-            # Extended liquid-root smoothing in the super-critical area.
-            if smoothE > 0.0:
-                assert smoothE <= 0.5, "Smoothing factor must be smaller than 0.5"
-                # Smoothing the transition from liquid-extended-supercrit to
-                # liquid-real-supercrit
-                Wsub = W_sub(Z, B)
-                if B > B_CRIT:
-                    out = np.array([W, Z])
-                    # We use the distance of W_sub to Z as a measure to the line W_sub=Z
-                    _smooth_scl_transition(B, Wsub, Z, smoothE, out)
-                    W = out[0]
-                # Smoothing the transition from liquid-extended-supercrit to
-                # liquid-extended-sub-crit
-                else:
-                    out = np.array([W, Wsub])
-                    # We use the distance of B to the critical line, relative to B_C
-                    _smooth_scl_transition(B_CRIT, B, critical_line(A), smoothE, out)
-                    W = out[0]
+            # If it is smaller than the threshold, we just take the threshold
+            if W <= B_thresh:
+                W = B_thresh
+            # If it is bigger, we smooth the transition for numerical purposes.
+            elif B_thresh < W <= B_thresh_smoothing:
+                out = np.array([W, B_thresh])
+                _smooth_scl_transition(B_thresh, W, B_thresh_smoothing, out)
+                W = out[0]
 
             roots[0] = W
+        # There are super-critical 3-root regions which are nonphysical, and the
+        # smallest root (liquid) is smaller than the physically admissible value B.
+        # With the smoothing in case 3 in mind, we just set the liquid root to the
+        # threshold value.
+        case 5:
+            assert roots.size == 3, "Expecting 3 real root in extension cases 5."
+            assert roots[-1] >= B, "Expecting largest root >= B in extension case 5."
+            if roots[0] <= B_thresh:
+                roots[0] = B_thresh
+            else:
+                raise NotImplementedError(
+                    "Expecting smallest root <= B in extension case 5."
+                )
         case _:
             # Should never happen.
             raise NotImplementedError(f"Uncovered extension case encountered.")
@@ -523,18 +475,17 @@ def Z(
         return roots[0]
 
 
-# @_COMPILE_DECORATOR(
-#     nb.f8[:](nb.f8, nb.f8, nb.bool, nb.f8, nb.f8, nb.f8),
-#     **_COMPILE_KWARGS,
-# )
+@_COMPILER(
+    nb.f8[:](nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
+    **_COMPILE_KWARGS,
+)
 def dZ_dAB(
     A: float,
     B: float,
     gaslike: bool,
     eps: float,
-    smoothE: float,
     smooth3: float,
-) -> float:
+) -> np.ndarray:
     """Compute the derivatives of the compressibility factor with respect to :math:`A`
     and :math:`B`.
 
@@ -546,7 +497,6 @@ def dZ_dAB(
         gaslike: Flag indicating whether to return the gas-like (True) or liquid-like
             (False) root.
         eps: Tolerance for detection of degeneracy/two-root and triple root case.
-        smoothE: Smoothing parameter for the extension procedure.
         smooth3: Smoothing parameter for the three-root area.
 
     Returns:
@@ -555,14 +505,72 @@ def dZ_dAB(
     """
 
     c = c_from_AB(A, B)
-
     # Derivatives of coefficients w.r.t. A and B.
     dc_dAB = dc_from_AB(A, B)
 
     # Chainrule to obtain derivatives w.r.t. A and B.
-    droots = calculate_root_derivatives(c[0], c[1], c[0], eps) @ dc_dAB
+    roots = calculate_roots(c[0], c[1], c[2], eps)
+    # droots = calculate_root_derivatives(c[0], c[1], c[0], eps) @ dc_dAB
+    droots: np.ndarray = np.dot(
+        calculate_root_derivatives(c[0], c[1], c[2], eps), dc_dAB
+    )
 
-    # Since ordered by size, gaslike is largest root and liquidlike is smallest.
+    extension_case = is_extended_root(A, B, gaslike, eps)
+
+    B_thresh = 1.1 * B
+    B_thresh_smoothing = 2.0 * B
+    # NOTE Order loss due to inexact approximation, since we set the derivatives
+    # of the extended root which falls below the threshold to zero.
+    # To be exact, we have to obtain the parametrization B(..) of the line Wsub = B
+    # and use those derivatives in the capping to obtain a linear extension beyond.
+    # Just look at cubic_polynomial.one_root to see why that is rather unfeasible...
+    dW_thresh = np.zeros(2)
+
+    # For more information on the cases, see inline documentation of Z()
+    match extension_case:
+        case 0:
+            if roots.size == 3 and smooth3 > 0.0:
+                _smooth_3root_region(roots, smooth3, gaslike, droots)
+        case 1 | 2 | 3:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 1-3."
+            assert droots.shape == (1, 2), (
+                "Expecting shape (1, 2) of root derivatives in extension cases 1-3."
+            )
+            droots[0] = dW_sub(droots[0])
+        case 4:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 4."
+            assert droots.shape == (1, 2), (
+                "Expecting shape (1, 2) of root derivatives in extension case 4."
+            )
+            Z = roots[-1]
+            W = W_sub(Z, B)
+            dW = dW_sub(droots[-1])
+
+            if W <= B_thresh:
+                dW = dW_thresh
+            elif B_thresh < W <= B_thresh_smoothing:
+                out = np.zeros((2, 2))
+                out[0] = dW
+                out[1] = dW_thresh
+                _smooth_scl_transition(B_thresh, W, B_thresh_smoothing, out)
+                dW = out[0]
+
+            droots[0] = dW
+        case 5:
+            assert roots.size == 3, "Expecting 3 real root in extension cases 5."
+            assert roots[-1] >= B, "Expecting largest root >= B in extension case 5."
+            assert droots.shape == (3, 2), (
+                "Expecting shape (3, 2) of root derivatives in extension cases 5."
+            )
+            if roots[0] <= B_thresh:
+                droots[0] = dW_thresh
+            else:
+                raise NotImplementedError(
+                    "Expecting smallest root <= B in extension case 5."
+                )
+        case _:
+            raise NotImplementedError(f"Uncovered extension case encountered.")
+
     if gaslike:
         return droots[-1]
     else:

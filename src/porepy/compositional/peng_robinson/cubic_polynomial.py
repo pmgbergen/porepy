@@ -33,14 +33,13 @@ from __future__ import annotations
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_FAST_MATH, NUMBA_CACHE
-
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
 
 _COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 """Keyword arguments for compiling functions in this module."""
 
 
-_COMPILE_DECORATOR = nb.njit
+_COMPILER = nb.njit
 """Decorator for compiling functions in this module.
 
 Alternative compilers are the :obj:`numba.cfunc` call-back decorator, or future AOT
@@ -49,7 +48,7 @@ compilation.
 """
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8(nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -71,7 +70,7 @@ def get_r1(c2: float, c1: float) -> float:
     return c1 - c2**2 / 3.0
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -92,7 +91,7 @@ def get_dr1(c2: float) -> np.ndarray:
     return np.array([-2.0 * c2 / 3.0, 1.0, 0.0])
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8(nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -115,7 +114,7 @@ def get_r0(c2: float, c1: float, c0: float) -> float:
     return 2.0 / 27.0 * c2**3 - (c1 * c2) / 3.0 + c0
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -136,7 +135,7 @@ def get_dr0(c2: float, c1: float) -> np.ndarray:
     return np.array([6.0 / 27.0 * c2**2 - c1 / 3.0, -c2 / 3.0, 1.0])
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8(nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -159,7 +158,7 @@ def discriminant(r1: float, r0: float) -> float:
     return -(4 * r1**3 + 27 * r0**2)
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.i4(nb.f8, nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -204,7 +203,7 @@ def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
             return 2
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -224,7 +223,7 @@ def triple_root(c2: float) -> np.ndarray:
     return np.array([-c2 / 3.0])
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:, :](nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -242,7 +241,7 @@ def d_triple_root(c2: float) -> np.ndarray:
     return np.array([[-1.0 / 3.0, 0.0, 0.0]])
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -277,7 +276,7 @@ def two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
         return np.array([z2, z1]) - c2 / 3.0
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -318,7 +317,7 @@ def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
         return np.vstack((dz2_dc, dz1_dc))
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8(nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -337,11 +336,11 @@ def _get_Gamma(r1: float, r0: float) -> float:
     return -r0 / 2.0 * np.sqrt(27.0 / np.abs(r1**3))
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
-def _get_dGamma(r1: float, r0: float) -> float:
+def _get_dGamma(r1: float, r0: float) -> np.ndarray:
     """Derivatives of the auxiliary variable :math:`\\gamma` w.r.t. reduced
     coefficients.
 
@@ -363,7 +362,7 @@ def _get_dGamma(r1: float, r0: float) -> float:
     )
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8(nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -382,7 +381,7 @@ def _get_t1(r1: float) -> float:
     return 2.0 * np.sqrt(r1 / 3.0)
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8(nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -400,7 +399,7 @@ def _get_dt1(r1: float) -> float:
     return np.sqrt(1.0 / (3.0 * r1))
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -448,7 +447,7 @@ def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     return np.array([t1 * t2]) - c2 / 3.0
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -515,7 +514,7 @@ def d_one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     return z.reshape((1, 3))
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -565,7 +564,7 @@ def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     # return roots
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -609,7 +608,7 @@ def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     return np.vstack((dz_1, dz_2, dz_3))
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
@@ -643,7 +642,7 @@ def calculate_roots(c2: float, c1: float, c0: float, eps: float) -> np.ndarray:
     return val
 
 
-@_COMPILE_DECORATOR(
+@_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
