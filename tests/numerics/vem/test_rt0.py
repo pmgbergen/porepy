@@ -320,7 +320,7 @@ class TestRaviartThomasDiscretization:
             "second_order_tensor": perm,
             "bc_values": bc_val,
         }
-        data = pp.initialize_data("flow", specified_parameters)
+        data = pp.initialize_data({}, "flow", specified_parameters)
         solver.discretize(sd, data)
         M, rhs = solver.assemble_matrix_rhs(sd, data)
         up = sps.linalg.spsolve(M, rhs)
@@ -747,7 +747,7 @@ class TestRaviartThomasDiscretization:
                 "bc_values": bc_val,
                 "second_order_tensor": perm,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -834,7 +834,7 @@ class TestRaviartThomasDiscretization:
                 "second_order_tensor": perm,
                 "source": source,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -922,7 +922,7 @@ class TestRaviartThomasDiscretization:
                 "second_order_tensor": perm,
                 "source": source,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -2217,7 +2217,7 @@ class TestRaviartThomasRHS:
                 "second_order_tensor": perm,
                 "vector_source": vect,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -2310,7 +2310,7 @@ class TestRaviartThomasRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -2403,7 +2403,7 @@ class TestRaviartThomasRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)

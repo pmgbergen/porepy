@@ -928,7 +928,7 @@ class TestMVEMRHS:
                 "second_order_tensor": perm,
                 "vector_source": vect,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -1018,7 +1018,7 @@ class TestMVEMRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -1109,7 +1109,7 @@ class TestMVEMRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_data("flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -1244,7 +1244,7 @@ class TestVEMConvergence:
             "bc": bound,
             "bc_values": bc_val,
         }
-        return pp.initialize_data("flow", specified_parameters)
+        return pp.initialize_data({}, "flow", specified_parameters)
 
     def _error_p(self, sd, p, case):
         sol = np.array([self._solution(*pt, case) for pt in sd.cell_centers.T])

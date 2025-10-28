@@ -228,7 +228,7 @@ class TestUpwind:
                 "darcy_flux": dis,
                 "bc_values": np.zeros(sd.num_faces),
             }
-        data = pp.initialize_data("transport", specified_parameters)
+        data = pp.initialize_data({}, "transport", specified_parameters)
         upwind_obj.discretize(sd, data)
         return upwind_obj, data
 
@@ -575,10 +575,10 @@ class TestMixedDimensionalUpwind:
                 specified_parameters.update(
                     {"bc": bound, "bc_values": np.zeros(sd.num_faces)}
                 )
-            pp.initialize_data("transport", specified_parameters)
+            pp.initialize_data(data, "transport", specified_parameters)
 
         for intf, data in mdg.interfaces(return_data=True):
-            pp.initialize_data("transport", {})
+            pp.initialize_data(data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
         lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
@@ -626,10 +626,10 @@ class TestMixedDimensionalUpwind:
             bound = pp.BoundaryCondition(sd, bound_faces, labels)
             specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_data("transport", specified_parameters)
+            pp.initialize_data(data, "transport", specified_parameters)
 
         for intf, data in mdg.interfaces(return_data=True):
-            pp.initialize_data("transport", {})
+            pp.initialize_data(data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
         lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
@@ -685,10 +685,10 @@ class TestMixedDimensionalUpwind:
                 bound = pp.BoundaryCondition(sd, bound_faces, labels)
                 specified_parameters.update({"bc": bound, "bc_values": bc_val})
 
-            pp.initialize_data("transport", specified_parameters)
+            pp.initialize_data(data, "transport", specified_parameters)
 
         for intf, data in mdg.interfaces(return_data=True):
-            pp.initialize_data("transport", {})
+            pp.initialize_data(data, "transport", {})
 
         self._add_constant_darcy_flux(mdg, upwind, [1, 0, 0], a)
         lhs, rhs = self._compose_algebraic_representation(mdg, upwind, upwind_coupling)
