@@ -59,13 +59,13 @@ class FractureNetwork3d(object):
 
     def __init__(
         self,
-        fractures: Optional[list[pp.PlaneFracture]] = None,
+        fractures: Optional[list[pp.PlaneFracture | pp.EllipticFracture]] = None,
         domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
         # Initialize fractures as an empty list
-        self.fractures: list[pp.PlaneFracture] = []
+        self.fractures: list[pp.PlaneFracture | pp.EllipticFracture] = []
         """List of fractures forming the network."""
 
         if fractures is not None:

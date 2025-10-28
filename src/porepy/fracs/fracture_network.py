@@ -13,7 +13,10 @@ from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 # Custom typings
-FractureList = Union[list[pp.LineFracture], list[pp.PlaneFracture]]
+FractureList = Optional[
+    list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]
+]
+
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
@@ -47,7 +50,8 @@ def create_fracture_network(
         fractures: ``default=None``
 
             List of fractures. Each item of the list should be either an instance of
-            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3D or an instance
+            :class:`~porepy.fracs.plane_fracture.PlaneFracture` for 3D or an instance of
+            :class:`~porepy.fracs.ellipse_fracture.EllipticFracture` for 3D or an instance
             of :class:`~porepy.fracs.line_fracture.LineFracture` for 2D. Default is
             ``None``, meaning, no fractures. If an empty list is given, it will be
             treated as ``None``.
@@ -91,7 +95,12 @@ def create_fracture_network(
     # Check that all items are of the same type if the fracture list is non-empty.
     if fracs is not None:
         is_homo_2d = all([isinstance(frac, pp.LineFracture) for frac in fracs])
-        is_homo_3d = all([isinstance(frac, pp.PlaneFracture) for frac in fracs])
+        is_homo_3d = all(
+            [
+                isinstance(frac, Optional[pp.PlaneFracture | pp.EllipticFracture])
+                for frac in fracs
+            ]
+        )
         if not (is_homo_2d or is_homo_3d):
             raise TypeError("All fracture objects must be of the same type.")
 
@@ -134,7 +143,9 @@ def create_fracture_network(
         return fracture_network_2d
     else:
         fracture_network_3d = FractureNetwork3d(
-            fractures=cast(list[pp.PlaneFracture], fracs),
+            fractures=cast(
+                Optional[list[pp.PlaneFracture | pp.EllipticFracture]], fracs
+            ),
             domain=domain,
             tol=tol,
             run_checks=run_checks,
