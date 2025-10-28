@@ -408,8 +408,8 @@ class NanConvergenceCriterion(ConvergenceCriterion):
         has_nan_increment = any(
             np.isnan(value) for value in nonlinear_increment.values()
         )
-        # has_nan_residual = any(np.isnan(value) for value in residual.values())
-        if has_nan_increment:  # or has_nan_residual:
+        has_nan_residual = any(np.isnan(value) for value in residual.values())
+        if has_nan_increment or has_nan_residual:
             return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
         else:
             return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
