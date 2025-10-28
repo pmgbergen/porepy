@@ -608,7 +608,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Update the time step magnitude if the dynamic scheme is used.
         if not self.time_manager.is_constant:
-            assert issubclass(
+            assert isinstance(
                 self.nonlinear_solver_statistics, NonlinearSolverStatistics
             )
             self.time_manager.compute_time_step(

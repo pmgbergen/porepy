@@ -5,22 +5,22 @@ Implemented classes
 """
 
 import logging
+from typing import cast
 
 import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (  # NanConvergenceCriterion,
     AbsoluteConvergenceCriterion,
-    RelativeConvergenceCriterion,
     ConvergenceInfo,
     ConvergenceStatus,
     ConvergenceTolerance,
+    RelativeConvergenceCriterion,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from typing import cast
 
 # Module-wide logger
 logger = logging.getLogger(__name__)

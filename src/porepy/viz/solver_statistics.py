@@ -366,7 +366,9 @@ class TimeStatistics(SolverStatistics):
 class NonlinearSolverAndTimeStatistics(NonlinearSolverStatistics, TimeStatistics):
     """Combined statistics class for nonlinear solvers with time dependence.
 
-    This class combines the statistics from both nonlinear solvers and time-dependent solvers.
+    This class combines the statistics from both nonlinear solvers and
+    time-dependent solvers.
+
     """
 
     ...
