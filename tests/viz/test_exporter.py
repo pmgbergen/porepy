@@ -13,7 +13,6 @@ something is wrong.
 
 from __future__ import annotations
 
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,9 +34,7 @@ from porepy.fracs.utils import pts_edges_to_linefractures
 from tests.models.test_poromechanics import NonzeroFractureGapPoromechanics
 
 # Globally store location of reference files
-FOLDER_REFERENCE = (
-    os.path.dirname(os.path.realpath(__file__)) + "/" + "test_vtk_reference"
-)
+FOLDER_REFERENCE = Path(__file__).parent / "test_vtk_reference"
 
 
 @dataclass
@@ -47,7 +44,7 @@ class ExporterTestSetup:
 
     """
 
-    folder = "./test_vtk"
+    folder = Path("./test_vtk")
     file_name = "grid"
     folder_reference = FOLDER_REFERENCE
 
@@ -69,7 +66,7 @@ def setup() -> Generator[ExporterTestSetup, Any, Any]:
     yield setup
 
     # Teardown: remove temporary directory for vtu files.
-    full_path = Path.cwd() / Path.resolve(Path(setup.folder)).name
+    full_path = Path.cwd() / Path.resolve(setup.folder).name
     shutil.rmtree(full_path)
 
 
@@ -167,8 +164,8 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
     )
     # Check that exported vtu file and reference file are the same
     assert compare_vtu_files(
-        f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
-        f"{subdomain.ref_vtu_file}",
+        setup.folder / f"{setup.file_name}_{sd.dim}.vtu",
+        subdomain.ref_vtu_file,
     )
 
 
@@ -209,8 +206,8 @@ def test_import_state_from_vtu_single_subdomains(
 
     # Check that exported vtu file and reference file are the same
     assert compare_vtu_files(
-        f"{setup.folder}/{setup.file_name}_{sd.dim}.vtu",
-        f"{subdomain.ref_vtu_file}",
+        setup.folder / f"{setup.file_name}_{sd.dim}.vtu",
+        subdomain.ref_vtu_file,
     )
 
 
@@ -311,8 +308,8 @@ def test_mdg(setup: ExporterTestSetup):
     # Check that exported vtu files and reference files are the same.
     for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
-            f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_grid_{appendix}.vtu",
+            setup.folder / f"{setup.file_name}_{appendix}.vtu",
+            setup.folder_reference / f"mdg_grid_{appendix}.vtu",
         )
 
 
@@ -354,7 +351,7 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     # )
     # Yet, then the simulation crashed, now it is restarted from pvd file, picking up
     # the latest available timestep.
-    pvd_file = Path(f"{setup.folder_reference}/restart/previous_grid.pvd")
+    pvd_file = setup.folder_reference / "restart" / "previous_grid.pvd"
     if case == 0:
         # Test restart from conventional pvd file.
         time_index = save.import_from_pvd(
@@ -365,7 +362,7 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     elif case == 1:
         # Test restart from
         time_index = save.import_from_pvd(
-            pvd_file=Path(f"{setup.folder_reference}/restart/grid_000001.pvd"),
+            pvd_file=setup.folder_reference / "restart" / "grid_000001.pvd",
             is_mdg_pvd=True,
             keys=["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
         )
@@ -378,8 +375,8 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
 
     # To trick the test, copy the current pvd file to the temporary folder before
     # continuing writing it through appending the next time step.
-    Path(f"{setup.folder}").mkdir(parents=True, exist_ok=True)
-    shutil.copy(pvd_file, Path(f"{setup.folder}/{setup.file_name}.pvd"))
+    setup.folder.mkdir(parents=True, exist_ok=True)
+    shutil.copy(pvd_file, setup.folder / f"{setup.file_name}.pvd")
 
     # Imitate the initialization of a simulation, i.e., export the initial condition.
     save.write_vtu(["dummy_scalar", "dummy_vector", "unique_dummy_scalar"], time_step=1)
@@ -394,15 +391,15 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
     # Check that newly exported vtu files and reference files are the same.
     for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
-            f"{setup.folder}/{setup.file_name}_{appendix}_000002.vtu",
-            f"{setup.folder_reference}/restart/grid_{appendix}_000002.vtu",
+            setup.folder / f"{setup.file_name}_{appendix}_000002.vtu",
+            setup.folder_reference / f"restart/grid_{appendix}_000002.vtu",
         )
 
     # Check that the newly exported pvd files and reference file are the same.
     for appendix in ["_000002", ""]:
         assert compare_pvd_files(
-            f"{setup.folder}/{setup.file_name}{appendix}.pvd",
-            f"{setup.folder_reference}/restart/grid{appendix}.pvd",
+            setup.folder / f"{setup.file_name}{appendix}.pvd",
+            setup.folder_reference / f"restart/grid{appendix}.pvd",
         )
 
 
@@ -433,9 +430,9 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Import data
     save.import_state_from_vtu(
         vtu_files=[
-            Path(f"{setup.folder_reference}/mdg_{addendum}grid_2.vtu"),
-            Path(f"{setup.folder_reference}/mdg_{addendum}grid_1.vtu"),
-            Path(f"{setup.folder_reference}/mdg_{addendum}grid_mortar_1.vtu"),
+            setup.folder_reference / f"mdg_{addendum}grid_2.vtu",
+            setup.folder_reference / f"mdg_{addendum}grid_1.vtu",
+            setup.folder_reference / f"mdg_{addendum}grid_mortar_1.vtu",
         ],
         keys=keys,
         keys_pt=keys_pt,
@@ -447,8 +444,8 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
     # Check that exported vtu files and reference files are the same.
     for appendix in ["1", "2", "mortar_1"]:
         assert compare_vtu_files(
-            f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_{addendum}grid_{appendix}.vtu",
+            setup.folder / f"{setup.file_name}_{appendix}.vtu",
+            setup.folder_reference / f"mdg_{addendum}grid_{appendix}.vtu",
         )
 
 
@@ -557,8 +554,8 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
     # Check that exported vtu files and reference files are the same.
     for appendix in ["0", "1", "2", "mortar_0", "mortar_1"]:
         assert compare_vtu_files(
-            f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/mdg_data_selection_grid_{appendix}.vtu",
+            setup.folder / f"{setup.file_name}_{appendix}.vtu",
+            setup.folder_reference / f"mdg_data_selection_grid_{appendix}.vtu",
         )
 
 
@@ -599,8 +596,8 @@ def test_constant_data(setup: ExporterTestSetup):
     # Check that exported vtu files and reference files are the same
     for appendix in ["2", "constant_2"]:
         assert compare_vtu_files(
-            f"{setup.folder}/{setup.file_name}_{appendix}.vtu",
-            f"{setup.folder_reference}/constant_data_test_grid_{appendix}.vtu",
+            setup.folder / f"{setup.file_name}_{appendix}.vtu",
+            setup.folder_reference / f"constant_data_test_grid_{appendix}.vtu",
         )
 
 
@@ -619,21 +616,16 @@ def test_fracture_network_2d(setup: ExporterTestSetup):
     dummy_vector = np.ones((3, network_2d.num_frac()))
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
-    # Make directory if not existent
-    if not os.path.exists(setup.folder):
-        os.makedirs(setup.folder)
+    # Make directory if not existent.
+    setup.folder.mkdir(parents=True, exist_ok=True)
+    file_name = setup.folder / setup.file_name
+    file_name = file_name.with_suffix(".vtu")
 
-    # Export data
-    network_2d.to_file(
-        setup.folder + "/" + setup.file_name + ".vtu",
-        data=data,
-    )
+    # Export data.
+    network_2d.to_file(file_name, data=data)
 
     # Check that exported vtu file and reference file are the same.
-    assert compare_vtu_files(
-        f"{setup.folder}/{setup.file_name}.vtu",
-        f"{setup.folder_reference}/fractures_2d.vtu",
-    )
+    assert compare_vtu_files(file_name, setup.folder_reference / "fractures_2d.vtu")
 
 
 def test_fracture_network_3d(setup: ExporterTestSetup):
@@ -654,20 +646,15 @@ def test_fracture_network_3d(setup: ExporterTestSetup):
     data = {"dummy_scalar": dummy_scalar, "dummy_vector": dummy_vector}
 
     # Make directory if not existent.
-    if not os.path.exists(setup.folder):
-        os.makedirs(setup.folder)
+    setup.folder.mkdir(parents=True, exist_ok=True)
+    file_name = setup.folder / setup.file_name
+    file_name = file_name.with_suffix(".vtu")
 
-    # Export data
-    network_3d.to_file(
-        setup.folder + "/" + setup.file_name + ".vtu",
-        data=data,
-    )
+    # Export data.
+    network_3d.to_file(file_name, data=data)
 
     # Check that exported vtu file and reference file are the same.
-    assert compare_vtu_files(
-        f"{setup.folder}/{setup.file_name}.vtu",
-        f"{setup.folder_reference}/fractures_3d.vtu",
-    )
+    assert compare_vtu_files(file_name, setup.folder_reference / "fractures_3d.vtu")
 
 
 class TailoredThermoporomechanics(
@@ -739,17 +726,19 @@ def test_rescaled_export(setup: ExporterTestSetup):
     run_simulation_save_results(units=units_scaled, file_name=scaled_prefix)
     run_simulation_save_results(units=units_unscaled, file_name=unscaled_prefix)
 
-    folder_path = Path(setup.folder)
+    folder_path = setup.folder
     num_vtk_tested = 0
-    for file_name_scaled in os.listdir(setup.folder):
-        if not file_name_scaled.startswith(scaled_prefix):
+    for file_path_scaled in folder_path.iterdir():
+        if not file_path_scaled.name.startswith(scaled_prefix):
             continue
-        file_name_unscaled = f"{unscaled_prefix}{file_name_scaled[6:]}"
-        if file_name_scaled.endswith("vtu"):
+        file_path_unscaled = (
+            folder_path / f"{unscaled_prefix}{file_path_scaled.name[6:]}"
+        )
+        if file_path_scaled.suffix == ".vtu":
             assert compare_vtu_files(
-                test_file=folder_path / file_name_scaled,
-                reference_file=folder_path / file_name_unscaled,
-            ), f"Files don't match: {file_name_scaled} and {file_name_unscaled}."
+                test_file=file_path_scaled,
+                reference_file=file_path_unscaled,
+            ), f"Files don't match: {file_path_scaled} and {file_path_unscaled}."
             num_vtk_tested += 1
 
     assert num_vtk_tested > 0, "No VTU files were tested."

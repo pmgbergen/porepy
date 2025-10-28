@@ -8,10 +8,11 @@ import logging
 
 import numpy as np
 
-from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
+from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -137,9 +138,13 @@ class NewtonSolver:
                 if not is_diverged:
                     solver_progressbar.update(n=1)
                     # Ignore the long line; fixing it would require an extra variable.
-                    solver_progressbar.set_postfix_str(
-                        f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
-                    )
+                    if (
+                        len(model.nonlinear_solver_statistics.nonlinear_increment_norms)
+                        != 0
+                    ):
+                        solver_progressbar.set_postfix_str(
+                            f"Increment {model.nonlinear_solver_statistics.nonlinear_increment_norms[-1]:.2e}"  # noqa: E501
+                        )
 
                 if is_diverged:
                     # Handle nonlinear divergence outside the loop.

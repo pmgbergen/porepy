@@ -5,12 +5,13 @@ from __future__ import annotations
 import logging
 import warnings
 from copy import deepcopy
+from pathlib import Path
 from typing import Literal, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
 from scipy import stats
-
+from pathlib import Path
 import porepy as pp
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 
@@ -198,7 +199,7 @@ class ConvergenceAnalysis:
         self,
         list_of_results: list,
         variables_to_export: Optional[list[str]] = None,
-        file_name="error_analysis.txt",
+        file_name: Path = Path("error_analysis.txt"),
     ) -> None:
         """Write errors into a ``txt`` file.
 

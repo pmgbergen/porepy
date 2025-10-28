@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import Any, Optional
-
+from pathlib import Path
 import meshio
 import numpy as np
 
@@ -18,7 +19,7 @@ from .gmsh_interface import PhysicalNames
 logger = logging.getLogger(__name__)
 
 
-def triangle_grid_embedded(file_name: str) -> list[list[pp.Grid]]:
+def triangle_grid_embedded(file_name: Path) -> list[list[pp.Grid]]:
     """Creates a triangular 2D grid of a domain embedded in 3D space, without meshing
     the 3D volume.
 
@@ -43,12 +44,7 @@ def triangle_grid_embedded(file_name: str) -> list[list[pp.Grid]]:
         sub-list is empty.
 
     """
-
-    if file_name[-4:] == ".geo" or file_name[-4:] == ".msh":
-        file_name = file_name[:-4]
-
-    out_file = file_name + ".msh"
-
+    out_file = file_name.with_suffix(".msh")
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     g_2d = msh_2_grid.create_2d_grids(
@@ -84,7 +80,7 @@ def triangle_grid_embedded(file_name: str) -> list[list[pp.Grid]]:
 
 
 def triangle_grid_from_gmsh(
-    file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
+    file_name: Path, constraints: Optional[np.ndarray] = None, **kwargs
 ) -> list[list[pp.Grid]]:
     """Creates a nested list of grids dimensions ``{2, 1, 0}``, starting from meshes
     created by gmsh.
@@ -111,10 +107,7 @@ def triangle_grid_from_gmsh(
 
     start_time = time.time()
 
-    if file_name.endswith(".msh"):
-        file_name = file_name[:-4]
-    out_file = file_name + ".msh"
-
+    out_file = file_name.with_suffix(".msh")
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Create grids from gmsh mesh.
@@ -157,7 +150,7 @@ def triangle_grid_from_gmsh(
 
 
 def line_grid_from_gmsh(
-    file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
+    file_name: Path, constraints: Optional[np.ndarray] = None, **kwargs
 ) -> list[list[pp.Grid]]:
     """Creates a nested list of grids with dimensions ``{1, 0}``, starting from
     meshes created by gmsh.
@@ -184,10 +177,7 @@ def line_grid_from_gmsh(
 
     start_time = time.time()
 
-    if file_name.endswith(".msh"):
-        file_name = file_name[:-4]
-    out_file = file_name + ".msh"
-
+    out_file = file_name.with_suffix(".msh")
     pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Create grids from gmsh mesh.
@@ -227,7 +217,7 @@ def line_grid_from_gmsh(
 
 
 def tetrahedral_grid_from_gmsh(
-    file_name: str, constraints: Optional[np.ndarray] = None, **kwargs
+    file_name: Path, constraints: Optional[np.ndarray] = None, **kwargs
 ) -> list[list[pp.Grid]]:
     """Creates a nested list of grids dimensions ``{3, 2, 1, 0}``, starting from
     meshes created by ``gmsh``.
@@ -255,16 +245,18 @@ def tetrahedral_grid_from_gmsh(
     # Verbosity level
     verbose = kwargs.get("verbose", 1)
 
-    if file_name.endswith(".msh"):
-        file_name = file_name[:-4]
-    file_name = file_name + ".msh"
-
-    pts, cells, cell_info, phys_names = _read_gmsh_file(file_name)
+    out_file = file_name.with_suffix(".msh")
+    pts, cells, cell_info, phys_names = _read_gmsh_file(out_file)
 
     # Call upon helper functions to create grids in various dimensions. The
     # constructors require somewhat different information, reflecting the different
     # nature of the grids.
-    g_3d = msh_2_grid.create_3d_grids(pts, cells)
+    g_3d = msh_2_grid.create_3d_grids(
+        pts,
+        cells,
+        phys_names=phys_names,
+        cell_info=cell_info,
+    )
     g_2d = msh_2_grid.create_2d_grids(
         pts,
         cells,
@@ -302,7 +294,7 @@ def tetrahedral_grid_from_gmsh(
 
 
 def _read_gmsh_file(
-    file_name: str,
+    file_name: Path,
 ) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, np.ndarray], dict[int, str]]:
     """Auxiliary function to read a ``*.msh``-file, and convert the result to a
     format that is compatible with the porepy functionality for mesh processing.
@@ -313,16 +305,16 @@ def _read_gmsh_file(
     Returns:
         A 4-tuple containing
 
-        :obj:`~numpy.ndarray`: ``shape=(npt, dim)``
+        ``pts``: :obj:`~numpy.ndarray`, ``shape=(npt, dim)``
             Coordinates of all vertices in the grid, where ``npt`` is the number of
             vertices and ``dim`` the ambient dimension.
-        :obj:`dict`:
+        ``cells``: :obj:`dict`:
             Mapping between cells of different shapes, and the indices of
             vertices constituting the cell wrapped in a numpy array.
-        :obj:`dict`:
+        ``cell_info``: :obj:`dict`:
             Mapping between cells of different shapes, and the ``gmsh`` tags of each
             cell wrapped in a numpy array.
-        :obj:`dict`:
+        ``phys_names``: :obj:`dict`:
             Mapping from ``gmsh`` tags to the physical names (strings) assigned in the
             ``*.geo``-file.
 

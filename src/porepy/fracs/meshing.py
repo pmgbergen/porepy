@@ -15,7 +15,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.fracs import split_grid, structured
+from porepy.fracs import split_grid, _structured
 from porepy.grids import mortar_grid
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
@@ -147,9 +147,9 @@ def cart_grid(
 
     # Call relevant method, depending on grid dimensions
     if ndim == 2:
-        subdomains = structured._cart_grid_2d(fracs, nx, physdims=physdims)
+        subdomains = _structured.cart_grid_2d(fracs, nx, physdims=physdims)
     elif ndim == 3:
-        subdomains = structured._cart_grid_3d(fracs, nx, physdims=physdims)
+        subdomains = _structured.cart_grid_3d(fracs, nx, physdims=physdims)
     else:
         raise ValueError("Only support for 2 and 3 dimensions")
 
@@ -210,9 +210,9 @@ def tensor_grid(
     if y is None:
         raise NotImplementedError("fractured tensor grids not implemented in 1D")
     elif z is None:
-        subdomains = structured._tensor_grid_2d(fracs, x, y)
+        subdomains = _structured.tensor_grid_2d(fracs, x, y)
     else:
-        subdomains = structured._tensor_grid_3d(fracs, x, y, z)
+        subdomains = _structured.tensor_grid_3d(fracs, x, y, z)
 
     return subdomains_to_mdg(subdomains, **kwargs)
 

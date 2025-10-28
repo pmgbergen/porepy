@@ -1300,24 +1300,26 @@ class TestDFNMeshGeneration:
         assert len(mdg.subdomains(dim=0)) == 1
 
 
-class TestDFMNonConvexDomain:
-    """Test fracture meshing in non-convex domains.
+class TestDFMPolytopeDomain:
+    """Test fracture meshing on polytope (non-box) domains.
 
-    NOTE: The corresponding source code is complex, and the test suite below does not
-    cover all cases.
+    This is a rather minimal test suite. There are surely cases that are not covered
+    here, and in all likelihood, adding such tests will uncover bugs and shortcomings in
+    the implementation. However, considering the limited use of true polytopal domains,
+    the current coverage will have to do for now.
 
     """
 
     def domain(self):
-        """Set up a non-convex domain."""
+        """Set up a polytope domain."""
         west = np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 1, 1]])
         east = np.array([[1, 1, 1, 1], [0, 1, 1, 0], [0, 0, 1, 1]])
-        south_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 0, 0], [0, 0.5, 1, 1]])
-        south_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 0, 0], [0.5, 0, 1, 1]])
-        north_w = np.array([[0, 0.5, 0.5, 0], [1, 1, 1, 1], [0, 0.5, 1, 1]])
-        north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [0.5, 0, 1, 1]])
-        bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, 0.5, 0.5, 0]])
-        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [0.5, 0.0, 0, 0.5]])
+        south_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 0, 0], [0, -0.5, 1, 1]])
+        south_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 0, 0], [-0.5, 0, 1, 1]])
+        north_w = np.array([[0, 0.5, 0.5, 0], [1, 1, 1, 1], [0, -0.5, 1, 1]])
+        north_e = np.array([[0.5, 1, 1, 0.5], [1, 1, 1, 1], [-0.5, 0, 1, 1]])
+        bottom_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [0, -0.5, -0.5, 0]])
+        bottom_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [-0.5, 0.0, 0, -0.5]])
         top_w = np.array([[0, 0.5, 0.5, 0], [0, 0, 1, 1], [1, 1, 1, 1]])
         top_e = np.array([[0.5, 1, 1, 0.5], [0, 0, 1, 1], [1, 1, 1, 1]])
         return [
@@ -1344,26 +1346,15 @@ class TestDFMNonConvexDomain:
         """The fracture should be split into subfractures because of the non-convexity
         of the domain.
         """
-
         f_1 = pp.PlaneFracture(
             np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.3, 0.3]])
         )
         mdg = self._generate_mesh([f_1])
-        assert len(mdg.subdomains(dim=2)) == 2
+        assert len(mdg.subdomains(dim=2)) == 1
 
-    def test_fracture_cut_not_split_by_domain(self):
+    def test_fracture_not_split_by_domain(self):
         f_1 = pp.PlaneFracture(
-            np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [-1, -1, 0.7, 0.7]])
+            np.array([[-1, 2, 2, -1], [0.5, 0.5, 0.5, 0.5], [0, 1, 0.7, 0.7]])
         )
         mdg = self._generate_mesh([f_1])
-        # The fracture should be split into subfractures because of the non-convexity.
-        # non-convexity. The size of the domain here is set by how the fracture pieces
-        # are merged into convex parts.
-        # EK comment/ interpretation (written long after the test was written): The
-        # comment above is opaque, but relates to how non-convex fractures / domains are
-        # handled in FractureNetwork3d.mesh(). This is a particularly complex part of
-        # the code (and that says something), but it is also something which is not used
-        # a lot. For now, we keep the test, interpreted mainly as a check that the code
-        # functions as before. Should we ever clean up the accompanying code, this test
-        # should be rewritten.
-        assert len(mdg.subdomains(dim=2)) == 3
+        assert len(mdg.subdomains(dim=2)) == 1

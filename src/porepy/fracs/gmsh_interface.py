@@ -26,8 +26,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Optional, Union
-
+from pathlib import Path
 import gmsh
 import numpy as np
 
@@ -452,7 +453,7 @@ class GmshWriter:
 
     def generate(
         self,
-        file_name: str,
+        file_name: Path,
         ndim: int = -1,
         write_geo: bool = False,
         clear_gmsh: bool = True,
@@ -495,14 +496,14 @@ class GmshWriter:
                 ``gmsh.initialize`` is called.
 
         """
+        # Write geo file.
+        if write_geo:
+            fn = file_name.with_suffix(".geo_unrolled")
+            gmsh.write(str(fn))
+
+        # Write msh file.
         if ndim == -1:
             ndim = self._dim
-        if file_name[-4:] != ".msh":
-            file_name = file_name + ".msh"
-        if write_geo:
-            fn = file_name[:-4] + ".geo_unrolled"
-            gmsh.write(fn)
-
         for dim in range(1, ndim + 1):
             try:
                 gmsh.model.mesh.generate(dim=dim)
@@ -511,7 +512,8 @@ class GmshWriter:
                 s += str(exc)
                 print(s)
                 raise exc
-        gmsh.write(file_name)
+        file_name = file_name.with_suffix(".msh")
+        gmsh.write(str(file_name))
 
         if clear_gmsh:
             gmsh.clear()

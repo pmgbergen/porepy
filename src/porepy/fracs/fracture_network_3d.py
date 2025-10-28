@@ -12,6 +12,7 @@ import csv
 import logging
 import time
 import warnings
+from pathlib import Path
 from typing import Optional, Union
 
 import meshio
@@ -19,7 +20,7 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 import porepy as pp
-from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
+from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, PhysicalNames
 from porepy.geometry import sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
@@ -165,20 +166,97 @@ class FractureNetwork3d(object):
 
 
         """
-        bb = self.domain.bounding_box
+        if self.domain is None:
+            raise ValueError("No domain has been specified for this fracture network.")
 
-        xmin, xmax = bb["xmin"], bb["xmax"]
-        ymin, ymax = bb["ymin"], bb["ymax"]
-        zmin, zmax = bb["zmin"], bb["zmax"]
+        if self.domain.is_boxed:
+            # Defining a box domain in Gmsh's OpenCASCADE kernel is straightforward.
+            bb = self.domain.bounding_box
 
-        domain_tag = gmsh.model.occ.addBox(
-            xmin, ymin, zmin, xmax - xmin, ymax - ymin, zmax - zmin
-        )
+            xmin, xmax = bb["xmin"], bb["xmax"]
+            ymin, ymax = bb["ymin"], bb["ymax"]
+            zmin, zmax = bb["zmin"], bb["zmax"]
+
+            domain_tag = gmsh.model.occ.addBox(
+                xmin, ymin, zmin, xmax - xmin, ymax - ymin, zmax - zmin
+            )
+        else:
+            # General polytopes require a more involved procedure: Listed backwards, we
+            # need to define the surfaces of the polytope domain and define a volume
+            # from these. Each surface is defined by a set of lines, which in turn are
+            # defined by their endpoints. The challenge is that lines and points need to
+            # be uniquely defined, so that if two surfaces in the polytope description
+            # share a line, this must be represented by a single line in Gmsh, and the
+            # surfaces' Gmsh representation must reference this single line.
+
+            # For bookkeeping.
+            polytope = self.domain.polytope
+            polytope_sizes = [poly.shape[1] for poly in polytope]
+            offsets = np.hstack(([0], np.cumsum(polytope_sizes)))
+
+            # First find all unique points in the polytope description. Export them to
+            # Gmsh.
+            pts = np.hstack([poly for poly in polytope])
+            unique_pts, _, unique_pt_map = pp.array_operations.uniquify_point_set(
+                pts, self.tol
+            )
+            # These are the tags which Gmsh assigns to the points.
+            pt_tags = [gmsh.model.occ.addPoint(*pt) for pt in unique_pts.T]
+
+            # Define the lines making up the polygons in the polytope. Use offsets to
+            # define the lines for a common set of point indices (i.e. the colummns in
+            # variable pts above).
+            polytope_lines = np.hstack(
+                [
+                    offsets[pi]
+                    # The use of np.roll ensures that the last point connects to the
+                    # first point.
+                    + np.vstack((np.arange(size), np.roll(np.arange(size), -1)))
+                    for pi, size in enumerate(polytope_sizes)
+                ]
+            )
+            # Use the mapping to unique points to get the actual point indices
+            # (referring to unique_pts above).
+            lines_with_unique_points = unique_pt_map[polytope_lines]
+            # Now we need to find the unique lines, which should be exported to gmsh,
+            # and a mapping from all lines to the unique ones. Do a sort along axis 0,
+            # so that lines that share nodes but have the opposite direction are
+            # identified as the same line. Thankfully, the Gmsh OpenCascade kernel does
+            # not mind if we define surfaces that contain lines with inconsistent
+            # orientation, or else this would have been more complicated.
+            unique_lines, line_mapping = np.unique(
+                np.sort(lines_with_unique_points, axis=0), axis=1, return_inverse=True
+            )
+            # Now we can export the unique set of lines to Gmsh. We need to refer to the
+            # points according to their Gmsh tags.
+            line_tags = [
+                gmsh.model.occ.addLine(
+                    pt_tags[unique_lines[0, i]], pt_tags[unique_lines[1, i]]
+                )
+                for i in range(unique_lines.shape[1])
+            ]
+            # Gather the surfaces making up the polytope.
+            surfaces = []
+
+            for pi in range(len(polytope)):
+                # Define the line loop for this polygon. We need to use the line mapping
+                # to get referrals to the unique lines, and then the line tags to get
+                # the Gmsh tags.
+                line_loop = gmsh.model.occ.addCurveLoop(
+                    [line_tags[i] for i in line_mapping[offsets[pi] : offsets[pi + 1]]]
+                )
+                surfaces.append(gmsh.model.occ.addPlaneSurface([line_loop]))
+            # Finally, we need to create a surface loop for the polytope and then create
+            # the volume.
+            surf_loop = gmsh.model.occ.addSurfaceLoop(surfaces)
+            domain_tag = gmsh.model.occ.addVolume([surf_loop])
+
+        gmsh.model.occ.synchronize()
         return domain_tag
 
     def fractures_to_gmsh_3D(self) -> list[int]:
         """WIP: Take the tags of all fractures in the fracture network.
-        
+
         By using the method for exporting a single fracture tag, we here collect the
         tags of all the fractures in the fracture network. The tags are returned as
         elements in a list.
@@ -186,7 +264,7 @@ class FractureNetwork3d(object):
         Returns:
             A list of integers which represent all fracture tags in the fracture
             network.
-            
+
         """
         fracture_tags = [fracture.fracture_to_gmsh_3D() for fracture in self.fractures]
 
@@ -243,7 +321,324 @@ class FractureNetwork3d(object):
         self,
         mesh_args: dict[str, float],
         dfn: bool = False,
-        file_name: Optional[str] = None,
+        file_name: Optional[Path] = None,
+        constraints: Optional[np.ndarray] = None,
+        write_geo: bool = True,
+        tags_to_transfer: Optional[list[str]] = None,
+        finalize_gmsh: bool = True,
+        clear_gmsh: bool = False,
+        **kwargs,
+    ) -> pp.MixedDimensionalGrid:
+        if file_name is None:
+            file_name = Path("gmsh_frac_file.msh")
+
+        if constraints is None:
+            constraints = np.array([], dtype=int)
+        else:
+            constraints = np.atleast_1d(constraints)
+            constraints.sort()
+
+        gmsh.initialize()
+
+        fac = gmsh.model.occ
+
+        nd = 3
+
+        if self.domain is not None:
+            domain_tag = self.domain_to_gmsh_3D()
+        else:
+            domain_tag = -1
+
+        fracture_tags = self.fractures_to_gmsh_3D()
+        fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
+        gmsh.model.occ.synchronize()
+
+        (
+            intersection_points,
+            intersection_lines,
+            isect_mapping,
+            num_parents_of_lines,
+        ) = self.process_intersections(
+            fracture_tags, domain_tag, constraints=constraints
+        )
+
+        ## Export physical entities to gmsh.
+
+        # Intersection points.
+        for i in intersection_points:
+            gmsh.model.addPhysicalGroup(
+                0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
+            )
+
+        # Intersection lines.
+        for li, line in enumerate(intersection_lines):
+            if num_parents_of_lines[li] < 2:
+                continue
+
+            gmsh.model.addPhysicalGroup(
+                1,
+                [int(line)],
+                -1,
+                f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
+            )
+
+        # Fractures.
+        for i, frac in enumerate(isect_mapping):
+            subfracs = []
+            for subfrac in frac:
+                if subfrac[0] == 2:
+                    subfracs.append(subfrac[1])
+            if subfracs:
+                if i in constraints:
+                    gmsh.model.addPhysicalGroup(
+                        2, subfracs, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
+                    )
+
+                else:
+                    gmsh.model.addPhysicalGroup(
+                        2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                    )
+
+        # It turns out that if fractures split the domain into disjoint parts, gmsh may
+        # choose to redefine the domain as the sum of these parts. Therefore, we
+        # redefine the domain tags here, using all volumes in the model.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
+
+        # The domain.
+        gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
+
+        fac.synchronize()
+
+        if write_geo:
+            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
+
+        if dfn:
+            dim_meshing = 2
+        else:
+            dim_meshing = 3
+        gmsh.model.mesh.generate(dim_meshing)
+
+        gmsh.write(str(file_name))
+        if clear_gmsh:
+            gmsh.clear()
+        if finalize_gmsh:
+            gmsh.finalize()
+
+        if dfn:
+            subdomains = pp.fracs.simplex.triangle_grid_embedded(file_name)
+        else:
+            # Process the gmsh .msh output file, to make a list of grids.
+            subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
+                file_name, constraints
+            )
+
+        if tags_to_transfer:
+            for id_g, g in enumerate(subdomains[1 - int(dfn)]):
+                for key in tags_to_transfer:
+                    if key not in g.tags:
+                        g.tags[key] = self.tags[key][id_g]
+
+        # Merge the grids into a mixed-dimensional grid.
+        mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
+        return mdg
+
+    def process_intersections(
+        self, fracture_tags: list[int], domain_tag: int, constraints: list[int]
+    ) -> None:
+        nd = 3
+        if domain_tag >= 0:
+            _, isect_mapping = gmsh.model.occ.fragment(
+                fracture_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
+            )
+        else:
+            # Special handling of DFN-style meshing.
+            _, isect_mapping = gmsh.model.occ.fragment(
+                fracture_tags, [], removeObject=True, removeTool=True
+            )
+
+        gmsh.model.occ.synchronize()
+
+        if self.domain is not None and not self.domain.is_boxed:
+            # It turns out (...) that for non-box domains, the fragmentation process may
+            # not eliminate parts of fractures that lie outside the domain. To
+            # understand why this is so might require a deep dive into OpenCascade. For
+            # now, we do a simple fix to eliminate (parts of) fractures that are outside
+            # the domain: Identify the vertexes of each fracture part, compute their
+            # distance to the domain. If any of these distances is larger than the
+            # tolerance, we drop the fracture from further consideration. There are
+            # surely cases where this simple approach fails, but it will have to do for
+            # now.
+
+            keep = np.ones(len(isect_mapping[0]), dtype=bool)
+            for fi, frac in enumerate(isect_mapping[0]):
+                bounding_lines = gmsh.model.get_boundary([frac])
+                bounding_points = []
+                for line in bounding_lines:
+                    bounding_points += gmsh.model.get_boundary([line])
+
+                distances = [
+                    gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
+                    for pt in bounding_points
+                ]
+                if np.any(np.array(distances) > self.tol):
+                    keep[fi] = False
+
+            isect_mapping[0] = [
+                isect_mapping[0][i] for i in range(len(keep)) if keep[i]
+            ]
+
+        # Partial implementation. Intersection lines are either on the boundary or
+        # embedded in fractures. Make a list of both.
+        bnd_lines = []
+        embedded_lines = []
+        # Challenge: Since the mdg graph only accepts single edges between node pairs
+        # (subdomains), if two intersection lines cross (think a Rubik's cube geometry),
+        # the split part of the intersection line must be assigned the same physical
+        # tag, thus generate a single subdomain grid. Achieving this will take some
+        # work; for starters, keep track of the fracture indices that gave rise to each
+        # line.
+        fi_bnd = []
+        fi_embedded = []
+
+        # Loop over all identified fragments of the fractures, find their boundary and
+        # embedded lines.
+        #
+        # TODO: What if two fractures intersect in a point? This is likely not covered
+        # here, and not considered in the current implementation of md dynamics in
+        # general.
+        for fi, new_frac in enumerate(isect_mapping):
+            # Constraints do not contribute to intersection lines.
+            if fi in constraints:
+                continue
+
+            # A fracture can be split into multiple sub-fractures if they are fully cut
+            # by other fractures.
+            for subfrac in new_frac:
+                if subfrac[0] == 3:  # This is the domain.
+                    continue
+                # Get the boundary of the sub-fracture. It can contain both lines on the
+                # boundary of the original fracture and lines on the boundary of
+                # subfractures that were introduced because a fracture was cut in two.
+                bnd = gmsh.model.get_boundary([subfrac])
+                # Loop over the boundary.
+                for parent_map in bnd:
+                    if (
+                        parent_map[0] == 1
+                    ):  # This is a line, not a point (would be b[0] == 0).
+                        bnd_lines.append(parent_map[1])
+                        # Keep track of the fracture index for each boundary line. Using
+                        # fi (the enumeration counter of the outer for loop) ensures
+                        # that even if a fracture was split into two sub-fractures
+                        # during fragmentation, they will still be associated with the
+                        # original fracture index.
+                        fi_bnd.append(fi)
+
+                # Also find lines that are embedded in this subfracture (this will be an
+                # intersection line that does not cut subfrac in two).
+                embedded = gmsh.model.mesh.get_embedded(*subfrac)
+                for line in embedded:
+                    if line[0] == 1:
+                        embedded_lines.append(line[1])
+                        # Also keep track of the fracture index for each embedded line.
+                        fi_embedded.append(fi)
+
+        # For a boundary line to be an intersection, it must be shared by at least two
+        # fractures. TODO: What if it is on the boundary of one, but not the other, in a
+        # T-style intersection? Should be embedded in the other then? EK thinks this
+        # should be the case. Similarly, L-style intersection (boundary on both) should
+        # be picked up here.
+        num_lines_occ = np.bincount(np.abs(bnd_lines).astype(int))
+        # Find the 'interesting' boundary lines, i.e. those occuring more than once.
+        boundary_lines = np.where(num_lines_occ > 1)[0]
+        all_lines = np.hstack((embedded_lines, boundary_lines))
+        # Fracture intersection lines, to be added as physical lines.
+        intersection_lines = np.unique(all_lines)
+
+        # Now, we need to find which intersection lines stem from the same set of
+        # intersecting fractures (this can be two or more fractures). This requires some
+        # juggling of indices.
+
+        # Turn the fracture indices into numpy arrays.
+        fi_bnd = np.array(fi_bnd)
+        fi_embedded = np.array(fi_embedded)
+        # For each intersection line, this will be a list of its parent fractures.
+        line_parents = []
+        for line in intersection_lines:
+            # Find the set of parents, looking at both boundary and embedded lines (an
+            # intersection can be on the boundary of fracture, but not the other).
+            parent = np.hstack(
+                (
+                    fi_bnd[np.where(np.abs(bnd_lines) == line)[0]],
+                    fi_embedded[np.where(np.abs(embedded_lines) == line)[0]],
+                )
+            )
+            # Uniquify (thereby also sort) and turn to list.
+            line_parents.append(np.unique(parent).tolist())
+
+        # Now we need to find the unique parent sets. Since line_parents can have a
+        # varying number of elements, we cannot just do a numpy unique, but instead need
+        # to process each number of parents separately (if the number of parents
+        # differs, clearly, the sets of parents must also differ).
+
+        # Do a count.
+        num_parents = np.array([len(lp) for lp in line_parents])
+        # This will be the mapping from line indices to their parent set indices.
+        parent_of_intersection_lines = np.full(num_parents.size, -1)
+
+        # Counter over intersection lines. Linked to the physical tags that will be
+        # associated with the intersection lines. Note that there is no requirement that
+        # this is related to the physical tag of the parent fracture (to the degree we
+        # care about such intersections, we go through the grid information generated by
+        # gmsh).
+        num_line_parent_counter = 0
+
+        # Loop over all unique parent counts.
+        for n in np.unique(num_parents):
+            if n < 2:
+                # At most one of the parents was not a constraint. This should not
+                # produce a line.
+                continue
+
+            # Find all intersection lines that has this number of parents.
+            inds = np.where(num_parents == n)[0]
+            # Find the unique number of parents and the map from all intersection lines
+            # with 'n' parents to the unique set.
+            unique_parent, parent_map = np.unique(
+                [line_parents[i] for i in inds], axis=0, return_inverse=True
+            )
+            # Store the parent identification for this set of intersection lines.
+            parent_of_intersection_lines[inds] = parent_map + num_line_parent_counter
+            # Increase the counter.
+            num_line_parent_counter += unique_parent.shape[0]
+        # Done with the intersection line processing.
+
+        # Find intersection points: These by definition lie on the boundary of
+        # intersection lines, so we loop over the latter, store their boundary points
+        # and identify which points occur more than once.
+        points_of_intersection_lines = []
+        for li, line in enumerate(intersection_lines):
+            if num_parents[li] < 2:
+                # At most one of the parents was not a constraint. This line should not
+                # produce a point.
+                continue
+            for bp in gmsh.model.get_boundary([(1, line)]):
+                points_of_intersection_lines.append(bp[1])
+
+        num_point_occ = np.bincount(points_of_intersection_lines)
+        intersection_points = np.where(num_point_occ > 1)[0]
+
+        return (
+            intersection_points,
+            intersection_lines,
+            isect_mapping,
+            num_parents,
+        )
+
+    def mesh_old(
+        self,
+        mesh_args: dict[str, float],
+        dfn: bool = False,
+        file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         write_geo: bool = True,
         tags_to_transfer: Optional[list[str]] = None,
@@ -307,7 +702,7 @@ class FractureNetwork3d(object):
 
         """
         if file_name is None:
-            file_name = "gmsh_frac_file.msh"
+            file_name = Path("gmsh_frac_file.msh")
 
         gmsh_repr = self.prepare_for_gmsh(
             mesh_args,
@@ -710,7 +1105,7 @@ class FractureNetwork3d(object):
 
         return intersections, is_first
 
-    def find_intersections(self, use_orig_points=False) -> None:
+    def find_intersections_old(self, use_orig_points=False) -> None:
         """Find intersections between fractures in terms of coordinates.
 
         The intersections are stored in :attr:`intersections`.
@@ -804,7 +1199,7 @@ class FractureNetwork3d(object):
             time.time() - start_time,
         )
 
-    def split_intersections(self) -> None:
+    def split_intersections_old(self) -> None:
         """Decompose fractures into non-intersecting sub-polygons.
 
         The decomposition is done based on the fracture network, and their known
@@ -2644,7 +3039,7 @@ class FractureNetwork3d(object):
 
     def to_file(
         self,
-        file_name: str,
+        file_name: Path,
         data: Optional[dict[str, Union[np.ndarray, list]]] = None,
         **kwargs,
     ) -> None:
@@ -2675,10 +3070,10 @@ class FractureNetwork3d(object):
                 - ``'fracture_offset'`` (:obj:`int`): ``default=1``
 
                   Used to define the offset for a fracture id.
-                - ``'folder_name'`` (:obj:`str`): ``default="./"``
+                - ``'folder_name'`` (:obj:`Path`): ``default=Path("")``
 
                   Path to save the file.
-                - ``'extension'`` (:obj:`str`): ``default="vtu"``
+                - ``'extension'`` (:obj:`str`): ``default=".vtu"``
 
                   File extension.
 
@@ -2689,14 +3084,14 @@ class FractureNetwork3d(object):
         binary: bool = kwargs.pop("binary", True)
         fracture_offset: int = kwargs.pop("fracture_offset", 1)
         extension: str = kwargs.pop("extension", ".vtu")
-        folder_name: str = kwargs.pop("folder_name", "")
+        folder_name: Path = Path(kwargs.pop("folder_name", ""))
 
         if kwargs:
             msg = "Got unexpected keyword argument '{}'"
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
-        if not file_name.endswith(extension):
-            file_name += extension
+        # Make sure the suffix is correct
+        file_name = file_name.with_suffix(extension)
 
         # fracture points
         meshio_pts = np.empty((0, 3))
@@ -2737,9 +3132,11 @@ class FractureNetwork3d(object):
         meshio_grid_to_export = meshio.Mesh(
             meshio_pts, meshio_cells, cell_data=meshio_data
         )
-        meshio.write(folder_name + file_name, meshio_grid_to_export, binary=binary)
 
-    def to_csv(self, file_name: str, domain: Optional[pp.Domain] = None) -> None:
+        path = folder_name / file_name
+        meshio.write(path, meshio_grid_to_export, binary=binary)
+
+    def to_csv(self, file_name: Path, domain: Optional[pp.Domain] = None) -> None:
         """Save the 3D network on a CSV file with comma as separator.
 
         The format is as follows:
@@ -2772,7 +3169,7 @@ class FractureNetwork3d(object):
             for f in self.fractures:
                 csv_writer.writerow(f.pts.ravel(order="F"))
 
-    def to_fab(self, file_name: str) -> None:
+    def to_fab(self, file_name: Path) -> None:
         """Save the 3D network on a fab file, as specified by FracMan.
 
         The filter is based on the ``.fab`` -files needed at the time of writing, and

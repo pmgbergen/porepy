@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Type
-
+from pathlib import Path
 import numpy as np
 
 
@@ -24,7 +25,7 @@ class TxtData:
 
 def export_data_to_txt(
     list_of_txt_data: list[TxtData],
-    file_name: str = "out.txt",
+    file_name: Path = Path("out.txt"),
 ) -> None:
     """Write data into a txt file.
 
@@ -68,7 +69,7 @@ def export_data_to_txt(
     np.savetxt(fname=file_name, X=export, header=header, fmt=fmt)  # type: ignore
 
 
-def read_data_from_txt(file_name: str) -> dict[str, np.ndarray]:
+def read_data_from_txt(file_name: Path) -> dict[str, np.ndarray]:
     """Read data from a txt file.
 
     Parameters:

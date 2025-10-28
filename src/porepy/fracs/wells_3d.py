@@ -542,11 +542,7 @@ def compute_well_fracture_intersections(
             pts_seg = segment.copy()
             # Initiate tags for this segment, with empty elements for the endpoints
             tags_seg = [np.empty(0), np.empty(0)]
-            for fracture, tag in zip(
-                fracture_network.fractures, fracture_network.tags["boundary"]
-            ):
-                if tag:
-                    continue
+            for fracture in fracture_network.fractures:
                 pts_seg, tags_seg = _intersection_segment_fracture(
                     pts_seg, fracture, tags_seg, ignore_endpoint_tag
                 )
