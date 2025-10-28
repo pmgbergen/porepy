@@ -136,8 +136,6 @@ class SolutionStrategy(pp.PorePyModel):
         self._schur_complement_primary_equations: list[str] = []
         """See :meth:`schur_complement_primary_equations`."""
 
-        self.set_solver_statistics()
-
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
@@ -147,6 +145,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Exporter initialization must be done after grid creation,
         # but prior to data initialization.
+        self.set_nonlinear_solver_statistics()
         self.initialize_data_saving()
 
         # Set variables, constitutive relations, discretizations and equations.
@@ -201,7 +200,7 @@ class SolutionStrategy(pp.PorePyModel):
         if not hasattr(self, "equation_system"):
             self.equation_system = pp.ad.EquationSystem(self.mdg)
 
-    def set_solver_statistics(self) -> None:
+    def set_nonlinear_solver_statistics(self) -> None:
         """Set the solver statistics object.
 
         This method is called at initialization. It is intended to be used to set the
@@ -215,7 +214,15 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         # Retrieve the value with a default of pp.SolverStatistics.
-        statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
+        from porepy.viz.solver_statistics import SolverStatisticsFactory
+
+        statistics = self.params.get(
+            "nonlinear_solver_statistics",
+            SolverStatisticsFactory.create_statistics_type(
+                nonlinear=self._is_nonlinear_problem(),
+                time_dependent=self._is_time_dependent(),
+            ),
+        )
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
         if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
