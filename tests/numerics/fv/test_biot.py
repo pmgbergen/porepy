@@ -8,6 +8,7 @@ from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
+from porepy.numerics.fv import _fvutils
 
 
 @pytest.fixture
@@ -155,7 +156,7 @@ def test_partial_discretization_specified_nodes(
                 )
             # For partial update, only the active faces should be nonzero. Force these
             # to zero and check that the rest is zero.
-            pp._fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial[key])
+            _fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial[key])
             assert np.allclose(partial[key].data, 0)
 
         else:
@@ -165,7 +166,7 @@ def test_partial_discretization_specified_nodes(
             )
             # For partial update, only the active faces should be nonzero. Force these
             # to zero and check that the rest is zero.
-            pp._fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial)
+            _fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial)
             assert np.allclose(partial.data, 0)
     # Compare scalar matrices
     for partial, full in zip(
@@ -184,7 +185,7 @@ def test_partial_discretization_specified_nodes(
                 )
             # For partial update, only the active cells should be nonzero. Force these
             # to zero and check that the rest is zero.
-            pp._fvutils.remove_nonlocal_contribution(active_cells, 1, partial[key])
+            _fvutils.remove_nonlocal_contribution(active_cells, 1, partial[key])
             assert np.allclose(partial[key].data, 0)
 
         else:
@@ -194,7 +195,7 @@ def test_partial_discretization_specified_nodes(
             )
             # For partial update, only the active cells should be nonzero. Force these
             # to zero and check that the rest is zero.
-            pp._fvutils.remove_nonlocal_contribution(active_cells, 1, partial)
+            _fvutils.remove_nonlocal_contribution(active_cells, 1, partial)
             assert np.allclose(partial.data, 0)
 
 
