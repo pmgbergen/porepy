@@ -125,7 +125,7 @@ class MultiphysicsLebesgueMetric:
         self,
         values: pp.ad.DenseArray,
         l2_norm: pp.ad.Operator,
-        subdomains: list[pp.Grid] | list[pp.MortarGrid],
+        subdomains: list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
     ) -> float:
         """Compute the Lebesgue L2 norm of a variable or residual.
 
