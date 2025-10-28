@@ -42,7 +42,7 @@ time_schedule = [i * pp.DAY for i in range(121)]
 assert T_end_months > 5
 time_schedule += [i * 30 * pp.DAY for i in range(5, T_end_months + 1)]
 
-time_schedule = time_schedule[:4]
+time_schedule = [0, 3*pp.HOUR]
 dt_init = 20 * pp.MINUTE
 dt_min = 10 * pp.MINUTE
 dt_max = 3 * pp.HOUR
@@ -136,7 +136,7 @@ model_params: dict[str, Any] = {
     "_lbc_viscosity": False,
     "fracture_permeability": 1e-11,
     "impermeable_fracture_permeability": 1e-11,
-    "_num_fractures": 50,
+    "_num_fractures": 30,
     "_well_surrounding_permeability": well_surrounding_permeability,
     "folder_name": f"visualization/md_case/",
     "progressbars": not VERBOSE,
