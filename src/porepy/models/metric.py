@@ -4,10 +4,12 @@ From plain Euclidean norms to model-specific L2 norms of states and residuals.
 
 """
 
-import numpy as np
-import porepy as pp
 from functools import partial
 from typing import Callable
+
+import numpy as np
+
+import porepy as pp
 
 
 class EuclideanMetric:

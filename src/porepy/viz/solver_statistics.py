@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceStatus,
-    ConvergenceInfo,
-)
 import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
+
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceInfo,
+    ConvergenceStatus,
+)
 
 logger = logging.getLogger(__name__)
 
