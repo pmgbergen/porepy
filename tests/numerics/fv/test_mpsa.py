@@ -164,8 +164,7 @@ def test_partial_discretization_one_cell_at_a_time():
     stiffness = pp.FourthOrderTensor(mu=mu, lmbda=lmbda)
     bnd = pp.BoundaryConditionVectorial(g)
     specified_data = partial_update_parameters(stiffness, bnd)
-    data = pp.initialize_default_data(
-        g, {}, keyword, specified_parameters=specified_data
+    data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
     )
     discr.discretize(g, data)
 
@@ -238,9 +237,9 @@ class TestMpsaExactReproduction:
             "bc": bound,
             "inverter": "python",
             "bc_values": bc_values,
+            "source": np.zeros(g.num_cells * g.dim),
         }
-        data = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         discr.discretize(g, data)
@@ -422,8 +421,7 @@ class TestUpdateMpsaDiscretization(TestMpsaExactReproduction):
             "bc": bc,
             "inverter": "python",
         }
-        data = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         discr.discretize(g, data)
@@ -791,9 +789,9 @@ class TestMpsaRotation:
             "bc": bc,
             "inverter": "python",
             "bc_values": bc_val,
+            "source": np.zeros(g.num_cells * g.dim),
         }
-        data = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         discr.discretize(g, data)
@@ -820,9 +818,9 @@ class TestMpsaRotation:
             "bc": bc_b,
             "inverter": "python",
             "bc_values": bc_val_b,
+            "source": np.zeros(g.num_cells * g.dim),
         }
-        data_b = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data_b = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         discr.discretize(g, data_b)
@@ -846,10 +844,10 @@ class TestMpsaRotation:
             "bc": bc,
             "inverter": "python",
             "bc_values": bc_val,
+            "source": np.zeros(g.num_cells * g.dim),
         }
 
-        data = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         discr.discretize(g, data)
@@ -1119,8 +1117,7 @@ class RobinBoundTest:
             "bc_values": bc_val,
         }
 
-        data = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         discr.discretize(g, data)
@@ -1280,13 +1277,13 @@ class TestMpsaReproduceKnownValues:
             "bc": bc_vec,
             "inverter": "python",
             "bc_values": bc_val,
+            "source": np.zeros(g.num_cells * g.dim),
             # NOTE: Set eta to zero. This is non-standard for simplex grids, but this
             # was what was used to generate the reference values.
             "mpsa_eta": 0,
         }
 
-        data = pp.initialize_default_data(
-            g, {}, keyword, specified_parameters=specified_data
+        data = pp.initialize_data( {}, keyword, specified_parameters=specified_data
         )
 
         # Discretize

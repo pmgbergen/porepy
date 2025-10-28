@@ -703,7 +703,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == self.nd:
                 pp.initialize_data(
-                    sd,
                     data,
                     self.stress_keyword,
                     {

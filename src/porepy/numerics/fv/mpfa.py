@@ -687,10 +687,11 @@ class Mpfa(pp.FVElliptic):
         # may be called. In 0D, there is no internal discretization to be done.
         if sd.dim == 1:
             discr = pp.Tpfa(self.keyword)
-            params = pp.Parameters(sd)
-            params["bc"] = bnd
-            params["second_order_tensor"] = k
-            params["ambient_dimension"] = ambient_dimension
+            params = {
+                "bc": bnd,
+                "second_order_tensor": k,
+                "ambient_dimension": ambient_dimension
+            }
 
             d: dict = {
                 pp.PARAMETERS: {self.keyword: params},

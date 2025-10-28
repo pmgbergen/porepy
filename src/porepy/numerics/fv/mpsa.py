@@ -664,7 +664,7 @@ class Mpsa(Discretization):
         if sd.dim == 1:
             tpfa_key = "tpfa_elasticity"
             discr = pp.Tpfa(tpfa_key)
-            params = pp.Parameters(sd)
+            params = {}
 
             # Implicitly set Neumann boundary conditions on the whole domain. More
             # general values should be permissible, but it will require handling of

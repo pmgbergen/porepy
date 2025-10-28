@@ -20,7 +20,7 @@ def build_dictionary(sd, perm, bc, bc_val=None):
         "source": np.zeros(sd.num_cells),
     }
 
-    return pp.initialize_default_data(sd, {}, "flow", d)
+    return pp.initialize_data("flow", d)
 
 
 class TestVEMDiscretization:

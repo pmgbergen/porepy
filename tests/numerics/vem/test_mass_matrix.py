@@ -44,7 +44,7 @@ class TestDualMethodMassMatrix:
 
         # Mass weight is scaled by aperture 0.01
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+        data = pp.initialize_data("flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
         discr.discretize(sd, data)
@@ -75,7 +75,7 @@ class TestDualMethodMassMatrix:
 
         # Mass weight is scaled by aperture 0.01
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+        data = pp.initialize_data("flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
         discr.discretize(sd, data)
@@ -103,7 +103,7 @@ class TestDualMethodMassMatrix:
 
         # Mass weight is scaled by aperture 0.01
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+        data = pp.initialize_data("flow", specified_parameters)
 
         discr = pp.MixedMassMatrix()
         discr.discretize(sd, data)
@@ -703,7 +703,7 @@ class TestDualMethodMassMatrix:
 
         # Mass weight is scaled by aperture 1e-2
         specified_parameters = {"mass_weight": 0.5 * 1e-2}
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+        data = pp.initialize_data("flow", specified_parameters)
 
         discr = pp.MixedInvMassMatrix()
         discr.discretize(sd, data)

@@ -70,17 +70,9 @@ from porepy.geometry import (
 from porepy.geometry.domain import Domain
 
 # Parameters
-from porepy.params.bc import (
-    BoundaryCondition,
-    BoundaryConditionVectorial,
-    face_on_side,
-)
+from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial, face_on_side
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.data import (
-    Parameters,
-    initialize_data,
-    initialize_default_data,
-)
+from porepy.params.data import initialize_data
 
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values

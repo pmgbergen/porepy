@@ -22,8 +22,7 @@ from porepy.applications.test_utils import well_models
 
 def _discretization_matrices(g, perm, bound):
     kw = "flow"
-    data = pp.initialize_data(
-        g, {}, kw, {"second_order_tensor": perm, "bc": bound, "inverter": "python"}
+    data = pp.initialize_data( {}, kw, {"second_order_tensor": perm, "bc": bound, "inverter": "python"}
     )
     discr = pp.Tpfa(kw)
 

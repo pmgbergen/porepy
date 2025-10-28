@@ -918,14 +918,12 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
-                sd,
                 data,
                 self.enthalpy_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
-                intf,
                 data,
                 self.enthalpy_keyword,
                 {"darcy_flux": np.zeros(intf.num_cells)},
@@ -1175,7 +1173,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             loc_conductivity = conductivity_all_cells.restrict_to_cells(loc_cells)
 
             pp.initialize_data(
-                sd,
                 data,
                 self.fourier_keyword,
                 {
@@ -1185,7 +1182,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 },
             )
             pp.initialize_data(
-                sd,
                 data,
                 self.enthalpy_keyword,
                 {
