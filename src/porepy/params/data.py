@@ -1,23 +1,46 @@
-r"""Contains class for storing data / parameters associated with a grid.
+r"""Contains a function to initialize a dictionary for storing parameters associated
+with a single grid.
 
-At present, the Parameters class is a simple wrapper around a dictionary.
-
-The Parameters will be stored as a dictionary identified by pp.PARAMETERS in an "outer"
-dictionary (e.g. the data on the subdomains or interfaces). In the Parameters object,
-there will be one dictionary containing parameters for each keyword. The keywords link
-parameters to discretization operators. For example, the operator
-
-discr = pp.Tpfa(keyword="flow")
-
-will access parameters under the keyword "flow". If outer_dictionary is the above
-mentioned outer dictionary, these parameters will be found in
-
-outer_dictionary[pp.PARAMETERS]["flow'],
-
-and the boundary values are extracted from this dictionary as
-
-bc = outer_dictionary[pp.PARAMETERS]["flow']["bc_values"]
-
+The structure of the dictionary is the following:
+```
+outer_dictionary = {
+    pp.PARAMETERS: {
+        "flow": {
+            # Parameters corresponding to the keyword "flow".
+        },
+        "darcy": {
+            # Parameters corresponding to the keyword "darcy".
+        },
+        # and more keywords and inner dicts here.
+    },
+    pp.DISCRETIZATION_MATRICES: {
+        "flow": {
+            # Parameters corresponding to the keyword "flow".
+        },
+        "darcy": {
+            # Parameters corresponding to the keyword "darcy".
+        },
+        # and more keywords and inner dicts here.
+    },
+    pp.TIME_STEP_SOLUTIONS: {
+        # The time step solution is all data associated with the previous time step.
+        "variable_name": {
+            "time_step_index": ...  # The time step solution of a specific variable.
+        },
+        "some_keyword": {
+            "bc_values": ...  # Data such as BC values is also stored in this dict.
+        }
+    },
+    pp.ITERATE_SOLUTIONS: {
+        # Data associated with the previous nonlinear iterates.
+    },
+    # and possibly more dicts here.
+}
+```
+The keywords link parameters to discretization operators. For example, the operator
+`discr = pp.Tpfa(keyword="flow")` will access parameters under the keyword "flow". For
+instance, the boundary values are extracted from this dictionary as
+`bc = outer_dictionary[pp.PARAMETERS]["flow"]["bc_values"]`.
 
 There is a (not entirely clear) distinction between two types of parameters:
 "Mathematical" parameters are those operated on by the discretization objects, and
@@ -38,31 +61,12 @@ with multiple instances of the same mathematical parameter (e.g. both thermal
 diffusivity and permeability) is handled by the use of multiple keywords (e.g.
 "transport" and "flow").
 
-Some default inner dictionaries are provided in pp.params.parameter_dictionaries.
-
-For most instances, a convenient way to set up the parameters is:
-
-    specified_parameters = {pm_1: val_1, ..., pm_n: val_n} data =
-    pp.initialize_default_data(grid, {}, keyword, specified_parameters)
-
-This will assign val_i to the specified parameters pm_i and default parameters to other
-required parameters. If the data directory already exists as d (e.g. in the
-mixed-dimensional grid), consider:
-
-    pp.initialize_default_data(grid, d, keyword, specified_parameters)
-
-
-The time step solution is all data associated with the previous time step, and is stored
-in ``data[pp.TIME_STEP_SOLUTIONS]``. Similarly, iterate solutions contains data
-associated with the previous iterates and is stored in ``data[pp.ITERATE_SOLUTIONS]``.
-
-The time step solution of a specific variable is stored in
-
-``data[pp.TIME_STEP_SOLUTIONS][variable_name][time_step_index]``,
-
-whereas data such as BC values are stored similarly to in the Parameters class, in
-
-``data[pp.TIME_STEP_SOLUTIONS][keyword]["bc_values"]``.
+For most instances, a convenient way to initialize the parameters is:
+```
+specified_parameters = {pm_1: val_1, ..., pm_n: val_n}
+data = {}  # Or existing data dictionary.
+data = pp.initialize_data(data, keyword, specified_parameters)
+```
 
 """
 
