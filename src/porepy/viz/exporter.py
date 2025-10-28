@@ -5,7 +5,6 @@ Module for data IO from and to vtu format via meshio.
 
 from __future__ import annotations
 
-import os
 import sys
 import warnings
 import xml.etree.ElementTree as ET
@@ -109,8 +108,8 @@ class Exporter:
     def __init__(
         self,
         grid: Union[pp.Grid, pp.MixedDimensionalGrid],
-        file_name: str,
-        folder_name: Optional[str] = None,
+        file_name: Path,
+        folder_name: Optional[Path] = None,
         length_scale: float = 1.0,
         **kwargs,
     ) -> None:
@@ -128,10 +127,10 @@ class Exporter:
             )
 
         # Store target location for storing vtu and pvd files.
-        self._file_name: str = file_name
+        self._file_name: Path = Path(file_name)
         """Prefix for output files."""
 
-        self._folder_name: Optional[str] = folder_name
+        self._folder_name: Optional[Path] = Path(folder_name) if folder_name else None
         """Folder name for output."""
 
         # Check for optional keywords
@@ -723,8 +722,10 @@ class Exporter:
             )
 
         # Export mixed-dimensional grid to pvd format
-        file_name = self._make_file_name(self._file_name, time_step, extension=".pvd")
-        file_name = self._append_folder_name(self._folder_name, file_name)
+        file_name = self._make_file_name(
+            self._file_name, time_step=time_step, extension=".pvd"
+        )
+        file_name = self._append_folder_name(file_name, self._folder_name)
         self._export_mdg_pvd(file_name, time_step)
 
     def write_pvd(
@@ -793,9 +794,9 @@ class Exporter:
             ]
 
         # Set up file name and check whether it already exists in storage.
-        pvd_file: Path = Path(
-            self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
-        )
+        pvd_file: Path = self._append_folder_name(
+            self._file_name, self._folder_name
+        ).with_suffix(".pvd")
         file_exists: bool = pvd_file.exists()
 
         # Define the header - either copy paste from availble previous output, or define
@@ -846,7 +847,8 @@ class Exporter:
             for dim in self._dims:
                 if self._has_subdomain_data and self.meshio_geom[dim] is not None:
                     o_file.write(
-                        fm % (time, self._make_file_name(self._file_name, fn, dim))
+                        fm
+                        % (time, self._make_file_name(self._file_name, None, fn, dim))
                     )
 
             # Interface data.
@@ -856,7 +858,7 @@ class Exporter:
                         fm
                         % (
                             time,
-                            self._make_file_name(self._file_name + "_mortar", fn, dim),
+                            self._make_file_name(self._file_name, "mortar", fn, dim),
                         )
                     )
 
@@ -874,7 +876,7 @@ class Exporter:
                             % (
                                 time,
                                 self._make_file_name(
-                                    self._file_name + "_constant", fn_constants, dim
+                                    self._file_name, "constant", fn_constants, dim
                                 ),
                             )
                         )
@@ -890,7 +892,8 @@ class Exporter:
                             % (
                                 time,
                                 self._make_file_name(
-                                    self._file_name + "_constant_mortar",
+                                    self._file_name,
+                                    "constant_mortar",
                                     fn_constants,
                                     dim,
                                 ),
@@ -1602,13 +1605,15 @@ class Exporter:
         dims = self._dims if is_subdomain_data else self._m_dims
 
         # Define file name base
-        file_name_base: str = self._file_name
+        file_name_stem: str = self._file_name.stem
         # Extend in case of constant data
-        file_name_base += "_constant" if self.constant_data else ""
+        file_name_stem += "_constant" if self.constant_data else ""
         # Extend in case of interface data
-        file_name_base += "_mortar" if self.interface_data else ""
+        file_name_stem += "_mortar" if self.interface_data else ""
         # Append folder name to file name base
-        file_name_base = self._append_folder_name(self._folder_name, file_name_base)
+        file_name_base: Path = self._append_folder_name(
+            Path(file_name_stem), self._folder_name
+        )
 
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _, key in data]))
@@ -1644,7 +1649,7 @@ class Exporter:
         # Collect the data and extra data in a single stack for each dimension
         for dim in dims:
             # Define the full file name
-            file_name: str = self._make_file_name(file_name_base, time_step, dim)
+            file_name: Path = self._make_file_name(file_name_base, None, time_step, dim)
 
             # Get all geometrical entities of dimension dim:
             if is_subdomain_data:
@@ -1670,7 +1675,7 @@ class Exporter:
             if meshio_geom is not None:
                 self._write(fields, fields_pt, file_name, meshio_geom)
 
-    def _export_mdg_pvd(self, file_name: str, time_step: Optional[int]) -> None:
+    def _export_mdg_pvd(self, file_name: Path, time_step: Optional[int]) -> None:
         """Routine to export to pvd format and collect all data scattered over several
         files for distinct grid dimensions.
 
@@ -1697,14 +1702,15 @@ class Exporter:
         # Subdomain data.
         for dim in self._dims:
             if self._has_subdomain_data and self.meshio_geom[dim] is not None:
-                o_file.write(fm % self._make_file_name(self._file_name, time_step, dim))
+                o_file.write(
+                    fm % self._make_file_name(self._file_name, None, time_step, dim)
+                )
 
         # Interface data.
         for dim in self._m_dims:
             if self._has_interface_data and self.m_meshio_geom[dim] is not None:
                 o_file.write(
-                    fm
-                    % self._make_file_name(self._file_name + "_mortar", time_step, dim)
+                    fm % self._make_file_name(self._file_name, "mortar", time_step, dim)
                 )
 
         # If constant data is exported to separate vtu files, also include these here.
@@ -1720,7 +1726,8 @@ class Exporter:
                     o_file.write(
                         fm
                         % self._make_file_name(
-                            self._file_name + "_constant",
+                            self._file_name,
+                            "constant",
                             self._time_step_constant_data,
                             dim,
                         )
@@ -1735,7 +1742,8 @@ class Exporter:
                     o_file.write(
                         fm
                         % self._make_file_name(
-                            self._file_name + "_constant_mortar",
+                            self._file_name,
+                            "constant_mortar",
                             self._time_step_constant_data,
                             dim,
                         )
@@ -2555,7 +2563,7 @@ class Exporter:
         self,
         fields: Iterable[Field],
         fields_pt: Iterable[Field],
-        file_name: str,
+        file_name: Path,
         meshio_geom: Meshio_Geom,
     ) -> None:
         """Interface to meshio for exporting cell data.
@@ -2622,8 +2630,8 @@ class Exporter:
         meshio.write(file_name, meshio_grid_to_export, binary=self._binary)
 
     def _append_folder_name(
-        self, folder_name: Optional[str] = None, name: str = ""
-    ) -> str:
+        self, name: Path, folder_name: Optional[Path] = None
+    ) -> Path:
         """Auxiliary method setting up potentially non-existent folder structure and
         setting up a path for exporting.
 
@@ -2639,22 +2647,22 @@ class Exporter:
         # If no folder_name is prescribed, the files will be stored in the working
         # directory.
         if folder_name is None:
-            return name
+            return Path(name)
 
         # Set up folder structure if not existent.
-        if not os.path.exists(folder_name):
-            os.makedirs(folder_name)
+        folder_name.mkdir(exist_ok=True, parents=True)
 
         # Return full path.
-        return os.path.join(folder_name, name)
+        return folder_name / name
 
     def _make_file_name(
         self,
-        file_name: str,
+        file_name: Path,
+        appendix: Optional[str] = None,
         time_step: Optional[int] = None,
         dim: Optional[int] = None,
         extension: str = ".vtu",
-    ) -> str:
+    ) -> Path:
         """Auxiliary method to setting up file name.
 
         The final name is built as combination of a prescribed prefix, and possibly
@@ -2671,6 +2679,8 @@ class Exporter:
             Complete name of file.
 
         """
+        # Add appendix to file name if prescribed
+        appendix_extension = "" if appendix is None else "_" + appendix
 
         # Define non-empty time step extension including zero padding.
         time_extension = (
@@ -2680,8 +2690,11 @@ class Exporter:
         # Define non-empty dim extension
         dim_extension = "" if dim is None else "_" + str(dim)
 
-        # Combine prefix and extensions to define the complete name
-        return file_name + dim_extension + time_extension + extension
+        # Combine prefix and extensions to define the complete name.
+        return (
+            file_name.parent
+            / (file_name.stem + appendix_extension + dim_extension + time_extension)
+        ).with_suffix(extension)
 
     def _num_grid_entities(
         self, grid: pp.Grid | pp.MortarGrid, entity_type: str

@@ -151,7 +151,7 @@ def benchmark_2d_case_4() -> list[pp.LineFracture]:
     # ``fracture_network`` is actually a ``FractureNetwork2D`` object.
     fracture_network = typing.cast(
         FractureNetwork2d,
-        pp.fracture_importer.network_2d_from_csv(str(fracture_network_path)),
+        pp.fracture_importer.network_2d_from_csv(fracture_network_path),
     )
     # We return only the fractures to stay consistent with the other functions' API from
     # this file.

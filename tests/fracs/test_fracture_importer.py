@@ -23,11 +23,12 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
 @pytest.fixture
-def file_name() -> str:
-    yield (file_name := "frac.csv")
+def file_name() -> Path:
+    file_name = Path("frac.csv")
+    yield file_name
 
     # Tear down
-    Path(file_name).unlink(missing_ok=True)
+    file_name.unlink(missing_ok=True)
 
 
 def test_single_fracture_2d(file_name):
@@ -185,7 +186,7 @@ def test_polyline_two_fractures(file_name):
         fracture_importer.elliptic_network_3d_from_csv,
     ]
 )
-def make_network_3d_from_csv(request) -> Callable[[str], FractureNetwork3d]:
+def make_network_3d_from_csv(request) -> Callable[[Path], FractureNetwork3d]:
     return request.param
 
 
@@ -299,7 +300,7 @@ def test_two_fractures_dfn(file_name):
 def test_two_intersecting_fractures_dfn():
     p = np.array([[0, 0, 1, 0.5], [0, 1, 1, 0]])
     f = np.hstack(([[0], [1]], p))
-    file_name = "frac.csv"
+    file_name = Path("frac.csv")
     np.savetxt(file_name, f, delimiter=",")
 
     network = fracture_importer.network_2d_from_csv(file_name, skip_header=0)
