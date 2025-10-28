@@ -9,9 +9,7 @@ import warnings
 
 from typing import Any
 
-os.environ["LINE_PROFILE"] = "1"
-from line_profiler import profile
-
+# os.environ["LINE_PROFILE"] = "1"
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import numpy as np
@@ -42,7 +40,7 @@ time_schedule = [i * pp.DAY for i in range(121)]
 assert T_end_months > 5
 time_schedule += [i * 30 * pp.DAY for i in range(5, T_end_months + 1)]
 
-time_schedule = [0, 3*pp.HOUR]
+time_schedule = [0, 20 * pp.MINUTE]
 dt_init = 20 * pp.MINUTE
 dt_min = 10 * pp.MINUTE
 dt_max = 3 * pp.HOUR
