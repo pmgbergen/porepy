@@ -5,13 +5,12 @@ Implemented classes
 """
 
 import logging
-from typing import Tuple
 
 import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (
     AbsoluteConvergenceCriterion,
-    NanConvergenceCriterion,
+    # NanConvergenceCriterion,
     ConvergenceInfo,
     ConvergenceStatus,
     ConvergenceTolerance,
