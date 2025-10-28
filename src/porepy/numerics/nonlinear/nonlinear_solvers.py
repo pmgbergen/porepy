@@ -10,6 +10,7 @@ import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (  # NanConvergenceCriterion,
     AbsoluteConvergenceCriterion,
+    RelativeConvergenceCriterion,
     ConvergenceInfo,
     ConvergenceStatus,
     ConvergenceTolerance,
@@ -19,6 +20,7 @@ from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
+from typing import cast
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -33,22 +35,26 @@ class NewtonSolver:
             "nl_convergence_tol": ConvergenceTolerance(
                 tol_increment=1e-10, max_iterations=10
             ),
-            "nl_convergence_criterion": AbsoluteConvergenceCriterion,
+            "nl_convergence_criterion": AbsoluteConvergenceCriterion(),
         }
         default_options.update(params)
         self.params = default_options
         """Dictionary of parameters for the nonlinear solver."""
 
-        self.tol: ConvergenceTolerance = self.params["nl_convergence_tol"]
-        """Convergence tolerance used in in the convergence check."""
+        self.tol: ConvergenceTolerance = cast(
+            ConvergenceTolerance, self.params["nl_convergence_tol"]
+        )
+        """Convergence tolerance used in the convergence check."""
 
-        self.convergence_criterion = self.params.get("nl_convergence_criterion")()
-        """Convergence criterion to be used in the nonlinear solver."""
+        self.convergence_criterion: RelativeConvergenceCriterion = cast(
+            RelativeConvergenceCriterion, self.params.get("nl_convergence_criterion")
+        )
+        """Convergence criterion used in the convergence check."""
 
         self.init_solver_progressbar()
 
     def init_solver_progressbar(self) -> None:
-        use_progress_bar: bool = self.params.get("progressbars", False)
+        use_progress_bar = bool(self.params.get("progressbars", False))
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
                 "Progress bars are requested, but `tqdm` is not installed. The solver"
@@ -62,7 +68,9 @@ class NewtonSolver:
             # Allow the position of the progress bar to be flexible, depending on
             # whether this is called inside a time loop, a time loop and an
             # additional propagation loop or inside a stationary problem (default).
-            progress_bar_position: int = self.params.get("_nl_progress_bar_position", 0)
+            progress_bar_position = cast(
+                int, self.params.get("_nl_progress_bar_position", 0)
+            )
 
             # Length is the maximal number of Newton iterations.
             self.solver_progressbar = progressbar_class(  # type: ignore

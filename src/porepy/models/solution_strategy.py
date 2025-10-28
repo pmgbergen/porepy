@@ -17,6 +17,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 logger = logging.getLogger(__name__)
 
@@ -607,6 +608,9 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Update the time step magnitude if the dynamic scheme is used.
         if not self.time_manager.is_constant:
+            assert issubclass(
+                self.nonlinear_solver_statistics, NonlinearSolverStatistics
+            )
             self.time_manager.compute_time_step(
                 iterations=self.nonlinear_solver_statistics.num_iteration
             )

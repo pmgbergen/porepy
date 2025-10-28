@@ -37,9 +37,7 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(
-        self, model: SolutionStrategy
-    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
@@ -61,7 +59,7 @@ class LinearSolver:
         residual = model.equation_system.assemble(evaluate_jacobian=False)
         nonlinear_increment = model.solve_linear_system()
 
-        status, info = self.check_convergence(nonlinear_increment, residual)
+        status, _ = self.check_convergence(nonlinear_increment, residual)
 
         if status.is_converged():
             # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
@@ -77,7 +75,7 @@ class LinearSolver:
             model.after_nonlinear_convergence()
         else:
             model.after_nonlinear_failure()
-        return status, info
+        return status
 
     def check_convergence(
         self, nonlinear_increment, residual

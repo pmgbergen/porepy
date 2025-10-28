@@ -124,24 +124,42 @@ class MultiphysicsLebesgueMetric:
     def _lebesgue2_norm(
         self,
         values: pp.ad.DenseArray,
-        l2_norm: pp.ad.Operator,
+        dim: int,
         subdomains: list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
     ) -> float:
         """Compute the Lebesgue L2 norm of a variable or residual.
 
         Parameters:
             values: algebraic representation of a mixed-dimensional variable or residual
-            l2_norm: operator for computing the L2 norm
+            dim: int, dimension of the variable or residual
             subdomains: list of grids or mortar grids over which to integrate
 
         Returns:
             float: measure of values
 
         """
+        # Mypy...
+        grids: list[pp.Grid] = [sd for sd in subdomains if isinstance(sd, pp.Grid)]
+        mortar_grids: list[pp.MortarGrid] = [
+            sd for sd in subdomains if isinstance(sd, pp.MortarGrid)
+        ]
+        boundary_grids: list[pp.BoundaryGrid] = [
+            sd for sd in subdomains if isinstance(sd, pp.BoundaryGrid)
+        ]
+        assert len(boundary_grids) == 0, "Boundary grids not supported yet."
+        assert len(grids) == 0 or len(mortar_grids) == 0, (
+            "Mixing grids and mortar grids not supported yet."
+        )
+
+        l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
         return np.sqrt(
             np.sum(
                 self.equation_system.evaluate(
-                    self.volume_integral(l2_norm(values) ** 2, subdomains, 1)
+                    self.volume_integral(
+                        l2_norm(values) * l2_norm(values),
+                        grids if len(grids) > 0 else mortar_grids,
+                        1,
+                    )
                 )
             )
         )
@@ -167,8 +185,7 @@ class MultiphysicsLebesgueMetric:
         }
         for name, (indices, sd, variable_dim) in variable_blocks.items():
             variable_values = pp.ad.DenseArray(values[indices])
-            l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, variable_dim), "l2_norm")
-            norms[name] = self._lebesgue2_norm(variable_values, l2_norm, [sd])
+            norms[name] = self._lebesgue2_norm(variable_values, variable_dim, [sd])
 
         return norms
 
@@ -200,8 +217,7 @@ class MultiphysicsLebesgueMetric:
         }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
             residual_values = pp.ad.DenseArray(values[indices])
-            l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, eq_dim), "l2_norm")
-            norms[name] = self._lebesgue2_norm(residual_values, l2_norm, sd)
+            norms[name] = self._lebesgue2_norm(residual_values, eq_dim, sd)
 
         return norms
 
@@ -234,7 +250,6 @@ class MultiphysicsLebesgueMetric:
             intensive_residual_values = pp.ad.DenseArray(
                 np.linalg.norm(residual_values, ord=2, axis=0) / cell_weights
             )
-            l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, 1), "l2_norm")
-            norms[name] = self._lebesgue2_norm(intensive_residual_values, l2_norm, sd)
+            norms[name] = self._lebesgue2_norm(intensive_residual_values, eq_dim, sd)
 
         return norms
