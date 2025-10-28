@@ -18,7 +18,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.arrays import compare_arrays
-from porepy.numerics.fv import fvutils
+from porepy.numerics.fv import _fvutils
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def test_subcell_topology_2d_cart():
     # Verify that the subcell topology is correct for a 2d Cartesian grid.
     x = np.ones(2, dtype=int)
     g = pp.CartGrid(x)
-    subcell_topology = fvutils.SubcellTopology(g)
+    subcell_topology = _fvutils.SubcellTopology(g)
 
     assert np.all(subcell_topology.cno == 0)
 
@@ -57,7 +57,7 @@ def test_subcell_mapping_2d_simplex():
     p = np.array([[0, 1, 1, 0], [0, 0, 1, 1]])
     g = pp.TriangleGrid(p)
 
-    subcell_topology = fvutils.SubcellTopology(g)
+    subcell_topology = _fvutils.SubcellTopology(g)
 
     ccum = np.bincount(subcell_topology.cno, weights=np.ones(subcell_topology.cno.size))
     assert np.all(ccum == 6)
@@ -86,18 +86,7 @@ def test_subcell_mapping_2d_simplex():
 def test_determine_eta(grid, expected_eta):
     # Test that the automatic computation of the pressure continuity point is
     # correct for a Cartesian and simplex grid.
-    assert fvutils.determine_eta(grid) == expected_eta
-
-
-def test_diagonal_scaling_matrix():
-    # Generate a matrix with a known row sum, check that the target function returns the
-    # correct diagonal.
-    A = np.array([[1, 2, 3], [0, -5, 6], [-7, 8, 0]])
-    A_sum = np.array([6, 11, 15])
-    values = 1 / A_sum
-
-    D = fvutils.diagonal_scaling_matrix(sps.csr_matrix(A))
-    assert compare_arrays(values, D.diagonal())
+    assert _fvutils.determine_eta(grid) == expected_eta
 
 
 """IMPLEMENTATION NOTE:
@@ -121,7 +110,7 @@ def test_cell_and_face_indices_from_node_indices_2d(g_2d):
     known_cells = np.array([6, 7, 8, 11, 12, 13, 16, 17, 18])
     known_faces = np.array([14, 15, 42, 47])
 
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, nodes=n)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_2d, nodes=n)
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
 
@@ -132,7 +121,7 @@ def test_cell_and_face_indices_from_node_indices_2d_boundary(g_2d):
     known_cells = np.array([0, 1, 2, 5, 6, 7])
     known_faces = np.array([1, 2, 31, 36])
 
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, nodes=n)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_2d, nodes=n)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -145,7 +134,7 @@ def test_cell_and_face_indices_from_node_indices_3d(g_3d):
     known_cells = np.arange(27)
     known_faces = np.array([17, 18, 52, 55, 85, 94])
 
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, nodes=n)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_3d, nodes=n)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -157,7 +146,7 @@ def test_cell_and_face_indices_from_node_indices_3d_boundary(g_3d):
     known_cells = np.array([0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14])
     known_faces = np.array([1, 2, 37, 40, 73, 82])
 
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, nodes=n)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_3d, nodes=n)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -168,7 +157,7 @@ def test_cell_and_face_indices_from_cell_indices_2d(g_2d):
     known_cells = np.setdiff1d(np.arange(25), np.array([0, 4, 20, 24]))
     known_faces = np.array([8, 9, 14, 15, 20, 21, 41, 42, 43, 46, 47, 48])
 
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, cells=c)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_2d, cells=c)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -195,7 +184,7 @@ def test_cell_and_face_indices_from_cell_indices_3d(g_3d):
     fz = 72 + np.hstack((np.arange(9) + 9, np.arange(9) + 18))
     known_faces = np.hstack((fx, fy, fz))
 
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, cells=c)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_3d, cells=c)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -208,7 +197,7 @@ def test_cell_and_face_indices_from_cell_indices_3d_boundary(g_3d):
     fy = 36 + np.array([0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17])
     fz = 72 + np.array([0, 1, 2, 3, 4, 5, 9, 10, 11, 12, 13, 14])
     known_faces = np.hstack((fx, fy, fz))
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_3d, cells=c)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_3d, cells=c)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -220,7 +209,7 @@ def test_cell_and_face_indices_from_face_indices_2d(g_2d):
 
     known_cells = np.arange(g_2d.num_cells)
     known_faces = np.array([8, 14, 20, 41, 42, 46, 47])
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, faces=f)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_2d, faces=f)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -233,7 +222,7 @@ def test_cell_and_face_indices_from_face_indices_2d_boundary(g_2d):
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
     )
     known_faces = np.array([2, 8, 31, 32, 36, 37])
-    cell_ind, face_ind = fvutils.cell_ind_for_partial_update(g_2d, faces=f)
+    cell_ind, face_ind = _fvutils.cell_ind_for_partial_update(g_2d, faces=f)
 
     assert compare_arrays(known_cells, cell_ind)
     assert compare_arrays(known_faces, face_ind)
@@ -264,7 +253,7 @@ def test_bound_exclusion():
     bound.is_dir[:, dir_both] = True
     bound.is_neu[:, dir_both] = False
 
-    subcell_topology = pp.fvutils.SubcellTopology(g)
+    subcell_topology = pp._fvutils.SubcellTopology(g)
     # Move the boundary conditions to sub-faces
     bound.is_dir = bound.is_dir[:, subcell_topology.fno_unique]
     bound.is_rob = bound.is_rob[:, subcell_topology.fno_unique]
@@ -276,7 +265,7 @@ def test_bound_exclusion():
     subfno = subcell_topology.subfno_unique
     subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
-    bound_exclusion = pp.fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
+    bound_exclusion = pp._fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
 
     # Expand the indices
     # Define right hand side for Neumann boundary conditions
