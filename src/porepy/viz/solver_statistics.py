@@ -18,54 +18,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SolverStatistics:
-    """Statistics object for non-linear solver loop.
+    """Statistics object which keeps track of the convergence status of the solver.
 
-    This object keeps track of the number of non-linear iterations performed for the
-    current time step, as well as increments and residuals for each iteration.
-
-    Example:
-
-        After storing solver statistics to file, we can load the file and plot
-        the stored data, here for the first time step.
-
-        >>> import matplotlib.pyplot as plt
-        >>> import json
-        >>> with open("solver_statistics.json", "r") as f:
-        >>>     history = json.load(f)
-        >>> time_step = str(1)
-        >>> err = history[time_step]["residual_norms"]
-        >>> plt.semilogy(err)
-        >>> plt.xlabel("Iteration number")
-        >>> plt.ylabel("Residual")
-        >>> plt.title("Residual error")
-        >>> plt.show()
+    It is general enough for stationary and linear problems.
 
     """
 
     counter: int = field(default=0)
     """Counter for the number of times the statistics object has been updated."""
-    num_iteration: int = field(default=0)
-    """Number of non-linear iterations performed for current time step."""
-    nonlinear_increment_norms: list[float] = field(default_factory=list)
-    """List of increment magnitudes for each non-linear iteration."""
-    residual_norms: list[float] = field(default_factory=list)
-    """List of residual for each non-linear iteration."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
     convergence_status: ConvergenceStatus = field(
         default=ConvergenceStatus.NOT_CONVERGED
     )
     """Convergence status of the solver."""
-    global_num_iteration: list[int] = field(default_factory=list)
-    """List of number of iterations for entire run."""
     num_cells: list[int] = field(default_factory=list)
     """Number of cells in each dimension."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
-
-    def advance_iteration(self) -> None:
-        """Advance the iteration count by one."""
-        self.num_iteration += 1
 
     def log_mesh_information(self, subdomains: list, **kwargs) -> None:
         """Collect mesh information.
@@ -93,18 +63,6 @@ class SolverStatistics:
 
         """
         self.convergence_status = convergence_status
-
-    def log_error(self, info: ConvergenceInfo, **kwargs) -> None:
-        """Log errors produced from convergence criteria.
-
-        Parameters:
-            nonlinear_increment_norm (float): Error in the increment.
-            residual_norm (float): Error in the residual.
-            **kwargs: Additional keyword arguments, for potential extension.
-
-        """
-        self.nonlinear_increment_norms.append(info.nonlinear_increment_norm)
-        self.residual_norms.append(info.residual_norm)
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -169,37 +127,25 @@ class SolverStatistics:
     def reset(self) -> None:
         """Reset the statistics object, and restart counting iterations."""
         self.counter += 1
-        self.num_iteration = 0
-        self.nonlinear_increment_norms.clear()
-        self.residual_norms.clear()
         self.convergence_status = ConvergenceStatus.NOT_CONVERGED
         self.custom_data = dict[str, Any]()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary."""
+        """Append the current statistics to the data dictionary.
 
-        # Save the number of iterations for the entire run.
-        while len(self.global_num_iteration) <= self.counter:
-            self.global_num_iteration.append(0)
-        self.global_num_iteration[self.counter] = self.num_iteration
+        Parameters:
+            data: Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with global data.
+
+        """
 
         # Store static geometry data.
         data["global"] = {
             "num_cells": self.num_cells,
-            "num_iteration": self.global_num_iteration,
             "convergence_status": str(self.convergence_status),
             "latest_counter": self.counter,
-        }
-        return data
-
-    def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary."""
-        # Store time dependent data.
-        data[str(self.counter)] = {
-            "num_iteration": self.num_iteration,
-            "nonlinear_increment_norms": self.nonlinear_increment_norms,
-            "residual_norms": self.residual_norms,
-            "convergence_status": str(self.convergence_status),
         }
 
         return data
@@ -208,9 +154,25 @@ class SolverStatistics:
         """Update the statistics object with custom data.
 
         Parameters:
-            custom_data (dict): Custom data to be added to the statistics object.
+            data (dict): Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with custom data.
+
         """
         data[str(self.counter)].update(self.custom_data)
+        return data
+
+    def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
+        """Append the current statistics to the data dictionary.
+
+        Parameters:
+            data: Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with iterative data.
+
+        """
         return data
 
     def append_data(self, data: dict[str, dict]) -> dict[str, dict]:
@@ -243,7 +205,104 @@ class SolverStatistics:
 
 
 @dataclass
-class TimeStatistics:
+class NonlinearSolverStatistics(SolverStatistics):
+    """Statistics object for non-linear solver loop.
+
+    This object keeps track of the number of non-linear iterations performed for the
+    current time step, as well as increments and residuals for each iteration.
+
+    Example:
+
+        After storing solver statistics to file, we can load the file and plot
+        the stored data, here for the first time step.
+
+        >>> import matplotlib.pyplot as plt
+        >>> import json
+        >>> with open("solver_statistics.json", "r") as f:
+        >>>     history = json.load(f)
+        >>> time_step = str(1)
+        >>> err = history[time_step]["residual_norms"]
+        >>> plt.semilogy(err)
+        >>> plt.xlabel("Iteration number")
+        >>> plt.ylabel("Residual")
+        >>> plt.title("Residual error")
+        >>> plt.show()
+
+    """
+
+    num_iteration: int = field(default=0)
+    """Number of non-linear iterations performed for current time step."""
+    nonlinear_increment_norms: list[float] = field(default_factory=list)
+    """List of increment magnitudes for each non-linear iteration."""
+    residual_norms: list[float] = field(default_factory=list)
+    """List of residual for each non-linear iteration."""
+    global_num_iteration: list[int] = field(default_factory=list)
+    """List of number of iterations for entire run."""
+
+    def advance_iteration(self) -> None:
+        """Advance the iteration count by one."""
+        self.num_iteration += 1
+
+    def log_error(self, info: ConvergenceInfo, **kwargs) -> None:
+        """Log errors produced from convergence criteria.
+
+        Parameters:
+            nonlinear_increment_norm (float): Error in the increment.
+            residual_norm (float): Error in the residual.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        self.nonlinear_increment_norms.append(info.nonlinear_increment_norm)
+        self.residual_norms.append(info.residual_norm)
+
+    def reset(self) -> None:
+        """Reset the statistics object, and restart counting iterations."""
+        super().reset()
+        self.num_iteration = 0
+        self.nonlinear_increment_norms.clear()
+        self.residual_norms.clear()
+
+    def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
+        """Append the current statistics to the data dictionary.
+
+        Stores the global number of iterations performed so far.
+
+        Parameters:
+            data: Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with global data.
+
+        """
+
+        data = super().append_global_data(data)
+        while len(self.global_num_iteration) <= self.counter:
+            self.global_num_iteration.append(0)
+        self.global_num_iteration[self.counter] = self.num_iteration
+        data["global"].update(
+            {
+                "num_iteration": self.global_num_iteration,
+            }
+        )
+        return data
+
+    def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
+        """Append the current statistics to the data dictionary."""
+
+        data = super().append_iterative_data(data)
+        data[str(self.counter)].update(
+            {
+                "num_iteration": self.num_iteration,
+                "nonlinear_increment_norms": self.nonlinear_increment_norms,
+                "residual_norms": self.residual_norms,
+            }
+        )
+
+        return data
+
+
+@dataclass
+class TimeStatistics(SolverStatistics):
     """Mixin making SolverStatistics aware of time information for each iteration.
 
     Note: This class is intended to be used as a mixin with SolverStatistics.
@@ -284,6 +343,7 @@ class TimeStatistics:
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary."""
+        data = super().append_global_data(data)
         data["global"].update(
             {
                 "final_time_reached": int(self.final_time_reached),
@@ -293,9 +353,8 @@ class TimeStatistics:
 
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary."""
-        # Store time dependent data.
-        # NOTE: 'counter' is assumed to be defined in the class this is mixed into.
-        data[str(self.counter)] = {  # type: ignore[attr-defined]
+        data = super().append_iterative_data(data)
+        data[str(self.counter)] = {
             "final_time_reached": int(self.final_time_reached),
             "time_index": self.time_index,
             "time": self.time,
@@ -304,39 +363,27 @@ class TimeStatistics:
         return data
 
 
-class SolverStatisticsFactory:
-    """Factory to select the solver statistics class depending on problem
-    characteristics.
+class NonlinearSolverAndTimeStatistics(NonlinearSolverStatistics, TimeStatistics):
+    """Combined statistics class for nonlinear solvers with time dependence.
 
+    This class combines the statistics from both nonlinear solvers and time-dependent solvers.
     """
+
+    ...
+
+
+# Create a map from (nonlinear, time_dependent) to the appropriate statistics class.
+_statistics_map = {
+    (True, True): NonlinearSolverAndTimeStatistics,
+    (True, False): NonlinearSolverStatistics,
+    (False, True): TimeStatistics,
+    (False, False): SolverStatistics,
+}
+
+
+class SolverStatisticsFactory:
+    """Factory class to create appropriate SolverStatistics subclasses."""
 
     @staticmethod
     def create_statistics_type(nonlinear: bool, time_dependent: bool) -> type:
-        if nonlinear:
-            if time_dependent:
-
-                class _SolverStatistics(SolverStatistics, TimeStatistics):
-                    def __replace__(self, **kwargs):
-                        return SolverStatistics.__replace__(self, **kwargs)
-
-                    def append_global_data(
-                        self, data: dict[str, dict]
-                    ) -> dict[str, dict]:
-                        data = SolverStatistics.append_global_data(self, data)
-                        data = TimeStatistics.append_global_data(self, data)
-                        return data
-
-                    def append_iterative_data(
-                        self, data: dict[str, dict]
-                    ) -> dict[str, dict]:
-                        data = SolverStatistics.append_iterative_data(self, data)
-                        data = TimeStatistics.append_iterative_data(self, data)
-                        return data
-
-                return _SolverStatistics
-            else:
-                return SolverStatistics
-        else:
-            raise NotImplementedError(
-                "SolverStatistics only supported for nonlinear problems."
-            )
+        return _statistics_map[(nonlinear, time_dependent)]
