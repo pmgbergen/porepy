@@ -244,7 +244,12 @@ class SolverStatistics:
 
 @dataclass
 class TimeStatistics:
-    """Mixin making SolverStatistics aware of time information for each iteration."""
+    """Mixin making SolverStatistics aware of time information for each iteration.
+
+    Note: This class is intended to be used as a mixin with SolverStatistics.
+    It assumes that the class it is mixed into has a `counter` attribute.
+
+    """
 
     time_index: int = field(default=0)
     """Current time step index."""
@@ -289,7 +294,8 @@ class TimeStatistics:
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary."""
         # Store time dependent data.
-        data[str(self.counter)] = {
+        # NOTE: 'counter' is assumed to be defined in the class this is mixed into.
+        data[str(self.counter)] = {  # type: ignore[attr-defined]
             "final_time_reached": int(self.final_time_reached),
             "time_index": self.time_index,
             "time": self.time,
@@ -305,11 +311,14 @@ class SolverStatisticsFactory:
     """
 
     @staticmethod
-    def create_statistics_type(nonlinear: bool, time_dependent: bool) -> None:
+    def create_statistics_type(nonlinear: bool, time_dependent: bool) -> type:
         if nonlinear:
             if time_dependent:
 
                 class _SolverStatistics(SolverStatistics, TimeStatistics):
+                    def __replace__(self, **kwargs):
+                        return SolverStatistics.__replace__(self, **kwargs)
+
                     def append_global_data(
                         self, data: dict[str, dict]
                     ) -> dict[str, dict]:
@@ -323,12 +332,11 @@ class SolverStatisticsFactory:
                         data = SolverStatistics.append_iterative_data(self, data)
                         data = TimeStatistics.append_iterative_data(self, data)
                         return data
-            else:
 
-                class _SolverStatistics(SolverStatistics): ...
+                return _SolverStatistics
+            else:
+                return SolverStatistics
         else:
             raise NotImplementedError(
                 "SolverStatistics only supported for nonlinear problems."
             )
-
-        return _SolverStatistics
