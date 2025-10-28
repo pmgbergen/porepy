@@ -59,9 +59,9 @@ class NewtonSolver:
         # progressbar_class, which is either :class:`~tqdm.trange` or
         # :class:`~DummyProgressbar` in case `tqdm` is not installed.
         if use_progress_bar:
-            # Allow the position of the progress bar to be flexible, depending on whether
-            # this is called inside a time loop, a time loop and an additional propagation
-            # loop or inside a stationary problem (default).
+            # Allow the position of the progress bar to be flexible, depending on
+            # whether this is called inside a time loop, a time loop and an
+            # additional propagation loop or inside a stationary problem (default).
             progress_bar_position: int = self.params.get("_nl_progress_bar_position", 0)
 
             # Length is the maximal number of Newton iterations.
@@ -173,9 +173,10 @@ class NewtonSolver:
         residual = model.equation_system.assemble(evaluate_jacobian=False)
         iterate = model.equation_system.get_variable_values(iterate_index=0)
 
-        # # TODO: How important is this? Newton is only called for nonlinear problems, by default.
-        # # Suggestion: Remove - kept for now for discussion.
-        # # If the model is linear, we do not need to check convergence.
+        # TODO: How important is this? Newton is only called for nonlinear
+        # problems, by default.
+        # Suggestion: Remove - kept for now for discussion.
+        # If the model is linear, we do not need to check convergence.
         # if not model._is_nonlinear_problem():
         #     convergence_criterion = NanConvergenceCriterion()
         #     status, info = convergence_criterion.check(
@@ -183,7 +184,7 @@ class NewtonSolver:
         #     )
         #     return status, info
 
-        # Trivial nan-check (do not care about the residual and wait until it propagates).
+        # Trivial nan-check
         if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
             return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
 

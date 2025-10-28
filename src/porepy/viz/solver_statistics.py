@@ -132,12 +132,13 @@ class SolverStatistics:
                 return d
 
             def _recursive_append(d: dict, v: dict) -> dict:
-                """Auxiliary function to recursively append dictionaries on deep levels."""
+                """Auxiliary function to recursively append dictionaries."""
                 if len(d.keys()) == 0:
                     d.update(_convert_values_to_list(v))
                     return d
                 assert d.keys() == v.keys(), (
-                    f"Dictionaries must have the same keys, got {d.keys()} and {v.keys()}"
+                    """Dictionaries must have the same keys, """
+                    f"""got {d.keys()} and {v.keys()}"""
                 )
                 for key_d, key_v in zip(d.keys(), v.keys()):
                     if isinstance(d[key_d], dict) and isinstance(v[key_v], dict):
@@ -298,7 +299,10 @@ class TimeStatistics:
 
 
 class SolverStatisticsFactory:
-    """Factory to select the solver statistics class depending on problem characteristics."""
+    """Factory to select the solver statistics class depending on problem
+    characteristics.
+
+    """
 
     @staticmethod
     def create_statistics_type(nonlinear: bool, time_dependent: bool) -> None:
