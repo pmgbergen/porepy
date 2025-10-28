@@ -13,8 +13,9 @@ from typing import Optional
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
-    NanConvergenceCriterion,
+    ConvergenceInfo,
 )
+import numpy as np
 
 
 class LinearSolver:
@@ -75,7 +76,11 @@ class LinearSolver:
             model.after_nonlinear_failure()
         return convergence_status
 
-    def check_convergence(self, nonlinear_increment, residual) -> ConvergenceStatus:
-        convergence_criterion = NanConvergenceCriterion()
-        convergence_status = convergence_criterion.check(nonlinear_increment, residual)
-        return convergence_status
+    def check_convergence(
+        self, nonlinear_increment, residual
+    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+        """Simple convergence check for linear problems checking NaN values."""
+        if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
+            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
+        else:
+            return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)

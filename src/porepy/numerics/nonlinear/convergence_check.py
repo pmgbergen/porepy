@@ -383,36 +383,36 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 ### Concrete convergence criteria
 
 
-class NanConvergenceCriterion(ConvergenceCriterion):
-    """Convergence criterion that checks for NaN values."""
-
-    def _check(
-        self,
-        nonlinear_increment: dict[str, float],
-        residual: dict[str, float],
-        tol: ConvergenceTolerance,
-    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
-        """Check for NaN values in the nonlinear increment and residual.
-
-        Parameters:
-            nonlinear_increment: The increment in the solution variables from the
-                previous nonlinear iteration.
-            residual: The current residual vector of the nonlinear system.
-            tol: Not used, but required for complying with super class.
-
-        Returns:
-            ConvergenceStatus: Convergence status of the non-linear iteration.
-            ConverenceInfo: Information about the convergence check.
-
-        """
-        has_nan_increment = any(
-            np.isnan(value) for value in nonlinear_increment.values()
-        )
-        has_nan_residual = any(np.isnan(value) for value in residual.values())
-        if has_nan_increment or has_nan_residual:
-            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
-        else:
-            return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
+# class NanConvergenceCriterion(ConvergenceCriterion):
+#    """Convergence criterion that checks for NaN values."""
+#
+#    def _check(
+#        self,
+#        nonlinear_increment: dict[str, float],
+#        residual: dict[str, float],
+#        tol: ConvergenceTolerance,
+#    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+#        """Check for NaN values in the nonlinear increment and residual.
+#
+#        Parameters:
+#            nonlinear_increment: The increment in the solution variables from the
+#                previous nonlinear iteration.
+#            residual: The current residual vector of the nonlinear system.
+#            tol: Not used, but required for complying with super class.
+#
+#        Returns:
+#            ConvergenceStatus: Convergence status of the non-linear iteration.
+#            ConverenceInfo: Information about the convergence check.
+#
+#        """
+#        has_nan_increment = any(
+#            np.isnan(value) for value in nonlinear_increment.values()
+#        )
+#        has_nan_residual = any(np.isnan(value) for value in residual.values())
+#        if has_nan_increment or has_nan_residual:
+#            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
+#        else:
+#            return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
 
 
 class AbsoluteConvergenceCriterion(RelativeConvergenceCriterion):
