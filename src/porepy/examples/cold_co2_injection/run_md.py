@@ -134,7 +134,7 @@ model_params: dict[str, Any] = {
     "_lbc_viscosity": False,
     "fracture_permeability": 1e-11,
     "impermeable_fracture_permeability": 1e-11,
-    "_num_fractures": 8,
+    "_num_fractures": 0,
     "_well_surrounding_permeability": well_surrounding_permeability,
     "folder_name": f"visualization/md_case/",
     "progressbars": not VERBOSE,
