@@ -9,11 +9,12 @@ This includes:
 
 """
 
+from abc import abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-import numpy as np
-from abc import abstractmethod
 from typing import Callable
+
+import numpy as np
 
 
 class ConvergenceStatus(StrEnum):

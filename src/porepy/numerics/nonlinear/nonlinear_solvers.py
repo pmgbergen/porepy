@@ -8,9 +8,8 @@ import logging
 
 import numpy as np
 
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.nonlinear.convergence_check import (  # NanConvergenceCriterion,
     AbsoluteConvergenceCriterion,
-    # NanConvergenceCriterion,
     ConvergenceInfo,
     ConvergenceStatus,
     ConvergenceTolerance,

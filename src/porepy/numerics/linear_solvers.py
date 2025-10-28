@@ -10,12 +10,13 @@ from __future__ import annotations
 
 from typing import Optional
 
+import numpy as np
+
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceStatus,
     ConvergenceInfo,
+    ConvergenceStatus,
 )
-import numpy as np
 
 
 class LinearSolver:
