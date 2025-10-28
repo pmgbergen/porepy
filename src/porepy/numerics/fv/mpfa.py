@@ -10,6 +10,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 
+from . import _fvutils
+
 
 class Mpfa(pp.FVElliptic):
     """Implementation of the multi-point flux approximation O-method.
@@ -155,7 +157,7 @@ class Mpfa(pp.FVElliptic):
         )
 
         # Control of the number of subdomanis.
-        max_memory, num_subproblems = pp._fvutils.parse_partition_arguments(
+        max_memory, num_subproblems = _fvutils.parse_partition_arguments(
             parameter_dictionary.get("partition_arguments", {})
         )
 
@@ -175,7 +177,7 @@ class Mpfa(pp.FVElliptic):
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
         # subgrid, it is necessary to assign some overlap in terms of cells).
-        active_cells, active_faces = pp._fvutils.find_active_indices(
+        active_cells, active_faces = _fvutils.find_active_indices(
             parameter_dictionary, sd
         )
 
@@ -240,7 +242,7 @@ class Mpfa(pp.FVElliptic):
         # Loop over all partition regions, construct local problems, and transfer
         # discretization to the entire active grid.
         for reg_i, (sub_sd, faces_in_subgrid, _, l2g_cells, l2g_faces) in enumerate(
-            pp._fvutils.subproblems(
+            _fvutils.subproblems(
                 active_grid, peak_memory_estimate, max_memory, num_subproblems
             )
         ):
@@ -275,7 +277,7 @@ class Mpfa(pp.FVElliptic):
             # its length should be adjusted to match the number of subfaces in the
             # partitioned subgrid.
             if isinstance(eta, np.ndarray):
-                loc_eta = pp._fvutils.adjust_eta_length(
+                loc_eta = _fvutils.adjust_eta_length(
                     eta=eta, sub_sd=sub_sd, l2g_faces=l2g_faces
                 )
 
@@ -299,7 +301,7 @@ class Mpfa(pp.FVElliptic):
             eliminate_face = np.where(
                 np.logical_not(np.isin(l2g_faces, faces_in_subgrid))
             )[0]
-            pp._fvutils.remove_nonlocal_contribution(eliminate_face, 1, *discr_fields)
+            _fvutils.remove_nonlocal_contribution(eliminate_face, 1, *discr_fields)
 
             # Split the discretization.
             (
@@ -459,7 +461,7 @@ class Mpfa(pp.FVElliptic):
             bound_pressure_vector_source_glob *= glob_R
 
         eliminate_faces = np.setdiff1d(np.arange(sd.num_faces), active_faces)
-        pp._fvutils.remove_nonlocal_contribution(
+        _fvutils.remove_nonlocal_contribution(
             eliminate_faces,
             1,
             flux_glob,
@@ -575,7 +577,7 @@ class Mpfa(pp.FVElliptic):
         vector_source_dim: int = data[pp.PARAMETERS][self.keyword].get(
             "ambient_dimension", sd.dim
         )
-        pp._fvutils.partial_update_discretization(
+        _fvutils.partial_update_discretization(
             sd,
             data,
             self.keyword,
@@ -679,7 +681,7 @@ class Mpfa(pp.FVElliptic):
         """
 
         if eta is None:
-            eta = pp._fvutils.determine_eta(sd)
+            eta = _fvutils.determine_eta(sd)
         if ambient_dimension is None:
             ambient_dimension = sd.dim
 
@@ -752,7 +754,7 @@ class Mpfa(pp.FVElliptic):
 
         # Define subcell topology, that is, the local numbering of faces, subfaces,
         # sub-cells and nodes. This numbering is used throughout the discretization.
-        subcell_topology = pp._fvutils.SubcellTopology(sd)
+        subcell_topology = _fvutils.SubcellTopology(sd)
 
         # Below, the boundary conditions should be defined on the subfaces.
         if bnd.num_faces == subcell_topology.num_subfno_unique:
@@ -761,7 +763,7 @@ class Mpfa(pp.FVElliptic):
             subface_rhs = True
         else:
             # If bnd is not already a sub-face_bound we extend it
-            subcell_bnd = pp._fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
+            subcell_bnd = _fvutils.boundary_to_sub_boundary(bnd, subcell_topology)
             subface_rhs = False
 
         # The normal vectors used in the product are simply the face normals (with areas
@@ -771,7 +773,7 @@ class Mpfa(pp.FVElliptic):
             nk_grad_all,
             cell_node_blocks,
             sub_cell_index,
-        ) = pp._fvutils.scalar_tensor_vector_prod(sd, k, subcell_topology)
+        ) = _fvutils.scalar_tensor_vector_prod(sd, k, subcell_topology)
 
         ## Contribution from subcell gradients to local system.
         # The pressure at a subface continuity point is given by the subcell pressure
@@ -787,9 +789,7 @@ class Mpfa(pp.FVElliptic):
         #    and on faces on the boundary.
         # NOTE: The second operation is reversed for Robin boundary conditions, see
         #       below.
-        pr_cont_grad_paired = pp._fvutils.compute_dist_face_cell(
-            sd, subcell_topology, eta
-        )
+        pr_cont_grad_paired = _fvutils.compute_dist_face_cell(sd, subcell_topology, eta)
 
         # Discretized Darcy's law: The flux over a subface is given by the area weighted
         # normal vector, multiplied with the subcell permeability, and expressed in
@@ -917,7 +917,7 @@ class Mpfa(pp.FVElliptic):
 
         # The boundary faces will have either a Dirichlet or Neumann condition, or Robin
         # condition. Obtain mappings to exclude boundary faces.
-        bound_exclusion = pp._fvutils.ExcludeBoundaries(
+        bound_exclusion = _fvutils.ExcludeBoundaries(
             subcell_topology, subcell_bnd, sd.dim
         )
 
@@ -1138,7 +1138,7 @@ class Mpfa(pp.FVElliptic):
         )
 
         # Output should be on cell-level (not sub-cell)
-        sc2c = pp._fvutils.cell_vector_to_subcell(
+        sc2c = _fvutils.cell_vector_to_subcell(
             sd.dim, sub_cell_index, cell_node_blocks[0]
         )
 
@@ -1157,8 +1157,8 @@ class Mpfa(pp.FVElliptic):
     def _discretize_vector_source(
         self,
         sd: pp.Grid,
-        subcell_topology: pp._fvutils.SubcellTopology,
-        bound_exclusion: pp._fvutils.ExcludeBoundaries,
+        subcell_topology: _fvutils.SubcellTopology,
+        bound_exclusion: _fvutils.ExcludeBoundaries,
         darcy_igrad: sps.spmatrix,
         dist_cell_igrad: sps.spmatrix,
         nk_grad_all: sps.spmatrix,
@@ -1358,7 +1358,7 @@ class Mpfa(pp.FVElliptic):
         sub_cell_index: np.ndarray,
         cell_node_blocks: np.ndarray,
         nno: np.ndarray,
-        bound_exclusion: pp._fvutils.ExcludeBoundaries,
+        bound_exclusion: _fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix, np.ndarray]:
         """Define matrices to turn linear system into block-diagonal form.
 
@@ -1413,8 +1413,8 @@ class Mpfa(pp.FVElliptic):
     def _create_bound_rhs(
         self,
         bnd: pp.BoundaryCondition,
-        bound_exclusion: pp._fvutils.ExcludeBoundaries,
-        subcell_topology: pp._fvutils.SubcellTopology,
+        bound_exclusion: _fvutils.ExcludeBoundaries,
+        subcell_topology: _fvutils.SubcellTopology,
         sgn: np.ndarray,
         sd: pp.Grid,
         num_flux: int,
@@ -1663,10 +1663,10 @@ def reconstruct_presssure(
     """
 
     if eta is None:
-        eta = pp._fvutils.determine_eta(sd)
+        eta = _fvutils.determine_eta(sd)
 
     # Calculate the distance from the cell centers to continuity points.
-    D_g = pp._fvutils.compute_dist_face_cell(
+    D_g = _fvutils.compute_dist_face_cell(
         sd, subcell_topology, eta, return_paired=False
     )
     # We here average the contribution on internal sub-faces. To get out both pressures

@@ -1892,8 +1892,8 @@ def diagonal_scaling_matrix(mat: sps.spmatrix) -> sps.spmatrix:
     # Take the row-wise sum of all non-zero elements in the matrix. Work on a copy,
     # since we want to manipulate the matrix elements.
     tmp = mat.copy()
-    # Use an absolute value here. For some of the matrices the row sum will be zero
-    # on interior faces.
+    # Use an absolute value here. For some of the matrices the row sum will be zero on
+    # interior faces.
     tmp.data = np.abs(tmp.data)
     # Take a sum here. Intuitively, an average would be better, but calling tmp.mean()
     # would take the average over all elements, most of which are zero (this turned out

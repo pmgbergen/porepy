@@ -253,7 +253,7 @@ def test_bound_exclusion():
     bound.is_dir[:, dir_both] = True
     bound.is_neu[:, dir_both] = False
 
-    subcell_topology = pp._fvutils.SubcellTopology(g)
+    subcell_topology = _fvutils.SubcellTopology(g)
     # Move the boundary conditions to sub-faces
     bound.is_dir = bound.is_dir[:, subcell_topology.fno_unique]
     bound.is_rob = bound.is_rob[:, subcell_topology.fno_unique]
@@ -265,7 +265,7 @@ def test_bound_exclusion():
     subfno = subcell_topology.subfno_unique
     subfno_nd = np.tile(subfno, (nd, 1)) * nd + np.atleast_2d(np.arange(0, nd)).T
 
-    bound_exclusion = pp._fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
+    bound_exclusion = _fvutils.ExcludeBoundaries(subcell_topology, bound, nd)
 
     # Expand the indices
     # Define right hand side for Neumann boundary conditions

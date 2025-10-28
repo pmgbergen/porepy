@@ -311,7 +311,7 @@ def find_active_indices(
     """Process information in parameter dictionary on whether the discretization
     should consider a subgrid. Look for fields in the parameter dictionary called
     specified_cells, specified_faces or specified_nodes. These are then processed by
-    the function pp._fvutils.cell-ind_for_partial_update.
+    the function cell-ind_for_partial_update.
 
     If no relevant information is found, the active indices are all cells and
     faces in the grid.
@@ -340,7 +340,7 @@ def find_active_indices(
         or (specified_nodes is not None)
     ):
         # Find computational stencil, based on specified cells, faces and nodes.
-        active_cells, active_faces = pp._fvutils.cell_ind_for_partial_update(
+        active_cells, active_faces = cell_ind_for_partial_update(
             sd, cells=specified_cells, faces=specified_faces, nodes=specified_nodes
         )
         parameter_dictionary["active_cells"] = active_cells
@@ -527,7 +527,7 @@ def subproblems(
 
             # Find computational stencil (cells and faces), based on the nodes in this
             # partition
-            loc_cells, loc_faces = pp._fvutils.cell_ind_for_partial_update(
+            loc_cells, loc_faces = cell_ind_for_partial_update(
                 sd, nodes=nodes_in_partition
             )
 
@@ -611,8 +611,8 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
        nd (int): dimension
     OR:
         g (pp.Grid): If a grid is supplied the function will set:
-            fno = pp._fvutils.SubcellTopology(g).fno_unique
-            subfno = pp._fvutils.SubcellTopology(g).subfno_unique
+            fno = SubcellTopology(g).fno_unique
+            subfno = SubcellTopology(g).subfno_unique
         nd (int): Optinal, defaults to sd.dim. Defines the dimension of the vector.
 
     Returns
@@ -707,10 +707,9 @@ def scalar_tensor_vector_prod(
     it is tacitly assumed that sd.dim == sd.nodes.shape[0] ==
     sd.face_normals.shape[0] etc. See implementation note in main method.
     Args:
-        sd (pp.Grid): Discretization grid
-        k (pp.Second_order_tensor): The permeability tensor
-        subcell_topology (_fvutils.SubcellTopology): Wrapper class containing
-            subcell numbering.
+        sd: Discretization grid.
+        k: The permeability tensor.
+        subcell_topology: Wrapper class containing subcell numbering.
     Returns:
         nk: sub-face wise product of normal vector and permeability tensor.
         cell_node_blocks pairings of node and cell indices, which together
@@ -1164,7 +1163,7 @@ def partial_update_discretization(
     do_discretize = False
     # The actual discretization stencil may be larger than the modified cells and
     # faces (if specified).
-    _, active_faces = pp._fvutils.cell_ind_for_partial_update(
+    _, active_faces = cell_ind_for_partial_update(
         sd, cells=update_cells, faces=update_faces
     )
     active_faces = np.unique(active_faces)
@@ -1202,17 +1201,17 @@ def partial_update_discretization(
             mat = cell_map * mat
             # Zero out existing contributions from the active faces. This is necessary
             # due to the expansive computational stencils for MPxA methods.
-            pp._fvutils.remove_nonlocal_contribution(active_cells, 1, mat)
+            remove_nonlocal_contribution(active_cells, 1, mat)
         elif key in vector_cell_left:
             # Need a tocsr() here to work with row-based elimination
             mat = (sps.kron(cell_map, sps.eye(dim)) * mat).tocsr()
-            pp._fvutils.remove_nonlocal_contribution(active_cells, dim, mat)
+            remove_nonlocal_contribution(active_cells, dim, mat)
         elif key in scalar_face_left:
             mat = face_map * mat
-            pp._fvutils.remove_nonlocal_contribution(active_faces, 1, mat)
+            remove_nonlocal_contribution(active_faces, 1, mat)
         elif key in vector_face_left:
             mat = (sps.kron(face_map, sps.eye(dim)) * mat).tocsr()
-            pp._fvutils.remove_nonlocal_contribution(active_faces, dim, mat)
+            remove_nonlocal_contribution(active_faces, dim, mat)
         else:
             # If no mapping is provided, we assume the matrix is not part of the
             # target discretization, and ignore it.
@@ -1469,15 +1468,14 @@ def boundary_to_sub_boundary(bound, subcell_topology):
     subfaces.
 
     Args:
-    bound (pp.BoundaryCondition/pp.BoundarConditionVectorial):
-        Boundary condition given for faces.
-    subcell_topology (pp._fvutils.SubcellTopology):
-        The subcell topology defining the finite volume subgrid.
+        bound: Boundary condition given for faces.
+        subcell_topology: The subcell topology defining the finite volume subgrid.
 
     Returns:
-        pp.BoundarCondition/pp.BoundarConditionVectorial: An instance of the
+        pp.BoundaryCondition/pp.BoundaryConditionVectorial: An instance of the
             BoundaryCondition/BoundaryConditionVectorial class, where all face values of
             bound has been copied to the subfaces as defined by subcell_topology.
+
     """
     bound = bound.copy()
     bound.is_dir = np.atleast_2d(bound.is_dir)[:, subcell_topology.fno_unique].squeeze()

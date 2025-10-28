@@ -28,6 +28,7 @@ from porepy.applications.test_utils import reference_dense_arrays
 from porepy.applications.test_utils.partial_discretization import (
     perform_partial_discretization_specified_nodes,
 )
+from porepy.numerics.fv import _fvutils
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 keyword = "mechanics"
@@ -149,7 +150,7 @@ def test_partial_discretization_specified_nodes(cell_id: int, discretization_mat
         )
         # For partial update, only the active faces should be nonzero. Force these to
         # zero and check that the rest is zero.
-        pp._fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial)
+        _fvutils.remove_nonlocal_contribution(active_faces_nd, 1, partial)
         assert np.allclose(partial.data, 0)
 
 
@@ -197,7 +198,7 @@ def test_partial_discretization_one_cell_at_a_time():
             del_faces = pp.array_operations.expand_indices_nd(
                 np.where(faces_covered)[0], g.dim
             )
-            pp._fvutils.remove_nonlocal_contribution(
+            _fvutils.remove_nonlocal_contribution(
                 del_faces, 1, partial_stress, partial_bound
             )
 
@@ -572,7 +573,7 @@ class MpsaReconstructBoundaryDisplacement(TestUpdateMpsaDiscretization):
         grad_cell = matrix_dictionary[discr.bound_displacement_cell_matrix_key]
         grad_bound = matrix_dictionary[discr.bound_displacement_face_matrix_key]
 
-        hf2f = pp._fvutils.map_hf_2_f(sd=g)
+        hf2f = _fvutils.map_hf_2_f(sd=g)
         num_subfaces = hf2f.sum(axis=1).toarray().ravel()
         scaling = sps.dia_matrix(
             (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
@@ -710,15 +711,15 @@ class TestCreateBoundRhs:
         g.compute_geometry()
         g = true_2d(g)
 
-        st = pp._fvutils.SubcellTopology(g)
-        bc_sub = pp._fvutils.boundary_to_sub_boundary(bc, st)
-        be = pp._fvutils.ExcludeBoundaries(st, bc_sub, g.dim)
+        st = _fvutils.SubcellTopology(g)
+        bc_sub = _fvutils.boundary_to_sub_boundary(bc, st)
+        be = _fvutils.ExcludeBoundaries(st, bc_sub, g.dim)
 
         bound_rhs = pp.Mpsa("")._create_bound_rhs(bc_sub, be, st, g, True)
 
         bc.basis = basis
-        bc_sub = pp._fvutils.boundary_to_sub_boundary(bc, st)
-        be = pp._fvutils.ExcludeBoundaries(st, bc_sub, g.dim)
+        bc_sub = _fvutils.boundary_to_sub_boundary(bc, st)
+        be = _fvutils.ExcludeBoundaries(st, bc_sub, g.dim)
         bound_rhs_b = pp.Mpsa("")._create_bound_rhs(bc_sub, be, st, g, True)
 
         # rhs should not be affected by basis transform
@@ -1161,9 +1162,9 @@ class TestAsymmetricNeumann:
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         g, k = true_2d(g, k)
 
-        subcell_topology = pp._fvutils.SubcellTopology(g)
-        bc = pp._fvutils.boundary_to_sub_boundary(bc, subcell_topology)
-        bound_exclusion = pp._fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
+        subcell_topology = _fvutils.SubcellTopology(g)
+        bc = _fvutils.boundary_to_sub_boundary(bc, subcell_topology)
+        bound_exclusion = _fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
         _, igrad, _ = pp.Mpsa("")._create_inverse_gradient_matrix(
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
@@ -1184,9 +1185,9 @@ class TestAsymmetricNeumann:
 
         k = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
 
-        subcell_topology = pp._fvutils.SubcellTopology(g)
-        bc = pp._fvutils.boundary_to_sub_boundary(bc, subcell_topology)
-        bound_exclusion = pp._fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
+        subcell_topology = _fvutils.SubcellTopology(g)
+        bc = _fvutils.boundary_to_sub_boundary(bc, subcell_topology)
+        bound_exclusion = _fvutils.ExcludeBoundaries(subcell_topology, bc, g.dim)
 
         _, igrad, _ = pp.Mpsa("")._create_inverse_gradient_matrix(
             g, k, subcell_topology, bound_exclusion, 0, "python"
