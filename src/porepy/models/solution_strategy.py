@@ -900,6 +900,30 @@ class SolutionStrategy(pp.PorePyModel):
         """
         return []
 
+    def variable_norm(self, values: np.ndarray) -> float:
+        """Compute the Euclidean norm of a variable.
+
+        Parameters:
+            values: algebraic representation of a mixed-dimensional variable
+
+        Returns:
+            float: measure of values
+
+        """
+        return np.linalg.norm(values) / np.sqrt(values.size)
+
+    def residual_norm(self, values: np.ndarray) -> float:
+        """Compute the Euclidean norm of a residual.
+
+        Parameters:
+            values: algebraic representation of a mixed-dimensional residual
+
+        Returns:
+            float: measure of values
+
+        """
+        return np.linalg.norm(values) / np.sqrt(values.size)
+
 
 class ContactIndicators(pp.PorePyModel):
     """Class for computing contact indicators used for tailored line search.
