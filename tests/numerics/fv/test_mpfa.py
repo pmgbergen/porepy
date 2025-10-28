@@ -615,7 +615,7 @@ def test_partial_discretization_one_cell_at_a_time():
 
         if np.any(faces_covered):
             fi = np.where(faces_covered)[0]
-            pp.fvutils.remove_nonlocal_contribution(
+            pp._fvutils.remove_nonlocal_contribution(
                 fi, 1, partial_flux, partial_bound, partial_vector_source
             )
 
@@ -903,7 +903,7 @@ class TestMpfaPressureReconstructionMatrices:
 
         # The reconstruction function requires a "true 2d" grid without z-coordinates.
         g = self._make_true_2d(g)
-        sc_top = pp.fvutils.SubcellTopology(g)
+        sc_top = pp._fvutils.SubcellTopology(g)
         D_g, CC = pp.numerics.fv.mpfa.reconstruct_presssure(g, sc_top, eta=0)
 
         D_g_ref = self.reference_dense_arrays["test_cart_2d"]["D_g"]
@@ -918,7 +918,7 @@ class TestMpfaPressureReconstructionMatrices:
         g = pp.StructuredTriangleGrid([nx, ny], physdims=[1, 1])
         g.compute_geometry()
         g = self._make_true_2d(g)
-        sc_top = pp.fvutils.SubcellTopology(g)
+        sc_top = pp._fvutils.SubcellTopology(g)
 
         D_g, CC = pp.numerics.fv.mpfa.reconstruct_presssure(g, sc_top, eta=0)
 
@@ -931,7 +931,7 @@ class TestMpfaPressureReconstructionMatrices:
 
         g = pp.CartGrid([1, 1, 1], physdims=[2, 2, 2])
         g.compute_geometry()
-        sc_top = pp.fvutils.SubcellTopology(g)
+        sc_top = pp._fvutils.SubcellTopology(g)
 
         D_g, CC = pp.numerics.fv.mpfa.reconstruct_presssure(g, sc_top, eta=1)
         references = self.reference_dense_arrays["test_cart_3d"]
@@ -1010,14 +1010,14 @@ class TestMpfaPressureReconstructionMatrices:
         num_cells = 2 * np.ones(3, dtype=int)
         g = pp.StructuredTetrahedralGrid(num_cells, physdims=[1, 1, 1])
         g.compute_geometry()
-        s_t = pp.fvutils.SubcellTopology(g)
+        s_t = pp._fvutils.SubcellTopology(g)
 
         k = pp.SecondOrderTensor(10 * np.ones(g.num_cells))
 
         bc = pp.BoundaryCondition(g)
         bc.is_dir[g.get_all_boundary_faces()] = True
         bc.is_neu[bc.is_dir] = False
-        bc = pp.fvutils.boundary_to_sub_boundary(bc, s_t)
+        bc = pp._fvutils.boundary_to_sub_boundary(bc, s_t)
 
         p_b = np.sum(-g.face_centers, axis=0)
         p_b = p_b[s_t.fno_unique]
@@ -1028,7 +1028,7 @@ class TestMpfaPressureReconstructionMatrices:
 
         div = g.divergence(dim=1)
 
-        hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=g)
+        hf2f = pp._fvutils.map_hf_2_f(nd=1, sd=g)
         P = sps.linalg.spsolve(div * hf2f * flux, -div * hf2f * bound_flux * p_b)
 
         P_hf = p_t_cell * P + p_t_bound * p_b

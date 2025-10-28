@@ -89,13 +89,13 @@ class FVElliptic(Discretization):
 
         # Assemble matrix.
         if flux.shape[0] != sd.num_faces:
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
+            hf2f = pp._fvutils.map_hf_2_f(nd=1, sd=sd)
             flux = hf2f @ flux
         matrix = div @ flux
 
         # Assemble right-hand side.
         if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
-            hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
+            hf2f = pp._fvutils.map_hf_2_f(nd=1, sd=sd)
             bound_flux = hf2f @ bound_flux
 
         rhs = -div @ bound_flux @ parameter_dictionary["bc_values"]
