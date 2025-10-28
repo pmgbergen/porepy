@@ -39,6 +39,7 @@ import porepy as pp
 from . import compositional_flow as cf
 from .unified_local_equilibrium import Unified_ph_Equilibrium
 
+from line_profiler import profile
 logger = logging.getLogger(__name__)
 
 
@@ -1148,6 +1149,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         return_num_iter: Literal[True] = True,
     ) -> np.ndarray: ...
 
+    @profile
     def local_equilibrium(
         self,
         sd: pp.Grid,
