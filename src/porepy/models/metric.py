@@ -11,6 +11,8 @@ from typing import Callable
 
 
 class EuclideanMetric:
+    """Plain Euclidean norm for variables and residuals."""
+
     def _euclidean_norm(self, values: np.ndarray) -> float:
         """Compute the Euclidean norm of an array.
 
@@ -49,6 +51,11 @@ class EuclideanMetric:
 
 
 class MultiphysicsEuclideanMetric:
+    """Plain Euclidean norm for variables and residuals, computed per variable and
+    equation block.
+
+    """
+
     equation_system: pp.EquationSystem
 
     def _euclidean_norm(self, values: np.ndarray) -> float:
@@ -102,6 +109,11 @@ class MultiphysicsEuclideanMetric:
 
 
 class MultiphysicsLebesgueMetric:
+    """Lebesgue L2 norm for variables and residuals, computed per variable and
+    equation block.
+
+    """
+
     equation_system: pp.EquationSystem
     volume_integral: Callable[
         [pp.ad.Operator, list[pp.Grid] | list[pp.MortarGrid], int], pp.ad.Operator
@@ -173,7 +185,6 @@ class MultiphysicsLebesgueMetric:
         # NOTE: Mathematically, this does not make much sense. The equations are already
         # integrated over cells. Thus a combination of np.linalg.norm(..., ord=1)
         # and np.linalg.norm(..., ord=2) over the values would suffice.
-        # For reference, see self._residual_norm(values) in this file.
         norms = {}
         equation_blocks = {
             name: (
