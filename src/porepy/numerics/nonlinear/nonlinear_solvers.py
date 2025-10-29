@@ -219,7 +219,12 @@ class NewtonSolver:
         )
 
         # Overwrite convergence status if maximum iterations have been reached.
-        if model.nonlinear_solver_statistics.num_iteration >= self.tol.max_iterations:
+        # NOTE: Iteration counter is 0 for the first iteration etc. Thus, we add -1.
+        if (
+            model.nonlinear_solver_statistics.num_iteration
+            >= self.tol.max_iterations - 1
+            and not status.is_converged()
+        ):
             status = ConvergenceStatus.MAX_ITERATIONS_REACHED
 
         return status, info
