@@ -55,6 +55,8 @@ from porepy.examples.flow_benchmark_3d_case_3 import Geometry as Case3dGeo
 from porepy.examples.flow_benchmark_3d_case_3 import Permeability as Case3dPermeability
 from porepy.models.poromechanics import Poromechanics
 
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
+
 
 # Ignore type errors inherent to the ``Poromechanics`` class.
 class Case1Poromech2D(  # type: ignore[misc]
@@ -237,10 +239,13 @@ def run_model_with_tracer(args, model) -> None:
         model,
         {
             "prepare_simulation": False,
-            "nl_divergence_tol": 1e8,
-            "max_iterations": 25,
-            "nl_convergence_tol": 1e-2,
-            "nl_convergence_tol_res": 1e-2,
+            "nl_convergence_tol": ConvergenceTolerance(
+                tol_increment=1e-2,
+                tol_residual=1e-2,
+                max_increment=1e8,
+                max_residual=1e8,
+                max_iterations=25,
+            ),
         },
     )
     tracer.stop()
