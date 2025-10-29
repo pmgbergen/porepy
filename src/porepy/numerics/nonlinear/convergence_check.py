@@ -341,6 +341,11 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         )
         self._check_dicts(residual_norm, self.reference_residual_norm)
 
+        # Check nan.
+        is_nan = any(np.isnan(res_norm) for res_norm in residual_norm.values()) or any(
+            np.isnan(inc_norm) for inc_norm in nonlinear_increment_norm.values()
+        )
+
         # Check divergence.
         is_diverged = any(
             res_norm > tol.max_residual for res_norm in residual_norm.values()
@@ -367,7 +372,9 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 
         # Determine convergence status.
         convergence_status = ConvergenceStatus.NOT_CONVERGED
-        if is_diverged:
+        if is_nan:
+            convergence_status = ConvergenceStatus.NAN
+        elif is_diverged:
             convergence_status = ConvergenceStatus.DIVERGED
         elif is_converged:
             convergence_status = ConvergenceStatus.CONVERGED
