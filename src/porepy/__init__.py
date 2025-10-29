@@ -123,7 +123,6 @@ from porepy.fracs.wells_3d import (
 # Numerics
 
 # Control volume, elliptic
-from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
