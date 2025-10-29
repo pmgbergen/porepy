@@ -411,8 +411,17 @@ def Z(
 
     extension_case = is_extended_root(A, B, gaslike, eps)
 
+    # Extended super-critical liquid-like root must not fall below this value.
     B_thresh = 1.1 * B
+    # Extended super-critical liquid-like root is smoothed once it falls below this
+    # value.
     B_thresh_smoothing = 2.0 * B
+
+    # Extended roots in the area B > Bcrit and A > Acrit are smoothed once they reach
+    # the stripe (1 +- threshold) * Z. They are smoothed towards Z, mainly to counter
+    # the exploding derivatives. Derivatives of W and Z have derivatives of opposite
+    # end we counter the divergence with this.
+    Zsc_thresh_factor = 0.2
 
     match extension_case:
         # No root is extended.
@@ -424,14 +433,30 @@ def Z(
                 _smooth_3root_region(roots, smooth3, gaslike, roots)
         # Root extension in the subcritical 1-root area. Note that in both cases, the
         # real root calculations contains only 1 value.
-        # We also use the same procedure in the supercritical area where gas is extended
+        case 1 | 2:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 1-2."
+            roots[0] = W_sub(roots[0], B)
+        # We use the same procedure in the supercritical area where gas is extended
         # since Wsub is greater there than the real root, hence the extension is fine.
+        # But we introduce some additional smoothing when the extended root approaches
+        # the line where Wsub = Z. We do this mainly for the sake of derivatives.
         # NOTE The super-critical extension is rudimentary. Especially the border
         # demarking transion from gas-like to liquid-like requires work. Technically it
         # does not exist, but there must be one in the unified case.
-        case 1 | 2 | 3:
-            assert roots.size == 1, "Expecting only 1 real root in extension cases 1-3."
-            roots[0] = W_sub(roots[0], B)
+        case 3:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 3."
+            W = W_sub(roots[0], B)
+            Z = roots[0]
+            assert W >= Z, "Expecting W >= Z in extension case 3."
+
+            Z_thresh = (1 + Zsc_thresh_factor) * Z
+            # If it approaches the real root, smooth the values.
+            if W <= Z_thresh:
+                out = np.array([W, Z])
+                _smooth_scl_transition(Z, W, Z_thresh, out)
+                W = out[0]
+
+            roots[0] = W
         # Liquid-like root extension in the super-critical 1-root area
         # The idea is to use Wsub as usual, but correct it with B multiplied with some
         # threshold >1 where it becomes too small. The derivatives must go to zero in
@@ -440,6 +465,9 @@ def Z(
             assert roots.size == 1, "Expecting only 1 real root in extension cases 4."
             Z = roots[-1]
             W = W_sub(Z, B)
+            assert W <= Z, "Expecting W <= Z in extension case 4."
+
+            Z_thresh = (1 - Zsc_thresh_factor) * Z
 
             # If it is smaller than the threshold, we just take the threshold
             if W <= B_thresh:
@@ -448,6 +476,11 @@ def Z(
             elif B_thresh < W <= B_thresh_smoothing:
                 out = np.array([W, B_thresh])
                 _smooth_scl_transition(B_thresh, W, B_thresh_smoothing, out)
+                W = out[0]
+            # If it approaches the transition to becoming the real root, smooth it.
+            elif W >= Z_thresh:
+                out = np.array([W, Z])
+                _smooth_scl_transition(-Z, -W, -Z_thresh, out)
                 W = out[0]
 
             roots[0] = W
@@ -504,6 +537,9 @@ def dZ_dAB(
 
     """
 
+    # NOTE for more information on individual steps, see Z(), as the computations are
+    # analogous.
+
     c = c_from_AB(A, B)
     # Derivatives of coefficients w.r.t. A and B.
     dc_dAB = dc_from_AB(A, B)
@@ -519,23 +555,46 @@ def dZ_dAB(
 
     B_thresh = 1.1 * B
     B_thresh_smoothing = 2.0 * B
+    Zsc_thresh_factor = 0.2
+
     # NOTE At and below the threshold hold it wolds W = a*B, so we make a linear
     # extension dW = (0, a). The Taylor expansion might lose some order
     # (and consequently Newton-based flash algorithms), but only in this rather weird
     # super-critical region where the EoS has limited validity.
     dW_thresh = np.array([0.0, -1.1])
 
-    # For more information on the cases, see inline documentation of Z()
     match extension_case:
         case 0:
             if roots.size == 3 and smooth3 > 0.0:
                 _smooth_3root_region(roots, smooth3, gaslike, droots)
-        case 1 | 2 | 3:
-            assert roots.size == 1, "Expecting only 1 real root in extension cases 1-3."
+        case 1 | 2:
+            assert roots.size == 1, "Expecting only 1 real root in extension cases 1-2."
             assert droots.shape == (1, 2), (
-                "Expecting shape (1, 2) of root derivatives in extension cases 1-3."
+                "Expecting shape (1, 2) of root derivatives in extension cases 1-2."
             )
             droots[0] = dW_sub(droots[0])
+        case 3:
+            assert roots.size == 1, "Expecting only 1 real root in extension case 3."
+            assert droots.shape == (1, 2), (
+                "Expecting shape (1, 2) of root derivatives in extension case 3."
+            )
+            Z = roots[0]
+            W = W_sub(Z, B)
+            dZ = droots[0]
+            dW = dW_sub(dZ)
+
+            Z_thresh = (1 + Zsc_thresh_factor) * Z
+            # If it approaches the real root, smooth the values.
+            if W <= Z_thresh:
+                # NOTE: numba has issues with array([vec, vec]), list of arrays
+                # in constructor.
+                out = np.zeros((2, 2))
+                out[0] = dW
+                out[1] = dZ
+                _smooth_scl_transition(Z, W, Z_thresh, out)
+                dW = out[0]
+
+            droots[0] = dW
         case 4:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 4."
             assert droots.shape == (1, 2), (
@@ -543,7 +602,10 @@ def dZ_dAB(
             )
             Z = roots[-1]
             W = W_sub(Z, B)
-            dW = dW_sub(droots[-1])
+            dZ = droots[-1]
+            dW = dW_sub(dZ)
+
+            Z_thresh = (1 - Zsc_thresh_factor) * Z
 
             if W <= B_thresh:
                 dW = dW_thresh
@@ -552,6 +614,12 @@ def dZ_dAB(
                 out[0] = dW
                 out[1] = dW_thresh
                 _smooth_scl_transition(B_thresh, W, B_thresh_smoothing, out)
+                dW = out[0]
+            elif W >= Z_thresh:
+                out = np.zeros((2, 2))
+                out[0] = dW
+                out[1] = dZ
+                _smooth_scl_transition(-Z, -W, -Z_thresh, out)
                 dW = out[0]
 
             droots[0] = dW
