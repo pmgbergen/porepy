@@ -174,7 +174,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.set_nonlinear_discretizations()
 
         # Export initial condition (only if time-dependent)
-        if not self._is_time_dependent():
+        if self._is_time_dependent():
             self.save_data_time_step()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
