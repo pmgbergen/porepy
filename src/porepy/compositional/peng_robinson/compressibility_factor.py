@@ -523,7 +523,7 @@ def dZ_dAB(
     # extension dW = (0, a). The Taylor expansion might lose some order
     # (and consequently Newton-based flash algorithms), but only in this rather weird
     # super-critical region where the EoS has limited validity.
-    dW_thresh = np.array([0., 1.1])
+    dW_thresh = np.array([0.0, -1.1])
 
     # For more information on the cases, see inline documentation of Z()
     match extension_case:
