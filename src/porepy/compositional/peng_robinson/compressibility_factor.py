@@ -519,12 +519,11 @@ def dZ_dAB(
 
     B_thresh = 1.1 * B
     B_thresh_smoothing = 2.0 * B
-    # NOTE Order loss due to inexact approximation, since we set the derivatives
-    # of the extended root which falls below the threshold to zero.
-    # To be exact, we have to obtain the parametrization B(..) of the line Wsub = B
-    # and use those derivatives in the capping to obtain a linear extension beyond.
-    # Just look at cubic_polynomial.one_root to see why that is rather unfeasible...
-    dW_thresh = np.zeros(2)
+    # NOTE At and below the threshold hold it wolds W = a*B, so we make a linear
+    # extension dW = (0, a). The Taylor expansion might lose some order
+    # (and consequently Newton-based flash algorithms), but only in this rather weird
+    # super-critical region where the EoS has limited validity.
+    dW_thresh = np.array([0., 1.1])
 
     # For more information on the cases, see inline documentation of Z()
     match extension_case:
