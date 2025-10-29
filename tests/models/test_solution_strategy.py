@@ -278,7 +278,7 @@ def test_targeted_rediscretization(model_class):
         "nl_convergence_tol": ConvergenceTolerance(
             tol_increment=0,
             tol_residual=0,
-            max_iterations=1,
+            max_iterations=2,
         ),
     }
     # Finalize the model class by adding the rediscretization mixin.
