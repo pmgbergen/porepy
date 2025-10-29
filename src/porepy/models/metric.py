@@ -151,6 +151,7 @@ class MultiphysicsLebesgueMetric:
         assert len(grids) == 0 or len(mortar_grids) == 0, (
             "Mixing grids and mortar grids not supported yet."
         )
+        _subdomains = grids if len(grids) > 0 else mortar_grids
 
         l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
         return np.sqrt(
@@ -158,7 +159,7 @@ class MultiphysicsLebesgueMetric:
                 self.equation_system.evaluate(
                     self.volume_integral(
                         l2_norm(values) * l2_norm(values),
-                        grids if len(grids) > 0 else mortar_grids,
+                        _subdomains,
                         1,
                     )
                 )
