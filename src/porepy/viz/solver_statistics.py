@@ -8,12 +8,27 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Type
 
+import numpy as np
+
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfo,
     ConvergenceStatus,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles numpy data types."""
+
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
 
 
 @dataclass
@@ -205,7 +220,7 @@ class SolverStatistics:
 
             # Save to file
             with self.path.open("w") as file:
-                json.dump(data, file, indent=4)
+                json.dump(data, file, indent=4, cls=NumpyJSONEncoder)
 
 
 @dataclass
