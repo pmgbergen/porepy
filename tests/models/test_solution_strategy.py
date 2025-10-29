@@ -39,7 +39,11 @@ from porepy.applications.md_grids.mdg_library import (
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceTolerance,
+    ConvergenceStatus,
+    AbsoluteConvergenceCriterion,
+)
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
@@ -207,7 +211,7 @@ class RediscretizationTest(pp.PorePyModel):
     """
 
     def check_convergence(self, *args, **kwargs):
-        if self.nonlinear_solver_statistics.num_iteration > 1:
+        if self.nonlinear_solver_statistics.num_iteration > 0:
             return True, False
         else:
             # Call to super is okay here, since the full model used in the tests is
@@ -420,15 +424,15 @@ def check_convergence_test_model() -> CheckConvergenceTest:
     "nonlinear_increment,residual,expected",
     [
         # Case 1: Both increment and residual are below tolerance.
-        (np.array([1e-6, 1e-6]), np.array([1e-6]), (True, False)),
+        (np.array([1e-6, 1e-6]), np.array([1e-6]), ConvergenceStatus.CONVERGED),
         # Case 2: Increment is above tolerance.
-        (np.array([1e-6, 1]), np.array([1e-6]), (False, False)),
+        (np.array([1e-6, 1]), np.array([1e-6]), ConvergenceStatus.NOT_CONVERGED),
         # Case 3: Residual is above tolerance.
-        (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
+        (np.array([1e-6, 1e-6]), np.array([1]), ConvergenceStatus.NOT_CONVERGED),
         # Case 4: Increment is nan.
-        (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+        (np.array([np.nan, 0.1]), np.array([1e-6]), ConvergenceStatus.NAN),
         # Case 5: Residual is above divergence tolerance.
-        (np.array([1e-6, 1e-6]), np.array([2e4]), (False, True)),
+        (np.array([1e-6, 1e-6]), np.array([2e4]), ConvergenceStatus.DIVERGED),
     ],
 )
 def test_check_convergence(
@@ -451,10 +455,18 @@ def test_check_convergence(
             max_residual=1e4,
         )
     }
-    converged, diverged = check_convergence_test_model.check_convergence(
-        nonlinear_increment, residual, nl_params
+    # Standard setup of a convergence absolute convergence criterion - typically
+    # orchestrated by a nonlinear solver.
+    convergence_criterion = AbsoluteConvergenceCriterion()
+    convergence_criterion.set_reference_value(0.0, 0.0)
+    # Compute norms - typically done inside the nonlinear solver.
+    increment_norm = check_convergence_test_model.variable_norm(nonlinear_increment)
+    residual_norm = check_convergence_test_model.equation_norm(residual)
+    # Check convergence.
+    status, _ = convergence_criterion.check(
+        increment_norm, residual_norm, nl_params["nl_convergence_tol"]
     )
-    assert (converged, diverged) == expected
+    assert status == expected
 
 
 @pytest.mark.parametrize(
