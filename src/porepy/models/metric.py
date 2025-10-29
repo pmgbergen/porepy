@@ -251,6 +251,6 @@ class MultiphysicsLebesgueMetric:
             intensive_residual_values = pp.ad.DenseArray(
                 np.linalg.norm(residual_values, ord=2, axis=0) / cell_weights
             )
-            norms[name] = self._lebesgue2_norm(intensive_residual_values, eq_dim, sd)
+            norms[name] = self._lebesgue2_norm(intensive_residual_values, 1, sd)
 
         return norms
