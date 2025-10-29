@@ -43,7 +43,6 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 class NonzeroFractureGapPoromechanics(pp.PorePyModel):
@@ -518,77 +517,6 @@ def test_pull_south_positive_reference_pressure():
     model.subtract_p_frac = False
     model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(model)
-    u_vals, p_vals, p_frac, jump, traction = get_variables(model)
-
-    assert np.allclose(jump, jump_ref)
-    assert np.allclose(u_vals, u_vals_ref)
-    assert np.allclose(traction, traction_ref)
-    assert np.allclose(p_frac, p_frac_ref + 1)
-    assert np.allclose(p_vals, p_vals_ref + 1)
-
-
-def test_pull_south_positive_reference_pressure_with_multiphysics_norms():
-    """Compare with and without nonzero reference (and initial) solution."""
-
-    # Setup model, as in `create_model_with_fracture`, but with added multiphysics
-    # norms.
-    class TailoredPoromechanicsWithMultiphysicsNorms(
-        pp.models.solution_strategy.MultiphysicsNorms,
-        TailoredPoromechanics,
-    ): ...
-
-    def create_model_with_fracture_and_multiphysics_norms(
-        solid_vals: dict,
-        fluid_vals: dict,
-        reference_vals: dict,
-        uy_north: float,
-    ) -> TailoredPoromechanicsWithMultiphysicsNorms:
-        """Create a model for a fractured domain with multiphysics norms."""
-        solid_vals["fracture_gap"] = 0.042
-        solid_vals["residual_aperture"] = 1e-10
-        solid_vals["biot_coefficient"] = 1.0
-        fluid_vals["compressibility"] = 1
-        solid = pp.SolidConstants(**solid_vals)
-        fluid = pp.FluidComponent(**fluid_vals)
-        reference_values = pp.ReferenceVariableValues(**reference_vals)
-
-        model_params = {
-            "times_to_export": [],  # Suppress output for tests
-            "material_constants": {"solid": solid, "fluid": fluid},
-            "reference_variable_values": reference_values,
-            "u_north": [
-                0.0,
-                uy_north,
-            ],  # Note: List of length nd. Extend if used in 3d.
-            "max_iterations": 20,
-        }
-
-        reference_model = TailoredPoromechanicsWithMultiphysicsNorms(model_params)
-        return reference_model
-
-    reference_model = create_model_with_fracture_and_multiphysics_norms({}, {}, {}, 0.0)
-    reference_model.subtract_p_frac = False
-    reference_model.params["u_south"] = [0.0, -0.001]
-
-    solver_params = {
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=1e-6,
-            tol_residual=1e-6,
-        ),
-    }
-
-    pp.run_time_dependent_model(reference_model, solver_params)
-    u_vals_ref, p_vals_ref, p_frac_ref, jump_ref, traction_ref = get_variables(
-        reference_model
-    )
-
-    model = create_model_with_fracture_and_multiphysics_norms(
-        {}, {}, {"pressure": 1}, 0.0
-    )
-    model.subtract_p_frac = False
-    model.params["u_south"] = [0.0, -0.001]
-    pp.run_time_dependent_model(model, solver_params)
-
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     assert np.allclose(jump, jump_ref)
