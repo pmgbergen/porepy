@@ -132,7 +132,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         # is consistent with the relative residual criterion used in check_convergence
         # in :class:`~porepy.models.solution_strategy.SolutionStrategy`.
         relative_residual = f_1 / np.linalg.norm(dx.size)
-        if relative_residual < self.params["nl_convergence_tol_res"]:
+        if relative_residual < self.tol.tol_residual:
             # The objective function is sufficiently small at the full nonlinear step.
             # This means that the nonlinear step is a minimum of the objective function.
             # We can use the update without any relaxation.
