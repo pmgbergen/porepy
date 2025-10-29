@@ -5,11 +5,10 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
 import scipy.sparse as sps
-from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
 import porepy as pp
@@ -1263,9 +1262,11 @@ class EquationSystem:
 
         """
         if grids is None:
-            grids = list(  # type: ignore
-                self._equation_image_space_composition[equation_name].keys()
+            grids = cast(
+                list[pp.Grid] | list[pp.MortarGrid],
+                list(self._equation_image_space_composition[equation_name].keys()),
             )
+
         if equations_per_grid_entity is None:
             equations_per_grid_entity = self._equation_image_size_info[equation_name]
 
@@ -1273,9 +1274,9 @@ class EquationSystem:
         new_equation.set_name(equation_name)
         self.set_equation(
             equation=new_equation,
-            grids=grids,  # type: ignore
+            grids=grids,
             equations_per_grid_entity=equations_per_grid_entity,
-        )  # type: ignore
+        )
 
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
