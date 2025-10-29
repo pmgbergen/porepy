@@ -85,18 +85,14 @@ class TriangleGrid(Grid):
 
         # Uniquify the face-nodes (match the faces on two neighboring cells). Sort of
         # each row, so that faces with the same nodes but different orientation are
-        # recognized as the same face. We cannot use the result from np.unique directly,
-        # since the sorted face-nodes will have a different ordering than the original.
-        # Hence, get a mapping to the unique faces and construct the face-node relation
-        # using this mapping. Also return the mapping back to the original ordering,
-        # this will give us the cell-face relation.
-        _, face_node_mapping, cell_face_mapping = np.unique(
+        # recognized as the same face. Each face is recognized by its nodes from low to
+        # high node index. Also return the mapping back to the original ordering, this
+        # will give us the cell-face relation.
+        face_nodes, cell_face_mapping = np.unique(
             np.sort(cell_wise_face_nodes, axis=1),
             axis=0,
-            return_index=True,
             return_inverse=True,
         )
-        face_nodes = cell_wise_face_nodes[face_node_mapping]
 
         # Check that the orientation of the faces is consistent, in that the neighboring
         # cells of each face have different signs in the cell-face relation. If not,

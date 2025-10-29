@@ -15,7 +15,7 @@ from porepy.applications.md_grids.mdg_library import (
     cube_with_orthogonal_fractures,
     square_with_orthogonal_fractures,
 )
-from porepy.applications.test_utils.arrays import compare_matrices
+from porepy.applications.test_utils.arrays import compare_arrays, compare_matrices
 
 # ------------------ Test zero_columns -----------------------
 
@@ -953,3 +953,14 @@ def test_invert_permuted_block_diag_mat_on_mdg(mdg: pp.MixedDimensionalGrid):
     # Verify that A_ss * inv_A_ss is the identity matrix.
     approx_identity = A_ss.dot(inv_A_ss).toarray()
     assert np.allclose(approx_identity, np.eye(A_ss.shape[0]))
+
+
+def test_diagonal_scaling_matrix():
+    # Generate a matrix with a known row sum, check that the target function returns the
+    # correct diagonal.
+    A = np.array([[1, 2, 3], [0, -5, 6], [-7, 8, 0]])
+    A_sum = np.array([6, 11, 15])
+    values = 1 / A_sum
+
+    D = pp.matrix_operations.diagonal_scaling_matrix(sps.csr_matrix(A))
+    assert compare_arrays(values, D.diagonal())
