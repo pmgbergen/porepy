@@ -3,12 +3,12 @@ dependent on coefficients and their derivatives."""
 
 from __future__ import annotations
 
-import os
 from typing import Callable
 
 import numpy as np
 import pytest
 
+# import os
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from porepy.compositional.peng_robinson.compressibility_factor import (
@@ -133,7 +133,7 @@ def assert_order_at_least(
 
     """
     if np.any(orders < 0):
-        raise ValueError("Estimated orders contain negative values.")
+        raise ValueError("Negative orders: method DIVERGENT.")
     if np.any(np.isnan(orders)):
         raise ValueError("Estimated orders contain NAN values")
 

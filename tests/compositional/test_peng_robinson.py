@@ -79,45 +79,6 @@ def flash(mixture) -> cflash.CompiledUnifiedFlash:
     return flash_
 
 
-def test_compressibility_factor_double_root():
-    """The only, easily computable double root is ``A=B=0``.
-    (Other double roots are given by vapor- and liquid-saturated lines, which cannot
-    be obtained trivially).
-
-    Testing the formula and the general compuation.
-
-    """
-
-    tol = 1e-12
-
-    A = 0.0
-    B = 0.0
-
-    # If A and B are zero, this should give the double root case
-    root_case = pr.eos._get_root_case(A, B, tol)
-    assert root_case == 2
-
-    # liquid-like and gas-like root in the double root case should both solve the
-    # polynomial exactly
-    z_liq = pr.eos.Z_double_l(A, B)
-    z_gas = pr.eos.Z_double_g(A, B)
-    d_z_liq = pr.eos.dZ_double_l(A, B)
-    d_z_gas = pr.eos.dZ_double_g(A, B)
-    assert np.abs(pr.characteristic_residual(z_gas, A, B)) < tol
-    assert np.abs(pr.characteristic_residual(z_liq, A, B)) < tol
-
-    # The general calculation of the compressibility factor should give the
-    # same result as the formulas
-    gastype = pp.compositional.PhysicalState.gas.value
-    liquidtype = pp.compositional.PhysicalState.liquid.value
-    assert np.abs(pr.eos._Z_from_AB(A, B, gastype, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(pr.eos._Z_from_AB(A, B, liquidtype, tol, 0.0, 0.0) - z_liq) < tol
-    assert np.linalg.norm(pr.eos._dZ_dAB(A, B, gastype, tol, 0.0, 0.0) - d_z_gas) < tol
-    assert (
-        np.linalg.norm(pr.eos._dZ_dAB(A, B, liquidtype, tol, 0.0, 0.0) - d_z_liq) < tol
-    )
-
-
 @pytest.mark.skipped
 @pytest.mark.parametrize(
     ["flash_type", "X0", "var_idx_delta"],
