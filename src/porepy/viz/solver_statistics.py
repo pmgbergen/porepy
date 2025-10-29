@@ -6,7 +6,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfo,
@@ -36,6 +36,10 @@ class SolverStatistics:
     """Number of cells in each dimension."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
+
+    def __replace__(self, **kwargs) -> "SolverStatistics":
+        """Create a new instance with updated fields."""
+        return type(self)(**{**self.__dict__, **kwargs})
 
     def log_mesh_information(self, subdomains: list, **kwargs) -> None:
         """Collect mesh information.
@@ -239,6 +243,10 @@ class NonlinearSolverStatistics(SolverStatistics):
     global_num_iteration: list[int] = field(default_factory=list)
     """List of number of iterations for entire run."""
 
+    def __replace__(self, **kwargs) -> "NonlinearSolverStatistics":
+        """Create a new instance with updated fields."""
+        return type(self)(**{**self.__dict__, **kwargs})
+
     def advance_iteration(self) -> None:
         """Advance the iteration count by one."""
         self.num_iteration += 1
@@ -319,6 +327,10 @@ class TimeStatistics(SolverStatistics):
     final_time_reached: bool = field(default=False)
     """Whether the final time has been reached."""
 
+    def __replace__(self, **kwargs) -> "TimeStatistics":
+        """Create a new instance with updated fields."""
+        return type(self)(**{**self.__dict__, **kwargs})
+
     def log_time_information(
         self,
         time_index: int,
@@ -371,11 +383,22 @@ class NonlinearSolverAndTimeStatistics(NonlinearSolverStatistics, TimeStatistics
 
     """
 
-    ...
+    def __replace__(self, **kwargs) -> "NonlinearSolverAndTimeStatistics":
+        """Create a new instance with updated fields."""
+        return type(self)(**{**self.__dict__, **kwargs})
+
+
+# Collect all statistics types for type hinting.
+StatisticsType = (
+    Type[SolverStatistics]
+    | Type[NonlinearSolverStatistics]
+    | Type[TimeStatistics]
+    | Type[NonlinearSolverAndTimeStatistics]
+)
 
 
 # Create a map from (nonlinear, time_dependent) to the appropriate statistics class.
-_statistics_map = {
+_statistics_map: dict[tuple[bool, bool], StatisticsType] = {
     (True, True): NonlinearSolverAndTimeStatistics,
     (True, False): NonlinearSolverStatistics,
     (False, True): TimeStatistics,
@@ -387,5 +410,5 @@ class SolverStatisticsFactory:
     """Factory class to create appropriate SolverStatistics subclasses."""
 
     @staticmethod
-    def create_statistics_type(nonlinear: bool, time_dependent: bool) -> type:
+    def create_statistics_type(nonlinear: bool, time_dependent: bool) -> StatisticsType:
         return _statistics_map[(nonlinear, time_dependent)]
