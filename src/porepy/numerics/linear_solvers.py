@@ -59,7 +59,7 @@ class LinearSolver:
         residual = model.equation_system.assemble(evaluate_jacobian=False)
         nonlinear_increment = model.solve_linear_system()
 
-        status, _ = self.check_convergence(nonlinear_increment, residual)
+        status, info = self.check_convergence(nonlinear_increment, residual)
 
         if status.is_converged():
             # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
@@ -72,8 +72,11 @@ class LinearSolver:
             # case for ContactMechanics and possibly others). Thus, we first call
             # after_nonlinear_iteration(), and then after_nonlinear_convergence()
             model.after_nonlinear_iteration(nonlinear_increment)
+            self.update_solver_statistics(model, status, info)
             model.after_nonlinear_convergence()
         else:
+            model.after_nonlinear_iteration(nonlinear_increment)
+            self.update_solver_statistics(model, status, info)
             model.after_nonlinear_failure()
         return status
 
@@ -85,3 +88,30 @@ class LinearSolver:
             return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
         else:
             return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
+
+    def update_solver_statistics(
+        self,
+        model,
+        status: ConvergenceStatus,
+        info: ConvergenceInfo,
+    ) -> None:
+        """Update the solver statistics in the model.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+            status (ConvergenceStatus): Convergence status of the solver.
+            info (dict): Dictionary containing norms and other information.
+
+        """
+        # Convergence-related information.
+        model.nonlinear_solver_statistics.log_convergence_status(status)
+
+        # Basic discretization-related information.
+        model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
+        if model._is_time_dependent():
+            model.nonlinear_solver_statistics.log_time_information(
+                model.time_manager.time_index,
+                model.time_manager.time,
+                model.time_manager.dt,
+                model.time_manager.final_time_reached(),
+            )
