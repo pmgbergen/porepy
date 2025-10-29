@@ -373,7 +373,7 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
     nb.f8(nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
-def Z(
+def get_compressibility_factor(
     A: float,
     B: float,
     gaslike: bool,
@@ -501,6 +501,16 @@ def Z(
             # Should never happen.
             raise NotImplementedError(f"Uncovered extension case encountered.")
 
+    # Sanity check: This order must always hold, otherwise we are in an uncovered case.
+    if roots[0] > roots[-1]:
+        raise NotImplementedError(
+            f"Encountered an A-B pair violating Zl <= Zg:\n\tA = {A}\n\tB = {B}\n"
+        )
+    if not gaslike and roots[0] <= B:
+        raise NotImplementedError(
+            f"Encountered A-B pair violating B < Zl:\n\tA = {A}\n\tB = {B}\n"
+        )
+
     # Since ordered by size, gaslike is largest root and liquidlike is smallest.
     if gaslike:
         return roots[-1]
@@ -512,7 +522,7 @@ def Z(
     nb.f8[:](nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
     **_COMPILE_KWARGS,
 )
-def dZ_dAB(
+def get_compressibility_factor_derivatives(
     A: float,
     B: float,
     gaslike: bool,

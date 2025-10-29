@@ -6,15 +6,16 @@ from __future__ import annotations
 import os
 from typing import Callable
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import numpy as np
 import pytest
+
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
     B_CRIT,
     Z_CRIT,
+    c_from_AB,
 )
 from porepy.compositional.peng_robinson.cubic_polynomial import (
     calculate_root_derivatives,
@@ -121,32 +122,39 @@ def get_EOC_taylor(
 
 
 def assert_order_at_least(
-    orders: np.ndarray, expected_order: float, tol: float = 0.1
+    orders: np.ndarray, expected_order: float, tol: float = 0.1, err_msg: str = ""
 ) -> None:
     """Asserts that the average of the estimated orders are at least the expected order
     minus a tolerance.
 
+    If orders are negative or nan, an error is raised.
+    Order values of + infinity are treated as an exact approximation and treated as the
+    expected order.
+
     """
     if np.any(orders < 0):
         raise ValueError("Estimated orders contain negative values.")
+    if np.any(np.isnan(orders)):
+        raise ValueError("Estimated orders contain NAN values")
+
     # If order all inf, we have an exact approximation.
     if not np.all(np.isinf(orders)):
-        order_avg = np.mean(orders[np.isfinite(orders)])
+        # Treat infinities as expected order
+        orders[np.isinf(orders)] = expected_order
+        order_avg = np.mean(orders)
         assert np.all(order_avg >= expected_order - tol), (
             f"Expected all orders to be at least {expected_order - tol}, "
-            f"but got {order_avg}"
+            f"but got {order_avg}: {err_msg}"
         )
 
 
-def _get_peng_robinson_coeffs(A: float, B: float) -> np.ndarray:
-    """Computes the Peng-Robinson cubic polynomial coefficients from A and B."""
-    return np.array(
-        [
-            B - 1,
-            A - 2.0 * B - 3.0 * B**2,
-            B**3 + B**2 - A * B,
-        ]
-    )
+def get_polynomial_residual(r: float, c2: float, c1: float, c0: float) -> float:
+    """Computes the residual of a normalized cubic polynomial.
+
+    If ``r`` is indeed a root, than ``r**3 + c2*r**2 + c1*r + c0`` is zero.
+
+    """
+    return np.abs(r**3 + c2 * r**2 + c1 * r + c0)
 
 
 def _get_random_coeffs_for_two_root_case() -> np.ndarray:
@@ -252,8 +260,9 @@ def test_known_root_case_calculations(
     # Test computed root.
     np.testing.assert_allclose(vals, solution, atol=tol, rtol=0.0)
 
-    # Simple test that it is indeed a rood.
-    residual = vals**3 + c2 * vals**2 + c1 * vals + c0
+    # Test that it is indeed a rood.
+    # residual = vals**3 + c2 * vals**2 + c1 * vals + c0
+    residual = get_polynomial_residual(vals, c2, c1, c0)
     np.testing.assert_allclose(residual, 0.0, atol=tol, rtol=0.0)
 
     # Test that the call to the general function returns the same result.
@@ -286,8 +295,8 @@ def test_triple_root_derivatives() -> None:
 @pytest.mark.parametrize(
     "x0",
     [
-        _get_peng_robinson_coeffs(A_CRIT, B_CRIT),
-        _get_peng_robinson_coeffs(0.0, 0.0),
+        c_from_AB(A_CRIT, B_CRIT),
+        c_from_AB(0.0, 0.0),
     ],
 )
 def test_single_double_root_derivatives_around_triple_point(
@@ -307,14 +316,14 @@ def test_single_double_root_derivatives_around_triple_point(
 @pytest.mark.parametrize(
     ["func", "dfunc", "x0"],
     [
-        (one_root, d_one_root, _get_peng_robinson_coeffs(0.7, 0.05)),
-        (one_root, d_one_root, _get_peng_robinson_coeffs(0.2, 0.05)),
+        (one_root, d_one_root, c_from_AB(0.7, 0.05)),
+        (one_root, d_one_root, c_from_AB(0.2, 0.05)),
         # The two root functions should be defined everywhere where the first reduced
         # coefficients is not zero, i.e. c_1 != c_2**2 / 3.
         (two_roots, d_two_roots, _get_random_coeffs_for_two_root_case()),
         (two_roots, d_two_roots, _get_random_coeffs_for_two_root_case()),
-        (three_roots, d_three_roots, _get_peng_robinson_coeffs(0.2, 0.015)),
-        (three_roots, d_three_roots, _get_peng_robinson_coeffs(0.0, 0.1)),
+        (three_roots, d_three_roots, c_from_AB(0.2, 0.015)),
+        (three_roots, d_three_roots, c_from_AB(0.0, 0.1)),
     ],
 )
 @pytest.mark.parametrize(
