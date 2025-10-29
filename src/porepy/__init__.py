@@ -70,17 +70,9 @@ from porepy.geometry import (
 from porepy.geometry.domain import Domain
 
 # Parameters
-from porepy.params.bc import (
-    BoundaryCondition,
-    BoundaryConditionVectorial,
-    face_on_side,
-)
+from porepy.params.bc import BoundaryCondition, BoundaryConditionVectorial, face_on_side
 from porepy.params.tensor import SecondOrderTensor, FourthOrderTensor
-from porepy.params.data import (
-    Parameters,
-    initialize_data,
-    initialize_default_data,
-)
+from porepy.params.data import initialize_data
 
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
@@ -123,7 +115,6 @@ from porepy.fracs.wells_3d import (
 # Numerics
 
 # Control volume, elliptic
-from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa

@@ -1160,6 +1160,37 @@ class SparseArray(Operator):
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._mat.data = self._mat.data.astype(float)
+
+        # Making the underlying arrays readonly to avoid invalidation of cached values,
+        # see https://github.com/pmgbergen/porepy/issues/1214
+        if isinstance(
+            mat,
+            (
+                sps.csr_matrix,
+                sps.csr_array,
+                sps.csc_matrix,
+                sps.csc_array,
+                sps.bsr_matrix,
+                sps.bsr_array,
+            ),
+        ):
+            self._mat.data.flags.writeable = False
+            self._mat.indices.flags.writeable = False
+            self._mat.indptr.flags.writeable = False
+        elif isinstance(mat, (sps.coo_matrix, sps.coo_array)):
+            self._mat.data.flags.writeable = False
+            self._mat.coords[0].flags.writeable = False
+            self._mat.coords[1].flags.writeable = False
+        else:
+            # Other options are technically possible, but they are quite exotic. Anyway,
+            # most of them have the "data" array. The only known example that does not
+            # is dok_matrix (dictionary of keys), but there is no easy way to make
+            # existing dictionary immutable.
+            try:
+                self._mat.data.flags.writeable = False
+            except AttributeError:
+                pass
+
         self._shape = mat.shape
         """Shape of the wrapped matrix."""
 
@@ -1288,7 +1319,10 @@ class DenseArray(Operator):
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
 
-        # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
+        # Making the array readonly to avoid invalidation of cached values, see
+        # https://github.com/pmgbergen/porepy/issues/1214
+        self._values.flags.writeable = False
+
         self._hash_value: str = sha256(
             self._values,
             usedforsecurity=False,  # type: ignore[arg-type]
