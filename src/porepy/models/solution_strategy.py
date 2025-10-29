@@ -924,11 +924,11 @@ class SolutionStrategy(pp.PorePyModel):
         """
         return np.linalg.norm(values) / np.sqrt(values.size)
 
-    def residual_norm(self, values: np.ndarray) -> float:
-        """Compute the Euclidean norm of a residual.
+    def equation_norm(self, values: np.ndarray) -> float:
+        """Compute the Euclidean norm of an equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional residual
+            values: algebraic representation of a mixed-dimensional equation
 
         Returns:
             float: measure of values

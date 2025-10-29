@@ -200,8 +200,8 @@ class NewtonSolver:
         # Potentially a scalar, but also dictionaries are possible if equation-based
         # norms are used.
         nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
-        residual_norm = model.residual_norm(residual)
         iterate_norm = model.variable_norm(iterate)
+        residual_norm = model.equation_norm(residual)
 
         # Each iteration requires a new reference value for the convergence criterion.
         if model.nonlinear_solver_statistics.num_iteration == 0:

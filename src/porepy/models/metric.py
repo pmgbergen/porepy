@@ -1,6 +1,6 @@
 """Collection of metrics.
 
-From plain Euclidean norms to model-specific L2 norms of states and residuals.
+From plain Euclidean norms to model-specific L2 norms of states and equations.
 
 """
 
@@ -13,7 +13,7 @@ import porepy as pp
 
 
 class EuclideanMetric:
-    """Plain Euclidean norm for variables and residuals."""
+    """Plain Euclidean norm for variables and equations."""
 
     def _euclidean_norm(self, values: np.ndarray) -> float:
         """Compute the Euclidean norm of an array.
@@ -39,11 +39,11 @@ class EuclideanMetric:
         """
         return self._euclidean_norm(values)
 
-    def residual_norm(self, values: np.ndarray) -> float:
-        """Compute the Euclidean norm of a residual.
+    def equation_norm(self, values: np.ndarray) -> float:
+        """Compute the Euclidean norm of an equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional residual
+            values: algebraic representation of a mixed-dimensional equation
 
         Returns:
             float: measure of values
@@ -53,7 +53,7 @@ class EuclideanMetric:
 
 
 class MultiphysicsEuclideanMetric:
-    """Plain Euclidean norm for variables and residuals, computed per variable and
+    """Plain Euclidean norm for variables and equations, computed per variable and
     equation block.
 
     """
@@ -92,11 +92,11 @@ class MultiphysicsEuclideanMetric:
 
         return norms
 
-    def residual_norm(self, values: np.ndarray) -> dict[str, float]:
-        """Compute the Euclidean norm of each separate residual.
+    def equation_norm(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the Euclidean norm of each separate equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional residual
+            values: algebraic representation of a mixed-dimensional equation
 
         Returns:
             dict[str, float]: measure of values for each equation block
@@ -111,7 +111,7 @@ class MultiphysicsEuclideanMetric:
 
 
 class MultiphysicsLebesgueMetric:
-    """Lebesgue L2 norm for variables and residuals, computed per variable and
+    """Lebesgue L2 norm for variables and equations, computed per variable and
     equation block.
 
     """
@@ -127,11 +127,11 @@ class MultiphysicsLebesgueMetric:
         dim: int,
         subdomains: list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
     ) -> float:
-        """Compute the Lebesgue L2 norm of a variable or residual.
+        """Compute the Lebesgue L2 norm of a variable or equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional variable or residual
-            dim: int, dimension of the variable or residual
+            values: algebraic representation of a mixed-dimensional variable or equation
+            dim: int, dimension of the variable or equation
             subdomains: list of grids or mortar grids over which to integrate
 
         Returns:
@@ -191,13 +191,13 @@ class MultiphysicsLebesgueMetric:
 
         return norms
 
-    # TODO: Need to decide which formula to use for residual norms.
+    # TODO: Need to decide which formula to use for equation norms.
 
-    def _residual_norm(self, values: np.ndarray) -> dict[str, float]:
-        """Compute the Lebesgue L2 norm of each separate residual.
+    def _equation_norm(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the Lebesgue L2 norm of each separate equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional residual
+            values: algebraic representation of a mixed-dimensional equation
 
         Returns:
             dict[str, float]: measure of values for each equation block
@@ -218,16 +218,16 @@ class MultiphysicsLebesgueMetric:
             for name in self.equation_system._equations
         }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
-            residual_values = pp.ad.DenseArray(values[indices])
-            norms[name] = self._lebesgue2_norm(residual_values, eq_dim, sd)
+            equation_values = pp.ad.DenseArray(values[indices])
+            norms[name] = self._lebesgue2_norm(equation_values, eq_dim, sd)
 
         return norms
 
-    def residual_norm(self, values: np.ndarray) -> dict[str, float]:
-        """Compute the Lebesgue L2 norm of each separate residual.
+    def equation_norm(self, values: np.ndarray) -> dict[str, float]:
+        """Compute the Lebesgue L2 norm of each separate equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional residual
+            values: algebraic representation of a mixed-dimensional equation
 
         Returns:
             dict[str, float]: measure of values for each equation block
@@ -247,11 +247,11 @@ class MultiphysicsLebesgueMetric:
         for name, (indices, sd, eq_dim) in equation_blocks.items():
             if len(sd) == 0:
                 continue
-            residual_values = values[indices].reshape((eq_dim, -1), order="F")
+            equation_values = values[indices].reshape((eq_dim, -1), order="F")
             cell_weights = np.hstack([_sd.cell_volumes for _sd in sd])
-            intensive_residual_values = pp.ad.DenseArray(
-                np.linalg.norm(residual_values, ord=2, axis=0) / cell_weights
+            intensive_equation_values = pp.ad.DenseArray(
+                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
             )
-            norms[name] = self._lebesgue2_norm(intensive_residual_values, 1, sd)
+            norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, sd)
 
         return norms
