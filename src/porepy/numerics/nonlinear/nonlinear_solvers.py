@@ -108,9 +108,7 @@ class NewtonSolver:
                 nonlinear_increment = self.nonlinear_iteration(model)
 
                 # Monitor convergence.
-                status, info = self.check_nonlinear_convergence(
-                    model, nonlinear_increment
-                )
+                status, info = self.check_convergence(model, nonlinear_increment)
 
                 # Logging and progress bar update.
                 self.logging(model, info)
@@ -154,7 +152,7 @@ class NewtonSolver:
         nonlinear_increment = model.solve_linear_system()
         return nonlinear_increment
 
-    def check_nonlinear_convergence(
+    def check_convergence(
         self,
         model,
         nonlinear_increment: np.ndarray,
