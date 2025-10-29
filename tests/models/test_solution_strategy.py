@@ -42,6 +42,7 @@ from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_fi
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceTolerance,
     ConvergenceStatus,
+    ConvergenceInfo,
     AbsoluteConvergenceCriterion,
 )
 
@@ -210,14 +211,6 @@ class RediscretizationTest(pp.PorePyModel):
 
     """
 
-    def check_convergence(self, *args, **kwargs):
-        if self.nonlinear_solver_statistics.num_iteration > 0:
-            return True, False
-        else:
-            # Call to super is okay here, since the full model used in the tests is
-            # known to have a method of this name.
-            return super().check_convergence(*args, **kwargs)
-
     def rediscretize(self):
         if self.params["full_rediscretization"]:
             return super().discretize()
@@ -281,18 +274,25 @@ def test_targeted_rediscretization(model_class):
         "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
         "times_to_export": [],
     }
+    solver_params = {
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=0,
+            tol_residual=0,
+            max_iterations=1,
+        ),
+    }
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
     full_model: pp.PorePyModel = rediscretization_model_class(model_params)
-    pp.run_time_dependent_model(full_model)
+    pp.run_time_dependent_model(full_model, solver_params)
 
     # A model object with targeted rediscretization.
     targeted_model_params = model_params.copy()
     targeted_model_params["full_rediscretization"] = False
     # Set up the model.
     targeted_model = rediscretization_model_class(targeted_model_params)
-    pp.run_time_dependent_model(targeted_model)
+    pp.run_time_dependent_model(targeted_model, solver_params)
 
     # Check that the linear systems are the same.
     assert len(full_model.stored_linear_system) == 2
