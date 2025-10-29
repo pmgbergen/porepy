@@ -54,7 +54,6 @@ from porepy.examples.flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model
 from porepy.examples.flow_benchmark_3d_case_3 import Geometry as Case3dGeo
 from porepy.examples.flow_benchmark_3d_case_3 import Permeability as Case3dPermeability
 from porepy.models.poromechanics import Poromechanics
-
 from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 

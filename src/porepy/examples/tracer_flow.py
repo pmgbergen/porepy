@@ -21,7 +21,6 @@ from porepy.models.compositional_flow import (
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
 )
-
 from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
