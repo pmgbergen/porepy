@@ -43,7 +43,7 @@ class Flash(abc.ABC):
             [phase.num_components for phase in fluid.phases]
         )
 
-        self.solver_params: dict[str, float] = {
+        self.solver_params = {
             "nl_convergence_tol": ConvergenceTolerance(
                 tol_increment=1e-8,
                 tol_residual=1e-8,
