@@ -10,6 +10,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 from tests.functional.setups.linear_tracer import (
     LinearTracerSaveData,
     SimplePipe2D,
@@ -170,9 +171,11 @@ def test_linear_tracer_1p_ooc(
             ),
         },
         "time_manager": time_manager,
-        "max_iterations": max_iterations,
-        "nl_convergence_tol": newton_tol_increment,
-        "nl_convergence_tol_res": newton_tol,
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=newton_tol_increment,
+            tol_residual=newton_tol,
+            max_iterations=max_iterations,
+        ),
         "times_to_export": [],
         "grid_type": "cartesian",
         "meshing_arguments": {"cell_size": 1.0},

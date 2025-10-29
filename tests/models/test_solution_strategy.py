@@ -39,6 +39,7 @@ from porepy.applications.md_grids.mdg_library import (
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
@@ -443,9 +444,12 @@ def test_check_convergence(
     # ``reference_residual`` is not used by ``check_convergence``. We pass a zero
     # arrray.
     nl_params: dict[str, Any] = {
-        "nl_convergence_tol": 1e-5,
-        "nl_convergence_tol_res": 1e-5,
-        "nl_divergence_tol": 1e4,
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=1e-5,
+            tol_residual=1e-5,
+            max_increment=1e4,
+            max_residual=1e4,
+        )
     }
     converged, diverged = check_convergence_test_model.check_convergence(
         nonlinear_increment, residual, nl_params

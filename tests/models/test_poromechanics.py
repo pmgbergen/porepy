@@ -43,6 +43,7 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 class NonzeroFractureGapPoromechanics(pp.PorePyModel):
@@ -570,8 +571,10 @@ def test_pull_south_positive_reference_pressure_with_multiphysics_norms():
     reference_model.params["u_south"] = [0.0, -0.001]
 
     solver_params = {
-        "nl_convergence_tol": 1e-6,
-        "nl_convergence_tol_res": 1e-6,
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=1e-6,
+            tol_residual=1e-6,
+        ),
     }
 
     pp.run_time_dependent_model(reference_model, solver_params)

@@ -38,6 +38,7 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.applications.test_utils import models, well_models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 @pytest.fixture(scope="function")
@@ -600,8 +601,10 @@ def test_unit_conversion(units, grid_class):
         "reference_variable_values": reference_values,
     }
     solver_params = {
-        "nl_convergence_tol_res": 1e-12,
-        "nl_convergence_tol": 1,
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=1,
+            tol_residual=1e-12,
+        ),
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"

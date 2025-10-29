@@ -26,6 +26,7 @@ from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)
@@ -520,12 +521,13 @@ class BaseFlowModel(
             residual_norm = np.linalg.norm(residual) * total_volume
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
-                nl_params["nl_convergence_tol"] is np.inf
-                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+                nl_params["nl_convergence_tol"].tol_increment is np.inf
+                or nonlinear_increment_norm
+                < nl_params["nl_convergence_tol"].tol_increment
             )
             converged_res = (
-                nl_params["nl_convergence_tol_res"] is np.inf
-                or residual_norm < nl_params["nl_convergence_tol_res"]
+                nl_params["nl_convergence_tol"].tol_residual is np.inf
+                or residual_norm < nl_params["nl_convergence_tol"].tol_residual
             )
             converged = converged_inc and converged_res
             diverged = False

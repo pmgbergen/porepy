@@ -28,6 +28,7 @@ from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 @pytest.mark.skipped  # reason: slow
@@ -468,12 +469,13 @@ def slow_test_buoyancy_flow_benchmark(
                 residual_norm = np.linalg.norm(residual) * total_volume
                 print("Residual norm: ", residual_norm)
                 converged_inc = (
-                    nl_params["nl_convergence_tol"] is np.inf
-                    or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+                    nl_params["nl_convergence_tol"].tol_increment is np.inf
+                    or nonlinear_increment_norm
+                    < nl_params["nl_convergence_tol"].tol_increment
                 )
                 converged_res = (
-                    nl_params["nl_convergence_tol_res"] is np.inf
-                    or residual_norm < nl_params["nl_convergence_tol_res"]
+                    nl_params["nl_convergence_tol"].tol_residual is np.inf
+                    or residual_norm < nl_params["nl_convergence_tol"].tol_residual
                 )
                 converged = converged_inc and converged_res
                 diverged = False
@@ -511,9 +513,11 @@ def slow_test_buoyancy_flow_benchmark(
         "time_manager": time_manager,
         "prepare_simulation": False,
         "reduce_linear_system": False,
-        "nl_convergence_tol": np.inf,
-        "nl_convergence_tol_res": 1.0e-8,
-        "max_iterations": 25,
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=np.inf,
+            tol_residual=1.0e-8,
+            max_iterations=25,
+        ),
     }
 
     model = FlowModel(params)
