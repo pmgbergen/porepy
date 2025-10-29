@@ -12,6 +12,7 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.examples import fracture_damage as damage
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 geometry_mixins = {
     "2": SquareDomainOrthogonalFractures,
@@ -150,7 +151,14 @@ def test_momentum_balance_with_damage(dim: int):
     # slightly increase the number of iterations, thus capturing any future
     # deterioration in the convergence and avoiding excessive run times.
 
-    pp.run_time_dependent_model(m, {"max_iterations": 25})
+    pp.run_time_dependent_model(
+        m,
+        {
+            "nl_convergence_tol": ConvergenceTolerance(
+                tol_increment=1e-6, max_iterations=25
+            )
+        },
+    )
     test_names = [
         "friction_damage",
         "dilation_damage",

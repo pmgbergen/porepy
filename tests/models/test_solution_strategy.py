@@ -40,10 +40,10 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceTolerance,
-    ConvergenceStatus,
-    ConvergenceInfo,
     AbsoluteConvergenceCriterion,
+    ConvergenceInfo,
+    ConvergenceStatus,
+    ConvergenceTolerance,
 )
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
