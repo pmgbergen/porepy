@@ -173,8 +173,9 @@ class SolutionStrategy(pp.PorePyModel):
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
 
-        # Export initial condition
-        self.save_data_time_step()
+        # Export initial condition (only if time-dependent)
+        if not self._is_time_dependent():
+            self.save_data_time_step()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in
