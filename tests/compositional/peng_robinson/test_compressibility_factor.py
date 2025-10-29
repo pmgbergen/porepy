@@ -67,7 +67,7 @@ def test_critical_point(gaslike: bool) -> None:
 
     np.testing.assert_allclose(Zval, Z_CRIT, rtol=0.0, atol=tol)
     np.testing.assert_allclose(
-        get_polynomial_residual(Z_CRIT, *c), 0.0, rtol=0.0, atol=tol
+        get_polynomial_residual(Z_CRIT, c), 0.0, rtol=0.0, atol=tol
     )
 
 
@@ -89,12 +89,12 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
 
         # If the gaslike root is not extended, it must be a real root
         if not is_extended_root(A, B, True, tol):
-            assert get_polynomial_residual(Zg, *c) < tol, (
+            assert get_polynomial_residual(Zg, c) < tol, (
                 f"Real gas compressibility factor is not real root. {err_msg}"
             )
         # Analogous for liquidlike root.
         if not is_extended_root(A, B, False, tol):
-            assert get_polynomial_residual(Zl, *c) < tol, (
+            assert get_polynomial_residual(Zl, c) < tol, (
                 f"Real liquid compressibility factor is not real root. {err_msg}"
             )
 
@@ -217,7 +217,7 @@ def test_root_derivative_computation_smoothed(
 @pytest.mark.parametrize(
     "d", [np.array([1.0, 0]), np.array([0.0, 1.0]), np.array([1.0, 1.0])]
 )
-def test_extended_root_derivative_function(d: np.ndarray) -> np.ndarray:
+def test_extended_root_derivative_function(d: np.ndarray) -> None:
     """Tests the derivative computation of the extended root. Taylorexpansion must
     converge with second order.
 
@@ -242,9 +242,25 @@ def test_extended_root_derivative_function(d: np.ndarray) -> np.ndarray:
 @pytest.mark.parametrize(
     "d", [np.array([1.0, 0]), np.array([0.0, 1.0]), np.array([1.0, 1.0])]
 )
-def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> np.ndarray:
+def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> None:
     """Tests the computation of derivatives of the coefficients of the Peng-Robinson-EOS
     with respect to cohesion and covolume."""
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(c_from_AB, dc_from_AB, x0, d, h=np.logspace(0, -10, 11))
     assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=f"{x0}")
+
+
+def test_supercritical_smoothing_function() -> None:
+    """"""
+
+
+def test_3root_smoothing_function() -> None:
+    """"""
+
+
+def test_limitcase_zero_cohesion(B_range: np.ndarray) -> None:
+    """"""
+
+
+def test_limitcase_zero_covolume(A_range: np.ndarray) -> None:
+    """"""

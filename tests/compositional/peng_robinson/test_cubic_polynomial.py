@@ -148,13 +148,28 @@ def assert_order_at_least(
         )
 
 
-def get_polynomial_residual(r: float, c2: float, c1: float, c0: float) -> float:
-    """Computes the residual of a normalized cubic polynomial.
+def get_polynomial_residual(r: float | np.ndarray, c: np.ndarray) -> float | np.ndarray:
+    """Computes the residual of a normalized polynomial.
 
-    If ``r`` is indeed a root, than ``r**3 + c2*r**2 + c1*r + c0`` is zero.
+    The polynomial is assumed to be of order ``c.size`` and if ``r`` is a root then it
+    holds
+
+    .. math::
+
+        p(r) = r^n + c[0]r^{n-1} + \dots + c[n-1] r + c[n] = 0
+
+    Parameters:
+        r: Supposed roots of the polynomial
+        c: Coefficients of the polynomial ending with the constant monomial coefficient.
+
+    Returns:
+        The absolute value of above polynomial expression.
 
     """
-    return np.abs(r**3 + c2 * r**2 + c1 * r + c0)
+    n = c.size
+    c_ = np.hstack([1, c])
+    r_ = [r**i for i in range(n, -1, -1)]
+    return np.abs(np.dot(c_, r_))
 
 
 def _get_random_coeffs_for_two_root_case() -> np.ndarray:
@@ -173,40 +188,32 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
 @pytest.mark.parametrize(
     ["coefficients", "solution", "root_case"],
     [
-        ((-1, -1, -2), np.array([2.0]), 1),
-        ((-3, -3, -1), np.array([np.cbrt(4) + np.cbrt(2) + 1]), 1),
-        ((1, -2, -2), np.array([np.sqrt(2), -np.sqrt(2), -1]), 3),
-        ((4, 2, -4), np.array([-1 + np.sqrt(3), -1 - np.sqrt(3), -2]), 3),
+        (np.array([-1, -1, -2]), np.array([2.0]), 1),
+        (np.array([-3, -3, -1]), np.array([np.cbrt(4) + np.cbrt(2) + 1]), 1),
+        (np.array([1, -2, -2]), np.array([np.sqrt(2), -np.sqrt(2), -1]), 3),
+        (np.array([4, 2, -4]), np.array([-1 + np.sqrt(3), -1 - np.sqrt(3), -2]), 3),
         (  # (x-1)*(x-2)**2
-            (-5, 8, -4),
-            np.array(
-                [
-                    1.0,
-                    2.0,
-                ]
-            ),
+            np.array([-5, 8, -4]),
+            np.array([1.0, 2.0]),
             2,
         ),
         (  # (x-1)*(x+2)**2
-            (3, 0, -4),
-            np.array(
-                [
-                    1.0,
-                    -2.0,
-                ]
-            ),
+            np.array([3, 0, -4]),
+            np.array([1.0, -2.0]),
             2,
         ),
         (  # (x-sqrt(2))**2
-            (-3 * np.sqrt(2), 6, -2 * np.sqrt(2)),
+            np.array([-3 * np.sqrt(2), 6, -2 * np.sqrt(2)]),
             np.array([np.sqrt(2)]),
             0,
         ),
         (  # Peng-Robinson EoS critical point
-            (
-                B_CRIT - 1,
-                A_CRIT - 2.0 * B_CRIT - 3.0 * B_CRIT**2,
-                B_CRIT**3 + B_CRIT**2 - A_CRIT * B_CRIT,
+            np.array(
+                [
+                    B_CRIT - 1,
+                    A_CRIT - 2.0 * B_CRIT - 3.0 * B_CRIT**2,
+                    B_CRIT**3 + B_CRIT**2 - A_CRIT * B_CRIT,
+                ]
             ),
             np.array([Z_CRIT]),
             0,
@@ -214,7 +221,7 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
     ],
 )
 def test_known_root_case_calculations(
-    coefficients: tuple[float, float, float],
+    coefficients: np.ndarray,
     solution: np.ndarray,
     root_case: int,
 ) -> None:
@@ -229,9 +236,8 @@ def test_known_root_case_calculations(
     # NOTE: Due to numerics, we must allow this tolerance. The current code does not
     # reach lower tolerances for all test cases.
     tol = 1e-14
-    c2, c1, c0 = coefficients
 
-    calculated_root_case = get_root_case(c2, c1, c0, tol)
+    calculated_root_case = get_root_case(*coefficients, tol)
 
     # Test the calculated root case.
     assert calculated_root_case == root_case
@@ -244,16 +250,16 @@ def test_known_root_case_calculations(
     match root_case:
         case 0:
             assert solution.size == 1
-            vals = triple_root(c2)
+            vals = triple_root(coefficients[0])
         case 1:
             assert solution.size == 1
-            vals = one_root(c2, c1, c0)
+            vals = one_root(*coefficients)
         case 2:
             assert solution.size == 2
-            vals = two_roots(c2, c1, c0)
+            vals = two_roots(*coefficients)
         case 3:
             assert solution.size == 3
-            vals = three_roots(c2, c1, c0)
+            vals = three_roots(*coefficients)
         case _:
             assert False, "Faulty test"
 
@@ -261,12 +267,11 @@ def test_known_root_case_calculations(
     np.testing.assert_allclose(vals, solution, atol=tol, rtol=0.0)
 
     # Test that it is indeed a rood.
-    # residual = vals**3 + c2 * vals**2 + c1 * vals + c0
-    residual = get_polynomial_residual(vals, c2, c1, c0)
+    residual = get_polynomial_residual(vals, coefficients)
     np.testing.assert_allclose(residual, 0.0, atol=tol, rtol=0.0)
 
     # Test that the call to the general function returns the same result.
-    genvals = calculate_roots(c2, c1, c0, tol)
+    genvals = calculate_roots(*coefficients, tol)
     np.testing.assert_allclose(genvals, solution, atol=tol, rtol=0.0)
 
 
