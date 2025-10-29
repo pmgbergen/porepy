@@ -88,7 +88,8 @@ except ImportError:
         return decorator
 
 
-# The only signature the users should use, and the only one that will be preserved in the future.
+# The only signature the users should use, and the only one that will be preserved in
+# the future.
 @overload
 def initialize_data(
     data: dict,
