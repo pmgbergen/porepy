@@ -26,6 +26,8 @@ from porepy.numerics.nonlinear.line_search import (
     SplineInterpolationLineSearch,
 )
 
+from porepy.numerics.nonlinear.convergence_check import AbsoluteConvergenceCriterion
+
 
 # The most advanced nonlinear solver available (so far).
 class ConstraintLineSearchNonlinearSolver(
@@ -104,6 +106,7 @@ solver_params = {
         max_residual=np.inf,  # Max residual norm tolerance for divergence
         max_iterations=10,  # Max iterations of a nonlinear solver (Newton)
     ),
+    "nl_convergence_criterion": AbsoluteConvergenceCriterion(),
     # Line search / Solution Strategies. These are considered "advanced" options.
     # Delete the following lines for the default Newton's method.
     "nonlinear_solver": ConstraintLineSearchNonlinearSolver,  # Must be a class.
