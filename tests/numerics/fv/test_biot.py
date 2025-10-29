@@ -28,13 +28,12 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
     g.compute_geometry()
     stiffness = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
     bnd = pp.BoundaryConditionVectorial(g)
-    data = pp.initialize_default_data(
-        g,
+    data = pp.initialize_data(
         {},
         mechanics_keyword,
         specified_parameters=partial_update_parameters(stiffness, bnd, g.num_cells),
     )
-    data = pp.initialize_default_data(g, data, flow_keyword)
+    data = pp.initialize_data(data, flow_keyword)
 
     discr = pp.Biot()
     discr.discretize(g, data)

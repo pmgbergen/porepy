@@ -193,7 +193,7 @@ class TestMpfaReproduceKnownValues:
 
         discr = pp.Mpfa(keyword="flow")
         specified_parameters = {"second_order_tensor": perm, "bc": bc_type}
-        data = pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        data = pp.initialize_data({}, "flow", specified_parameters)
         # NB: Set eta to zero, independent of grid type. This is a non-standard choice
         # for simplex grids, but it is necessary to reproduce the known values.
         data[pp.PARAMETERS]["flow"]["mpfa_eta"] = 0
@@ -309,7 +309,7 @@ class _MpfaSetup(abc.ABC):
             "bc": bound,
             "bc_values": bc_val,
         }
-        return pp.initialize_default_data(g, {}, "flow", specified_parameters)
+        return pp.initialize_data({}, "flow", specified_parameters)
 
     def error_p(self, g: pp.Grid, p: np.ndarray) -> float:
         """Compute the L2 error of the computed solution.
