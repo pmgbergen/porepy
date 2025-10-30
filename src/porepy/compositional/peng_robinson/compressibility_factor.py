@@ -414,7 +414,11 @@ def get_compressibility_factor(
 
     In the case of a single real root, that root is returned.
 
-    An extension procedure is applied in the one-root area if ``eps > 0``.
+    An extension procedure is applied in the one-root area, among others.
+    Negative values of ``A`` or ``B`` are projected to zero.
+
+    See also:
+        :func:`is_extended` for more information on extension procedures.
 
     Parameters:
         A: Dimensionless cohesion parameter.
@@ -428,6 +432,8 @@ def get_compressibility_factor(
         The compressibility factor.
 
     """
+    A = np.max((0.0, A))
+    B = np.max((0.0, B))
     c = c_from_AB(A, B)
 
     # NOTE: For the 3-root case, we can safe some computations by computing only root
@@ -615,6 +621,8 @@ def get_compressibility_factor_derivatives(
     # NOTE for more information on individual steps, see Z(), as the computations are
     # analogous.
 
+    A = np.max((0.0, A))
+    B = np.max((0.0, B))
     c = c_from_AB(A, B)
     # Derivatives of coefficients w.r.t. A and B.
     dc_dAB = dc_from_AB(A, B)
