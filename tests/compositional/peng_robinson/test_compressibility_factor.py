@@ -7,8 +7,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+import os
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from porepy.compositional.peng_robinson.compressibility_factor import (
     W_sub,
@@ -25,6 +26,7 @@ from porepy.compositional.peng_robinson.compressibility_factor import (
     B_CRIT,
     Z_CRIT,
 )
+from porepy.compositional.peng_robinson.cubic_polynomial import get_root_case
 
 from tests.compositional.peng_robinson.test_cubic_polynomial import (
     get_EOC_taylor,
@@ -258,9 +260,31 @@ def test_3root_smoothing_function() -> None:
     """"""
 
 
-def test_limitcase_zero_cohesion(B_range: np.ndarray) -> None:
-    """"""
+@pytest.mark.parametrize("gaslike", [True, False])
+def test_limitcase_zero_cohesion(gaslike: bool, B_range: np.ndarray) -> None:
+    """The case of zero cohesion is part of the nonphysical 3-root area where the
+    smallest real root is smaller than the physical bound B.
+
+    Test for proper extension and computation.
+
+    """
+
+    tol = 1e-14
+
+    for B in B_range:
+        err_msg = f"(A, B) = ({0.0}, {B})"
+        c = c_from_AB(0.0, B)
+        rc = get_root_case(*c, tol)
+        assert rc == 3, f"Expecting 3-root-case: {err_msg}"
 
 
 def test_limitcase_zero_covolume(A_range: np.ndarray) -> None:
     """"""
+
+
+def test_limitcase_zero_cohesion_and_covolume() -> None:
+    """Test evaluation and derivatives of the point (A, B) = (0, 0).
+
+    This is a known 2-real-root case.
+
+    """
