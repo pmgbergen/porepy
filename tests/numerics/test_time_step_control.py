@@ -22,10 +22,10 @@ import pytest
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceTolerance,
     AbsoluteConvergenceCriterion,
-    ConvergenceStatus,
     ConvergenceInfo,
+    ConvergenceStatus,
+    ConvergenceTolerance,
 )
 
 

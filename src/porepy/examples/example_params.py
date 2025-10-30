@@ -19,14 +19,15 @@ from porepy.applications.material_values.reference_values import (
 from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
+from porepy.numerics.nonlinear.convergence_check import (
+    AbsoluteConvergenceCriterion,
+    ConvergenceTolerance,
+)
 from porepy.numerics.nonlinear.line_search import (
     ConstraintLineSearch,
     LineSearchNewtonSolver,
     SplineInterpolationLineSearch,
 )
-
-from porepy.numerics.nonlinear.convergence_check import AbsoluteConvergenceCriterion
 
 
 # The most advanced nonlinear solver available (so far).

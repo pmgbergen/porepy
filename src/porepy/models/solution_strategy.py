@@ -12,14 +12,14 @@ import time
 import warnings
 from functools import partial
 from typing import Any, Callable, Optional, cast
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.viz.solver_statistics import NonlinearSolverStatistics
-from warnings import warn
 from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 logger = logging.getLogger(__name__)
 
