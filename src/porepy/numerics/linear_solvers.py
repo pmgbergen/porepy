@@ -47,7 +47,7 @@ class LinearSolver:
             ConvergenceStatus: The status of the convergence.
 
         """
-
+        # Prepare model for solving.
         model.before_nonlinear_loop()
 
         # For linear problems, the tolerance is irrelevant.
@@ -55,35 +55,43 @@ class LinearSolver:
         # parameters for linear solvers should be a property of the model, not the
         # solver. This needs clarification at some point.
 
+        # Perform a single (Newton) iteration.
         model.assemble_linear_system()
-        residual = model.equation_system.assemble(evaluate_jacobian=False)
         nonlinear_increment = model.solve_linear_system()
 
-        status, info = self.check_convergence(nonlinear_increment, residual)
+        # Monitor convergence.
+        status, info = self.check_convergence(model, nonlinear_increment)
 
+        # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
+        # there is something wrong with how the linear and non-linear solvers
+        # interact with the models (and it illustrates that the model convention for
+        # the before_nonlinear_* and after_nonlinear_* methods is not ideal). Since
+        # the model's after_nonlinear_convergence may expect that the converged
+        # solution is already stored as an iterate (this may happen if a model is
+        # implemented to be valid for both linear and non-linear problems, as is the
+        # case for ContactMechanics and possibly others). Thus, we first call
+        # after_nonlinear_iteration(), and then after_nonlinear_convergence()
+
+        # Update model status.
+        model.after_nonlinear_iteration(nonlinear_increment)
+
+        # Update solver statistics.
+        self.update_solver_statistics(model, status, info)
+
+        # React to convergence status.
         if status.is_converged():
-            # IMPLEMENTATION NOTE: The following is a bit awkward, and really shows
-            # there is something wrong with how the linear and non-linear solvers
-            # interact with the models (and it illustrates that the model convention for
-            # the before_nonlinear_* and after_nonlinear_* methods is not ideal). Since
-            # the model's after_nonlinear_convergence may expect that the converged
-            # solution is already stored as an iterate (this may happen if a model is
-            # implemented to be valid for both linear and non-linear problems, as is the
-            # case for ContactMechanics and possibly others). Thus, we first call
-            # after_nonlinear_iteration(), and then after_nonlinear_convergence()
-            model.after_nonlinear_iteration(nonlinear_increment)
-            self.update_solver_statistics(model, status, info)
             model.after_nonlinear_convergence()
-        else:
-            model.after_nonlinear_iteration(nonlinear_increment)
-            self.update_solver_statistics(model, status, info)
+        elif status.is_failed():
             status = model.after_nonlinear_failure(status)
+        else:
+            raise ValueError(f"Unknown convergence status: {status}")
         return status
 
     def check_convergence(
-        self, nonlinear_increment, residual
+        self, model: SolutionStrategy, nonlinear_increment
     ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Simple convergence check for linear problems checking NaN values."""
+        residual = model.equation_system.assemble(evaluate_jacobian=False)
         if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
             return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
         else:
@@ -91,7 +99,7 @@ class LinearSolver:
 
     def update_solver_statistics(
         self,
-        model,
+        model: SolutionStrategy,
         status: ConvergenceStatus,
         info: ConvergenceInfo,
     ) -> None:

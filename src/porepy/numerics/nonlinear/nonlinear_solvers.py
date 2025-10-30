@@ -9,6 +9,7 @@ from typing import cast
 
 import numpy as np
 
+from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (  # NanConvergenceCriterion,
     AbsoluteConvergenceCriterion,
     ConvergenceInfo,
@@ -84,7 +85,7 @@ class NewtonSolver:
         else:
             self.solver_progressbar = DummyProgressBar()
 
-    def solve(self, model) -> ConvergenceStatus:
+    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
         """Solve the nonlinear problem using the Newton-Raphson method.
 
         Parameters:
@@ -132,10 +133,10 @@ class NewtonSolver:
         elif status.is_failed():
             status = model.after_nonlinear_failure(status)
         else:
-            raise ValueError("Unhandled convergence status.")
+            raise ValueError(f"Unknown convergence status: {status}")
         return status
 
-    def nonlinear_iteration(self, model) -> np.ndarray:
+    def nonlinear_iteration(self, model: SolutionStrategy) -> np.ndarray:
         """A single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate
@@ -154,7 +155,7 @@ class NewtonSolver:
 
     def check_convergence(
         self,
-        model,
+        model: SolutionStrategy,
         nonlinear_increment: np.ndarray,
     ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Implements a nonlinear convergence check.
@@ -231,7 +232,7 @@ class NewtonSolver:
 
     def logging(
         self,
-        model,
+        model: SolutionStrategy,
         info: ConvergenceInfo,
     ) -> None:
         """Log the current state of the nonlinear solver.
@@ -262,7 +263,7 @@ class NewtonSolver:
 
     def update_solver_statistics(
         self,
-        model,
+        model: SolutionStrategy,
         status: ConvergenceStatus,
         info: ConvergenceInfo,
     ) -> None:
