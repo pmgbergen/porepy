@@ -432,8 +432,8 @@ def get_compressibility_factor(
         The compressibility factor.
 
     """
-    A = np.max((0.0, A))
-    B = np.max((0.0, B))
+    A = 0.0 if A < 0.0 else A
+    B = 0.0 if B < 0.0 else B
     c = c_from_AB(A, B)
 
     # NOTE: For the 3-root case, we can safe some computations by computing only root
@@ -621,8 +621,8 @@ def get_compressibility_factor_derivatives(
     # NOTE for more information on individual steps, see Z(), as the computations are
     # analogous.
 
-    A = np.max((0.0, A))
-    B = np.max((0.0, B))
+    A = 0.0 if A < 0.0 else A
+    B = 0.0 if B < 0.0 else B
     c = c_from_AB(A, B)
     # Derivatives of coefficients w.r.t. A and B.
     dc_dAB = dc_from_AB(A, B)
