@@ -504,6 +504,27 @@ class FractureNetwork2d:
         # fractures is reasonable, but the factor 2 is arbitrary.
         THRESHOLD_REFINEMENT = 0.5 * mesh_args["mesh_size_frac"]
 
+        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
+        # BETA and make them user parameters, IF the concept turns out to be useful and
+        # extendable to 3d.
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+
+        h_frac = mesh_args["mesh_size_frac"]
+        h_bound = mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.
+        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
+
+        ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
         # TODO: If there is more than one domain entity (the domain is split into parts
         # by fractures), we need to pick out the outer boundary, that is, the ones which
@@ -581,16 +602,95 @@ class FractureNetwork2d:
                 # For each of the endpoints of each the two lines, end_point_distance
                 # will store the distance and the closest points on the other line.
                 end_point_distances = []
-                for line in [line_1, line_2]:
+                vectors = []
+                closest_points = [np.array(distances[1:4]), np.array(distances[4:7])]
+                selected_closest_point = None
+
+                for line, cp in zip([line_1, line_2], closest_points):
                     other_line = line_2 if line == line_1 else line_1
                     end_points_line = gmsh.model.getBoundary(
                         [(1, line)], combined=False, oriented=False
                     )
+                    # Vector along the line.
+                    vectors.append(
+                        np.array(
+                            [
+                                end_points_line[1][i] - end_points_line[0][i]
+                                for i in range(3)
+                            ]
+                        )
+                    )
+                    # Compute distances from each endpoint to the other line.
                     distance_point_line = [
                         factory.getDistance(0, pt, 1, other_line)
                         for _, pt in end_points_line
                     ]
                     end_point_distances += distance_point_line
+                    # Check if one of the endpoints is the closest point.
+                    if selected_closest_point is None:
+                        for i in range(2):
+                            d = np.linalg.norm(cp - np.array(end_points_line[i]))
+                            if d < self.tol:  # This should really be a gmsh tolerance.
+                                selected_closest_point = end_points_line[i]
+
+                # Compute the angle between the two lines.
+                for vector in vectors:
+                    norm = np.linalg.norm(vector)
+                    if norm > 0:
+                        vector /= norm
+                cos_angle = np.clip(np.dot(vectors[0], vectors[1]), -1.0, 1.0)
+                angle = np.arccos(cos_angle)
+
+                # Force the angle to be in the right quadrant. TODO: Check the logic
+                # here.
+                if angle > np.pi / 2:
+                    angle = np.pi - angle
+
+                # The mesh size field centered at a point, and on lines, specifies that
+                # the mesh size should increase from distances[0] / ALPHA to h_bound
+                # over the interval distances[0] to BETA * h_frac. In the specification
+                # of mesh_size_points above, we ensured that a mesh-size point is placed
+                # at the closest point.
+                #
+                # The question then is whether to place additional points along the
+                # lines, and if so, how to determine their locations. Intuitively, if
+                # the lines are parallel, new points will be needed to ensure refinement
+                # along the entire length of the lines (or at least the parts that are
+                # close). If the lines are not orthogonal, most likely no additional
+                # points are needed (though it may be possible to define h_frac,
+                # h_bound, ALPHA, and BETA such that additional points are placed).
+                #
+                # It turns out that new points are needed only if the distance between
+                # the lines when moving along the lines away from the closest point
+                # increases faster than than the mesh size field increases. This leads
+                # to the following condition for the angle between the lines:
+
+                # Safeguarding. Should fix this, but that requires thinking about the
+                # angles return from arctan2.
+                assert h_bound >= h_frac
+
+                # Angle of incline of the mesh size field.
+                ANGLE_THRESHOLD = np.arctan2(
+                    (h_bound - distances[0] / ALPHA) / (BETA * h_frac - distances[0])
+                )
+
+                if angle > ANGLE_THRESHOLD:
+                    # The lines are diverging fast enough that no further refinement is
+                    # needed.
+                    continue
+
+                # The closest points on at least on of the lines must be an endpoint of
+                # that line. Find it.
+
+                if not (
+                    angle < ANGLE_THRESHOLD or np.abs(angle - np.pi) < ANGLE_THRESHOLD
+                ):
+                    # The lines are not (almost) parallel, so we do not need to consider
+                    # this any further.
+                    continue
+                # The lines are close enough to being parallel that there is a need for
+                # refinement, not centered on the closest points only, but also along
+                # (parts of) the lines.
 
                 # Check whether the endpoints of each line is close to the other line.
                 end_point_close = np.array(
@@ -649,26 +749,7 @@ class FractureNetwork2d:
                             inds, end_point_close, end_point_distances, line_1, line_2
                         )
 
-        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
-        # BETA and make them user parameters, IF the concept turns out to be useful and
-        # extendable to 3d.
-
-        # Alpha is a parameter controlling the mesh size in regions where refinement is
-        # needed, e.g., if two fractures are close. In the immediate vicinity of such
-        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
-        # object requiring refinement.
-        ALPHA = 3
-        # Beta is a parameter controlling the size of the transition region from fine
-        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
-        # object requiring refinement.
-        BETA = 15
-
-        h_frac = mesh_args["mesh_size_frac"]
-        h_bound = mesh_args["mesh_size_bound"]
-        # EK note to self: I am not entirely sure whether h_min should remain a user
-        # parameter, or if we can get rid of it.u
-        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
-
+        ## Start feeding the mesh size information to gmsh fields.
         gmsh_fields = []
 
         # Add fields for points close to other objects. The points are stored per line,
@@ -729,6 +810,10 @@ class FractureNetwork2d:
                 gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
                 threshold = gmsh.model.mesh.field.add("Threshold")
                 gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+
+                # NOTE: If the definition of the threshold field is changed, the
+                # computation of the critical angle for almost parallel lines must also
+                # be updated. See the definition of variable 'angle_threshold' above.
                 gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
                 gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
                 gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
