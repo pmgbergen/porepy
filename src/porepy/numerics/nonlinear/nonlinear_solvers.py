@@ -130,9 +130,9 @@ class NewtonSolver:
         if status.is_converged():
             model.after_nonlinear_convergence()
         elif status.is_failed():
-            model.after_nonlinear_failure()
+            status = model.after_nonlinear_failure(status)
         else:
-            raise ValueError
+            raise ValueError("Unhandled convergence status.")
         return status
 
     def nonlinear_iteration(self, model) -> np.ndarray:

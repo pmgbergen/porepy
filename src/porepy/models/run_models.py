@@ -143,7 +143,10 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
             if status.is_converged():
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
             elif status.is_failed():
-                logging.info("Time step failed. Aborting simulation.")
+                # Retry if not explicitly stopped.
+                pass
+            elif status.is_stopped():
+                logging.info("Aborting simulation due to convergence issues.")
                 break
 
     model.after_simulation()

@@ -77,7 +77,7 @@ class LinearSolver:
         else:
             model.after_nonlinear_iteration(nonlinear_increment)
             self.update_solver_statistics(model, status, info)
-            model.after_nonlinear_failure()
+            status = model.after_nonlinear_failure(status)
         return status
 
     def check_convergence(

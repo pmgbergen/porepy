@@ -18,6 +18,8 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.viz.solver_statistics import NonlinearSolverStatistics
+from warnings import warn
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -627,21 +629,42 @@ class SolutionStrategy(pp.PorePyModel):
             values=solution, time_step_index=0, additive=False
         )
 
-    def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge."""
+    def after_nonlinear_failure(self, status: ConvergenceStatus) -> ConvergenceStatus:
+        """Method to be called if the non-linear solver fails to converge.
+
+        Allowed to adapt the convergence status, used for orchestration of the
+        simulation.
+
+        Parameters:
+            status: The convergence status as returned by the non-linear solver.
+
+        Returns:
+            ConvergenceStatus: The (possibly modified) convergence status,
+                if simulation failed.
+
+        """
         self.save_data_time_step()
         if not self._is_nonlinear_problem():
-            raise ValueError("Failed to solve linear system for the linear problem.")
+            warn("Failed to solve linear system for the linear problem.")
+            return ConvergenceStatus.STOPPED
 
         if not self.time_manager.is_constant:
             # Update the time step magnitude if the dynamic scheme is used.
             # Note: It will also raise a ValueError if the minimal time step is reached.
-            self.time_manager.compute_time_step(recompute_solution=True)
+            try:
+                self.time_manager.compute_time_step(recompute_solution=True)
+            except ValueError as e:
+                # Redirect the exception as a warning, and give the control to
+                # the run_models module to stop the simulation.
+                warn(str(e))
+                return ConvergenceStatus.STOPPED
 
             # Reset the iterate values. This ensures that the initial guess for an
             # unknown time step equals the known time step.
             prev_solution = self.equation_system.get_variable_values(time_step_index=0)
             self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
+        return status
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
