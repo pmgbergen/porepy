@@ -34,9 +34,9 @@ def split_fractures(
             lower-dimensional grid.
         **kwargs: Supported keyword arguments include
 
-            - ``'offset'``: A float to perturb the nodes around the faces that are
-              split. Note that this is only for visualization e.g., the face centers
-              are not perturbed. If not given, the value 0 is used.
+            - ``'visualization_node_offset'``: A float to perturb the nodes around the
+              faces that are split. Note that this is only for visualization e.g., the
+              face centers are not perturbed. If not given, the value 0 is used.
 
     Returns:
         A 2-tuple containing the modified mixed-dimensional grid where the faces are
@@ -44,7 +44,7 @@ def split_fractures(
 
     """
 
-    offset = kwargs.get("offset", 0)
+    node_offset = kwargs.get("visualization_node_offset", 0)
 
     # For each vertex in the mdg we find the corresponding lower-dimensional grids.
     for sd_primary in mdg.subdomains():
@@ -97,7 +97,12 @@ def split_fractures(
             _, mapping = pp.array_operations.ismember_columns(source, target)
             secondary_to_primary_nodes.append(mapping)
 
-        split_nodes(sd_primary, low_dim_neigh, secondary_to_primary_nodes, offset)
+        split_nodes(
+            sd_primary,
+            low_dim_neigh,
+            secondary_to_primary_nodes,
+            node_offset,
+        )
 
     # Remove zeros from cell_faces
 
@@ -266,7 +271,7 @@ def split_nodes(
     sd_primary: pp.Grid,
     sd_secondary: list[pp.Grid],
     primary_to_secondary_nodes: list[np.ndarray],
-    visualization_offset: float = 0.0,
+    node_offset: float = 0.0,
 ) -> None:
     """Splits the nodes of a primary grid to correspond to nodes in (embedded)
     secondary grids.
@@ -282,7 +287,7 @@ def split_nodes(
             the first lower-dim.
 
             The order in this list should correspond to the order in ``sd_secondary``.
-        offset: ``default=0.``
+        node_offset: ``default=0.``
 
             This gives the offset from the fracture to the new nodes. Note that this
             is only for visualization, i.e. ``face_centers`` is not updated.
@@ -298,7 +303,7 @@ def split_nodes(
     # higher-dim around each node. For an X-intersection we get four duplications,
     # for a T-intersection we get three duplications, etc. Each of the duplicates is
     # then attached to the cells on one side of the fractures.
-    node_count = duplicate_nodes(sd_primary, nodes, visualization_offset)
+    node_count = duplicate_nodes(sd_primary, nodes, node_offset)
 
     # Update the number of nodes
     sd_primary.num_nodes = sd_primary.num_nodes + node_count  # - nodes.size
@@ -616,7 +621,7 @@ def remove_faces(sd: pp.Grid, face_id: np.ndarray, rem_cell_faces: bool = True) 
         sd.cell_faces = sd.cell_faces[keep, :]
 
 
-def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
+def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, node_offset: float) -> int:
     """Duplicate nodes on a fracture.
 
     The number of duplication will depend on the cell topology around the node.
@@ -642,9 +647,8 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
 
     # In the case of a non-zero offset (presumably intended for visualization),
     # use a (somewhat slow) legacy implementation which can handle this.
-    if offset != 0:
-        return _duplicate_nodes_with_offset(sd, nodes, offset)
-
+    # if offset != 0:
+    #     return _duplicate_nodes_with_offset(sd, nodes, offset)
     # Nodes must be duplicated in the array of node coordinates. Moreover,
     # the face-node relation must be updated so that when a node is split in two or
     # more, all faces on each of the spitting lines / planes are assigned the same
@@ -660,7 +664,6 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
     # 3. Modify the face-node relation by splitting nodes. Also update node numbering in
     #    unsplit nodes.
     # 4. Duplicate split nodes in the coordinate array.
-
     # Bookkeeping etc.
     cell_node = sd.cell_nodes().tocsr()
     face_node = sd.face_nodes.tocsc()
@@ -869,6 +872,27 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         np.arange(repetitions.size), repetitions
     )
     sd.nodes = sd.nodes[:, new_2_old_nodes]
+    if node_offset > 0:
+        # For visualization purposes, we offset the duplicated nodes a bit away from
+        # the fracture, along the average normal of the fracture faces attached to
+        # the node.
+
+        # Find all duplicated nodes.
+        duplicates = np.where(np.isin(new_2_old_nodes, nodes))[0]
+        fn = sd.face_nodes.tocsr()
+        for ni in duplicates:
+            # Find all faces attached to this node, restrict to those faces that are on
+            # a fracture. These are identified as faces that are in sd.frac_pairs.
+            face_inds = fn.indices[fn.indptr[ni] : fn.indptr[ni + 1]]
+            faces_on_fracture = np.intersect1d(face_inds, sd.frac_pairs.ravel("F"))
+            # Implementation note: Keep this assertion to ensure we have not messed up
+            # the face-node relation somewhere. This would be a serious error (and not
+            # really suited for raising an error, this is more of a sanity check).
+            assert faces_on_fracture.size > 0
+            avg_n = _avg_normal(sd, faces_on_fracture)
+            # Offset the node.
+            sd.nodes[:, ni] -= avg_n * node_offset
+
     # The global point ind is shared by all split nodes
     sd.global_point_ind = sd.global_point_ind[new_2_old_nodes]
 
