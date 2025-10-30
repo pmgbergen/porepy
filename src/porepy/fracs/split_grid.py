@@ -34,8 +34,7 @@ def split_fractures(
         **kwargs: Supported keyword arguments include
 
             - ``'visualization_node_offset'``: A float to perturb the nodes around the
-              faces that are split. Note that this is only for visualization e.g., the
-              face centers are not perturbed. If not given, the value 0 is used.
+              faces that are split. This option is intended for visualization purposes.
 
     Returns:
         A 2-tuple containing the modified mixed-dimensional grid where the faces are
@@ -646,8 +645,6 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, node_offset: float) -> int:
 
     # In the case of a non-zero offset (presumably intended for visualization),
     # use a (somewhat slow) legacy implementation which can handle this.
-    # if offset != 0:
-    #     return _duplicate_nodes_with_offset(sd, nodes, offset)
     # Nodes must be duplicated in the array of node coordinates. Moreover,
     # the face-node relation must be updated so that when a node is split in two or
     # more, all faces on each of the spitting lines / planes are assigned the same
