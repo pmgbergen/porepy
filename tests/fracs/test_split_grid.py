@@ -65,7 +65,7 @@ def test_duplicate_nodes():
     g = pp.Grid(2, nodes, face_nodes, cell_faces, "mock_grid")
     split_nodes = np.array([2, 3, 5, 6, 14])
 
-    _ = pp.fracs.split_grid.duplicate_nodes(g, split_nodes, offset=0)
+    _ = pp.fracs.split_grid.duplicate_nodes(g, split_nodes, node_offset=0.0)
 
     cn = g.cell_nodes().tocsc()
 
