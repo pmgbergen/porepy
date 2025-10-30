@@ -27,6 +27,7 @@ class ConvergenceStatus(StrEnum):
     STAGNATED = "stagnated"
     NAN = "nan"
     MAX_ITERATIONS_REACHED = "max_iterations_reached"
+    STOPPED = "stopped"
 
     def __str__(self):
         return self.value
@@ -61,6 +62,10 @@ class ConvergenceStatus(StrEnum):
 
         """
         return self == ConvergenceStatus.MAX_ITERATIONS_REACHED
+
+    def is_stopped(self) -> bool:
+        """Check if the status indicates that the process was stopped."""
+        return self == ConvergenceStatus.STOPPED
 
     def is_failed(self) -> bool:
         """Check if the status indicates a failure."""
