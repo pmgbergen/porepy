@@ -22,6 +22,7 @@ from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
+from porepy.viz.solver_statistics import NonlinearSolverStatistics, TimeStatistics
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -203,6 +204,7 @@ class NewtonSolver:
         residual_norm = model.equation_norm(residual)
 
         # Each iteration requires a new reference value for the convergence criterion.
+        assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
         if model.nonlinear_solver_statistics.num_iteration == 0:
             self.convergence_criterion.reset_reference_values()
 
@@ -246,6 +248,7 @@ class NewtonSolver:
             residual_norm: The norm of the residual.
 
         """
+        assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
         logger.info(
             "Newton iteration number "
             + f"{model.nonlinear_solver_statistics.num_iteration}"
@@ -276,6 +279,7 @@ class NewtonSolver:
 
         """
         # Administration of solver statistics.
+        assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
         model.nonlinear_solver_statistics.advance_iteration()
 
         # Convergence-related information.
@@ -285,6 +289,7 @@ class NewtonSolver:
         # Basic discretization-related information.
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
+            assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
             model.nonlinear_solver_statistics.log_time_information(
                 model.time_manager.time_index,
                 model.time_manager.time,

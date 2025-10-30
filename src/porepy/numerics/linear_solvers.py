@@ -17,6 +17,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfo,
     ConvergenceStatus,
 )
+from porepy.viz.solver_statistics import TimeStatistics
 
 
 class LinearSolver:
@@ -117,6 +118,7 @@ class LinearSolver:
         # Basic discretization-related information.
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
+            assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
             model.nonlinear_solver_statistics.log_time_information(
                 model.time_manager.time_index,
                 model.time_manager.time,
