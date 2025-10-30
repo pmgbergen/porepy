@@ -75,6 +75,13 @@ Z_CRIT: float = (
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
 
+COVOLUME_LIMIT: float = 1e-5
+""""Below this value, the covolume is considered zero.
+
+Required to treay the limit case of B -> 0.
+
+"""
+
 
 @_COMPILER(nb.f8[:](nb.f8, nb.f8), **_COMPILE_KWARGS)
 def c_from_AB(A: float, B: float) -> np.ndarray:
@@ -344,8 +351,9 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
           extension procedure. The gaslike root is real.
         - 7: The indicated root is liquid-like and approaching the limit case of zero
           covolume where the root value goes to zero as well. Using the threshold of
-          ``1e-5``, a thin stripe above A=0 is set as the zone where this root needs
-          some additional work. The gaslike root can be real for ``A`` in (0,0.25].
+          :data:`COVOLUME_LIMIT`, a thin stripe above A=0 is set as the zone where this
+          root needs some additional work. The gaslike root can be real for ``A`` in
+          (0,0.25]. This is performed in the sub-critical area.
 
     """
     c = c_from_AB(A, B)
@@ -382,7 +390,7 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
 
     # Special area: When B is zero, the smallest real root is also zero.
     # We bind it away from zero with some theshold
-    if B <= 1e-5 and not gaslike:
+    if B <= COVOLUME_LIMIT and not gaslike and not is_sc:
         is_extended = 7
 
     return is_extended
@@ -428,7 +436,16 @@ def get_compressibility_factor(
     # C[0] contains c_2, c[2] contains c_0
     roots = calculate_roots(c[0], c[1], c[2], eps)
 
-    assert roots[-1] >= B, "Expecting largest root >= B."
+    # Limit-case zero covolume suffers from various issues, including numerical ones
+    # where the root can be -1e-17, i.e. smaller than 0. This is especially true near
+    # the liquid-saturated curve, where there is only 1 real root, the liquid one.
+    if B > COVOLUME_LIMIT:
+        assert roots[-1] >= B, "Expecting largest root >= B."
+    elif roots[-1] <= B:
+        assert roots.size == 1, "Expecting 1 root case if lower bound B is violated."
+        assert np.abs(roots[-1]) < 1e-7, (
+            "Expecting near zero root if lower bound B is violated."
+        )
 
     extension_case = is_extended_root(A, B, gaslike, eps)
 
@@ -527,10 +544,24 @@ def get_compressibility_factor(
                     "Expecting smallest root <= B in extension case 5."
                 )
         # Special area where the covolume approaches zero. The liquid-like root goes to
-        # zero as well and needs attention. We cap it with 1e-5, and use the derivatives
-        # at the point (A, 1e-5)
+        # zero as well and needs attention. We cap it with the limit value, and use the
+        # derivatives at the point (A, COVOLUME_LIMIT)
         case 7:
-            ...
+            c7 = c_from_AB(A, COVOLUME_LIMIT)
+            # Take absolute value because close to A=0 we enter the zone where it might
+            # become negative
+            Zl_lim = np.abs(calculate_roots(c7[0], c7[1], c7[2], eps)[0])
+            assert Zl_lim > COVOLUME_LIMIT, (
+                "Limitcase liquid root expected to be greater than threshold in "
+                "extension case 7."
+            )
+            # This never happened because Zl goes very fast to zero. But we need to make
+            # sure that the extension procedure here is not the cause of other problems.
+            if roots.size > 1 and Zl_lim > roots[-1]:
+                raise NotImplementedError(
+                    "Uncovered root order violation in extension case 7."
+                )
+            roots[0] = Zl_lim
         case _:
             # Should never happen.
             raise NotImplementedError(f"Uncovered extension case encountered.")
@@ -590,7 +621,8 @@ def get_compressibility_factor_derivatives(
 
     # Chainrule to obtain derivatives w.r.t. A and B.
     roots = calculate_roots(c[0], c[1], c[2], eps)
-    assert roots[-1] >= B, "Expecting largest root >= B."
+    if B > 0.0:
+        assert roots[-1] >= B, "Expecting largest root >= B."
     # droots = calculate_root_derivatives(c[0], c[1], c[0], eps) @ dc_dAB
     droots: np.ndarray = np.dot(
         calculate_root_derivatives(c[0], c[1], c[2], eps), dc_dAB
@@ -682,6 +714,14 @@ def get_compressibility_factor_derivatives(
                 raise NotImplementedError(
                     "Expecting smallest root <= B in extension case 5."
                 )
+        case 7:
+            c7 = c_from_AB(A, COVOLUME_LIMIT)
+            dc_dAB7 = dc_from_AB(A, COVOLUME_LIMIT)
+            droots7 = np.dot(
+                calculate_root_derivatives(c7[0], c7[1], c7[2], eps), dc_dAB7
+            )
+            # Don't need much assertions here, this is just a less exact derivative.
+            droots[0] = droots7[0]
         case _:
             raise NotImplementedError(f"Uncovered extension case encountered.")
 

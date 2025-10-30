@@ -122,7 +122,11 @@ def get_EOC_taylor(
 
 
 def assert_order_at_least(
-    orders: np.ndarray, expected_order: float, tol: float = 0.1, err_msg: str = ""
+    orders: np.ndarray,
+    expected_order: float,
+    tol: float = 0.1,
+    err_msg: str = "",
+    asymptotic: int | None = None,
 ) -> None:
     """Asserts that the average of the estimated orders are at least the expected order
     minus a tolerance.
@@ -131,9 +135,22 @@ def assert_order_at_least(
     Order values of + infinity are treated as an exact approximation and treated as the
     expected order.
 
+    Parameters:
+        orders: List of order values, error ratios divided by refinement ratios.
+        expected_order: The value of the expected (average) order value.
+        tol: Tolerance for expected order for numerical reasons.
+        asymptotic: If given as an integer ``n``, checks that only the last ``n``
+            values are not negative (error decreasing) and uses only them for order
+            checks. This is to be used for problems which are only asymptotically
+            convergent and increasing errors are expected for coarse refinements.
+
     """
-    if np.any(orders < 0):
-        raise ValueError("Negative orders: method DIVERGENT.")
+    if asymptotic is None:
+        if np.any(orders < 0):
+            raise ValueError("Negative orders: method DIVERGENT.")
+    else:
+        assert isinstance(asymptotic, int), "Require integer."
+        orders = orders[-asymptotic:]
     if np.any(np.isnan(orders)):
         raise ValueError("Estimated orders contain NAN values")
 
