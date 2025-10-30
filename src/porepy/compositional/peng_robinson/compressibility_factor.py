@@ -338,6 +338,14 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
         - 5: The indicated root is liquidlike and in the super-critical area with
           3-root-regime, where the smallest root violates the constraint by B from
           below. The gaslike root is real.
+        - 6: The indicated root is liquidlike and in the super-critical area with
+          2-root regime. This is a special case (like zero cohesion and covolume), or
+          the border to case 5. In any case the smallest root (liquid) needs an
+          extension procedure. The gaslike root is real.
+        - 7: The indicated root is liquid-like and approaching the limit case of zero
+          covolume where the root value goes to zero as well. Using the threshold of
+          ``1e-5``, a thin stripe above A=0 is set as the zone where this root needs
+          some additional work. The gaslike root can be real for ``A`` in (0,0.25].
 
     """
     c = c_from_AB(A, B)
@@ -365,6 +373,17 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
     elif nroot == 3:
         if is_sc and not gaslike:
             is_extended = 5
+    # Borderline to the 3-root regime in the super-critical area, as well as special
+    # point 0,0, which is treated as super-critical since it's on the line.
+    # The liquid-like root needs an extension as it violates the lower bound b.
+    elif nroot == 2:
+        if is_sc and not gaslike:
+            is_extended = 6
+
+    # Special area: When B is zero, the smallest real root is also zero.
+    # We bind it away from zero with some theshold
+    if B <= 1e-5 and not gaslike:
+        is_extended = 7
 
     return is_extended
 
@@ -409,13 +428,16 @@ def get_compressibility_factor(
     # C[0] contains c_2, c[2] contains c_0
     roots = calculate_roots(c[0], c[1], c[2], eps)
 
+    assert roots[-1] >= B, "Expecting largest root >= B."
+
     extension_case = is_extended_root(A, B, gaslike, eps)
 
     # Extended super-critical liquid-like root must not fall below this value.
-    B_thresh = 1.1 * B
+    # Add some small value to actually never let it go to zero for various limit cases.
+    B_thresh = 1.1 * B + 1e-8
     # Extended super-critical liquid-like root is smoothed once it falls below this
     # value.
-    B_thresh_smoothing = 2.0 * B
+    B_thresh_smoothing = 2.0 * B + 2e-8
 
     # Extended roots in the area B > Bcrit and A > Acrit are smoothed once they reach
     # the stripe (1 +- threshold) * Z. They are smoothed towards Z, mainly to counter
@@ -484,19 +506,31 @@ def get_compressibility_factor(
                 W = out[0]
 
             roots[0] = W
-        # There are super-critical 3-root regions which are nonphysical, and the
+        # There are super-critical 2 and 3-root regions which are nonphysical, and the
         # smallest root (liquid) is smaller than the physically admissible value B.
         # With the smoothing in case 3 in mind, we just set the liquid root to the
         # threshold value.
-        case 5:
-            assert roots.size == 3, "Expecting 3 real root in extension cases 5."
-            assert roots[-1] >= B, "Expecting largest root >= B in extension case 5."
+        # Borderline to 3-root area, as well as point 0,0 are 2-root areas. We treat it
+        # the same as case 5, and without smoothing as in case 4. This is a limit case
+        # in multiple senes.
+        case 5 | 6:
+            assert roots.size in [2, 3], (
+                "Expecting 2 or 3 real root in extension cases 5-6."
+            )
             if roots[0] <= B_thresh:
                 roots[0] = B_thresh
-            else:
+            # The 2-root area on the border to the super-critical 3-root area can have
+            # root values which do not violate the constrain, very close to the point
+            # (A, B) = (0, 0).
+            elif roots.size == 3:
                 raise NotImplementedError(
                     "Expecting smallest root <= B in extension case 5."
                 )
+        # Special area where the covolume approaches zero. The liquid-like root goes to
+        # zero as well and needs attention. We cap it with 1e-5, and use the derivatives
+        # at the point (A, 1e-5)
+        case 7:
+            ...
         case _:
             # Should never happen.
             raise NotImplementedError(f"Uncovered extension case encountered.")
@@ -556,6 +590,7 @@ def get_compressibility_factor_derivatives(
 
     # Chainrule to obtain derivatives w.r.t. A and B.
     roots = calculate_roots(c[0], c[1], c[2], eps)
+    assert roots[-1] >= B, "Expecting largest root >= B."
     # droots = calculate_root_derivatives(c[0], c[1], c[0], eps) @ dc_dAB
     droots: np.ndarray = np.dot(
         calculate_root_derivatives(c[0], c[1], c[2], eps), dc_dAB
@@ -633,15 +668,17 @@ def get_compressibility_factor_derivatives(
                 dW = out[0]
 
             droots[0] = dW
-        case 5:
-            assert roots.size == 3, "Expecting 3 real root in extension cases 5."
-            assert roots[-1] >= B, "Expecting largest root >= B in extension case 5."
-            assert droots.shape == (3, 2), (
-                "Expecting shape (3, 2) of root derivatives in extension cases 5."
+        case 5 | 6:
+            assert roots.size in [2, 3], (
+                "Expecting 3 or 2 real root in extension cases 5-6."
+            )
+            assert droots.shape in [(2, 2), (3, 2)], (
+                "Expecting shape (3, 2) or (2, 2) of root derivatives in extension "
+                "cases 5-6."
             )
             if roots[0] <= B_thresh:
                 droots[0] = dW_thresh
-            else:
+            elif roots.size == 3:
                 raise NotImplementedError(
                     "Expecting smallest root <= B in extension case 5."
                 )

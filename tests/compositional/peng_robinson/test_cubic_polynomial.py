@@ -34,8 +34,8 @@ from porepy.compositional.peng_robinson.cubic_polynomial import (
 
 
 def get_EOC_taylor(
-    func: Callable[[tuple[float, ...]], np.ndarray],
-    dfunc: Callable[[tuple[float, ...]], np.ndarray],
+    func: Callable[[tuple[float, ...]], np.ndarray | float],
+    dfunc: Callable[[tuple[float, ...]], np.ndarray | float],
     x0: np.ndarray,
     d: np.ndarray,
     h: np.ndarray,

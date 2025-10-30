@@ -26,13 +26,32 @@ from porepy.compositional.peng_robinson.compressibility_factor import (
     B_CRIT,
     Z_CRIT,
 )
-from porepy.compositional.peng_robinson.cubic_polynomial import get_root_case
+from porepy.compositional.peng_robinson.cubic_polynomial import (
+    get_root_case,
+    calculate_roots,
+)
 
 from tests.compositional.peng_robinson.test_cubic_polynomial import (
     get_EOC_taylor,
     assert_order_at_least,
     get_polynomial_residual,
 )
+
+
+def _err_msg(A: float, B: float) -> str:
+    return f"(A, B) = ({A}, {B})"
+
+
+def assert_roots_correctly_sized(A: float, B: float, tol: float = 1e-14) -> None:
+    """Asserts that it always holds ``B < Zl <= Zg``."""
+
+    Zg = get_compressibility_factor(A, B, True, tol, 0.0)
+    Zl = get_compressibility_factor(A, B, False, tol, 0.0)
+
+    assert Zl <= Zg, f"Liquid root must be smaller or equal gas root. {_err_msg(A, B)}"
+    assert B < Zl, (
+        f"Liquid root must be greater than physical bound B. {_err_msg(A, B)}"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -82,23 +101,27 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
     Avec, Bvec = (v.flatten() for v in np.meshgrid(A_range, B_range))
 
     for A, B in zip(Avec, Bvec):
-        err_msg = f" (A = {A}; B = {B}) "
+        err_msg = _err_msg(A, B)
         c = c_from_AB(A, B)
-        Zg = get_compressibility_factor(A, B, True, tol, 0.0)
-        Zl = get_compressibility_factor(A, B, False, tol, 0.0)
 
-        assert Zl <= Zg, f"Liquid root must be smaller or equal gas root. {err_msg}"
+        assert_roots_correctly_sized(A, B, tol=tol)
 
         # If the gaslike root is not extended, it must be a real root
         if not is_extended_root(A, B, True, tol):
-            assert get_polynomial_residual(Zg, c) < tol, (
-                f"Real gas compressibility factor is not real root. {err_msg}"
-            )
+            assert (
+                get_polynomial_residual(
+                    get_compressibility_factor(A, B, True, tol, 0.0), c
+                )
+                < tol
+            ), f"Real gas compressibility factor is not real root. {err_msg}"
         # Analogous for liquidlike root.
         if not is_extended_root(A, B, False, tol):
-            assert get_polynomial_residual(Zl, c) < tol, (
-                f"Real liquid compressibility factor is not real root. {err_msg}"
-            )
+            assert (
+                get_polynomial_residual(
+                    get_compressibility_factor(A, B, False, tol, 0.0), c
+                )
+                < tol
+            ), f"Real liquid compressibility factor is not real root. {err_msg}"
 
 
 @pytest.mark.parametrize("gaslike", [True, False])
@@ -156,7 +179,7 @@ def test_root_derivative_computation(
     # result in another root case region, hence we ignore the first 2 entries.
     # And in terms of tolerance, treating 1.995 as 2 is fair enough considering the
     # computations involved (considering also that the method uses the average order).
-    assert_order_at_least(orders[2:], 2, tol=5e-3, err_msg=f"{x0}")
+    assert_order_at_least(orders[2:], 2, tol=5e-3, err_msg=_err_msg(*x0))
 
 
 @pytest.mark.parametrize(
@@ -210,10 +233,8 @@ def test_root_derivative_computation_smoothed(
     def dfunc(*x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.25)
 
-    rc = is_extended_root(*x0, gaslike, tol)
-
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
-    assert_order_at_least(orders[2:], expected_order, tol=1e-2, err_msg=f"{x0}")
+    assert_order_at_least(orders[2:], expected_order, tol=1e-2, err_msg=_err_msg(*x0))
 
 
 @pytest.mark.parametrize(
@@ -238,7 +259,7 @@ def test_extended_root_derivative_function(d: np.ndarray) -> None:
 
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(0, -10, 11))
-    assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=f"{x0}")
+    assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
 
 
 @pytest.mark.parametrize(
@@ -249,7 +270,7 @@ def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> None:
     with respect to cohesion and covolume."""
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(c_from_AB, dc_from_AB, x0, d, h=np.logspace(0, -10, 11))
-    assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=f"{x0}")
+    assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
 
 
 def test_supercritical_smoothing_function() -> None:
@@ -260,31 +281,248 @@ def test_3root_smoothing_function() -> None:
     """"""
 
 
-@pytest.mark.parametrize("gaslike", [True, False])
-def test_limitcase_zero_cohesion(gaslike: bool, B_range: np.ndarray) -> None:
+@pytest.mark.parametrize(
+    "d", [np.array([1.0, 0.0]), np.array([1.0, 1.0]), np.array([1.0, -1.0])]
+)
+@pytest.mark.parametrize(
+    ["gaslike", "expected_order"],
+    [
+        (True, 2.0),
+        (False, 1.0),
+    ],
+)
+def test_limitcase_zero_cohesion(
+    d: np.ndarray, gaslike: bool, expected_order: float, B_range: np.ndarray
+) -> None:
     """The case of zero cohesion is part of the nonphysical 3-root area where the
     smallest real root is smaller than the physical bound B.
 
-    Test for proper extension and computation.
+    Test for proper extension and computation, as well as order of Taylor expansion.
+    Liquid root is expteced to be extended and loosing order of convergence.
 
     """
 
     tol = 1e-14
 
     for B in B_range:
-        err_msg = f"(A, B) = ({0.0}, {B})"
-        c = c_from_AB(0.0, B)
+        x0 = np.array([0.0, B])
+        err_msg = _err_msg(*x0)
+        c = c_from_AB(*x0)
         rc = get_root_case(*c, tol)
         assert rc == 3, f"Expecting 3-root-case: {err_msg}"
 
+        # Testing approximation
+        def func(*x):
+            return get_compressibility_factor(*x, gaslike, tol, 0.0)
 
-def test_limitcase_zero_covolume(A_range: np.ndarray) -> None:
-    """"""
+        def dfunc(*x):
+            return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
+
+        assert_roots_correctly_sized(*x0, tol=tol)
+
+        is_extended = is_extended_root(*x0, gaslike, tol)
+
+        # Should be real root
+        if gaslike:
+            assert not is_extended, f"Expecting gas root to be real: {err_msg}"
+            assert get_polynomial_residual(func(*x0), c) <= tol, (
+                "Gas root not real root."
+            )
+        else:
+            assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
+
+        orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+        assert_order_at_least(orders[2:], expected_order, tol=1e-2, err_msg=err_msg)
 
 
-def test_limitcase_zero_cohesion_and_covolume() -> None:
-    """Test evaluation and derivatives of the point (A, B) = (0, 0).
+@pytest.mark.parametrize(
+    "d", [np.array([0.0, 1.0]), np.array([1.0, 1.0]), np.array([-1.0, 1.0])]
+)
+@pytest.mark.parametrize(
+    ["gaslike", "expected_order"],
+    [
+        (True, 1.98),
+        (False, 2.0),
+    ],
+)
+def test_limitcase_zero_covolume(
+    d: np.ndarray, gaslike: bool, expected_order: float, A_range: np.ndarray
+) -> None:
+    """Limit case with B = 0, where the smallest real root goes too zero.
 
-    This is a known 2-real-root case.
+    In the 3-root are, A in (0, 0.25), the smallest (liquid-like) root goes to zero.
+    In the 1-root area, A > 0.25, the 1 real root, which is liquid, goes to zero.
+
+    The roots goes to zero, but it is actually always bigger than B, until B=0, where
+    they become equal.
 
     """
+
+    tol = 1e-14
+    # Special value: See test_limitcase_zero_covolume_liquid_saturated
+    A_L = 0.25
+
+    # Then we test the rest of the line.
+    for A in A_range:
+        x0 = np.array([A, 0.0])
+        err_msg = _err_msg(*x0)
+        c = c_from_AB(*x0)
+        rc = get_root_case(*c, tol)
+        if A < A_L:
+            assert rc == 3, f"Expecting 3-root-case: {err_msg}"
+        elif A > A_L:
+            assert rc == 1, f"Expecting 1-root-case: {err_msg}"
+        else:
+            # Skip this case, see test_limitcase_zero_covolume_liquid_saturated
+            continue
+
+        # Testing approximation
+        def func(*x):
+            return get_compressibility_factor(*x, gaslike, tol, 0.0)
+
+        def dfunc(*x):
+            return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
+
+        assert_roots_correctly_sized(*x0, tol=tol)
+
+        is_extended = is_extended_root(*x0, gaslike, tol)
+
+        if rc == 3:
+            assert not is_extended, f"Expecting both roots to be real: {err_msg}"
+            assert get_polynomial_residual(func(*x0), c) <= tol, (
+                f"{'Gas' if gaslike else 'Liquid'} root not real root."
+            )
+        # Liquid-like root is real
+        elif rc == 1:
+            if gaslike:
+                assert is_extended, f"Expecting gas root to be extended: {err_msg}"
+            else:
+                assert not is_extended, f"Expecting liquid root to be real: {err_msg}"
+                assert get_polynomial_residual(func(*x0), c) <= tol, (
+                    "Liquid root not real root."
+                )
+            assert is_extended if gaslike else not is_extended, (
+                f"Expecting liquid root to be real and gas extended: {err_msg}"
+            )
+
+        orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+        assert_order_at_least(orders, expected_order, tol=1e-2, err_msg=err_msg)
+
+
+@pytest.mark.parametrize(
+    "d",
+    [
+        np.array([0.0, 1.0]),
+        np.array([1.0, 1.0]),
+        np.array([-1.0, 1.0]),
+        # Slope of liquid-saturated line.
+        np.array([1.0, 2.0]),
+    ],
+)
+@pytest.mark.parametrize(
+    ["gaslike", "expected_order"],
+    [
+        (True, 2.0),
+        (False, 2.0),
+    ],
+)
+def test_limitcase_zero_covolume_liquid_saturated(
+    d: np.ndarray, gaslike: bool, expected_order: float
+) -> None:
+    """Test the special point (A, B) = (0.25, 0), which is the lower end of the liquid-
+    saturated 2-phase regime, spanning from this  point to the critical point.
+
+    We also know it's slope (2) there from Ben Gharbia 2021.
+
+    """
+    tol = 1e-14
+    A_L = 0.25
+    x0 = np.array([A_L, 0.0])
+    err_msg = _err_msg(*x0)
+    c = c_from_AB(*x0)
+    rc = get_root_case(*c, tol)
+    assert rc == 2, f"Expecting 2-root-case: {err_msg}"
+
+    # The raw roots have special values.
+    roots = calculate_roots(*c, eps=tol)
+    np.testing.assert_allclose(roots, np.array([0.0, 0.5]), rtol=0.0, atol=tol)
+
+    def func(*x):
+        return get_compressibility_factor(*x, gaslike, tol, 0.0)
+
+    def dfunc(*x):
+        return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
+
+    assert_roots_correctly_sized(*x0, tol=tol)
+    is_extended = is_extended_root(*x0, gaslike, tol)
+    assert not is_extended, (
+        f"Expecting roots to be real at liquid-saturated border: {_err_msg(*x0)}"
+    )
+    assert get_polynomial_residual(func(*x0), c) <= tol, (
+        f"{'Gas' if gaslike else 'Liquid'} root not real root."
+    )
+
+    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    assert_order_at_least(orders, expected_order, tol=1e-2, err_msg=err_msg)
+
+
+@pytest.mark.parametrize(
+    "d",
+    [
+        np.array([A_CRIT, critical_line(A_CRIT)]),
+        np.array([1.0, 1e3]),
+        np.array([1e3, 1.0]),
+        np.array([1.0, 0.0]),
+        np.array([0.0, 1.0]),
+    ],
+)
+@pytest.mark.parametrize(
+    ["gaslike", "expected_order"],
+    [
+        # NOTE: This is a limit case and all the tested directions traverse multiple
+        # root cases. While the order is most of the times 2., somtimes it drops to 1.5,
+        # shifting the average order. Can be fixed with introducing an asymptotic order
+        # check.
+        (True, 1.89),
+        (False, 1.0),  # is extended
+    ],
+)
+def test_limitcase_zero_cohesion_and_covolume(
+    d: np.ndarray, gaslike: bool, expected_order: float
+) -> None:
+    """Test evaluation and derivatives of the point (A, B) = (0, 0).
+
+    This is a known 2-real-root case, so no extension procedure.
+    It is also the point where the critical line and the gas-saturated 2-phase line
+    start (both end at critical point).
+
+    """
+    tol = 1e-14
+    x0 = np.zeros(2, dtype=float)
+    err_msg = _err_msg(*x0)
+    c = c_from_AB(*x0)
+    rc = get_root_case(*c, tol)
+    assert rc == 2, f"Expecting 2-root-case: {err_msg}"
+
+    # The raw roots have special values.
+    roots = calculate_roots(*c, eps=tol)
+    np.testing.assert_allclose(roots, np.array([0.0, 1.0]), rtol=0.0, atol=tol)
+
+    assert_roots_correctly_sized(0.0, 0.0, tol=tol)
+
+    # Testing approximation
+    def func(*x):
+        return get_compressibility_factor(*x, gaslike, tol, 0.0)
+
+    def dfunc(*x):
+        return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
+
+    is_extended = is_extended_root(*x0, gaslike, tol)
+
+    if gaslike:
+        assert not is_extended, f"Expecting gas root to be real: {err_msg}"
+    else:
+        assert is_extended, f"Expecting liqud root to be extended: {err_msg}"
+
+    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    assert_order_at_least(orders, expected_order, tol=1e-2, err_msg=err_msg)
