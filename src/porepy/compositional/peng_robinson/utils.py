@@ -1,0 +1,307 @@
+"""This module contains functionality to set up mixtures using the (Peng-Robinson) EoS.
+
+It contains models for some ideal thermodynamic functions required for consistent
+computations of mixture properties, as well as utility functions to get e.g., the
+binary interaction parameters (BIP) for a mixture of components.
+
+Note:
+    Obtaining BIPs requires usually third-party software which is not necessarily
+    included in PorePy's requirements (e.g. :mod:`thermo`).
+
+"""
+
+from __future__ import annotations
+
+import warnings
+from typing import TYPE_CHECKING, Callable, Protocol, Sequence
+
+import numpy as np
+
+from .._core import R_IDEAL_MOL, T_REF
+from ..base import Component
+from ..utils import safe_sum
+
+__all__ = [
+    "thd_function_type",
+    "h_ideal_H2O",
+    "h_ideal_CO2",
+    "h_ideal_H2S",
+    "h_ideal_N2",
+    "get_bip_matrix",
+    "VanDerWaals_cohesion",
+    "VanDerWaals_covolume",
+]
+
+
+if not TYPE_CHECKING:
+
+    class ArithmeticType:
+        """Preliminary protocol for types supporting all arithmetic operations in
+        Python.
+
+        See Also:
+            https://stackoverflow.com/questions/76821158/
+            specify-that-a-typevar-supports-the-operator-among-its-values
+
+        """
+
+else:
+
+    class ArithmeticType(Protocol):
+        def __add__(self, other): ...
+
+        def __radd__(self, other): ...
+
+        def __sub__(self, other): ...
+
+        def __rsub__(self, other): ...
+
+        def __mul__(self, other): ...
+
+        def __rmul__(self, other): ...
+
+        def __pow__(self, other): ...
+
+        def __rpow__(self, other): ...
+
+        def __truediv__(self, other): ...
+
+        def __rtruediv__(self, other): ...
+
+
+thd_function_type = Callable[[ArithmeticType], ArithmeticType]
+"""Type alias for a 1-D, scalar function, taking any type supporting basic arithmetic
+operations and returning an instance of that type."""
+
+
+def h_ideal_H2O(T: ArithmeticType) -> ArithmeticType:
+    """Specific, ideal enthalpy of water based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `Zhu, Okuno (2015) <https://onepetro.org/spersc/proceedings/15RSS/
+        1-15RSS/D011S001R002/183434>`_
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 32.2
+    cp2: float = 1.907e-3
+    cp3: float = 1.055e-5
+    cp4: float = -3.596e-9
+    return (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        + cp3 / 3 * (T**3 - T_REF**3)
+        + cp4 / 4 * (T**4 - T_REF**4)
+    )
+
+
+def h_ideal_CO2(T: ArithmeticType) -> ArithmeticType:
+    """Specific, ideal enthalpy of CO2 based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `Zhu, Okuno (2014) <http://dx.doi.org/10.1016/j.fluid.2014.07.003>`_
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 19.795
+    cp2: float = 7.343e-2
+    cp3: float = -5.602e-5
+    cp4: float = 1.715e-8
+
+    return (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        + cp3 / 3 * (T**3 - T_REF**3)
+        + cp4 / 4 * (T**4 - T_REF**4)
+    )
+
+
+def h_ideal_H2S(T: ArithmeticType) -> ArithmeticType:
+    """Specific, ideal enthalpy of CO2 based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
+        book/10.1002/9781118135341>`_ .
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 3.931
+    cp2: float = 1.49e-3
+    cp3: float = -0.232e5
+    return R_IDEAL_MOL * (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        - cp3 * (T ** (-1) - T_REF ** (-1))
+    )
+
+
+def h_ideal_N2(T: ArithmeticType) -> ArithmeticType:
+    """Specific, ideal enthalpy of N2 based on below reference.
+
+    Can be called with any object supporting overloads of ``+,-,*, **``.
+
+    References:
+        `de Nevers (2012), table A.9 <https://onlinelibrary.wiley.com/doi/
+        book/10.1002/9781118135341>`_ .
+
+    """
+    # Units cp_i in [J / mol K^i]
+    cp1: float = 3.280
+    cp2: float = 0.593e-3
+    cp3: float = 0.04e5
+    return R_IDEAL_MOL * (
+        cp1 * (T - T_REF)
+        + cp2 / 2 * (T**2 - T_REF**2)
+        - cp3 * (T ** (-1) - T_REF ** (-1))
+    )
+
+
+def get_bip_matrix(
+    components: Sequence[Component], package: str = "thermo"
+) -> np.ndarray:
+    """Loads the Peng-Robinson binary interaction parameters from a
+    third-party database.
+
+    Note:
+        Requires the package ``chemicals`` to load and identify components by
+        CAS registry numbers.
+
+    Parameters:
+        components: A list of components with valid CASs registry numbers.
+        package: ``default='thermo'``
+
+            Third-party package containing databases from which the BIP are loaded.
+            Currently supported packages include:
+
+            - ``'thermo'``
+
+    Raises:
+        NotImplementedError: If an unsupported package is passed as argument.
+
+    Returns:
+        A symmtric 2D array ``bip_matrix`` containing BIP values.
+
+        The row/column order for BIPs corresponds to the order of ``components``.
+        I.e., the BIP between ``components[i]`` and ``components[j]`` is given by
+        ``bip_matrix[i, j]``.
+
+        Note that ``bip_matrix[i, i]`` is always zero. Zeros in the upper and lower
+        triangle of the matrix are most likely a result of missing data in the used
+        package. A warnings is issued if that is the case.
+
+    """
+    nc = len(components)
+    bip_mat = np.zeros((nc, nc))
+
+    # type-hinting how a package-specific BIP fetching function should look like
+    # to obtain the BIP for two components identified with their CASs registry number
+    # in string format
+    fetcher: Callable[[str, str], float]
+
+    try:
+        import chemicals  # type:ignore
+
+        cas_numbers = [chemicals.CAS_from_any(comp.name) for comp in components]
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            "Require chemicals package to load CAS registry numbers."
+        ) from err
+
+    if package == "thermo":
+        from thermo.interaction_parameters import IPDB  # type:ignore[import-untyped]
+
+        def fetcher(cas_1: str, cas_2: str) -> float:
+            bip = IPDB.get_ip_automatic(CASs=[cas_1, cas_2], ip_type="PR kij", ip="kij")
+            return float(bip)
+
+    else:
+        raise NotImplementedError(f"Unsupported package `{package}`.")
+
+    for i in range(nc):
+        comp_i = components[i]
+        cas_i = cas_numbers[i]
+        for j in range(i + 1, nc):
+            comp_j = components[j]
+            cas_j = cas_numbers[j]
+
+            bip_ij = fetcher(cas_i, cas_j)
+
+            if bip_ij == 0.0:
+                warnings.warn(
+                    f"Fetched BIP ({package}) for components ({comp_i.name}, "
+                    + f"{comp_j.name}) is zero. Most likely due to missing data in"
+                    + " third-party package."
+                )
+
+            bip_mat[i, j] = bip_ij
+
+    return bip_mat + bip_mat.T
+
+
+def VanDerWaals_covolume(
+    X: Sequence[ArithmeticType], b: Sequence[ArithmeticType]
+) -> ArithmeticType:
+    r"""Van Der Waals - mixing rule for co-volume term.
+
+    Parameters:
+        x: A sequence of fractions.
+        b: A sequence of component covolume values, with the same length and order as
+            ``X``.
+
+    Returns:
+        :math:`\sum_i x_i b_i`.
+
+    """
+    return safe_sum([x_i * b_i for x_i, b_i in zip(X, b)])
+
+
+def VanDerWaals_cohesion(
+    x: Sequence[ArithmeticType],
+    a: Sequence[ArithmeticType],
+    bip: np.ndarray,
+    sqrt_of_any: Callable[[ArithmeticType], ArithmeticType],
+) -> ArithmeticType:
+    r"""Van Der Waals - mixing term for cohesion.
+
+    Parameters:
+        x: A sequence of fractions.
+        a: A sequence of component cohesion values, with the same length and order as
+            ``X``.
+        bip: A 2D array of binary interaction parameters where ``bip[i][j]`` is
+            the parameter between components ``i`` and ``j``.
+            Symmetric, but the upper triangle of this 2D matrix is sufficient.
+        sqrt_func: ``default=``:func:`sympy.sqrt`
+
+            A function representing the square root applicable to the input type.
+
+    Returns:
+        :math:`\sum_i\sum_k x_i x_k \sqrt{a_i a_k} (1 - \delta_{ik})`,
+        where :math:`\delta` denotes the binary interaction parameter.
+
+    """
+
+    nc = len(x)  # number of components
+
+    a_parts = []
+
+    # mixture matrix is symmetric, sum over all entries in upper triangle
+    # multiply off-diagonal elements with 2
+    for i in range(nc):
+        a_parts.append(x[i] ** 2 * a[i])
+        for j in range(i + 1, nc):
+            x_ij = x[i] * x[j]
+            a_ij_ = sqrt_of_any(a[i] * a[j])
+            delta_ij = 1 - bip[i][j]
+
+            a_ij = a_ij_ * delta_ij
+
+            # off-diagonal elements appear always twice due to symmetry
+            a_parts.append(2.0 * x_ij * a_ij)
+
+    return safe_sum(a_parts)
