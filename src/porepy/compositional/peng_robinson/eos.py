@@ -17,7 +17,7 @@ import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import NUMBA_FAST_MATH, R_IDEAL_MOL, njit
-from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
+from ..compiled_eos import CompiledEoS, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 from ..utils import safe_sum
 from .compressibility_factor import (
@@ -607,7 +607,7 @@ class SymbolicPengRobinson:
             )
 
 
-class CompiledPengRobinson(EoSCompiler):
+class CompiledPengRobinson(CompiledEoS):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
 

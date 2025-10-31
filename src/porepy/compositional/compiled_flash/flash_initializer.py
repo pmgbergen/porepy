@@ -22,8 +22,8 @@ from .._core import (
     cfunc,
     typeof,
 )
+from ..compiled_eos import CompiledEoS
 from ..utils import _compute_saturations, compute_saturations, normalize_rows
-from .eos_compiler import EoSCompiler
 from .solvers._core import SOLVER_PARAMETERS_TYPE
 from .uniflash_equations import (
     assemble_generic_arg,
@@ -482,8 +482,8 @@ class FlashInitializer:
         """The index of the gas phase. None if gas not existent."""
 
         eos = fluid.reference_phase.eos
-        assert isinstance(eos, EoSCompiler)
-        self._eos: EoSCompiler = eos
+        assert isinstance(eos, CompiledEoS)
+        self._eos: CompiledEoS = eos
         """Compiled EoS of the reference phase, assuming all phases have the same EoS.
         """
 

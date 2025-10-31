@@ -11,12 +11,12 @@ from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, 
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_PARALLEL, PhysicalState, cfunc, njit, typeof
-from ..base import Component, EquationOfState
-from ..states import PhaseProperties
-from ..utils import normalize_rows
+from ._core import NUMBA_PARALLEL, PhysicalState, cfunc, njit, typeof
+from .base import Component, EquationOfState
+from .states import PhaseProperties
+from .utils import normalize_rows
 
-__all__ = ["EoSCompiler"]
+__all__ = ["CompiledEoS"]
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,8 @@ PropertyFunctionNames: TypeAlias = Literal[
     "kappa",
     "dkappa",
 ]
-"""Type alias for names/keys of property functions stored in :attr:`EoSCompiler.funcs`
-and :attr:`EoSCompiler.gufuncs`.
+"""Type alias for names/keys of property functions stored in :attr:`CompiledEoS.funcs`
+and :attr:`CompiledEoS.gufuncs`.
 
 See also:
     :class:`~porepy.compositional.states.PhaseProperties`
@@ -66,36 +66,36 @@ See also:
 
 class PropertyFunctionDict(TypedDict, total=False):
     """Typed dictionary defining which property functions are expected to be available
-    in :attr:`EoSCompiler.funcs`."""
+    in :attr:`CompiledEoS.funcs`."""
 
     prearg_val: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_prearg_for_values`."""
+    """Provided by :meth:`CompiledEoS.get_prearg_for_values`."""
     prearg_jac: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_prearg_for_derivatives`."""
+    """Provided by :meth:`CompiledEoS.get_prearg_for_derivatives`."""
     h: ScalarFunction
-    """Provided by :meth:`EoSCompiler.get_enthalpy_function`."""
+    """Provided by :meth:`CompiledEoS.get_enthalpy_function`."""
     dh: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_enthalpy_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_enthalpy_derivative_function`."""
     rho: ScalarFunction
-    """Provided by :meth:`EoSCompiler.get_density_function`."""
+    """Provided by :meth:`CompiledEoS.get_density_function`."""
     drho: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_density_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_density_derivative_function`."""
     v: ScalarFunction
-    """Provided by :meth:`EoSCompiler.get_volume_function`."""
+    """Provided by :meth:`CompiledEoS.get_volume_function`."""
     dv: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_volume_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_volume_derivative_function`."""
     mu: ScalarFunction
-    """Provided by :meth:`EoSCompiler.get_viscosity_function`."""
+    """Provided by :meth:`CompiledEoS.get_viscosity_function`."""
     dmu: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_viscosity_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_viscosity_derivative_function`."""
     kappa: ScalarFunction
-    """Provided by :meth:`EoSCompiler.get_conductivity_function`."""
+    """Provided by :meth:`CompiledEoS.get_conductivity_function`."""
     dkappa: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_conductivity_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_conductivity_derivative_function`."""
     phis: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_fugacity_function`."""
+    """Provided by :meth:`CompiledEoS.get_fugacity_function`."""
     dphis: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_fugacity_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_fugacity_derivative_function`."""
 
 
 # NOTE The template functions need some non-trivial body and return value to compile.
@@ -502,7 +502,7 @@ def _evaluate_vectorized_fug_coeff_diff_func(
     return dphis
 
 
-class EoSCompiler(EquationOfState):
+class CompiledEoS(EquationOfState):
     """Abstract base class for EoS compilation using numba.
 
     This class needs functions computing

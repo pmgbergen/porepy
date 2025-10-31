@@ -2,8 +2,7 @@
 
 __all__ = []
 
-from . import eos_compiler, flash_initializer, solvers, uniflash, uniflash_equations
-from .eos_compiler import *
+from . import flash_initializer, solvers, uniflash, uniflash_equations
 from .flash_initializer import *
 from .solvers import *
 
@@ -17,7 +16,6 @@ from .uniflash import *  # type:ignore[assignment]
 from .uniflash_equations import *
 
 __all__.extend(solvers.__all__)
-__all__.extend(eos_compiler.__all__)
 __all__.extend(flash_initializer.__all__)
 __all__.extend(uniflash_equations.__all__)
 __all__.extend(uniflash.__all__)

@@ -21,7 +21,7 @@ import numba as nb
 import numpy as np
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
-from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
+from ..compiled_eos import CompiledEoS, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 
 __all__ = [
@@ -529,7 +529,7 @@ def _dmu_correction(
     return (dn * xi - n * dxi) / (xi**2)
 
 
-class LBCViscosity(EoSCompiler):
+class LBCViscosity(CompiledEoS):
     """Partial EOS class implementing the Lohrenz-Bray-Clark viscosity model,
     returning viscosity and its derivatives with respect to pressure, temperature and
     fractions.
