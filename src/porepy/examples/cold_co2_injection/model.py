@@ -134,7 +134,7 @@ class FluidMixture(pp.PorePyModel):
         import porepy.compositional.peng_robinson.lbc_viscosity as lbc
         import numba as nb
 
-        class PRLBC(lbc.LBCViscosity, pr.PengRobinsonCompiler):
+        class PRLBC(lbc.LBCViscosity, pr.CompiledPengRobinson):
             """Peng-Robinson with LBC model for viscosity and constant thermal
             conductivity with reference values for water in liquid (0.6) and vapor form
             (0.06)."""
@@ -164,7 +164,7 @@ class FluidMixture(pp.PorePyModel):
 
                 return dkappa_c
 
-        class PRCT(ConstantTransportProperties, pr.PengRobinsonCompiler):
+        class PRCT(ConstantTransportProperties, pr.CompiledPengRobinson):
             """Peng-Robinson with Constant Transport properties."""
 
         eos = PRCT(

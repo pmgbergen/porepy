@@ -157,7 +157,7 @@ class Pipe2D(pp.PorePyModel):
 # endregion
 
 
-class WaterEoS(pr.PengRobinsonCompiler):
+class WaterEoS(pr.CompiledPengRobinson):
     """An equation of state for water based on Peng-Robinson, but using IAPWS-97
     correlations to compute the transport properties viscosity and thermal conductivity.
     """

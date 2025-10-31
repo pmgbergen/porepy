@@ -34,13 +34,17 @@ import porepy as pp
 from .._core import NUMBA_FAST_MATH
 from ..base import Compound
 from ..materials import FluidComponent
-from . import eos, eos_symbolic
+from . import eos
+from .compressibility_factor import (
+    get_compressibility_factor,
+    get_compressibility_factor_derivatives,
+)
 from .utils import thd_function_type
 
 __all__ = [
     "NaClBrine",
-    "PengRobinsonSoereideSymbolic",
-    "PengRobinsonSoereideCompiler",
+    "SymbolicPengRobinsonSoereide",
+    "CompiledPengRobinsonSoereide",
 ]
 
 
@@ -62,7 +66,7 @@ class NaClBrine(FluidComponent, Compound):
         self.active_tracers = [nacl]
 
 
-class PengRobinsonSoereideSymbolic(eos_symbolic.PengRobinsonSymbolic):
+class SymbolicPengRobinsonSoereide(eos.SymbolicPengRobinson):
     """Extension of the symbolic PR EoS to account for salinity in the binary
     interaction parameters and cohesion.
 
@@ -199,7 +203,7 @@ class PengRobinsonSoereideSymbolic(eos_symbolic.PengRobinsonSymbolic):
         return sp.lambdify(arg, self.grad_pTx_A)
 
 
-class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
+class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     """Extension of the compiled PR EoS which expects the salinity as a parameter
     for the preargument functions.
 
@@ -212,9 +216,7 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
     1. ``'salinity'``: Molality of NaCl in the brine.
     2. ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing roots
        near phase borders
-    3. ``'smoothing_extensions'``: Portion of A-B space around lines bordering different
-       extension procedures.
-    4. ``'eps'``: Numerical tolerance to determine zero (root case computation).
+    3. ``'eps'``: Numerical tolerance to determine zero (root case computation).
 
     """
 
@@ -228,7 +230,7 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
         nc = len(components)
         super().__init__(components, ideal_enthalpies, np.zeros((nc, nc)), params)
 
-        self.symbolic: PengRobinsonSoereideSymbolic = PengRobinsonSoereideSymbolic(
+        self.symbolic: SymbolicPengRobinsonSoereide = SymbolicPengRobinsonSoereide(
             components, ideal_enthalpies
         )
 
@@ -264,7 +266,6 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
 
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
-        s_e = self.params["smoothing_extension"]
         sal = self.params["salinity"]
 
         @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
@@ -274,7 +275,6 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
             prearg = np.empty((3,), dtype=np.float64)
 
             s_m_ = s_m
-            s_e_ = s_e
             eps_ = eps
             sal_ = sal
             if params.size >= 1:
@@ -282,16 +282,21 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
             if params.size >= 2:
                 s_m_ = params[1]
             if params.size >= 3:
-                s_e_ = params[2]
-            if params.size >= 4:
-                eps_ = params[3]
+                eps_ = params[2]
+
+            if phasetype == 1:
+                gaslike = True
+            elif phasetype == 0:
+                gaslike = False
+            else:
+                raise NotImplementedError(f"Unsupported phase type: {phasetype}")
 
             A = A_c(p, T, xn, sal_)
             B = B_c(p, T, xn)
 
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
-            prearg[2] = eos._Z_from_AB(A, B, phasetype, eps_, s_e_, s_m_)
+            prearg[2] = get_compressibility_factor(A, B, gaslike, eps_, s_m_)
 
             return prearg
 
@@ -309,7 +314,6 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
 
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
-        s_e = self.params["smoothing_extension"]
         sal = self.params["salinity"]
 
         @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
@@ -321,24 +325,28 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
             prearg = np.empty((3 * d,), dtype=np.float64)
 
             s_m_ = s_m
-            s_e_ = s_e
             eps_ = eps
             sal_ = sal
             if params.size >= 1:
                 sal_ = params[0]
             if params.size >= 2:
                 s_m_ = params[1]
-            if params.size >= 3:
-                s_e_ = params[2]
             if params.size >= 4:
-                eps_ = params[3]
+                eps_ = params[2]
+
+            if phasetype == 1:
+                gaslike = True
+            elif phasetype == 0:
+                gaslike = False
+            else:
+                raise NotImplementedError(f"Unsupported phase type: {phasetype}")
 
             A = A_c(p, T, xn, sal_)
             B = B_c(p, T, xn)
 
             dA = dA_c(p, T, xn)
             dB = dB_c(p, T, xn)
-            dZ_ = eos._dZ_dAB(A, B, phasetype, eps_, s_e_, s_m_)
+            dZ_ = get_compressibility_factor_derivatives(A, B, gaslike, eps_, s_m_)
             dZ = dZ_[0] * dA + dZ_[1] * dB
 
             prearg[0:d] = dA

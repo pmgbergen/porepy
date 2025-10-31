@@ -1,39 +1,51 @@
-"""Sub-package of ``porepy.compositional`` with implementations using the Peng-Robinson
+"""Sub-package of ``porepy.compositional`` with implementations of the Peng-Robinson
 EoS.
 
 The work here is largely based on below references.
 
-This subpackage implements the standard Peng-Robinson equation of state,
-including some mixing rules and extensions.
+.. rubric:: Module guide
 
-The core of the module are its EoS classes. One is a symbolic representation
-:class:`~porepy.compositional.peng_robinson.eos_s.PengRobinsonSymbolic`
-and the other is a numba-compiled representation, based on the functions obtained
-by the symbolic one
-:class:`~porepy.compositional.peng_robinson.eos_c.PengRobinsonCompiler`.
+The base functionality revolves around obtaining the real solutions or real cubic
+polynomials, and their derivatives with respect to dependencies such as polynomial
+coefficients. The main aspect is an efficient compilation to be used in other modules.
+This can be found in :mod:`~porepy.compositional.peng_robinson.cubic_polynomial`.
 
-It provides furthermore an interface to load binary interaction parameters from the
-package ``thermo``, as well as some mixing rules to obtain a mixture's cohesion and
-covolume (Van der Waals).
+Based on that, the computation of the compressibility factor is implemented with
+dependencies on dimensionless cohesion and covolume. This package supports a
+persistent-variable formulation of the phase equilibrium problem, which means it
+provides functionalities to compute surrogates for compressibility factors, where a
+phase is not physically present.
+This is implemented in
+:mod:`~porepy.compositional.peng_robinson.compressibility_factor`.
+
+The equation of state itself is implemented using :mod:`numba`-compilation.
+Ahead-of-time compilation is mimicked using signatures, i.e. static types, which mich
+result in a slow import when importing this subpackage for the first time.
+Thermodynamic properties of a fluid are implemented using :mod:`sympy` to provide
+lambdified expressions for the properties, tailored to individual fluids.
+They then need to be compiled before computations begin.
+For more see :mod:`~porepy.compositional.peng_robinson.eos`, and the two classes
+therein.
+
+Finally, some extensions are available, including the Soereide extension for brine
+mixtures (:mod:`~porepy.compositional.peng_robinson.soereide`), and Lphrenz-Bray-Clark
+correlations for viscosity (:mod:`~porepy.compositional.peng_robinson.lbc_viscosity`).
+Note however, that the latter is more general and can be used with any other EoS.
 
 References:
     [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
     [2]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
-    [3]: `Driesner (2007) Part I <https://doi.org/10.1016/j.gca.2006.01.033>`_
-    [4]: `Driesner (2007) Part II <https://doi.org/10.1016/j.gca.2007.05.026>`_
-    [5]: `Soereide (1992) <https://doi.org/10.1016/0378-3812(92)85105-H>`_
+    [3]: `Soereide (1992) <https://doi.org/10.1016/0378-3812(92)85105-H>`_
 
 """
 
 __all__ = []
 
-from . import eos, eos_symbolic, soereide_extension, utils
+from . import compressibility_factor, cubic_polynomial, eos, soereide, utils
 from .eos import *
-from .eos_symbolic import *
-from .soereide_extension import *
+from .soereide import *
 from .utils import *
 
 __all__.extend(eos.__all__)
-__all__.extend(eos_symbolic.__all__)
 __all__.extend(utils.__all__)
-__all__.extend(soereide_extension.__all__)
+__all__.extend(soereide.__all__)
