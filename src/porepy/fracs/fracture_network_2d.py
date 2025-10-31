@@ -502,7 +502,7 @@ class FractureNetwork2d:
         # Define a threshold for when to consider refining along fractures. This is a
         # heuristic value which should be reconsidered. Scaling with mesh size on
         # fractures is reasonable, but the factor 2 is arbitrary.
-        THRESHOLD_REFINEMENT = 0.5 * mesh_args["mesh_size_frac"]
+        THRESHOLD_REFINEMENT = mesh_args["mesh_size_frac"]
 
         # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
         # BETA and make them user parameters, IF the concept turns out to be useful and
@@ -538,42 +538,11 @@ class FractureNetwork2d:
 
         mesh_size_points = {}
 
-        mesh_size_fractures = {}
-
-        def process_parallel_lines(inds, close_points, distance_info, line_1, line_2):
-            """Helper function to process (almost) parallel lines, in cases where the
-            lines are partially overlapping (but not the case where one short line is
-            fully overlapping with a longer line - that is covered elsewhere). The lines
-            may or may not be crossing.
-
-            """
-
-            if not np.all(close_points[inds]):
-                # At most one of the points were close to the other line. This points to
-                # a geometry close to a T-intersection (though the lines may not be
-                # intersecting). The case is handled elsewhere.
-                return
-
-            # If we reach this point, we have a case of (almost) parallel lines. Below
-            # we assume that inds[0] is associated with line_1 and inds[1] with line_2.
-            i_1, i_2 = inds
-
-            if distance_info[i_1][0] < self.tol:
-                # The first point is an intersection point. This is handled elsewhere.
-                pass
-            else:
-                # Store information on the closest point and the distance, and
-                # associated it with line 2.
-                info_2 = mesh_size_points.get(line_2, [])
-                info_2.append((distance_info[i_1][4:7], distance_info[i_1][0]))
-                mesh_size_points[line_2] = info_2
-
-            if distance_info[i_2][0] < self.tol:
-                pass
-            else:
-                info_1 = mesh_size_points.get(line_1, [])
-                info_1.append((distance_info[i_2][1:4], distance_info[i_2][0]))
-                mesh_size_points[line_1] = info_1
+        def project_onto_line(pt, start_of_line, vector):
+            vec_to_point = pt - start_of_line
+            # Project the vector onto the line defined by the start point and the
+            # direction vector, parametrized by t.
+            return np.dot(vec_to_point, vector) / np.dot(vector, vector)
 
         for line_1, line_2 in itertools.combinations(line_tags, 2):
             if (line_1 in boundary_tags) and (line_2 in boundary_tags):
@@ -601,48 +570,102 @@ class FractureNetwork2d:
 
                 # For each of the endpoints of each the two lines, end_point_distance
                 # will store the distance and the closest points on the other line.
-                end_point_distances = []
+
+                # The below loop extracts the following information regarding the two
+                # lines:
+                # - main_start_point: A closest point on one of the lines that is also
+                #   an endpoint of that line. There will be one or two such points; we
+                #   pick the first one we find.
+                # - vectors: Direction vectors along each line. For the line containing
+                #   main_start_point, the vector is oriented away from that point.
+                # - main_line_ind: Index (0 or 1) of the line containing
+                #   main_start_point.
+                #
+
                 vectors = []
                 closest_points = [np.array(distances[1:4]), np.array(distances[4:7])]
-                selected_closest_point = None
+                main_start_point = None
+                end_point_coordinates = []
+                main_line_ind = None
 
-                for line, cp in zip([line_1, line_2], closest_points):
+                # The loop variables are ind (index of the line, 0 or 1), line (the line
+                # tag), and cp (the closest point on that line to the other line).
+                for ind, (line, cp) in enumerate(zip([line_1, line_2], closest_points)):
                     other_line = line_2 if line == line_1 else line_1
-                    end_points_line = gmsh.model.getBoundary(
+
+                    # Get the endpoints of the line, in terms of gmsh tag-index pairs.
+                    point_tags = gmsh.model.getBoundary(
                         [(1, line)], combined=False, oriented=False
                     )
+                    # Get the coordinates of the endpoints.
+                    end_point_coordinates += [
+                        gmsh.model.get_bounding_box(*point_tags[i])[:3]
+                        for i in range(2)
+                    ]
                     # Vector along the line.
                     vectors.append(
                         np.array(
                             [
-                                end_points_line[1][i] - end_points_line[0][i]
+                                end_point_coordinates[-1][i]
+                                - end_point_coordinates[-2][i]
                                 for i in range(3)
                             ]
                         )
                     )
-                    # Compute distances from each endpoint to the other line.
-                    distance_point_line = [
-                        factory.getDistance(0, pt, 1, other_line)
-                        for _, pt in end_points_line
-                    ]
-                    end_point_distances += distance_point_line
                     # Check if one of the endpoints is the closest point.
-                    if selected_closest_point is None:
+                    if main_start_point is None:
                         for i in range(2):
-                            d = np.linalg.norm(cp - np.array(end_points_line[i]))
+                            # Since end_point_coordinates contain endpoints of both
+                            # lines, we need to index carefully.
+                            d = np.linalg.norm(
+                                cp - np.array(end_point_coordinates[-2 + i])
+                            )
                             if d < self.tol:  # This should really be a gmsh tolerance.
-                                selected_closest_point = end_points_line[i]
+                                main_start_point = np.array(
+                                    end_point_coordinates[-2 + i]
+                                )
+                                main_line_ind = ind
+                                if i == 1:
+                                    # Ensure that the vector points away from the
+                                    # closest point.
+                                    vectors[-1] = -vectors[-1]
 
-                # Compute the angle between the two lines.
-                for vector in vectors:
-                    norm = np.linalg.norm(vector)
-                    if norm > 0:
-                        vector /= norm
-                cos_angle = np.clip(np.dot(vectors[0], vectors[1]), -1.0, 1.0)
+                if main_start_point is None:
+                    assert False, "Logic error in closest point identification."
+
+                # Identify the other line.
+                other_line_ind = 1 - main_line_ind
+                main_line_gmsh_ind = line_1 if main_line_ind == 0 else line_2
+                other_line_gmsh_ind = line_2 if main_line_ind == 0 else line_1
+                # Start point on the other line.
+                other_start_point = end_point_coordinates[other_line_ind][0]
+                # Vectors along the two lines.
+                vector_other_line = vectors[other_line_ind]
+                vector_main_line = vectors[main_line_ind]
+                # Project the main_start_point onto the extension of the other line to
+                # see if it falls within the segment defined by the other line.
+                t_closest = project_onto_line(
+                    main_start_point, np.array(other_start_point), vector_other_line
+                )
+
+                if t_closest < 0 or t_closest > 1:
+                    # The closest point is outside the segment defined by the other
+                    # line. We will not do further refinement along the lines in this
+                    # case.
+                    continue
+
+                # Compute the angle between the two lines. Clip the cosine value to
+                # avoid numerical issues.
+                cos_angle = np.clip(
+                    np.dot(
+                        vector_main_line / np.linalg.norm(vector_main_line),
+                        vector_other_line / np.linalg.norm(vector_other_line),
+                    ),
+                    -1.0,
+                    1.0,
+                )
                 angle = np.arccos(cos_angle)
-
-                # Force the angle to be in the right quadrant. TODO: Check the logic
-                # here.
+                # Force the angle to be in the right quadrant.
                 if angle > np.pi / 2:
                     angle = np.pi - angle
 
@@ -671,7 +694,7 @@ class FractureNetwork2d:
 
                 # Angle of incline of the mesh size field.
                 ANGLE_THRESHOLD = np.arctan2(
-                    (h_bound - distances[0] / ALPHA) / (BETA * h_frac - distances[0])
+                    h_bound - distances[0] / ALPHA, BETA * h_frac - distances[0]
                 )
 
                 if angle > ANGLE_THRESHOLD:
@@ -688,66 +711,60 @@ class FractureNetwork2d:
                     # The lines are not (almost) parallel, so we do not need to consider
                     # this any further.
                     continue
+
                 # The lines are close enough to being parallel that there is a need for
                 # refinement, not centered on the closest points only, but also along
-                # (parts of) the lines.
-
-                # Check whether the endpoints of each line is close to the other line.
-                end_point_close = np.array(
-                    [dist[0] < THRESHOLD_REFINEMENT for dist in end_point_distances]
-                )
-                if np.sum(end_point_close) >= 2:
-                    # At least two endpoints are close to the other line, which means
-                    # that the lines are classified as almost parallel. A line can
-                    # either run fully parallel to the other, in which case the first
-                    # line should be refined along its full length, or it can be
-                    # parallel only along a section, in which case both lines should be
-                    # refined along the parallel section.
-
-                    # First cover the cases of fully parallel lines. NOTE: This is a
-                    # case where the current definition of THRESHOLD_REFINEMENT may give
-                    # less than ideal results: For an almost T-style intersection (but
-                    # no actual intersection), where one of the lines are very short,
-                    # both endpoints of that line may be very close, and the line will
-                    # be classified as almost parallel, even in cases where the lines
-                    # are perpendicular. Besides the confusing terminology, this may
-                    # lead to meshes that are overly refined along the short line, and
-                    # in particular in the end that is far from the other line.
-                    if end_point_close[0] and end_point_close[1]:
-                        # Both endpoints of line_1 are close to line_2. Refine full
-                        # length of line_1.
-                        existing_size = mesh_size_fractures.get(line_1, np.inf)
-                        min_dist = [dist[0] for dist in end_point_distances[:2]]
-                        if min(min_dist) < self.tol:
-                            # One of the endpoints is an intersection point.
-                            mesh_size_fractures[line_1] = max(min_dist)
-                        else:
-                            # The lines are almost parallel.
-                            mesh_size_fractures[line_1] = min(
-                                existing_size, min(min_dist)
-                            )
-                    if end_point_close[2] and end_point_close[3]:
-                        # Both endpoints of line_2 are close to line_1. Refine full
-                        # length of line_2.
-                        existing_size = mesh_size_fractures.get(line_2, np.inf)
-                        min_dist = [dist[0] for dist in end_point_distances[2:4]]
-                        if min(min_dist) < self.tol:
-                            # One of the endpoints is an intersection point.
-                            mesh_size_fractures[line_2] = max(min_dist)
-                        else:
-                            # The lines are almost parallel.
-                            mesh_size_fractures[line_2] = min(
-                                existing_size, min(min_dist)
-                            )
-
-                    # Now cover the cases of partial parallel lines. Do this by
-                    # considering all pairs of endpoints of the two lines. The actual
-                    # processing is done in a helper function. Need to use lists for the
-                    # index pairs to facilitate numpy indexing.
-                    for inds in [[0, 2], [0, 3], [1, 2], [1, 3]]:
-                        process_parallel_lines(
-                            inds, end_point_close, end_point_distances, line_1, line_2
-                        )
+                # (parts of) the main line. We *assume* here that it is sufficient to
+                # prescribe new mesh size points along the main line, and that the other
+                # line will be refined accordingly.
+                if distances[0] < self.tol:
+                    step_size = h_frac / ALPHA
+                else:
+                    step_size = max(h_min, distances[0])
+                prev_point = main_start_point
+                while True:
+                    # Next candidate point along the main line. Use a normalized
+                    # direction vector to let the step size be independent of the length
+                    # of the line.
+                    next_point = (
+                        prev_point
+                        + step_size
+                        * vector_main_line
+                        / np.linalg.norm(vector_main_line)
+                    )
+                    if np.linalg.norm(next_point - main_start_point) > np.linalg.norm(
+                        vector_main_line
+                    ):
+                        # We have reached the end of the main line.
+                        break
+                    # Project the next point onto the other line to see if it falls
+                    # within the segment defined by the other line.
+                    t_next = project_onto_line(
+                        next_point,
+                        np.array(other_start_point),
+                        vector_other_line,
+                    )
+                    if t_next < 0 or t_next > 1:
+                        # The next point is outside the segment defined by the other
+                        # line.
+                        break
+                    # Add the point temporarily to gmsh to compute the distance to the
+                    # other line.
+                    pi = factory.add_point(next_point[0], next_point[1], next_point[2])
+                    d = gmsh.model.occ.get_distance(0, pi, 1, other_line_gmsh_ind)[0]
+                    assert d >= distances[0], "Logic error in distance computation."
+                    if d > THRESHOLD_REFINEMENT:
+                        # Remove the point again.
+                        factory.remove([(0, pi)])
+                        # No further refinement needed.
+                        break
+                    else:
+                        # Store the point and distance information for later processing.
+                        info = mesh_size_points.get(main_line_gmsh_ind, [])
+                        info.append((next_point, d))
+                        mesh_size_points[main_line_gmsh_ind] = info
+                    prev_point = next_point
+                    step_size = d
 
         ## Start feeding the mesh size information to gmsh fields.
         gmsh_fields = []
@@ -769,23 +786,30 @@ class FractureNetwork2d:
             points, _, ind_map = pp.array_operations.uniquify_point_set(
                 np.hstack((end_points, extra_points)), tol=tol
             )
-            # Distance to other objects for each point, as computed previously.
+            # Distance to other objects for each point, as computed previously. Assign
+            # h_frac to the endpoints. For intersection points, identified by d[1] == 0,
+            # we also assign h_frac, since no refinement is needed just because this is
+            # an intersection point (if it is an intersection with a bad angle, this
+            # should be picked up by a close point on another line).
             other_object_distances_all = np.hstack(
-                (np.array([np.inf, np.inf]), np.array([d[1] for d in info]))
+                (
+                    np.array([h_frac, h_frac]),
+                    np.array([d[1] if d[1] > 0 else h_frac for d in info]),
+                )
             )
             # Reduce to one distance per unique point, picking the minimum distance if
             # multiple distances were associated with the same geometric point.
             other_object_distances = []
             for i in range(points.shape[1]):
-                inds = np.where(ind_map == i)[0]
-                min_dist = np.min(other_object_distances_all[inds - 2])
+                inds = ind_map == i
+                min_dist = np.min(other_object_distances_all[inds])
                 other_object_distances.append(min_dist)
             other_object_distances = np.array(other_object_distances)
 
             # Mesh size information that relates to either endpoints or points close to
             # end points (which were filtered out) must be assigned to endpoints.
 
-            if points.shape[1] > 2:
+            if points.shape[1] > 0:
                 # If there is more than one point in addition to the end points, we can
                 # compute the point-point distances in pairs along this line.
                 point_point_distances = pp.distances.pointset(points, max_diag=True)
@@ -804,6 +828,10 @@ class FractureNetwork2d:
             for i, d in enumerate(dist):
                 # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
                 # related to almost intersection points.
+                if d > h_frac:
+                    # No refinement needed at this point.
+                    continue
+
                 size = max(h_min, d) / ALPHA
                 field = gmsh.model.mesh.field.add("Distance")
                 pi = gmsh.model.occ.add_point(points[0, i], points[1, i], points[2, i])
@@ -820,42 +848,7 @@ class FractureNetwork2d:
                 gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
                 gmsh_fields.append(threshold)
 
-        for line, size_info in mesh_size_fractures.items():
-            # Adapt the mesh size along fractures that are 'almost parallel' to other
-            # fractures, or the boundary. These should have the same size along the
-            # entire line, with the size computed from the distance information.
-
-            field = gmsh.model.mesh.field.add("Distance")
-            gmsh.model.mesh.field.setNumbers(field, "CurvesList", [line])
-            # Adapt the number of sampling points along the line to its length and the
-            # fracture mesh size. There should be at least two points, though.
-            end_points = gmsh.model.getBoundary([(1, line)], combined=False)
-            length = gmsh.model.occ.get_distance(
-                end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
-            )[0]
-            num_points = max(2, int(np.ceil(length / h_frac)) + 1)
-            num_points = 2
-            gmsh.model.mesh.field.setNumber(field, "Sampling", num_points)
-
-            threshold = gmsh.model.mesh.field.add("Threshold")
-            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
-            gmsh.model.mesh.field.setNumber(threshold, "DistMin", size_info / ALPHA)
-            gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size_info / ALPHA)
-            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
-            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
-            gmsh_fields.append(threshold)
-            # if line == 22:
-            #    breakpoint()
-            debug = []
-
         for line in fracture_tags:
-            # Assign mesh size along fractures that were not identified as 'almost
-            # parallel' (previous loop). These get the standard mesh size h_frac along
-            # their full length.
-            if line in mesh_size_fractures:
-                # Already processed above.
-                continue
-
             # Adapt the number of sampling points along the line to its length and the
             # fracture mesh size. There should be at least two points, though.
             end_points = gmsh.model.getBoundary([(1, line)], combined=False)
@@ -904,7 +897,6 @@ class FractureNetwork2d:
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
-        debug = []
 
     def mesh_old(
         self,
