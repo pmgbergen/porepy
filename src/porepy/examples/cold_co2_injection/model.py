@@ -24,14 +24,14 @@ import porepy as pp
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.fracs.wells_3d import _add_interface
-from porepy.compositional.compiled_flash.eos_compiler import (
-    EoSCompiler,
+from porepy.compositional.compiled_eos import (
+    CompiledEoS,
     ScalarFunction,
     VectorFunction,
 )
 
 
-class ConstantTransportProperties(EoSCompiler):
+class ConstantTransportProperties(CompiledEoS):
     """Constant viscosity and thermal conductivity for all phases.
 
     Viscosity is set to 1e-3, thermal conductivity to 1.

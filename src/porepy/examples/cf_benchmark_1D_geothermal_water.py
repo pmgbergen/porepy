@@ -34,7 +34,7 @@ import numba as nb
 import numpy as np
 
 import porepy as pp
-import porepy.compositional.compiled_flash.eos_compiler as eosc
+import porepy.compositional.compiled_eos as ceos
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
@@ -162,7 +162,7 @@ class WaterEoS(pr.CompiledPengRobinson):
     correlations to compute the transport properties viscosity and thermal conductivity.
     """
 
-    def get_viscosity_function(self) -> eosc.ScalarFunction:
+    def get_viscosity_function(self) -> ceos.ScalarFunction:
         @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1e-3
@@ -178,7 +178,7 @@ class WaterEoS(pr.CompiledPengRobinson):
 
         return mu_c
 
-    def get_viscosity_derivative_function(self) -> eosc.VectorFunction:
+    def get_viscosity_derivative_function(self) -> ceos.VectorFunction:
         @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
@@ -191,7 +191,7 @@ class WaterEoS(pr.CompiledPengRobinson):
 
         return dmu_c
 
-    def get_conductivity_function(self) -> eosc.ScalarFunction:
+    def get_conductivity_function(self) -> ceos.ScalarFunction:
         @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1.0
@@ -207,7 +207,7 @@ class WaterEoS(pr.CompiledPengRobinson):
 
         return kappa_c
 
-    def get_conductivity_derivative_function(self) -> eosc.VectorFunction:
+    def get_conductivity_derivative_function(self) -> ceos.VectorFunction:
         @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,

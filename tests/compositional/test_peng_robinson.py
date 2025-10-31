@@ -14,9 +14,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.compositional import compiled_flash as cflash
+from porepy.compositional import flash as cflash
 from porepy.compositional import peng_robinson as pr
-from porepy.compositional.compiled_flash.solvers import DEFAULT_NPIPM_SOLVER_PARAMS
+from porepy.compositional.flash.solvers import DEFAULT_NPIPM_SOLVER_PARAMS
 from porepy.compositional.materials import load_fluid_constants
 from porepy.compositional.peng_robinson.utils import (
     get_bip_matrix,
@@ -68,11 +68,11 @@ def mixture(components, eos) -> pp.Fluid:
 
 
 @pytest.fixture(scope="module")
-def flash(mixture) -> cflash.CompiledUnifiedFlash:
+def flash(mixture) -> cflash.CompiledPersistentVariableFlash:
     """Compiled, unified flash instance based on the compiled PR EoS and the
     mixture"""
 
-    flash_ = cflash.CompiledUnifiedFlash(mixture)
+    flash_ = cflash.CompiledPersistentVariableFlash(mixture)
     flash_.solver_params.update(DEFAULT_NPIPM_SOLVER_PARAMS)
     flash_.compile()
 
@@ -160,7 +160,7 @@ def flash(mixture) -> cflash.CompiledUnifiedFlash:
     ],
 )
 def test_uniflash_using_pr(
-    flash_type, X0, var_idx_delta, flash: cflash.CompiledUnifiedFlash
+    flash_type, X0, var_idx_delta, flash: cflash.CompiledPersistentVariableFlash
 ):
     """Computes the Flash equations (Jacobian and residual) and checks that the
     Taylor expansion for each unknown is approximately of second order.

@@ -35,8 +35,8 @@ import numpy as np
 import porepy as pp
 
 from ..compiled_eos import CompiledEoS
-from ..flash import Flash
 from ..utils import _chainrule_fractional_derivatives, normalize_rows
+from .abstract_flash import AbstractFlash
 from .flash_initializer import FlashInitializer
 from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 from .uniflash_equations import (
@@ -55,13 +55,13 @@ from .uniflash_equations import (
     phase_mass_constraints_res,
 )
 
-__all__ = ["CompiledUnifiedFlash"]
+__all__ = ["CompiledPersistentVariableFlash"]
 
 
 logger = logging.getLogger(__name__)
 
 
-class CompiledUnifiedFlash(Flash):
+class CompiledPersistentVariableFlash(AbstractFlash):
     """A class providing efficient unified flash calculations using numba-compiled
     functions.
 
@@ -534,7 +534,7 @@ class CompiledUnifiedFlash(Flash):
           to the generic flash argument. Can also contain floats, which will be
           broadcasted into the vectorized argument.
         - ``'phase_property_params'``: A sequence of arrays or floats to be used when
-          calling :meth:`~porepy.compositional.compiled_eos.EoSCompiler.
+          calling :meth:`~porepy.compositional.compiled_eos.CompiledEoS.
           compute_phase_properties` after the flash is performed to evaluate dependent
           state functions and fluid properties.
 

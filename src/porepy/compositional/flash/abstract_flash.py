@@ -10,12 +10,12 @@ import numpy as np
 
 import porepy as pp
 
-__all__ = ["Flash"]
+__all__ = ["AbstractFlash"]
 
 logger = logging.getLogger(__name__)
 
 
-class Flash(abc.ABC):
+class AbstractFlash(abc.ABC):
     """Abstract base class for flash algorithms defining the interface of flash objects.
 
     The definition of the interface is done mainly as an orientation for compatibility

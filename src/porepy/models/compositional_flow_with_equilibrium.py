@@ -21,6 +21,7 @@ import logging
 import time
 from functools import cached_property, partial
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Literal,
@@ -38,6 +39,12 @@ import porepy as pp
 
 from . import compositional_flow as cf
 from .unified_local_equilibrium import Unified_ph_Equilibrium
+
+# NOTE: Avoid actual import and triggering of compilation. We only need this for type
+# checking
+if TYPE_CHECKING:
+    from porepy.compositional.flash.abstract_flash import AbstractFlash
+
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +152,7 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
 
     """
 
-    flash: pp.compositional.Flash
+    flash: AbstractFlash
     """See :class:`SolutionStrategyCFLE`."""
 
     bc_values_pressure: Callable[[pp.BoundaryGrid], np.ndarray]
@@ -230,7 +237,8 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
             equilibrium_specs: Definition of the equilibrium condition in terms of
                 state functions and their values.
 
-                See also :meth:`~porepy.compositional.flash.flash.Flash.flash`.
+                See also :meth:`~porepy.compositional.flash.abstract_flash.
+                AbstractFlash.flash`.
 
         Raises:
             ValueError: If the flash did not succeed everywhere.
@@ -662,7 +670,7 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
 
     """
 
-    flash: pp.compositional.Flash
+    flash: AbstractFlash
     """See :class:`SolutionStrategyCFLE`."""
 
     # Provided by CompositionalVariablesMixin
@@ -722,7 +730,8 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
             equilibrium_specs: Definition of the equilibrium condition in terms of
                 state functions and their values.
 
-                See also :meth:`~porepy.compositional.flash.flash.Flash.flash`.
+                See also :meth:`~porepy.compositional.flash.abstract_flash.
+                AbstractFlash.flash`.
 
         """
 
@@ -852,7 +861,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
     """
 
-    flash: pp.compositional.Flash
+    flash: AbstractFlash
     """The flash class set by this solution strategy."""
 
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -893,16 +902,17 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         calculations, after the fluid is defined."""
 
         # Import here for runtime reasons of global import (compilation).
-        import porepy.compositional.compiled_flash as cflash
+        import porepy.compositional.compiled_eos as ceos
+        import porepy.compositional.flash as flash
 
-        self.flash = cflash.CompiledUnifiedFlash(
+        self.flash = flash.CompiledPersistentVariableFlash(
             self.fluid,
             self.params.get("flash_params", None),  # type:ignore[arg-type]
         )
 
         if self.params.get("compile", True):
-            assert isinstance(self.fluid.reference_phase.eos, cflash.EoSCompiler), (
-                "EoS of phases must be instance of EoSCompiler."
+            assert isinstance(self.fluid.reference_phase.eos, ceos.CompiledEoS), (
+                "EoS of phases must be instance of CompiledEoS."
             )
             self.flash.compile(*self.params.get("flash_compiler_args", tuple()))
 
@@ -1160,6 +1170,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
         Calls :meth:`postprocess_equilibrium` at the end.
 
+        See also:
+            :meth:`~porepy.compositional.flash.abstract_flash.AbstractFlash.flash`
+
+            :meth:`current_fluid_state`
+
         Parameters:
             sd: A subdomain in the md-grid.
             state: ``default=None``
@@ -1170,17 +1185,12 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 Definition of the equilibrium condition in terms of state functions and
                 their values.
 
-                See also :meth:`~porepy.compositional.flash.flash.Flash.flash`.
-
                 If None, the equilibrium condition is parsed from the model paramters.
             initial_guess_from_current_state: ``default=True``
 
                 If True, the initial fluid state for the flash is evaluated from the
                 current solution values at iterate 0.
 
-                See also argument ``initial_state`` of
-                :meth:`~porepy.compositional.flash.flash.Flash.flash` and
-                :meth:`current_fluid_state`.
             update_secondary_variables: ``default=True``
 
                 If True, the flash results are used to update the values of variables
@@ -1472,7 +1482,8 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         Parameters:
             sd: The grid on which the flash was performed.
             equilibrium_results: The resulting fluid properties and success flags from
-                the call to :meth:`~porepy.compositional.flash.flash.Flash.flash`.
+                the call to
+                :meth:`~porepy.compositional.flash.abstract_flash.AbstractFlash.flash`.
             state: A global state vector from which the state variables were evaluated
                 for the flash.
 
