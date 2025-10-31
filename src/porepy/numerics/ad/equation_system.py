@@ -636,12 +636,25 @@ class EquationSystem:
         variables = self._parse_variable_type(variables)
         var_ids = {var.id for var in variables}
 
-        # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
-        values = []
+        # Precompute the total size of the resulting array
+        total_size = sum(
+            variable.domain.num_cells
+            * self._variable_dof_type[variable.id].get("cells", 0)
+            + variable.domain.num_faces
+            * self._variable_dof_type[variable.id].get("faces", 0)
+            + variable.domain.num_nodes
+            * self._variable_dof_type[variable.id].get("nodes", 0)
+            for variable in variables
+        )
+
+        # Preallocate the result array.
+        values = np.empty(total_size, dtype=float)
 
         # Cache for domain data to avoid recomputing it for the same domain.
         data_cache = {}
 
+        # Fill the preallocated array.
+        offset = 0
         for id_ in self._variable_numbers:
             if id_ in var_ids:
                 variable = self._variables[id_]
@@ -656,12 +669,12 @@ class EquationSystem:
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                 )
-                # NOTE get_solution_values already returns a copy
-                values.append(val)
+                # NOTE: get_solution_values already returns a copy.
+                size = val.size
+                values[offset : offset + size] = val
+                offset += size
 
-        # If there are matching blocks, concatenate and return.
-        # Else return an empty vector.
-        return np.concatenate(values) if values else np.empty(0)
+        return values
 
     def set_variable_values(
         self,
