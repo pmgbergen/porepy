@@ -42,7 +42,6 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
 
     """
     if len(x) >= 1:
-        # TODO do we need a copy here? Test extensively
         sum_ = x[0]
         for i in range(1, len(x)):
             # Using TypeVar to indicate that return type is same as argument type

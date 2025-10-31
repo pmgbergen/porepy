@@ -31,7 +31,7 @@ import sympy as sp
 
 import porepy as pp
 
-from .._core import NUMBA_FAST_MATH
+from .._core import NUMBA_FAST_MATH, njit
 from ..base import Compound
 from ..materials import FluidComponent
 from . import eos
@@ -46,6 +46,14 @@ __all__ = [
     "SymbolicPengRobinsonSoereide",
     "CompiledPengRobinsonSoereide",
 ]
+
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._core.njit`
+
+"""
 
 
 class NaClBrine(FluidComponent, Compound):
@@ -246,13 +254,13 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
 
     def _get_cohesion(self) -> eos.ScalarFunction:
         """Cohesion takes molal salinity as last argument."""
-        return nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8))(self.symbolic.A_func)
+        return _COMPILER(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8))(self.symbolic.A_func)
 
     def _get_cohesion_derivatives(self) -> eos.VectorFunction:
         """Cohesion derivatives take molal salinity as last argument."""
-        df = nb.njit(self.symbolic.grad_pTx_A_func, fastmath=NUMBA_FAST_MATH)
+        df = _COMPILER(self.symbolic.grad_pTx_A_func, fastmath=NUMBA_FAST_MATH)
 
-        @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH)
+        @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH)
         def inner(p_, T_, X_, c_):
             return np.array(df(p_, T_, X_, c_), dtype=np.float64)
 
@@ -268,7 +276,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         s_m = self.params["smoothing_multiphase"]
         sal = self.params["salinity"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
@@ -316,7 +324,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         s_m = self.params["smoothing_multiphase"]
         sal = self.params["salinity"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_jac_c(
             phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:

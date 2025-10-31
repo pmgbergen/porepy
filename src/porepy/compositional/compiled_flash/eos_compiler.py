@@ -11,7 +11,7 @@ from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, 
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_PARALLEL, PhysicalState, cfunc, typeof
+from .._core import NUMBA_PARALLEL, PhysicalState, cfunc, njit, typeof
 from ..base import Component, EquationOfState
 from ..states import PhaseProperties
 from ..utils import normalize_rows
@@ -19,6 +19,14 @@ from ..utils import normalize_rows
 __all__ = ["EoSCompiler"]
 
 logger = logging.getLogger(__name__)
+
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._core.njit`
+
+"""
 
 
 ScalarFunction: TypeAlias = Callable[..., float]
@@ -218,7 +226,7 @@ def fugacity_coeff_derivative_template_func(
 # NOTE Every parallelized evaluation requires an own method because of the exact
 # signatures. This ensures maximum efficiency when importing and executing the code
 # continuously.
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](
         typeof(prearg_template_func),
         nb.i1,
@@ -271,7 +279,7 @@ def _evaluate_vectorized_prearg_func(
     return prearg
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:](
         typeof(property_template_func), nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]
     ),
@@ -316,7 +324,7 @@ def _evaluate_vectorized_property_func(
     return vals
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](
         typeof(property_derivative_template_func),
         nb.f8[:, :],
@@ -379,7 +387,7 @@ def _evaluate_vectorized_property_derivatives_func(
     return diffs
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](
         typeof(fugacity_coeff_template_func),
         nb.f8[:, :],
@@ -432,7 +440,7 @@ def _evaluate_vectorized_fug_coeff_func(
     return phis
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :, :](
         typeof(fugacity_coeff_derivative_template_func),
         nb.f8[:, :],
@@ -753,7 +761,7 @@ class EoSCompiler(EquationOfState):
 
         rho_c = cast(ScalarFunction, rho_c)
 
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             rho = rho_c(prearg, p, T, xn)
             if rho > 0.0:
@@ -792,7 +800,7 @@ class EoSCompiler(EquationOfState):
         rho_c = cast(ScalarFunction, rho_c)
         drho_c = cast(VectorFunction, drho_c)
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dv_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,

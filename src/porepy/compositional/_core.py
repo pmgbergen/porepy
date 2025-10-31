@@ -58,10 +58,11 @@ If enabled, uses :obj:`numba.njit`, otherwise the identity.
 """
 
 
-def _dummy_compiler(*args, **kwargs) -> Callable:
-    """Dummy decorator for when numba JTI is disabled.
+def _no_compile(*args, **kwargs) -> Callable:
+    """Dummy compiler for when numba JTI is disabled.
 
-    Does nothing with the decorated object and returns it as is.
+    Does nothing with the decorated object and returns it as is; ignores all other
+    arguments.
 
     """
     if len(args) > 0:
@@ -73,8 +74,8 @@ def _dummy_compiler(*args, **kwargs) -> Callable:
 
 if _IS_JIT_DISABLED:
     typeof = lambda x: type(x)
-    cfunc = _dummy_compiler
-    njit = _dummy_compiler
+    cfunc = _no_compile
+    njit = _no_compile
 else:
     typeof = nb.typeof
     cfunc = nb.cfunc

@@ -20,12 +20,24 @@ from typing import Sequence
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 
+__all__ = [
+    "LBCViscosity",
+]
 
-@nb.njit(
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._core.njit`
+
+"""
+
+
+@_COMPILER(
     [
         nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8[:](
@@ -75,7 +87,7 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
     return mus
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8[:](
@@ -128,7 +140,7 @@ def _dmu_pure_dT(
     return mus
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8(nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
@@ -158,7 +170,7 @@ def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
     return np.sum(n * mus) / np.sum(n)
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
         nb.f8[:](
@@ -212,7 +224,7 @@ def _dmu_zero(
     return np.hstack((dpt, dx))
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8(
@@ -252,7 +264,7 @@ def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> flo
     return n / d
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8[:](
@@ -300,7 +312,7 @@ def _dxi(
     return (dn * d - n * dd) / (d**2)
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8(nb.f8, nb.f8[:], nb.f8[:]),
         nb.f8(nb.f8, nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
@@ -332,7 +344,7 @@ def _reduced_pseudo_density(
     return rho * np.sum(x * vcs)
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8[:](
@@ -370,7 +382,7 @@ def _d_reduced_pseudo_density(
     return drho_r
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8(
@@ -431,7 +443,7 @@ def _mu_correction(
     return n / xi
 
 
-@nb.njit(
+@_COMPILER(
     [
         nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
         nb.f8[:](
@@ -549,7 +561,7 @@ class LBCViscosity(EoSCompiler):
         else:
             rho_c = self.get_density_function()
 
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, x: np.ndarray) -> float:
             mus_pure = _mu_pure(T, tc, pc, mws)
             mu_zero = _mu_zero(x, mus_pure, mws)
@@ -579,7 +591,7 @@ class LBCViscosity(EoSCompiler):
         else:
             drho_c = self.get_density_derivative_function()
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,

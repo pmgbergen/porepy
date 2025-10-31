@@ -16,7 +16,7 @@ import numpy as np
 import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from .._core import NUMBA_FAST_MATH, R_IDEAL_MOL
+from .._core import NUMBA_FAST_MATH, R_IDEAL_MOL, njit
 from ..compiled_flash.eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
 from ..utils import safe_sum
@@ -38,6 +38,13 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._core.njit`
+
+"""
+
 
 def _compile_fugacities(
     phis: Callable[[float, float, np.ndarray, float, float, float], np.ndarray],
@@ -46,9 +53,9 @@ def _compile_fugacities(
 
     It needs an additional reduction of shape from ``(num_comp, 1)`` to ``(num_comp,)``
     because of the usage of a symbolic, vector-valued function."""
-    f = nb.njit(phis)
+    f = _COMPILER(phis)
 
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
+    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
     def inner(p_, T_, X_, A_, B_, Z_):
         phi_ = f(p_, T_, X_, A_, B_, Z_)
         return phi_[:, 0]
@@ -70,9 +77,9 @@ def _compile_thd_function_derivatives(
     It also enforces a signature ``(float64, float64, float64[:]) -> float64[:]``
 
     """
-    df = nb.njit(thd_df, fastmath=NUMBA_FAST_MATH)
+    df = _COMPILER(thd_df, fastmath=NUMBA_FAST_MATH)
 
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:]), fastmath=NUMBA_FAST_MATH)
+    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:]), fastmath=NUMBA_FAST_MATH)
     def inner(p_, T_, X_):
         return np.array(df(p_, T_, X_), dtype=np.float64)
 
@@ -95,9 +102,9 @@ def _compile_extended_thd_function_derivatives(
     ``(float64, float64, float64[:], float64, float64, float64) -> float64[:]``
 
     """
-    df = nb.njit(ext_thd_df)
+    df = _COMPILER(ext_thd_df)
 
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
+    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
     def inner(p_, T_, X_, A_, B_, Z_):
         return np.array(df(p_, T_, X_, A_, B_, Z_), dtype=np.float64)
 
@@ -115,16 +122,16 @@ def _compile_density_derivative(
 
     """
 
-    dv_ = nb.njit(fastmath=NUMBA_FAST_MATH)(dv)
+    dv_ = _COMPILER(fastmath=NUMBA_FAST_MATH)(dv)
 
-    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8))
+    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8))
     def inner(p_, T_, Z_):
         return np.array(dv_(p_, T_, Z_), dtype=np.float64)
 
     return inner
 
 
-@nb.njit(cache=True)
+@_COMPILER(cache=True)
 def _select(condlist: list, choicelist: list, default=np.nan):
     """Intermediate function to replace the ``numpy.select`` for scalar condition and
     choice input, because numba has a lot of issues resolving ``numpy.select``.
@@ -664,7 +671,7 @@ class CompiledPengRobinson(EoSCompiler):
     # symbolic functions can be done analogously once required.
     def _get_cohesion(self) -> ScalarFunction:
         """Abstraction of compilation of non-dimensional cohesion."""
-        return nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
+        return _COMPILER(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
 
     def _get_cohesion_derivatives(self) -> VectorFunction:
         """Abstraction of compilation of non-dimensional cohesion derivatives."""
@@ -677,7 +684,7 @@ class CompiledPengRobinson(EoSCompiler):
         logger.info("Compiling symbolic Peng-Robinson EoS ..")
         start = time.time()
 
-        B_c = nb.njit(
+        B_c = _COMPILER(
             nb.f8(nb.f8, nb.f8, nb.f8[:]),
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.B_func)
@@ -692,16 +699,16 @@ class CompiledPengRobinson(EoSCompiler):
 
         phi_c = _compile_fugacities(self.symbolic.phis_func)
         logger.debug("Compiling symbolic functions 5/12")
-        dphi_c = nb.njit(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
+        dphi_c = _COMPILER(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
             self.symbolic.jac_phis_func
         )
         logger.debug("Compiling symbolic functions 6/12")
 
-        h_dep_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
+        h_dep_c = _COMPILER(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
             self.symbolic.h_departure_func
         )
         logger.debug("Compiling symbolic functions 7/12")
-        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_func)
+        h_ideal_c = _COMPILER(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_func)
         logger.debug("Compiling symbolic functions 8/12")
         dh_dep_c = _compile_extended_thd_function_derivatives(
             self.symbolic.grad_pTxABZ_h_departure_func
@@ -712,7 +719,7 @@ class CompiledPengRobinson(EoSCompiler):
         )
         logger.debug("Compiling symbolic functions 10/12")
 
-        rho_c = nb.njit(
+        rho_c = _COMPILER(
             nb.f8(nb.f8, nb.f8, nb.f8),
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.rho_func)
@@ -751,7 +758,7 @@ class CompiledPengRobinson(EoSCompiler):
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
@@ -796,7 +803,7 @@ class CompiledPengRobinson(EoSCompiler):
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_jac_c(
             phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
@@ -837,7 +844,7 @@ class CompiledPengRobinson(EoSCompiler):
     def get_fugacity_function(self) -> VectorFunction:
         phi_c = self._cfuncs["phi"]
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def phi_mix_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -850,7 +857,7 @@ class CompiledPengRobinson(EoSCompiler):
         # number of derivatives
         d = 2 + self._nc
 
-        @nb.njit(nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dphi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -878,7 +885,7 @@ class CompiledPengRobinson(EoSCompiler):
         h_dep_c = self._cfuncs["h_dep"]
         h_ideal_c = self._cfuncs["h_ideal"]
 
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return h_ideal_c(p, T, xn) + h_dep_c(
                 p, T, xn, prearg[0], prearg[1], prearg[2]
@@ -891,7 +898,7 @@ class CompiledPengRobinson(EoSCompiler):
         dh_dep_c = self._cfuncs["dh_dep"]
         dh_ideal_c = self._cfuncs["dh_ideal"]
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dh_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -916,7 +923,7 @@ class CompiledPengRobinson(EoSCompiler):
     def get_density_function(self) -> ScalarFunction:
         rho_c_ = self._cfuncs["rho"]
 
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return rho_c_(p, T, prearg[2])
 
@@ -926,7 +933,7 @@ class CompiledPengRobinson(EoSCompiler):
         d = 2 + self._nc
         drho_c_ = self._cfuncs["drho"]
 
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def drho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
