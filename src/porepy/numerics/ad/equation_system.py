@@ -1032,17 +1032,27 @@ class EquationSystem:
         variables = self._parse_variable_type(variables)
         global_variable_dofs = self._global_variable_dofs()
 
-        indices: list[np.ndarray] = []
+        # Precompute the total size of the resulting array
+        total_size = sum(
+            global_variable_dofs[self._variable_numbers[var.id] + 1]
+            - global_variable_dofs[self._variable_numbers[var.id]]
+            for var in variables
+            if var.id in self._variable_numbers
+        )
 
+        # Preallocate the result array
+        all_indices = np.empty(total_size, dtype=int)
+
+        # Fill the preallocated array
+        offset = 0
         for var in variables:
             if var.id in self._variable_numbers:
                 variable_number = self._variable_numbers[var.id]
-                var_indices = np.arange(
-                    global_variable_dofs[variable_number],
-                    global_variable_dofs[variable_number + 1],
-                    dtype=int,
-                )
-                indices.append(var_indices)
+                start = global_variable_dofs[variable_number]
+                end = global_variable_dofs[variable_number + 1]
+                size = end - start
+                all_indices[offset : offset + size] = np.arange(start, end, dtype=int)
+                offset += size
             else:
                 raise ValueError(
                     f"Variable {var.name} with ID {var.id} not registered among DOFS"
