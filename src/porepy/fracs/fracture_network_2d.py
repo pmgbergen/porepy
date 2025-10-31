@@ -787,13 +787,16 @@ class FractureNetwork2d:
                 np.hstack((end_points, extra_points)), tol=tol
             )
             # Distance to other objects for each point, as computed previously. Assign
-            # h_frac to the endpoints. For intersection points, identified by d[1] == 0,
-            # we also assign h_frac, since no refinement is needed just because this is
-            # an intersection point (if it is an intersection with a bad angle, this
-            # should be picked up by a close point on another line).
+            # h_frac or h_bound to the endpoints, depending on whether the line is a
+            # fracture or boundary line. We also assign h_frac, since no refinement is
+            # needed just because this is an intersection point (if it is an
+            # intersection with a bad angle, this should be picked up by a close point
+            # on another line).
+            h_end = h_bound if line in boundary_tags else h_frac
+
             other_object_distances_all = np.hstack(
                 (
-                    np.array([h_frac, h_frac]),
+                    np.array([h_end, h_end]),
                     np.array([d[1] if d[1] > 0 else h_frac for d in info]),
                 )
             )
