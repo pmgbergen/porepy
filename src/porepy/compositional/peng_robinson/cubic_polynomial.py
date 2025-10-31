@@ -41,10 +41,6 @@ __all__ = [
 ]
 
 
-_COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
-"""Keyword arguments for compiling functions in this module."""
-
-
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
@@ -56,7 +52,8 @@ compilation.
 
 @_COMPILER(
     nb.f8(nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def get_r1(c2: float, c1: float) -> float:
     """Calculate the reduced coefficient r1.
@@ -78,7 +75,8 @@ def get_r1(c2: float, c1: float) -> float:
 
 @_COMPILER(
     nb.f8[:](nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def get_dr1(c2: float) -> np.ndarray:
     """Derivatives of the reduced coefficient r1 with respect to c2, c1 and c0.
@@ -99,7 +97,8 @@ def get_dr1(c2: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8(nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def get_r0(c2: float, c1: float, c0: float) -> float:
     """Calculate the reduced coefficient r0.
@@ -122,7 +121,8 @@ def get_r0(c2: float, c1: float, c0: float) -> float:
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def get_dr0(c2: float, c1: float) -> np.ndarray:
     """Derivatives of the reduced coefficient r0 with respect to c2, c1 and c0.
@@ -143,7 +143,8 @@ def get_dr0(c2: float, c1: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8(nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def discriminant(r1: float, r0: float) -> float:
     """Calculate the discriminant of the reduced cubic polynomial.
@@ -166,7 +167,8 @@ def discriminant(r1: float, r0: float) -> float:
 
 @_COMPILER(
     nb.i4(nb.f8, nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
     """Determine the case for the roots of the cubic polynomial.
@@ -211,7 +213,8 @@ def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
 
 @_COMPILER(
     nb.f8[:](nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def triple_root(c2: float) -> np.ndarray:
     """Calculate the triple root of the cubic polynomial.
@@ -231,7 +234,8 @@ def triple_root(c2: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:, :](nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def d_triple_root(c2: float) -> np.ndarray:
     """Derivatives of the triple root with respect to c2, c1 and c0.
@@ -249,7 +253,8 @@ def d_triple_root(c2: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     """Compute the two roots of the cubic polynomial, in the case where one of them has
@@ -284,7 +289,8 @@ def two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     """Derivatives of the two roots with respect to c2, c1 and c0, in the case where one
@@ -325,7 +331,8 @@ def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8(nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def _get_Gamma(r1: float, r0: float) -> float:
     """Calculate the auxiliary variable gamma, used in the trigonometric solution of
@@ -344,7 +351,8 @@ def _get_Gamma(r1: float, r0: float) -> float:
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def _get_dGamma(r1: float, r0: float) -> np.ndarray:
     """Derivatives of the auxiliary variable :math:`\\gamma` w.r.t. reduced
@@ -370,7 +378,8 @@ def _get_dGamma(r1: float, r0: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8(nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def _get_t1(r1: float) -> float:
     """Calculate the auxiliary variable t1, used in the trigonometric solution of
@@ -389,7 +398,8 @@ def _get_t1(r1: float) -> float:
 
 @_COMPILER(
     nb.f8(nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def _get_dt1(r1: float) -> float:
     """Derivatives of the auxiliary variable t1 w.r.t. reduced coefficient r1.
@@ -407,7 +417,8 @@ def _get_dt1(r1: float) -> float:
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     """Calculate the single (real) root of the cubic polynomial, where applicable.
@@ -455,7 +466,8 @@ def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def d_one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     """Derivatives of the single (real) root with respect to c2, c1 and c0.
@@ -522,7 +534,8 @@ def d_one_root(c2: float, c1: float, c0: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     """Compute the three distinct real roots of the cubic polynomial using the
@@ -560,19 +573,11 @@ def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
     return np.array([z1, z2, z3]) - c2 / 3.0
 
-    # z1 = t_1 * np.cos(t_2) - c2 / 3.0
-    # z2 = t_1 * np.cos(t_2 + 2.0 / 3.0* np.pi) - c2 / 3.0
-    # z3 = t_1 * np.cos(t_2 + 4.0 / 3.0 * np.pi) - c2 / 3.0
-
-    # roots = np.array([z1, z2, z3])
-    # roots.sort()
-
-    # return roots
-
 
 @_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     """Derivatives of the three distinct real roots with respect to c2, c1 and c0.
@@ -616,7 +621,8 @@ def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def calculate_roots(c2: float, c1: float, c0: float, eps: float) -> np.ndarray:
     """Calculate the roots of a cubic polynomial represented by its coefficients
@@ -650,7 +656,8 @@ def calculate_roots(c2: float, c1: float, c0: float, eps: float) -> np.ndarray:
 
 @_COMPILER(
     nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def calculate_root_derivatives(
     c2: float, c1: float, c0: float, eps: float

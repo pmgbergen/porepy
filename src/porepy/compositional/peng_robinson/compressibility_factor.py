@@ -51,10 +51,6 @@ __all__ = [
 ]
 
 
-_COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
-"""Keyword arguments for compiling functions in this module."""
-
-
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
@@ -99,7 +95,11 @@ Required to treay the limit case of B -> 0.
 """
 
 
-@_COMPILER(nb.f8[:](nb.f8, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(
+    nb.f8[:](nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def c_from_AB(A: float, B: float) -> np.ndarray:
     """Implements the formula for the coefficients of the normalized cubic polynomial
     dependeng on cohesion and covolume.
@@ -131,7 +131,11 @@ def c_from_AB(A: float, B: float) -> np.ndarray:
     )
 
 
-@_COMPILER(nb.f8[:, :](nb.f8, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(
+    nb.f8[:, :](nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def dc_from_AB(A: float, B: float) -> np.ndarray:
     """Returns the Jacobian of the function implemented by :func:`c_from_AB`.
 
@@ -153,7 +157,11 @@ def dc_from_AB(A: float, B: float) -> np.ndarray:
     )
 
 
-@_COMPILER(nb.f8(nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(
+    nb.f8(nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def critical_line(A: float) -> float:
     r"""Parametrization of the critical line for the PR EoS in the A-B space.
 
@@ -173,7 +181,8 @@ def critical_line(A: float) -> float:
 
 @_COMPILER(
     nb.bool(nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def is_supercritical(A: float, B: float) -> bool:
     """Checks whether the pair of cohesion and covolume values lies in the supercritical
@@ -198,7 +207,8 @@ def is_supercritical(A: float, B: float) -> bool:
         nb.void(nb.f8[:], nb.f8, nb.bool, nb.f8[:]),
         nb.void(nb.f8[:], nb.f8, nb.bool, nb.f8[:, :]),
     ],
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def _smooth_3root_region(
     z: np.ndarray, s: float, gaslike: bool, out: np.ndarray
@@ -251,7 +261,8 @@ def _smooth_3root_region(
         nb.void(nb.f8, nb.f8, nb.f8, nb.f8[:]),
         nb.void(nb.f8, nb.f8, nb.f8, nb.f8[:, :]),
     ],
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def _smooth_supercritical_transition(
     B: float, W: float, T: float, out: np.ndarray
@@ -298,7 +309,11 @@ def _smooth_supercritical_transition(
     out[0] = out[0] * (1 - w) + out[1] * w
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(
+    nb.f8(nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def extended_factor(Z: float, B: float) -> float:
     """Extended compressibility factor using the real part of the complex-conjugated
     roots in areas where there is only 1 root (Ben Gharbia 2021).
@@ -318,7 +333,11 @@ def extended_factor(Z: float, B: float) -> float:
     return (1 - B - Z) * 0.5
 
 
-@_COMPILER(nb.f8[:](nb.f8[:]), **_COMPILE_KWARGS)
+@_COMPILER(
+    nb.f8[:](nb.f8[:]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def extended_factor_derivatives(dZ: np.ndarray) -> np.ndarray:
     """The derivatives of :func:`extended_factor` dependent on the derivatives of the 1
     real root.
@@ -335,7 +354,11 @@ def extended_factor_derivatives(dZ: np.ndarray) -> np.ndarray:
     return -0.5 * np.array([dZ[0], 1 + dZ[1]])
 
 
-@_COMPILER(nb.i1(nb.f8, nb.f8, nb.bool, nb.f8), **_COMPILE_KWARGS)
+@_COMPILER(
+    nb.i1(nb.f8, nb.f8, nb.bool, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
 def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
     """Method implementing the extension procedure logic to defining the zone and
     method of providing a value for the compressibility factor, where it is physically
@@ -420,7 +443,8 @@ def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
 
 @_COMPILER(
     nb.f8(nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def get_compressibility_factor(
     A: float,
@@ -613,7 +637,8 @@ def get_compressibility_factor(
 
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
-    **_COMPILE_KWARGS,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
 )
 def get_compressibility_factor_derivatives(
     A: float,
