@@ -3,6 +3,7 @@ solution of real cubic polynomials."""
 
 from __future__ import annotations
 
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -11,29 +12,28 @@ import pytest
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from porepy.compositional.peng_robinson.compressibility_factor import (
-    W_sub,
-    get_compressibility_factor,
+    A_CRIT,
+    B_CRIT,
+    COVOLUME_LIMIT,
+    Z_CRIT,
     _smooth_3root_region,
-    _smooth_scl_transition,
+    _smooth_supercritical_transition,
     c_from_AB,
     critical_line,
     dc_from_AB,
-    dW_sub,
+    extended_factor,
+    extended_factor_derivatives,
+    get_compressibility_factor,
     get_compressibility_factor_derivatives,
-    is_extended_root,
-    A_CRIT,
-    B_CRIT,
-    Z_CRIT,
-    COVOLUME_LIMIT,
+    is_extended_factor,
 )
 from porepy.compositional.peng_robinson.cubic_polynomial import (
-    get_root_case,
     calculate_roots,
+    get_root_case,
 )
-
 from tests.compositional.peng_robinson.test_cubic_polynomial import (
-    get_EOC_taylor,
     assert_order_at_least,
+    get_EOC_taylor,
     get_polynomial_residual,
 )
 
@@ -107,7 +107,7 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
         assert_roots_correctly_sized(A, B, tol=tol)
 
         # If the gaslike root is not extended, it must be a real root
-        if not is_extended_root(A, B, True, tol):
+        if not is_extended_factor(A, B, True, tol):
             assert (
                 get_polynomial_residual(
                     get_compressibility_factor(A, B, True, tol, 0.0), c
@@ -115,7 +115,7 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
                 < tol
             ), f"Real gas compressibility factor is not real root. {err_msg}"
         # Analogous for liquidlike root.
-        if not is_extended_root(A, B, False, tol):
+        if not is_extended_factor(A, B, False, tol):
             assert (
                 get_polynomial_residual(
                     get_compressibility_factor(A, B, False, tol, 0.0), c
@@ -251,11 +251,11 @@ def test_extended_root_derivative_function(d: np.ndarray) -> None:
 
     def func(*args):
         Z = sum(a**2 for a in args)
-        return W_sub(float(Z), float(args[-1]))
+        return extended_factor(float(Z), float(args[-1]))
 
     def dfunc(*args):
         dz = np.array([2 * a for a in args]).astype(float)
-        return dW_sub(dz)
+        return extended_factor_derivatives(dz)
 
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(0, -10, 11))
@@ -273,12 +273,144 @@ def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> None:
     assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
 
 
-def test_supercritical_smoothing_function() -> None:
-    """"""
+@pytest.mark.parametrize("out_format", ["scalar", "array"])
+def test_supercritical_smoothing_function(
+    out_format: Literal["scalar", "array"],
+) -> None:
+    """Tests the smoothing function for the supercritical transition."""
+    if out_format == "scalar":
+        shape = (2,)
+    elif out_format == "array":
+        shape = (2, 4)
+    else:
+        assert False
+
+    out = np.random.random(shape)
+    # For simplicity of value comparison
+    out = np.abs(out)
+    out_before = out.copy()
+
+    B = 0.0
+    T = 1.0
+
+    # If value is to far away, no smoothing
+    _smooth_supercritical_transition(B, T, T, out)
+    # The value towards which it is smoothed must be unchanged
+    assert np.all(out[1] == out_before[1])
+    np.testing.assert_allclose(out[0], out_before[0], rtol=0.0, atol=1e-16)
+    out = out_before.copy()
+
+    # If value is equal to B, than it the result is a complete transition to target.
+    _smooth_supercritical_transition(B, B, T, out)
+    assert np.all(out[1] == out_before[1])
+    np.testing.assert_allclose(out[0], out_before[1], rtol=0.0, atol=1e-16)
+    out = out_before.copy()
+
+    # Values outside of bound [B, T] should raise an assertion error
+    with pytest.raises(AssertionError):
+        _smooth_supercritical_transition(B, T + np.abs(np.random.rand()), T, out)
+    out = out_before.copy()
+
+    # For values between 0 and 1, the result is right between the values to be smoothed.
+    W = np.linspace(0, 1, 101)
+    W = W[1:]
+
+    for w in W:
+        _smooth_supercritical_transition(B, w, T, out)
+        assert np.all(out[1] == out_before[1])
+        # Value must be in between value before and target value
+        assert np.all(
+            ((out[1] >= out[0]) & (out[0] >= out_before[0]))
+            | ((out[1] <= out[0]) & (out[0] <= out_before[0]))
+        )
+        out = out_before.copy()
 
 
-def test_3root_smoothing_function() -> None:
-    """"""
+@pytest.mark.parametrize("s", [1e-3, 0.1, 0.25])
+@pytest.mark.parametrize("out_format", ["scalar", "array"])
+@pytest.mark.parametrize("gaslike", [True, False])
+def test_3root_smoothing_function(
+    gaslike: bool, out_format: Literal["scalar", "array"], s: float
+) -> None:
+    """Tests the smoothing function in the physical three root area.
+
+    The smallest (liquidlike) and biggest (gaslike) root are smoothed using a
+    nonphysical intermediate root.
+
+    """
+    if out_format == "scalar":
+        shape = (3,)
+    elif out_format == "array":
+        shape = (3, 4)
+    else:
+        assert False
+
+    out = np.random.random(shape)
+    out = np.abs(out)
+    out_before = out.copy()
+
+    z_b = 0.0
+    z_t = 1.0
+
+    # We test for some values in between.
+    for z_m in np.linspace(0, 1, 100, endpoint=True):
+        z = np.array([z_b, z_m, z_t])
+
+        # Ratio where the intermediate route is.
+        d = (z_m - z_b) / (z_t - z_b)
+
+        _smooth_3root_region(z, s, gaslike, out)
+        # middle route is in any case unchanged
+        assert np.all(out[1] == out_before[1])
+
+        check_is_between = False
+        i = np.nan
+        # In the gaslike case, the smoothing happens in the interval [1 - 2s, 1-s]
+        # In [1-s, 1] the output value for the gas root should be an average of middle
+        # root and gas root.
+        # In [0, 1-2s] it should be unchanged.
+        # In between it is a convex combination, i.e. with values in between.
+        # NOTE we test the middle interval with less/greater equal because at case
+        # borders it should be smooth as well. So we use if, and not elif as well.
+        if gaslike:
+            avg = (out_before[1] + out_before[2]) * 0.5
+            # First assert liquid root is unchanged
+            assert np.all(out[0] == out_before[0])
+            if d <= 1 - 2 * s:
+                # No change.
+                assert np.all(out[2] == out_before[2])
+            if 1 - 2 * s <= d <= 1 - s:
+                check_is_between = True
+                i = 2
+            if 1 - s <= d:
+                # Average with intermediate root.
+                assert np.all(avg == out[2])
+        # In the liquidlike case, the smoothing happens in the interval [s, 2s]
+        # In [0, s] the output value for the liquid root should be an average of middle
+        # root and liquid root.
+        # In [2s, 1] it should be unchanged.
+        # In between it is a convex combination, i.e. with values in between.
+        else:
+            avg = (out_before[1] + out_before[0]) * 0.5
+            # First assert gas root is unchanged
+            assert np.all(out[2] == out_before[2])
+            if d <= s:
+                # Average with intermediate root.
+                assert np.all(avg == out[0])
+            if s <= d <= 2 * s:
+                check_is_between = True
+                i = 0
+            if 2 * s <= d:
+                # No change.
+                assert np.all(out[0] == out_before[0])
+
+        if check_is_between:
+            assert np.all(
+                ((out_before[i] >= out[i]) & (out[i] >= avg))
+                | ((out_before[i] <= out[i]) & (out[i] <= avg))
+            )
+
+        out = out_before.copy()
 
 
 @pytest.mark.parametrize(
@@ -320,7 +452,7 @@ def test_limitcase_zero_cohesion(
 
         assert_roots_correctly_sized(*x0, tol=tol)
 
-        is_extended = is_extended_root(*x0, gaslike, tol)
+        is_extended = is_extended_factor(*x0, gaslike, tol)
 
         # Should be real root
         if gaslike:
@@ -389,7 +521,7 @@ def test_limitcase_zero_covolume(
 
         assert_roots_correctly_sized(*x0, tol=tol)
 
-        is_extended = is_extended_root(*x0, gaslike, tol)
+        is_extended = is_extended_factor(*x0, gaslike, tol)
 
         if not gaslike:
             assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
@@ -476,7 +608,7 @@ def test_limitcase_zero_covolume_liquid_saturated(
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
     assert_roots_correctly_sized(*x0, tol=tol)
-    is_extended = is_extended_root(*x0, gaslike, tol)
+    is_extended = is_extended_factor(*x0, gaslike, tol)
     if gaslike:
         assert not is_extended, (
             f"Expecting gas root to be real at liquid-saturated border: {err_msg}"
@@ -549,7 +681,7 @@ def test_limitcase_zero_cohesion_and_covolume(
     def dfunc(*x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
-    is_extended = is_extended_root(*x0, gaslike, tol)
+    is_extended = is_extended_factor(*x0, gaslike, tol)
 
     if gaslike:
         assert not is_extended, f"Expecting gas root to be real: {err_msg}"

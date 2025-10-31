@@ -36,6 +36,21 @@ from .cubic_polynomial import (
     one_root,
 )
 
+__all__ = [
+    "A_CRIT",
+    "B_CRIT",
+    "Z_CRIT",
+    "COVOLUME_LIMIT",
+    "c_from_AB",
+    "dc_from_AB",
+    "critical_line",
+    "is_supercritical",
+    "is_extended_factor",
+    "get_compressibility_factor",
+    "get_compressibility_factor_derivatives",
+]
+
+
 _COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 """Keyword arguments for compiling functions in this module."""
 
@@ -74,6 +89,7 @@ Z_CRIT: float = (
     1 / 32 * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
+
 
 COVOLUME_LIMIT: float = 1e-5
 """"Below this value, the covolume is considered zero.
@@ -193,7 +209,7 @@ def _smooth_3root_region(
     Parameters:
         z: 1D array with shape ``(3,)`` containing the 3 real roots ordered by size.
         s: Small number saying how close the intermediate root has to be to start
-            smoothing.
+            smoothing. Must be in ``(0, 0.25]``.
         gaslike: Either smoothing last/largest root (True) or the first/smallest root
             (False).
         out: Array to be smoothed. Can be the roots (i.e., equal to z), or their
@@ -202,6 +218,7 @@ def _smooth_3root_region(
     """
     assert z.shape == (3,), "Roots must be (3,)-array."
     assert out.shape[0] == 3, "Require at least 3 values to be smoothed."
+    assert 0 < s <= 0.25, "Require s to be in (0, 0.25]"
 
     d = (z[1] - z[0]) / (z[2] - z[0])
 
@@ -236,7 +253,9 @@ def _smooth_3root_region(
     ],
     **_COMPILE_KWARGS,
 )
-def _smooth_scl_transition(B: float, W: float, T: float, out: np.ndarray) -> None:
+def _smooth_supercritical_transition(
+    B: float, W: float, T: float, out: np.ndarray
+) -> None:
     """Smoothing the super-critical liquid-like root when it comes close to a target
     value.
 
@@ -280,12 +299,13 @@ def _smooth_scl_transition(B: float, W: float, T: float, out: np.ndarray) -> Non
 
 
 @_COMPILER(nb.f8(nb.f8, nb.f8), **_COMPILE_KWARGS)
-def W_sub(Z: float, B: float) -> float:
-    """Extended compressibility factor in the sub-critical area (Ben Gharbia 2021).
+def extended_factor(Z: float, B: float) -> float:
+    """Extended compressibility factor using the real part of the complex-conjugated
+    roots in areas where there is only 1 root (Ben Gharbia 2021).
 
     Note:
         The sum of the roots of any cubic normalized cubic polynomial is equal to
-        :math:`-c_2`.
+        :math:`-c_2`. That's how this is derived.
 
     Parameters:
         Z: The 1 real root.
@@ -299,22 +319,24 @@ def W_sub(Z: float, B: float) -> float:
 
 
 @_COMPILER(nb.f8[:](nb.f8[:]), **_COMPILE_KWARGS)
-def dW_sub(dZ: np.ndarray) -> np.ndarray:
-    """
+def extended_factor_derivatives(dZ: np.ndarray) -> np.ndarray:
+    """The derivatives of :func:`extended_factor` dependent on the derivatives of the 1
+    real root.
+
     Parameters:
         d_Z: ``shape=(2,)``
 
             The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
 
     Returns:
-        The derivative of :func:`W_Sub` w.r.t. the cohesion and covolume.
+        The derivative of :func:`extended_factor` w.r.t. the cohesion and covolume.
 
     """
     return -0.5 * np.array([dZ[0], 1 + dZ[1]])
 
 
 @_COMPILER(nb.i1(nb.f8, nb.f8, nb.bool, nb.f8), **_COMPILE_KWARGS)
-def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
+def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
     """Method implementing the extension procedure logic to defining the zone and
     method of providing a value for the compressibility factor, where it is physically
     not available.
@@ -365,7 +387,7 @@ def is_extended_root(A: float, B: float, gaslike: bool, eps: float) -> int:
 
     if nroot == 1:
         Z = one_root(c[0], c[1], c[2])
-        Wsub = W_sub(Z[0], B)
+        Wsub = extended_factor(Z[0], B)
         # Subcritical area
         if gaslike and Z < Wsub:
             is_extended = 1
@@ -453,7 +475,7 @@ def get_compressibility_factor(
             "Expecting near zero root if lower bound B is violated."
         )
 
-    extension_case = is_extended_root(A, B, gaslike, eps)
+    extension_case = is_extended_factor(A, B, gaslike, eps)
 
     # Extended super-critical liquid-like root must not fall below this value.
     # Add some small value to actually never let it go to zero for various limit cases.
@@ -480,7 +502,7 @@ def get_compressibility_factor(
         # real root calculations contains only 1 value.
         case 1 | 2:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 1-2."
-            roots[0] = W_sub(roots[0], B)
+            roots[0] = extended_factor(roots[0], B)
         # We use the same procedure in the supercritical area where gas is extended
         # since Wsub is greater there than the real root, hence the extension is fine.
         # But we introduce some additional smoothing when the extended root approaches
@@ -490,7 +512,7 @@ def get_compressibility_factor(
         # does not exist, but there must be one in the unified case.
         case 3:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 3."
-            W = W_sub(roots[0], B)
+            W = extended_factor(roots[0], B)
             Z = roots[0]
             assert W >= Z, "Expecting W >= Z in extension case 3."
 
@@ -498,7 +520,7 @@ def get_compressibility_factor(
             # If it approaches the real root, smooth the values.
             if W <= Z_thresh:
                 out = np.array([W, Z])
-                _smooth_scl_transition(Z, W, Z_thresh, out)
+                _smooth_supercritical_transition(Z, W, Z_thresh, out)
                 W = out[0]
 
             roots[0] = W
@@ -509,7 +531,7 @@ def get_compressibility_factor(
         case 4:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 4."
             Z = roots[-1]
-            W = W_sub(Z, B)
+            W = extended_factor(Z, B)
             assert W <= Z, "Expecting W <= Z in extension case 4."
 
             Z_thresh = (1 - Zsc_thresh_factor) * Z
@@ -520,12 +542,12 @@ def get_compressibility_factor(
             # If it is bigger, we smooth the transition for numerical purposes.
             elif B_thresh < W <= B_thresh_smoothing:
                 out = np.array([W, B_thresh])
-                _smooth_scl_transition(B_thresh, W, B_thresh_smoothing, out)
+                _smooth_supercritical_transition(B_thresh, W, B_thresh_smoothing, out)
                 W = out[0]
             # If it approaches the transition to becoming the real root, smooth it.
             elif W >= Z_thresh:
                 out = np.array([W, Z])
-                _smooth_scl_transition(-Z, -W, -Z_thresh, out)
+                _smooth_supercritical_transition(-Z, -W, -Z_thresh, out)
                 W = out[0]
 
             roots[0] = W
@@ -636,7 +658,7 @@ def get_compressibility_factor_derivatives(
         calculate_root_derivatives(c[0], c[1], c[2], eps), dc_dAB
     )
 
-    extension_case = is_extended_root(A, B, gaslike, eps)
+    extension_case = is_extended_factor(A, B, gaslike, eps)
 
     B_thresh = 1.1 * B
     B_thresh_smoothing = 2.0 * B
@@ -651,22 +673,25 @@ def get_compressibility_factor_derivatives(
     match extension_case:
         case 0:
             if roots.size == 3 and smooth3 > 0.0:
+                assert droots.shape[0] == 3, (
+                    "Expecting shape (3,n) for derivatives of 3 roots."
+                )
                 _smooth_3root_region(roots, smooth3, gaslike, droots)
         case 1 | 2:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 1-2."
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension cases 1-2."
             )
-            droots[0] = dW_sub(droots[0])
+            droots[0] = extended_factor_derivatives(droots[0])
         case 3:
             assert roots.size == 1, "Expecting only 1 real root in extension case 3."
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension case 3."
             )
             Z = roots[0]
-            W = W_sub(Z, B)
+            W = extended_factor(Z, B)
             dZ = droots[0]
-            dW = dW_sub(dZ)
+            dW = extended_factor_derivatives(dZ)
 
             Z_thresh = (1 + Zsc_thresh_factor) * Z
             # If it approaches the real root, smooth the values.
@@ -676,7 +701,7 @@ def get_compressibility_factor_derivatives(
                 out = np.zeros((2, 2))
                 out[0] = dW
                 out[1] = dZ
-                _smooth_scl_transition(Z, W, Z_thresh, out)
+                _smooth_supercritical_transition(Z, W, Z_thresh, out)
                 dW = out[0]
 
             droots[0] = dW
@@ -686,9 +711,9 @@ def get_compressibility_factor_derivatives(
                 "Expecting shape (1, 2) of root derivatives in extension case 4."
             )
             Z = roots[-1]
-            W = W_sub(Z, B)
+            W = extended_factor(Z, B)
             dZ = droots[-1]
-            dW = dW_sub(dZ)
+            dW = extended_factor_derivatives(dZ)
 
             Z_thresh = (1 - Zsc_thresh_factor) * Z
 
@@ -698,13 +723,13 @@ def get_compressibility_factor_derivatives(
                 out = np.zeros((2, 2))
                 out[0] = dW
                 out[1] = dW_thresh
-                _smooth_scl_transition(B_thresh, W, B_thresh_smoothing, out)
+                _smooth_supercritical_transition(B_thresh, W, B_thresh_smoothing, out)
                 dW = out[0]
             elif W >= Z_thresh:
                 out = np.zeros((2, 2))
                 out[0] = dW
                 out[1] = dZ
-                _smooth_scl_transition(-Z, -W, -Z_thresh, out)
+                _smooth_supercritical_transition(-Z, -W, -Z_thresh, out)
                 dW = out[0]
 
             droots[0] = dW
