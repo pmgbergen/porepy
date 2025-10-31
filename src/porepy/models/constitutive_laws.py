@@ -3026,6 +3026,13 @@ class ThreeFieldLinearElasticMechanicalStress:
     stress, and total pressure variables. The class further defines face-wise operators
     (think generalized fluxes) for the rotation and the solid mass.
 
+    Important:
+        This class is intended for use with the TPSA (Two-Point Stress Approximation)
+        discretization, which is **inconsistent for general grids**. It should only be
+        used with grids that are aligned with the coordinate axes, such as Cartesian
+        grids. For general, unstructured, or rotated grids, the discretization may
+        produce inaccurate results.
+
     """
 
     combine_boundary_operators_mechanical_stress: Callable[
@@ -3305,6 +3312,18 @@ class ConstitutiveLawsTpsaPoromechanics:
     ammenable to the Tpsa discretization. The constitutive laws here are specific to the
     poromechanical extension of the pure mechanics problem, see also
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
+
+    Important:
+        The TPSA (Two-Point Stress Approximation) discretization is **inconsistent for
+        general grids**. It should only be used with grids that are aligned with the
+        coordinate axes, such as Cartesian grids. For general, unstructured, or rotated
+        grids, the discretization may produce inaccurate results. Use with caution and
+        verify results carefully for non-Cartesian grid geometries.
+
+        For more details, see:
+        Nordbotten and Keilegavlen, Two-point stress approximation: A simple and robust
+        finite volume method for linearized (poro-) mechanics and Stokes flow,
+        arXiv:2405.10390.
 
     """
 
