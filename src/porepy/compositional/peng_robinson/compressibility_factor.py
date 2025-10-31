@@ -28,7 +28,7 @@ from __future__ import annotations
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from .cubic_polynomial import (
     calculate_root_derivatives,
     calculate_roots,
@@ -55,7 +55,7 @@ _COMPILE_KWARGS = dict(fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
 """Keyword arguments for compiling functions in this module."""
 
 
-_COMPILER = nb.njit
+_COMPILER = njit
 """Decorator for compiling functions in this module.
 
 Alternative compilers are the :obj:`numba.cfunc` call-back decorator, or future AOT

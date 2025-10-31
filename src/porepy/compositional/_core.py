@@ -12,6 +12,7 @@ from enum import Enum
 from typing import Callable, TypeAlias
 
 import numba as nb
+from numba.core import sigutils
 
 __all__ = [
     "R_IDEAL_MOL",
@@ -41,14 +42,14 @@ If enabled, uses :obj:`numba.typeof`, otherwise the regular Python type.
 
 """
 
-cfunc: Callable[..., Callable[[Callable], Callable]]
+cfunc: Callable[..., Callable]
 """C-type decorator for Callables, depending on whether numba is enabled or not.
 
 If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
 
 """
 
-njit: Callable[..., Callable[[Callable], Callable]]
+njit: Callable[..., Callable]
 """JIT-compilation decorator without Python fallback for Callables, depending on whether
 numba is enabled or not.
 
@@ -56,14 +57,24 @@ If enabled, uses :obj:`numba.njit`, otherwise the identity.
 
 """
 
+
+def _dummy_compiler(*args, **kwargs) -> Callable:
+    """Dummy decorator for when numba JTI is disabled.
+
+    Does nothing with the decorated object and returns it as is.
+
+    """
+    if len(args) > 0:
+        arg = args[0]
+        if callable(arg) and not sigutils.is_signature(arg):
+            return arg
+    return lambda x: x
+
+
 if _IS_JIT_DISABLED:
     typeof = lambda x: type(x)
-
-    def cfunc(*args, **kwargs):
-        return lambda x: x
-
-    def njit(*args, **kwargs):
-        return lambda x: x
+    cfunc = _dummy_compiler
+    njit = _dummy_compiler
 else:
     typeof = nb.typeof
     cfunc = nb.cfunc
