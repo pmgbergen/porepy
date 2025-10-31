@@ -10,6 +10,7 @@ import logging
 import time
 from pathlib import Path
 from typing import Optional
+import multiprocessing
 
 import gmsh
 import meshio
@@ -249,6 +250,12 @@ class FractureNetwork2d:
 
         gmsh.initialize()
 
+        try:
+            num_procs = multiprocessing.cpu_count() or 1
+        except (NotImplementedError, AttributeError):
+            num_procs = 1
+
+        gmsh.option.setNumber("General.NumThreads", max(num_procs - 2, 1))
         nd = self.domain.dim
 
         # For the sake of a better overview, I use VSCode's regions to identify roughly
