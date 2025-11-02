@@ -36,7 +36,7 @@ import porepy as pp
 
 from ..compiled_eos import CompiledEoS
 from ..utils import _chainrule_fractional_derivatives, normalize_rows
-from .abstract_flash import AbstractFlash
+from .abstract_flash import AbstractFlash, FlashResults, StateSpecType
 from .flash_initializer import FlashInitializer
 from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 from .uniflash_equations import (
@@ -44,7 +44,7 @@ from .uniflash_equations import (
     complementary_conditions_res,
     first_order_constraint_jac,
     first_order_constraint_res,
-    generic_arg_from_fluid_state,
+    generic_arg_from_flash_results,
     isofugacity_constraints_jac,
     isofugacity_constraints_res,
     mass_conservation_jac,
@@ -80,9 +80,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     Supported flash types/specifications:
 
-    1. ``'p-T'``: state definition in terms of pressure and temperature
-    2. ``'p-h'``: state definition in terms of pressure and specific mixture enthalpy
-    3. ``'v-h'``: state definition in terms of specific volume and enthalpy of the
+    1. ``'pT'``: state definition in terms of pressure and temperature
+    2. ``'ph'``: state definition in terms of pressure and specific mixture enthalpy
+    3. ``'vh'``: state definition in terms of specific volume and enthalpy of the
        mixture
 
     Important:
@@ -104,10 +104,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     """
 
-    SUPPORTED_FLASH_TYPES: tuple[Literal["p-T"], Literal["p-h"], Literal["v-h"]] = (
-        "p-T",
-        "p-h",
-        "v-h",
+    SUPPORTED_SPECIFICATIONS: tuple[Literal["pT"], Literal["ph"], Literal["vh"]] = (
+        "pT",
+        "ph",
+        "vh",
     )
     """Supported flash types. Used for checking flash input."""
 
@@ -160,48 +160,45 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     def _parse_and_complete_results(
         self,
-        results: np.ndarray,
-        flash_type: str,
-        fluid_state: pp.compositional.FluidProperties,
+        resultsarray: np.ndarray,
+        results: FlashResults,
         phase_property_params: Optional[Sequence[np.ndarray | float]] = None,
-    ) -> pp.compositional.FluidProperties:
+    ) -> None:
         """Helper function to fill a fluid state with the equilibrium results from the
         flash and evaluate all fluid properties using the values at equilibrium."""
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
 
         s, x, y, _, p, T, *_ = parse_vectorized_generic_arg(
-            results, (nphase, ncomp), flash_type
+            resultsarray, (nphase, ncomp), results.specification
         )
 
-        fluid_state.y = y
-        if "T" not in flash_type:
-            fluid_state.T = T
-        if "p" not in flash_type:
-            fluid_state.p = p
-        if "v" in flash_type:
-            fluid_state.sat = s
+        results.y = y
+        if "T" not in results.specification:
+            results.T = T
+        if "p" not in results.specification:
+            results.p = p
+        if "v" in results.specification:
+            results.sat = s
 
         # Computing states for each phase after filling p, T and x
-        fluid_state.phases = list()
+        results.phases = list()
         for j in range(nphase):
-            fluid_state.phases.append(
+            results.phases.append(
                 self._eos.compute_phase_properties(
                     self._phasestates[j],
-                    fluid_state.p,
-                    fluid_state.T,
+                    results.p,
+                    results.T,
                     x[j, :, :],
                     params=phase_property_params,
                 )
             )
 
         # If v not defined, evaluate saturations based on rho and y.
-        if "v" not in flash_type:
-            fluid_state.evaluate_saturations()
+        if "v" not in results.specification:
+            results.evaluate_saturations()
         # Evaluate extensive properties of the fluid mixture at equilibrium values.
-        fluid_state.evaluate_extensive_state()
-
-        return fluid_state
+        results.evaluate_extensive_state()
 
     def _convert_solver_params(self, solver_params: dict[str, float]) -> None:
         """Helper method to convert the solver parameters dictionary into a
@@ -216,7 +213,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         for k, v in solver_params.items():
             self._nb_solver_params[k] = float(v)
 
-    def compile(self, *args: Literal["p-T", "p-h", "v-h"]) -> None:
+    def compile(self, *args: Literal["pT", "ph", "vh"]) -> None:
         """Triggers the assembly and compilation of equilibrium equations, as well as
         the EoS if not already compiled.
 
@@ -229,7 +226,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         # If not specified, compile all.
         if not args:
-            args = self.SUPPORTED_FLASH_TYPES
+            args = self.SUPPORTED_SPECIFICATIONS
 
         if not self._eos.is_compiled:
             self._eos.compile()
@@ -262,12 +259,12 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         logger.info(f"Compiling {args} flash systems ...")
         start = time.time()
 
-        if "p-T" in args and "p-T" not in self.residuals:
-            logger.debug("Compiling p-T flash ...")
+        if "pT" in args and "pT" not in self.residuals:
+            logger.debug("Compiling pT flash ...")
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_pT(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "p-T")
+                gen_arg = parse_generic_arg(X_gen, npnc, "pT")
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -291,7 +288,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "p-T")
+                gen_arg = parse_generic_arg(X_gen, npnc, "pT")
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -320,15 +317,15 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # Stack Jacobians and return only derivatives w.r.t. y and x
                 return np.vstack((jac_1, jac_2, jac_3))[:, 2 + nphase - 1 :]
 
-            self.residuals["p-T"] = F_pT
-            self.jacobians["p-T"] = DF_pT
+            self.residuals["pT"] = F_pT
+            self.jacobians["pT"] = DF_pT
 
-        if "p-h" in args and "p-h" not in self.residuals:
-            logger.debug("Compiling p-h flash ...")
+        if "ph" in args and "ph" not in self.residuals:
+            logger.debug("Compiling ph flash ...")
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_ph(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "p-h")
+                gen_arg = parse_generic_arg(X_gen, npnc, "ph")
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -359,7 +356,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_ph(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "p-h")
+                gen_arg = parse_generic_arg(X_gen, npnc, "ph")
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -406,16 +403,16 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # which removes column belonging to p is done after stack.
                 return np.hstack((jac[:, :2], jac[:, 2 + nphase - 1 :]))[:, 1:]
 
-            self.residuals["p-h"] = F_ph
-            self.jacobians["p-h"] = DF_ph
+            self.residuals["ph"] = F_ph
+            self.jacobians["ph"] = DF_ph
 
-        if "v-h" in args and "v-h" not in self.residuals:
-            logger.debug("Compiling v-h flash ...")
+        if "vh" in args and "vh" not in self.residuals:
+            logger.debug("Compiling vh flash ...")
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_vh(X_gen: np.ndarray) -> np.ndarray:
                 s, x, y, z, p, T, v_target, h_target, params = parse_generic_arg(
-                    X_gen, npnc, "v-h"
+                    X_gen, npnc, "vh"
                 )
 
                 # EoS specific computations
@@ -446,7 +443,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_vh(X_gen: np.ndarray) -> np.ndarray:
                 s, x, y, _, p, T, v_target, h_target, params = parse_generic_arg(
-                    X_gen, npnc, "v-h"
+                    X_gen, npnc, "vh"
                 )
 
                 # EoS specific computations
@@ -490,8 +487,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 return np.vstack((jac_1, jac_2, jac_3, jac_4, jac_5, jac_6))
 
-            self.residuals["v-h"] = F_vh
-            self.jacobians["v-h"] = DF_vh
+            self.residuals["vh"] = F_vh
+            self.jacobians["vh"] = DF_vh
 
         logger.info(
             f"{nphase}-phase, {ncomp}-component flash compiled"
@@ -500,21 +497,16 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     def flash(
         self,
-        z: Optional[Sequence[np.ndarray]] = None,
-        p: Optional[np.ndarray] = None,
-        T: Optional[np.ndarray] = None,
-        h: Optional[np.ndarray] = None,
-        v: Optional[np.ndarray] = None,
+        specification: StateSpecType,
+        z: Optional[Sequence[np.ndarray | pp.number]] = None,
+        /,
+        *,
         initial_state: Optional[pp.compositional.FluidProperties] = None,
         params: Optional[dict] = None,
-    ) -> tuple[pp.compositional.FluidProperties, np.ndarray, np.ndarray]:
-        """Performes the flash for given feed fractions and state definition.
-
-        Supported equilibrium definitions:
-
-        - p-T
-        - p-h
-        - v-h
+        **kwargs,
+    ) -> FlashResults:
+        """Performes the flash for given feed fractions and supported equilibrium
+        specifications (see :attr:`SUPPORTED_SPECIFICATIONS`).
 
         Supported parameters:
 
@@ -559,32 +551,26 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         # Updating solver params for local run, if provided.
         solver_params.update(params.get("solver_params", {}))
 
-        nphase = self.params["num_phases"]
-        ncomp = self.params["num_components"]
-        fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
-            z=z, p=p, T=T, h=h, v=v, initial_state=initial_state
+        results = self.parse_flash_arguments(
+            specification, z, initial_state=initial_state
         )
         logger.debug(
-            f"{NF} {flash_type} flash target state(s) parsed; "
-            + f"Problem size: {f_dim}; Solver: {solver} ({mode});"
+            f"{results.size} {results.specification} flash target state(s) parsed; "
+            + f"DOFs: {results.dofs}; Solver: {solver} ({mode});"
         )
-        assert flash_type in self.SUPPORTED_FLASH_TYPES, (
-            f"Unsupported flash type {flash_type}."
+        assert results.specification in self.SUPPORTED_SPECIFICATIONS, (
+            f"Unsupported flash type {results.specification}."
         )
 
         # Compile if not already compiled.
-        if flash_type not in self.residuals:
+        if results.specification not in self.residuals:
             # NOTE ignore because parsing of flash type in base class supports more
             # configurations, while compile will do only what it can.
-            self.compile(flash_type)  # type:ignore[arg-type]
+            self.compile(results.specification)  # type:ignore[arg-type]
 
         # Vectorized, generic flash argument as initial guess.
-        X0 = generic_arg_from_fluid_state(
-            flash_type,
-            ncomp,
-            nphase,
-            NF,
-            fluid_state,
+        X0 = generic_arg_from_flash_results(
+            results,
             bool(initial_state),
             params.get("gen_arg_params", None),
         )
@@ -600,38 +586,39 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             )
 
         # Convert local solver params to numba-conform type
-        solver_params["f_dim"] = f_dim
+        solver_params["f_dim"] = results.dofs
         self._convert_solver_params(solver_params)
 
         start = time.time()
-        results, success, num_iter = MULTI_SOLVERS[mode](
+        resultsarray, success, num_iter = MULTI_SOLVERS[mode](
             X0,
-            self.residuals[flash_type],
-            self.jacobians[flash_type],
+            self.residuals[results.specification],
+            self.jacobians[results.specification],
             SOLVERS[solver],
             self._nb_solver_params,
         )
 
+        results.exitcode = success
+        results.num_iter = num_iter
+
         logger.info(
-            f"{NF} {flash_type} flash solved"
+            f"{results.size} {results.specification} flash solved"
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
         logger.debug(
-            f"Success: {np.sum(success == 0)} / {NF};"
-            + f" Max iter: {np.sum(success == 1)};"
-            + f" Diverged: {np.sum(success == 2)};"
+            f"Success: {results.converged.sum()} / {results.size};"
+            + f" Max iter: {results.max_iter_reached.sum()};"
+            + f" Diverged: {results.diverged.sum()};"
             + f" Failures: {np.sum(success > 2)};"
             + f" Iterations: {num_iter.max()} (max) "
-            + f"{np.ceil(np.mean(num_iter)).astype(int)} (avg);"
+            + f"{np.mean(num_iter):.2f} (avg);"
         )
+        results.exitcode = success
+        results.num_iter = num_iter
 
-        return (
-            self._parse_and_complete_results(
-                results,
-                flash_type,
-                fluid_state,
-                phase_property_params=params.get("phase_property_params", None),
-            ),
-            success,
-            num_iter,
+        self._parse_and_complete_results(
+            resultsarray,
+            results,
+            phase_property_params=params.get("phase_property_params", None),
         )
+        return results

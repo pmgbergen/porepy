@@ -4,15 +4,180 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Literal, Optional, Sequence, cast
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
 
+import matplotlib as mpl
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+from numpy.typing import NDArray
 
 import porepy as pp
 
-__all__ = ["AbstractFlash"]
+__all__ = [
+    "IsobaricSpecifications",
+    "IsochoricSpecifications",
+    "StateSpecType",
+    "FlashSpec",
+    "FlashResults",
+    "AbstractFlash",
+]
 
 logger = logging.getLogger(__name__)
+
+
+class IsobaricSpecifications(TypedDict):
+    """Typed dictionary for isobaric specifying equilibrium conditions.
+
+    The pressure values are obligatory, and one energy-related variable is required.
+
+    """
+
+    p: np.ndarray | pp.number
+    """Pressure at equilibrium."""
+
+    T: NotRequired[np.ndarray | pp.number]
+    """Temperature at equilibrium."""
+
+    h: NotRequired[np.ndarray | pp.number]
+    """Specific fluid enthalpy at equilibrium."""
+
+
+class IsochoricSpecifications(TypedDict):
+    """Typed dictionary for isochoric equilibrium specifications.
+
+    The specific volume values are obligatory and one energy-rlated variable is
+    required.
+
+    """
+
+    v: np.ndarray | pp.number
+    """Specific fluid volume at equilibrium."""
+
+    T: NotRequired[np.ndarray | pp.number]
+    """Temperature at equilibrium."""
+
+    u: NotRequired[np.ndarray | pp.number]
+    """Specific fluid internal energy at equilibrium."""
+
+    h: NotRequired[np.ndarray | pp.number]
+    """Specific fluid enthalpy at equilibrium."""
+
+
+StateSpecType: TypeAlias = IsobaricSpecifications | IsochoricSpecifications
+"""Alias for typed dictionaries for state specifications for equilibrium calculations.
+
+Supported are specifications with either pressure or specific volume defined.
+One additional energy-related state value is required.
+
+"""
+
+
+class FlashSpec(Enum):
+    """Flash specifications in terms of state functions, represented by integer
+    codes.
+
+    Isobaric specifications have 1-digit codes, isochoric specifications have 2-digit
+    codes.
+
+    """
+
+    none = 0
+    """No Equilibrium defined."""
+
+    pT = 1
+    """Equilibrium at fixed pressure and temperature."""
+    ph = 2
+    """Equilibrium at fixed pressure and enthalpy."""
+
+    vT = 10
+    """Equilibrium at fixed volume and temperature."""
+    vh = 11
+    """Equilibrium at fixed volume and enthalpy."""
+    vu = 12
+    """Equilibrium at fixed volume and internal energy."""
+
+
+@dataclass
+class FlashResults(pp.compositional.FluidProperties):
+    """Data class for storing flash results.
+
+    Adds additional fields to store information about convergence and numerical
+    performance.
+
+    The information is stored in arrays for vectorized flash computations and indices
+    correspond to the indices of the (vectorized) state specifications.
+
+    """
+
+    specification: FlashSpec = FlashSpec.none
+    """"State specification used denoted using common symbols.
+
+    Examples:
+
+    - ``'pT'``: Equilibrium at constant pressure and temperature.
+    - ``'ph'``: Equilibrium at constant pressure and specific enthalpy.
+    - ``'vu'``: Equilibrium at constant specific volume and internal energy.
+
+    """
+
+    dofs: int = 0
+    """Degrees of freedom of the flash problem, which depends on the number of phases,
+    components and equilibrium specifiations.
+    
+    Example:
+
+    For a 2-component, 2-phase flash with specified pressure and specific enthalpy,
+    the number of DOFs is 6:
+    
+    - vapor fraction (1),
+    - partial fraction per component per phase (4).
+    - temperature (1).
+
+    """
+
+    size: int = 0
+    """Size of the flash input for vectorized calculations.
+
+    This will always be at least 1 after calculations, since results are always stored
+    in arrays for simplicity.
+
+    """
+
+    exitcode: NDArray[np.int_] = field(
+        default_factory=lambda: np.zeros(0, dtype=np.int_)
+    )
+    """Ëxit codes for individual flash procedures.
+    
+    Following exit codes are reserved and universal for all procedures:
+
+    - 0: Flash converged.
+    - 1: Flash reached maximal number of iterations.
+    - 2: Flash diverged.
+
+    """
+
+    num_iter: NDArray[np.int_] = field(
+        default_factory=lambda: np.zeros(0, dtype=np.int_)
+    )
+    """Number of iterations performed in the flash algorithm."""
+
+    @property
+    def converged(self) -> NDArray[np.bool_]:
+        """ "Flags indicating where the flash converged."""
+        return self.exitcode == 0
+
+    @property
+    def max_iter_reached(self) -> NDArray[np.bool_]:
+        """Flags indicating where the flash reached the maximal number of iterations."""
+        return self.exitcode == 1
+
+    @property
+    def diverged(self) -> NDArray[np.bool_]:
+        """Flags indicating where the flash diverged."""
+        return self.exitcode == 2
 
 
 class AbstractFlash(abc.ABC):
@@ -66,121 +231,174 @@ class AbstractFlash(abc.ABC):
             assert isinstance(solver_params, dict)
             self.solver_params.update(solver_params)
 
-    def parse_flash_input(
+    def parse_flash_arguments(
         self,
+        specification: StateSpecType,
         z: Optional[Sequence[np.ndarray | pp.number]] = None,
-        p: Optional[np.ndarray | pp.number] = None,
-        T: Optional[np.ndarray | pp.number] = None,
-        h: Optional[np.ndarray | pp.number] = None,
-        v: Optional[np.ndarray | pp.number] = None,
+        /,
+        *,
         initial_state: Optional[pp.compositional.FluidProperties] = None,
-    ) -> tuple[
-        pp.compositional.FluidProperties,
-        Literal["p-T", "p-h", "v-T", "v-h"],
-        int,
-        int,
-    ]:
-        """Helper method to parse the input and construct a preliminary fluid state
-        with uniform input (numpy arrays of same size).
+    ) -> FlashResults:
+        """Helper method to parse the input and construct a preliminary container for
+        flash results with uniform input (casting into arrays of same size).
 
         The parameters are described in :meth:`flash`.
 
-        Determins also the equilibrium definition, the size of the (local) flash problem
-        and the number of values for vectorized input.
+        Primary aim of this method is to determin the flash specifications, the DOFs and
+        the size of vectorized input, as well as a uniform casting of flash arguments
+        into numpy arrays of the same size.
 
-        Hint:
-            The returned fluid properties can be used by :meth:`flash` to fill it up
-            with results and return it to the caller of the flash.
+        The returned data structure can be used by :meth:`flash` to fill it up with
+        results and return it to the caller.
 
         Raises:
-            AssertionError: If an insufficient amount of any provided family of
-                fractions has been passed.
-            ValueError: If any feed fraction violates the strict bound ``(0,1)``.
-            AssertionError: If the sum of any family of fractions violates the unity
-                constraint.
-            TypeError: If the parser fails to broadcast the state input into a uniform
-                format (numpy arrays of equal length).
+            ValueError: If compositions violate assumptions.
+            NotImplementedError: If unsupported flash specifications were passed.
+            AssertionError: If any family of fractions contained in the initial state
+                violates assumptions.
+            ValueError: If broadcasting of arguments and/or initial state to uniform
+                input failed.
+            TypeError:
+                If state specifications are not of the expected type.
 
         Returns:
-            A 4-tuple containing
-
-            1. The fluid state consisting of feed fractions and equilibrium state.
-               If ``initial_state`` is not none, it includes the values.
-            2. A string denoting the equilibrium condition.
-            3. A number denoting the size of the local equilibrium problem (dofs).
-            4. A number denoting the size of the input after broadcasting.
+            A preliminary flash result data structure. If ``initial_state`` is defined,
+            the data are copied into place. Note however that only data associated with
+            degrees of freedom is copied.
 
         """
 
         ncomp = self.params["num_components"]
         nphase = self.params["num_phases"]
 
+        # Parsing compositions.
+        err_z = None
         if z is None:
             if ncomp == 1:
                 z = [1.0]
             else:
-                raise ValueError(f"Expecting {ncomp} feed fractions, none given.")
+                err_z = f"Expecting {ncomp} feed fractions, none given."
+        else:
+            if len(z) != ncomp:
+                err_z = f"Expecting {ncomp} feed fractions, {len(z)} given."
 
         z = cast(Sequence[np.ndarray | pp.number], z)
 
-        assert len(z) == ncomp, f"Expecting {ncomp} feed fractions, {len(z)} given."
-
         for i, z_ in enumerate(z):
             if np.any(z_ < 0) or np.any(z_ > 1):
-                raise ValueError(
-                    f"Violation of bound [0, 1] for feed fraction {i + 1}."
-                )
+                err_z = f"Violation of bound [0, 1] for feed fraction {i + 1}."
 
         z_sum = pp.compositional.safe_sum(z)
-        assert np.all(z_sum == 1.0), "Feed fractions violate unity."
+        if not np.all(z_sum == 1.0):
+            err_z = "Feed fractions violate unity."
+
+        if err_z:
+            raise ValueError(err_z)
 
         # Declaring output.
-        fluid_state: pp.compositional.FluidProperties
-        flash_type: Literal["p-T", "p-h", "v-T", "v-h"]
-        f_dim: int  # Dimension of flash system (unknowns & equations).
-        NF: int  # Number of vectorized target states.
+        spec: FlashSpec = FlashSpec.none
+        # Base dofs include independent phase fractions and partial fractions.
+        dofs: int = nphase - 1 + nphase * ncomp
+        size: int = 1
+        state1 = 0.0
+        state2 = 0.0
+        raise_spec_error = False
+        isochoric_spec = False
+        isobaric_spec = False
+        isothermal_spec = False
 
-        if p is not None and T is not None and (h is None and v is None):
-            flash_type = "p-T"
-            f_dim = nphase - 1 + nphase * ncomp
-            state_1 = p
-            state_2 = T
-        elif p is not None and h is not None and (T is None and v is None):
-            flash_type = "p-h"
-            f_dim = nphase - 1 + nphase * ncomp + 1
-            state_1 = p
-            state_2 = h
-        elif v is not None and T is not None and (p is None and h is None):
-            flash_type = "v-T"
-            f_dim = 2 * (nphase - 1) + nphase * ncomp + 1
-        elif v is not None and h is not None and (T is None and p is None):
-            flash_type = "v-h"
-            f_dim = 2 * (nphase - 1) + nphase * ncomp + 2
-            state_1 = v
-            state_2 = h
+        if "p" in specification:
+            state1 = specification["p"]
+            isobaric_spec = True
+            if "T" in specification:
+                state2 = specification["T"]
+                spec = FlashSpec.pT
+                isothermal_spec = True
+            elif "h" in specification:
+                state2 = specification["h"]
+                spec = FlashSpec.ph
+                # Temperature is an additional unknown.
+                dofs += 1
+            else:
+                raise_spec_error = True
+        elif "v" in specification:
+            state1 = specification["v"]
+            isochoric_spec = True
+            if "T" in specification:
+                state2 = specification["T"]
+                spec = FlashSpec.vT
+                isothermal_spec = True
+                # No additional unknowns as it is equivalent to pT
+            elif "u" in specification:
+                state2 = specification["u"]
+                spec = FlashSpec.vu
+                # Pressure and temperature are additional unknowns.
+                dofs += 2
+            elif "h" in specification:
+                state2 = specification["h"]
+                spec = FlashSpec.vh
+                # Pressure and temperature are additional unknowns.
+                dofs += 2
+            else:
+                raise_spec_error = True
         else:
+            raise_spec_error = True
+
+        # Sanity check
+        assert isobaric_spec != isochoric_spec and not (
+            isobaric_spec and isochoric_spec
+        ), "Must be either isobaric or isochoric."
+
+        if raise_spec_error:
             raise NotImplementedError(
-                f"Unsupported flash with state definitions {p, T, h, v}"
+                f"Unsupported flash specifications {list(specification.keys())}."
             )
 
-        # Each of the vectors can be scalars or numpy arrays. Add them and store in a
-        # dummy variable to determine the size of the arrays: If at least one of the #
-        # inputs is a numpy array, numpy broadcasting will ensure the result will be a
-        # numpy array of the same size.
-        t = z_sum + state_1 + state_2
+        # Simple way to determine system size and check if input is broadcastable.
+        try:
+            t = z_sum + state1 + state2
+        except Exception as err:
+            raise ValueError(
+                "Failed to broadcast flash arguments into uniform shape"
+            ) from err
+
         if isinstance(t, np.ndarray):
-            NF = t.shape[0]
-        elif isinstance(t, (int, float)):
-            NF = 1
-        else:
+            size = t.shape[0]
+        elif not isinstance(t, (int, float)):
             raise TypeError(
                 "Could not unify types of input arguments: "
                 + f"z_sum={type(z_sum)} "
-                + f"state_1={type(state_1)} "
-                + f"state_2={type(state_2)} "
+                + f"{spec.name} = {type(state1)}, {type(state2)}"
             )
 
+        # Output structure
+        results = FlashResults(specification=spec, size=size, dofs=dofs)
+        # Uniformization of state values.
+        s1 = np.zeros(size)
+        s2 = np.zeros(size)
+        s1[:] = state1
+        s2[:] = state2
+
+        Z = list()
+        for z_ in z:
+            _z = np.zeros(size)
+            _z[:] = z_
+            Z.append(_z)
+        results.z = np.array(Z)
+
+        if isobaric_spec:
+            results.p = s1
+        elif isochoric_spec:
+            results.rho = 1.0 / s1
+        else:
+            # For reminding future developers.
+            assert False, "Missing parsing of flash input"
+
+        setattr(results, spec.name[1], s2)
+
+        # Uniformization of initial values if provided.
         if isinstance(initial_state, pp.compositional.FluidProperties):
+            # Check initial values.
             n = len(initial_state.y)
             assert n == nphase, f"Expecting {nphase} phase fractions, {n} provided."
             assert np.allclose(initial_state.y.sum(axis=0), 1.0), (
@@ -197,7 +415,7 @@ class AbstractFlash(abc.ABC):
                     f"Expexting {n_j} partial fractions in phase {j}, {n} provided."
                 )
 
-            if "v" in flash_type:
+            if isochoric_spec:
                 n = len(initial_state.sat)
                 assert n == nphase, (
                     f"Expecting {nphase} phase saturations, {n} provided."
@@ -205,112 +423,80 @@ class AbstractFlash(abc.ABC):
                 assert np.allclose(initial_state.sat.sum(axis=0), 1.0), (
                     "Initial phase saturations violate strong unity constraint."
                 )
-            fluid_state = initial_state
-        else:
-            fluid_state = pp.compositional.FluidProperties()
 
-        # Uniformization of state values.
-        s_1 = np.zeros(NF)
-        s_2 = np.zeros(NF)
-        s_1[:] = state_1
-        s_2[:] = state_2
-
-        Z = list()
-        for z_ in z:
-            _z = np.zeros(NF)
-            _z[:] = z_
-            Z.append(_z)
-        fluid_state.z = np.array(Z)
-
-        if flash_type == "p-T":
-            fluid_state.p = s_1
-            fluid_state.T = s_2
-        elif flash_type == "p-h":
-            fluid_state.p = s_1
-            fluid_state.h = s_2
-        # NOTE The state cannot set v, as it is always the reciprocal of rho
-        # set rho as the reciprocal of target v.
-        elif flash_type == "v-T":
-            fluid_state.rho = 1.0 / s_1
-            fluid_state.T = s_2
-        elif flash_type == "v-h":
-            fluid_state.rho = 1.0 / s_1
-            fluid_state.h = s_2
-        else:
-            # Alert developers if something is missing, error should be caught above.
-            assert False, "Missing parsing of fluid input state."
-
-        # Uniformization of initial values if provided.
-        if isinstance(initial_state, pp.compositional.FluidProperties):
+            # Broadcast initial values.
             try:
                 # Molar fractions.
                 Y = list()
+                phases = []
                 for j in range(nphase):
-                    y = np.zeros(NF)
-                    y[:] = fluid_state.y[j]
+                    y = np.zeros(size)
+                    y[:] = initial_state.y[j]
                     Y.append(y)
                     # Fractions of components in phase.
                     X = list()
                     for i in range(self.params["components_per_phase"][j]):
-                        x = np.zeros(NF)
-                        x[:] = fluid_state.phases[j].x[i]
+                        x = np.zeros(size)
+                        x[:] = initial_state.phases[j].x[i]
                         X.append(x)
-                    fluid_state.phases[j].x = np.array(X)
-                fluid_state.y = np.array(Y)
+                    phases.append(
+                        pp.compositional.PhaseProperties(
+                            x=np.array(X), state=initial_state.phases[j].state
+                        )
+                    )
+                results.y = np.array(Y)
+                results.phases = phases
 
-                if "v" in flash_type:
+                if isochoric_spec:
                     S = list()
                     for j in range(nphase):
-                        s = np.zeros(NF)
-                        s[:] = fluid_state.sat[j]
+                        s = np.zeros(size)
+                        s[:] = initial_state.sat[j]
                         S.append(s)
-                    fluid_state.sat = np.array(S)
-                    p = np.zeros(NF)
-                    p[:] = fluid_state.p
-                    fluid_state.p = p
-                if "T" not in flash_type:
-                    T = np.zeros(NF)
-                    T[:] = fluid_state.T
-                    fluid_state.T = T
-            except ValueError as err:
-                if "broadcast" in str(err):
-                    raise TypeError(
-                        "Failed to uniformize input state for:\n"
-                        + f"y: {initial_state.y}\n"
-                        + f"s: {initial_state.sat}\n"
-                        + f"x per phase: {[phase.x for phase in initial_state.phases]}"
-                    )
+                    results.sat = np.array(S)
+                    p = np.zeros(size)
+                    p[:] = initial_state.p
+                    results.p = p
+                if not isothermal_spec:
+                    T = np.zeros(size)
+                    T[:] = initial_state.T
+                    results.T = T
+            except Exception as err:
+                raise ValueError(
+                    "Failed to uniformize initial state for:\n"
+                    + f"y: {initial_state.y}\n"
+                    + f"s: {initial_state.sat}\n"
+                    + f"x per phase: {[phase.x for phase in initial_state.phases]}"
+                ) from err
 
-        return fluid_state, flash_type, f_dim, NF
+        return results
 
     @abc.abstractmethod
     def flash(
         self,
-        z: Optional[Sequence[np.ndarray]] = None,
-        p: Optional[np.ndarray] = None,
-        T: Optional[np.ndarray] = None,
-        h: Optional[np.ndarray] = None,
-        v: Optional[np.ndarray] = None,
+        specification: StateSpecType,
+        z: Optional[Sequence[np.ndarray | pp.number]] = None,
+        /,
+        *,
         initial_state: Optional[pp.compositional.FluidProperties] = None,
         params: Optional[dict] = None,
-    ) -> tuple[pp.compositional.FluidProperties, np.ndarray, np.ndarray]:
+        **kwargs,
+    ) -> FlashResults:
         """Abstract method for performing a flash procedure.
 
-        Exactly 2 thermodynamic states must be defined in terms of ``p, T, h`` or ``v``
-        for an equilibrium problem to be well-defined.
-
-        One state must relate to pressure or volume. The other to temperature or energy.
+        The equilibrium state must be defined in terms of compositions ``z`` and two
+        state functions declared in ``specification``.
+        One state must relate to pressure or volume. The other to energy.
 
         Parameters:
-            z: ``len=num_components``
+            specifications: Equilibrium specifications in terms of state functions.
+            z: ``default=None``
 
-                A sequence of feed fractions per component.
-                The default value ``None`` is only admissible if the fluid contains only
-                1 component. The feed fraction is then assumed to be 1.
-            p: Pressure at equilibrium.
-            T: Temperature at equilibrium.
-            h: Specific enthalpy of the fluid at equilibrium.
-            v: Specific volume of the fluid at equilibrium.
+                Overall fractions of mass per component.
+
+                It is only optional for pure fluids (``z`` is implicitly assumed to be
+                1). For fluid mixtures with multiple components it must be of length
+                ``num_components``.
             initial_state: ``default=None``
 
                 If not given, an initial guess must be computed by the flash class.
@@ -329,15 +515,195 @@ class AbstractFlash(abc.ABC):
                 classes.
 
         Returns:
-            A 3-tuple containing the results, success flags and number of iterations.
-            The results are stored in a fluid property data class.
-
-            Important:
-                If the equilibrium state is not defined in terms of pressure or
-                temperature, the resulting volume or enthalpy values of the fluid might
-                differ slightly from the input values, due to precision and convergence
-                criterion. Extensive properties are always returned in terms of the
-                computed intensive properties (pressure, temperature, fractions).
+            A data structure containing the flash results.
 
         """
         ...
+
+    def plot_phase_diagram(
+        self,
+        specification: FlashSpec,
+        spec1range: np.ndarray | pp.number,
+        spec2range: np.ndarray | pp.number,
+        zrange: Optional[Sequence[np.ndarray | pp.number]] = None,
+        field: str = "phasesplit",
+        /,
+        *,
+        zindex: int = 0,
+        transpose: bool = False,
+        plotkwargs: Optional[dict] = None,
+        **kwargs,
+    ) -> Figure:
+        """ "Plot a 2D phase diagram for specified ranges.
+
+        The type of flash performed is indicated with ``specification``.
+
+        The three given ranges are used as follows:
+
+        Two must be given as arrays, one must be given in scalar format.
+
+        The first non-scalar range is used as the vertical axis.
+        The second non-scalar range is used as the horizontal axis.
+        If ```zrange`` is an array, the fluid must be a mixture (multiple componets) and
+        which ``z`` value`` to plot on the vertical axis can be defined using
+        ``zindex``.
+
+        The values to be plotted are indicated using a string.
+        In general, the strings are expected to denote fields of the
+        :class:`FlashResults` returned by :meth:`flash`.
+
+        For phase-related quantities, use ``f'*_{int}'`` to specify which phase.
+        For quantities related to components in phases, use a double digit integer,
+        where the first digit denotes the component index and the second the phase
+        index.
+        For derivatives of phase properties, the second digit will define which
+        row to plot in the respective field of
+        :class:`~porepy.compositional.states.PhaseProperties`
+
+        Examples:
+
+            - ``'h_1'`` will plot the specific enthalpy of the first phase.
+            - ``'x_12'`` will plot the partial fraction of the first component in the
+              second phase.
+            - ``'phis_24'`` will plot the fugacity coefficient of the second component
+              in the fourth phase.
+            - ``'dmu_11'`` will plot the derivative of the viscosity of the first phase
+              found in the first row of ``dmu`` of respective phase properties.
+
+        The default value for ``field``, ``'phasesplit'`` will plot the number of phases
+        and their physical catecorization. I.e., liquid, vapor-liquid, vapor, etc.
+
+        Supported keyword arguments are:
+
+        - ``'ytransform'``: A callable transforming the values on the horizontal axis
+          for the plot.
+        - ``'xtransform'``: A callable transforming the values on the vertical axis for
+          the plot.
+        - ``'vtransform'``: A callable transforming the values to be plotted.
+        - ``'initial_state'``: See :meth:`flash`.
+        - ``'params'``: See :meth:`flash`.
+        - ``'flash_kwargs'``: See :meth:`flash`.
+
+        Parameters:
+            specification: The flash to be calculated.
+            spec1range: Range or value of the first fixed state function
+            spec2range: Range or value of the second fixed state function
+            zrange: Ranges or values for the compositions. For pure fluids, this is
+                always assumed to be just the value 1.
+            zindex: ``default=0``
+
+                If ``zrange`` is a sequence of compositions, this defines which one
+                should be used for the plot.
+            transpose: ``default=False``
+
+                Transposes the plot.
+            plotkwargs: Keyword arguments for :obj:`pyplot.pcolormesh`
+            **kwargs: Keyword arguments for this function.
+
+        Returns:
+            The handle to the created figure.
+
+        """
+        # Parsing compositions.
+        ncomp = self.params["num_components"]
+        err_z = None
+        if zrange is None:
+            if ncomp == 1:
+                zrange = [1.0]
+            else:
+                err_z = f"Expecting {ncomp} feed fractions, none given."
+        else:
+            if len(zrange) != ncomp:
+                err_z = f"Expecting {ncomp} feed fractions, {len(zrange)} given."
+
+        zrange = cast(Sequence, zrange)
+
+        if err_z:
+            raise ValueError(err_z)
+
+        # Parsing input to obtain axes, look for non-vectorized quantity.
+        isrange = [False, False, False]
+        if isinstance(spec1range, np.ndarray):
+            isrange[0] = True
+        if isinstance(spec2range, np.ndarray):
+            isrange[1] = True
+        if np.any([isinstance(z, np.ndarray) for z in zrange]):
+            if not isinstance(zrange[zindex], np.ndarray):
+                raise ValueError(f"Compositions at index {zindex} must be an array.")
+            isrange[2] = True
+
+        s1: np.ndarray | pp.number
+        s2: np.ndarray | pp.number
+        z: Sequence[np.ndarray | pp.number]
+
+        match isrange:
+            case [True, True, False]:
+                yvals = spec1range
+                xvals = spec2range
+                xm, ym = np.meshgrid(xvals, yvals)
+                s1 = ym.flatten()
+                s2 = xm.flatten()
+                z = zrange
+            case [True, False, True]:
+                yvals = spec1range
+                xvals = zrange[zindex]
+                xm, ym = np.meshgrid(xvals, yvals)
+
+                s1 = ym.flatten()
+                s2 = spec2range
+                assert isinstance(s2, (int, float))
+                z = [
+                    np.meshgrid(_, yvals)[0].flatten()
+                    if isinstance(_, np.ndarray)
+                    else _
+                    for _ in zrange
+                ]
+
+            case [False, True, True]:
+                yvals = spec2range
+                xvals = zrange[zindex]
+                xm, ym = np.meshgrid(xvals, yvals)
+
+                s1 = spec1range
+                assert isinstance(s1, (int, float))
+                s2 = ym.flatten()
+                z = [
+                    np.meshgrid(_, yvals)[0].flatten()
+                    if isinstance(_, np.ndarray)
+                    else _
+                    for _ in zrange
+                ]
+            case _:
+                raise ValueError("Exactly two of the 3 ranges must be arrays.")
+
+        spec = {specification.name[0]: s1, specification.name[1]: s2}
+
+        # Compute results for plot.
+        results = self.flash(
+            # Just for typing, parse_flash_arguments will resolve issues.
+            cast(IsobaricSpecifications, spec),
+            z,
+            initial_state=kwargs.get("initial_state", None),
+            params=kwargs.get("params", None),
+            **kwargs.get("flash_kwargs", {}),
+        )
+
+        # Parse field and format values to be plotted.
+        vals: np.ndarray = ...
+
+        # Parse plottign options and create figure.
+
+        default_plotkwargs = {}
+        if plotkwargs is None:
+            plotkwargs = {}
+        default_plotkwargs.update(plotkwargs)
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+
+        img = ax.pcolormesh(
+            ym.transpose() if transpose else xm,
+            xm.transpose() if transpose else ym,
+            vals.transpose() if transpose else vals,
+        )
+
+        return fig

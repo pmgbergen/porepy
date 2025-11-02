@@ -71,9 +71,9 @@ def get_local_equilibrium_condition(model: pp.PorePyModel) -> str | None:
         ``model.params['equilibrium_condition']`. Defaults to None.
 
         Expected equilibrium conditions are any combination of to state functions fixed
-        at equilibrium, e.g. ``'p-T'``, ``'p-h'``.
+        at equilibrium, e.g. ``'pressure-temperature'``, ``'pressure-enthalpy'``.
 
-        Additional qualifiers also also allowed, e.g. ``'unified-p-h'``.
+        Additional qualifiers also also allowed, e.g. ``'unified-pressure-enthalpy'``.
 
     """
     et = model.params.get("equilibrium_condition", None)

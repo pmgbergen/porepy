@@ -14,17 +14,17 @@ Individual flash types cherry pick the elements they need for their respective,
 generic argument.
 
 Examples:
-    The generic argument for the p-T flash is of form
+    The generic argument for the pT flash is of form
 
     *(params, overall fractions, pressure, temperature, phase fractions, partial
     fractions)*.
 
-    The generic argument for the p-h flash is of form
+    The generic argument for the ph flash is of form
 
     *(params, overall fractions, enthalpy, pressure, temperature, phase fractions,
     partial fractions)*
 
-    The generic argument for the v-h (and analogously u-h) flash is as above,
+    The generic argument for the vh (and analogously vu) flash is as above,
     with target state 1 and two being target volume and target enthalpy respectively.
 
 The generic argument formulation enables us to formulate any flash system as a function
@@ -52,9 +52,10 @@ import numpy as np
 import porepy as pp
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
+from .abstract_flash import FlashResults
 
 __all__ = [
-    "generic_arg_from_fluid_state",
+    "generic_arg_from_flash_results",
     "dim_gen_arg",
     "parse_generic_arg",
     "assemble_generic_arg",
@@ -73,73 +74,56 @@ __all__ = [
 ]
 
 
-def generic_arg_from_fluid_state(
-    flash_type: str,
-    num_components: int,
-    num_phases: int,
-    num_values: int,
-    target_state: pp.compositional.FluidProperties,
+def generic_arg_from_flash_results(
+    results: FlashResults,
     state_is_initialized: bool = False,
     params: Optional[Sequence[np.ndarray]] = None,
 ) -> np.ndarray:
     # Unknowns in all flash types are independent phase fractions and partial fractions.
-    f_dim: int = num_phases - 1 + num_phases * num_components
 
     # Target states depending on flash type.
-    state_1: np.ndarray
-    state_2: np.ndarray
-
-    if flash_type == "p-T":
-        state_1 = target_state.p
-        state_2 = target_state.T
-    elif flash_type == "p-h":
-        f_dim += 1
-        # Note reverse order because p has special treatment
-        state_1 = target_state.h
-        state_2 = target_state.p
-    elif flash_type == "v-h":
-        f_dim += 2 + num_phases - 1
-        state_1 = target_state.v
-        state_2 = target_state.h
+    state1: np.ndarray = getattr(results, results.specification[0])
+    state2: np.ndarray = getattr(results, results.specification[1])
+    dofs = results.size
+    ncomp = results.z.shape[0]
+    nphase = len(results.phases)
 
     # Second dimension for vectorized input.
-    X_gen = np.zeros((num_components + 1 + f_dim, num_values))
+    X_gen = np.zeros((ncomp + 1 + dofs, results.size))
 
     # Filling the independent overall fractions into gen arg
-    for i in range(num_components - 1):
-        X_gen[i] = target_state.z[i + 1]
+    for i in range(ncomp - 1):
+        X_gen[i] = results.z[i + 1]
     # Filling of target state
-    X_gen[num_components - 1] = state_1
-    X_gen[num_components] = state_2
+    X_gen[ncomp - 1] = state1
+    X_gen[ncomp] = state2
 
     # If initial fluid state is given, insert values in gen arg.
     if state_is_initialized:
         # Index of first fractional variable.
-        idx_f = -(num_phases * num_components + num_phases - 1)
+        idx_f = -(nphase * ncomp + nphase - 1)
         # Phase fractions and partial fractions.
-        for j in range(num_phases):
+        for j in range(nphase):
             # Skip dependent phase fraction.
             if j > 0:
-                X_gen[idx_f + j - 1] = target_state.y[j]
-            for i in range(num_components):
-                X_gen[-((num_phases - j) * num_components) + i] = target_state.phases[
-                    j
-                ].x[i]
+                X_gen[idx_f + j - 1] = results.y[j]
+            for i in range(ncomp):
+                X_gen[-((nphase - j) * ncomp) + i] = results.phases[j].x[i]
 
         # If isochoric specifications, saturations are variables.
-        if "v" in flash_type:
+        if "v" in results.specification:
             # Index of first fractional variable changes.
-            idx_f -= num_phases - 1
-            for j in range(1, num_phases):
-                X_gen[idx_f + j - 1] = target_state.sat[j]
+            idx_f -= nphase - 1
+            for j in range(1, nphase):
+                X_gen[idx_f + j - 1] = results.sat[j]
 
         # For any flash type, p and T are always stored right before fractional values.
-        X_gen[idx_f - 1] = target_state.T
-        X_gen[idx_f - 2] = target_state.p
+        X_gen[idx_f - 1] = results.T
+        X_gen[idx_f - 2] = results.p
 
     # If parameters are given, store them as first elements.
     if params is not None:
-        X_params = np.zeros((len(params), num_values))
+        X_params = np.zeros((len(params), results.size))
         for i, p in enumerate(params):
             X_params[i] = p
         X_gen = np.vstack((X_params, X_gen))
@@ -221,7 +205,7 @@ def parse_generic_arg(
     Parameters:
         X_gen: Generic flash argument (1D array).
         npnc: A 2-tuple containing the number of phases and components.
-        flash_type: A string denoting the flash type/ target state (e.g. ``'p-T'``)
+        flash_type: A string denoting the flash type/ target state (e.g. ``'pT'``)
 
     Returns:
         A tuple containing
@@ -275,14 +259,14 @@ def parse_generic_arg(
     i += 2
 
     # Now come the state definitions, where the indexing is flash-type-specific.
-    if "p-t" in flash_type.lower():
+    if "pt" in flash_type.lower():
         state_1 = p
         state_2 = T
-    elif "p-h" in flash_type.lower():
+    elif "ph" in flash_type.lower():
         state_1 = p
         state_2 = X_gen[-(i + 1)]
         i += 1
-    elif "v-h" in flash_type.lower():
+    elif "vh" in flash_type.lower():
         state_1, state_2 = X_gen[-(i + 2) : -i]
         i += 2
     else:
@@ -359,8 +343,8 @@ def assemble_generic_arg(
             Overall component fractions.
         p: Pressure value.
         T: Temperature value.
-        state_1: First target state (f.e. pressure in p-h flash).
-        state_2: Second target state (f.e. enthalpy in p-h flash).
+        state_1: First target state (f.e. pressure in ph flash).
+        state_2: Second target state (f.e. enthalpy in ph flash).
         params: ``shape=(n,)``
 
             Vector of other parameters.
@@ -389,18 +373,18 @@ def assemble_generic_arg(
         X_gen_s = np.zeros((0,))
 
     # Non-fractional values enter the generic argument depending on the flash type.
-    if "p-t" in flash_type.lower():
+    if "pt" in flash_type.lower():
         X_gen_state = np.zeros(2)
         X_gen_state[0] = p
         X_gen_state[1] = T
         i += 2
-    elif "p-h" in flash_type.lower():
+    elif "ph" in flash_type.lower():
         X_gen_state = np.zeros(3)
         X_gen_state[0] = state_2
         X_gen_state[1] = p
         X_gen_state[2] = T
         i += 3
-    elif "v-h" in flash_type.lower():
+    elif "vh" in flash_type.lower():
         X_gen_state = np.zeros(4)
         X_gen_state[0] = state_1
         X_gen_state[1] = state_2

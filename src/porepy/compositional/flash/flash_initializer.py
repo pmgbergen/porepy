@@ -40,7 +40,7 @@ __all__ = ["FlashInitializer"]
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_FLASH_TYPES: TypeAlias = Literal["p-T", "p-h", "v-h"]
+_SUPPORTED_FLASH_TYPES: TypeAlias = Literal["pT", "ph", "vh"]
 """Type alias for supported values of flash types."""
 
 
@@ -350,7 +350,7 @@ def rachford_rice_initializer(
     X_gen: np.ndarray,
     params: dict[str, float],
 ) -> np.ndarray:
-    """p-T initializer as a parallelized loop over all rows in the vectorized generic
+    """pT initializer as a parallelized loop over all rows in the vectorized generic
     flash argument.
 
     Uses the Rachford-Rice equations to compute some guess for phase fractions and
@@ -367,7 +367,7 @@ def rachford_rice_initializer(
 
     """
     for f in numba.prange(X_gen.shape[0]):
-        X_gen[f] = fractions_from_rr(get_K_values, X_gen[f], params, "p-T", 1)
+        X_gen[f] = fractions_from_rr(get_K_values, X_gen[f], params, "pT", 1)
     return X_gen
 
 
@@ -570,13 +570,13 @@ class FlashInitializer:
 
         Parameters:
             *args: Specify subset of flash types which should be compiled to safe time.
-                Due to some internal structures, the p-T initializer is always compiled.
+                Due to some internal structures, the pT initializer is always compiled.
 
         """
 
         # If not specified, compile all.
         if not args:
-            args = ("p-T", "p-h", "v-h")
+            args = ("pT", "ph", "vh")
 
         if not self._eos.is_compiled:
             self._eos.compile()
@@ -622,10 +622,10 @@ class FlashInitializer:
                 K[j - 1, :] = phi_0 / phi_j + 1e-10
             return K
 
-        self._initializers["p-T"] = partial(rachford_rice_initializer, get_K_values)
+        self._initializers["pT"] = partial(rachford_rice_initializer, get_K_values)
 
-        if "p-h" in args:
-            logger.debug("Compiling p-h flash initialization ..")
+        if "ph" in args:
+            logger.debug("Compiling ph flash initialization ..")
 
             @numba.njit(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_T_guess(
@@ -640,7 +640,7 @@ class FlashInitializer:
                 gas_phase_idx = int(params["gas_phase_index"])
                 npnc = (nphase, ncomp)
                 # state 2 is target enthalpy
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "p-h")
+                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "ph")
 
                 # If T has not been initialized at all (zero value), compute
                 # pseudo-critical value as starting point
@@ -650,13 +650,9 @@ class FlashInitializer:
                         T_crits[i] = params[f"_T_crit_{i}"]
 
                     T_pc = (T_crits * z).sum()
-                    X_gen = assemble_generic_arg(
-                        s, x, y, z, p, T_pc, s1, s2, x_p, "p-h"
-                    )
-                    X_gen = fractions_from_rr(get_K_values, X_gen, params, "p-h", 1)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                        X_gen, npnc, "p-h"
-                    )
+                    X_gen = assemble_generic_arg(s, x, y, z, p, T_pc, s1, s2, x_p, "ph")
+                    X_gen = fractions_from_rr(get_K_values, X_gen, params, "ph", 1)
+                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "ph")
 
                 xn = normalize_rows(x)
                 hs = np.empty(nphase, dtype=np.float64)
@@ -688,20 +684,20 @@ class FlashInitializer:
                                 dT *= 0.4
                         T += dT
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "p-h")
+                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "ph")
 
-            self._initializers["p-h"] = partial(
-                nested_initializer, get_K_values, update_T_guess, "p-h"
+            self._initializers["ph"] = partial(
+                nested_initializer, get_K_values, update_T_guess, "ph"
             )
 
-        if "v-h" in args:
-            logger.debug("Compiling v-h flash initialization ..")
+        if "vh" in args:
+            logger.debug("Compiling vh flash initialization ..")
 
             @numba.njit(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
-                """Helper function to update p-T guess for v-h flash by solving
+                """Helper function to update pT guess for vh flash by solving
                 respective equations using Newton and some corrections."""
 
                 # Parsing parameters
@@ -716,7 +712,7 @@ class FlashInitializer:
                 jac = np.zeros((M, M))
 
                 # s1 and s2 are target volume and enthalpy respectively
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "v-h")
+                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "vh")
 
                 # Assume no guess, fetch later if otherwise.
                 y_g = 0.0
@@ -755,9 +751,9 @@ class FlashInitializer:
                     p = Z * T * R_IDEAL_MOL / s1
 
                     # Make first fraction guess based on pseudo-critical values.
-                    xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "v-h")
-                    xf = fractions_from_rr(get_K_values, xf, params, "v-h", 1)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(xf, npnc, "v-h")
+                    xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "vh")
+                    xf = fractions_from_rr(get_K_values, xf, params, "vh", 1)
+                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(xf, npnc, "vh")
 
                     # Correct pressure if no gas phase
                     if gas_phase_idx >= 0:
@@ -767,10 +763,10 @@ class FlashInitializer:
                         p *= 0.7
                         # T *= 1.1
                         # Refine fraction guess based on corrected pressure.
-                        xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "v-h")
-                        xf = fractions_from_rr(get_K_values, xf, params, "v-h", 0)
+                        xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "vh")
+                        xf = fractions_from_rr(get_K_values, xf, params, "vh", 0)
                         s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                            xf, npnc, "v-h"
+                            xf, npnc, "vh"
                         )
 
                 xn = normalize_rows(x)
@@ -784,7 +780,7 @@ class FlashInitializer:
 
                 for _ in range(N2):
                     # Assembling volume and enthalpy constraints with derivatives for
-                    # s-p-T.
+                    # s-pT.
 
                     for j in range(nphase):
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
@@ -852,15 +848,15 @@ class FlashInitializer:
                         p = p_
                         T = T_
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "v-h")
+                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "vh")
 
             def vh_init(X_gen: np.ndarray, params: dict[str, float]):
                 X_gen = nested_initializer(
-                    get_K_values, update_pT_guess, "v-h", X_gen, params
+                    get_K_values, update_pT_guess, "vh", X_gen, params
                 )
                 # Performing final saturation update, after guessing fractions and p,T
                 s, x, y, z, p, T, s1, s2, x_p = parse_vectorized_generic_arg(
-                    X_gen, npnc, "v-h"
+                    X_gen, npnc, "vh"
                 )
                 rhos = np.empty(y.shape)
                 for j in range(nphase):
@@ -875,10 +871,10 @@ class FlashInitializer:
                 s = compute_saturations(y, rhos)
 
                 return assemble_vectorized_generic_arg(
-                    s, x, y, z, p, T, s1, s2, x_p, "v-h"
+                    s, x, y, z, p, T, s1, s2, x_p, "vh"
                 )
 
-            self._initializers["v-h"] = vh_init
+            self._initializers["vh"] = vh_init
 
         logger.info(
             "Flash initialization routines compiled"

@@ -188,7 +188,7 @@ def _extend_and_regularize_res(
 
     """
 
-    gen = parse_generic_arg(X[:-1], npnc, "p-T")
+    gen = parse_generic_arg(X[:-1], npnc, "pT")
     x = gen[1]
     y = gen[2]
     nu = X[-1]
@@ -242,7 +242,7 @@ def _extend_and_regularize_jac(
 
     """
 
-    gen = parse_generic_arg(X[:-1], npnc, "p-T")
+    gen = parse_generic_arg(X[:-1], npnc, "pT")
     x = gen[1]
     y = gen[2]
     nu = X[-1]
@@ -333,7 +333,7 @@ def npipm(
     heavy_ball = int(params["heavy_ball_momentum"])
 
     # Computing initial value for slack variable.
-    gen = parse_generic_arg(X0, npnc, "p-T")
+    gen = parse_generic_arg(X0, npnc, "pT")
     x = gen[1]
     y = gen[2]
     nu = np.sum(y * (1 - np.sum(x, axis=1))) / npnc[0]
@@ -382,7 +382,7 @@ def npipm(
                 else:
                     # NOTE rcond is the limit to cutting off singular values.
                     # This has quite large effects on the robustness of the flash in the
-                    # v-h case for example, which is not yet fully understood.
+                    # vh case for example, which is not yet fully understood.
                     # NOTE also, the default value in numba is machine precision, while
                     # with no-jit (pure numpy) is shape[0] * eps.
                     # The latter is chosen and set to avoid differences between jit and
