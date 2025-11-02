@@ -170,15 +170,15 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         ncomp = self.params["num_components"]
 
         s, x, y, _, p, T, *_ = parse_vectorized_generic_arg(
-            resultsarray, (nphase, ncomp), results.specification
+            resultsarray, (nphase, ncomp), results.specification.name
         )
 
         results.y = y
-        if "T" not in results.specification:
+        if "T" not in results.specification.name:
             results.T = T
-        if "p" not in results.specification:
+        if "p" not in results.specification.name:
             results.p = p
-        if "v" in results.specification:
+        if "v" in results.specification.name:
             results.sat = s
 
         # Computing states for each phase after filling p, T and x
@@ -195,7 +195,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             )
 
         # If v not defined, evaluate saturations based on rho and y.
-        if "v" not in results.specification:
+        if "v" not in results.specification.name:
             results.evaluate_saturations()
         # Evaluate extensive properties of the fluid mixture at equilibrium values.
         results.evaluate_extensive_state()
@@ -579,7 +579,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if initial_state is None:
             start = time.time()
             # NOTE Same ignore note as above on flash_type
-            X0 = self.initializer[flash_type](X0)  # type:ignore[index]
+            X0 = self.initializer[results.specification.name](X0)  # type:ignore[index]
             logger.debug(
                 "Initial values computed (elapsed time: %.5f (s))."
                 % (time.time() - start)
@@ -592,8 +592,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         start = time.time()
         resultsarray, success, num_iter = MULTI_SOLVERS[mode](
             X0,
-            self.residuals[results.specification],
-            self.jacobians[results.specification],
+            self.residuals[results.specification.name],
+            self.jacobians[results.specification.name],
             SOLVERS[solver],
             self._nb_solver_params,
         )

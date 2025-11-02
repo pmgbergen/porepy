@@ -82,8 +82,8 @@ def generic_arg_from_flash_results(
     # Unknowns in all flash types are independent phase fractions and partial fractions.
 
     # Target states depending on flash type.
-    state1: np.ndarray = getattr(results, results.specification[0])
-    state2: np.ndarray = getattr(results, results.specification[1])
+    state1: np.ndarray = getattr(results, results.specification.name[0])
+    state2: np.ndarray = getattr(results, results.specification.name[1])
     dofs = results.size
     ncomp = results.z.shape[0]
     nphase = len(results.phases)
@@ -111,7 +111,7 @@ def generic_arg_from_flash_results(
                 X_gen[-((nphase - j) * ncomp) + i] = results.phases[j].x[i]
 
         # If isochoric specifications, saturations are variables.
-        if "v" in results.specification:
+        if "v" in results.specification.name:
             # Index of first fractional variable changes.
             idx_f -= nphase - 1
             for j in range(1, nphase):

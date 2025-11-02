@@ -300,8 +300,8 @@ class AbstractFlash(abc.ABC):
         # Base dofs include independent phase fractions and partial fractions.
         dofs: int = nphase - 1 + nphase * ncomp
         size: int = 1
-        state1 = 0.0
-        state2 = 0.0
+        state1: np.ndarray | pp.number = 0.0
+        state2: np.ndarray | pp.number = 0.0
         raise_spec_error = False
         isochoric_spec = False
         isobaric_spec = False
