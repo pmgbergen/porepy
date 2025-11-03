@@ -6,7 +6,7 @@ import abc
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
+from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
 
 import matplotlib as mpl
 import numpy as np
@@ -15,6 +15,8 @@ from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
 import porepy as pp
+
+from ..utils import safe_sum
 
 __all__ = [
     "IsobaricSpecifications",
@@ -211,6 +213,7 @@ class AbstractFlash(abc.ABC):
         self.params["components_per_phase"] = tuple(
             [phase.num_components for phase in fluid.phases]
         )
+        self.params["gas_phase_index"] = fluid.gas_phase_index
 
         self.solver_params: dict[str, float] = {
             "tolerance": 1e-8,
@@ -553,31 +556,34 @@ class AbstractFlash(abc.ABC):
         :class:`FlashResults` returned by :meth:`flash`.
 
         For phase-related quantities, use ``f'*_{int}'`` to specify which phase.
-        For quantities related to components in phases, use a double digit integer,
-        where the first digit denotes the component index and the second the phase
-        index.
-        For derivatives of phase properties, the second digit will define which
-        row to plot in the respective field of
+        For quantities related to components in phases, use two integers seperated by
+        an underscore, where the first integer denotes the phase index and the
+        second the component index. For derivatives of phase properties an additional
+        integer is expected. In any case the last integer denotes the derivative index.
+        For admissible field names, see
         :class:`~porepy.compositional.states.PhaseProperties`
 
         Examples:
 
             - ``'h_1'`` will plot the specific enthalpy of the first phase.
-            - ``'x_12'`` will plot the partial fraction of the first component in the
-              second phase.
-            - ``'phis_24'`` will plot the fugacity coefficient of the second component
-              in the fourth phase.
-            - ``'dmu_11'`` will plot the derivative of the viscosity of the first phase
-              found in the first row of ``dmu`` of respective phase properties.
+            - ``'x_1_2'`` will plot the partial fraction of the second component in the
+              first phase.
+            - ``'phis_2_4'`` will plot the fugacity coefficient of the fourth component
+              in the second phase.
+            - ``'dmu_2_1'`` will plot the derivative of the viscosity of the second
+              phase found in the first row of ``dmu`` of respective phase properties.
+            - ``'dphis_1_2_3' will return the derivative of the fugacity coefficient of
+              the second component in the first phase with respect to its third
+              dependency, i.e., the third row ``dphis[...,..., 3]``.
 
         The default value for ``field``, ``'phasesplit'`` will plot the number of phases
         and their physical catecorization. I.e., liquid, vapor-liquid, vapor, etc.
 
         Supported keyword arguments are:
 
-        - ``'ytransform'``: A callable transforming the values on the horizontal axis
+        - ``'xtransform'``: A callable transforming the values on the horizontal axis
           for the plot.
-        - ``'xtransform'``: A callable transforming the values on the vertical axis for
+        - ``'ytransform'``: A callable transforming the values on the vertical axis for
           the plot.
         - ``'vtransform'``: A callable transforming the values to be plotted.
         - ``'initial_state'``: See :meth:`flash`.
@@ -644,6 +650,8 @@ class AbstractFlash(abc.ABC):
                 s1 = ym.flatten()
                 s2 = xm.flatten()
                 z = zrange
+                xlabel = specification.name[1]
+                ylabel = specification.name[0]
             case [True, False, True]:
                 yvals = spec1range
                 xvals = zrange[zindex]
@@ -658,7 +666,8 @@ class AbstractFlash(abc.ABC):
                     else _
                     for _ in zrange
                 ]
-
+                xlabel = f"z_{zindex}"
+                ylabel = specification.name[0]
             case [False, True, True]:
                 yvals = spec2range
                 xvals = zrange[zindex]
@@ -673,6 +682,8 @@ class AbstractFlash(abc.ABC):
                     else _
                     for _ in zrange
                 ]
+                xlabel = f"z_{zindex}"
+                ylabel = specification.name[1]
             case _:
                 raise ValueError("Exactly two of the 3 ranges must be arrays.")
 
@@ -689,21 +700,124 @@ class AbstractFlash(abc.ABC):
         )
 
         # Parse field and format values to be plotted.
-        vals: np.ndarray = ...
+        vals: np.ndarray = self._parse_field(results, field)
+        vals = vals.reshape(xm.shape)
+        xlabel = specification.name[0]
+        ylabel = specification.name[1]
+        if transpose:
+            vals = vals.transpose()
+            xm, ym = [ym.transpose(), xm.transpose()]
+            xlabel, ylabel = [ylabel, xlabel]
+        xm = kwargs.get("xtransform", lambda x: x)(xm.flatten()).reshape(ym.shape)
+        ym = kwargs.get("ytransform", lambda x: x)(ym.flatten()).reshape(xm.shape)
 
         # Parse plottign options and create figure.
 
-        default_plotkwargs = {}
+        default_plotkwargs: dict[str, Any] = {
+            "cmap": "viridis",
+            "shading": "nearest",
+        }
         if plotkwargs is None:
             plotkwargs = {}
         default_plotkwargs.update(plotkwargs)
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
 
         img = ax.pcolormesh(
-            ym.transpose() if transpose else xm,
-            xm.transpose() if transpose else ym,
-            vals.transpose() if transpose else vals,
+            xm,
+            ym,
+            vals,
+            label=field,
+            **default_plotkwargs,
         )
 
         return fig
+
+    def _parse_field(self, results: FlashResults, field: str) -> np.ndarray:
+        """ "Helper method to parse the field to be plotted in the phase diagram."""
+        err_msg: str | None = None
+        vals: np.ndarray | None = None
+        nphase: int = self.params["num_phases"]
+        gasidx: int = self.params["gas_phase_index"]
+
+        # Phase split is determined based on the phase fractions.
+        if field == "phasesplit":
+            y = results.y
+            if gasidx is not None:
+                yG = y[gasidx]
+                yL = np.array([v for i, v in enumerate(y) if i != gasidx])
+            else:
+                yG = np.zeros(y.shape[1])
+                yL = y
+            vals = np.array(["V" if yg > 0.0 else "" for yg in yG], dtype=str)
+            has_liquid = (yL > 0.0).sum(axis=0).astype(int)
+            vals += np.array(["L" * i if i > 0 else "" for i in has_liquid], dtype=str)
+        # Other values are extraced from the results directly.
+        else:
+            names = field.split("_")
+            n = len(names)
+
+            if "ext" in names or "normalized" in names:
+                base = f"{names[0]}_{names[1]}"
+                n -= 2
+            else:
+                base = names[0]
+                n -= 1
+
+            # If just a field name without index, parse fluid property.
+            if n == 0:
+                if hasattr(results, base):
+                    vals = getattr(results, base)
+                else:
+                    err_msg = f"Fluid property {base} not defined."
+            elif n > 3:
+                err_msg = f"Expecting at most 3 indices in field name, got {n}"
+            else:
+                phase_index = int(names[0])
+                cd_index = None
+                d_index = None
+                if n >= 2:
+                    cd_index = int(names[1])
+                if n >= 3:
+                    d_index = int(names[2])
+
+                if phase_index > nphase or phase_index < 1:
+                    err_msg = f"Phase index in {field} out of range."
+                else:
+                    phase = results.phases[phase_index - 1]
+                    if hasattr(phase, base):
+                        vals = getattr(phase, base)
+                    else:
+                        err_msg = f"Phase property {base} not defined."
+
+                if cd_index is not None and vals is not None:
+                    if vals.ndim != n:
+                        err_msg = (
+                            f"Dimension of phase property {base} must be exactly {n}."
+                        )
+                    if cd_index > vals.shape[0] or cd_index < 1:
+                        err_msg = (
+                            f"Index {cd_index} for phase property {base} out of range."
+                        )
+                    else:
+                        if vals.ndim > 2:
+                            vals = vals[cd_index - 1, :, :]
+                            if d_index:
+                                if d_index < 1 or d_index > vals.shape[0]:
+                                    err_msg = (
+                                        f"Index {cd_index} for phase property "
+                                        f"{base} out of range."
+                                    )
+                                else:
+                                    vals = vals[d_index - 1]
+                        else:
+                            vals = vals[cd_index - 1]
+
+        if err_msg:
+            raise ValueError(err_msg)
+
+        assert isinstance(vals, np.ndarray), f"Failed to parse field {field}."
+        assert vals.ndim == 1, f"Parsed field of unexpected dimension {vals.ndim}."
+        return vals
