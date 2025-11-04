@@ -3019,19 +3019,13 @@ class ThreeFieldLinearElasticMechanicalStress:
     """Constitutive laws related to the three-field formulation of a linear elastic
     medium.
 
-    This class is not meant to be mixed in directly, but is used by other mixin classes,
-    see for instance TpsaMomentumBalanceMixin.
-
     This class defines the mechanical stress as a function of the displacement, rotation
     stress, and total pressure variables. The class further defines face-wise operators
     (think generalized fluxes) for the rotation and the solid mass.
 
     Important:
-        This class is intended for use with the TPSA (Two-Point Stress Approximation)
-        discretization, which is **inconsistent for general grids**. It should only be
-        used with grids that are aligned with the coordinate axes, such as Cartesian
-        grids. For general, unstructured, or rotated grids, the discretization may
-        produce inaccurate results.
+        This class is not meant to be mixed in directly, but is used by the mixin
+        classes TpsaMomentumBalanceMixin and TpsaPoromechanicsMixin.
 
     """
 

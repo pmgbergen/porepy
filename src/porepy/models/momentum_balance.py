@@ -14,7 +14,7 @@ Two different formulations are available:
     2. A formulation that includes two additional variables, rotation and total
        pressure, and two extra equations, for conservation of angular momentum and solid
        mass. This is compatible with discretizations using the two-point stress
-       approximation (Tpsa), see https://doi.org/10.48550/arXiv.2405.10390 for more
+       approximation (Tpsa), see https://doi.org/10.1016/j.camwa.2025.07.035 for more
        information.
 
 """
@@ -1009,17 +1009,25 @@ class TpsaMomentumBalanceMixin(  # type: ignore[misc]
     discretized by the Tpsa method.
 
     Important:
-        The TPSA (Two-Point Stress Approximation) discretization is **inconsistent for
-        general grids**. It should only be used with grids that are aligned with the
-        coordinate axes, such as Cartesian grids. For general, unstructured, or rotated
-        grids, the discretization may produce inaccurate results. Use with caution and
-        verify results carefully for non-Cartesian grid geometries.
+        The TPSA (Two-Point Stress Approximation) discretization is only consistent for
+        grids that fulfill certain alignment properties between face normals and cell
+        center coordinates (for details see the TPSA paper,
+        https://doi.org/10.1016/j.camwa.2025.07.035, see in particular the illustration
+        of admissible grids in Figure 1).
 
-        For more details, see:
-        Nordbotten and Keilegavlen, Two-point stress approximation: A simple and robust
-        finite volume method for linearized (poro-) mechanics and Stokes flow,
-        arXiv:2405.10390.
+        The class of admissible grids includes:
+            - Cartesian grids (unless the nodes have been perturbed).
+            - Simplex grids where the cell centers are chosen as the circumcenters of
+              the elements *provided that these circumcenters lie within the elements*.
+
+        Code to obtain the circumcenter grid points is available in PorePy as
+        :class:`porepy.grids.grid_utils.CircumcenteredGrid`. UPDATE. Read the
+        documentation of that function carefully to see what happens when the
+        circumcenters are outside or close to the boundary of the cell.
+
+        For general grids, the inconsistency implies that TPSA will not provide a
+        convergent discretization. The method can still be used, but it is advisable to
+        proceed with caution.
 
     """
-
     pass
