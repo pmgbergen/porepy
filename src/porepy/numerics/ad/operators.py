@@ -29,7 +29,6 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
-from .ad_utils import MergedOperator, discretize_from_list, uniquify_discretization_list
 from .forward_mode import AdArray
 
 __all__ = [
@@ -485,7 +484,7 @@ class Operator:
         unique_discretizations: dict[pp.discretization_type, list[GridLike]] = (
             self._identify_discretizations()
         )
-        discretize_from_list(unique_discretizations, mdg)
+        pp.ad.discretize_from_list(unique_discretizations, mdg)
 
     def _identify_discretizations(
         self,
@@ -495,7 +494,7 @@ class Operator:
 
         """
         all_discr = self._identify_subtree_discretizations([])
-        return uniquify_discretization_list(all_discr)
+        return pp.ad.uniquify_discretization_list(all_discr)
 
     def _identify_subtree_discretizations(self, discr: list) -> list:
         """Recursive search in the tree of this operator to identify all discretizations
@@ -506,7 +505,7 @@ class Operator:
             for child in self.children:
                 discr += child._identify_subtree_discretizations([])
 
-        if isinstance(self, MergedOperator):
+        if isinstance(self, pp.ad.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(self)
 
