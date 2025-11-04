@@ -66,7 +66,7 @@ def test_fracture_geometry(ellipse_fracture_params):
 
 def _standard_domain(modify: bool = False) -> dict | pp.Domain:
     """Create a standard domain for testing purposes."""
-    bbox = {"xmin": -10, "xmax": 10, "ymin": -10, "ymax": 10, "zmin": -10, "zmax": 10}
+    bbox = {"xmin": -15, "xmax": 15, "ymin": -15, "ymax": 15, "zmin": -15, "zmax": 15}
     if modify:
         return bbox
     else:
@@ -110,11 +110,11 @@ def test_create_mdg_for_ellipse():
     gmsh.initialize()
     bounding_box = {
         "xmin": 0,
-        "xmax": 10,
+        "xmax": 15,
         "ymin": 0,
-        "ymax": 10,
+        "ymax": 15,
         "zmin": 0,
-        "zmax": 10,
+        "zmax": 15,
     }
     domain = pp.Domain(bounding_box=bounding_box)
     frac1 = pp.EllipticFracture(
