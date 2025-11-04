@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import itertools
-import gmsh
 import copy
 import csv
+import itertools
 import logging
+import multiprocessing
 import time
 from pathlib import Path
 from typing import Optional
-import multiprocessing
 
 import gmsh
 import meshio
 import numpy as np
+import seaborn as sns
+from matplotlib import pyplot as plt
 
 import porepy as pp
 import porepy.fracs.simplex
@@ -482,6 +483,9 @@ class FractureNetwork2d:
         gmsh.model.mesh.generate(ndim)
         gmsh.write(str(file_name))
 
+        # Report mesh quality metrics.
+        self.mesh_quality_metrics()
+
         # Create list of grids.
         if dfn:
             # FIXME The constraint weren't considered until here, so this will probably
@@ -907,6 +911,88 @@ class FractureNetwork2d:
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+
+    def mesh_quality_metrics(self) -> None:
+        """Visualize, and log elementwise mesh quality metrics using gmsh.
+
+        The evaluated metrics include:
+            - minDetJac / maxDetJac : Minimum and maximum determinant of the Jacobian.
+            - minSJ                 : Minimum scaled Jacobian (element regularity).
+            - minSICN / minSIGE     : Inverse condition numbers measuring element
+                                      skewness.
+            - gamma                 : Shape quality factor (close to 1 → good element).
+            - innerRadius / outerRadius : Ratio of inscribed to circumscribed radii.
+            - minIsotropy           : Degree of isotropy (1 → perfectly isotropic).
+            - angleShape            : Angular distortion indicator.
+            - minEdge / maxEdge     : Minimum and maximum edge lengths.
+            - volume                : Element area or volume measure.
+
+        """
+        # Compute mesh quality metrics using gmsh.
+        all_element_tags = gmsh.model.mesh.getElements(2)[1][0]
+        quality_types = [
+            "minDetJac",
+            "maxDetJac",
+            "minSJ",
+            "minSICN",
+            "minSIGE",
+            "gamma",
+            "innerRadius",
+            "outerRadius",
+            "minIsotropy",
+            "angleShape",
+            "minEdge",
+            "maxEdge",
+            "volume",
+        ]
+        results = {}
+        for qtype in quality_types:
+            try:
+                qvalues = gmsh.model.mesh.getElementQualities(all_element_tags, qtype)
+                if len(qvalues) > 0:
+                    results[qtype] = qvalues
+            except Exception as e:
+                print(f"Skipping {qtype}: {e}")
+
+        # Plot histogram of mesh quality metrics.
+        n = len(results)
+        cols = 5
+        rows = (n + cols - 1) // cols
+
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 3 * rows))
+        axes = axes.flatten()
+
+        for ax, (qtype, qvalues) in zip(axes, results.items()):
+            ax.hist(
+                qvalues,
+                bins=30,
+                color="#4C72B0",
+                edgecolor="white",
+                alpha=0.8,
+            )
+
+            ax.set_title(qtype, fontsize=11, fontweight="bold")
+            ax.set_xlabel("Value", fontsize=9)
+            ax.set_ylabel("Count", fontsize=9)
+            ax.grid(True, linestyle="--", alpha=0.4)
+
+        # Hide unused subplots
+        for ax in axes[len(results) :]:
+            ax.axis("off")
+
+        fig.suptitle("Mesh Quality Distributions", fontsize=16, y=1.02)
+        plt.tight_layout()
+        plt.show()
+
+        # Log mesh quality metrics.
+        for qtype, qvalues in results.items():
+            if len(qvalues) > 0:
+                logger.info(
+                    f"{qtype:15s}: min = {qvalues.min():.4e}, max = {qvalues.max():.4e}"
+                    + f"avg = {qvalues.mean():.4e}, std = {qvalues.std():.4e}"
+                )
+            else:
+                logger.info(f"{qtype:15s}: (no values returned)")
 
     def mesh_old(
         self,
