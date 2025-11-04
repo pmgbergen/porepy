@@ -5,6 +5,8 @@ import pytest
 import gmsh
 import porepy as pp
 from porepy.fracs import ellipse_fracture
+from collections import namedtuple
+from tests.fracs.test_fracture_network_3d import check_mdg
 
 
 @pytest.mark.parametrize(
@@ -30,10 +32,10 @@ def test_ellipse_fracture_center(ellipse_fracture_params):
 def test_ellipse_fracture_tags():
     gmsh.initialize()
     frac1 = ellipse_fracture.EllipticFracture(
-            np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+        np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
     )
     frac2 = ellipse_fracture.EllipticFracture(
-            np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+        np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
     )
     tag1 = frac1.fracture_to_gmsh_3D()
     tag2 = frac2.fracture_to_gmsh_3D()
@@ -64,7 +66,7 @@ def test_fracture_geometry(ellipse_fracture_params):
 
 def _standard_domain(modify: bool = False) -> dict | pp.Domain:
     """Create a standard domain for testing purposes."""
-    bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
+    bbox = {"xmin": -10, "xmax": 10, "ymin": -10, "ymax": 10, "zmin": -10, "zmax": 10}
     if modify:
         return bbox
     else:
@@ -107,25 +109,67 @@ def plane_check(points_xyz, center, strike_angle, dip_angle):
 def test_create_mdg_for_ellipse():
     gmsh.initialize()
     bounding_box = {
-        "xmin": 0, "xmax": 10,
-        "ymin": 0, "ymax": 10,
-        "zmin": 0, "zmax": 10,
+        "xmin": 0,
+        "xmax": 10,
+        "ymin": 0,
+        "ymax": 10,
+        "zmin": 0,
+        "zmax": 10,
     }
     domain = pp.Domain(bounding_box=bounding_box)
-    frac1 = pp.EllipticFracture(np.array([3.0, 4.0, 5.0]),
-                                          2.0, 1.0, 
-                                          np.pi/6.0, np.pi/4.0, np.pi/8.0)
-    frac2 = pp.EllipticFracture(np.array([8.0, 7.0, 6.0]),
-                                          2.5, 0.5, 
-                                          np.pi/6.0, np.pi/4.0, np.pi/8.0)
-    frac3 = pp.PlaneFracture(np.array([[0, 4, 5, 0],
-                                       [0, 0, 2, 2],
-                                       [0, 0, 2, 2]]))
+    frac1 = pp.EllipticFracture(
+        np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+    )
+    frac2 = pp.EllipticFracture(
+        np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+    )
+    frac3 = pp.PlaneFracture(np.array([[0, 4, 5, 0], [0, 0, 2, 2], [0, 0, 2, 2]]))
     fractures = [frac1, frac2, frac3]
     network = pp.create_fracture_network(fractures, domain)
     gmsh.model.occ.synchronize()
-    mesh_args = {'cell_size_boundary': 1.0, 'cell_size_fracture': 0.5, 'cell_size_min': 0.2}
+    mesh_args = {
+        "cell_size_boundary": 1.0,
+        "cell_size_fracture": 0.5,
+        "cell_size_min": 0.2,
+    }
     mdg = pp.create_mdg("simplex", mesh_args, network)
     assert mdg is not None
-    assert mdg.num_subdomains() >= 4 
+    assert mdg.num_subdomains() >= 4
 
+
+IntersectionInfo = namedtuple("IntersectionInfo", ["parent_0", "parent_1", "coord"])
+
+
+def test_two_intersecting_fractures():
+    """Two fractures intersecting along a line."""
+
+    f_1 = ellipse_fracture.EllipticFracture(
+        np.array([3.0, 4.0, 5.0]),
+        2.0,
+        1.0,
+        0.0,
+        0.0,
+        np.pi / 6.0,
+    )
+    f_2 = ellipse_fracture.EllipticFracture(
+        np.array([3.0, 4.0, 5.0]),
+        2.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+    )
+    domain = _standard_domain()
+    mdg = _create_mdg([f_1, f_2], domain)
+
+    isect_coord = np.array([[2, 4], [4, 4], [5, 5]])
+
+    isect = IntersectionInfo(0, 1, isect_coord)
+
+    check_mdg(
+        mdg,
+        domain,
+        fractures=[f_1, f_2],
+        isect_line=[isect],
+        expected_num_1d_grids=1,
+    )
