@@ -46,7 +46,7 @@ solid_constants_blocking = FractureSolidConstants(
 
 
 class Geometry(pp.PorePyModel):
-    """Define the Geometry as specified in Section 5.3 of [1]. """
+    """Define the Geometry as specified in Section 5.3 of [1]."""
 
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid adn fracture network."""
@@ -85,11 +85,11 @@ class PermeabilitySpecification(Permeability):
 
         # Safeguard against wrong dimensionality.
         if sd.dim < 3:
-            raise ValueError('_low_perm_zones is only meaningful for 3d.')
+            raise ValueError("_low_perm_zones is only meaningful for 3d.")
 
         cc = sd.cell_centers
 
-        zone_0 = np.logical_and(cc[0, :] > 0.5,  cc[1, :] < 0.5)
+        zone_0 = np.logical_and(cc[0, :] > 0.5, cc[1, :] < 0.5)
         zone_1 = np.logical_and.reduce(
             tuple(
                 [
@@ -129,11 +129,11 @@ class PermeabilitySpecification(Permeability):
             else:
                 vals.append(kxx)  # This is just a placeholder, it will not be used.
 
-        # This seems to be needed for setting up the model
         if len(subdomains) > 0:
             permeability = pp.wrap_as_dense_ad_array(np.hstack(vals))
         else:
-            permeability = self.solid.permeability
+            # This part is need it only to set up the model, not actually used.
+            permeability = self.solid.permeability  # type:ignore
 
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -161,7 +161,7 @@ class BoundaryConditions(pp.PorePyModel):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet boundary condition at outlet boundary."""
-        b_faces = sd.tags['domain_boundary_faces'].nonzero()
+        b_faces = sd.tags["domain_boundary_faces"].nonzero()
 
         if b_faces != 0:
             b_faces_centers = sd.face_centers[:, b_faces]
@@ -181,7 +181,7 @@ class BoundaryConditions(pp.PorePyModel):
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assign unitary Darcy flux at the inlet boundary.
 
-            \partial\Omega_inlet = \{x \in \partial\Omega : x_1, x_2, x_3 < 0.25 \}
+        partialOmega_inlet = {x in partialOmega : x_1, x_2, x_3 < 0.25}
 
         """
         cc = bg.cell_centers
@@ -201,7 +201,7 @@ class BoundaryConditions(pp.PorePyModel):
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assign unitary pressure at the outlet boundary:
 
-            \partial\Omega_outlet = \{x \in \partial\Omega : x_1, x_2, x_3 > 0.875\}
+        partialOmega_outlet = {x in partialOmega : x_1, x_2, x_3 > 0.875}
 
         """
         cc = bg.cell_centers
@@ -223,6 +223,6 @@ class FlowBenchmark3dCase2Model(  # type:ignore[misc]
     Geometry,
     PermeabilitySpecification,
     BoundaryConditions,
-    pp.SinglePhaseFlow
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for Case 2: Regular Network from the 3D flow benchmark."""

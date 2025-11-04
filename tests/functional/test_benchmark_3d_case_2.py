@@ -22,8 +22,8 @@ import porepy as pp
 from porepy.applications.test_utils.benchmarks import EffectivePermeability
 from porepy.examples.flow_benchmark_3d_case_2 import (
     FlowBenchmark3dCase2Model,
-    solid_constants_conductive,
     solid_constants_blocking,
+    solid_constants_conductive,
 )
 
 

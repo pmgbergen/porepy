@@ -285,7 +285,7 @@ def benchmark_regular_2d(
 
 
 def benchmark_3d_case_2(
-    refinement_level: Literal[0, 1, 2] = 0
+    refinement_level: Literal[0, 1, 2] = 0,
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork3d]:
     """
     Create a mixed-dimensional grid for the geometry of case 2 from [1].
@@ -317,7 +317,7 @@ def benchmark_3d_case_2(
     """
     # Sanity check on input argument
     if refinement_level not in [0, 1, 2]:
-        raise NotImplementedError('Refinement level not available.')
+        raise NotImplementedError("Refinement level not available.")
 
     # Get directory pointing to the `geo` file
     abs_path = Path(__file__)
