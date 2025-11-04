@@ -6,6 +6,7 @@ The model relies heavily on functions in the computational geometry library.
 
 from __future__ import annotations
 
+from itertools import combinations
 import gmsh
 import copy
 import csv
@@ -408,6 +409,8 @@ class FractureNetwork3d(object):
         gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
 
         fac.synchronize()
+        self.set_mesh_size(mesh_args)
+        fac.synchronize()
 
         if write_geo:
             gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
@@ -633,6 +636,188 @@ class FractureNetwork3d(object):
             isect_mapping,
             num_parents,
         )
+
+    def set_mesh_size(self, mesh_args):
+        THRESHOLD = 0.4
+
+        mesh_size_points = {}
+
+        nd = 3
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+
+        h_frac = mesh_args["mesh_size_frac"]
+        h_bound = mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.
+        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
+
+        ### Get hold of lines representing fractures and boundaries.
+        domain_entities = gmsh.model.get_entities(nd)
+        # TODO: If there is more than one domain entity (the domain is split into parts
+        # by fractures), we need to pick out the outer boundary, that is, the ones which
+        # only occurs once.
+        boundaries = gmsh.model.get_boundary([(nd, tag) for _, tag in domain_entities])
+        fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
+
+        surface_tags = [tag for _, tag in gmsh.model.getEntities(nd - 1)]
+        fracture_tags = [tag for _, tag in fractures]
+        boundary_tags = [tag for _, tag in boundaries]
+
+        fracture_diameters = {}
+        for f in fractures:
+            mass = gmsh.model.occ.get_mass(*f)
+            fracture_diameters[f] = np.sqrt(mass)
+
+        def parametrize_surface(tag, measure):
+            bnds = gmsh.model.get_parametrization_bounds(nd - 1, tag)
+            num_pts = np.ceil(fracture_diameters[(nd - 1, tag)] / measure).astype(int)
+            u = np.linspace(bnds[0][0], bnds[1][0], num_pts)
+            v = np.linspace(bnds[0][1], bnds[1][1], num_pts)
+            grid = np.array(np.meshgrid(u, v)).T.reshape(-1, 2)
+            return grid
+
+        for f1, f2 in combinations(surface_tags, 2):
+            if f1 in boundary_tags and f2 in boundary_tags:
+                # No need to refine close boundary surfaces.
+                continue
+
+            dist = gmsh.model.occ.get_distance(nd - 1, f1, nd - 1, f2)[0]
+            if dist > THRESHOLD:
+                continue
+
+            elif dist > 1e-8:
+                # Fractures are close, but not intersecting.
+                for main_frac in [f1, f2]:
+                    if main_frac not in mesh_size_points:
+                        mesh_size_points[main_frac] = []
+
+                    grid = parametrize_surface(main_frac, dist)
+
+                    other_frac = f2 if main_frac == f1 else f1
+
+                    for pt in grid:
+                        pt_phys = gmsh.model.get_value(2, main_frac, pt)
+                        pi = gmsh.model.occ.add_point(
+                            pt_phys[0], pt_phys[1], pt_phys[2]
+                        )
+                        d_to_other = gmsh.model.occ.get_distance(0, pi, 2, other_frac)[
+                            0
+                        ]
+                        if d_to_other < THRESHOLD:
+                            mesh_size_points[main_frac].append(
+                                (pi, pt_phys, d_to_other)
+                            )
+                        else:
+                            gmsh.model.occ.remove([(0, pi)])
+
+            else:
+                debug = []
+                pass
+
+        ## Start feeding the mesh size information to gmsh fields.
+        gmsh_fields = []
+        gmsh.model.occ.synchronize()
+
+        # Add fields for points close to other objects. The points are stored per line,
+        # take one line at a time.
+        for frac, info in mesh_size_points.items():
+            # Uniquify the point set (the same point may have been identified multiple
+            # times).
+            bound_points = [
+                gmsh.model.get_value(2, frac, pt)
+                for pt in parametrize_surface(frac, h_frac)
+            ]
+            tol = min(fracture_diameters[(2, frac)], h_frac) / 2
+
+            # TODO: We do not fully account for the close points
+            extra_points = [d[1] for d in info]
+            points, _, ind_map = pp.array_operations.uniquify_point_set(
+                np.vstack((bound_points, extra_points)).T, tol=tol
+            )
+            # Distance to other objects for each point, as computed previously. Assign
+            # h_frac or h_bound to the endpoints, depending on whether the line is a
+            # fracture or boundary line. We also assign h_frac, since no refinement is
+            # needed just because this is an intersection point (if it is an
+            # intersection with a bad angle, this should be picked up by a close point
+            # on another line).
+            h_end = h_bound if frac in boundary_tags else h_frac
+
+            other_object_distances_all = np.hstack(
+                (
+                    np.array([h_end for _ in range(len(bound_points))]),
+                    np.array([d[2] if d[2] > 0 else h_frac for d in info]),
+                )
+            )
+            # Reduce to one distance per unique point, picking the minimum distance if
+            # multiple distances were associated with the same geometric point.
+            other_object_distances = []
+            for i in range(points.shape[1]):
+                inds = ind_map == i
+                min_dist = np.min(other_object_distances_all[inds])
+                other_object_distances.append(min_dist)
+            other_object_distances = np.array(other_object_distances)
+
+            # Mesh size information that relates to either endpoints or points close to
+            # end points (which were filtered out) must be assigned to endpoints.
+
+            if points.shape[1] > 0:
+                # If there is more than one point in addition to the end points, we can
+                # compute the point-point distances in pairs along this line.
+                point_point_distances = pp.distances.pointset(points, max_diag=True)
+                min_dist_point = np.min(point_point_distances, axis=0)
+            else:
+                # This is an isolated point. There is no reason to do refinement for
+                # this line, though, if the same point is identified for other lines, it
+                # may be added there. Note to self: A standard X-intersection with no
+                # other lines in the vicinity will end up here.
+                continue
+
+            # The final distance to be used for mesh size calculation is the minimum of
+            # the distance to other objects and the distance to other close points on
+            # the same line.
+            dist = np.minimum(other_object_distances, min_dist_point)
+            for i, d in enumerate(dist):
+                # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
+                # related to almost intersection points.
+                if d > h_frac:
+                    # No refinement needed at this point.
+                    continue
+
+                size = max(h_min, d) / ALPHA
+                field = gmsh.model.mesh.field.add("Distance")
+                pi = gmsh.model.occ.add_point(points[0, i], points[1, i], points[2, i])
+                gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
+                threshold = gmsh.model.mesh.field.add("Threshold")
+                gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+
+                gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+                gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+                gmsh_fields.append(threshold)
+        gmsh.model.occ.synchronize()
+        # Finally, as the background mesh, we take the minimum of all the created
+        # fields.
+        min_field = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
+        gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
+
+        # The background mesh incorporates all mesh size specifications. We turn off
+        # other mesh size specifications.
+        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+
+        debug = []
 
     def mesh_old(
         self,
