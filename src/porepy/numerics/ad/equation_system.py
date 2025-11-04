@@ -13,7 +13,8 @@ from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_parser, _ad_utils
+from . import _ad_parser
+from .ad_utils import MergedOperator, discretize_from_list, uniquify_discretization_list
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -612,7 +613,7 @@ class EquationSystem:
         the order of the argument.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.get_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -680,7 +681,7 @@ class EquationSystem:
             by ``variables`` will raise respective errors by numpy.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.set_solution_values`.
 
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
@@ -745,7 +746,7 @@ class EquationSystem:
         """Method for shifting stored time step values in data sub-dictionary.
 
         For details of the value shifting see the method
-        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+        :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -1325,7 +1326,7 @@ class EquationSystem:
             for child in operator.children:
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
-        if isinstance(operator, _ad_utils.MergedOperator):
+        if isinstance(operator, MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(operator)
 
@@ -1555,8 +1556,8 @@ class EquationSystem:
             discr += self._recursive_discretization_search(eqn, list())
 
         # Uniquify to save computational time, then discretize.
-        unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.mdg)
+        unique_discr = uniquify_discretization_list(discr)
+        discretize_from_list(unique_discr, self.mdg)
 
     @overload
     def assemble(

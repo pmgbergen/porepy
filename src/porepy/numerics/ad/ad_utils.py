@@ -40,6 +40,17 @@ from porepy.numerics.discretization import Discretization, InterfaceDiscretizati
 from . import operators
 from .forward_mode import AdArray
 
+__all__ = [
+    "concatenate_ad_arrays",
+    "wrap_discretization",
+    "uniquify_discretization_list",
+    "discretize_from_list",
+    "set_solution_values",
+    "get_solution_values",
+    "shift_solution_values",
+    "MergedOperator",
+]
+
 
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified

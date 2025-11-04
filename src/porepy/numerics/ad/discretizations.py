@@ -29,7 +29,7 @@ from typing import Callable
 import porepy as pp
 from porepy.utils.porepy_types import discretization_type
 
-from ._ad_utils import MergedOperator, wrap_discretization
+from .ad_utils import MergedOperator, wrap_discretization
 
 __all__ = [
     "Discretization",
