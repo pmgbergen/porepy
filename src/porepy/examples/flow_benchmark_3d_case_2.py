@@ -44,6 +44,7 @@ solid_constants_blocking = FractureSolidConstants(
     fracture_permeability=1e-4,
 )
 
+
 class Geometry(pp.PorePyModel):
     """Define the Geometry as specified in Section 5.3 of [1]. """
 
@@ -114,7 +115,7 @@ class PermeabilitySpecification(Permeability):
 
         return np.logical_or.reduce(tuple([zone_0, zone_1, zone_2]))
 
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Heterogeneous matrix permeability. See [1] for the details."""
 
         # Assign permeability values
