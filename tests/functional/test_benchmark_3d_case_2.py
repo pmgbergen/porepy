@@ -1,0 +1,167 @@
+"""
+Module containing tests for the flow three-dimensional benchmark, case 2 from [1].
+
+The tests check whether effective permeabilities and boundary are correctly assigned.
+Since we solved the actual model, we also implicitly check that the model does not
+crash. However, we are currently not checking that the solution is the "correct" one.
+
+Reference:
+    - [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
+      E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
+      three-dimensional fractured porous media. Advances in Water Resources, 147,
+      103759. https://doi.org/10.1016/j.advwatres.2020.103759
+
+"""
+
+from typing import Literal
+
+import numpy as np
+import pytest
+
+import porepy as pp
+from porepy.applications.test_utils.benchmarks import EffectivePermeability
+from porepy.examples.flow_benchmark_3d_case_2 import (
+    FlowBenchmark3dCase2Model,
+    solid_constants_conductive,
+    solid_constants_blocking,
+)
+
+
+class ModelWithEffectivePermeability(
+    EffectivePermeability,
+    FlowBenchmark3dCase2Model,
+):
+    """Model with functionality to calculate effective permeabilities."""
+
+
+@pytest.fixture(scope="module", params=["tpfa", "mpfa"])
+def flux_discretization(request) -> Literal["tpfa", "mpfa"]:
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def model_conductive(
+    flux_discretization: Literal["tpfa", "mpfa"],
+) -> ModelWithEffectivePermeability:
+    """Run the benchmark model with the coarsest mesh resolution for case (a):
+    conductive fractures.
+
+    Parameters:
+        flux_discretization: Either 'tpfa' or 'mpfa'
+
+    Returns:
+        The solved model, an instance of `ModelWithEffectivePermeability`.
+
+    """
+    model_params = {
+        "material_constants": {"solid": solid_constants_conductive},
+        "flux_discretization": flux_discretization,
+        "times_to_export": [],  # Suppress output for tests
+    }
+    model = ModelWithEffectivePermeability(model_params)
+    pp.run_time_dependent_model(model)
+    return model
+
+
+@pytest.fixture(scope="module")
+def model_blocking(
+    flux_discretization: Literal["tpfa", "mpfa"],
+) -> ModelWithEffectivePermeability:
+    """Run the benchmark model with the coarsest mesh resolution for case (b):
+    blocking fractures.
+
+    Parameters:
+        flux_discretization: Either 'tpfa' or 'mpfa'
+
+    Returns:
+        The solved model, an instance of `ModelWithEffectivePermeability`.
+
+    """
+    model_params = {
+        "material_constants": {"solid": solid_constants_blocking},
+        "flux_discretization": flux_discretization,
+        "times_to_export": [],  # Suppress output for tests
+    }
+    model = ModelWithEffectivePermeability(model_params)
+    pp.run_time_dependent_model(model)
+    return model
+
+
+#@pytest.mark.skipped  # reason: slow
+@pytest.mark.parametrize("model_fixture", ["model_conductive", "model_blocking"])
+def test_effective_tangential_permeability_values(
+        request,
+        model_fixture: str,
+        flux_discretization: Literal['tpfa', 'mpfa']
+) -> None:
+    """Test if the permeability values are consistent with the benchmark specification.
+
+    The values are specified in Table 5 from [1]. We expect a value of effective
+    tangential permeability = 1 for the 3d subdomain, 1e2 for the fractures, and 1.0
+    for the fracture intersections.
+
+    Parameters:
+        model: ModelWithEffectivePermeability
+            Solved model. Returned by the `model()` fixture.
+
+    """
+    # Get the actual model instance from the fixture name
+    model = request.getfixturevalue(model_fixture)
+
+    for sd in model.mdg.subdomains():
+        val = model.equation_system.evaluate(
+            model.effective_tangential_permeability([sd])
+        )
+        if sd.dim == 3:
+            msk = model._low_perm_zones(sd)
+            np.testing.assert_array_almost_equal(val[~msk], 1.0)
+            np.testing.assert_array_almost_equal(val[msk], 0.1)
+        else:  # 2d and 1d
+            if model_fixture == "model_conductive":
+                np.testing.assert_array_almost_equal(val, 1e4)
+            else:
+                np.testing.assert_array_almost_equal(val, 1e-4)
+
+
+@pytest.mark.skipped  # reason: slow
+def test_effective_normal_permeability_values(model) -> None:
+    """Test if the permeability values are consistent with the benchmark specification.
+
+    The values are specified in Table 5, from [1]. Specifically, we expect a value of
+    normal permeability = 2e6 for 2d interfaces, and a value of normal permeability
+    = 2e4 for 1d interfaces.
+
+    Parameters:
+        model: ModelWithEffectivePermeability
+            Solved model. Returned by the `model()` fixture.
+
+    """
+    for intf in model.mdg.interfaces():
+        val = model.equation_system.evaluate(
+            model.effective_normal_permeability([intf])
+        )
+        if intf.dim == 2:
+            np.testing.assert_array_almost_equal(val, 2e6)
+        else:  # intf.dim == 1
+            np.testing.assert_array_almost_equal(val, 2e4)
+
+
+@pytest.mark.skipped  # reason: slow
+def test_boundary_specification(model) -> None:
+    """Check that the inlet and outlet boundaries are correctly specified.
+
+    At the inlet boundary, we check if the total amount of fluid is entering into the
+    domain. At the outlet boundary, we check that the pressure value is zero.
+
+    """
+    bg, data_bg = model.mdg.boundaries(return_data=True, dim=2)[0]
+
+    # Inlet boundary
+    south_side = model.domain_boundary_sides(bg).south
+    inlet_flux = np.sum(data_bg["iterate_solutions"]["darcy_flux"][0][south_side])
+    assert np.isclose(inlet_flux, -1 / 3, atol=1e-5)
+
+    # Outlet boundary
+    north_side = model.domain_boundary_sides(bg).north
+    outlet_pressure = np.sum(data_bg["iterate_solutions"]["pressure"][0][north_side])
+    assert np.isclose(outlet_pressure, 0, atol=1e-5)
