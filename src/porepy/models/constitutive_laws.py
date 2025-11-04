@@ -3308,16 +3308,8 @@ class ConstitutiveLawsTpsaPoromechanics:
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
 
     Important:
-        The TPSA (Two-Point Stress Approximation) discretization is **inconsistent for
-        general grids**. It should only be used with grids that are aligned with the
-        coordinate axes, such as Cartesian grids. For general, unstructured, or rotated
-        grids, the discretization may produce inaccurate results. Use with caution and
-        verify results carefully for non-Cartesian grid geometries.
-
-        For more details, see:
-        Nordbotten and Keilegavlen, Two-point stress approximation: A simple and robust
-        finite volume method for linearized (poro-) mechanics and Stokes flow,
-        arXiv:2405.10390.
+        This class is not meant to be mixed in directly, but is used by the mixin
+        class TpsaPoromechanicsMixin.
 
     """
 

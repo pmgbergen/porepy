@@ -199,9 +199,10 @@ class TpsaPoromechanicsMixin(
               the elements *provided that these circumcenters lie within the elements*.
 
         Code to obtain the circumcenter grid points is available in PorePy as
-        :class:`porepy.grids.grid_utils.CircumcenteredGrid`. UPDATE. Read the
-        documentation of that function carefully to see what happens when the
-        circumcenters are outside or close to the boundary of the cell.
+        :meth:`porepy.grids.grid_utils.compute_circumcenter_2d` and
+        :meth:`porepy.grids.grid_utils.compute_circumcenter_3d`. If using these
+        functions to move the cell center, make sure that the modified center is still
+        within the cell, or else the discretization may break down.
 
         For general grids, the inconsistency implies that TPSA will not provide a
         convergent discretization. The method can still be used, but it is advisable to
