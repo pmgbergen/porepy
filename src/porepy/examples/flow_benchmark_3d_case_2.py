@@ -64,6 +64,7 @@ class Geometry(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         # Create well network.
+        self.set_well_network()
         if len(self.well_network.wells) > 0:
             # Compute intersections.
             assert isinstance(self.fracture_network, FractureNetwork3d)
@@ -78,43 +79,43 @@ class Geometry(pp.PorePyModel):
 class PermeabilitySpecification(Permeability):
     """Set up permeability values in the mixed-dimensional grid."""
 
+    def _low_perm_zones(self, sd: pp.Grid) -> np.ndarray:
+        """Helper mask corresponding to low permeability zones in the matrix."""
+
+        # Safeguard against wrong dimensionality.
+        if sd.dim < 3:
+            raise ValueError('_low_perm_zones is only meaningful for 3d.')
+
+        cc = sd.cell_centers
+
+        zone_0 = np.logical_and(cc[0, :] > 0.5,  cc[1, :] < 0.5)
+        zone_1 = np.logical_and.reduce(
+            tuple(
+                [
+                    cc[0, :] < 0.75,
+                    cc[1, :] > 0.5,
+                    cc[1, :] < 0.75,
+                    cc[2, :] > 0.5,
+                ]
+            )
+        )
+        zone_2 = np.logical_and.reduce(
+            tuple(
+                [
+                    cc[0, :] > 0.625,
+                    cc[0, :] < 0.75,
+                    cc[1, :] > 0.5,
+                    cc[1, :] < 0.625,
+                    cc[2, :] > 0.5,
+                    cc[2, :] < 0.75,
+                ]
+            )
+        )
+
+        return np.logical_or.reduce(tuple([zone_0, zone_1, zone_2]))
+
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Heterogeneous matrix permeability. See [1] for the details."""
-
-        def _low_perm_zones(sd: pp.Grid) -> np.ndarray:
-            """Helper mask corresponding to low permeability zones in the matrix."""
-
-            # Safeguard against wrong dimensionality.
-            if sd.dim < 3:
-                raise ValueError('_low_perm_zones is only meaningful for 3d.')
-
-            cc = sd.cell_centers
-
-            zone_0 = np.logical_and(cc[0, :] > 0.5, cc[1:, ] < 0.5)
-            zone_1 = np.logical_and.reduce(
-                tuple(
-                    [
-                        cc[0, :] < 0.75,
-                        cc[1, :] > 0.5,
-                        cc[1, :] < 0.75,
-                        cc[2, :] > 0.5,
-                    ]
-                )
-            )
-            zone_2 = np.logical_and.reduce(
-                tuple(
-                    [
-                        cc[0, :] > 0.625,
-                        cc[0, :] < 0.75,
-                        cc[1, :] > 0.5,
-                        cc[1, :] < 0.625,
-                        cc[2, :] > 0.5,
-                        cc[2, :] < 0.75,
-                    ]
-                )
-            )
-
-            return np.logical_and.reduce(tuple([zone_0, zone_1, zone_2]))
 
         # Assign permeability values
         vals = []
@@ -122,7 +123,8 @@ class PermeabilitySpecification(Permeability):
             kxx = np.ones(sd.num_cells)
             if sd.dim == 3:
                 # Set unit permeability except in the low permeability zones.
-                kxx[_low_perm_zones(sd)] = 1e-1
+                kxx[self._low_perm_zones(sd)] = 1e-1
+                vals.append(kxx)
             else:
                 vals.append(kxx)  # This is just a placeholder, it will not be used.
 
@@ -158,7 +160,7 @@ class BoundaryConditions(pp.PorePyModel):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet boundary condition at outlet boundary."""
-        b_faces = self.domain_boundary_sides(sd).all_bf
+        b_faces = sd.tags['domain_boundary_faces'].nonzero()
 
         if b_faces != 0:
             b_faces_centers = sd.face_centers[:, b_faces]
