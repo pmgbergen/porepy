@@ -34,12 +34,16 @@ class ModelWithEffectivePermeability(
     """Model with functionality to calculate effective permeabilities."""
 
 
-@pytest.fixture(scope="module", params=[
-    pytest.param("tpfa", id="tpfa"),
-    pytest.param("mpfa", id="mpfa", marks=pytest.mark.skipped)
-])
+@pytest.fixture(
+    scope="module",
+    params=[
+        pytest.param("tpfa", id="tpfa"),
+        pytest.param("mpfa", id="mpfa", marks=pytest.mark.skipped),
+    ],
+)
 def flux_discretization(request) -> Literal["tpfa", "mpfa"]:
     return request.param
+
 
 @pytest.fixture(scope="module")
 def model_conductive(
@@ -87,14 +91,17 @@ def model_blocking(
     return model
 
 
-@pytest.mark.parametrize("model_fixture", [
-    pytest.param("model_conductive", id="conductive"),
-    pytest.param("model_blocking", id="blocking", marks=pytest.mark.skipped)
-])
+@pytest.mark.parametrize(
+    "model_fixture",
+    [
+        pytest.param("model_conductive", id="conductive"),
+        pytest.param("model_blocking", id="blocking", marks=pytest.mark.skipped),
+    ],
+)
 def test_effective_tangential_permeability_values(
-        request,
-        model_fixture: str,
-        flux_discretization: Literal['tpfa', 'mpfa'],
+    request,
+    model_fixture: str,
+    flux_discretization: Literal["tpfa", "mpfa"],
 ) -> None:
     """Test if the permeability values are consistent with the benchmark specification.
 
@@ -135,14 +142,17 @@ def test_effective_tangential_permeability_values(
             continue  # zero-dimensional subdomains
 
 
-@pytest.mark.parametrize("model_fixture", [
-    pytest.param("model_conductive", id="conductive"),
-    pytest.param("model_blocking", id="blocking", marks=pytest.mark.skipped)
-])
+@pytest.mark.parametrize(
+    "model_fixture",
+    [
+        pytest.param("model_conductive", id="conductive"),
+        pytest.param("model_blocking", id="blocking", marks=pytest.mark.skipped),
+    ],
+)
 def test_effective_normal_permeability_values(
-        request,
-        model_fixture: str,
-        flux_discretization: Literal['tpfa', 'mpfa'],
+    request,
+    model_fixture: str,
+    flux_discretization: Literal["tpfa", "mpfa"],
 ) -> None:
     """Test if the permeability values are consistent with the benchmark specification.
 
@@ -181,15 +191,18 @@ def test_effective_normal_permeability_values(
                 np.testing.assert_array_almost_equal(val, 2e-8)
 
 
-@pytest.mark.parametrize("model_fixture", [
-    pytest.param("model_conductive", id="conductive"),
-    pytest.param("model_blocking", id="blocking", marks=pytest.mark.skipped)
-])
+@pytest.mark.parametrize(
+    "model_fixture",
+    [
+        pytest.param("model_conductive", id="conductive"),
+        pytest.param("model_blocking", id="blocking", marks=pytest.mark.skipped),
+    ],
+)
 def test_boundary_specification(
-        request,
-        model_fixture: str,
-        flux_discretization: Literal['tpfa', 'mpfa'],
-    ) -> None:
+    request,
+    model_fixture: str,
+    flux_discretization: Literal["tpfa", "mpfa"],
+) -> None:
     """Check that the inlet and outlet boundaries are correctly specified.
 
     At the inlet boundary, we check if the total amount of fluid is entering into the
@@ -204,9 +217,7 @@ def test_boundary_specification(
     cc = bg.cell_centers
 
     # Check on inlet faces
-    inlet_faces = np.logical_and.reduce(
-        tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3))
-    )
+    inlet_faces = np.logical_and.reduce(tuple(cc[i, :] < 0.25 + 1e-8 for i in range(3)))
     inlet_flux = np.sum(data_bg["iterate_solutions"]["darcy_flux"][0][inlet_faces])
     assert np.isclose(inlet_flux, -0.1875, atol=1e-5)
 
