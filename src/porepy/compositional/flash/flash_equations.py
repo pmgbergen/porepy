@@ -30,7 +30,7 @@ Individual flash systems must assemble the partial Jacobians they need and slice
 
 from __future__ import annotations
 
-from typing import Literal, Optional, Sequence
+from typing import Optional, Sequence
 
 import numba as nb
 import numpy as np
@@ -157,10 +157,10 @@ def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
     # state value related to energy
     if FlashSpec.pT < spec < FlashSpec.vT:
         d += 1
-    # If isochoric specifications, independent saturations are part of the generic
-    # argument as well.
+    # If isochoric specifications, independent saturations and volume values are part of
+    # the generic argument as well.
     if spec >= FlashSpec.vT:
-        d += nip
+        d += nip + 1
     # If isochoric and not isothermal, we need an additional energy-related state
     # variable.
     if spec > FlashSpec.vT:
@@ -397,7 +397,7 @@ def assemble_generic_arg(
     elif FlashSpec.vT <= spec:
         # Non-isothermal.
         if FlashSpec.vT < spec:
-            X_gen_state = np.array([state1, state2])
+            X_gen_state = np.array([state2, state1])
             i += 2
         # Isothermal.
         else:
