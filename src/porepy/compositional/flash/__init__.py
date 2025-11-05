@@ -7,7 +7,7 @@ from . import (
     flash_initializer,
     persistent_variable_flash,
     solvers,
-    uniflash_equations,
+    flash_equations,
 )
 from .abstract_flash import *
 from .flash_initializer import *
@@ -20,10 +20,10 @@ from .flash_initializer import *
 # [assignment]
 from .persistent_variable_flash import *  # type:ignore[assignment]
 from .solvers import *
-from .uniflash_equations import *
+from .flash_equations import *
 
 __all__.extend(solvers.__all__)
 __all__.extend(abstract_flash.__all__)
 __all__.extend(flash_initializer.__all__)
-__all__.extend(uniflash_equations.__all__)
+__all__.extend(flash_equations.__all__)
 __all__.extend(persistent_variable_flash.__all__)

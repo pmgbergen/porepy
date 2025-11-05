@@ -27,7 +27,7 @@ from ..compiled_eos import CompiledEoS
 from ..utils import _compute_saturations, compute_saturations, normalize_rows
 from .abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
 from .solvers._core import SOLVER_PARAMETERS_TYPE
-from .uniflash_equations import (
+from .flash_equations import (
     assemble_generic_arg,
     assemble_vectorized_generic_arg,
     first_order_constraint_jac,
@@ -206,7 +206,7 @@ def fractions_from_rr(
             of loops to perform here. Require also critical pressures, temperatures and
             acentric factors for each component.
         flash_type: A string denoting the flash type to parse ``X_gen``.
-            See :func:`~porepy.compositional.flash.uniflash_equations.parse_generic_arg`
+            See :func:`~porepy.compositional.flash.flash_equations.parse_generic_arg`
         use_wilson: Flag to use the Wilson correlation for the first K-value guess.
 
     Returns:

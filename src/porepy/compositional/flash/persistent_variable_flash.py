@@ -39,7 +39,7 @@ from ..utils import _chainrule_fractional_derivatives, normalize_rows
 from .abstract_flash import AbstractFlash, FlashResults, FlashSpec, StateSpecType
 from .flash_initializer import FlashInitializer
 from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
-from .uniflash_equations import (
+from .flash_equations import (
     complementary_conditions_jac,
     complementary_conditions_res,
     first_order_constraint_jac,

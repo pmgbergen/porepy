@@ -11,7 +11,7 @@ import numba as nb
 import numpy as np
 
 from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH
-from ..uniflash_equations import parse_generic_arg
+from ..flash_equations import parse_generic_arg
 from ._armijo_line_search import (  # armijo_line_search,
     _ARMIJO_LINE_SEARCH_PARAMS_KEYS,
     DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,
