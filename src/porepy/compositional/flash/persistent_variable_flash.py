@@ -78,13 +78,6 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     The supported flash types are than available until destruction.
 
-    Supported flash types/specifications:
-
-    1. ``'pT'``: state definition in terms of pressure and temperature
-    2. ``'ph'``: state definition in terms of pressure and specific mixture enthalpy
-    3. ``'vh'``: state definition in terms of specific volume and enthalpy of the
-       mixture
-
     Important:
         The isenthalpic-isochoric flash is as of now not robust for some tricky areas.
         Use with care.
@@ -109,7 +102,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         FlashSpec.ph,
         FlashSpec.vh,
     )
-    """Supported flash types. Used for checking flash input."""
+    """Supported flash specifications. Used for checking flash input."""
 
     def __init__(
         self,

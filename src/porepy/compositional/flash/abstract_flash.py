@@ -125,15 +125,7 @@ class FlashResults(pp.compositional.FluidProperties):
     """
 
     specification: FlashSpec = FlashSpec.none
-    """"State specification used denoted using common symbols.
-
-    Examples:
-
-    - ``'pT'``: Equilibrium at constant pressure and temperature.
-    - ``'ph'``: Equilibrium at constant pressure and specific enthalpy.
-    - ``'vu'``: Equilibrium at constant specific volume and internal energy.
-
-    """
+    """"Equilibrium state specification."""
 
     dofs: int = 0
     """Degrees of freedom of the flash problem, which depends on the number of phases,

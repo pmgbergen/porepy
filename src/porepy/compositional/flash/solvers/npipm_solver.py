@@ -17,6 +17,7 @@ from ._armijo_line_search import (  # armijo_line_search,
     DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,
 )
 from ._core import SOLVER_FUNCTION_SIGNATURE
+from ..abstract_flash import FlashSpec
 
 __all__ = [
     "DEFAULT_NPIPM_SOLVER_PARAMS",
@@ -167,14 +168,15 @@ def _slack_equation_jac(
 
 
 @nb.njit(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.f8, nb.f8, nb.f8),
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.int_, nb.int_, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
 def _extend_and_regularize_res(
     f_res: np.ndarray,
     X: np.ndarray,
-    npnc: tuple[int, int],
+    ncomp: int,
+    nphase: int,
     u1: float,
     u2: float,
     eta: float,
@@ -188,12 +190,10 @@ def _extend_and_regularize_res(
 
     """
 
-    gen = parse_generic_arg(X[:-1], npnc, "pT")
+    gen = parse_generic_arg(X[:-1], ncomp, nphase, FlashSpec.pT)
     x = gen[1]
     y = gen[2]
     nu = X[-1]
-
-    nphase = x.shape[0]
 
     # couple complementary conditions with nu
     f_res[-nphase:] -= nu
@@ -221,16 +221,15 @@ def _extend_and_regularize_res(
 
 
 @nb.njit(
-    nb.f8[:, :](
-        nb.f8[:, :], nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.f8, nb.f8, nb.f8
-    ),
+    nb.f8[:, :](nb.f8[:, :], nb.f8[:], nb.int_, nb.int_, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
 def _extend_and_regularize_jac(
     f_jac: np.ndarray,
     X: np.ndarray,
-    npnc: tuple[int, int],
+    ncomp: int,
+    nphase: int,
     u1: float,
     u2: float,
     eta: float,
@@ -242,11 +241,10 @@ def _extend_and_regularize_jac(
 
     """
 
-    gen = parse_generic_arg(X[:-1], npnc, "pT")
+    gen = parse_generic_arg(X[:-1], ncomp, nphase, FlashSpec.pT)
     x = gen[1]
     y = gen[2]
     nu = X[-1]
-    nphase, ncomp = x.shape
 
     # NPIPM matrix has one row and one column more
     df_npipm = np.zeros((f_jac.shape[0] + 1, f_jac.shape[1] + 1))
@@ -321,7 +319,8 @@ def npipm(
 
     # extracting solver parameters
     f_dim = int(params["f_dim"])
-    npnc = (int(params["num_phases"]), int(params["num_components"]))
+    ncomp = int(params["num_components"])
+    nphase = int(params["num_phases"])
     tol = float(params["tolerance"])
     max_iter = int(params["max_iterations"])
     rho = float(params["armijo_rho"])
@@ -333,10 +332,10 @@ def npipm(
     heavy_ball = int(params["heavy_ball_momentum"])
 
     # Computing initial value for slack variable.
-    gen = parse_generic_arg(X0, npnc, "pT")
+    gen = parse_generic_arg(X0, ncomp, nphase, FlashSpec.pT)
     x = gen[1]
     y = gen[2]
-    nu = np.sum(y * (1 - np.sum(x, axis=1))) / npnc[0]
+    nu = np.sum(y * (1 - np.sum(x, axis=1))) / nphase
 
     # numba does not support stacking with inhomogenous sequence of array and float
     X = np.zeros(X0.shape[0] + 1)
@@ -349,7 +348,7 @@ def npipm(
     matrix_rank = f_dim + 1
 
     try:
-        f_i = _extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
+        f_i = _extend_and_regularize_res(F(X[:-1]), X, ncomp, nphase, u1, u2, eta)
     except Exception:  # whatever happens, residual evaluation is faulty
         return X, 3, num_iter
 
@@ -362,7 +361,9 @@ def npipm(
             num_iter += 1
 
             try:
-                df_i = _extend_and_regularize_jac(DF(X[:-1]), X, npnc, u1, u2, eta)
+                df_i = _extend_and_regularize_jac(
+                    DF(X[:-1]), X, ncomp, nphase, u1, u2, eta
+                )
             except Exception:  # whatever happens, Jacobian assembly is faulty
                 success = 4
                 break
@@ -409,7 +410,7 @@ def npipm(
                 try:
                     X_i_j = X + rho_i * DX
                     f_i_j = _extend_and_regularize_res(
-                        F(X_i_j[:-1]), X_i_j, npnc, u1, u2, eta
+                        F(X_i_j[:-1]), X_i_j, ncomp, nphase, u1, u2, eta
                     )
                 except Exception:
                     # NOTE Here we allow the residual evaluation to fail and skip the
@@ -439,7 +440,9 @@ def npipm(
                 DX_prev = DX.copy()
 
             try:
-                f_i = _extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
+                f_i = _extend_and_regularize_res(
+                    F(X[:-1]), X, ncomp, nphase, u1, u2, eta
+                )
                 res_i = np.linalg.norm(f_i)
             except Exception:
                 success = 3

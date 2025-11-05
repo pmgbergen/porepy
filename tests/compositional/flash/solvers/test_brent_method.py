@@ -35,7 +35,7 @@ def test_brent(test_case: tuple[Callable[[float], float], float, float, float]) 
 
     func, root_target, a, b = test_case
 
-    func_c = numba.njit("f8(f8)")(func)
+    func_c = numba.njit(numba.f8(numba.f8))(func)
     root, converged, iter = brent(func_c, a, b, params)
 
     assert converged == 0
