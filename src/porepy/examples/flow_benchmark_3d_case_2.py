@@ -49,7 +49,7 @@ class Geometry(pp.PorePyModel):
     """Define the Geometry as specified in Section 5.3 of [1]."""
 
     def set_geometry(self) -> None:
-        """Create mixed-dimensional grid adn fracture network."""
+        """Create mixed-dimensional grid and fracture network."""
 
         # Create mixed-dimensional grid and fracture network.
         self.mdg, self.fracture_network = benchmark_3d_case_2(
@@ -91,34 +91,33 @@ class PermeabilitySpecification(Permeability):
 
         zone_0 = np.logical_and(cc[0, :] > 0.5, cc[1, :] < 0.5)
         zone_1 = np.logical_and.reduce(
-            tuple(
-                [
-                    cc[0, :] < 0.75,
-                    cc[1, :] > 0.5,
-                    cc[1, :] < 0.75,
-                    cc[2, :] > 0.5,
-                ]
-            )
+            (cc[0, :] < 0.75, cc[1, :] > 0.5, cc[1, :] < 0.75, cc[2, :] > 0.5)
         )
         zone_2 = np.logical_and.reduce(
-            tuple(
-                [
-                    cc[0, :] > 0.625,
-                    cc[0, :] < 0.75,
-                    cc[1, :] > 0.5,
-                    cc[1, :] < 0.625,
-                    cc[2, :] > 0.5,
-                    cc[2, :] < 0.75,
-                ]
+            (
+                cc[0, :] > 0.625,
+                cc[0, :] < 0.75,
+                cc[1, :] > 0.5,
+                cc[1, :] < 0.625,
+                cc[2, :] > 0.5,
+                cc[2, :] < 0.75,
             )
         )
 
-        return np.logical_or.reduce(tuple([zone_0, zone_1, zone_2]))
+        return np.logical_or.reduce((zone_0, zone_1, zone_2))
 
     def matrix_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Heterogeneous matrix permeability. See [1] for the details."""
+        """Heterogeneous matrix permeability. See [1] for the details.
 
-        # Assign permeability values
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the permeability.
+
+        """
+
+        # Assign permeability values.
         vals = []
         for sd in subdomains:
             kxx = np.ones(sd.num_cells)
@@ -144,7 +143,7 @@ class PermeabilitySpecification(Permeability):
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the permeability
+            Operator representing the permeability.
 
         """
         size = sum(sd.num_cells for sd in subdomains)
@@ -157,10 +156,28 @@ class PermeabilitySpecification(Permeability):
 
 
 class BoundaryConditions(pp.PorePyModel):
-    """Define inlet and oulet boundary conditions as specified by the benchmark."""
+    """Define inlet and oulet boundary conditions as specified by the benchmark.
+
+    The inlet boundary is defined as:
+
+        :math:`\partial\Omega_{inlet} = {x \in \partial\Omega : x_1, x_2, x_3 < 0.25}`
+
+    The outlet boundary is defined as:
+
+        :math:`\partial\Omega_{outlet} = {x \in \partial\Omega : x_1, x_2, x_3 > 0.875}`
+
+    """
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Assign Dirichlet boundary condition at outlet boundary."""
+        """Assign Dirichlet boundary condition at outlet boundary.
+
+        Parameters:
+            sd: Subdomain grid.
+
+        Returns:
+            Boundary condition object.
+
+        """
         b_faces = sd.tags["domain_boundary_faces"].nonzero()
 
         if b_faces != 0:
@@ -181,7 +198,11 @@ class BoundaryConditions(pp.PorePyModel):
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assign unitary Darcy flux at the inlet boundary.
 
-        partialOmega_inlet = {x in partialOmega : x_1, x_2, x_3 < 0.25}
+        Parameters:
+            bg: Boundary grid.
+
+        Returns:
+            Flux values. Non-zero values are assigned at the inlet faces.
 
         """
         cc = bg.cell_centers
@@ -201,7 +222,11 @@ class BoundaryConditions(pp.PorePyModel):
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assign unitary pressure at the outlet boundary:
 
-        partialOmega_outlet = {x in partialOmega : x_1, x_2, x_3 > 0.875}
+        Parameters:
+            bg: Boundary grid.
+
+        Returns:
+            Pressure values. Non-zero values are assigned at the outlet faces.
 
         """
         cc = bg.cell_centers
