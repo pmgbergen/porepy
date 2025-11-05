@@ -91,7 +91,7 @@ class PermeabilitySpecification(Permeability):
 
         zone_0 = np.logical_and(cc[0, :] > 0.5, cc[1, :] < 0.5)
         zone_1 = np.logical_and.reduce(
-            (cc[0, :] < 0.75, cc[1, :] > 0.5, cc[1, :] < 0.75, cc[2, :] > 0.5)
+            (cc[0, :] > 0.75, cc[1, :] > 0.5, cc[1, :] < 0.75, cc[2, :] > 0.5)
         )
         zone_2 = np.logical_and.reduce(
             (
