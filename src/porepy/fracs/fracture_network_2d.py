@@ -345,6 +345,59 @@ class FractureNetwork2d:
 
         fac.synchronize()
 
+        h_frac = mesh_args["mesh_size_frac"]
+
+        mesh_pts = {}
+
+        isect_pt = []
+        isect_frac = []
+
+        for f_0, f_1 in itertools.combinations(fracture_tags, 2):
+            distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
+            if distance_info[0] < self.tol:
+                continue
+            elif distance_info[0] > h_frac:
+                continue
+
+            for f, sl in [(f_0, slice(1, 4)), (f_1, slice(4, 7))]:
+                cp = distance_info[sl]
+                p = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
+                gmsh.model.occ.synchronize()
+                bound_points = gmsh.model.get_boundary([(nd - 1, f)])
+                bound_coords = [
+                    gmsh.model.get_bounding_box(*pt)[:3] for pt in bound_points
+                ]
+                d = np.linalg.norm(np.array(cp) - np.array(bound_coords), axis=1)
+                if any(d < self.tol):
+                    gmsh.model.occ.remove([(0, p)])
+                else:
+                    if f not in mesh_pts:
+                        mesh_pts[f] = []
+                    mesh_pts[f].append((p, distance_info[0]))
+                    isect_pt.append(p)
+                    isect_frac.append(f)
+
+        gmsh.model.occ.synchronize()
+        _, frag = gmsh.model.occ.fragment(
+            [(0, p) for p in isect_pt],
+            [(nd - 1, f) for f in fracture_tags],
+            removeObject=False,
+            removeTool=False,
+        )
+        gmsh.model.occ.synchronize()
+        pt_map = frag[: len(isect_pt)]
+        fracture_tags_new = []
+        fracture_tag_map = {i: [] for i in fracture_tags}
+        inv_fracture_tag_map = {}
+        for fi, info in zip(fracture_tags, frag[len(isect_pt) :]):
+            new_tags = [i[1] for i in info if i[0] == nd - 1]
+            fracture_tag_map[fi].extend(new_tags)
+            fracture_tags_new += new_tags
+            for nt in new_tags:
+                inv_fracture_tag_map[nt] = fi
+
+        debug = []
+
         # Make gmsh calculate the intersections between fractures, using the domain as a
         # secondary object (the latter will by magic ensure that the fractures are
         # embedded in the domain, hence the mesh will conform to the fractures). The
@@ -352,7 +405,7 @@ class FractureNetwork2d:
         # with new, split lines. Similarly, the removal of the domain (removeTool)
         # avoids the domain being present twice.
         _, isect_mapping = fac.fragment(
-            [(nd - 1, ft) for ft in fracture_tags],
+            [(nd - 1, ft) for ft in fracture_tags_new],
             [(nd, domain_tag)],
             removeObject=True,
             removeTool=True,
@@ -377,7 +430,7 @@ class FractureNetwork2d:
                 # is no need to take any chances. Skip it.
                 continue
 
-            if fi in constraints:
+            if inv_fracture_tag_map[fi] in constraints:
                 # Constrained fractures are not to be considered for intersection
                 # identification.
                 continue
