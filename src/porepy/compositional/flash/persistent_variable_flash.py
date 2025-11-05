@@ -36,7 +36,7 @@ import porepy as pp
 
 from ..compiled_eos import CompiledEoS
 from ..utils import _chainrule_fractional_derivatives, normalize_rows
-from .abstract_flash import AbstractFlash, FlashResults, StateSpecType
+from .abstract_flash import AbstractFlash, FlashResults, FlashSpec, StateSpecType
 from .flash_initializer import FlashInitializer
 from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 from .uniflash_equations import (
@@ -126,10 +126,15 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             "All phases must have the same EoS instance."
         )
 
-        """A list containing acentric factors per component."""
-        self._phasestates: Sequence[pp.compositional.PhysicalState] = [
-            phase.state for phase in fluid.phases
-        ]
+        states = [phase.state for phase in fluid.phases]
+        if np.any(
+            [state != pp.compositional.PhysicalState.undefined for state in states]
+        ):
+            raise ValueError(
+                "All phases must have a defined physical state in the "
+                "persistent-variable flash."
+            )
+        self._phasestates: Sequence[pp.compositional.PhysicalState] = states
         """A sequence containing the physical phase state per phase."""
 
         eos = fluid.reference_phase.eos
@@ -174,11 +179,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         )
 
         results.y = y
-        if "T" not in results.specification.name:
+        if results.specification not in [FlashSpec.pT, FlashSpec.vT]:
             results.T = T
-        if "p" not in results.specification.name:
+        if results.specification >= FlashSpec.vT:
             results.p = p
-        if "v" in results.specification.name:
             results.sat = s
 
         # Computing states for each phase after filling p, T and x
@@ -194,8 +198,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 )
             )
 
-        # If v not defined, evaluate saturations based on rho and y.
-        if "v" not in results.specification.name:
+        # If not isochoric, evaluate saturations based on rho and y.
+        if results.specification < FlashSpec.vT:
             results.evaluate_saturations()
         # Evaluate extensive properties of the fluid mixture at equilibrium values.
         results.evaluate_extensive_state()
@@ -236,16 +240,16 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         # Setting outer scope variables to avoid referencing self in JIT functions.
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
-        npnc = (nphase, ncomp)
-        phasestates = np.array(
-            [
-                # Depending on the environment, the enum value is sometimes already
-                # evaluated, sometimes not... (pytest)
-                state if isinstance(state, int) else state.value
-                for state in self._phasestates
-            ],
-            dtype=np.int8,
-        )
+        phasestates: Sequence[pp.compositional.PhysicalState] = self._phasestates
+        # phasestates = np.array(
+        #     [
+        #         # Depending on the environment, the enum value is sometimes already
+        #         # evaluated, sometimes not... (pytest)
+        #         state if isinstance(state, int) else state.value
+        #         for state in self._phasestates
+        #     ],
+        #     dtype=np.int8,
+        # )
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
@@ -264,7 +268,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_pT(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "pT")
+                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.pT)
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -275,7 +279,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty(npnc, dtype=np.float64)
+                phis = np.empty((nphase, ncomp), dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
@@ -288,7 +292,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "pT")
+                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.pT)
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -298,7 +302,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty(npnc, dtype=np.float64)
+                phis = np.empty((nphase, ncomp), dtype=np.float64)
                 dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
@@ -325,7 +329,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_ph(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "ph")
+                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.ph)
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -337,7 +341,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty(npnc, dtype=np.float64)
+                phis = np.empty((nphase, ncomp), dtype=np.float64)
                 h = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
@@ -356,7 +360,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_ph(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, npnc, "ph")
+                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.ph)
 
                 x = gen_arg[1]
                 y = gen_arg[2]
@@ -367,7 +371,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty(npnc, dtype=np.float64)
+                phis = np.empty((nphase, ncomp), dtype=np.float64)
                 dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
                 hs = np.empty(nphase, dtype=np.float64)
                 dhs = np.empty((nphase, 2 + ncomp), dtype=np.float64)
@@ -388,7 +392,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 jac_1 = mass_conservation_jac(x, y)
                 jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
-                jac_3 = first_order_constraint_jac(y, hs, dhs, 1) / T**2
+                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / T**2
                 h_res = first_order_constraint_res(h_target, y, hs)[0]
                 jac_3[0, 1] -= 2.0 / T**3 * h_res
                 # Scaling of constraint with target value.
@@ -412,12 +416,12 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_vh(X_gen: np.ndarray) -> np.ndarray:
                 s, x, y, z, p, T, v_target, h_target, params = parse_generic_arg(
-                    X_gen, npnc, "vh"
+                    X_gen, ncomp, nphase, FlashSpec.vh
                 )
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty(npnc, dtype=np.float64)
+                phis = np.empty((nphase, ncomp), dtype=np.float64)
                 hs = np.empty(nphase, dtype=np.float64)
                 rhos = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
@@ -443,12 +447,12 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_vh(X_gen: np.ndarray) -> np.ndarray:
                 s, x, y, _, p, T, v_target, h_target, params = parse_generic_arg(
-                    X_gen, npnc, "vh"
+                    X_gen, ncomp, nphase, FlashSpec.vh
                 )
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty(npnc, dtype=np.float64)
+                phis = np.empty((nphase, ncomp), dtype=np.float64)
                 dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
                 hs = np.empty(nphase, dtype=np.float64)
                 dhs = np.empty((nphase, 2 + ncomp), dtype=np.float64)
@@ -475,10 +479,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 jac_1 = mass_conservation_jac(x, y)
                 jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
-                jac_3 = first_order_constraint_jac(y, hs, dhs, 1) / T**2
+                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / T**2
                 h_res = first_order_constraint_res(h_target, y, hs)[0]
                 jac_3[0, 1] -= 2.0 / T**3 * h_res
-                jac_4 = first_order_constraint_jac(s, rhos, drhos, 0)
+                jac_4 = first_order_constraint_jac(s, rhos, drhos, False)
                 # Non-dimensional scaling of constraints.
                 jac_3 /= h_target
                 jac_4 *= v_target
@@ -609,12 +613,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             f"Success: {results.converged.sum()} / {results.size};"
             + f" Max iter: {results.max_iter_reached.sum()};"
             + f" Diverged: {results.diverged.sum()};"
-            + f" Failures: {np.sum(success > 2)};"
-            + f" Iterations: {num_iter.max()} (max) "
-            + f"{np.mean(num_iter):.2f} (avg);"
+            + f" Failures: {np.sum(results.exitcode > 2)};"
+            + f" Iterations: {results.num_iter.sum()} (total) "
+            + f"{np.mean(results.num_iter):.2f} (avg);"
         )
-        results.exitcode = success
-        results.num_iter = num_iter
 
         self._parse_and_complete_results(
             resultsarray,

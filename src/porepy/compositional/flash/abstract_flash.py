@@ -5,10 +5,11 @@ from __future__ import annotations
 import abc
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
 
 import matplotlib as mpl
+import numba as nb
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
@@ -23,6 +24,7 @@ __all__ = [
     "IsochoricSpecifications",
     "StateSpecType",
     "FlashSpec",
+    "FlashSpecMember_NUMBA_TYPE",
     "FlashResults",
     "AbstractFlash",
 ]
@@ -77,12 +79,15 @@ One additional energy-related state value is required.
 """
 
 
-class FlashSpec(Enum):
+class FlashSpec(IntEnum):
     """Flash specifications in terms of state functions, represented by integer
     codes.
 
-    Isobaric specifications have 1-digit codes, isochoric specifications have 2-digit
-    codes.
+    -  Zero is reserved for no flash specifications.
+    - 1 - 9 are reserved for isobaric specifications, with 1 being the isobaric-
+      isothermal specification. Anything above is non-isothermal.
+    - 10 - 19 are reserved for isochoric specifications, with 10 being the isochoric-
+      isothermal specification. Anything above is non-isothermal.
 
     """
 
@@ -100,6 +105,11 @@ class FlashSpec(Enum):
     """Equilibrium at fixed volume and enthalpy."""
     vu = 12
     """Equilibrium at fixed volume and internal energy."""
+
+
+FlashSpecMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
+"""Numba type for function signatures which take members of :class:`FlashSpec`
+as arguments or as a return value."""
 
 
 @dataclass
@@ -311,7 +321,7 @@ class AbstractFlash(abc.ABC):
         isothermal_spec = False
 
         if "p" in specification:
-            state1 = specification["p"]
+            state1 = specification["p"]  # type:ignore[typeddict-item]
             isobaric_spec = True
             if "T" in specification:
                 state2 = specification["T"]

@@ -16,8 +16,17 @@ import numpy as np
 import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from .._core import NUMBA_FAST_MATH, R_IDEAL_MOL, njit
-from ..compiled_eos import CompiledEoS, ScalarFunction, VectorFunction
+from .._core import NUMBA_FAST_MATH, R_IDEAL_MOL, PhysicalState, njit
+from ..compiled_eos import (
+    FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE,
+    FUGACITY_COEFF_FUNC_SIGNATURE,
+    PREARGUMENT_FUNC_SIGNATURE,
+    PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
+    PROPERTY_FUNC_SIGNATURE,
+    CompiledEoS,
+    ScalarFunction,
+    VectorFunction,
+)
 from ..materials import FluidComponent
 from ..utils import safe_sum
 from .compressibility_factor import (
@@ -758,9 +767,13 @@ class CompiledPengRobinson(CompiledEoS):
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
 
-        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_val_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+            phase_state: PhysicalState,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+            params: np.ndarray,
         ) -> np.ndarray:
             prearg = np.empty((4,), dtype=np.float64)
             A = A_c(p, T, xn)
@@ -776,17 +789,17 @@ class CompiledPengRobinson(CompiledEoS):
             if params.size >= 2:
                 eps_ = params[1]
 
-            if phasetype == 1:
+            if phase_state == PhysicalState.gas:
                 gaslike = True
-            elif phasetype == 0:
+            elif phase_state == PhysicalState.liquid:
                 gaslike = False
             else:
-                raise NotImplementedError(f"Unsupported phase type: {phasetype}")
+                raise NotImplementedError(f"Unsupported phase state: {phase_state}")
 
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
             prearg[2] = get_compressibility_factor(A, B, gaslike, eps_, s_m_)
-            prearg[3] = float(phasetype)
+            prearg[3] = float(phase_state.value)
 
             return prearg
 
@@ -803,9 +816,13 @@ class CompiledPengRobinson(CompiledEoS):
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
 
-        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_jac_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+            phase_state: PhysicalState,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+            params: np.ndarray,
         ) -> np.ndarray:
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
             # w.r.t. p, T, and fractions.
@@ -818,12 +835,12 @@ class CompiledPengRobinson(CompiledEoS):
             if params.size >= 2:
                 eps_ = params[1]
 
-            if phasetype == 1:
+            if phase_state == PhysicalState.gas:
                 gaslike = True
-            elif phasetype == 0:
+            elif phase_state == PhysicalState.liquid:
                 gaslike = False
             else:
-                raise NotImplementedError(f"Unsupported phase type: {phasetype}")
+                raise NotImplementedError(f"Unsupported phase state: {phase_state}")
 
             A = A_c(p, T, xn)
             B = B_c(p, T, xn)
@@ -844,7 +861,7 @@ class CompiledPengRobinson(CompiledEoS):
     def get_fugacity_function(self) -> VectorFunction:
         phi_c = self._cfuncs["phi"]
 
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(FUGACITY_COEFF_FUNC_SIGNATURE)
         def phi_mix_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -857,7 +874,7 @@ class CompiledPengRobinson(CompiledEoS):
         # number of derivatives
         d = 2 + self._nc
 
-        @_COMPILER(nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE)
         def dphi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -885,7 +902,7 @@ class CompiledPengRobinson(CompiledEoS):
         h_dep_c = self._cfuncs["h_dep"]
         h_ideal_c = self._cfuncs["h_ideal"]
 
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return h_ideal_c(p, T, xn) + h_dep_c(
                 p, T, xn, prearg[0], prearg[1], prearg[2]
@@ -898,7 +915,7 @@ class CompiledPengRobinson(CompiledEoS):
         dh_dep_c = self._cfuncs["dh_dep"]
         dh_ideal_c = self._cfuncs["dh_ideal"]
 
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dh_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -923,7 +940,7 @@ class CompiledPengRobinson(CompiledEoS):
     def get_density_function(self) -> ScalarFunction:
         rho_c_ = self._cfuncs["rho"]
 
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return rho_c_(p, T, prearg[2])
 
@@ -933,7 +950,7 @@ class CompiledPengRobinson(CompiledEoS):
         d = 2 + self._nc
         drho_c_ = self._cfuncs["drho"]
 
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def drho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,

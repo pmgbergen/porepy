@@ -32,7 +32,7 @@ DEFAULT_BRENT_PARAMS: dict[_BRENT_PARAMS_KEYS, float] = {
 """
 
 
-BRENT_METHOD_SIGNATURE = nb.types.Tuple((nb.f8, nb.i4, nb.i4))(
+BRENT_METHOD_SIGNATURE = nb.types.Tuple((nb.f8, nb.int_, nb.int_))(
     nb.typeof(nb.cfunc("f8(f8)")(lambda x: x)),
     nb.f8,
     nb.f8,

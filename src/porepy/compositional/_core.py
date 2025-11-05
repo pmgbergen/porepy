@@ -8,7 +8,7 @@ Changes here should be done with much care.
 from __future__ import annotations
 
 import os
-from enum import Enum
+from enum import IntEnum
 from typing import Callable, TypeAlias
 
 import numba as nb
@@ -224,14 +224,20 @@ Important:
 """
 
 
-class PhysicalState(Enum):
-    """Enum object for characterizing the physical states of a phase.
+class PhysicalState(IntEnum):
+    """Integer Enum object for characterizing the physical states of a phase.
 
-    - :attr:`liquid`: liquid-like state (value 0)
-    - ``gas: int = 1``: gas-like state (value 1)
-    - values above 1 are reserved for further development
+    - Zero is reserved for undefined state.
+    - 1 - 9 is reserved for liquid-like states with 1 being the base state.
+    - 10 - 19 is reserved for gas-like states with 10 being the base state.
 
     """
 
-    liquid = 0
-    gas = 1
+    undefined = 0
+    """Undefined physical state."""
+
+    liquid = 1
+    """Base liquid-like state."""
+
+    gas = 10
+    """Base gas-like state."""

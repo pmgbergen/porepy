@@ -166,7 +166,7 @@ def discriminant(r1: float, r0: float) -> float:
 
 
 @_COMPILER(
-    nb.i4(nb.f8, nb.f8, nb.f8, nb.f8),
+    nb.int_(nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )

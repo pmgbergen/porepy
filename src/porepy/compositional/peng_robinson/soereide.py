@@ -31,8 +31,9 @@ import sympy as sp
 
 import porepy as pp
 
-from .._core import NUMBA_FAST_MATH, njit
+from .._core import NUMBA_FAST_MATH, PhysicalState, njit
 from ..base import Compound
+from ..compiled_eos import PREARGUMENT_FUNC_SIGNATURE
 from ..materials import FluidComponent
 from . import eos
 from .compressibility_factor import (
@@ -276,9 +277,13 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         s_m = self.params["smoothing_multiphase"]
         sal = self.params["salinity"]
 
-        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_val_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+            phase_state: PhysicalState,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+            params: np.ndarray,
         ) -> np.ndarray:
             prearg = np.empty((3,), dtype=np.float64)
 
@@ -292,12 +297,12 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
             if params.size >= 3:
                 eps_ = params[2]
 
-            if phasetype == 1:
+            if phase_state == PhysicalState.gas:
                 gaslike = True
-            elif phasetype == 0:
+            elif phase_state == PhysicalState.liquid:
                 gaslike = False
             else:
-                raise NotImplementedError(f"Unsupported phase type: {phasetype}")
+                raise NotImplementedError(f"Unsupported phase state: {phase_state}")
 
             A = A_c(p, T, xn, sal_)
             B = B_c(p, T, xn)
@@ -305,6 +310,8 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
             prearg[2] = get_compressibility_factor(A, B, gaslike, eps_, s_m_)
+            prearg[3] = float(phase_state.value)
+            prearg[4] = sal_
 
             return prearg
 
@@ -324,9 +331,13 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         s_m = self.params["smoothing_multiphase"]
         sal = self.params["salinity"]
 
-        @_COMPILER(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_jac_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+            phase_state: PhysicalState,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+            params: np.ndarray,
         ) -> np.ndarray:
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
             # w.r.t. p, T, and fractions.
@@ -342,12 +353,12 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
             if params.size >= 4:
                 eps_ = params[2]
 
-            if phasetype == 1:
+            if phase_state == PhysicalState.gas:
                 gaslike = True
-            elif phasetype == 0:
+            elif phase_state == PhysicalState.liquid:
                 gaslike = False
             else:
-                raise NotImplementedError(f"Unsupported phase type: {phasetype}")
+                raise NotImplementedError(f"Unsupported phase state: {phase_state}")
 
             A = A_c(p, T, xn, sal_)
             B = B_c(p, T, xn)

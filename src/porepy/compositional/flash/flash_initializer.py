@@ -800,10 +800,12 @@ class FlashInitializer:
                     res[1] = first_order_constraint_res(1.0, sat, s1 * rhos)[0]
                     res[2:] = phase_mass_constraints_res(sat, y, rhos)
 
-                    jac[0] = first_order_constraint_jac(y, hs, dhs, 1)[0, :M]
+                    jac[0] = first_order_constraint_jac(y, hs, dhs, True)[0, :M]
                     # jac[0, 1] -= 2 / T * res[0]
                     jac[0] /= s2
-                    jac[1] = first_order_constraint_jac(sat, rhos, drhos, 0)[0, :M] * s1
+                    jac[1] = (
+                        first_order_constraint_jac(sat, rhos, drhos, False)[0, :M] * s1
+                    )
                     jac[2:] = phase_mass_constraints_jac(sat, y, rhos, drhos)[:, :M]
 
                     if np.linalg.norm(res) <= tol:

@@ -1,5 +1,6 @@
-"""Module containing compiled assembly of equations for the unified flash, as well as
-the parsing and assembly of the generic argument for all flash configurations.
+"""Module containing compiled assembly of equations which are part of the equilibrium
+problem, as well as the parsing and assembly of the generic argument for all flash
+configurations.
 
 The structure of the generic argument is as follows:
 
@@ -10,22 +11,7 @@ phase n)*
 This is the most general layout, reflecting especially the order of values in the
 array.
 
-Individual flash types cherry pick the elements they need for their respective,
-generic argument.
-
-Examples:
-    The generic argument for the pT flash is of form
-
-    *(params, overall fractions, pressure, temperature, phase fractions, partial
-    fractions)*.
-
-    The generic argument for the ph flash is of form
-
-    *(params, overall fractions, enthalpy, pressure, temperature, phase fractions,
-    partial fractions)*
-
-    The generic argument for the vh (and analogously vu) flash is as above,
-    with target state 1 and two being target volume and target enthalpy respectively.
+This layout is adapted to individual flash specifications to avoid redundant entries.
 
 The generic argument formulation enables us to formulate any flash system as a function
 ``F(X_gen)``, and hence solve it with mathematical means.
@@ -38,7 +24,7 @@ always return the full Jacobian w.r.t. to **all** possible dependencies:
 
 *(pressure, temperature, saturations, phase fractions, partial fractions)*
 
-Individual flash systems must assemble the partial Jacobians they need, and slice.
+Individual flash systems must assemble the partial Jacobians they need and slice them.
 
 """
 
@@ -49,10 +35,8 @@ from typing import Literal, Optional, Sequence
 import numba as nb
 import numpy as np
 
-import porepy as pp
-
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
-from .abstract_flash import FlashResults
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
+from .abstract_flash import FlashResults, FlashSpec, FlashSpecMember_NUMBA_TYPE
 
 __all__ = [
     "generic_arg_from_flash_results",
@@ -72,6 +56,10 @@ __all__ = [
     "phase_mass_constraints_res",
     "phase_mass_constraints_jac",
 ]
+
+
+_COMPILER = njit
+"""CDecorator for compiling functions in this module."""
 
 
 def generic_arg_from_flash_results(
@@ -132,44 +120,56 @@ def generic_arg_from_flash_results(
     return X_gen.T
 
 
-@nb.njit(
-    nb.i4(nb.types.UniTuple(nb.i4, 2), nb.types.unicode_type),
+@_COMPILER(
+    nb.int_(nb.int_, nb.int_, FlashSpecMember_NUMBA_TYPE),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def dim_gen_arg(npnc: tuple[int, int], flash_type: str) -> int:
+def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
     """Returns the base dimension (no parameters) of the generic flash argument for
     a specified flash type.
 
     Parameters:
-        npnc: Tuple containing the number of phases and components.
-        flash_type: A string denoting the flash type.
+        ncomp: Number of components.
+        nphase: Number of phases.
+        spec: The Flash specification in terms of target state functions.
 
     Returns:
         ``n`` where the generic argument for a single flash problem has shape ``(n,)``,
         assuming no parameters are stored within.
 
     """
-    nphase, ncomp = npnc
+    # Number of independent phases.
     nip = nphase - 1
 
-    # Base dimension involes phase fractions and partial fractions, as well as two
-    # target state values and ncomp - 1 independent overall fractions
-    d = nip + nphase * ncomp + 2 + ncomp - 1
-    # T is a variable, if not specified
-    if "t" not in flash_type.lower():
+    # Base dimension is for all the same.
+    # NOTE: Pressure and temperature could be the same as the target state for many
+    # of the state definitions, but this simplifies
+    d = (
+        nip  # Number of independent phase fractions.
+        + nphase * ncomp  # Number of partial fractions.
+        + ncomp
+        - 1  # Independent overall compositions.
+        + 2  # Pressure and temperature.
+    )
+
+    # If it is isobaric and T is not among the target states, we need 1 more target
+    # state value related to energy
+    if FlashSpec.pT < spec < FlashSpec.vT:
         d += 1
-    # p is a variable if not specified.
-    if "p" not in flash_type.lower():
-        d += 1
-    # saturations are variables in isochoric specifications.
-    if "v" in flash_type.lower():
+    # If isochoric specifications, independent saturations are part of the generic
+    # argument as well.
+    if spec >= FlashSpec.vT:
         d += nip
+    # If isochoric and not isothermal, we need an additional energy-related state
+    # variable.
+    if spec > FlashSpec.vT:
+        d += 1
 
     return d
 
 
-@nb.njit(
+@_COMPILER(
     nb.types.Tuple(
         (
             nb.f8[:],
@@ -182,12 +182,12 @@ def dim_gen_arg(npnc: tuple[int, int], flash_type: str) -> int:
             nb.f8,
             nb.f8[:],
         )
-    )(nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.types.unicode_type),
+    )(nb.f8[:], nb.int_, nb.int_, FlashSpecMember_NUMBA_TYPE),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def parse_generic_arg(
-    X_gen: np.ndarray, npnc: tuple[int, int], flash_type: str
+    X_gen: np.ndarray, ncomp: int, nphase: int, spec: FlashSpec
 ) -> tuple[
     np.ndarray,
     np.ndarray,
@@ -199,44 +199,45 @@ def parse_generic_arg(
     float,
     np.ndarray,
 ]:
-    """ "Parses the generic flash argument and returns the unknowns and parameters of
+    """Parses the generic flash argument and returns the unknowns and parameters of
     the flash problem.
 
     Parameters:
         X_gen: Generic flash argument (1D array).
-        npnc: A 2-tuple containing the number of phases and components.
-        flash_type: A string denoting the flash type/ target state (e.g. ``'pT'``)
+        ncomp: Number of components.
+        nphase: Number of phases.
+        spec: The Flash specification in terms of target state functions.
 
     Returns:
         A tuple containing
 
-        1. 1D array of saturations
-        2. 2D array of (extended) partial fractions, row-wise per phase.
-        3. 1D array of phase fractions.
-        4. 1D array of overall fractions
-        5. pressure value
-        6. temperature value
-        7. first target state
-        8. second target state
+        1. 1D array of saturations,
+        2. 2D array of (extended) partial fractions, row-wise per phase,
+        3. 1D array of phase fractions,
+        4. 1D array of overall fractions,
+        5. pressure value,
+        6. temperature value,
+        7. first target state according to ``spec``,
+        8. second target state according to ``spec``,
         9. other parameters stored in the generic argument.
 
         The first and second target state can coincide with the pressure or temperature
         value, if pressure or temperature are defined as target state values in
-        ``flash_type``.
+        ``spec``.
 
         All fractions contain values for reference phase and component. They are
         always stored as the first value.
 
-        Saturations are returned as zero, if the flash is not isochoric.
+        Saturations are returned as a zero array, if the flash is not isochoric.
 
-        If no parameters are stored, the parameter array returned last is of shape (0,).
+        If no parameters are stored, the parameter array is a zero array.
 
     """
-    nphase, ncomp = npnc
 
-    s = np.zeros(nphase)
+    sat = np.zeros(nphase)
     y = np.zeros(nphase)
     z = np.zeros(ncomp)
+    x = np.zeros((nphase, ncomp))
 
     # The last nphase * ncomp values are the extended partial fractions
     i = nphase * ncomp  # Keeping track of accessed indices (from back to front).
@@ -249,9 +250,9 @@ def parse_generic_arg(
     i += nphase - 1
 
     # If isochoric specifications, saturations are unknowns.
-    if "v" in flash_type.lower():
-        s[1:] = X_gen[-(i + nphase - 1) : -i]
-        s[0] = 1.0 - s.sum()
+    if spec >= FlashSpec.vT:
+        sat[1:] = X_gen[-(i + nphase - 1) : -i]
+        sat[0] = 1.0 - sat.sum()
         i += nphase - 1
 
     # pressure and temperature are always the last (seen from back) unknowns.
@@ -259,21 +260,30 @@ def parse_generic_arg(
     i += 2
 
     # Now come the state definitions, where the indexing is flash-type-specific.
-    if "pt" in flash_type.lower():
-        state_1 = p
-        state_2 = T
-    elif "ph" in flash_type.lower():
-        state_1 = p
-        state_2 = X_gen[-(i + 1)]
-        i += 1
-    elif "vh" in flash_type.lower():
-        state_1, state_2 = X_gen[-(i + 2) : -i]
-        i += 2
+    # Isobaric
+    if spec < FlashSpec.vT:
+        state1 = p
+        # Non-isothermal, additional state value expected.
+        if FlashSpec.pT < spec:
+            state2 = X_gen[-(i + 1)]
+            i += 1
+        # Isothermal, no additional values
+        else:
+            state2 = T
+    # Isochoric, volume is an additional state value in the generic argument
     else:
-        raise NotImplementedError(f"Unknown flash type {flash_type}")
+        state1 = X_gen[-(i + 1)]
+        i += 1
+        # Non-isothermal, additional state value expected
+        if spec > FlashSpec.vT:
+            state2 = X_gen[-(i + 1)]
+            i += 1
+        # Isothermal, temperature is already contained.
+        else:
+            state2 = T
 
     # The final standard elements of the generic argument are the independent overall
-    # fractions.
+    # compositions.
     if ncomp > 1:
         z[1:] = X_gen[-(i + ncomp - 1) : -i]
         z[0] = 1.0 - z.sum()
@@ -285,12 +295,14 @@ def parse_generic_arg(
     params = X_gen[:-i]
 
     # Sanity check.
-    # assert X_gen.shape[0] == i + params.shape[0]
+    assert X_gen.shape[0] == i + params.shape[0], (
+        f"Parsing generic argument failed with specification {spec.name}."
+    )
 
-    return s, x, y, z, p, T, state_1, state_2, params
+    return sat, x, y, z, p, T, state1, state2, params
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:](
         nb.f8[:],
         nb.f8[:, :],
@@ -301,22 +313,22 @@ def parse_generic_arg(
         nb.f8,
         nb.f8,
         nb.f8[:],
-        nb.types.unicode_type,
+        FlashSpecMember_NUMBA_TYPE,
     ),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def assemble_generic_arg(
-    s: np.ndarray,
+    sat: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
     z: np.ndarray,
     p: float,
     T: float,
-    state_1: float,
-    state_2: float,
+    state1: float,
+    state2: float,
     params: np.ndarray,
-    flash_type: str,
+    spec: FlashSpec,
 ) -> np.ndarray:
     """Inverse operation of :func:`parse_generic_arg`.
 
@@ -329,7 +341,7 @@ def assemble_generic_arg(
         It also makes this (and the parser) usable for any flash type.
 
     Parameters:
-        s: ``shape=(num_phases,)``
+        sat: ``shape=(num_phases,)``
 
             Phase saturations.
         x: ``shape=(num_phases, num_components)``
@@ -343,15 +355,15 @@ def assemble_generic_arg(
             Overall component fractions.
         p: Pressure value.
         T: Temperature value.
-        state_1: First target state (f.e. pressure in ph flash).
-        state_2: Second target state (f.e. enthalpy in ph flash).
+        state1: First target state (f.e. pressure in ph flash).
+        state2: Second target state (f.e. enthalpy in ph flash).
         params: ``shape=(n,)``
 
             Vector of other parameters.
-        flash_type: String denoting flash type.
+        spec: The Flash specification in terms of target state functions.
 
     Returns:
-        The generic argument corresponding to the ``flash_type``.
+        The generic argument corresponding to the ``spec``.
 
     """
     nphase, ncomp = x.shape
@@ -366,33 +378,34 @@ def assemble_generic_arg(
     i = nphase - 1 + nphase * ncomp
 
     # If isochoric specifications, saturations are unknowns.
-    if "v" in flash_type.lower():
-        X_gen_s = s[1:]
+    if spec >= FlashSpec.vT:
+        X_gen_sat = sat[1:]
         i += nphase - 1
     else:
-        X_gen_s = np.zeros((0,))
+        X_gen_sat = np.zeros((0,))
 
-    # Non-fractional values enter the generic argument depending on the flash type.
-    if "pt" in flash_type.lower():
-        X_gen_state = np.zeros(2)
-        X_gen_state[0] = p
-        X_gen_state[1] = T
-        i += 2
-    elif "ph" in flash_type.lower():
-        X_gen_state = np.zeros(3)
-        X_gen_state[0] = state_2
-        X_gen_state[1] = p
-        X_gen_state[2] = T
-        i += 3
-    elif "vh" in flash_type.lower():
-        X_gen_state = np.zeros(4)
-        X_gen_state[0] = state_1
-        X_gen_state[1] = state_2
-        X_gen_state[2] = p
-        X_gen_state[3] = T
-        i += 4
+    # Pressure and temperature values.
+    X_gen_pT = np.array([p, T])
+    i += 2
+
+    # Other state definitions.
+    # Isobaric, non-isothermal.
+    if FlashSpec.pT < spec < FlashSpec.vT:
+        X_gen_state = np.ones(1) * state2
+        i += 1
+    # Isochoric.
+    elif FlashSpec.vT <= spec:
+        # Non-isothermal.
+        if FlashSpec.vT < spec:
+            X_gen_state = np.array([state1, state2])
+            i += 2
+        # Isothermal.
+        else:
+            X_gen_state = np.array([state1])
+            i += 1
+    # Isobaric, isothermal: No additional state value required
     else:
-        raise NotImplementedError(f"Unknown flash type {flash_type}.")
+        X_gen_state = np.zeros((0,))
 
     # Finally, overall fractions.
     if ncomp > 1:
@@ -402,15 +415,15 @@ def assemble_generic_arg(
     i += ncomp - 1
 
     # Create generic argument.
-    X_gen = np.hstack((params, X_gen_z, X_gen_state, X_gen_s, X_gen_yx))
+    X_gen = np.hstack((params, X_gen_z, X_gen_state, X_gen_pT, X_gen_sat, X_gen_yx))
 
     # Sanity check.
-    # assert X_gen.shape[0] == i + params.shape[0]
+    assert X_gen.shape[0] == i + params.shape[0]
 
     return X_gen
 
 
-@nb.njit(
+@_COMPILER(
     nb.types.Tuple(
         (
             nb.f8[:, :],
@@ -423,15 +436,13 @@ def assemble_generic_arg(
             nb.f8[:],
             nb.f8[:, :],
         )
-    )(nb.f8[:, :], nb.types.UniTuple(nb.i8, 2), nb.types.unicode_type),
-    # TODO I have no idea why numba requires a nb.i8 in the return type,
-    # instead of nb.i4 like in all other cases.
+    )(nb.f8[:, :], nb.int_, nb.int_, FlashSpecMember_NUMBA_TYPE),
     fastmath=NUMBA_FAST_MATH,
     parallel=NUMBA_PARALLEL,
     cache=NUMBA_CACHE,
 )
 def parse_vectorized_generic_arg(
-    X_gen: np.ndarray, npnc: tuple[int, int], flash_type: str
+    X_gen: np.ndarray, ncomp: int, nphase: int, spec: FlashSpec
 ) -> tuple[
     np.ndarray,
     np.ndarray,
@@ -448,8 +459,6 @@ def parse_vectorized_generic_arg(
     Parsing is performed over the rows of ``X_gen``.
 
     """
-
-    nphase, ncomp = npnc
     n, m = X_gen.shape
 
     s = np.empty((nphase, n), dtype=np.float64)
@@ -458,16 +467,16 @@ def parse_vectorized_generic_arg(
     z = np.empty((ncomp, n), dtype=np.float64)
     p = np.empty((n,), dtype=np.float64)
     T = np.empty((n,), dtype=np.float64)
-    state_1 = np.empty((n,), dtype=np.float64)
-    state_2 = np.empty((n,), dtype=np.float64)
+    state1 = np.empty((n,), dtype=np.float64)
+    state2 = np.empty((n,), dtype=np.float64)
 
     # Fetching number of paramters stored.
-    dim_params = m - dim_gen_arg(npnc, flash_type)
+    dim_params = m - dim_gen_arg(ncomp, nphase, spec)
     params = np.empty((dim_params, n), dtype=np.float64)
 
     for i in nb.prange(n):
-        s_i, x_i, y_i, z_i, p_i, T_i, s1_i, s2_i, x_p_i = parse_generic_arg(
-            X_gen[i], npnc, flash_type
+        s_i, x_i, y_i, z_i, p_i, T_i, state1_i, state2_i, x_p_i = parse_generic_arg(
+            X_gen[i], ncomp, nphase, spec
         )
 
         s[:, i] = s_i
@@ -476,14 +485,14 @@ def parse_vectorized_generic_arg(
         z[:, i] = z_i
         p[i] = p_i
         T[i] = T_i
-        state_1[i] = s1_i
-        state_2[i] = s2_i
+        state1[i] = state1_i
+        state2[i] = state2_i
         params[:, i] = x_p_i
 
-    return s, x, y, z, p, T, state_1, state_2, params
+    return s, x, y, z, p, T, state1, state2, params
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](
         nb.f8[:, :],
         nb.f8[:, :, :],
@@ -494,23 +503,23 @@ def parse_vectorized_generic_arg(
         nb.f8[:],
         nb.f8[:],
         nb.f8[:, :],
-        nb.types.unicode_type,
+        FlashSpecMember_NUMBA_TYPE,
     ),
     parallel=NUMBA_PARALLEL,
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
 def assemble_vectorized_generic_arg(
-    s: np.ndarray,
+    sat: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
     z: np.ndarray,
     p: np.ndarray,
     T: np.ndarray,
-    state_1: np.ndarray,
-    state_2: np.ndarray,
+    state1: np.ndarray,
+    state2: np.ndarray,
     params: np.ndarray,
-    flash_type: str,
+    spec: FlashSpec,
 ) -> np.ndarray:
     """Parallelized version of :func:`assemble_generic_arg` for vectorized input.
 
@@ -523,26 +532,26 @@ def assemble_vectorized_generic_arg(
     n = p.shape[0]
     n_param = params.shape[0]
 
-    d = dim_gen_arg((nphase, ncomp), flash_type)
+    d = dim_gen_arg(ncomp, nphase, spec)
     X_gen = np.empty((n, d + n_param), dtype=np.float64)
 
     for i in nb.prange(n):
         X_gen[i] = assemble_generic_arg(
-            s[:, i],
+            sat[:, i],
             x[:, :, i],
             y[:, i],
             z[:, i],
             p[i],
             T[i],
-            state_1[i],
-            state_2[i],
+            state1[i],
+            state2[i],
             params[:, i],
-            flash_type,
+            spec,
         )
     return X_gen
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:](nb.f8[:, :], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -595,7 +604,7 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
         return np.empty(0)
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -644,7 +653,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return np.hstack((np.zeros((ncomp - 1, 2 + nip), dtype=np.float64), jac))
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:](nb.f8[:, :], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -676,7 +685,7 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return y * (1 - np.sum(x, axis=1))
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -721,7 +730,7 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return np.hstack((np.zeros((nphase, 2 + nip), dtype=np.float64), jac))
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:](nb.f8[:, :], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -762,7 +771,7 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
     return res
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:, :], nb.f8[:, :, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -822,7 +831,7 @@ def isofugacity_constraints_jac(
     return np.hstack((jac[:, :2], np.zeros((ncomp * nip, 2 * nip)), jac[:, 2:]))
 
 
-@nb.njit(nb.f8[:](nb.f8, nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:](nb.f8, nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def first_order_constraint_res(
     phi_target: float, w: np.ndarray, phis: np.ndarray
 ) -> np.ndarray:
@@ -855,13 +864,13 @@ def first_order_constraint_res(
     return np.ones(1, dtype=np.float64) * ((w * phis).sum() - phi_target)
 
 
-@nb.njit(
-    nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.i1),
+@_COMPILER(
+    nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.bool),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def first_order_constraint_jac(
-    w: np.ndarray, phis: np.ndarray, dphis: np.ndarray, w_flag: Literal[0, 1]
+    w: np.ndarray, phis: np.ndarray, dphis: np.ndarray, w_flag: bool
 ) -> np.ndarray:
     """Assembles the Jacobian of the first order constraint given by
     :func:`first_order_constraint_res`.
@@ -891,12 +900,10 @@ def first_order_constraint_jac(
             derivatives w.r.t. to the same variables (like pressure and temperature).
             The remaining columns can be phase-related variables (like partial
             fractions), but they must be equal in number per phase (``num_diffs``).
-        w_flag: ``{0,1}``
-
-            Specifies whether ``w`` denotes the saturations or phase fractions, and
+        w_flag: Specifies whether ``w`` denotes the saturations or phase fractions, and
             hence the columns of the respective derivatives in the Jacobian.
 
-            0 for saturations, 1 for fractions. The columns of the saturation
+            True for fractions, False for saturations. The columns of the saturation
             derivatives come before the fraction derivatives.
 
     Returns:
@@ -925,7 +932,7 @@ def first_order_constraint_jac(
 
     # Including zero columns for the other phase-related variables.
     u = np.zeros(nip, dtype=np.float64)
-    if w_flag > 0:  # w represents fractions
+    if w_flag:  # w represents fractions
         jac = np.hstack((jac[:2], u, jac[2:]))
     else:  # w represents saturations
         jac = np.hstack((jac[: 2 + nip], u, jac[2 + nip :]))
@@ -934,7 +941,7 @@ def first_order_constraint_jac(
     return jac.reshape((1, jac.shape[0]))
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -972,7 +979,7 @@ def phase_mass_constraints_res(
     # return (s * rhos / rho - y)[1:]
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -1023,7 +1030,7 @@ def phase_mass_constraints_jac(
         w = y[j1] / rhos[j1]
         # NOTE outer multiplication with w holds because below function considers s_j
         # constant and makes only the Jacobian of (sum_k s_k * rho_k)
-        jac[j] = first_order_constraint_jac(s, rhos, drhos, 0) * w
+        jac[j] = first_order_constraint_jac(s, rhos, drhos, False) * w
         # The derivative w.r.t. s_j has an additional term not covered by above.
         jac[j, 2 + j] -= 1.0
 

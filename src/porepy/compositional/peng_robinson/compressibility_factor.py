@@ -355,7 +355,7 @@ def extended_factor_derivatives(dZ: np.ndarray) -> np.ndarray:
 
 
 @_COMPILER(
-    nb.i1(nb.f8, nb.f8, nb.bool, nb.f8),
+    nb.int_(nb.f8, nb.f8, nb.bool, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )

@@ -1,5 +1,29 @@
-"""Module containing the abstract base class for compiling EoS-related functions used
-in the evaluation of thermodynamic properties."""
+"""Module containing the abstract base class for compiling EoS-computations.
+
+It relies heavily on numba and its NJIT compilation using static signatures.
+
+Thermodynamic property functions and their derivatives are expected to have a specific
+numba-signature.
+
+Expensive computations which are shared by all properties are bundled in a
+'pre-argument', which is a one-time computation before property computations, and its
+results are passed as an argument for all property computations.
+
+The pre-argument computations are split into two parts, one for properties and one for
+their derivatives. Property functions are fed only the pre-argument for properties,
+while property derivative functions are fed both the pre-argument for properties and the
+pre-argument for derivative functions.
+
+For more information on the expected signatures see:
+
+- :data:`PREARGUMENT_FUNC_SIGNATURE`
+- :data:`PREARGUMENT_FUNC_SIGNATURE`,
+- :data:`PROPERTY_FUNC_SIGNATURE`,
+- :data:`PROPERTY_DERIVATIVE_FUNC_SIGNATURE`,
+- :data:`FUGACITY_COEFF_FUNC_SIGNATURE`,
+- :data:`FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE`,
+
+"""
 
 from __future__ import annotations
 
@@ -16,7 +40,19 @@ from .base import Component, EquationOfState
 from .states import PhaseProperties
 from .utils import normalize_rows
 
-__all__ = ["CompiledEoS"]
+__all__ = [
+    "ScalarFunction",
+    "VectorFunction",
+    "PropertyFunctionNames",
+    "PhysicalStateMember_NUMBA_TYPE",
+    "PropertyFunctionDict",
+    "PREARGUMENT_FUNC_SIGNATURE",
+    "PROPERTY_FUNC_SIGNATURE",
+    "PROPERTY_DERIVATIVE_FUNC_SIGNATURE",
+    "FUGACITY_COEFF_FUNC_SIGNATURE",
+    "FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE",
+    "CompiledEoS",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +100,13 @@ See also:
 """
 
 
+PhysicalStateMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(
+    PhysicalState, nb.int_
+)
+"""Numba type for function signatures which take members of
+:class:`~porepy.compositional._core.PhysicalState` as arguments or as a return value."""
+
+
 class PropertyFunctionDict(TypedDict, total=False):
     """Typed dictionary defining which property functions are expected to be available
     in :attr:`CompiledEoS.funcs`."""
@@ -98,13 +141,103 @@ class PropertyFunctionDict(TypedDict, total=False):
     """Provided by :meth:`CompiledEoS.get_fugacity_derivative_function`."""
 
 
+PREARGUMENT_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    PhysicalStateMember_NUMBA_TYPE, nb.f8, nb.f8, nb.f8[:], nb.f8[:]
+)
+"""Numba signature for pre-argument functions.
+
+The function takes
+
+1. a :class:`~porepy.compositional._core.PhysicalState`,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+5. A 1D float array as parameter values,
+
+and returns a 1D float array.
+
+"""
+
+
+PROPERTY_FUNC_SIGNATURE: nb.types.Type = nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:])
+"""Numba signature for thermodynamic property functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+
+and returns a float.
+
+"""
+
+
+PROPERTY_DERIVATIVE_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]
+)
+"""Numba signature for thermodynamic property derivatives functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a 1D float array as derivative pre-argument value,
+3. a pressure float value,
+4. a temperature float value,
+5. a 1D float array as partial fraction values,
+
+and returns a 1D float array containing derivatives w.r.t. pressure, temperature and
+each fraction.
+
+"""
+
+
+FUGACITY_COEFF_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    nb.f8[:], nb.f8, nb.f8, nb.f8[:]
+)
+"""Numba signature for fugacity coefficient functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+
+and returns a 1D float array containing fugacity coefficient values the same size as
+the partial fraction values.
+
+"""
+
+
+FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE: nb.types.Type = nb.f8[:, :](
+    nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]
+)
+"""Numba signature for fugacity coefficient derivative functions.
+
+The function takes
+
+1. a 1D float array as pre-argument value,
+2. a 1D float array as derivative pre-argument value,
+3. a pressure float value,
+4. a temperature float value,
+5. a 1D float array as partial fraction values,
+
+and returns a 2D float array containing derivatives w.r.t. pressure, temperature and
+each fraction. The number of rows is inferred from the array containing partial fraction
+values.
+
+"""
+
+
 # NOTE The template functions need some non-trivial body and return value to compile.
 # They are completely meaningless and need to return something corresponding to the
 # annotated return type. They also use every argument somehow, in case mypy ever
 # complains.
-@cfunc(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]), cache=True)
+@cfunc(PREARGUMENT_FUNC_SIGNATURE, cache=True)
 def prearg_template_func(
-    phase_State: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+    phase_state: PhysicalState, p: float, T: float, xn: np.ndarray, params: np.ndarray
 ) -> np.ndarray:
     """Template c-func for the pre-argument, both for property values and derivative
     values.
@@ -120,13 +253,13 @@ def prearg_template_func(
         Some 1D array.
 
     """
-    if phase_State:
+    if phase_state > PhysicalState.undefined:
         return p * T * xn
     else:
         return xn
 
 
-@cfunc(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]), cache=True)
+@cfunc(PROPERTY_FUNC_SIGNATURE, cache=True)
 def property_template_func(
     prearg_val: np.ndarray, p: float, T: float, xn: np.ndarray
 ) -> float:
@@ -147,7 +280,7 @@ def property_template_func(
     return prearg_val[0] * p * T * xn[0]
 
 
-@cfunc(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]), cache=True)
+@cfunc(PROPERTY_DERIVATIVE_FUNC_SIGNATURE, cache=True)
 def property_derivative_template_func(
     prearg_val: np.ndarray, prearg_jac: np.ndarray, p: float, T: float, xn: np.ndarray
 ) -> np.ndarray:
@@ -171,7 +304,7 @@ def property_derivative_template_func(
     return prearg_val[0] * prearg_jac[0] * p * T * xn
 
 
-@cfunc(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8[:]), cache=True)
+@cfunc(FUGACITY_COEFF_FUNC_SIGNATURE, cache=True)
 def fugacity_coeff_template_func(
     prearg_val: np.ndarray, p: float, T: float, xn: np.ndarray
 ) -> np.ndarray:
@@ -196,7 +329,7 @@ def fugacity_coeff_template_func(
     return prearg_val[0] * p * T * xn
 
 
-@cfunc(nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]), cache=True)
+@cfunc(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE, cache=True)
 def fugacity_coeff_derivative_template_func(
     prearg_val: np.ndarray, prearg_jac: np.ndarray, p: float, T: float, xn: np.ndarray
 ) -> np.ndarray:
@@ -229,7 +362,7 @@ def fugacity_coeff_derivative_template_func(
 @_COMPILER(
     nb.f8[:, :](
         typeof(prearg_template_func),
-        nb.i1,
+        PhysicalStateMember_NUMBA_TYPE,
         nb.f8[:],
         nb.f8[:],
         nb.f8[:, :],
@@ -513,25 +646,12 @@ class CompiledEoS(EquationOfState):
     - the derivatives w.r.t. pressure, temperature and partial fractions (array)
 
     Respective functions must be assembled and compiled by a child class with a specific
-    EoS.
+    EoS. The compiled functions are expected to have a specific signature.
 
-    The compiled functions are expected to have a specific signature (see below).
-
-    1. One or two pre-arguments (vectors), for property or derivative function
-       respectively.
-    2. Two scalar arguments representing pressure and temperature.
-    3. A vector argument representing partial fractions.
-
-    The purpose of the ``prearg`` is efficiency.
-    Many EoS have computions of some co-terms or compressibility factors f.e.,
-    which must only be computed once for all remaining thermodynamic quantities.
-
-    The function for the ``prearg`` computation must have the signature:
-
-    1. an integer representing a phase :attr:`~porepy.compositional.base.Phase.state`
-    2. Two scalar arguments representing pressure and temperature.
-    3. A vector argument representing partial fractions.
-    4. A vector argument containing parameters.
+    The purpose of the pre-argument is efficiency. Many EoS have computions of some
+    co-terms or compressibility factors f.e., which must only be computed once for all
+    remaining thermodynamic properties. The function for the ``prearg`` computation must
+    also have a specific signature.
 
     There are two ``prearg`` computations: One for property values, one for the
     derivatives.
@@ -539,20 +659,6 @@ class CompiledEoS(EquationOfState):
     The ``prearg`` for the derivatives will be fed to the functions representing
     derivatives of thermodynamic quantities **additionally** to the ``prearg`` for
     residuals.
-
-    Example:
-        The signature of functions representing derivatives is expected to be
-
-        .. code:: python3
-
-            def f(
-                prearg_val: np.ndarray,
-                prearg_jac: np.ndarray,
-                p: float,
-                T: float,
-                x: np.ndarray
-            ) -> np.ndarray:
-                ...
 
     Parameters:
         components: Sequence of components for which the EoS should be compiled.
@@ -761,7 +867,7 @@ class CompiledEoS(EquationOfState):
 
         rho_c = cast(ScalarFunction, rho_c)
 
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             rho = rho_c(prearg, p, T, xn)
             if rho > 0.0:
@@ -800,7 +906,7 @@ class CompiledEoS(EquationOfState):
         rho_c = cast(ScalarFunction, rho_c)
         drho_c = cast(VectorFunction, drho_c)
 
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dv_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,
@@ -983,10 +1089,10 @@ class CompiledEoS(EquationOfState):
                 params_array[:, i] = param
 
         prearg_val = self.gufuncs["prearg_val"](
-            phase_state.value, *thermodynamic_input, params_array
+            phase_state, *thermodynamic_input, params_array
         )
         prearg_jac = self.gufuncs["prearg_jac"](
-            phase_state.value, *thermodynamic_input, params_array
+            phase_state, *thermodynamic_input, params_array
         )
 
         props = {}

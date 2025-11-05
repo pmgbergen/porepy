@@ -107,7 +107,7 @@ class PhaseProperties(ExtensiveProperties):
 
     """
 
-    state: PhysicalState = PhysicalState.liquid
+    state: PhysicalState = PhysicalState.undefined
     """Physical state of the phase. Defaults to liquid-like."""
 
     x: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
@@ -326,7 +326,7 @@ def initialize_fluid_properties(
     state.sat = np.zeros((nphase, n))
 
     if phase_states is None:
-        phase_states = [PhysicalState.liquid] * nphase
+        phase_states = [PhysicalState.undefined] * nphase
     if isinstance(ncomp, int):
         ncomp = np.ones(nphase, dtype=int) * ncomp
     else:
