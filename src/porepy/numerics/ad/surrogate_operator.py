@@ -851,7 +851,7 @@ class SurrogateFactory:
 
                 Maximal number of time steps stored. The default value 1 leads to
                 only 1 previous time step value stored.
-                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+                See :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Raises:
             ValueError: If ``values`` is not of the expected shape.
@@ -894,7 +894,7 @@ class SurrogateFactory:
 
                 Maximal number of time steps stored. The default value 1 leads to
                 only 1 previous time step value stored.
-                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+                See :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         """
         for grid in domains:
@@ -927,9 +927,9 @@ class SurrogateFactory:
             grid: A subdomain or interface in the mixed-dimensional domain.
             depth: ``default=0``
 
-                Maximal number of iterage values stored. The default value leads to
+                Maximal number of iterate values stored. The default value leads to
                 **no** previous iterate values stored.
-                See :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+                See :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Raises:
             ValueError: If ``values`` is not of the expected shape.
