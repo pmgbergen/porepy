@@ -23,7 +23,7 @@ from __future__ import annotations
 import copy
 import logging
 import time
-from typing import Callable, Literal, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence, cast
 
 # NOTE: numba.typed has a spurious py.typed file which confuses mypy and
 # makes it render an endless amount of errors related to attributes of the
@@ -104,10 +104,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     """
 
-    SUPPORTED_SPECIFICATIONS: tuple[Literal["pT"], Literal["ph"], Literal["vh"]] = (
-        "pT",
-        "ph",
-        "vh",
+    SUPPORTED_SPECIFICATIONS: tuple[FlashSpec, ...] = (
+        FlashSpec.pT,
+        FlashSpec.ph,
+        FlashSpec.vh,
     )
     """Supported flash types. Used for checking flash input."""
 
@@ -153,10 +153,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         """
 
-        self.residuals: dict[str, Callable[[np.ndarray], np.ndarray]] = dict()
+        self.residuals: dict[FlashSpec, Callable[[np.ndarray], np.ndarray]] = dict()
         """Contains per flash configuration the respective residuals as a callable."""
 
-        self.jacobians: dict[str, Callable[[np.ndarray], np.ndarray]] = dict()
+        self.jacobians: dict[FlashSpec, Callable[[np.ndarray], np.ndarray]] = dict()
         """Contains per flash configuration the respective Jacobian as a callable."""
 
         self._nb_solver_params: dict[str, float]
@@ -175,7 +175,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         ncomp = self.params["num_components"]
 
         s, x, y, _, p, T, *_ = parse_vectorized_generic_arg(
-            resultsarray, (nphase, ncomp), results.specification.name
+            resultsarray, ncomp, nphase, results.specification
         )
 
         results.y = y
@@ -217,7 +217,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         for k, v in solver_params.items():
             self._nb_solver_params[k] = float(v)
 
-    def compile(self, *args: Literal["pT", "ph", "vh"]) -> None:
+    def compile(self, *args: tuple[FlashSpec, ...]) -> None:
         """Triggers the assembly and compilation of equilibrium equations, as well as
         the EoS if not already compiled.
 
@@ -263,7 +263,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         logger.info(f"Compiling {args} flash systems ...")
         start = time.time()
 
-        if "pT" in args and "pT" not in self.residuals:
+        if FlashSpec.pT in args and FlashSpec.pT not in self.residuals:
             logger.debug("Compiling pT flash ...")
 
             @numba.njit(numba.f8[:](numba.f8[:]))
@@ -321,10 +321,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # Stack Jacobians and return only derivatives w.r.t. y and x
                 return np.vstack((jac_1, jac_2, jac_3))[:, 2 + nphase - 1 :]
 
-            self.residuals["pT"] = F_pT
-            self.jacobians["pT"] = DF_pT
+            self.residuals[FlashSpec.pT] = F_pT
+            self.jacobians[FlashSpec.pT] = DF_pT
 
-        if "ph" in args and "ph" not in self.residuals:
+        if FlashSpec.ph in args and FlashSpec.ph not in self.residuals:
             logger.debug("Compiling ph flash ...")
 
             @numba.njit(numba.f8[:](numba.f8[:]))
@@ -407,10 +407,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # which removes column belonging to p is done after stack.
                 return np.hstack((jac[:, :2], jac[:, 2 + nphase - 1 :]))[:, 1:]
 
-            self.residuals["ph"] = F_ph
-            self.jacobians["ph"] = DF_ph
+            self.residuals[FlashSpec.ph] = F_ph
+            self.jacobians[FlashSpec.ph] = DF_ph
 
-        if "vh" in args and "vh" not in self.residuals:
+        if FlashSpec.vh in args and FlashSpec.vh not in self.residuals:
             logger.debug("Compiling vh flash ...")
 
             @numba.njit(numba.f8[:](numba.f8[:]))
@@ -491,8 +491,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 return np.vstack((jac_1, jac_2, jac_3, jac_4, jac_5, jac_6))
 
-            self.residuals["vh"] = F_vh
-            self.jacobians["vh"] = DF_vh
+            self.residuals[FlashSpec.vh] = F_vh
+            self.jacobians[FlashSpec.vh] = DF_vh
 
         logger.info(
             f"{nphase}-phase, {ncomp}-component flash compiled"
@@ -559,11 +559,11 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             specification, z, initial_state=initial_state
         )
         logger.debug(
-            f"{results.size} {results.specification} flash target state(s) parsed; "
-            + f"DOFs: {results.dofs}; Solver: {solver} ({mode});"
+            f"{results.size} {results.specification.name} flash target state(s) parsed;"
+            + f" DOFs: {results.dofs}; Solver: {solver} ({mode});"
         )
         assert results.specification in self.SUPPORTED_SPECIFICATIONS, (
-            f"Unsupported flash type {results.specification}."
+            f"Unsupported flash type {results.specification.name}."
         )
 
         # Compile if not already compiled.
@@ -582,8 +582,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         # Compute initial guess if not provided.
         if initial_state is None:
             start = time.time()
-            # NOTE Same ignore note as above on flash_type
-            X0 = self.initializer[results.specification.name](X0)  # type:ignore[index]
+            X0 = self.initializer[results.specification](X0)
             logger.debug(
                 "Initial values computed (elapsed time: %.5f (s))."
                 % (time.time() - start)
@@ -596,8 +595,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         start = time.time()
         resultsarray, success, num_iter = MULTI_SOLVERS[mode](
             X0,
-            self.residuals[results.specification.name],
-            self.jacobians[results.specification.name],
+            self.residuals[results.specification],
+            self.jacobians[results.specification],
             SOLVERS[solver],
             self._nb_solver_params,
         )
@@ -606,7 +605,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         results.num_iter = num_iter
 
         logger.info(
-            f"{results.size} {results.specification} flash solved"
+            f"{results.size} {results.specification.name} flash solved"
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
         logger.debug(

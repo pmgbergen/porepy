@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import time
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, TypeAlias, cast
+from typing import Callable, Optional, Sequence, cast
 
 import numba
 import numba.typed
@@ -20,10 +20,12 @@ from .._core import (
     NUMBA_PARALLEL,
     R_IDEAL_MOL,
     cfunc,
+    njit,
     typeof,
 )
 from ..compiled_eos import CompiledEoS
 from ..utils import _compute_saturations, compute_saturations, normalize_rows
+from .abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
 from .solvers._core import SOLVER_PARAMETERS_TYPE
 from .uniflash_equations import (
     assemble_generic_arg,
@@ -40,14 +42,18 @@ __all__ = ["FlashInitializer"]
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_FLASH_TYPES: TypeAlias = Literal["pT", "ph", "vh"]
-"""Type alias for supported values of flash types."""
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._core.njit`
+
+"""
 
 
 # region Rachford-Rice equations
 
 
-@numba.njit(
+@_COMPILER(
     numba.f8[:](numba.f8[:], numba.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True
 )
 def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
@@ -70,7 +76,7 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
-@numba.njit(numba.f8(numba.f8[:], numba.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(numba.f8(numba.f8[:], numba.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.
 
@@ -95,7 +101,7 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     return n / np.sum(d)
 
 
-@numba.njit(
+@_COMPILER(
     numba.f8(numba.f8[:], numba.f8[:], numba.f8[:, :]),
     cache=NUMBA_CACHE,
 )
@@ -171,13 +177,13 @@ def update_state_template_func(
     return X_gen * params["0"]
 
 
-@numba.njit(
+@_COMPILER(
     numba.f8[:](
         typeof(get_K_values_template_func),
         numba.f8[:],
         SOLVER_PARAMETERS_TYPE,
-        numba.types.unicode_type,
-        numba.i1,
+        FlashSpecMember_NUMBA_TYPE,
+        numba.bool,
     ),
     cache=NUMBA_CACHE,
 )
@@ -185,8 +191,8 @@ def fractions_from_rr(
     get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray],
     X_gen: np.ndarray,
     params: dict[str, float],
-    flash_type: str,
-    use_wilson: Literal[0, 1],
+    spec: FlashSpec,
+    use_wilson: bool,
 ) -> np.ndarray:
     """Guessing fractions for a single flash configuration.
 
@@ -211,8 +217,7 @@ def fractions_from_rr(
     nphase = int(params["num_phases"])
     ncomp = int(params["num_components"])
     N1 = int(params["N1"])
-    npnc = (nphase, ncomp)
-    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, flash_type)
+    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, ncomp, nphase, spec)
 
     omegas = np.empty(ncomp)
     T_crits = np.empty(ncomp)
@@ -226,7 +231,7 @@ def fractions_from_rr(
     T_pc = np.sum(z * T_crits)
     p_pc = np.sum(z * p_crits)
 
-    if use_wilson != 0:
+    if use_wilson:
         K = np.empty((nphase - 1, ncomp), dtype=np.float64)
         for j in range(nphase - 1):
             K[j, :] = (
@@ -333,10 +338,10 @@ def fractions_from_rr(
         if n < N1 - 1:
             K = get_K_values(p, T, x, x_p)
 
-    return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, flash_type)
+    return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, spec)
 
 
-@numba.njit(
+@_COMPILER(
     numba.f8[:, :](
         typeof(get_K_values_template_func),
         numba.f8[:, :],
@@ -367,15 +372,15 @@ def rachford_rice_initializer(
 
     """
     for f in numba.prange(X_gen.shape[0]):
-        X_gen[f] = fractions_from_rr(get_K_values, X_gen[f], params, "pT", 1)
+        X_gen[f] = fractions_from_rr(get_K_values, X_gen[f], params, FlashSpec.pT, True)
     return X_gen
 
 
-@numba.njit(
+@_COMPILER(
     numba.f8[:, :](
         typeof(get_K_values_template_func),
         typeof(update_state_template_func),
-        numba.types.unicode_type,
+        FlashSpecMember_NUMBA_TYPE,
         numba.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
@@ -385,7 +390,7 @@ def rachford_rice_initializer(
 def nested_initializer(
     get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray],
     update_state_func: Callable[[np.ndarray, dict[str, float]], np.ndarray],
-    flash_type: str,
+    spec: FlashSpec,
     X_gen: np.ndarray,
     params: dict[str, float],
 ) -> np.ndarray:
@@ -413,7 +418,7 @@ def nested_initializer(
         xf = X_gen[f]
         for _ in range(N3):
             xf = update_state_func(xf, params)
-            xf = fractions_from_rr(get_K_values, xf, params, flash_type, 0)
+            xf = fractions_from_rr(get_K_values, xf, params, spec, False)
 
             # abort if residual already small enough
             # if np.linalg.norm(F(xf)) <= tol:
@@ -443,6 +448,13 @@ class FlashInitializer:
         params: Initialization parameters (see :attr:`params`).
 
     """
+
+    SUPPORTED_SPECIFICATIONS: tuple[FlashSpec, ...] = (
+        FlashSpec.pT,
+        FlashSpec.ph,
+        FlashSpec.vh,
+    )
+    """Supported flash types. Used for checking flash input."""
 
     def __init__(
         self,
@@ -488,7 +500,7 @@ class FlashInitializer:
         """
 
         self._initializers: dict[
-            str,
+            FlashSpec,
             Callable[[np.ndarray, dict[str, float]], np.ndarray],
         ] = {}
         """Storage of initialization routines.
@@ -528,9 +540,7 @@ class FlashInitializer:
         """Numba-type dictionary, to be filled with :attr:`params` and passed to the
         flash initialization methods"""
 
-    def __getitem__(
-        self, key: _SUPPORTED_FLASH_TYPES
-    ) -> Callable[[np.ndarray], np.ndarray]:
+    def __getitem__(self, key: FlashSpec) -> Callable[[np.ndarray], np.ndarray]:
         """Shortcut for accessing flash initial guess methods for flash types denoted by
         ``key``."""
         # This will raise a key error on time.
@@ -565,7 +575,7 @@ class FlashInitializer:
 
         return initializer
 
-    def compile(self, *args: _SUPPORTED_FLASH_TYPES) -> None:
+    def compile(self, *args: tuple[FlashSpec, ...]) -> None:
         """Triggers the compilation of initialization routines.
 
         Parameters:
@@ -576,7 +586,7 @@ class FlashInitializer:
 
         # If not specified, compile all.
         if not args:
-            args = ("pT", "ph", "vh")
+            args = (FlashSpec.pT, FlashSpec.ph, FlashSpec.vh)
 
         if not self._eos.is_compiled:
             self._eos.compile()
@@ -592,7 +602,6 @@ class FlashInitializer:
             ],
             dtype=np.int8,
         )
-        npnc = self._npnc
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
@@ -605,7 +614,7 @@ class FlashInitializer:
         logger.info(f"Compiling {args} flash initialization routines ..")
         start = time.time()
 
-        @numba.njit(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]))
+        @_COMPILER(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]))
         def get_K_values(
             p: float, T: float, x: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
@@ -622,12 +631,14 @@ class FlashInitializer:
                 K[j - 1, :] = phi_0 / phi_j + 1e-10
             return K
 
-        self._initializers["pT"] = partial(rachford_rice_initializer, get_K_values)
+        self._initializers[FlashSpec.pT] = partial(
+            rachford_rice_initializer, get_K_values
+        )
 
-        if "ph" in args:
+        if FlashSpec.ph in args:
             logger.debug("Compiling ph flash initialization ..")
 
-            @numba.njit(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
+            @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_T_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
@@ -640,7 +651,9 @@ class FlashInitializer:
                 gas_phase_idx = int(params["gas_phase_index"])
                 npnc = (nphase, ncomp)
                 # state 2 is target enthalpy
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "ph")
+                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                    X_gen, npnc, FlashSpec.ph
+                )
 
                 # If T has not been initialized at all (zero value), compute
                 # pseudo-critical value as starting point
@@ -650,9 +663,15 @@ class FlashInitializer:
                         T_crits[i] = params[f"_T_crit_{i}"]
 
                     T_pc = (T_crits * z).sum()
-                    X_gen = assemble_generic_arg(s, x, y, z, p, T_pc, s1, s2, x_p, "ph")
-                    X_gen = fractions_from_rr(get_K_values, X_gen, params, "ph", 1)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "ph")
+                    X_gen = assemble_generic_arg(
+                        s, x, y, z, p, T_pc, s1, s2, x_p, FlashSpec.ph
+                    )
+                    X_gen = fractions_from_rr(
+                        get_K_values, X_gen, params, FlashSpec.ph, True
+                    )
+                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                        X_gen, npnc, FlashSpec.ph
+                    )
 
                 xn = normalize_rows(x)
                 hs = np.empty(nphase, dtype=np.float64)
@@ -684,16 +703,16 @@ class FlashInitializer:
                                 dT *= 0.4
                         T += dT
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "ph")
+                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, FlashSpec.ph)
 
-            self._initializers["ph"] = partial(
-                nested_initializer, get_K_values, update_T_guess, "ph"
+            self._initializers[FlashSpec.ph] = partial(
+                nested_initializer, get_K_values, update_T_guess, FlashSpec.ph
             )
 
-        if "vh" in args:
+        if FlashSpec.vh in args:
             logger.debug("Compiling vh flash initialization ..")
 
-            @numba.njit(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
+            @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
@@ -712,7 +731,9 @@ class FlashInitializer:
                 jac = np.zeros((M, M))
 
                 # s1 and s2 are target volume and enthalpy respectively
-                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(X_gen, npnc, "vh")
+                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                    X_gen, ncomp, nphase, FlashSpec.vh
+                )
 
                 # Assume no guess, fetch later if otherwise.
                 y_g = 0.0
@@ -751,9 +772,13 @@ class FlashInitializer:
                     p = Z * T * R_IDEAL_MOL / s1
 
                     # Make first fraction guess based on pseudo-critical values.
-                    xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "vh")
-                    xf = fractions_from_rr(get_K_values, xf, params, "vh", 1)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(xf, npnc, "vh")
+                    xf = assemble_generic_arg(
+                        s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
+                    )
+                    xf = fractions_from_rr(get_K_values, xf, params, FlashSpec.vh, True)
+                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                        xf, ncomp, nphase, FlashSpec.vh
+                    )
 
                     # Correct pressure if no gas phase
                     if gas_phase_idx >= 0:
@@ -763,10 +788,14 @@ class FlashInitializer:
                         p *= 0.7
                         # T *= 1.1
                         # Refine fraction guess based on corrected pressure.
-                        xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "vh")
-                        xf = fractions_from_rr(get_K_values, xf, params, "vh", 0)
+                        xf = assemble_generic_arg(
+                            s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
+                        )
+                        xf = fractions_from_rr(
+                            get_K_values, xf, params, FlashSpec.vh, False
+                        )
                         s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                            xf, npnc, "vh"
+                            xf, ncomp, nphase, FlashSpec.vh
                         )
 
                 xn = normalize_rows(x)
@@ -850,15 +879,15 @@ class FlashInitializer:
                         p = p_
                         T = T_
 
-                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "vh")
+                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh)
 
             def vh_init(X_gen: np.ndarray, params: dict[str, float]):
                 X_gen = nested_initializer(
-                    get_K_values, update_pT_guess, "vh", X_gen, params
+                    get_K_values, update_pT_guess, FlashSpec.vh, X_gen, params
                 )
                 # Performing final saturation update, after guessing fractions and p,T
                 s, x, y, z, p, T, s1, s2, x_p = parse_vectorized_generic_arg(
-                    X_gen, npnc, "vh"
+                    X_gen, ncomp, nphase, FlashSpec.vh
                 )
                 rhos = np.empty(y.shape)
                 for j in range(nphase):
@@ -873,10 +902,10 @@ class FlashInitializer:
                 s = compute_saturations(y, rhos)
 
                 return assemble_vectorized_generic_arg(
-                    s, x, y, z, p, T, s1, s2, x_p, "vh"
+                    s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vh
                 )
 
-            self._initializers["vh"] = vh_init
+            self._initializers[FlashSpec.vh] = vh_init
 
         logger.info(
             "Flash initialization routines compiled"
