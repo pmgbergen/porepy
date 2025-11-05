@@ -378,23 +378,28 @@ class FractureNetwork2d:
                     isect_frac.append(f)
 
         gmsh.model.occ.synchronize()
-        _, frag = gmsh.model.occ.fragment(
-            [(0, p) for p in isect_pt],
-            [(nd - 1, f) for f in fracture_tags],
-            removeObject=False,
-            removeTool=False,
-        )
-        gmsh.model.occ.synchronize()
-        pt_map = frag[: len(isect_pt)]
-        fracture_tags_new = []
-        fracture_tag_map = {i: [] for i in fracture_tags}
-        inv_fracture_tag_map = {}
-        for fi, info in zip(fracture_tags, frag[len(isect_pt) :]):
-            new_tags = [i[1] for i in info if i[0] == nd - 1]
-            fracture_tag_map[fi].extend(new_tags)
-            fracture_tags_new += new_tags
-            for nt in new_tags:
-                inv_fracture_tag_map[nt] = fi
+        if len(isect_pt) == 0:
+            fracture_tag_map = {i: [i] for i in fracture_tags}
+            fracture_tags_new = copy.deepcopy(fracture_tags)
+            inv_fracture_tag_map = {i: i for i in fracture_tags}
+        else:
+            _, frag = gmsh.model.occ.fragment(
+                [(0, p) for p in isect_pt],
+                [(nd - 1, f) for f in fracture_tags],
+                removeObject=True,
+                removeTool=True,
+            )
+            gmsh.model.occ.synchronize()
+            pt_map = frag[: len(isect_pt)]
+            fracture_tags_new = []
+            fracture_tag_map = {i: [] for i in fracture_tags}
+            inv_fracture_tag_map = {}
+            for fi, info in zip(fracture_tags, frag[len(isect_pt) :]):
+                new_tags = [i[1] for i in info if i[0] == nd - 1]
+                fracture_tag_map[fi].extend(new_tags)
+                fracture_tags_new += new_tags
+                for nt in new_tags:
+                    inv_fracture_tag_map[nt] = fi
 
         debug = []
 
@@ -424,31 +429,35 @@ class FractureNetwork2d:
         # Loop over the mappings from old fractures to new segments. The idea is to find
         # the boundary points of all segments, identify those that occur more than once
         # - these will be intersections - and store the tag that gmsh has assigned them.
+        boundary_points_fracture_indices = []
         for fi, old_fracture in enumerate(isect_mapping):
             if len(old_fracture) > 0 and old_fracture[0][0] == nd:
                 # It is unclear if processing the domain will make any harm, but there
                 # is no need to take any chances. Skip it.
                 continue
 
-            if inv_fracture_tag_map[fi] in constraints:
+            frac_ind = inv_fracture_tag_map[old_fracture[0][1]]
+
+            if frac_ind in constraints:
                 # Constrained fractures are not to be considered for intersection
                 # identification.
                 continue
 
-            all_boundary_points_of_segments = []
             for segment in old_fracture:
-                all_boundary_points_of_segments += gmsh.model.get_boundary([segment])
+                pt_index = gmsh.model.get_boundary([segment])
+                for pt in pt_index:
+                    boundary_points_fracture_indices.append((pt[1], frac_ind))
 
-            # Find the unique boundary points and obtain a mapping from the full set of
-            # boundary points to the unique ones.
-            unique_boundary_points, u2a_ind = np.unique(
-                all_boundary_points_of_segments, axis=0, return_inverse=True
-            )
-            # Count the number of occurrences of each unique boundary point. Points that
-            # occur more than once will be intersections.
-            multiple_occs = np.where(np.bincount(u2a_ind) > 1)[0]
-            # Store the gmsh representation of the intersection points.
-            intersection_points += [unique_boundary_points[i] for i in multiple_occs]
+        # Find the unique boundary points and obtain a mapping from the full set of
+        # boundary points to the unique ones.
+        unique_boundary_points, u2a_ind = np.unique(
+            boundary_points_fracture_indices, axis=0, return_inverse=True
+        )
+        # Count the number of occurrences of each unique boundary point. Points that
+        # occur more than once will be intersections.
+        multiple_occs = np.where(np.bincount(u2a_ind) > 1)[0]
+        # Store the gmsh representation of the intersection points.
+        intersection_points = [(0, unique_boundary_points[i][0]) for i in multiple_occs]
 
         # Finally, we need to uniquify the intersection points, since the same point
         # will have been identified in at least two old fractures.
@@ -491,23 +500,30 @@ class FractureNetwork2d:
 
         # Since fractures may have been split at intersection points, we need to collect
         # all the segments (found in isect_mapping) into a single physical group.
+
+        fracture_to_line = {}
         for i, line_group in enumerate(isect_mapping):
             all_lines = []
             for line in line_group:
                 if line[0] == 1:
                     all_lines.append(line[1])
             if all_lines:
-                if i in constraints:
-                    gmsh.model.addPhysicalGroup(
-                        nd - 1,
-                        all_lines,
-                        -1,
-                        f"{PhysicalNames.AUXILIARY_LINE.value}{i}",
-                    )
-                else:
-                    gmsh.model.addPhysicalGroup(
-                        nd - 1, all_lines, -1, f"{PhysicalNames.FRACTURE.value}{i}"
-                    )
+                fracs = fracture_to_line.get(i, [])
+                fracs.extend(all_lines)
+                fracture_to_line[i] = fracs
+
+        for fi, segments in fracture_to_line.items():
+            if fi in constraints:
+                gmsh.model.addPhysicalGroup(
+                    nd - 1,
+                    segments,
+                    -1,
+                    f"{PhysicalNames.AUXILIARY_LINE.value}{fi}",
+                )
+            else:
+                gmsh.model.addPhysicalGroup(
+                    nd - 1, segments, -1, f"{PhysicalNames.FRACTURE.value}{fi}"
+                )
 
         # It turns out that if fractures split the domain into disjoint parts, gmsh may
         # choose to redefine the domain as the sum of these parts. Therefore, we
@@ -522,7 +538,7 @@ class FractureNetwork2d:
 
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
-        self.set_mesh_size(mesh_args)
+        # self.set_mesh_size(mesh_args)
         gmsh.model.occ.synchronize()
 
         # region GmshWriter.generate
@@ -537,7 +553,8 @@ class FractureNetwork2d:
         gmsh.write(str(file_name))
 
         # Report mesh quality metrics.
-        self.mesh_quality_metrics()
+        if False:
+            self.mesh_quality_metrics()
 
         # Create list of grids.
         if dfn:
