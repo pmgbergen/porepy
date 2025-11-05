@@ -1,8 +1,6 @@
 import porepy as pp
 import numpy as np
 
-benchmark = False
-
 
 def fracture_generator(ind: int) -> list[pp.LineFracture]:
     match ind:
@@ -83,11 +81,13 @@ def fracture_generator(ind: int) -> list[pp.LineFracture]:
             raise ValueError("Invalid fracture index")
 
 
+benchmark = False
+
 if benchmark:
     fractures = pp.fracture_sets.benchmark_2d_case_4()  # [:50]
     domain = pp.Domain({"xmin": 0, "xmax": 700, "ymin": 0, "ymax": 600})
     network = pp.create_fracture_network(fractures, domain=domain)
-    mesh_size = {"mesh_size_frac": 30.0, "mesh_size_bound": 100.0}
+    mesh_size = {"mesh_size_frac": 10.0, "mesh_size_bound": 100.0}
     mdg = network.mesh(mesh_args=mesh_size)
 else:
     fractures = [f for i in range(15) for f in fracture_generator(i)]
@@ -97,5 +97,5 @@ else:
     mesh_size = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.1}
     mdg = network.mesh(mesh_args=mesh_size)
 
-print(mdg)
 pp.plot_grid(mdg, figsize=(10, 8), linewidth=0.2, plot_2d=True)
+print(mdg)
