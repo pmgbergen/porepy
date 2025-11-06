@@ -990,7 +990,6 @@ def phase_mass_constraints_res(
     rho = (s * rhos).sum()
     # First phase is dependent.
     return (rho * y / rhos - s)[1:]
-    # return (s * rhos / rho - y)[1:]
 
 
 @_COMPILER(
@@ -1036,6 +1035,7 @@ def phase_mass_constraints_jac(
 
     # overall density sum s_j rho_j
     rho = (s * rhos).sum()
+    drho = first_order_constraint_jac(s, rhos, drhos, False)
 
     for j in range(nip):
         j1 = j + 1  # Skipping the reference phase.
@@ -1044,7 +1044,7 @@ def phase_mass_constraints_jac(
         w = y[j1] / rhos[j1]
         # NOTE outer multiplication with w holds because below function considers s_j
         # constant and makes only the Jacobian of (sum_k s_k * rho_k)
-        jac[j] = first_order_constraint_jac(s, rhos, drhos, False) * w
+        jac[j] = drho.copy() * w
         # The derivative w.r.t. s_j has an additional term not covered by above.
         jac[j, 2 + j] -= 1.0
 
@@ -1058,47 +1058,6 @@ def phase_mass_constraints_jac(
         d = outer * drhos[j1]
         # Contribution to p,T, and the partial fractions respectively.
         jac[j, :2] += d[:2]
-        # NOTE skip column block belonging to x_i0 (reference phase partial fractions).
-        jac[j, 2 + 2 * nip + j1 * ncomp : 2 + 2 * nip + (j1 + 1) * ncomp] = d[2:]
-
-    # drho_dpT = (drhos[:, :2].T * s).T.sum(axis=0)
-
-    # # derivative of s_j rho_j / (sum_i s_i rho_i) - y_j, for j > 0,
-    # # with s_0 = 1 - s_1 - s_2 ...
-
-    # # derivatives w.r.t. to phase fractions yield identity * -1
-    # jac[:, 2 + nip : 2 + 2 * nip] = -np.eye(nip)
-
-    # for j_mat in range(nip):
-    #     j = j_mat + 1
-
-    #     # outer derivative of rho_j * dpTx(1 / rho_mix)
-    #     outer_j = -rhos[j] / rho**2
-
-    #     # Derivatives w.r.t. saturations of sat_j * rho_j / (sum_i s_i * rho_i)
-    #     # With s_0 = 1 - sum_(i > 0) s_i it holds for k > 0
-    #     # ds_k (s_j rho_j / (sum_i s_i * rho_i)) =
-    #     # s_j * (- rho_j / (sum_i s_i * rho_i)^2 * (rho_k - rho_0))
-    #     jac[j_mat, 2 : 2 + nip] = s[j] * outer_j * (rhos[1:] - rhos[0])
-    #     # + delta_kj * rho_j / (sum_i s_i * rho_i) with delta_kj = ds_k s_j
-    #     jac[j_mat, 2 + j_mat] += rhos[j] / rho
-
-    #     # Derivatives w.r.t. p, T
-    #     # With s_0 = 1 - sum_(i > 0) s_i and rho = sum_i s_i * rho_i
-    #     # dpt (rho_j(p, T) / rho) =
-    #     # dpt(rho_j(p,T)) / rho
-    #     # - rho_j / (sum_i s_i * rho_i)^2 * dpt(rho)
-    #     jac[j_mat, :2] = s[j] * (drhos[j, :2] / rho + outer_j * drho_dpT)
-
-    #     # Derivatives w.r.t. x_ik
-    #     # for all phases k, and j > 0
-    #     # dx_ik (rho_j(x_ij) / rho_mix) =
-    #     # delta_kj * (dx_ik(rho_j(x_ij)) / rho_mix)
-    #     # - rho_j * (1 / rho_mix^2) * (dx_ik(sum_l s_l rho_l(x_il)))
-    #     for k in range(nphase):
-    #         idx = 2 + 2 * nip + k * ncomp  # starting index of column block
-    #         jac[j_mat, idx : idx + ncomp] = s[j] * outer_j * s[k] * drhos[k, 2:]
-    #         if k == j:
-    #             jac[j_mat, idx : idx + ncomp] += s[j] * drhos[k, 2:] / rho
+        jac[j, 2 + 2 * nip + j1 * ncomp : 2 + 2 * nip + (j1 + 1) * ncomp] += d[2:]
 
     return jac

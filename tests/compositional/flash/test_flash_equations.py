@@ -434,8 +434,6 @@ def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
     spec = flash.FlashSpec.vh
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
     nf = ncomp * nphase + 2 * (nphase - 1) + 2
-    # NOTE directions implemented here have knowledge about how generic argument is
-    # assembled, which can lead to errors if any change happens there.
     directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     # Target value of the constraint.
@@ -466,7 +464,7 @@ def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
             assert np.all(jac[:, 2 + nphase - 1 : 2 + 2 * (nphase - 1)] == 0), (
                 "Jacobian has non-trivial derivatives for y."
             )
-        return np.hstack((np.zeros((1, dim - nf)), jac[:, -nf:]))
+        return np.hstack((np.zeros((1, dim - nf)), jac))
 
     # If weights are zero, or the phis are zero, we expect -phi
     w = np.zeros(nphase)
@@ -495,3 +493,59 @@ def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
     for d in directions:
         orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
         assert_order_at_least(orders, 2.0, tol=1e-2)
+
+
+@pytest.mark.parametrize("nphase", [1, 2, 5])
+@pytest.mark.parametrize("ncomp", [1, 2, 5])
+def test_phase_mass_constraint(ncomp: int, nphase: int) -> None:
+    """Tests if the phase mass constraints are correctly implemented and its
+    Jacobian function allows the Taylor approximation to be of second order."""
+    spec = flash.FlashSpec.vh
+    dim = flash.dim_gen_arg(ncomp, nphase, spec)
+    nf = ncomp * nphase + 2 * (nphase - 1) + 2
+    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
+
+    def func(*x):
+        xgen = np.array(x)
+        sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        phis = np.array([_dummy_property(p, T, x_) for x_ in x])
+        res = flash.phase_mass_constraints_res(sat, y, phis)
+        assert res.shape == (nphase - 1,), "Residual of unexpected shape."
+        return res
+
+    def dfunc(*x):
+        xgen = np.array(x)
+        sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        phis = np.array([_dummy_property(p, T, x_) for x_ in x])
+        dphis = np.array([_dummy_property_derivative(p, T, x_) for x_ in x])
+        jac = flash.phase_mass_constraints_jac(sat, y, phis, dphis)
+        assert jac.shape == (nphase - 1, nf), "Jacobian of unexpected shape."
+        return np.hstack((np.zeros((nphase - 1, dim - nf)), jac))
+
+    # If saturations are zero, the constraint is zero.
+    y = np.random.random((nphase,))
+    rhos = np.random.random((nphase,))
+    sat = np.zeros(nphase)
+    res = flash.phase_mass_constraints_res(sat, y, rhos)
+    assert np.all(res == 0.0), "Unexpected residual values."
+    # If fractions are zero, the constraint is -s
+    res = flash.phase_mass_constraints_res(y, sat, rhos)
+    assert np.all(res == -y[1:]), "Unexpected residual values."
+    # For individual zero entries, the residual is never zero if one saturation vanishes
+    # but elementwise zero where the fraction vanishes.
+    for j in range(nphase - 1):
+        y = np.random.random((nphase,)) + 1
+        rhos = np.random.random((nphase,)) + 1
+        sat = np.random.random((nphase,)) + 1
+        sat[j + 1] = 0.0
+        res = flash.phase_mass_constraints_res(sat, y, rhos)
+        assert np.all(res != 0.0), "Unexpected residual values."
+        res = flash.phase_mass_constraints_res(y, sat, rhos)
+        assert np.all(res[j] == -y[j + 1]), "Unexpected residual values."
+
+    Xgen = np.random.random((dim,))
+    h = np.logspace(0, -10, 11)
+
+    for d in directions:
+        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+        assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
