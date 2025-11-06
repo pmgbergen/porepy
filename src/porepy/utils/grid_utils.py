@@ -1,4 +1,5 @@
 """Module contains various utility functions for working with grids."""
+
 import logging
 
 import numpy as np
@@ -8,6 +9,7 @@ import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 logger = logging.getLogger(__name__)
+
 
 def switch_sign_if_inwards_normal(
     g: pp.Grid, nd: int, faces: np.ndarray
@@ -108,13 +110,19 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
 
 
-def compute_circumcenter_2d(sd: pp.TriangleGrid, minimum_angle=np.pi * 0.45):
+def compute_circumcenter_2d(
+    sd: pp.TriangleGrid, minimum_angle=np.pi * 0.45
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute circumcenters of triangular cells in 2D grid.
 
     Parameters:
         sd: A 2D structured or unstructured triangular grid.
-        minimum_angle: Minimum angle (in radians) below which the circumcenter
-            will replace the cell center.
+        minimum_angle: Threshold angle (in radians). The circumcenter will replace the
+            cell center only in those triangles where all angles in the triangle are
+            below this threshold.
+
+            Note that if the threshold is set larger than 0.5 * pi, cells with
+            circumcenters outside the cell will have their cell centers replaced.
 
     Returns:
         Tuple with:
@@ -126,7 +134,7 @@ def compute_circumcenter_2d(sd: pp.TriangleGrid, minimum_angle=np.pi * 0.45):
         ValueError: If degenerate triangles with zero area are encountered.
         ValueError: If computed angles do not sum to pi.
     """
-    # Extract node coordinates for all cells
+    # Extract node coordinates for all cells.
     cn = sd.cell_nodes().tocsc()
     ni = cn.indices.reshape((3, sd.num_cells), order="F")
     cc = sd.cell_centers.copy()
@@ -188,7 +196,8 @@ def compute_circumcenter_2d(sd: pp.TriangleGrid, minimum_angle=np.pi * 0.45):
 
     return cc, replace
 
-def compute_circumcenter_3d(sd):
+
+def compute_circumcenter_3d(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
     """Compute circumcenters of tetrahedral cells in 3D grid.
 
     Parameters:
@@ -205,7 +214,7 @@ def compute_circumcenter_3d(sd):
         ValueError: If circumcenters are not equidistant from all nodes.
 
     """
-    # Extract node coordinates for all cells
+    # Extract node coordinates for all cells.
     cn = sd.cell_nodes().tocsc()
     ni = cn.indices.reshape((sd.dim + 1, sd.num_cells), order="F")
     x, y, z = sd.nodes[0], sd.nodes[1], sd.nodes[2]
@@ -247,7 +256,7 @@ def compute_circumcenter_3d(sd):
     for i in range(A.shape[2]):
         center[i, :] = np.linalg.solve(A[:, :, i], B[:, i])
 
-    # Check that the circumcenter is equidistant from all nodes
+    # Check that the circumcenter is equidistant from all nodes.
     distance_node_center = []
     for ind in ni:
         dist = np.sqrt(np.sum((sd.nodes[:, ind] - center.T) ** 2, axis=0))
@@ -256,12 +265,12 @@ def compute_circumcenter_3d(sd):
     max_distance = np.max(np.abs(distance_node_center), axis=0)
     min_distance = np.min(np.abs(distance_node_center), axis=0)
     # Use a relative tolerance scaled by the radius to avoid false negatives on
-    # large/small cells
+    # large/small cells.
     radius = 0.5 * (max_distance + min_distance) + 1e-15
     if np.max((max_distance - min_distance) / radius) >= 1e-10:
         raise ValueError("Circumcenter not equidistant from all nodes.")
 
-    # Build connectivity arrays
+    # Build connectivity arrays.
     fn = np.reshape(sd.face_nodes.tocsc().indices, (sd.dim, -1), order="F")
     cf = np.reshape(sd.cell_faces.tocsc().indices, (sd.dim + 1, -1), order="F")
 
@@ -284,7 +293,6 @@ def compute_circumcenter_3d(sd):
     inside_cell = []
 
     for ci in range(cf.shape[0]):
-
         fi = cf[ci]
 
         # Is the face cross vector pointing into the cell?
@@ -313,8 +321,10 @@ def compute_circumcenter_3d(sd):
         )
     # The circumcenter is inside the cell if it is in the half space of all faces.
     all_inside = np.all(inside_cell, axis=0)
-    logger.debug(f"{all_inside.sum()} out of {sd.num_cells} cells have the circumcenter"
-                  +"inside the cell.")
+    logger.debug(
+        f"{all_inside.sum()} out of {sd.num_cells} cells have the circumcenter"
+        + "inside the cell."
+    )
     # Compute the minimum distance from faces, normalized with cell height.
     distances_from_faces = np.array(distances_from_faces)
     min_distance = np.min(np.abs(distances_from_faces), axis=0)
@@ -350,9 +360,7 @@ def compute_circumcenter_3d(sd):
     # Relative colinearity check: ||a x b|| <= tol * ||a|| ||b|| for all internal faces
     if cc_vec_cross_normal.size:
         cross_norm = np.linalg.norm(cc_vec_cross_normal, axis=0)
-        denom = (
-            np.linalg.norm(cc_vec, axis=0) * np.linalg.norm(normal, axis=0) + 1e-15
-        )
+        denom = np.linalg.norm(cc_vec, axis=0) * np.linalg.norm(normal, axis=0) + 1e-15
         if np.max(cross_norm / denom) >= 1e-10:
             raise ValueError(
                 "Circumcenter not aligned with face normals for replaced cells."
