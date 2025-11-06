@@ -17,6 +17,32 @@ from tests.compositional.peng_robinson.test_cubic_polynomial import (
 )
 
 
+def _dummy_property(p: float, T: float, x: np.ndarray) -> float:
+    """A dummy phase property as assumed by the flash framework.
+
+    It takes a pressure and temperature value, as well as partial fractions and returns
+    a float.
+
+    """
+    return p**2 + T**2 + (x**2).sum()
+
+
+def _dummy_property_derivative(p: float, T: float, x: np.ndarray) -> float:
+    """A dummy phase property derivative as assumed by the flash framework.
+
+    Contains the analytical derivative of :func:`_dummy_property`.
+
+    It takes a pressure and temperature value, as well as partial fractions and returns
+    an array with shape ``(2 + x.size,)``
+
+    """
+    n = x.shape[0]
+    assert x.shape == (n,)
+    d = np.array([2 * p, 2 * T] + [2 * x_ for x_ in x])
+    assert d.shape == (2 + n,)
+    return d
+
+
 @pytest.mark.parametrize(
     "spec", [spec for spec in flash.FlashSpec if spec != flash.FlashSpec.none]
 )
@@ -273,6 +299,11 @@ def test_generic_arg_from_result_struture(
                 assert False, "Missing test logic"
 
 
+# NOTE: The directions for the derivatives in the Taylor approximation test implemented
+# in the tests below assume a certain knowledge about the structure of the generic
+# flash argument. If that changes, the tests need adaption.
+
+
 @pytest.mark.parametrize("nphase", [1, 2, 5])
 @pytest.mark.parametrize("ncomp", [2, 5])
 def test_mass_conservation(ncomp: int, nphase: int) -> None:
@@ -280,10 +311,7 @@ def test_mass_conservation(ncomp: int, nphase: int) -> None:
     Jacobian function allows the Taylor approximation to be of second order."""
     spec = flash.FlashSpec.pT
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
-    # Last nf entries of generic argument coorespond to phase and partial fractions.
     nf = ncomp * nphase + nphase - 1
-    # NOTE directions implemented here have knowledge about how generic argument is
-    # assembled, which can lead to errors if any change happens there.
     directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     def func(*x):
@@ -335,7 +363,7 @@ def test_mass_conservation(ncomp: int, nphase: int) -> None:
 
 
 @pytest.mark.parametrize("nphase", [1, 2, 5])
-@pytest.mark.parametrize("ncomp", [2, 5])
+@pytest.mark.parametrize("ncomp", [1, 2, 5])
 def test_complementary_conditions(ncomp: int, nphase: int) -> None:
     """Tests if the complementary conditions are correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order.
@@ -346,10 +374,7 @@ def test_complementary_conditions(ncomp: int, nphase: int) -> None:
     """
     spec = flash.FlashSpec.pT
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
-    # Last nf entries of generic argument coorespond to phase and partial fractions.
     nf = ncomp * nphase + nphase - 1
-    # NOTE directions implemented here have knowledge about how generic argument is
-    # assembled, which can lead to errors if any change happens there.
     directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     def func(*x):
@@ -398,3 +423,75 @@ def test_complementary_conditions(ncomp: int, nphase: int) -> None:
     for d in directions:
         orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
         assert_order_at_least(orders, 2.0, tol=1e-3)
+
+
+@pytest.mark.parametrize("nphase", [1, 2, 5])
+@pytest.mark.parametrize("ncomp", [1, 2, 5])
+@pytest.mark.parametrize("w_flag", [True, False])
+def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
+    """Tests if the first-order constraint is correctly implemented and its
+    Jacobian function allows the Taylor approximation to be of second order."""
+    spec = flash.FlashSpec.vh
+    dim = flash.dim_gen_arg(ncomp, nphase, spec)
+    nf = ncomp * nphase + 2 * (nphase - 1) + 2
+    # NOTE directions implemented here have knowledge about how generic argument is
+    # assembled, which can lead to errors if any change happens there.
+    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
+
+    # Target value of the constraint.
+    phi = np.random.rand()
+
+    def func(*x):
+        xgen = np.array(x)
+        sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        phis = np.array([_dummy_property(p, T, x_) for x_ in x])
+        res = flash.first_order_constraint_res(phi, y if w_flag else sat, phis)
+        assert res.shape == (1,), "Residual of unexpected shape."
+        return res
+
+    def dfunc(*x):
+        xgen = np.array(x)
+        sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        phis = np.array([_dummy_property(p, T, x_) for x_ in x])
+        dphis = np.array([_dummy_property_derivative(p, T, x_) for x_ in x])
+        jac = flash.first_order_constraint_jac(
+            y if w_flag else sat, phis, dphis, w_flag
+        )
+        assert jac.shape == (1, nf), "Jacobian of unexpected shape."
+        if w_flag:
+            assert np.all(jac[:, 2 : 2 + nphase - 1] == 0), (
+                "Jacobian has non-trivial derivatives for sat."
+            )
+        else:
+            assert np.all(jac[:, 2 + nphase - 1 : 2 + 2 * (nphase - 1)] == 0), (
+                "Jacobian has non-trivial derivatives for y."
+            )
+        return np.hstack((np.zeros((1, dim - nf)), jac[:, -nf:]))
+
+    # If weights are zero, or the phis are zero, we expect -phi
+    w = np.zeros(nphase)
+    phis = np.random.random((nphase,))
+    res = flash.first_order_constraint_res(phi, w, phis)
+    assert np.all(res == -phi), "Unexpected residual values."
+    res = flash.first_order_constraint_res(phi, phis, w)
+    assert np.all(res == -phi), "Unexpected residual values."
+    # If target value is zero, we expect the dot product of the weights and phis
+    w = np.random.random((nphase,))
+    res = flash.first_order_constraint_res(0.0, w, phis)
+    assert np.allclose(res, np.dot(w, phis), rtol=0.0), "Unexpected residual values."
+    res = flash.first_order_constraint_res(0.0, phis, w)
+    assert np.allclose(res, np.dot(w, phis), rtol=0.0), "Unexpected residual values."
+    # If w=1 and phis = phi / nphase, we expect zero residual
+    w = np.ones(nphase)
+    phis = np.ones(nphase) * phi / nphase
+    res = flash.first_order_constraint_res(phi, w, phis)
+    assert np.allclose(res, 0, rtol=0.0), "Unexpected residual values."
+    res = flash.first_order_constraint_res(phi, phis, w)
+    assert np.allclose(res, 0, rtol=0.0), "Unexpected residual values."
+
+    Xgen = np.random.random((dim,))
+    h = np.logspace(0, -10, 11)
+
+    for d in directions:
+        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+        assert_order_at_least(orders, 2.0, tol=1e-2)

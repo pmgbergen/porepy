@@ -778,7 +778,6 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
 
     for j in range(1, nphase):
         res[(j - 1) * ncomp : j * ncomp] = x[j] * phis[j] - x[0] * phis[0]
-        # res[(j - 1) * ncomp : j * ncomp] = x[j] * phis[j] / phis[0] - x[0]
 
     return res
 
@@ -917,6 +916,9 @@ def first_order_constraint_jac(
 
             True for fractions, False for saturations. The columns of the saturation
             derivatives come before the fraction derivatives.
+
+            If True, the columns ``2 : 2 + num_phases - 1`` are zero, otherwise
+            the columns ``2 + num_phases - 1: 2 + 2*(num_phases - 1)`` are zero.
 
     Returns:
         The Jacobian of shape ``(1, 2 + 2 * (num_phases - 1) + num_phases *
