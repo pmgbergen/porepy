@@ -17,17 +17,19 @@ from tests.compositional.peng_robinson.test_cubic_polynomial import (
 )
 
 
-def _dummy_property(p: float, T: float, x: np.ndarray) -> float:
+def _dummy_property(p: float, T: float, x: np.ndarray, power: int = 2) -> float:
     """A dummy phase property as assumed by the flash framework.
 
     It takes a pressure and temperature value, as well as partial fractions and returns
     a float.
 
     """
-    return p**2 + T**2 + (x**2).sum()
+    return p**power + T**power + (x**power).sum()
 
 
-def _dummy_property_derivative(p: float, T: float, x: np.ndarray) -> float:
+def _dummy_property_derivative(
+    p: float, T: float, x: np.ndarray, power: int = 2
+) -> float:
     """A dummy phase property derivative as assumed by the flash framework.
 
     Contains the analytical derivative of :func:`_dummy_property`.
@@ -38,7 +40,10 @@ def _dummy_property_derivative(p: float, T: float, x: np.ndarray) -> float:
     """
     n = x.shape[0]
     assert x.shape == (n,)
-    d = np.array([2 * p, 2 * T] + [2 * x_ for x_ in x])
+    d = np.array(
+        [power * p ** (power - 1), power * T ** (power - 1)]
+        + [power * x_ ** (power - 1) for x_ in x]
+    )
     assert d.shape == (2 + n,)
     return d
 
@@ -304,6 +309,7 @@ def test_generic_arg_from_result_struture(
 # flash argument. If that changes, the tests need adaption.
 
 
+# Mass constraint for 1 component is always a dependent equation and never assembled.
 @pytest.mark.parametrize("nphase", [1, 2, 5])
 @pytest.mark.parametrize("ncomp", [2, 5])
 def test_mass_conservation(ncomp: int, nphase: int) -> None:
@@ -351,7 +357,7 @@ def test_mass_conservation(ncomp: int, nphase: int) -> None:
 
     # If only 1 component, the mass conservation equations should be empty.
     assert flash.mass_conservation_res(x, y, np.ones(1)).shape == (0,), (
-        "Unexpacted residual shape for 1 component."
+        "Unexpected residual shape for 1 component."
     )
 
     Xgen = np.random.random((dim,))
@@ -549,3 +555,97 @@ def test_phase_mass_constraint(ncomp: int, nphase: int) -> None:
     for d in directions:
         orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
         assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
+
+
+# Isofugacity constraints make no sense for 1 phase.
+@pytest.mark.parametrize("nphase", [2, 5])
+@pytest.mark.parametrize("ncomp", [1, 2, 5])
+def test_isofugacity_constraints(ncomp: int, nphase: int) -> None:
+    """Tests if the isofugacity constraints constraints are correctly implemented and
+    its Jacobian function allows the Taylor approximation to be of second order."""
+    spec = flash.FlashSpec.vh
+    dim = flash.dim_gen_arg(ncomp, nphase, spec)
+    nf = ncomp * nphase + 2 * (nphase - 1) + 2
+    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
+    # Isofugacity constraints do not depend on saturations or phase fractions, hence
+    # remove the directions.
+    directions = np.vstack((directions[:2], directions[2 + 2 * (nphase - 1) :]))
+
+    def func(*x):
+        xgen = np.array(x)
+        _, x, _, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        phis = np.array(
+            [[_dummy_property(p, T, x_, power=i + 1) for i in range(ncomp)] for x_ in x]
+        )
+        assert phis.shape == x.shape
+        res = flash.isofugacity_constraints_res(x, phis)
+        assert res.shape == ((nphase - 1) * ncomp,), "Residual of unexpected shape."
+        return res
+
+    def dfunc(*x):
+        xgen = np.array(x)
+        _, x, _, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        phis = np.array(
+            [[_dummy_property(p, T, x_, power=i + 1) for i in range(ncomp)] for x_ in x]
+        )
+        dphis = np.array(
+            [
+                [
+                    _dummy_property_derivative(p, T, x_, power=i + 1)
+                    for i in range(ncomp)
+                ]
+                for x_ in x
+            ]
+        )
+        assert phis.shape == x.shape
+        assert dphis.shape == (nphase, ncomp, 2 + ncomp)
+        jac = flash.isofugacity_constraints_jac(x, phis, dphis)
+        assert jac.shape == ((nphase - 1) * ncomp, nf), "Jacobian of unexpected shape."
+        return np.hstack((np.zeros(((nphase - 1) * ncomp, dim - nf)), jac))
+
+    # If partial fractions in independent phases are zero, or their phis, we get only
+    # the part containing the reference phase -x_r phi_r
+    x = np.array([np.ones(ncomp)] + [np.zeros(ncomp)] * (nphase - 1))
+    phis = np.random.random((nphase, ncomp))
+    res = flash.isofugacity_constraints_res(x, phis)
+    assert np.all(res == -np.hstack([x[0] * phis[0]] * (nphase - 1))), (
+        "Unexpected residual values."
+    )
+    res = flash.isofugacity_constraints_res(phis, x)
+    assert np.all(res == -np.hstack([x[0] * phis[0]] * (nphase - 1))), (
+        "Unexpected residual values."
+    )
+    # Vice versa if the reference phase partial fractions or fugacities are zero, we
+    # get a stack of x_j * phi_j
+    x = np.array([np.zeros(ncomp)] + [np.ones(ncomp)] * (nphase - 1))
+    phis = np.random.random((nphase, ncomp))
+    res = flash.isofugacity_constraints_res(x, phis)
+    res = flash.isofugacity_constraints_res(x, phis)
+    assert np.all(res == np.hstack([x[j] * phis[j] for j in range(1, nphase)])), (
+        "Unexpected residual values."
+    )
+    res = flash.isofugacity_constraints_res(phis, x)
+    assert np.all(res == np.hstack([x[j] * phis[j] for j in range(1, nphase)])), (
+        "Unexpected residual values."
+    )
+    # If all x are zero, or all phis, the result is a zero array.
+    x = np.zeros((nphase, ncomp))
+    phis = np.random.random((nphase, ncomp))
+    res = flash.isofugacity_constraints_res(x, phis)
+    assert np.all(res == 0.0), "Unexpected residual values."
+    res = flash.isofugacity_constraints_res(phis, x)
+    assert np.all(res == 0.0), "Unexpected residual values."
+
+    # If only 1 phase, the isofugacity constraints return a zero array.
+    x = np.random.random((1, ncomp))
+    phis = np.random.random((1, ncomp))
+    res = flash.isofugacity_constraints_res(x, phis)
+    assert res.shape == (0,), "Unexpected residual shape for 1 phase."
+
+    Xgen = np.random.random((dim,))
+    h = np.logspace(0, -10, 11)
+
+    for d in directions:
+        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+        # assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
+        assert_order_at_least(orders, 2.0, tol=1e-3)
