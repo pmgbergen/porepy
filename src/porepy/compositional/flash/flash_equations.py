@@ -659,7 +659,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         jac[i, :nip] = x[1:, i + 1] - x[0, i + 1]  # i + 1 to skip ref component
 
         # d.r.t. w.r.t x_ij is always y_j for all j per mass conv.
-        jac[i, nphase + i :: nphase] = y  # nphase -1 + i + 1 to skip ref component
+        jac[i, nphase + i :: ncomp] = y  # nphase -1 + i + 1 to skip ref component
 
     # Adding trivial derivatives w.r.t. p, T and saturations
     return np.hstack((np.zeros((ncomp - 1, 2 + nip), dtype=np.float64), jac))
