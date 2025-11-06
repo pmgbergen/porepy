@@ -310,21 +310,87 @@ def test_mass_conservation(ncomp: int, nphase: int) -> None:
     y = np.zeros(nphase)
     x = np.random.random((nphase, ncomp))
     res = flash.mass_conservation_res(x, y, z)
-    assert np.all(res == -z[1:]), "Unexpected residual values"
+    assert np.all(res == -z[1:]), "Unexpected residual values."
     y = np.random.random((nphase,))
     x = np.zeros((nphase, ncomp))
     res = flash.mass_conservation_res(x, y, z)
-    assert np.all(res == -z[1:]), "Unexpected residual values"
+    assert np.all(res == -z[1:]), "Unexpected residual values."
     # If x = 1 and y = 1/nphase (homogenous mass distribution), result should be 1 - z
     y = np.ones(nphase) / nphase
     x = np.ones((nphase, ncomp))
     res = flash.mass_conservation_res(x, y, z)
-    assert np.all(res == 1.0 - z[1:]), "Unexpected residual values"
+    assert np.all(res == 1.0 - z[1:]), "Unexpected residual values."
 
     # If only 1 component, the mass conservation equations should be empty.
     assert flash.mass_conservation_res(x, y, np.ones(1)).shape == (0,), (
         "Unexpacted residual shape for 1 component."
     )
+
+    Xgen = np.random.random((dim,))
+    h = np.logspace(0, -10, 11)
+
+    for d in directions:
+        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+        assert_order_at_least(orders, 2.0, tol=1e-3)
+
+
+@pytest.mark.parametrize("nphase", [1, 2, 5])
+@pytest.mark.parametrize("ncomp", [2, 5])
+def test_complementary_conditions(ncomp: int, nphase: int) -> None:
+    """Tests if the complementary conditions are correctly implemented and its
+    Jacobian function allows the Taylor approximation to be of second order.
+
+    We test the smooth version without the inequality constraints. I.e., just the
+    multiplication of fractions and unity of partial fractions per phase.
+
+    """
+    spec = flash.FlashSpec.pT
+    dim = flash.dim_gen_arg(ncomp, nphase, spec)
+    # Last nf entries of generic argument coorespond to phase and partial fractions.
+    nf = ncomp * nphase + nphase - 1
+    # NOTE directions implemented here have knowledge about how generic argument is
+    # assembled, which can lead to errors if any change happens there.
+    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
+
+    def func(*x):
+        xgen = np.array(x)
+        _, x, y, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        res = flash.complementary_conditions_res(x, y)
+        assert res.shape == (nphase,), "Residual of unexpected shape."
+        return res
+
+    def dfunc(*x):
+        xgen = np.array(x)
+        _, x, y, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
+        jac = flash.complementary_conditions_jac(x, y)
+        assert jac.shape == (nphase, nf + 2 + nphase - 1), (
+            "Jacobian of unexpected shape."
+        )
+        assert np.all(jac[:, : 2 + nphase - 1] == 0), (
+            "Jacobian has non-trivial derivatives for p, T and sat."
+        )
+        return np.hstack((np.zeros((nphase, dim - nf)), jac[:, -nf:]))
+
+    # If y is zero, the complementary conditions are zero.
+    y = np.zeros(nphase)
+    x = np.random.random((nphase, ncomp))
+    res = flash.complementary_conditions_res(x, y)
+    assert np.all(res == 0.0), "Unexpected residual values."
+    # If x are homogenous, the unity of fractions leads to zero.
+    y = np.random.random((nphase,))
+    x = np.ones((nphase, ncomp)) / ncomp
+    res = flash.complementary_conditions_res(x, y)
+    assert np.all(res == 0.0), "Unexpected residual values."
+    # If x = 0, we should get y
+    y = np.random.random((nphase,))
+    x = np.zeros((nphase, ncomp))
+    res = flash.complementary_conditions_res(x, y)
+    assert np.all(res == y), "Unexpected residual values."
+    # If y = 1, we should get the unity of fractions
+    y = np.ones(nphase)
+    x = np.random.random((nphase, ncomp))
+    res = flash.complementary_conditions_res(x, y)
+    assert np.all(res == 1 - x.sum(axis=1)), "Unexpected residual values."
 
     Xgen = np.random.random((dim,))
     h = np.logspace(0, -10, 11)
