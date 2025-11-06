@@ -299,11 +299,8 @@ def parse_generic_arg(
 
     # The final standard elements of the generic argument are the independent overall
     # compositions.
-    if ncomp > 1:
-        z[1:] = X_gen[-(i + ncomp - 1) : -i]
-        z[0] = 1.0 - z.sum()
-    else:
-        z[0] = 1.0
+    z[1:] = X_gen[-(i + ncomp - 1) : -i]
+    z[0] = 1.0 - z.sum()
     i += ncomp - 1
 
     # Other parameters, if any.

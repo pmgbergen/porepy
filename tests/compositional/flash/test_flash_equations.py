@@ -229,14 +229,11 @@ def test_generic_arg_from_result_struture(
 
         assert np.all(xb == 0.0)
         # The parsing assembles the reference entities by unity of fractions
-        if nphase == 1:
-            assert np.all(satb == 1.0)
-            assert np.all(yb == 1.0)
-        else:
+        assert np.all(yb[0] == 1)
+        assert np.all(satb[0] == 1)
+        if nphase > 1:
             assert np.all(satb[1:] == 0)
-            assert np.all(satb[0] == 1)
             assert np.all(yb[1:] == 0)
-            assert np.all(yb[0] == 1)
 
         if ncomp == 1:
             assert np.all(zb == 1)
