@@ -568,6 +568,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         # Vectorized, generic flash argument as initial guess.
         X0 = generic_arg_from_flash_results(
             results,
+            self.params["num_components"],
+            self.params["num_phases"],
             bool(initial_state),
             params.get("gen_arg_params", None),
         )

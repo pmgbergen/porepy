@@ -64,60 +64,71 @@ _COMPILER = njit
 
 def generic_arg_from_flash_results(
     results: FlashResults,
+    ncomp: int,
+    nphase: int,
     state_is_initialized: bool = False,
     params: Optional[Sequence[np.ndarray]] = None,
 ) -> np.ndarray:
-    # Unknowns in all flash types are independent phase fractions and partial fractions.
+    """Assembles a generic argument from a given flash results data structure.
 
+    ``results`` must at least contained the fields indicated by its flash specification.
+
+    See also:
+        :func:`assemble_generic_arg`, :func:`assemble_vectorized_generic_arg`
+
+    Parameters:
+        results: Flash result data structure with valid flash specification and
+            equilibrium state values.
+        ncomp: Number of components.
+        nphase: Number of phases.
+        state_is_initialized: If True, values for partial fractions and other degrees of
+            freedom according to the flash specification are extracted from ``results``
+            as well. Otherwise they are instantiated with zero.
+        params: Parameter array.
+
+    Returns:
+        The generic argument as returned by :func:`assemble_vectorized_generic_arg`.
+
+    """
+    spec = results.specification
+    N = results.size
+
+    if params is None:
+        params = np.zeros((0, N))
     # Target states depending on flash type.
+    z = results.z
+    assert z.shape == (ncomp, N), "Overall compositions of unexpected shape."
     state1: np.ndarray = getattr(results, results.specification.name[0])
     state2: np.ndarray = getattr(results, results.specification.name[1])
-    dofs = results.size
-    ncomp = results.z.shape[0]
-    nphase = len(results.phases)
 
-    # Second dimension for vectorized input.
-    X_gen = np.zeros((ncomp + 1 + dofs, results.size))
+    if (spec >= FlashSpec.vT and state_is_initialized) or spec < FlashSpec.vT:
+        p = results.p
+    else:
+        p = np.zeros(N)
+    if (spec not in [FlashSpec.pT, FlashSpec.vT] and state_is_initialized) or spec in [
+        FlashSpec.pT,
+        FlashSpec.vT,
+    ]:
+        T = results.T
+    else:
+        T = np.zeros(N)
 
-    # Filling the independent overall fractions into gen arg
-    for i in range(ncomp - 1):
-        X_gen[i] = results.z[i + 1]
-    # Filling of target state
-    X_gen[ncomp - 1] = state1
-    X_gen[ncomp] = state2
-
-    # If initial fluid state is given, insert values in gen arg.
     if state_is_initialized:
-        # Index of first fractional variable.
-        idx_f = -(nphase * ncomp + nphase - 1)
-        # Phase fractions and partial fractions.
-        for j in range(nphase):
-            # Skip dependent phase fraction.
-            if j > 0:
-                X_gen[idx_f + j - 1] = results.y[j]
-            for i in range(ncomp):
-                X_gen[-((nphase - j) * ncomp) + i] = results.phases[j].x[i]
+        y = results.y
+        x = np.array([phase.x for phase in results.phases])
+        assert x.shape == (nphase, ncomp, N), "Partial fractions of unexpected shape."
+    else:
+        y = np.zeros((nphase, N))
+        x = np.zeros((nphase, ncomp, N))
 
-        # If isochoric specifications, saturations are variables.
-        if results.specification >= FlashSpec.vT:
-            # Index of first fractional variable changes.
-            idx_f -= nphase - 1
-            for j in range(1, nphase):
-                X_gen[idx_f + j - 1] = results.sat[j]
+    if spec >= FlashSpec.vT and state_is_initialized:
+        sat = results.sat
+    else:
+        sat = np.zeros((nphase, N))
 
-        # For any flash type, p and T are always stored right before fractional values.
-        X_gen[idx_f - 1] = results.T
-        X_gen[idx_f - 2] = results.p
-
-    # If parameters are given, store them as first elements.
-    if params is not None:
-        X_params = np.zeros((len(params), results.size))
-        for i, p in enumerate(params):
-            X_params[i] = p
-        X_gen = np.vstack((X_params, X_gen))
-
-    # Transpose for vectorization of input over rows.
-    return X_gen.T
+    return assemble_vectorized_generic_arg(
+        sat, x, y, z, p, T, state1, state2, params, spec
+    )
 
 
 @_COMPILER(
@@ -152,6 +163,8 @@ def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
         - 1  # Independent overall compositions.
         + 2  # Pressure and temperature.
     )
+    if spec == FlashSpec.none:
+        raise ValueError("Dimension not determinable if flash not specified.")
 
     # If it is isobaric and T is not among the target states, we need 1 more target
     # state value related to energy
@@ -233,6 +246,8 @@ def parse_generic_arg(
         If no parameters are stored, the parameter array is a zero array.
 
     """
+    if spec == FlashSpec.none:
+        raise ValueError("No safe parsing possible if flash not specified.")
 
     sat = np.zeros(nphase)
     y = np.zeros(nphase)
@@ -252,8 +267,8 @@ def parse_generic_arg(
     # If isochoric specifications, saturations are unknowns.
     if spec >= FlashSpec.vT:
         sat[1:] = X_gen[-(i + nphase - 1) : -i]
-        sat[0] = 1.0 - sat.sum()
         i += nphase - 1
+    sat[0] = 1.0 - sat.sum()
 
     # pressure and temperature are always the last (seen from back) unknowns.
     p, T = X_gen[-(i + 2) : -i]
