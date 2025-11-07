@@ -111,13 +111,13 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
 
 
 def compute_circumcenter_2d(
-    sd: pp.TriangleGrid, minimum_angle=np.pi * 0.45
+    sd: pp.TriangleGrid, threshold_angle=np.pi * 0.45
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute circumcenters of triangular cells in 2D grid.
 
     Parameters:
         sd: A 2D structured or unstructured triangular grid.
-        minimum_angle: Threshold angle (in radians). The circumcenter will replace the
+        threshold_angle: Threshold angle (in radians). The circumcenter will replace the
             cell center only in those triangles where all angles in the triangle are
             below this threshold.
 
@@ -126,8 +126,8 @@ def compute_circumcenter_2d(
 
     Returns:
         Tuple with:
-        - New cell centers where circumcenters have replaced original centers
-          for cells with all angles below minimum_angle.
+        - New cell centers where circumcenters have replaced original centers for cells
+            with all angles below minimum_angle.
         - A boolean array indicating which cells had their centers replaced.
 
     Raises:
@@ -175,21 +175,26 @@ def compute_circumcenter_2d(
     dot_2 = (x0 - x2) * (x1 - x2) + (y0 - y2) * (y1 - y2)
 
     # Guard against tiny numerical drift in the acos argument by clipping to [-1, 1]
-    # to avoid NaNs for nearly-degenerate or floating-point perturbed inputs.
+    # to avoid NaNs for nearly-degenerate or floating-point perturbed inputs. Ignoring
+    # invalid value warnings since we handle them via clipping.
     with np.errstate(invalid="ignore"):
         cos0 = np.clip(dot_0 / (d_01 * d_20), -1.0, 1.0)
         cos1 = np.clip(dot_1 / (d_01 * d_12), -1.0, 1.0)
         cos2 = np.clip(dot_2 / (d_12 * d_20), -1.0, 1.0)
-        angle_0 = np.arccos(cos0)
-        angle_1 = np.arccos(cos1)
-        angle_2 = np.arccos(cos2)
+    angle_0 = np.arccos(cos0)
+    angle_1 = np.arccos(cos1)
+    angle_2 = np.arccos(cos2)
     # Verify that angles sum to pi.
     if not np.allclose(angle_0 + angle_1 + angle_2, np.pi):
         raise ValueError("Computed angles do not sum to pi.")
     # Replace cell centers with circumcenters for cells with all angles below
-    # minimum_angle.
+    # threshold_angle.
     replace = np.logical_and.reduce(
-        [angle_0 < minimum_angle, angle_1 < minimum_angle, angle_2 < minimum_angle]
+        [
+            angle_0 < threshold_angle,
+            angle_1 < threshold_angle,
+            angle_2 < threshold_angle
+        ]
     )
     cc[0, replace] = xc[replace]
     cc[1, replace] = yc[replace]
@@ -205,9 +210,9 @@ def compute_circumcenter_3d(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
 
     Returns:
         Tuple with:
-        - New cell centers where circumcenters have replaced original centers
-          for cells where the circumcenter is inside the cell and at a reasonable
-          distance from faces.
+        - New cell centers where circumcenters have replaced original centers for cells
+            where the circumcenter is inside the cell and at a reasonable distance from
+            faces.
         - A boolean array indicating which cells had their centers replaced.
 
     Raises:
