@@ -442,24 +442,27 @@ def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     r1 = get_r1(c2, c1)
     r0 = get_r0(c2, c1, c0)
 
-    g = _get_Gamma(r1, r0)
-
-    if r1 < 0.0:
-        absg = np.abs(g)
-        t1 = -_get_t1(-r1)
-
-        # Special case for numerical stability.
-        if 1.0 - 1e-14 < absg < 1.0 + 1e-14:
-            t1 *= -1.0
-            t2 = 1.0
-        else:
-            t2 = np.sign(r0) * np.cosh(np.arccosh(absg) / 3.0)
-
-    elif r1 > 0.0:
-        t1 = _get_t1(r1)
-        t2 = np.sinh(np.arcsinh(g) / 3.0)
+    if r1 == 0.0:
+        t1 = 1.0 / 3.0
+        t2_ = c2**3 - 27.0 * c0
+        t2 = np.cbrt(np.abs(t2_)) * np.sign(t2_)
     else:
-        raise ValueError("r1 cannot be zero for one real root.")
+        g = _get_Gamma(r1, r0)
+
+        if r1 < 0.0:
+            absg = np.abs(g)
+            t1 = -_get_t1(-r1)
+
+            # Special case for numerical stability.
+            if 1.0 - 1e-14 < absg < 1.0 + 1e-14:
+                t1 *= -1.0
+                t2 = 1.0
+            else:
+                t2 = np.sign(r0) * np.cosh(np.arccosh(absg) / 3.0)
+
+        elif r1 > 0.0:
+            t1 = _get_t1(r1)
+            t2 = np.sinh(np.arcsinh(g) / 3.0)
 
     return np.array([t1 * t2]) - c2 / 3.0
 
@@ -485,48 +488,60 @@ def d_one_root(c2: float, c1: float, c0: float) -> np.ndarray:
     r1 = get_r1(c2, c1)
     r0 = get_r0(c2, c1, c0)
 
-    dr1 = get_dr1(c2)
-    dr0 = get_dr0(c2, c1)
+    if r1 == 0.0:
+        t2_ = c2**3 - 27.0 * c0
 
-    g = _get_Gamma(r1, r0)
-    dg = _get_dGamma(r1, r0)
-    dg = dg[0] * dr1 + dg[1] * dr0
+        t1 = 1.0 / 3.0
+        t2 = np.cbrt(np.abs(t2_))
 
-    if r1 < 0.0:
-        absg = np.abs(g)
-
-        t1 = -_get_t1(-r1)
-        dt1 = _get_dt1(-r1) * dr1
-
-        dt2 = np.zeros(3)
-
-        # Special case for numerical stability.
-        if 1.0 - 1e-14 < absg < 1.0 + 1e-14:
-            t1 *= -1.0
-            dt1 *= -1.0
-            t2 = 1.0
-        else:
-            t = np.cosh(np.arccosh(absg) / 3.0)
-            t2 = np.sign(r0) * t
-            dt2 = (
-                np.sign(r0)
-                * np.sinh(np.arccosh(absg) / 3.0)
-                / np.sqrt(absg**2 - 1.0)
-                * np.sign(g)
-                * dg
-                / 3.0
-            )
-            if np.abs(r0) <= 1e-14:
-                dt2 += t * dr0
-
-    elif r1 > 0.0:
-        t1 = _get_t1(r1)
-        t2 = np.sinh(np.arcsinh(g) / 3.0)
-
-        dt1 = _get_dt1(r1) * dr1
-        dt2 = np.cosh(np.arcsinh(g) / 3.0) / np.sqrt(g**2 + 1.0) * dg / 3.0
+        dt1 = np.zeros(3)
+        dt2 = (
+            1.0
+            / np.cbrt(np.abs(t2_) ** 2)
+            * np.sign(t2_)
+            * np.array([3 * c2**2, 0.0, -27.0])
+        )
     else:
-        raise ValueError("r1 cannot be zero for one real root.")
+        dr1 = get_dr1(c2)
+        dr0 = get_dr0(c2, c1)
+
+        g = _get_Gamma(r1, r0)
+        dg = _get_dGamma(r1, r0)
+        dg = dg[0] * dr1 + dg[1] * dr0
+
+        if r1 < 0.0:
+            absg = np.abs(g)
+
+            t1 = -_get_t1(-r1)
+            dt1 = _get_dt1(-r1) * dr1
+
+            dt2 = np.zeros(3)
+
+            # Special case for numerical stability.
+            if 1.0 - 1e-14 < absg < 1.0 + 1e-14:
+                t1 *= -1.0
+                dt1 *= -1.0
+                t2 = 1.0
+            else:
+                t = np.cosh(np.arccosh(absg) / 3.0)
+                t2 = np.sign(r0) * t
+                dt2 = (
+                    np.sign(r0)
+                    * np.sinh(np.arccosh(absg) / 3.0)
+                    / np.sqrt(absg**2 - 1.0)
+                    * np.sign(g)
+                    * dg
+                    / 3.0
+                )
+                if np.abs(r0) <= 1e-14:
+                    dt2 += t * dr0
+
+        elif r1 > 0.0:
+            t1 = _get_t1(r1)
+            t2 = np.sinh(np.arcsinh(g) / 3.0)
+
+            dt1 = _get_dt1(r1) * dr1
+            dt2 = np.cosh(np.arcsinh(g) / 3.0) / np.sqrt(g**2 + 1.0) * dg / 3.0
 
     z = t1 * dt2 + dt1 * t2 - np.array([1.0 / 3.0, 0.0, 0.0])
     return z.reshape((1, 3))

@@ -33,9 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 class IsobaricSpecifications(TypedDict):
-    """Typed dictionary for isobaric specifying equilibrium conditions.
+    """Typed dictionary for isobaric equilibrium specifications.
 
-    The pressure values are obligatory, and one energy-related variable is required.
+    The pressure values are obligatory and one energy-related variable is required.
 
     """
 

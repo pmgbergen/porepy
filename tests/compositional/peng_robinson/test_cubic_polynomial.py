@@ -8,8 +8,9 @@ from typing import Callable
 import numpy as np
 import pytest
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+import os
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
@@ -223,6 +224,21 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
             np.array([-3 * np.sqrt(2), 6, -2 * np.sqrt(2)]),
             np.array([np.sqrt(2)]),
             0,
+        ),
+        (  # x**3 + 1
+            np.array([0.0, 0.0, 1.0]),
+            np.array([-1]),
+            1,
+        ),
+        (  # x**3 - 1
+            np.array([0.0, 0.0, -1.0]),
+            np.array([1]),
+            1,
+        ),
+        (
+            np.array([2.0, 4.0 / 3.0, 1.0]),
+            np.array([-2 - np.cbrt(19)]) / 3.0,
+            1,
         ),
         (  # Peng-Robinson EoS critical point
             np.array(

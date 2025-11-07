@@ -903,7 +903,7 @@ class CompiledPengRobinson(CompiledEoS):
         h_ideal_c = self._cfuncs["h_ideal"]
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
-        def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+        def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return h_ideal_c(p, T, xn) + h_dep_c(
                 p, T, xn, prearg[0], prearg[1], prearg[2]
             )
@@ -941,7 +941,7 @@ class CompiledPengRobinson(CompiledEoS):
         rho_c_ = self._cfuncs["rho"]
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
-        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+        def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return rho_c_(p, T, prearg[2])
 
         return rho_c
