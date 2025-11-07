@@ -210,7 +210,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         for k, v in solver_params.items():
             self._nb_solver_params[k] = float(v)
 
-    def compile(self, *args: tuple[FlashSpec, ...]) -> None:
+    def compile(self, *args: FlashSpec) -> None:
         """Triggers the assembly and compilation of equilibrium equations, as well as
         the EoS if not already compiled.
 

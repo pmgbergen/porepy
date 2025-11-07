@@ -8,10 +8,10 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
 
-import matplotlib as mpl
 import numba as nb
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap, BoundaryNorm
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
@@ -235,6 +235,9 @@ class AbstractFlash(abc.ABC):
             solver_params = self.params.get("solver_params")
             assert isinstance(solver_params, dict)
             self.solver_params.update(solver_params)
+
+        self._phasesplit_code_shift = 1000
+        """Used for encoding phasesplit plot."""
 
     def parse_flash_arguments(
         self,
@@ -716,9 +719,23 @@ class AbstractFlash(abc.ABC):
         # Parse plottign options and create figure.
 
         default_plotkwargs: dict[str, Any] = {
-            "cmap": "viridis",
             "shading": "nearest",
+            "label": field,
         }
+        if field == "phasesplit":
+            cmap, norm, cbticks, cblabels = self._get_split_cmap(vals)
+            default_plotkwargs.update(
+                {
+                    "cmap": cmap,
+                    "norm": norm,
+                }
+            )
+        else:
+            default_plotkwargs.update(
+                {
+                    "cmap": "viridis",
+                }
+            )
         if plotkwargs is None:
             plotkwargs = {}
         default_plotkwargs.update(plotkwargs)
@@ -734,6 +751,11 @@ class AbstractFlash(abc.ABC):
             label=field,
             **default_plotkwargs,
         )
+        cax = ax.inset_axes((1.01, 0.2, 0.05, 0.6))
+        cb_rr = fig.colorbar(img, ax=ax, cax=cax, orientation="vertical")
+        if field == "phasesplit":
+            cb_rr.set_ticks(cbticks)
+            cb_rr.set_ticklabels(cblabels)
 
         return fig
 
@@ -753,9 +775,21 @@ class AbstractFlash(abc.ABC):
             else:
                 yG = np.zeros(y.shape[1])
                 yL = y
-            vals = np.array(["V" if yg > 0.0 else "" for yg in yG], dtype=str)
-            has_liquid = (yL > 0.0).sum(axis=0).astype(int)
-            vals += np.array(["L" * i if i > 0 else "" for i in has_liquid], dtype=str)
+            has_liquid: np.ndarray = (yL > 0.0).sum(axis=0).astype(int)
+            # Encoding values:
+            # 0 - gas only
+            # i in [1, 999], gas with i liquids
+            # i in [1001, 2000], 1001 1 liquid, 1002 2 liquid ...
+            vals = has_liquid.copy()
+            # Where no gas, shift by coding factor.
+            vals[yG <= 0.0] += self._phasesplit_code_shift
+            # Sanity check that pure gas is indicated by zero.
+            assert np.all(vals[yG >= 1.0] == 0), "Phasesplit encoding failed."
+            # Sanity check that where gas is also present, values are below code factor.
+            assert np.all(vals[yG > 0] < self._phasesplit_code_shift), (
+                "Non-unique encoding."
+            )
+            vals = vals.astype(int)
         # Other values are extraced from the results directly.
         else:
             names = field.split("_")
@@ -823,3 +857,70 @@ class AbstractFlash(abc.ABC):
         assert isinstance(vals, np.ndarray), f"Failed to parse field {field}."
         assert vals.ndim == 1, f"Parsed field of unexpected dimension {vals.ndim}."
         return vals
+
+    def _get_split_cmap(
+        self, vals: np.ndarray
+    ) -> tuple[ListedColormap, BoundaryNorm, list[float], list[str]]:
+        """ "Helper method to construct a suitable colormap based on phase split."""
+
+        vals = np.unique(vals).astype(int)
+        colors: list[Any]
+        if np.any(vals == 0):
+            colors = ["wheat"]
+            ticks = [0.0]
+            labels = ["V"]
+            bounds = [-0.5, 0.5]
+        else:
+            colors = []
+            ticks = []
+            labels = []
+            bounds = [0.5]
+
+        # Colormap for (V)L+ discrete spectra.
+        vlcmap = LinearSegmentedColormap.from_list(
+            "VL+", [(0.0, "honeydew"), (1.0, "seagreen")]
+        )
+        lcmap = LinearSegmentedColormap.from_list(
+            "L+", [(0.0, "lightsteelblue"), (1.0, "darkblue")]
+        )
+        shift = self._phasesplit_code_shift
+        # Map VL splits (1 to max L in VL+ region) to 0-1 and get colors.
+        vlvals = vals[(vals > 0) & (vals < shift)]
+        # Map L splits (1 to max L in L+ region) to 0-1 and get colors
+        lvals = vals[vals > shift]
+
+        if np.any(vlvals):
+            m = vlvals.max()
+            ticks.append(1.0)
+            if m == 1:
+                labels.append("VL")
+                colors.append(vlcmap(0.0))
+                bounds.append(1.5)
+            else:
+                labels.append("VL1")
+                f = lambda x: -1 / (1 - m) * x + 1 / (1 - m)
+                for i in range(1, m + 1):
+                    colors.append(vlcmap(f(i)))
+                    bounds.append(i + 0.5)
+                ticks.append(m)
+                labels.append(f"VL{int(m)}")
+
+        if np.any(lvals):
+            m = lvals.max()
+            ticks.append(shift + 1)
+            if m == shift + 1:
+                labels.append("L")
+                colors.append(lcmap(0.0))
+                bounds.append(m + 1.5)
+            else:
+                labels.append("L1")
+                f = lambda x: -1 / (1 - m) * x + 1 / (1 - m)
+                for i in range(1 + shift, m + 1):
+                    colors.append(lcmap(f(i)))
+                    bounds.append(i + 0.5)
+                ticks.append(m)
+                labels.append(f"L{int(m - shift)}")
+
+        cmap = ListedColormap(colors)
+        norm = BoundaryNorm(bounds, cmap.N, clip=True)
+        return cmap, norm, ticks, labels

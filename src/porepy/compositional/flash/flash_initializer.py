@@ -575,7 +575,7 @@ class FlashInitializer:
 
         return initializer
 
-    def compile(self, *args: tuple[FlashSpec, ...]) -> None:
+    def compile(self, *args: FlashSpec) -> None:
         """Triggers the compilation of initialization routines.
 
         Parameters:
