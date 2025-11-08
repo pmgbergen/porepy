@@ -193,7 +193,7 @@ def compute_circumcenter_2d(
         [
             angle_0 < threshold_angle,
             angle_1 < threshold_angle,
-            angle_2 < threshold_angle
+            angle_2 < threshold_angle,
         ]
     )
     cc[0, replace] = xc[replace]
@@ -207,12 +207,14 @@ def compute_circumcenter_3d(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
 
     Parameters:
         sd: A 3D structured or unstructured grid.
-
+        threshold_angle: Threshold angle (in radians). The circumcenter will replace the
+            cell center only in those tetrahedra where all dihedral angles, i.e., the
+            angles between faces, are below this threshold.
     Returns:
         Tuple with:
         - New cell centers where circumcenters have replaced original centers for cells
-            where the circumcenter is inside the cell and at a reasonable distance from
-            faces.
+            where all dihedral angles are below ``threshold_angle`` (analogous to the 2D
+            version's triangle angles).
         - A boolean array indicating which cells had their centers replaced.
 
     Raises:
@@ -275,74 +277,47 @@ def compute_circumcenter_3d(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
     if np.max((max_distance - min_distance) / radius) >= 1e-10:
         raise ValueError("Circumcenter not equidistant from all nodes.")
 
-    # Build connectivity arrays.
-    fn = np.reshape(sd.face_nodes.tocsc().indices, (sd.dim, -1), order="F")
-    cf = np.reshape(sd.cell_faces.tocsc().indices, (sd.dim + 1, -1), order="F")
+    # Decide replacement using a dihedral-angle criterion analogous to 2D.
+    # For each cell, construct outward unit normals for its four faces, then compute
+    # the six internal dihedral angles and require all to be below the threshold.
+    cf_csc = sd.cell_faces.tocsc()
+    faces_idx = cf_csc.indices
+    faces_data = cf_csc.data
+    faces_ptr = cf_csc.indptr
 
-    xn = sd.nodes
-    # Compute face cross products and areas.
-    v1 = xn[:, fn[1]] - xn[:, fn[0]]
-    v2 = xn[:, fn[2]] - xn[:, fn[0]]
+    replace = np.zeros(sd.num_cells, dtype=bool)
+    for c in range(sd.num_cells):
+        loc = slice(faces_ptr[c], faces_ptr[c + 1])
+        f_loc = faces_idx[loc]
+        # Orientation sign per face relative to cell.
+        sgn = np.sign(faces_data[loc])
+        # Outward unit normals per face.
+        n = (sd.face_normals[:, f_loc] / sd.face_areas[f_loc]) * sgn
+        # Normalize to guard against numerical drift.
+        n = n / (np.linalg.norm(n, axis=0) + 1e-15)
 
-    face_cross = np.vstack(
-        (
-            v1[1] * v2[2] - v1[2] * v2[1],
-            v1[2] * v2[0] - v1[0] * v2[2],
-            v1[0] * v2[1] - v1[1] * v2[0],
-        )
-    )
+        # Compute all six dihedral angles between face pairs: θ = arccos( - n_i · n_j ).
+        # Pairs (0,1), (0,2), (0,3), (1,2), (1,3), (2,3).
+        angles_list: list[float] = []
+        for i in range(4):
+            for j in range(i + 1, 4):
+                dot = np.dot(n[:, i], n[:, j])
+                dot = float(np.clip(dot, -1.0, 1.0))
+                angles_list.append(float(np.arccos(-dot)))
+        dihedral_angles = np.array(angles_list, dtype=float)
+        # Replace iff all dihedral angles are below threshold.
+        replace[c] = bool(np.all(dihedral_angles < threshold_angle))
 
-    face_cross_area = np.linalg.norm(face_cross, axis=0)
-
-    distances_from_faces = []
-    inside_cell = []
-
-    for ci in range(cf.shape[0]):
-        fi = cf[ci]
-
-        # Is the face cross vector pointing into the cell?
-        cross_points_into_cell = np.sign(
-            np.sum(
-                face_cross[:, fi] * (sd.cell_centers - sd.face_centers[:, fi]),
-                axis=0,
-            )
-        )
-        # The height of the cell, measured as the distance from the current
-        # face to the oposite node
-        height = 6 * sd.cell_volumes / face_cross_area[fi]
-        unit_vec = face_cross[:, fi] / face_cross_area[fi]
-        # Distance from the plane of the current face to the computed circumcenter
-        distances_from_faces.append(
-            np.sum(unit_vec * (center.T - sd.face_centers[:, fi]), axis=0) / height
-        )
-        # Check whether the circumcenter is in the half space defined by the face
-        # normal pointing into the cell. This is the case if the distance has the same
-        # sign as the cross product vector.
-        inside_cell.append(
-            np.logical_and(
-                cross_points_into_cell == np.sign(distances_from_faces[-1]),
-                cross_points_into_cell != 0,
-            )
-        )
-    # The circumcenter is inside the cell if it is in the half space of all faces.
-    all_inside = np.all(inside_cell, axis=0)
-    logger.debug(
-        f"{all_inside.sum()} out of {sd.num_cells} cells have the circumcenter"
-        + "inside the cell."
-    )
-    # Compute the minimum distance from faces, normalized with cell height.
-    distances_from_faces = np.array(distances_from_faces)
-    min_distance = np.min(np.abs(distances_from_faces), axis=0)
-    # Cells where the circumcenter is inside and at a reasonable distance from faces
-    # can have their centers replaced.
-    replace = np.logical_and(all_inside, min_distance > 0.05)
     new_centers = sd.cell_centers.copy()
-    new_centers[:, replace] = center.T[:, replace]
+    if np.any(replace):
+        new_centers[:, replace] = center.T[:, replace]
 
     logger.info(
         "Replaced %d out of %d cell centers.", int(replace.sum()), int(sd.num_cells)
     )
-
+    # Additional verification: For internal faces between two cells that had their
+    # centers replaced, the vector between the two circumcenters should be parallel to
+    # the face normal for those faces.
     fc = sd.cell_faces_as_dense()
     # Note: fc = -1 (boundary faces) will not be found in replace. Thus, we only
     # consider internal faces here.
