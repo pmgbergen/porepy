@@ -5,16 +5,15 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
 import scipy.sparse as sps
-from scipy.sparse.linalg import inv as spsinv
 from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_parser, _ad_utils
+from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -613,7 +612,7 @@ class EquationSystem:
         the order of the argument.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.get_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -681,7 +680,7 @@ class EquationSystem:
             by ``variables`` will raise respective errors by numpy.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.set_solution_values`.
 
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
@@ -746,7 +745,7 @@ class EquationSystem:
         """Method for shifting stored time step values in data sub-dictionary.
 
         For details of the value shifting see the method
-        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+        :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -1236,6 +1235,49 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_equation(
+        self,
+        equation_name: str,
+        new_equation: Operator,
+        grids: Optional[DomainList] = None,
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+    ) -> None:
+        """Updates an existing equation with a new equation operator.
+
+        This method removes the existing equation and sets a new equation under the same
+        name as the old equation.
+
+        Parameters:
+            equation_name: Name of the equation to be updated.
+            new_equation: New equation in AD form.
+            grids: A list of subdomain *or* interface grids on which the equation is
+                defined. The default value is None, and in that case, the grids of the
+                previous equation are used.
+            equations_per_grid_entity: a dictionary describing how many equations
+                ``equation_operator`` provides. This is a temporary work-around until
+                operators are able to provide information on their image space. The
+                dictionary must contain the number of equations per grid entity (cells,
+                faces, nodes) for the operator. The default value is None, and in that
+                case, the equations_per_grid_entity of the previous equation are used.
+
+        """
+        if grids is None:
+            grids = cast(
+                list[pp.Grid] | list[pp.MortarGrid],
+                list(self._equation_image_space_composition[equation_name].keys()),
+            )
+
+        if equations_per_grid_entity is None:
+            equations_per_grid_entity = self._equation_image_size_info[equation_name]
+
+        self.remove_equation(equation_name)
+        new_equation.set_name(equation_name)
+        self.set_equation(
+            equation=new_equation,
+            grids=grids,
+            equations_per_grid_entity=equations_per_grid_entity,
+        )
+
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
@@ -1283,7 +1325,7 @@ class EquationSystem:
             for child in operator.children:
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
-        if isinstance(operator, _ad_utils.MergedOperator):
+        if isinstance(operator, pp.ad.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(operator)
 
@@ -1513,8 +1555,8 @@ class EquationSystem:
             discr += self._recursive_discretization_search(eqn, list())
 
         # Uniquify to save computational time, then discretize.
-        unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.mdg)
+        unique_discr = pp.ad.uniquify_discretization_list(discr)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
 
     @overload
     def assemble(
