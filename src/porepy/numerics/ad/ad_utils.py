@@ -38,10 +38,20 @@ import porepy as pp
 from porepy.numerics.discretization import Discretization, InterfaceDiscretization
 
 from . import operators
-from .forward_mode import AdArray
+
+__all__ = [
+    "concatenate_ad_arrays",
+    "wrap_discretization",
+    "uniquify_discretization_list",
+    "discretize_from_list",
+    "set_solution_values",
+    "get_solution_values",
+    "shift_solution_values",
+    "MergedOperator",
+]
 
 
-def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
+def concatenate_ad_arrays(ad_arrays: list[pp.ad.AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified
     axis."""
     msg = "This functionality is deprecated and will be removed in a future version"
@@ -52,7 +62,7 @@ def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
     vals_stacked = np.concatenate(vals, axis=axis)
     jacs_stacked = sps.vstack(jacs)
 
-    return AdArray(vals_stacked, jacs_stacked)
+    return pp.ad.AdArray(vals_stacked, jacs_stacked)
 
 
 def wrap_discretization(

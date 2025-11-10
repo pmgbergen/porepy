@@ -10,7 +10,6 @@ from scipy import sparse as sps
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import tags
-from porepy.utils.graph import Graph
 
 
 def split_fractures(
@@ -34,9 +33,8 @@ def split_fractures(
             lower-dimensional grid.
         **kwargs: Supported keyword arguments include
 
-            - ``'offset'``: A float to perturb the nodes around the faces that are
-              split. Note that this is only for visualization e.g., the face centers
-              are not perturbed. If not given, the value 0 is used.
+            - ``'visualization_node_offset'``: A float to perturb the nodes around the
+              faces that are split. This option is intended for visualization purposes.
 
     Returns:
         A 2-tuple containing the modified mixed-dimensional grid where the faces are
@@ -44,7 +42,7 @@ def split_fractures(
 
     """
 
-    offset = kwargs.get("offset", 0)
+    node_offset = kwargs.get("visualization_node_offset", 0)
 
     # For each vertex in the mdg we find the corresponding lower-dimensional grids.
     for sd_primary in mdg.subdomains():
@@ -97,7 +95,12 @@ def split_fractures(
             _, mapping = pp.array_operations.ismember_columns(source, target)
             secondary_to_primary_nodes.append(mapping)
 
-        split_nodes(sd_primary, low_dim_neigh, secondary_to_primary_nodes, offset)
+        split_nodes(
+            sd_primary,
+            low_dim_neigh,
+            secondary_to_primary_nodes,
+            node_offset,
+        )
 
     # Remove zeros from cell_faces
 
@@ -266,7 +269,7 @@ def split_nodes(
     sd_primary: pp.Grid,
     sd_secondary: list[pp.Grid],
     primary_to_secondary_nodes: list[np.ndarray],
-    visualization_offset: float = 0.0,
+    node_offset: float = 0.0,
 ) -> None:
     """Splits the nodes of a primary grid to correspond to nodes in (embedded)
     secondary grids.
@@ -282,7 +285,7 @@ def split_nodes(
             the first lower-dim.
 
             The order in this list should correspond to the order in ``sd_secondary``.
-        offset: ``default=0.``
+        node_offset: ``default=0.``
 
             This gives the offset from the fracture to the new nodes. Note that this
             is only for visualization, i.e. ``face_centers`` is not updated.
@@ -298,7 +301,7 @@ def split_nodes(
     # higher-dim around each node. For an X-intersection we get four duplications,
     # for a T-intersection we get three duplications, etc. Each of the duplicates is
     # then attached to the cells on one side of the fractures.
-    node_count = duplicate_nodes(sd_primary, nodes, visualization_offset)
+    node_count = duplicate_nodes(sd_primary, nodes, node_offset)
 
     # Update the number of nodes
     sd_primary.num_nodes = sd_primary.num_nodes + node_count  # - nodes.size
@@ -616,7 +619,7 @@ def remove_faces(sd: pp.Grid, face_id: np.ndarray, rem_cell_faces: bool = True) 
         sd.cell_faces = sd.cell_faces[keep, :]
 
 
-def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
+def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, node_offset: float) -> int:
     """Duplicate nodes on a fracture.
 
     The number of duplication will depend on the cell topology around the node.
@@ -642,9 +645,6 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
 
     # In the case of a non-zero offset (presumably intended for visualization),
     # use a (somewhat slow) legacy implementation which can handle this.
-    if offset != 0:
-        return _duplicate_nodes_with_offset(sd, nodes, offset)
-
     # Nodes must be duplicated in the array of node coordinates. Moreover,
     # the face-node relation must be updated so that when a node is split in two or
     # more, all faces on each of the spitting lines / planes are assigned the same
@@ -660,7 +660,6 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
     # 3. Modify the face-node relation by splitting nodes. Also update node numbering in
     #    unsplit nodes.
     # 4. Duplicate split nodes in the coordinate array.
-
     # Bookkeeping etc.
     cell_node = sd.cell_nodes().tocsr()
     face_node = sd.face_nodes.tocsc()
@@ -869,6 +868,27 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
         np.arange(repetitions.size), repetitions
     )
     sd.nodes = sd.nodes[:, new_2_old_nodes]
+    if node_offset > 0:
+        # For visualization purposes, we offset the duplicated nodes a bit away from
+        # the fracture, along the average normal of the fracture faces attached to
+        # the node.
+
+        # Find all duplicated nodes.
+        duplicates = np.where(np.isin(new_2_old_nodes, nodes))[0]
+        fn = sd.face_nodes.tocsr()
+        for ni in duplicates:
+            # Find all faces attached to this node, restrict to those faces that are on
+            # a fracture. These are identified as faces that are in sd.frac_pairs.
+            face_inds = fn.indices[fn.indptr[ni] : fn.indptr[ni + 1]]
+            faces_on_fracture = np.intersect1d(face_inds, sd.frac_pairs.ravel("F"))
+            # Implementation note: Keep this assertion to ensure we have not messed up
+            # the face-node relation somewhere. This would be a serious error (and not
+            # really suited for raising an error, this is more of a sanity check).
+            assert faces_on_fracture.size > 0
+            avg_n = _avg_normal(sd, faces_on_fracture)
+            # Offset the node.
+            sd.nodes[:, ni] -= avg_n * node_offset
+
     # The global point ind is shared by all split nodes
     sd.global_point_ind = sd.global_point_ind[new_2_old_nodes]
 
@@ -880,224 +900,6 @@ def duplicate_nodes(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
             sd.tags[key] = sd.tags[key][new_2_old_nodes].astype(bool)
 
     return num_added
-
-
-def _duplicate_nodes_with_offset(sd: pp.Grid, nodes: np.ndarray, offset: float) -> int:
-    """Duplicate nodes on a fracture, and perturb the duplicated nodes.
-
-    This option is useful for visualization purposes.
-
-    Note:
-        This is a legacy implementation, which should not be invoked directly.
-        Instead, use :func:`duplicate_nodes` (more efficient, but without the
-        possibility to perturb nodes). That method will invoke the present if a
-        perturbation is requested.
-
-    Parameters:
-        sd: The grid for which the nodes are duplicated.
-        nodes: The nodes to be duplicated.
-        offset: A number defining how far from the original node the duplications should
-            be placed.
-
-    Returns:
-        The new number of nodes.
-
-    """
-    node_count = 0
-
-    # We wish to convert the sparse csc matrix to a sparse csr matrix to easily add
-    # rows. However, the conversion sorts the indices, which will change the node
-    # order when we convert back. We therefore find the inverse sorting of the nodes
-    # of each face. After we have performed the row operations we will map the nodes
-    # back to their original position.
-    _, iv = _sort_sub_list(sd.face_nodes.indices, sd.face_nodes.indptr)
-
-    sd.face_nodes = sd.face_nodes.tocsr()
-    # Iterate over each internal node and split it according to the graph. For each
-    # cell attached to the node, we check wich color the cell has. All cells with the
-    # same color is then attached to a new copy of the node.
-    cell_nodes = sd.cell_nodes().tocsr()
-
-    for node in nodes:
-        # t_node takes into account the added nodes.
-        t_node = node + node_count
-
-        # Find cells connected to node.
-        # First get hold of all cells from the cell-node map.
-        all_cells = pp.matrix_operations.slice_indices(cell_nodes, node)
-        # Reassure mypy that slice_indices did not return two values (we know this
-        # since we did not pass it the return_index_array parameter).
-        assert isinstance(all_cells, np.ndarray)
-
-        # Next, uniquify
-        cells = np.unique(all_cells)
-
-        # Find the color of each cell. A group of cells is given the same color if
-        # they are connected by faces. This means that all cells on one side of a
-        # fracture will have the same color, but a different color than the cells on
-        # the other side of the fracture. Equivalently, the cells at a X-intersection
-        # will be given four different colors
-        colors = _find_cell_color(sd, cells)
-        # Find which cells share the same color
-        colors, ix = np.unique(colors, return_inverse=True)
-
-        # copy coordinate of old node
-        new_nodes = np.repeat(sd.nodes[:, t_node, None], colors.size, axis=1)
-        faces = np.array([], dtype=int)
-        face_pos = np.array([sd.face_nodes.indptr[t_node]])
-        assert sd.cell_faces.getformat() == "csc"
-        assert sd.face_nodes.getformat() == "csr"
-
-        faces_of_node_t = pp.matrix_operations.slice_indices(sd.face_nodes, t_node)
-        assert isinstance(faces_of_node_t, np.ndarray)  # Appease mypy
-
-        for j in range(colors.size):
-            # For each color we wish to add one node. First we find all faces that
-            # are connected to the fracture node, and have the correct cell color
-            all_faces = pp.matrix_operations.slice_indices(
-                sd.cell_faces, cells[ix == j]
-            )
-            assert isinstance(all_faces, np.ndarray)  # Appease mypy
-            colored_faces = np.unique(all_faces)
-
-            is_colored = np.isin(faces_of_node_t, colored_faces, assume_unique=True)
-
-            faces = np.append(faces, faces_of_node_t[is_colored])
-
-            # These faces are then attached to new node number j.
-            face_pos = np.append(face_pos, face_pos[-1] + np.sum(is_colored))
-
-            # If an offset is given, we will change the position of the nodes. We
-            # move the nodes a length of offset away from the fracture(s).
-            if offset > 0 and colors.size > 1:
-                new_nodes[:, j] -= _avg_normal(sd, faces_of_node_t[is_colored]) * offset
-
-                # The total number of faces should not have changed, only their
-        # connection to nodes. We can therefore just update the indices and
-        # indptr map.
-        sd.face_nodes.indices[face_pos[0] : face_pos[-1]] = faces
-        node_count += colors.size - 1
-        sd.face_nodes.indptr = np.insert(
-            sd.face_nodes.indptr, t_node + 1, face_pos[1:-1]
-        )
-        sd.face_nodes._shape = (
-            sd.face_nodes.shape[0] + colors.size - 1,
-            sd.face_nodes._shape[1],
-        )
-        # We delete the old node because of the offset. If we do not have an offset
-        # we could keep it and add one less node.
-
-        sd.nodes = np.delete(sd.nodes, t_node, axis=1)
-        sd.nodes = np.insert(sd.nodes, [t_node] * new_nodes.shape[1], new_nodes, axis=1)
-
-        new_point_ind = np.array([sd.global_point_ind[t_node]] * new_nodes.shape[1])
-        sd.global_point_ind = np.delete(sd.global_point_ind, t_node)
-        sd.global_point_ind = np.insert(
-            sd.global_point_ind,
-            [t_node] * new_point_ind.shape[0],
-            new_point_ind,
-            axis=0,
-        )
-
-    # Transform back to csc format and fix node ordering.
-    sd.face_nodes = sd.face_nodes.tocsc()
-    sd.face_nodes.indices = sd.face_nodes.indices[iv]  # For fast row operation
-
-    return node_count
-
-
-def _sort_sub_list(
-    indices: np.ndarray, indptr: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Auxiliary function to convert mesh-element mappings in an order-preserving way.
-
-    E.g., face-node maps in CSC format, which needs conversion to CSR.
-
-    Parameters:
-        indices: An array of indices in the CSC/CSR format of sparse matrices.
-        indptr: CSC/CSR format index pointer array.
-
-    Returns:
-        A tuple with two-elements.
-
-        :obj:`numpy.ndarray`: ``dtype=int``
-
-            Sorted indices.
-
-        :obj:`numpy.ndarray`: ``dtype=int``
-
-            Value of the sorted indices.
-
-    """
-    ix = np.zeros(indices.size, dtype=int)
-    # NOTE: Comments below are given for a CSR matrix. If the matrix is CSC, the roles
-    # of rows and columns are reversed.
-    # Loop over all rows.
-    for i in range(indptr.size - 1):
-        # Indices in the sparse storage associated with the current row.
-        sub_ind = slice(indptr[i], indptr[i + 1])
-        # Find the sorting indices of the columns that are non-zero for this row. This
-        # will be a 0-offset array.
-        loc_ix = np.argsort(indices[sub_ind])
-        # Update the global index array. Adding indptr[i] ensures that the indices have
-        # the right offset (i.e., they start at the right place in the global index
-        # array, and not on 0).
-        ix[sub_ind] = loc_ix + indptr[i]
-    # Rearrange the indices to be sorted in each row.
-    indices = indices[ix]
-    # Create a mapping from the sorted indices to the original indices.
-    iv = np.zeros(indices.size, dtype=int)
-    iv[ix] = np.arange(indices.size)
-    return indices, iv
-
-
-def _find_cell_color(sd: pp.Grid, cells: np.ndarray) -> np.ndarray:
-    r"""Color the cells depending on the cell connections.
-
-    Each group of cells that are connected (either directly by a shared face or
-    through a series of shared faces of many cells) is given a distinct color.
-
-    Example:
-
-        ``    c_1-c_3     c_4``
-        ``  /``
-        ``c_7  |           |``
-        ``  \``
-        ``    c_2         c_5``
-
-        In this case, cells ``c_1, c_2, c_3`` and ``c_7`` will be given color 0, while
-        cells ``c_4`` and ``c_5`` will be given color 1.
-
-    Parameters:
-        g: A grid constituted of cells.
-        cells: ``dtype=int``
-
-            An array of cell indices of cells for which the color classification should
-            be performed.
-
-    Returns:
-        An array of integers, representing the color classification (see
-        :class:`~porepy.utils.graph.Graph`)
-
-    """
-    c = np.sort(cells)
-    # Local cell-face and face-node maps.
-    assert sd.cell_faces.getformat() == "csc"
-    cell_faces = pp.matrix_operations.slice_sparse_matrix(sd.cell_faces, c)
-    child_cell_ind = -np.ones(sd.num_cells, dtype=int)
-    child_cell_ind[c] = np.arange(cell_faces.shape[1])
-
-    # Direction of normal vector does not matter here, only 0s and 1s
-    cell_faces.data = np.abs(cell_faces.data)
-
-    # Find connection between cells via the cell-face map
-    c2c = cell_faces.transpose() * cell_faces
-    # Only care about absolute values
-    c2c.data = np.clip(c2c.data, 0, 1).astype("bool")
-
-    graph = Graph(c2c)
-    graph.color_nodes()
-    return graph.color[child_cell_ind[cells]]
 
 
 def _avg_normal(sd: pp.Grid, faces: np.ndarray) -> np.ndarray:

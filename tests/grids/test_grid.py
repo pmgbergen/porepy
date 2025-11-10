@@ -901,7 +901,7 @@ def test_copy_grids():
 
 
 def test_merge_single_grid():
-    """
+    r"""
     Test coupling from one grid to itself. An example setting:
                     |--|--|--| ( grid )
                     0  1  2  3
@@ -929,7 +929,7 @@ def test_merge_single_grid():
 
 
 def test_merge_two_grids():
-    """
+    r"""
     Test coupling from one grid of three faces to grid of two faces.
     An example setting:
                     0  1  2
