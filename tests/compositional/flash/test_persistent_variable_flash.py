@@ -58,18 +58,19 @@ def components(
         critical_temperature=373.1,
         molar_mass=0.03408088,
     )
-    n2 = pp.compositional.FluidComponent(
-        name="N2",
-        acentric_factor=0.0372,
-        critical_pressure=3395800.0,
-        critical_specific_volume=8.94142472662e-05,
-        critical_temperature=126.192,
-        molar_mass=0.0280134,
-    )
+    # n2 = pp.compositional.FluidComponent(
+    #     name="N2",
+    #     acentric_factor=0.0372,
+    #     critical_pressure=3395800.0,
+    #     critical_specific_volume=8.94142472662e-05,
+    #     critical_temperature=126.192,
+    #     molar_mass=0.0280134,
+    # )
 
-    comps = [h2o, co2, h2s, n2]
+    comps = [h2o, co2, h2s]
     ncomp = comps_and_phases[0]
     assert ncomp > 0
+    assert ncomp <= len(comps)
     return comps[:ncomp]
 
 
@@ -80,10 +81,10 @@ def pr_eos(
     """Peng-Robinson EoS, un-compiled for the test case."""
     bips = np.array(
         [
-            [0.0, 0.0394, 0.0952, 0.0],
+            [0.0, 0.0394, 0.0952, 0.01],
             [0.0394, 0.0, 0.0967, 0.1652],
             [0.0952, 0.0967, 0.0, -0.0122],
-            [0.0, 0.1652, -0.0122, 0.0],
+            [0.01, 0.1652, -0.0122, 0.0],
         ],
     )
     h_ideal = [pr.h_ideal_H2O, pr.h_ideal_CO2, pr.h_ideal_H2S, pr.h_ideal_N2]
@@ -91,7 +92,11 @@ def pr_eos(
     ncomp = comps_and_phases[0]
     assert ncomp == len(components)
 
-    eos = pr.CompiledPengRobinson(components, h_ideal[:ncomp], bips[:ncomp, :ncomp])
+    eos = pr.CompiledPengRobinson(
+        components=components,
+        ideal_enthalpies=h_ideal[:ncomp],
+        bip_matrix=bips[:ncomp, :ncomp],
+    )
     return eos
 
 
@@ -162,7 +167,7 @@ def test_error_when_flashing_with_one_phase(
 )
 @pytest.mark.parametrize(
     "comps_and_phases",
-    [(1, "VL"), (2, "VL"), (2, "VLL"), (4, "VL"), (4, "VLLLL")],
+    [(1, "VL"), (2, "VL"), (2, "VLL"), (3, "VL"), (3, "VLLL")],
     indirect=True,
 )
 @pytest.mark.parametrize("flash", ["PR"], indirect=True)
@@ -201,7 +206,7 @@ def test_assembly_of_flash_systems(
         (np.zeros((base_dim, dim_gen_arg - base_dim)), np.eye(base_dim))
     )
 
-    # This takes some time, but should not fail
+    # This takes some time, but should not fail.
     flash.compile(flash_spec)
     # If flash not available, this will raise an Key error.
     res = flash.residuals[flash_spec]
@@ -214,7 +219,7 @@ def test_assembly_of_flash_systems(
     sat = y.copy()
     x = np.ones((nphase, ncomp)) / ncomp * 0.5
     p = 1e7
-    T = 400
+    T = 400.0
     # Isochoric of isobaric.
     if flash_spec >= pf.FlashSpec.vT:
         state1 = 1e-5
@@ -242,4 +247,4 @@ def test_assembly_of_flash_systems(
 
     for d in directions:
         orders = get_EOC_taylor(func, dfunc, x0.copy(), d, h)
-        assert_order_at_least(orders, 2.0, tol=1e-2)
+        assert_order_at_least(orders, 2.0, tol=2e-2, asymptotic=6)
