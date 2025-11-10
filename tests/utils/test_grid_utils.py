@@ -199,6 +199,7 @@ def test_compute_circumcenter_3d_two_tetra_internal_alignment():
     # Use same tolerance as implementation (1e-10), with small safety factor.
     assert cross_mag / denom < 5e-10
 
+
 @pytest.mark.parametrize("perturb", [1e-2, 0.0])
 def test_compute_circumcenter_2d_two_triangles_internal_alignment(perturb):
     """Two acute triangles sharing an edge: both should be replaced.
@@ -217,7 +218,7 @@ def test_compute_circumcenter_2d_two_triangles_internal_alignment(perturb):
     pts = np.array(
         [
             [0.0, 1.0, 0.5, 0.5],  # x
-            [0.0, 0.0, h, -h],     # y
+            [0.0, 0.0, h, -h],  # y
         ]
     )
     # Triangles: T0 = (A,B,C) and T1 = (A,B,D) share edge (A,B) indices (0,1)
