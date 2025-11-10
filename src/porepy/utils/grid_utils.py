@@ -1,18 +1,26 @@
 """Module contains various utility functions for working with grids."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import scipy.sparse as sps
+from numpy.typing import NDArray
 
-import porepy as pp
+import porepy as pp  # Runtime dependency; types imported lazily under TYPE_CHECKING
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+
+if TYPE_CHECKING:  # Avoid importing heavyish modules at runtime purely for typing.
+    from porepy.grids.grid import Grid
+    from porepy.grids.simplex import TriangleGrid
 
 logger = logging.getLogger(__name__)
 
 
 def switch_sign_if_inwards_normal(
-    g: pp.Grid, nd: int, faces: np.ndarray
+    g: Grid, nd: int, faces: NDArray[np.int_]
 ) -> sps.dia_matrix:
     """Construct a matrix that changes sign of quantities on faces with a normal that
     points into the grid.
@@ -49,7 +57,7 @@ def switch_sign_if_inwards_normal(
     return sps.dia_matrix((sgn_mat, 0), shape=(sgn_mat.size, sgn_mat.size))
 
 
-def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
+def star_shape_cell_centers(g: Grid, as_nan: bool = False) -> NDArray[np.float64]:
     """For a given grid compute the star shape center for each cell.
 
     The algorithm computes the half space intersections of the spaces defined by the
@@ -107,12 +115,15 @@ def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
                 )
 
     # Shift back the computed cell centers and return them.
-    return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
+    return cast(
+        NDArray[np.float64],
+        cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T,
+    )
 
 
 def compute_circumcenter_2d(
-    sd: pp.TriangleGrid, threshold_angle=np.pi * 0.45
-) -> tuple[np.ndarray, np.ndarray]:
+    sd: TriangleGrid, threshold_angle: float = np.pi * 0.45
+) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
     """Compute circumcenters of triangular cells in 2D grid.
 
     Parameters:
@@ -202,7 +213,9 @@ def compute_circumcenter_2d(
     return cc, replace
 
 
-def compute_circumcenter_3d(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
+def compute_circumcenter_3d(
+    sd: Grid, threshold_angle: float = np.pi * 0.45
+) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
     """Compute circumcenters of tetrahedral cells in 3D grid.
 
     Parameters:
@@ -259,7 +272,7 @@ def compute_circumcenter_3d(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
         ]
     )
     # Compute circumcenters by solving A c = B for each cell (avoid explicit inverse).
-    center = np.empty((A.shape[2], 3))
+    center: NDArray[np.float64] = np.empty((A.shape[2], 3), dtype=float)
     for i in range(A.shape[2]):
         center[i, :] = np.linalg.solve(A[:, :, i], B[:, i])
 
