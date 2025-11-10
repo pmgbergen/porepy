@@ -121,7 +121,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
         states = [phase.state for phase in fluid.phases]
         if np.any(
-            [state != pp.compositional.PhysicalState.undefined for state in states]
+            [state == pp.compositional.PhysicalState.undefined for state in states]
         ):
             raise ValueError(
                 "All phases must have a defined physical state in the "
@@ -136,9 +136,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         """Compiled EoS of the reference phase, assuming all phases have the same EoS.
         """
 
-        self.initializer: FlashInitializer = self.params.get(
-            "initializer", FlashInitializer(fluid)
-        )
+        initializer: FlashInitializer = self.params.get("initializer", FlashInitializer)
+        self.initializer: FlashInitializer = initializer(fluid)
         """Flash initializer passed during instantiation.
 
         If not given, the heuristic :class:`~porepy.compositional.flash.
