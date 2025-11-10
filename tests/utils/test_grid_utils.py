@@ -8,8 +8,8 @@ degenerate triangles, and tetrahedra with circumcenters outside the cell.
 
 import numpy as np
 import pytest
-import porepy as pp
 
+import porepy as pp
 from porepy.utils.grid_utils import compute_circumcenter_2d, compute_circumcenter_3d
 
 
