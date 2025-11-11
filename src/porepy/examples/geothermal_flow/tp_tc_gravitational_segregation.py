@@ -444,21 +444,25 @@ class InitialConditions(pp.PorePyModel):
             self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
             self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
 
-    def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
-        z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
-        return (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
-
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 10.0e6 * to_Mega
         return np.ones(sd.num_cells) * p_init
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h = 1.0 + self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        # Compute initial enthalpy as a weighted average of phase enthalpies and densities
+        ic_sg = self.ic_values_staturation(sd)
+        ic_rho = rho_g * ic_sg + rho_l * (1.0 - ic_sg)
+        h = (ic_sg * h_g * rho_g + (1.0 - ic_sg) * h_l * rho_l) / ic_rho
         return h
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         T = 250 * self.ic_values_enthalpy(sd)
         return T
+
+    def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
+        # Match the logic from buoyancy_flow_model.py
+        z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
+        return (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
