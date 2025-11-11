@@ -8,6 +8,7 @@ from typing import Callable, Literal, TypeAlias
 import numba as nb
 import numpy as np
 
+from ..._core import njit
 from ._core import SOLVER_PARAMETERS_TYPE
 
 __all__ = [
@@ -41,7 +42,7 @@ BRENT_METHOD_SIGNATURE = nb.types.Tuple((nb.f8, nb.int_, nb.int_))(
 """Numba-signature for the brent method for compilation."""
 
 
-@nb.njit(BRENT_METHOD_SIGNATURE, cache=True)
+@njit(BRENT_METHOD_SIGNATURE, cache=True)
 def brent(
     f: Callable[[float], float], a: float, b: float, params: dict[str, float]
 ) -> tuple[float, int, int]:

@@ -29,7 +29,7 @@ __all__.extend(_core.__all__)
 
 
 SOLVERS: dict[
-    Literal["npipm"],
+    str,
     Callable[
         [
             np.ndarray,
@@ -53,7 +53,7 @@ Currently available:
 
 """
 
-DEFAULT_SOLVER_PARAMS: dict[Literal["npipm"], dict[Any, float]] = {
+DEFAULT_SOLVER_PARAMS: dict[str, dict[Any, float]] = {
     "npipm": DEFAULT_NPIPM_SOLVER_PARAMS,
 }
 """Collection of default solver parameters.

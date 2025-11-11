@@ -37,8 +37,6 @@ import porepy as pp
 from ..compiled_eos import CompiledEoS
 from ..utils import _chainrule_fractional_derivatives, normalize_rows
 from .abstract_flash import AbstractFlash, FlashResults, FlashSpec, StateSpecType
-from .flash_initializer import FlashInitializer
-from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 from .flash_equations import (
     complementary_conditions_jac,
     complementary_conditions_res,
@@ -54,6 +52,8 @@ from .flash_equations import (
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
 )
+from .flash_initializer import FlashInitializer
+from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 
 __all__ = ["CompiledPersistentVariableFlash"]
 
@@ -136,7 +136,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         """Compiled EoS of the reference phase, assuming all phases have the same EoS.
         """
 
-        initializer: FlashInitializer = self.params.get("initializer", FlashInitializer)
+        initializer: type[FlashInitializer] = self.params.get(
+            "initializer", FlashInitializer
+        )
         self.initializer: FlashInitializer = initializer(fluid)
         """Flash initializer passed during instantiation.
 
@@ -593,6 +595,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             self.jacobians[results.specification],
             SOLVERS[solver],
             self._nb_solver_params,
+            results.specification,
         )
 
         results.exitcode = success

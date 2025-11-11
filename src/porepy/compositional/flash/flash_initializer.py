@@ -26,7 +26,6 @@ from .._core import (
 from ..compiled_eos import CompiledEoS
 from ..utils import _compute_saturations, compute_saturations, normalize_rows
 from .abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
-from .solvers._core import SOLVER_PARAMETERS_TYPE
 from .flash_equations import (
     assemble_generic_arg,
     assemble_vectorized_generic_arg,
@@ -37,6 +36,7 @@ from .flash_equations import (
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
 )
+from .solvers._core import SOLVER_PARAMETERS_TYPE
 
 __all__ = ["FlashInitializer"]
 
@@ -649,10 +649,9 @@ class FlashInitializer:
                 N2 = int(params["N2"])
                 tol = params["tolerance"]
                 gas_phase_idx = int(params["gas_phase_index"])
-                npnc = (nphase, ncomp)
                 # state 2 is target enthalpy
                 s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                    X_gen, npnc, FlashSpec.ph
+                    X_gen, ncomp, nphase, FlashSpec.ph
                 )
 
                 # If T has not been initialized at all (zero value), compute
@@ -670,7 +669,7 @@ class FlashInitializer:
                         get_K_values, X_gen, params, FlashSpec.ph, True
                     )
                     s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                        X_gen, npnc, FlashSpec.ph
+                        X_gen, ncomp, nphase, FlashSpec.ph
                     )
 
                 xn = normalize_rows(x)

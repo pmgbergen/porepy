@@ -23,6 +23,7 @@ import numba.typed
 import numpy as np
 
 from ..._core import NUMBA_PARALLEL, cfunc, typeof
+from ..abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
 
 __all__ = [
     "GENERAL_SOLVER_PARAMS",
@@ -136,6 +137,7 @@ SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple((numba.f8[:], numba.i4, numba.i4))
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
+    FlashSpecMember_NUMBA_TYPE,
 )
 """Numba signature for flash solvers.
 
@@ -146,20 +148,13 @@ See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
 """
 
 
-@cfunc(
-    numba.types.Tuple((numba.f8[:], numba.i4, numba.i4))(
-        numba.f8[:],
-        FLASH_RESIDUAL_FUNCTION_TYPE,
-        FLASH_JACOBIAN_FUNCTION_TYPE,
-        SOLVER_PARAMETERS_TYPE,
-    ),
-    cache=True,
-)
+@cfunc(SOLVER_FUNCTION_SIGNATURE, cache=True)
 def solver_template_func(
     x: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
     DF: Callable[[np.ndarray], np.ndarray],
     solver_params: dict[str, float],
+    spec: FlashSpec,
 ) -> tuple[np.ndarray, int, int]:
     """Template c-function for solvers.
 
@@ -219,6 +214,7 @@ _multi_solver_signature = numba.types.Tuple(
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
+    FlashSpecMember_NUMBA_TYPE,
 )
 """Multi-solver signature for compiled sequential or parallel application of solvers."""
 
@@ -234,10 +230,12 @@ def sequential_solver(
             Callable[[np.ndarray], np.ndarray],
             Callable[[np.ndarray], np.ndarray],
             dict[str, float],
+            FlashSpec,
         ],
         tuple[np.ndarray, int, int],
     ],
     solver_params: dict[str, float],
+    spec: FlashSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Sequential application of a solver to vectorized input.
 
@@ -249,6 +247,7 @@ def sequential_solver(
         DF: Flash Jacobian function (see :data:`FLASH_JACOBIAN_FUNCTION_TYPE`).
         solver: Solver function (see :data:`SOLVER_FUNCTION_TYPE`).
         solver_params: Solver parameters passed to every problem.
+        spec: Flash specification passed to every problem.
 
     Returns:
         The results, convergence flags and number of iterations, vectorized where each
@@ -264,7 +263,7 @@ def sequential_solver(
 
     for i in range(n):
         try:
-            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params, spec)
         except Exception:
             converged[i] = 5
             num_iter[i] = -1
@@ -288,10 +287,12 @@ def parallel_solver(
             Callable[[np.ndarray], np.ndarray],
             Callable[[np.ndarray], np.ndarray],
             dict[str, float],
+            FlashSpec,
         ],
         tuple[np.ndarray, int, int],
     ],
     solver_params: dict[str, float],
+    spec: FlashSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Parallel application of a solver to vectorized input.
 
@@ -319,13 +320,13 @@ def parallel_solver(
     # solver as a fallback.
     try:
         for i in numba.prange(n):
-            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params, spec)
             converged[i] = conv_i
             num_iter[i] = n_i
             result[i] = res_i
     except Exception:
         print("Parallel solver threw an exception. Falling back to sequential solver.")
-        return sequential_solver(X0, F, DF, solver, solver_params)
+        return sequential_solver(X0, F, DF, solver, solver_params, spec)
 
     return result, converged, num_iter
 

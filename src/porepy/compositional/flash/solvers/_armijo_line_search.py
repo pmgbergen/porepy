@@ -14,6 +14,7 @@ from typing import Callable, Literal, TypeAlias
 import numba as nb
 import numpy as np
 
+from ..._core import njit
 from ._core import FLASH_RESIDUAL_FUNCTION_TYPE, SOLVER_PARAMETERS_TYPE
 
 __all__ = [
@@ -51,7 +52,7 @@ ARMIJO_LINE_SEARCH_SIGNATURE = nb.f8(
 """Numba-signature for the armijo line-search."""
 
 
-@nb.njit(ARMIJO_LINE_SEARCH_SIGNATURE, cache=True)
+@njit(ARMIJO_LINE_SEARCH_SIGNATURE, cache=True)
 def armijo_line_search(
     X0: np.ndarray,
     DX: np.ndarray,

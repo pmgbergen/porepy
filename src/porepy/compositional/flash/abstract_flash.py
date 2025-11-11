@@ -11,7 +11,7 @@ from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, c
 import numba as nb
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap, ListedColormap, BoundaryNorm
+from matplotlib.colors import BoundaryNorm, LinearSegmentedColormap, ListedColormap
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 

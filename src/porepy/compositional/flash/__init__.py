@@ -4,12 +4,13 @@ __all__ = []
 
 from . import (
     abstract_flash,
+    flash_equations,
     flash_initializer,
     persistent_variable_flash,
     solvers,
-    flash_equations,
 )
 from .abstract_flash import *
+from .flash_equations import *
 from .flash_initializer import *
 
 # TODO Not clear what is going wrong here. Mypy throws error
@@ -20,7 +21,6 @@ from .flash_initializer import *
 # [assignment]
 from .persistent_variable_flash import *  # type:ignore[assignment]
 from .solvers import *
-from .flash_equations import *
 
 __all__.extend(solvers.__all__)
 __all__.extend(abstract_flash.__all__)

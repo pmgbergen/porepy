@@ -67,7 +67,7 @@ def generic_arg_from_flash_results(
     ncomp: int,
     nphase: int,
     state_is_initialized: bool = False,
-    params: Optional[Sequence[np.ndarray]] = None,
+    params: Optional[Sequence[np.ndarray | float] | float | np.ndarray] = None,
 ) -> np.ndarray:
     """Assembles a generic argument from a given flash results data structure.
 
@@ -95,6 +95,25 @@ def generic_arg_from_flash_results(
 
     if params is None:
         params = np.zeros((0, N))
+    elif isinstance(params, float):
+        params = np.ones((1, N)) * params
+    elif isinstance(params, np.ndarray):
+        if params.ndim == 1:
+            params = params.reshape((1, params.size))
+        else:
+            assert params.ndim == 2, "Parameter array must be 1D or 2D."
+            assert params.shape[1] == N, (
+                "Parameter array must have shape (n_params, N) with N = number of "
+                "flash problems."
+            )
+    else:  # Assume sequence
+        Np = len(params)
+        param_array = np.empty((Np, N))
+        for i, p in enumerate(params):
+            param_array[i, :] = p
+        params = param_array.astype(np.float64)
+
+    assert isinstance(params, np.ndarray), 'Failure to convert "params" to array.'
     # Target states depending on flash type.
     z = results.z
     assert z.shape == (ncomp, N), "Overall compositions of unexpected shape."
