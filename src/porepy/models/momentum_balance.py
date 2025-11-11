@@ -1010,7 +1010,7 @@ class TpsaMomentumBalanceMixin(  # type: ignore[misc]
 
     Important:
         The TPSA (Two-Point Stress Approximation) discretization is only consistent for
-        grids that fulfill certain alignment properties between face normals and cell
+        grids that fulfill certain alignment properties between face normals and vectors connecting cell centers (for details...
         center coordinates (for details see the TPSA paper,
         https://doi.org/10.1016/j.camwa.2025.07.035, see in particular the illustration
         of admissible grids in Figure 1).
