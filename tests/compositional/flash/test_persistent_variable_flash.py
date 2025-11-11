@@ -8,9 +8,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import os
-
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 import porepy.compositional.flash as pf
@@ -81,10 +80,10 @@ def pr_eos(
     """Peng-Robinson EoS, un-compiled for the test case."""
     bips = np.array(
         [
-            [0.0, 0.0394, 0.0952, 0.01],
+            [0.0, 0.0394, 0.0952, 0.0],
             [0.0394, 0.0, 0.0967, 0.1652],
             [0.0952, 0.0967, 0.0, -0.0122],
-            [0.01, 0.1652, -0.0122, 0.0],
+            [0.0, 0.1652, -0.0122, 0.0],
         ],
     )
     h_ideal = [pr.h_ideal_H2O, pr.h_ideal_CO2, pr.h_ideal_H2S, pr.h_ideal_N2]

@@ -119,7 +119,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             "All phases must have the same EoS instance."
         )
 
-        states = [phase.state for phase in fluid.phases]
+        states = tuple([phase.state for phase in fluid.phases])
         if np.any(
             [state == pp.compositional.PhysicalState.undefined for state in states]
         ):
@@ -127,7 +127,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 "All phases must have a defined physical state in the "
                 "persistent-variable flash."
             )
-        self._phasestates: Sequence[pp.compositional.PhysicalState] = states
+        self._phasestates: tuple[pp.compositional.PhysicalState, ...] = states
         """A sequence containing the physical phase state per phase."""
 
         eos = fluid.reference_phase.eos
@@ -232,7 +232,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         # Setting outer scope variables to avoid referencing self in JIT functions.
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
-        phasestates: Sequence[pp.compositional.PhysicalState] = self._phasestates
+        phasestates = self._phasestates
         # phasestates = np.array(
         #     [
         #         # Depending on the environment, the enum value is sometimes already

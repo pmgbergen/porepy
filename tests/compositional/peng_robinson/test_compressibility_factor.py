@@ -8,9 +8,6 @@ from typing import Literal
 import numpy as np
 import pytest
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
     B_CRIT,
