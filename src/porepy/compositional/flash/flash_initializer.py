@@ -486,9 +486,9 @@ class FlashInitializer:
             [comp.acentric_factor for comp in fluid.components]
         )
         """A list containing acentric factors per component."""
-        self._phasestates: Sequence[pp.compositional.PhysicalState] = [
-            phase.state for phase in fluid.phases
-        ]
+        self._phasestates: tuple[pp.compositional.PhysicalState, ...] = tuple(
+            [phase.state for phase in fluid.phases]
+        )
         """A sequence containing the physical phase state per phase."""
         self._gas_phase_index: Optional[int] = fluid.gas_phase_index
         """The index of the gas phase. None if gas not existent."""
@@ -593,15 +593,7 @@ class FlashInitializer:
 
         # Setting outer scope variables to avoid referencing self in JIT functions.
         nphase, ncomp = self._npnc
-        phasestates = np.array(
-            [
-                # Depending on the environment, the enum value is sometimes already
-                # evaluated, sometimes not... (pytest)
-                state if isinstance(state, int) else state.value
-                for state in self._phasestates
-            ],
-            dtype=np.int8,
-        )
+        phasestates = self._phasestates
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]

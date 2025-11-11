@@ -324,11 +324,11 @@ def npipm(
     :data:`~porepy.compositional.flash.solvers._core.GENERAL_SOLVER_PARAMS`.
 
     """
-    # default return values
+    # Default return values.
     num_iter = 0
-    success = 1
+    exitcode = 1
 
-    # extracting solver parameters
+    # Extracting solver parameters.
     f_dim = int(params["f_dim"])
     ncomp = int(params["num_components"])
     nphase = int(params["num_phases"])
@@ -348,7 +348,7 @@ def npipm(
     y = gen[2]
     nu = np.sum(y * (1 - np.sum(x, axis=1))) / nphase
 
-    # numba does not support stacking with inhomogenous sequence of array and float
+    # numba does not support stacking with inhomogeneous sequence of array and float.
     X = np.zeros(X0.shape[0] + 1)
     X[:-1] = X0
     X[-1] = nu
@@ -366,24 +366,20 @@ def npipm(
     res_i = np.linalg.norm(f_i)
 
     if res_i <= tol:
-        success = 0  # root already found
+        exitcode = 0  # root already found
     else:
         for _ in range(max_iter):
             num_iter += 1
 
+            # Need this test otherwise np.linalg.solve raises an error.
+            if np.any(np.isnan(f_i)) or np.any(np.isinf(f_i)):
+                exitcode = 2
+                break
+
             try:
                 df_i = _extend_and_regularize_jac(DF(X[:-1]), x, y, nu, u1, u2, eta)
             except Exception:  # whatever happens, Jacobian assembly is faulty
-                success = 4
-                break
-
-            # Need this test otherwise np.linalg.solve raises an error.
-            if (
-                np.any(np.isnan(f_i)) or np.any(np.isinf(f_i))
-                # or np.any(np.isnan(df_i))
-                # or np.any(np.isinf(df_i))
-            ):
-                success = 2
+                exitcode = 4
                 break
 
             try:
@@ -401,11 +397,11 @@ def npipm(
                     DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
             except Exception:
                 # This means the linear solver failed.
-                success = 5
+                exitcode = 5
                 break
 
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
-                success = 2
+                exitcode = 2
                 break
 
             # Armijo line search
@@ -460,11 +456,11 @@ def npipm(
                 f_i = _extend_and_regularize_res(F(Xgen), x, y, nu, u1, u2, eta)
                 res_i = np.linalg.norm(f_i)
             except Exception:
-                success = 3
+                exitcode = 3
                 break
 
             if res_i <= tol:
-                success = 0
+                exitcode = 0
                 break
 
-    return X[:-1], success, num_iter
+    return X[:-1], exitcode, num_iter

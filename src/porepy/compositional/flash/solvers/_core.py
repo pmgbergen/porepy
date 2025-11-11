@@ -132,7 +132,7 @@ See also:
 """
 
 
-SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple((numba.f8[:], numba.i4, numba.i4))(
+SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple((numba.f8[:], numba.int_, numba.int_))(
     numba.f8[:],
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
@@ -165,7 +165,7 @@ def solver_template_func(
         solver_params: Dictionary of relevant solver parameters (str-float pairs).
 
     Returns:
-        The solution vector (1D array), a success code (int), and the number of
+        The solution vector (1D array), an exit code (int), and the number of
         iterations (int).
 
     """
@@ -180,6 +180,8 @@ SOLVER_FUNCTION_TYPE = typeof(solver_template_func)
 2. the flash residual function ``(f8[:]) -> f8[:]``,
 3. the flash Jacobian function ``(f8[:]) -> f8[:,;]``, and
 4. solver parameters (``dict[str, float]``),
+5. the flash specification (:class:`~porepy.compositional.flash.abstract_flash.
+   FlashSpec`),
 
 and returns 
 
@@ -187,7 +189,7 @@ and returns
 2. a convergence code (int), and
 3. the number of iterations required.
 
-The convergence codes must be as follows:
+The exit codes must be as follows:
 
 - 0: successful solution procedure
 - 1: maximal number of iterations reached
@@ -205,9 +207,7 @@ See also:
 _multi_solver_signature = numba.types.Tuple(
     # NOTE: Since the return values are created internally, they are contiguous arrays.
     # Numba requires that information explicitly by using ::1 in the last dimension.
-    # Also, for some unknown reasons the convergence codes are cast into int64 because
-    # they have a default value of 5... casting it back did not help.
-    (numba.f8[:, ::1], numba.i8[::1], numba.i4[::1])
+    (numba.f8[:, ::1], numba.int_[::1], numba.int_[::1])
 )(
     numba.f8[:, :],
     FLASH_RESIDUAL_FUNCTION_TYPE,
@@ -258,8 +258,8 @@ def sequential_solver(
     # alocating return values
     n = X0.shape[0]
     result = np.zeros_like(X0)
-    num_iter = np.zeros(n, dtype=np.int32)
-    converged = np.ones(n, dtype=np.int32) * 5
+    num_iter = np.zeros(n, dtype=np.int_)
+    converged = np.ones(n, dtype=np.int_) * 5
 
     for i in range(n):
         try:
@@ -312,8 +312,8 @@ def parallel_solver(
     # alocating return values
     n = X0.shape[0]
     result = np.zeros_like(X0)
-    num_iter = np.zeros(n, dtype=np.int32)
-    converged = np.ones(n, dtype=np.int32) * 5
+    num_iter = np.zeros(n, dtype=np.int_)
+    converged = np.ones(n, dtype=np.int_) * 5
 
     # NOTE Numba can as of now not parallelize if there is a try-except clause within
     # the parallelized loop. As a work-around we place it outside and use the sequential

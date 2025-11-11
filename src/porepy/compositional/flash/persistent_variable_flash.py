@@ -589,7 +589,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         self._convert_solver_params(solver_params)
 
         start = time.time()
-        resultsarray, success, num_iter = MULTI_SOLVERS[mode](
+        resultsarray, exitcodes, num_iter = MULTI_SOLVERS[mode](
             X0,
             self.residuals[results.specification],
             self.jacobians[results.specification],
@@ -598,7 +598,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             results.specification,
         )
 
-        results.exitcode = success
+        results.exitcode = exitcodes
         results.num_iter = num_iter
 
         logger.info(
