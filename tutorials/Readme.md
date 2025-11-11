@@ -35,5 +35,6 @@ For the more experienced user, some more specific tutorials are also available:
 17. [Linear Tracer Flow](./tracer_flow.ipynb) describes the setup of a linear single-phase, 2-component model based on tutorial #6, and showcases a simulation of tracer transport through a fractured domain.
 19. [Fluid modeling](./fluid_modeling.ipynb) explains how to set up multicomponent, multiphase fluids in a model, and various approaches to modeling fluid properties.
 20. [Cubic EoS](./cubic_eos.ipynb) gives an introduction to cubic equation of state modeling and how to use the compiled version of the Peng-Robinson EoS.
+21. [Flash](./flash.ipynb) explains the flash framework, its elements like the generic flash argument and flash solvers, and how to extended it. It also demonstrates its usage to solve large quantities of flash problems using flash specifications relevant for non-isothermal settings in the subsurface.
 
 Also, see the [reference parameter dictionaries](../src/porepy/examples/example_params.py) for PorePy models. They can be used as a starting point for a PorePy user to copy the relevant parameters for your own problem.
