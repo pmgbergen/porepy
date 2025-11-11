@@ -667,7 +667,7 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "fractional_flow": True,
-    "buoyancy_on": True,
+    "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,
