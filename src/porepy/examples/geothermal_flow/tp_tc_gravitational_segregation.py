@@ -21,7 +21,7 @@ residual_tolerance = 10.0 ** (-expected_order_loss)
 
 # define constant phase densities
 rho_l = 1000.0
-rho_g = 500.0
+rho_g = 1000.0
 h_l = 2.0
 h_g = 2.0
 to_Mega = 1.0e-6
@@ -58,23 +58,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    # def set_fractures(self) -> None:
-    #     points = np.array(
-    #         [
-    #             [1.0, 2.0],
-    #             [4.0, 2.0],
-    #             [1.0, 2.0],
-    #             [1.0, 4.0],
-    #             [4.0, 2.0],
-    #             [4.0, 4.0],
-    #             [2.0, 1.0],
-    #             [2.0, 4.0],
-    #             [3.0, 1.0],
-    #             [3.0, 4.0],
-    #         ]
-    #     ).T
-    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    def set_fractures(self) -> None:
+        points = np.array(
+            [
+                [1.0, 2.0],
+                [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
+            ]
+        ).T
+        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -666,7 +666,7 @@ params = {
     "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "reduce_linear_system": False,
+    "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": residual_tolerance,
     "flag_failure_as_diverged": False,
