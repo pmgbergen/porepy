@@ -9,7 +9,7 @@ import numpy as np
 import scipy.sparse as sps
 from numpy.typing import NDArray
 
-import porepy as pp  # Runtime dependency; types imported lazily under TYPE_CHECKING
+from porepy.geometry.half_space import half_space_interior_point
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 if TYPE_CHECKING:  # Avoid importing heavyish modules at runtime purely for typing.
@@ -102,7 +102,7 @@ def star_shape_cell_centers(g: Grid, as_nan: bool = False) -> NDArray[np.float64
         coords = np.concatenate((x0, x1), axis=1)
         # Compute a point in the half space intersection of all cell faces.
         try:
-            cell_centers[:, c] = pp.half_space.half_space_interior_point(
+            cell_centers[:, c] = half_space_interior_point(
                 normal, (x1 + x0) / 2.0, coords
             )
         except ValueError:
