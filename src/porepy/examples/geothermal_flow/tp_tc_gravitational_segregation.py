@@ -406,12 +406,15 @@ class BoundaryConditions(pp.PorePyModel):
         return pp.BoundaryCondition(sd, self.dirichlet_facets(sd), "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        # Match the value used in buoyancy_flow_model.py
         p_top = 10.0e6 * to_Mega
-        p = p_top * np.ones(boundary_grid.num_cells)
-        return p
+        return np.ones(boundary_grid.num_cells) * p_top
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        h = np.ones(boundary_grid.num_cells)
+        # Use the same weighted average logic as initial enthalpy
+        ic_sg = np.zeros(boundary_grid.num_cells)  # Dirichlet BC: assume pure liquid phase
+        ic_rho = rho_g * ic_sg + rho_l * (1.0 - ic_sg)
+        h = (ic_sg * h_g * rho_g + (1.0 - ic_sg) * h_l * rho_l) / ic_rho
         return h
 
     def bc_values_overall_fraction(
