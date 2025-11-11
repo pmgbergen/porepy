@@ -1,8 +1,9 @@
 from __future__ import annotations
+import os
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
-from shapely.lib import disjoint
 
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
@@ -12,8 +13,8 @@ from porepy.models.compositional_flow import (
 from abc import abstractmethod
 
 # test parameters
-expected_order_loss = 2
-mesh_2d_Q = False
+expected_order_loss = 3
+mesh_2d_Q = True
 
 
 residual_tolerance = 10.0 ** (-expected_order_loss)
@@ -21,7 +22,7 @@ residual_tolerance = 10.0 ** (-expected_order_loss)
 # define constant phase densities
 rho_l = 1000.0
 rho_g = 500.0
-h_l = 1.0
+h_l = 2.0
 h_g = 2.0
 to_Mega = 1.0e-6
 
@@ -463,13 +464,13 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        # z = (
-        #     np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
-        #     + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
-        #     + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
-        #     + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
-        # )
-        z = np.where((xc[:, 2] >= 0.0) & (xc[:, 2] <= 2.5), 0.95, 0.05)
+        z = (
+            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
+            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
+            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
+            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        )
+        # z = np.where((xc[:, 2] >= 0.0) & (xc[:, 2] <= 2.5), 0.95, 0.05)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -491,99 +492,73 @@ class FlowModel(
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
-
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
-
         flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
         flux_buoyancy_c1 = self.component_buoyancy(components[1], self.mdg.subdomains())
-
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
         are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
         print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
         assert are_reciprocal_Q
 
-        total_volume = 0.0
-        for sd in model.mdg.subdomains():
-            total_volume += np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
-
-        ref_rho_integral = 0.0
-        ref_rho_z_integral = 0.0
-        num_rho_integral = 0.0
-        num_rho_z_integral = 0.0
-
-        ref_total_energy_integral = 0.0
-        num_total_energy_integral = 0.0
-        for sd in model.mdg.subdomains():
-
+        subdomains = self.mdg.subdomains()
+        ref_rho = ref_rho_z = ref_energy = 0.0
+        num_rho = num_rho_z = num_energy = 0.0
+        for sd in subdomains:
             ic_sg_val = self.ic_values_staturation(sd)
             rho_l = phases[0].density([sd])
             rho_v = phases[1].density([sd])
             ic_rho = pp.wrap_as_dense_ad_array(1.0 - ic_sg_val) * rho_l + pp.wrap_as_dense_ad_array(ic_sg_val) * rho_v
-            ref_rho_integral_op = self.volume_integral(ic_rho, [sd], dim=1)
-            ref_rho_integral += np.sum(self.equation_system.evaluate(ref_rho_integral_op))/total_volume
-
-            ic_z_val = self.ic_values_overall_fraction(self.fluid.components[1],sd)
+            ref_rho += self.norm_vol_int(ic_rho, sd)
+            ic_z_val = self.ic_values_overall_fraction(self.fluid.components[1], sd)
             ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z_val)
-            ref_rho_z_op = self.volume_integral(ic_rho_z, [sd], dim=1)
-            ref_rho_z_integral += np.sum(self.equation_system.evaluate(ref_rho_z_op))/total_volume
-
+            ref_rho_z += self.norm_vol_int(ic_rho_z, sd)
             ic_p_val = self.ic_values_pressure(sd)
             ic_h_val = self.ic_values_enthalpy(sd)
             ic_t_val = self.ic_values_temperature(sd)
             ic_fluid_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h_val) - pp.wrap_as_dense_ad_array(ic_p_val)
             ic_rock_energy = pp.wrap_as_dense_ad_array(ic_t_val) * solid_constants.density * solid_constants.specific_heat_capacity
-            total_energy_op = self.porosity(sd) * ic_fluid_energy + (1.0 - self.porosity(sd))* ic_rock_energy
-            ref_total_energy_op = self.volume_integral(total_energy_op, [sd], dim=1)
-            ref_total_energy_integral += np.sum(self.equation_system.evaluate(ref_total_energy_op))/total_volume
-
-            num_rho_op = self.fluid.density([sd])
-            int_rho_op = self.volume_integral(num_rho_op, [sd], dim=1)
-            num_rho_integral += np.sum(self.equation_system.evaluate(int_rho_op))/total_volume
-
-            num_rho_z_op = num_rho_op * components[1].fraction([sd])
-            int_rho_z_op = self.volume_integral(num_rho_z_op, [sd], dim=1)
-            num_rho_z_integral += np.sum(self.equation_system.evaluate(int_rho_z_op))/total_volume
-
-            num_fluid_energy_op = num_rho_op * self.enthalpy([sd]) - self.pressure([sd])
+            total_energy_op = self.porosity(sd) * ic_fluid_energy + (1.0 - self.porosity(sd)) * ic_rock_energy
+            ref_energy += self.norm_vol_int(total_energy_op, sd)
+            cur_rho = self.fluid.density([sd])
+            num_rho += self.norm_vol_int(cur_rho, sd)
+            cur_rho_z = cur_rho * components[1].fraction([sd])
+            num_rho_z += self.norm_vol_int(cur_rho_z, sd)
+            cur_energy = cur_rho * self.enthalpy([sd]) - self.pressure([sd])
             num_rock_energy = self.temperature([sd]) * solid_constants.density * solid_constants.specific_heat_capacity
-            num_total_energy_op = self.porosity(sd) * num_fluid_energy_op + (1.0 - self.porosity(sd)) * num_rock_energy
-            int_total_energy_op = self.volume_integral(num_total_energy_op, [sd], dim=1)
-            num_total_energy_integral += np.sum(self.equation_system.evaluate(int_total_energy_op))/total_volume
-
-        mass_loss = np.abs(ref_rho_integral - num_rho_integral)
-        z_mass_loss = np.abs(ref_rho_z_integral - num_rho_z_integral)
-        order_mass_loss = np.abs(np.floor(np.log10(mass_loss)))
-        order_z_mass_loss = np.abs(np.floor(np.log10(z_mass_loss)))
-
-        energy_loss = np.abs(ref_total_energy_integral - num_total_energy_integral)
-        order_energy_loss = np.abs(np.floor(np.log10(energy_loss)))
-        print("ref mass integral: ", ref_rho_integral)
-        print("num mass integral sg: ", num_rho_integral)
-        print("Order of mass loss: ", order_mass_loss)
-        mass_conservative_Q = order_mass_loss >= expected_order_loss
+            num_energy += self.norm_vol_int(self.porosity(sd) * cur_energy + (1.0 - self.porosity(sd)) * num_rock_energy, sd)
+        def order(loss: float) -> float:
+            return np.inf if loss <= 0.0 else abs(np.floor(np.log10(loss)))
+        mass_loss = abs(ref_rho - num_rho)
+        z_mass_loss = abs(ref_rho_z - num_rho_z)
+        energy_loss = abs(ref_energy - num_energy)
+        print("ref mass integral: ", ref_rho)
+        print("num mass integral sg: ", num_rho)
+        print("Order of mass loss: ", order(mass_loss))
+        mass_conservative_Q = order(mass_loss) >= expected_order_loss
         print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
         assert mass_conservative_Q
-
-        print("ref z mass integral: ", ref_rho_z_integral)
-        print("num z mass integral sg: ", num_rho_z_integral)
-        print("Order of z mass loss: ", order_z_mass_loss)
-        z_mass_conservative_Q = order_z_mass_loss >= expected_order_loss
+        print("ref z mass integral: ", ref_rho_z)
+        print("num z mass integral sg: ", num_rho_z)
+        print("Order of z mass loss: ", order(z_mass_loss))
+        z_mass_conservative_Q = order(z_mass_loss) >= expected_order_loss
         print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
         assert z_mass_conservative_Q
-
-        print("ref energy integral: ", ref_total_energy_integral)
-        print("num energy integral sg: ", num_total_energy_integral)
-        print("Order of energy loss: ", order_energy_loss)
-        energy_conservative_Q = order_energy_loss >= expected_order_loss
+        print("ref energy integral: ", ref_energy)
+        print("num energy integral sg: ", num_energy)
+        print("Order of energy loss: ", order(energy_loss))
+        energy_conservative_Q = order(energy_loss) >= expected_order_loss
         print("buoyancy discretization is energy conservative Q: ", energy_conservative_Q)
         assert energy_conservative_Q
-
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
+
+    def norm_vol_int(self, op: pp.ad.Operator, sd: pp.Grid) -> float:
+        total_volume = np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
+        return np.sum(self.equation_system.evaluate(self.volume_integral(op, [sd], dim=1))) / total_volume
 
     def set_equations(self):
         super().set_equations()
@@ -619,7 +594,6 @@ class FlowModel(
                 total_volume += np.sum(
                     self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
 
-            self.equation_system
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
                 nonlinear_increment
@@ -647,8 +621,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 500.0 * day
-dt = 10.0 * day
+tf = 50.0 * day
+dt = 1.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -674,6 +648,7 @@ params = {
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": residual_tolerance,
+    "flag_failure_as_diverged": False,
     "max_iterations": 100,
 }
 
