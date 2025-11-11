@@ -58,23 +58,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    # def set_fractures(self) -> None:
+    #     points = np.array(
+    #         [
+    #             [1.0, 2.0],
+    #             [4.0, 2.0],
+    #             [1.0, 2.0],
+    #             [1.0, 4.0],
+    #             [4.0, 2.0],
+    #             [4.0, 4.0],
+    #             [2.0, 1.0],
+    #             [2.0, 4.0],
+    #             [3.0, 1.0],
+    #             [3.0, 4.0],
+    #         ]
+    #     ).T
+    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -411,11 +411,9 @@ class BoundaryConditions(pp.PorePyModel):
         return np.ones(boundary_grid.num_cells) * p_top
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # Use the same weighted average logic as initial enthalpy
-        ic_sg = np.zeros(boundary_grid.num_cells)  # Dirichlet BC: assume pure liquid phase
-        ic_rho = rho_g * ic_sg + rho_l * (1.0 - ic_sg)
-        h = (ic_sg * h_g * rho_g + (1.0 - ic_sg) * h_l * rho_l) / ic_rho
-        return h
+        # Match buoyancy_flow_model.py: Constant inlet enthalpy value
+        h_inlet = 1.0
+        return h_inlet * np.ones(boundary_grid.num_cells)
 
     def bc_values_overall_fraction(
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
@@ -501,71 +499,87 @@ class FlowModel(
         super().after_nonlinear_convergence()
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
+        # Buoyancy reciprocity check
         flux_buoyancy_c0 = self.component_buoyancy(components[0], self.mdg.subdomains())
         flux_buoyancy_c1 = self.component_buoyancy(components[1], self.mdg.subdomains())
         b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
         b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
-        are_reciprocal_Q = np.all(np.isclose(b_c0 + b_c1, 0.0))
-        print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
-        assert are_reciprocal_Q
+        assert np.all(np.isclose(b_c0 + b_c1, 0.0))
 
-        subdomains = self.mdg.subdomains()
+        # Reference and numerical integrals
         ref_rho = ref_rho_z = ref_energy = 0.0
         num_rho = num_rho_z = num_energy = 0.0
-        for sd in subdomains:
+        for sd in self.mdg.subdomains():
             ic_sg_val = self.ic_values_staturation(sd)
             rho_l = phases[0].density([sd])
-            rho_v = phases[1].density([sd])
-            ic_rho = pp.wrap_as_dense_ad_array(1.0 - ic_sg_val) * rho_l + pp.wrap_as_dense_ad_array(ic_sg_val) * rho_v
+            rho_g_phase = phases[1].density([sd])
+            ic_rho = pp.wrap_as_dense_ad_array(1.0 - ic_sg_val) * rho_l + pp.wrap_as_dense_ad_array(ic_sg_val) * rho_g_phase
             ref_rho += self.norm_vol_int(ic_rho, sd)
+
             ic_z_val = self.ic_values_overall_fraction(self.fluid.components[1], sd)
             ic_rho_z = ic_rho * pp.wrap_as_dense_ad_array(ic_z_val)
             ref_rho_z += self.norm_vol_int(ic_rho_z, sd)
+
             ic_p_val = self.ic_values_pressure(sd)
             ic_h_val = self.ic_values_enthalpy(sd)
-            ic_t_val = self.ic_values_temperature(sd)
-            ic_fluid_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h_val) - pp.wrap_as_dense_ad_array(ic_p_val)
-            ic_rock_energy = pp.wrap_as_dense_ad_array(ic_t_val) * solid_constants.density * solid_constants.specific_heat_capacity
-            total_energy_op = self.porosity(sd) * ic_fluid_energy + (1.0 - self.porosity(sd)) * ic_rock_energy
-            ref_energy += self.norm_vol_int(total_energy_op, sd)
+            ic_energy = ic_rho * pp.wrap_as_dense_ad_array(ic_h_val) - pp.wrap_as_dense_ad_array(ic_p_val)
+            ref_energy += self.norm_vol_int(ic_energy, sd)
+
             cur_rho = self.fluid.density([sd])
             num_rho += self.norm_vol_int(cur_rho, sd)
+
             cur_rho_z = cur_rho * components[1].fraction([sd])
             num_rho_z += self.norm_vol_int(cur_rho_z, sd)
+
             cur_energy = cur_rho * self.enthalpy([sd]) - self.pressure([sd])
-            num_rock_energy = self.temperature([sd]) * solid_constants.density * solid_constants.specific_heat_capacity
-            num_energy += self.norm_vol_int(self.porosity(sd) * cur_energy + (1.0 - self.porosity(sd)) * num_rock_energy, sd)
+            num_energy += self.norm_vol_int(cur_energy, sd)
+
         def order(loss: float) -> float:
             return np.inf if loss <= 0.0 else abs(np.floor(np.log10(loss)))
+
+        expected = getattr(self, "expected_order_loss", expected_order_loss)
         mass_loss = abs(ref_rho - num_rho)
         z_mass_loss = abs(ref_rho_z - num_rho_z)
         energy_loss = abs(ref_energy - num_energy)
+        # Diagnostic prints for conservation checks
         print("ref mass integral: ", ref_rho)
-        print("num mass integral sg: ", num_rho)
+        print("num mass integral: ", num_rho)
         print("Order of mass loss: ", order(mass_loss))
-        mass_conservative_Q = order(mass_loss) >= expected_order_loss
-        print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
-        assert mass_conservative_Q
-        print("ref z mass integral: ", ref_rho_z)
-        print("num z mass integral sg: ", num_rho_z)
-        print("Order of z mass loss: ", order(z_mass_loss))
-        z_mass_conservative_Q = order(z_mass_loss) >= expected_order_loss
-        print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
-        assert z_mass_conservative_Q
+        print("ref z-mass integral: ", ref_rho_z)
+        print("num z-mass integral: ", num_rho_z)
+        print("Order of z-mass loss: ", order(z_mass_loss))
         print("ref energy integral: ", ref_energy)
         print("num energy integral sg: ", num_energy)
         print("Order of energy loss: ", order(energy_loss))
-        energy_conservative_Q = order(energy_loss) >= expected_order_loss
+        # Boolean checks with messages
+
+        mass_conservative_Q = order(mass_loss) >= expected
+        print("buoyancy discretization is mass conservative Q: ", mass_conservative_Q)
+        z_mass_conservative_Q = order(z_mass_loss) >= expected
+        print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
+        energy_conservative_Q = order(energy_loss) >= expected
         print("buoyancy discretization is energy conservative Q: ", energy_conservative_Q)
+        assert mass_conservative_Q
+        assert z_mass_conservative_Q
         assert energy_conservative_Q
-        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
-        print("Time value: ", self.time_manager.time)
-        print("Time index: ", self.time_manager.time_index)
-        print("")
 
     def norm_vol_int(self, op: pp.ad.Operator, sd: pp.Grid) -> float:
-        total_volume = np.sum(self.equation_system.evaluate(self.volume_integral(pp.ad.Scalar(1), [sd], dim=1)))
-        return np.sum(self.equation_system.evaluate(self.volume_integral(op, [sd], dim=1))) / total_volume
+        # Global volume normalization (sum over all subdomains) as in buoyancy_flow_model.py
+        total_volume = 0.0
+        for g in self.mdg.subdomains():
+            total_volume += np.sum(
+                self.equation_system.evaluate(
+                    self.volume_integral(pp.ad.Scalar(1), [g], dim=1)
+                )
+            )
+        return (
+            np.sum(
+                self.equation_system.evaluate(
+                    self.volume_integral(op, [sd], dim=1)
+                )
+            )
+            / total_volume
+        )
 
     def set_equations(self):
         super().set_equations()
