@@ -272,14 +272,9 @@ class AngularMomentumEquation:
         )
 
         source = self.source_angular_momentum(subdomains)
+        div = pp.ad.Divergence(subdomains, dim=self.rotation_dimension())
 
-        angular_momentum = self.balance_equation(
-            subdomains,
-            accumulation,
-            total_rotation,
-            source,
-            self.rotation_dimension(),
-        )
+        angular_momentum = accumulation + div @ total_rotation - source
         angular_momentum.set_name("angular_momentum_balance_equation")
 
         return angular_momentum
@@ -366,9 +361,8 @@ class SolidMassEquation:
             subdomains,
             1,
         )
-        solid_mass = self.balance_equation(
-            subdomains, accumulation, mass_flux, source, 1
-        )
+        div = pp.ad.Divergence(subdomains, dim=1)
+        solid_mass = accumulation + div @ mass_flux - source
 
         solid_mass.set_name("solid_mass_equation")
         return solid_mass
@@ -703,7 +697,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         for sd, data in self.mdg.subdomains(return_data=True):
             if sd.dim == self.nd:
                 pp.initialize_data(
-                    sd,
                     data,
                     self.stress_keyword,
                     {

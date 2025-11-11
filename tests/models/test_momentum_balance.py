@@ -64,6 +64,11 @@ def test_2d_single_fracture(
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
+        "time_manager": pp.TimeManager(
+            schedule=[0, pp.DAY],
+            dt_init=pp.DAY,
+            constant_dt=True,
+        ),  # Non-trivial time manager to avoid masking bugs.
     }
     if model_class == TpsaLinearModel:
         # Tpsa is only consistent on Cartesian grids, so do the test there.

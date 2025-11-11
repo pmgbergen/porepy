@@ -595,14 +595,12 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
-                sd,
                 data,
                 self.mobility_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
-                intf,
                 data,
                 self.mobility_keyword,
                 {"darcy_flux": np.zeros(intf.num_cells)},
@@ -927,7 +925,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             loc_permeability = permeability_all_cells.restrict_to_cells(loc_cells)
 
             pp.initialize_data(
-                sd,
                 data,
                 self.darcy_keyword,
                 {
@@ -937,7 +934,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 },
             )
             pp.initialize_data(
-                sd,
                 data,
                 self.mobility_keyword,
                 {
@@ -948,7 +944,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         # Assign diffusivity in the normal direction of the fractures.
         for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
             pp.initialize_data(
-                intf,
                 intf_data,
                 self.darcy_keyword,
                 {

@@ -15,7 +15,7 @@ NUM_MONTHS: int = 24
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
-RUN_WITH_SCHEDULE: bool = True
+RUN_WITH_SCHEDULE: bool = False
 """Ïf running without schedule for the time steps, there is no maximum admissible time
 step size and no time to be hit between start and end of simulation.
 
@@ -89,6 +89,20 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # mypy: ignore-errors
 
 
+def get_file_name(
+    condition: str,
+    refinement: int,
+    flash_tol_case: int = 7,
+    flash_stride: int = 3,
+    rel_perm: Literal["quadratic", "linear"] = "linear",
+    num_months: int = 24,
+) -> str:
+    return (
+        f"{condition}_h{refinement}_ftol{flash_tol_case}"
+        f"_fstride{flash_stride}_{rel_perm}_m{num_months}"
+    )
+
+
 def get_path(
     condition: str,
     refinement: int,
@@ -100,10 +114,10 @@ def get_path(
 ) -> pathlib.Path:
     """ "Returns path to result data for a simulation case."""
     if file_name is None:
-        file_name = (
-            f"stats_{condition}_h{refinement}"
-            f"_ftol{flash_tol_case}_fstride{flash_stride}_{rel_perm}_m{num_months}.json"
+        file_name = get_file_name(
+            condition, refinement, flash_tol_case, flash_stride, rel_perm, num_months
         )
+        file_name = f"stats_{file_name}.json"
     return pathlib.Path(f"{FOLDER}{file_name}")
 
 
@@ -403,9 +417,19 @@ if __name__ == "__main__":
         NUM_MONTHS = 24
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
-        file_name = "stats_ph_scheduled.json"
+        data_path = "ph_scheduled"
+        file_name = f"stats_{data_path}.json"
     else:
         print("--- start of run script ---\n")
+        data_path = get_file_name(
+            condition=EQUILIBRIUM_CONDITION,
+            refinement=REFINEMENT_LEVEL,
+            flash_tol_case=FLASH_TOL_CASE,
+            flash_stride=LOCAL_SOLVER_STRIDE,
+            rel_perm=REL_PERM,
+            num_months=NUM_MONTHS,
+        )
+    data_path = f"visualization/{data_path}"
 
     print(
         f"Equilibrium condition: {EQUILIBRIUM_CONDITION}\n"
@@ -414,20 +438,7 @@ if __name__ == "__main__":
         f"Local iteration stride: {LOCAL_SOLVER_STRIDE}\n"
         f"Number of months: {NUM_MONTHS}\n"
         f"Relative permeability: {REL_PERM}\n"
-        f"Time schedule: {RUN_WITH_SCHEDULE}"
-    )
-    print(
-        f"Results stored in: {
-            get_path(
-                condition=EQUILIBRIUM_CONDITION,
-                refinement=REFINEMENT_LEVEL,
-                flash_tol_case=FLASH_TOL_CASE,
-                flash_stride=LOCAL_SOLVER_STRIDE,
-                rel_perm=REL_PERM,
-                num_months=NUM_MONTHS,
-                file_name=file_name,
-            ).resolve()
-        }\n"
+        f"Time schedule: {RUN_WITH_SCHEDULE}\n"
     )
 
     # endregion
@@ -445,10 +456,10 @@ if __name__ == "__main__":
 
     newton_tol = 1e-7
     newton_tol_increment = 5e-6
-    dt_init = pp.DAY
+    dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
-        time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS)]
+        time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
         dt_max = 30 * pp.DAY
     else:
         time_schedule = [0, NUM_MONTHS * 30 * pp.DAY]
@@ -462,7 +473,7 @@ if __name__ == "__main__":
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
         recomp_factor=0.6,
-        recomp_max=15,
+        recomp_max=10,
         print_info=True,
         rtol=0.0,
     )
@@ -472,7 +483,8 @@ if __name__ == "__main__":
     }
 
     basalt_ = basalt.copy()
-    basalt_["permeability"] = 1e-14
+    basalt_["permeability"] = 1e-15
+    well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 
     flash_params: dict[Any, Any] = {
@@ -542,18 +554,18 @@ if __name__ == "__main__":
         "material_constants": material_params,
         "time_manager": time_manager,
         "prepare_simulation": False,
-        "buoyancy_on": BUOYANCY_ON,
+        "enable_buoyancy_effects": BUOYANCY_ON,
         "compile": True,
         "flash_compiler_args": ("p-T", "p-h"),
     }
-
-    if RUN_WITH_SCHEDULE:
-        model_params["times_to_export"] = time_schedule
 
     model_params.update(phase_property_params)
     model_params.update(restart_params)
     model_params.update(meshing_params)
     model_params.update(solver_params)
+    model_params["_well_surrounding_permeability"] = well_surrounding_permeability
+    # Storing simulation results in individual folder.
+    model_params["folder_name"] = data_path
 
     if FRACTIONAL_FLOW:
         model_class = ColdCO2InjectionModelFF
@@ -602,7 +614,7 @@ if __name__ == "__main__":
         pp.run_time_dependent_model(model, model_params)
     except Exception as err:
         SIMULATION_SUCCESS = False
-        print(f"SIMULATION FAILED: {err}")
+        print(f"\nSIMULATION FAILED: {err}")
         n = model.nonlinear_solver_statistics.num_iteration
         model._time_tracker["linsolve"] = model._time_tracker["linsolve"][:-n]
         model._time_tracker["assembly"] = model._time_tracker["assembly"][:-n]
@@ -663,5 +675,6 @@ if __name__ == "__main__":
         "w",
     ) as result_file:
         json.dump(data, result_file)
-    print(f"Results saved at {str(path.resolve())}")
-    print("\n--- end of run script ---")
+    print(f"\nStatistics saved in: {str(path.resolve())}")
+    print(f"Visualization data saved in: {str(pathlib.Path(data_path).resolve())}\n")
+    print("--- end of run script ---")

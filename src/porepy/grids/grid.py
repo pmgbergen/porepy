@@ -441,7 +441,9 @@ class Grid:
         """Auxiliary function to compute the geometry for 2D grids.
 
         We assume that:
-        - either the cell_faces and face_nodes are consistently oriented
+        - either the grid is consistently oriented:
+            - cell_faces and face_nodes form node-loops for the cells
+            - each loop has the same (counter-)clockwise orientation
         - or that the grid is composed of convex cells.
         """
 
@@ -455,24 +457,21 @@ class Grid:
         fn_orient = sps.csc_matrix(self.face_nodes, dtype=int, copy=True)
         fn_orient.data = -np.power(-1, np.arange(fn_orient.data.size))
 
-        # Consistency check: For each cell, the nodes should occur twice in the
-        # face-node relation: Once as a start node and once as an end node. Summed over
-        # all faces of the cell, the result should be zero.
-        is_oriented = (fn_orient * self.cell_faces).nnz == 0
-        if not is_oriented:
-            # The assumptions underlying the computation for general cells is broken.
-            # Fall back to a legacy implementation which is only valid for convex cells.
-            warn(
-                "Orientations in face_nodes and cell_faces are inconsistent. "
-                "Fall back on an implementation that assumes all cells are convex."
-            )
+        # The orientation consistency is verified at 3 orientation checkpoints, each of
+        # which modifies the is_oriented boolean.
 
-        # Compute the tangent vectors and use them to compute face attributes
-        tangent = self.nodes * fn_orient
+        # Orientation check (1/3):
+        # Locally, the nodes should form a closed loop for each cell. Each node thus
+        # appears once as a start node (-1) and once as an end node (+1). Summed over
+        # all faces of each cell, the result should be zero.
+        is_oriented = (fn_orient @ self.cell_faces).nnz == 0
+
+        # Compute the tangent vectors and use them to compute face attributes.
+        tangent = self.nodes @ fn_orient
         self.face_areas = np.sqrt(np.square(tangent).sum(axis=0))
         self.face_centers = 0.5 * self.nodes * np.abs(fn_orient)
 
-        # Compute the temporary cell centers as average of the cell nodes
+        # Compute temporary cell centers as the average of the cell nodes.
         faceno, cellno, cf_orient = sparse_array_to_row_col_data(self.cell_faces)
         cx = np.bincount(cellno, weights=self.face_centers[0, faceno])
         cy = np.bincount(cellno, weights=self.face_centers[1, faceno])
@@ -480,57 +479,99 @@ class Grid:
         temp_cell_centers = np.vstack((cx, cy, cz)) / np.bincount(cellno)
 
         # Create sub-simplexes based on triplets, each consisting of a cell center and
-        # the start and end of a face. Compute the vectors that are normal to the
-        # sub-simplex and whose length is the area.
+        # the start and end of a face.
         subsimplex_heights = self.face_centers[:, faceno] - temp_cell_centers[:, cellno]
-        # Use a cross product to get the area of the sub-simplex.
+        # Use a cross product to compute the vectors that are normal to the sub-simplex
+        # and whose length is the sub-simplex area.
         subsimplex_normals = 0.5 * np.cross(
             subsimplex_heights, cf_orient * tangent[:, faceno], axis=0
         )
 
-        # Construct the unit normal of the grid as planar object
-        if is_oriented:
-            plane_normal = subsimplex_normals.sum(axis=1)
-            plane_normal /= np.linalg.norm(plane_normal)
-        else:
-            plane_normal = pp.map_geometry.compute_normal(self.nodes)
+        # Construct the unit normal of the planar grid.
+        def compute_normal(is_oriented: bool) -> np.ndarray:
+            if is_oriented:
+                plane_normal = subsimplex_normals.sum(axis=1)
+                len_normal = np.linalg.norm(plane_normal)
+
+                # Orientation check (2/3):
+                # Although the grid is oriented locally, it may be inconsistent
+                # globally. In an edge case where exactly half the domain flips
+                # orientation, the computed plane normal will be close to zero and we
+                # cannot trust its normalization.
+                if len_normal < 1e-5 * np.mean(self.face_areas) ** 2:
+                    is_oriented &= False
+                    return compute_normal(is_oriented)
+                else:
+                    return plane_normal / len_normal
+
+            else:
+                # Fall back to the general implementation.
+                return pp.map_geometry.compute_normal(self.nodes)
+
+        plane_normal = compute_normal(is_oriented)
 
         # Compute the face normals by rotating the tangent according to the orientation
-        # of the plane
+        # of the plane.
         self.face_normals = np.cross(tangent, plane_normal, axis=0)
 
-        # Compute the signed volumes of sub-simplexes. Positive values indicate that
-        # cell_faces and face_nodes are consistently oriented; in practice, this means
-        # that nodes that are oriented counter clock-wise give positive values.
-        subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
+        def compute_volumes(is_oriented: bool) -> tuple[np.ndarray, np.ndarray]:
+            if is_oriented:
+                # Compute the signed volumes of sub-simplexes. Positive values
+                # indicate that cell_faces and face_nodes are consistently oriented;
+                # in practice, this means that nodes that are oriented counter
+                # clock-wise give positive values
+                subsimplex_volumes = np.dot(plane_normal, subsimplex_normals)
 
-        # In case of inconsistent orientation, the sub-simplex volumes and normals need
-        # to be corrected.
-        if not is_oriented:
-            # The volume is still correct, but it may be negative. Fix this.
-            subsimplex_volumes = np.abs(subsimplex_volumes)
+                # Compute the cell volumes by adding all signed sub-simplex volumes.
+                cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
 
-            # We flip the normal if the inner product between the height (face_center -
-            # cell_center) and the face normal is different from what is expected from
-            # the cell-face relation (as contained in cf_orient).
-            flip = (
-                cf_orient
-                * np.sum(subsimplex_heights * self.face_normals[:, faceno], axis=0)
-            ) < 0
-            # Gather the information of whether to flip for the two sides of each face.
-            # Under the assumption that the grid is convex, the two sides should yield
-            # the same decision. For a non-convex cell, the two sides may (will?) not
-            # agree on whether to flip, and the decision is essentially arbitrary.
-            flip = np.bincount(faceno, weights=flip).astype(bool)
-            self.face_normals[:, flip] *= -1
+                # Orientation check (3/3):
+                # A grid may have locally consistent orientation, but switch orientation
+                # in a disconnected subdomain. The only way to check this, is to see
+                # whether negative cell volumes have appeared.
+                if np.any(cell_volumes < 0):
+                    is_oriented &= False
+                    return compute_volumes(is_oriented)
 
-        # Compute the cell volumes by adding all relevant sub-simplex volumes.
-        self.cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
+            else:
+                # If any of the three consistency checks fails, then the assumptions
+                # underlying the computation for general cells is broken. Fall back to a
+                # legacy implementation which is only valid for convex cells.
+                warn(
+                    "Orientations are inconsistent. "
+                    "Fall back on an implementation that assumes all cells are convex."
+                )
 
-        # Sanity check on the cell_volumes
+                # Assuming that the cells are star-shaped, then the subsimplex volumes
+                # are given by the norm of the cross product computed above.
+                subsimplex_volumes = np.sqrt(np.square(subsimplex_normals).sum(axis=0))
+
+                # We flip the normal if the inner product between the height
+                # (face_center - cell_center) and the face normal is different from what
+                # is expected from the cell-face relation (as contained in cf_orient).
+                flip = (
+                    cf_orient
+                    * np.sum(subsimplex_heights * self.face_normals[:, faceno], axis=0)
+                ) < 0
+                # Gather the information of whether to flip for the two sides of each
+                # face. Under the assumption that the grid is convex, the two sides
+                # should yield the same decision. For a non-convex cell, the two sides
+                # may (will?) not agree on whether to flip, and the decision is
+                # essentially arbitrary.
+                flip = np.bincount(faceno, weights=flip).astype(bool)
+                self.face_normals[:, flip] *= -1
+
+                # Compute the cell volumes by adding all relevant sub-simplex volumes.
+                cell_volumes = np.bincount(cellno, weights=subsimplex_volumes)
+
+            return cell_volumes, subsimplex_volumes
+
+        self.cell_volumes, subsimplex_volumes = compute_volumes(is_oriented)
+
+        # Sanity check on the cell_volumes.
         assert np.all(self.cell_volumes >= 0)
 
-        # Compute cells centroids as weighted average of the sub-simplex centroids
+        # Compute cells centroids as weighted average of the sub-simplex centroids.
         sub_centroids = (
             temp_cell_centers[:, cellno] + 2 * self.face_centers[:, faceno]
         ) / 3
@@ -893,17 +934,12 @@ class Grid:
     @lru_cache
     def cell_diameters(
         self,
-        cn: Optional[sps.spmatrix] = None,
         cell_wise: bool = True,
         func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> np.ndarray:
         """Computes the cell diameters.
 
         Parameters:
-            cn: ``default=None``
-                Cell-to-nodes map, already computed previously. If None, a call to
-                :meth:`cell_nodes` is provided.
-
             cell_wise:
                 If True, returns the cell diameters. If False, the parameter ``func``
                 must be provided to specify the aggregation function.
@@ -941,9 +977,6 @@ class Grid:
         if cell_wise and func is not None:
             warn("The parameter func is ignored when cell_wise is True")
 
-        if cn is None:
-            cn = self.cell_nodes()
-
         def comb(n):
             # Helper function to get all combinations of two elements in n.
             return np.fromiter(
@@ -955,6 +988,8 @@ class Grid:
             return np.amax(
                 np.linalg.norm(self.nodes[:, n[0, :]] - self.nodes[:, n[1, :]], axis=0)
             )
+
+        cn = self.cell_nodes()
 
         if cell_wise:
             # Compute the diameter for each cell by 1) getting all node combinations for

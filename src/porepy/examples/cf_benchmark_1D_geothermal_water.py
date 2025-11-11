@@ -621,7 +621,7 @@ if __name__ == "__main__":
         "material_constants": material_params,
         "time_manager": time_manager,
         "prepare_simulation": False,
-        "buoyancy_on": True if CASE == "vertical" else False,
+        "enable_buoyancy_effects": True if CASE == "vertical" else False,
         "compile": True,
         "flash_compiler_args": ("p-T", "p-h"),
     }

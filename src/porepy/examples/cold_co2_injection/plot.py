@@ -232,14 +232,27 @@ ax.set_xticks(ftols)
 ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
 ax.set_xscale("log")
 ax.tick_params(axis="both", which="both", labelcolor="black", labelsize=FONTSIZE)
+ax.set_yscale("log")
 ax.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+ax.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
 ax.yaxis.grid(visible=True, which="both", color="grey", alpha=0.3, linewidth=0.5)
-ticks = ax.get_yticks()
+ticks = ax.get_yticks(minor=True)
+mv = tngi.max()
+ticks = ticks[ticks < mv]
 ticks = np.concatenate([ticks, np.array([tngi.max()])]).astype(int)
-ax.set_yticks(ticks)
+ax.set_yticks(ticks, minor=True)
+
 axr.set_ylabel("Total local iterations", color=color, fontsize=FONTSIZE + 2)
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+ticks = axr.get_yticks(minor=True)
+miv = tnfi.min()
+mav = tnfi.max()
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
+axr.set_yticks(ticks, minor=True)
 
 ax.margins(0.10)
 axr.margins(0.10)
@@ -300,6 +313,14 @@ ax.set_yticks(ticks)
 
 axr.tick_params(axis="y", which="both", labelcolor=color, labelsize=FONTSIZE)
 axr.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+axr.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+ticks = axr.get_yticks()
+miv = tnfis.min()
+mav = tnfis.max()
+ticks = ticks[ticks < mav]
+ticks = ticks[ticks > miv]
+ticks = np.concatenate([ticks, np.array([miv, mav])]).astype(int)
+axr.set_yticks(ticks)
 
 ax.margins(0.1)
 axr.margins(0.1)
@@ -508,7 +529,8 @@ axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
 axr.tick_params(axis="y", which="both", labelsize=FONTSIZE)
 
 ticks = ax.get_yticks()
-ticks = np.concatenate([ticks, np.array([M]).astype(int)])
+ticks = ticks[ticks < M - 90]
+ticks = np.concatenate([ticks, np.array([M])]).astype(int)
 ax.set_yticks(ticks)
 
 ax.margins(0.05)
@@ -602,39 +624,40 @@ imgsr += axr.plot(
 rcomps = np.array(D["recomputations"]).astype(int)
 assert np.all(rcomps >= 0)
 rcid = rcomps > 0
-tid = t[rcid]
-ngiid = ngi[rcid] + 2
-rid = rcomps[rcid]
-n = 3e2
-N = 1e3
-m = rid.min()
-M = rid.max()
-a = (N - n) / (M - m)
-b = n - a * m
-sizes = a * rid + b
+if np.any(rcid):
+    tid = t[rcid]
+    ngiid = ngi[rcid] + 2
+    rid = rcomps[rcid]
+    n = 3e2
+    N = 1e3
+    m = rid.min()
+    M = rid.max()
+    a = (N - n) / (M - m)
+    b = n - a * m
+    sizes = a * rid + b
 
-ypos = float(np.max([ngi.max(), nli.max()]) + 20)
-imgs += [
-    ax.scatter(
-        tid,
-        np.ones_like(tid).astype(int) * ypos,
-        s=sizes,
-        alpha=0.5,
-        label="halving",
+    ypos = float(np.max([ngi.max(), nli.max()]) + 20)
+    imgs += [
+        ax.scatter(
+            tid,
+            np.ones_like(tid).astype(int) * ypos,
+            s=sizes,
+            alpha=0.5,
+            label="halving",
+        )
+    ]
+
+    idx = rid == M
+
+    ax.text(
+        tid[idx][0],
+        ypos,
+        M,
+        fontsize=FONTSIZE + 2,
+        fontweight="heavy",
+        horizontalalignment="center",
+        verticalalignment="center",
     )
-]
-
-idx = rid == M
-
-ax.text(
-    tid[idx][0],
-    ypos,
-    M,
-    fontsize=FONTSIZE + 2,
-    fontweight="heavy",
-    horizontalalignment="center",
-    verticalalignment="center",
-)
 
 ax.set_xscale("symlog", linthresh=1)
 ax.xaxis.grid(visible=True, which="major", color="grey", alpha=0.3, linewidth=0.5)
@@ -745,53 +768,76 @@ print(f"\nSaved fig: {name}")
 # region Printing table with clock times, at maximum refinement where both equilibrium
 # conditions converge.
 
-Dph: SimulationData = data["unified-p-h"][PRINT_STATS_ph_pT_REFINEMENT]
-DpT: SimulationData = data["unified-p-T"][PRINT_STATS_ph_pT_REFINEMENT]
-ngipt = int(DpT["num_global_iter"].sum())
-ntpt = int(DpT["t"].size)
-nfipt = int(DpT["num_flash_iter"].sum())
-ngiph = int(Dph["num_global_iter"].sum())
-ntph = int(Dph["t"].size)
-nfiph = int(Dph["num_flash_iter"].sum())
-
 
 def format_times(vals: tuple[float, float]) -> str:
     """Format the clock time values."""
     return f"{vals[0]:.6f} ({vals[1]:.2f})"
 
 
+headers = [""]
+
+rows = {
+    "Assembly time": [],
+    "Linear solver time": [],
+    "Flash solver time": [],
+    "Number of time steps": [],
+    "Number of global iterations": [],
+    "Total number of local iterations": [],
+}
+
+for i, hmesh in MESH_SIZES.items():
+    headers.append(f"ph({hmesh})")
+    headers.append(f"pT({hmesh})")
+
+    dph = data["unified-p-h"].get(i)
+    dpt = data["unified-p-T"].get(i)
+
+    ngipt = int(dpt["num_global_iter"].sum())
+    ntpt = int(dpt["t"].size)
+    nfipt = int(dpt["num_flash_iter"].sum())
+    ngiph = int(dph["num_global_iter"].sum())
+    ntph = int(dph["t"].size)
+    nfiph = int(dph["num_flash_iter"].sum())
+
+    if dph is not None:
+        rows["Assembly time"].append(format_times(dph["clock_time_assembly"]))
+        rows["Linear solver time"].append(format_times(dph["clock_time_global_solver"]))
+        rows["Flash solver time"].append(format_times(dph["clock_time_flash_solver"]))
+        rows["Number of time steps"].append(
+            f"{ntph} ({dph['total_num_time_steps'] - ntph})"
+        )
+        rows["Number of global iterations"].append(
+            f"{ngiph} ({dph['total_num_global_iter'] - ngiph})"
+        )
+        rows["Total number of local iterations"].append(
+            f"{nfiph} ({dph['total_num_flash_iter'] - nfiph})"
+        )
+    else:
+        for k in rows:
+            rows[k].append("-")
+    if dpt is not None:
+        rows["Assembly time"].append(format_times(dpt["clock_time_assembly"]))
+        rows["Linear solver time"].append(format_times(dpt["clock_time_global_solver"]))
+        rows["Flash solver time"].append(format_times(dpt["clock_time_flash_solver"]))
+        rows["Number of time steps"].append(
+            f"{ntpt} ({dpt['total_num_time_steps'] - ntpt})"
+        )
+        rows["Number of global iterations"].append(
+            f"{ngipt} ({dpt['total_num_global_iter'] - ngipt})"
+        )
+        rows["Total number of local iterations"].append(
+            f"{nfipt} ({dpt['total_num_flash_iter'] - nfipt})"
+        )
+    else:
+        for k in rows:
+            rows[k].append("-")
+
 table = tabulate(
-    [
-        [
-            "unified-p-h",
-            format_times(Dph["clock_time_assembly"]),
-            format_times(Dph["clock_time_global_solver"]),
-            format_times(Dph["clock_time_flash_solver"]),
-            f"{ntph} ({Dph['total_num_time_steps'] - ntph})",
-            f"{ngiph} ({Dph['total_num_global_iter'] - ngiph})",
-            Dph["total_num_flash_iter"],
-        ],
-        [
-            "unified-p-T",
-            format_times(DpT["clock_time_assembly"]),
-            format_times(DpT["clock_time_global_solver"]),
-            format_times(DpT["clock_time_flash_solver"]),
-            f"{ntpt} ({DpT['total_num_time_steps'] - ntpt})",
-            f"{ngipt} ({DpT['total_num_global_iter'] - ngipt})",
-            DpT["total_num_flash_iter"],
-        ],
-    ],
-    headers=[
-        "Equilibrium condition",
-        "Assembly time",
-        "Linear solver time",
-        "Flash solver time",
-        "Number of time steps",
-        "Number of global iterations",
-        "Total number of local iterations",
-    ],
+    [[k] + v for k, v in rows.items()],
+    headers=headers,
     tablefmt="orgtbl",
 )
+
 print(table)
 
 # endregion

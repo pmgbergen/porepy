@@ -415,14 +415,6 @@ class UpwindCoupling(InterfaceDiscretization):
     def flux_array_key(self, value: str) -> None:
         self._flux_array_key = value
 
-    @property
-    def flux_array_key(self) -> str:
-        return self._flux_array_key
-
-    @flux_array_key.setter
-    def flux_array_key(self, value: str) -> None:
-        self._flux_array_key = value
-
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells
 
