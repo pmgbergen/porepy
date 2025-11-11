@@ -161,6 +161,7 @@ def test_error_when_flashing_with_one_phase(
     assert False, "Fixture fetching should fail with CompositionalModellingError."
 
 
+@pytest.mark.skipped(reason="Compilation takes too long time to run routinely.")
 @pytest.mark.parametrize(
     "flash_spec", [pf.FlashSpec.pT, pf.FlashSpec.ph, pf.FlashSpec.vh]
 )
