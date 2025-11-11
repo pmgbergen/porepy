@@ -21,8 +21,8 @@ residual_tolerance = 10.0 ** (-expected_order_loss)
 
 # define constant phase densities
 rho_l = 1000.0
-rho_g = 1000.0
-h_l = 2.0
+rho_g = 50.0
+h_l = 1.0
 h_g = 2.0
 to_Mega = 1.0e-6
 
@@ -41,7 +41,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 1.0
+    _sphere_radius: float = 0.25
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
