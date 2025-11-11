@@ -264,6 +264,9 @@ class FractureNetwork2d:
         # a logical split into methods later. Currently, the method is too long for my
         # taste.
 
+        # TODO:
+        # 1. Unified treatment of distance notions in mesh size control.
+
         # region prepare_for_gmsh
 
         # Get gmsh tags of domain and fractures.
@@ -603,7 +606,7 @@ class FractureNetwork2d:
         # Define a threshold for when to consider refining along fractures. This is a
         # heuristic value which should be reconsidered. Scaling with mesh size on
         # fractures is reasonable, but the factor 2 is arbitrary.
-        THRESHOLD_REFINEMENT = mesh_args["mesh_size_frac"]
+        THRESHOLD_REFINEMENT = 2 * mesh_args["mesh_size_frac"]
 
         # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
         # BETA and make them user parameters, IF the concept turns out to be useful and
@@ -623,7 +626,7 @@ class FractureNetwork2d:
         h_bound = mesh_args["mesh_size_bound"]
         # EK note to self: I am not entirely sure whether h_min should remain a user
         # parameter, or if we can get rid of it.
-        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
+        h_min = mesh_args.get("mesh_size_min", h_frac / 10)
 
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
@@ -669,12 +672,8 @@ class FractureNetwork2d:
             distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
             distances = distance_info
             is_intersection = distances[0] < self.tol
-            if distance_info[0] < self.tol:
-                # This is an intersection point. There is no need to add more points,
-                # but depending on the length of the segments on each side of the
-                # intersection, we may need to register mesh size control points.
-                pass
-            if distance_info[0] > h_frac:
+
+            if distance_info[0] > THRESHOLD_REFINEMENT:
                 continue
 
             # For each of the endpoints of each the two lines, end_point_distance
@@ -696,6 +695,9 @@ class FractureNetwork2d:
             end_point_coordinates = []
             main_line_ind = None
 
+            # Mesh size to be used at the control point. It may be updated below.
+            loc_mesh_size = distance_info[0]
+
             for ind, (f, sl) in enumerate([(f_0, slice(1, 4)), (f_1, slice(4, 7))]):
                 cp = distance_info[sl]
                 p = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
@@ -710,19 +712,24 @@ class FractureNetwork2d:
                     # no need to have it represented twice, so we remove it. Still, we
                     # want to keep the distance information.
                     gmsh.model.occ.remove([(0, p)])
-                    # info = mesh_size_points.get(f, [])
-                    # info.append((cp, distance_info[0]))
-                    # mesh_size_points[f] = info
                 elif point_already_present(cp, f):
-                    # This is an intersection point on this line.
                     gmsh.model.occ.remove([(0, p)])
+                elif is_intersection:
+                    # This is an intersection point on this line. It will be identified
+                    # and added later, so we can remove it here.
+                    gmsh.model.occ.remove([(0, p)])
+                    # In this case, the distance between the lines is zero. Instead, we
+                    # set the local mesh size to be the minimum distance to the
+                    # endpoints. In this way, we pick up small features, such as
+                    # X-intersections that are almost T-intersections.
+                    loc_mesh_size = min(d)
                 else:
                     isect_pt.append(p)
                     inserted_points.append(cp)
                     insertion_lines.append(f)
 
                 info = mesh_size_points.get(f, [])
-                info.append((cp, distance_info[0]))
+                info.append((cp, loc_mesh_size))
                 mesh_size_points[f] = info
 
                 # Get the coordinates of the endpoints.
@@ -899,7 +906,7 @@ class FractureNetwork2d:
         # Define a threshold for when to consider refining along fractures. This is a
         # heuristic value which should be reconsidered. Scaling with mesh size on
         # fractures is reasonable, but the factor 2 is arbitrary.
-        THRESHOLD_REFINEMENT = mesh_args["mesh_size_frac"]
+        THRESHOLD_REFINEMENT = 2 * mesh_args["mesh_size_frac"]
 
         # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
         # BETA and make them user parameters, IF the concept turns out to be useful and
@@ -931,7 +938,7 @@ class FractureNetwork2d:
         h_bound = mesh_args["mesh_size_bound"]
         # EK note to self: I am not entirely sure whether h_min should remain a user
         # parameter, or if we can get rid of it.
-        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
+        h_min = mesh_args.get("mesh_size_min", h_frac / 10)
 
         gmsh_fields = []
 
@@ -1040,7 +1047,7 @@ class FractureNetwork2d:
             for i, d in enumerate(dist):
                 # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
                 # related to almost intersection points.
-                if d > h_end:
+                if d > THRESHOLD_REFINEMENT:
                     # No refinement needed at this point.
                     continue
                 elif d == h_end:
@@ -1064,8 +1071,8 @@ class FractureNetwork2d:
                 # NOTE: If the definition of the threshold field is changed, the
                 # computation of the critical angle for almost parallel lines must also
                 # be updated. See the definition of variable 'angle_threshold' above.
-                gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
                 gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
                 if restrict_to_fractures:
                     gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
                     gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_end)
@@ -1151,7 +1158,6 @@ class FractureNetwork2d:
         mesh_size_points = {}
 
         ## Start feeding the mesh size information to gmsh fields.
-        gmsh_fields = []
         domain_tags = [entity[1] for entity in gmsh.model.get_entities(2)]
 
         for line in fracture_tags:
