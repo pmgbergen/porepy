@@ -41,11 +41,24 @@ References:
 
 __all__ = []
 
-from . import compressibility_factor, cubic_polynomial, eos, soereide, utils
+from . import (
+    compressibility_factor,
+    cubic_polynomial,
+    eos,
+    lbc_viscosity,
+    soereide,
+    utils,
+)
+from .compressibility_factor import *
+from .cubic_polynomial import *
 from .eos import *
+from .lbc_viscosity import *
 from .soereide import *
 from .utils import *
 
 __all__.extend(eos.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(soereide.__all__)
+__all__.extend(lbc_viscosity.__all__)
+__all__.extend(cubic_polynomial.__all__)
+__all__.extend(compressibility_factor.__all__)

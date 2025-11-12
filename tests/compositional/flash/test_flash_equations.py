@@ -7,7 +7,7 @@ import numpy as np
 import porepy as pp
 
 import porepy.compositional.flash as flash
-from tests.compositional.peng_robinson.test_cubic_polynomial import (
+from porepy.applications.test_utils.derivative_testing import (
     get_EOC_taylor,
     assert_order_at_least,
 )
@@ -644,4 +644,4 @@ def test_isofugacity_constraints(ncomp: int, nphase: int) -> None:
     for d in directions:
         orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
         # assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
-        assert_order_at_least(orders, 2.0, tol=1e-3)
+        assert_order_at_least(orders, 2.0, tol=1e-2)

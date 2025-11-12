@@ -8,6 +8,11 @@ from typing import Literal
 import numpy as np
 import pytest
 
+from porepy.applications.test_utils.derivative_testing import (
+    get_EOC_taylor,
+    assert_order_at_least,
+)
+
 from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
     B_CRIT,
@@ -29,8 +34,6 @@ from porepy.compositional.peng_robinson.cubic_polynomial import (
     get_root_case,
 )
 from tests.compositional.peng_robinson.test_cubic_polynomial import (
-    assert_order_at_least,
-    get_EOC_taylor,
     get_polynomial_residual,
 )
 
