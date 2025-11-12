@@ -41,7 +41,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.25
+    _sphere_radius: float = 0.125
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -54,27 +54,27 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.25, "m")
+        cell_size = self.units.convert_units(0.125, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    # def set_fractures(self) -> None:
+    #     points = np.array(
+    #         [
+    #             [1.0, 2.0],
+    #             [4.0, 2.0],
+    #             [1.0, 2.0],
+    #             [1.0, 4.0],
+    #             [4.0, 2.0],
+    #             [4.0, 4.0],
+    #             [2.0, 1.0],
+    #             [2.0, 4.0],
+    #             [3.0, 1.0],
+    #             [3.0, 4.0],
+    #         ]
+    #     ).T
+    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -645,7 +645,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 250.0 * day
-dt = 5.0 * day
+dt = 2.5 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
