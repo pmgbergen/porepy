@@ -20,7 +20,7 @@ from tests.compositional.peng_robinson import (
 )
 
 
-@pytest.mark.skipped("Reason: slow due to compilation.")
+@pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.parametrize("params", [np.zeros(0), np.ones(1) * 0.2])
 @pytest.mark.parametrize(
     "comps_and_phases",

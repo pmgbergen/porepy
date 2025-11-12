@@ -73,6 +73,7 @@ def flash(
     return fl
 
 
+@pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.xfail(raises=pp.compositional.CompositionalModellingError)
 @pytest.mark.parametrize("comps_and_phases", [(1, "L"), (2, "V")], indirect=True)
 @pytest.mark.parametrize("flash", ["PR"], indirect=True)
@@ -89,13 +90,22 @@ def test_error_when_flashing_with_one_phase(
     assert False, "Fixture fetching should fail with CompositionalModellingError."
 
 
-@pytest.mark.skipped(reason="Compilation takes too long time to run routinely.")
+@pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.parametrize(
     "flash_spec", [pf.FlashSpec.pT, pf.FlashSpec.ph, pf.FlashSpec.vh]
 )
 @pytest.mark.parametrize(
     "comps_and_phases",
-    [(1, "VL"), (2, "VL"), (2, "VLL"), (3, "VL"), (3, "VLLL")],
+    [
+        (1, "VL"),
+        (2, "VL"),
+        (2, "VLL"),
+        (2, "LL"),
+        (3, "VL"),
+        (3, "VLLL"),
+        (3, "LL"),
+        (3, "LLL"),
+    ],
     indirect=True,
 )
 @pytest.mark.parametrize("flash", ["PR"], indirect=True)
