@@ -21,7 +21,7 @@ residual_tolerance = 10.0 ** (-expected_order_loss)
 
 # define constant phase densities
 rho_l = 1000.0
-rho_g = 50.0
+rho_g = 500.0
 h_l = 1.0
 h_g = 2.0
 to_Mega = 1.0e-6
@@ -411,9 +411,8 @@ class BoundaryConditions(pp.PorePyModel):
         return np.ones(boundary_grid.num_cells) * p_top
 
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        # Match buoyancy_flow_model.py: Constant inlet enthalpy value
-        h_inlet = 1.0
-        return h_inlet * np.ones(boundary_grid.num_cells)
+        h_inlet = np.zeros(boundary_grid.num_cells)
+        return h_inlet
 
     def bc_values_overall_fraction(
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
@@ -433,7 +432,7 @@ class InitialConditions(pp.PorePyModel):
         # set the values to be the custom functions
         liq, gas = self.fluid.phases
         for sd in self.mdg.subdomains():
-            s_gas_val = self.ic_values_staturation(sd)
+            s_gas_val = self.ic_values_saturation(sd)
             x_CO2_liq_v = np.zeros_like(s_gas_val)
             x_CO2_gas_v = np.ones_like(s_gas_val)
 
@@ -451,16 +450,16 @@ class InitialConditions(pp.PorePyModel):
 
     def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         # Compute initial enthalpy as a weighted average of phase enthalpies and densities
-        ic_sg = self.ic_values_staturation(sd)
+        ic_sg = self.ic_values_saturation(sd)
         ic_rho = rho_g * ic_sg + rho_l * (1.0 - ic_sg)
         h = (ic_sg * h_g * rho_g + (1.0 - ic_sg) * h_l * rho_l) / ic_rho
         return h
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
-        T = 250 * self.ic_values_enthalpy(sd)
+        T = 0.0 * self.ic_values_enthalpy(sd)
         return T
 
-    def ic_values_staturation(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_saturation(self, sd: pp.Grid) -> np.ndarray:
         # Match the logic from buoyancy_flow_model.py
         z_v = self.ic_values_overall_fraction(self.fluid.components[1], sd)
         return (z_v * rho_l) / (z_v * rho_l + rho_g - z_v * rho_g)
@@ -510,7 +509,7 @@ class FlowModel(
         ref_rho = ref_rho_z = ref_energy = 0.0
         num_rho = num_rho_z = num_energy = 0.0
         for sd in self.mdg.subdomains():
-            ic_sg_val = self.ic_values_staturation(sd)
+            ic_sg_val = self.ic_values_saturation(sd)
             rho_l = phases[0].density([sd])
             rho_g_phase = phases[1].density([sd])
             ic_rho = pp.wrap_as_dense_ad_array(1.0 - ic_sg_val) * rho_l + pp.wrap_as_dense_ad_array(ic_sg_val) * rho_g_phase
@@ -549,7 +548,7 @@ class FlowModel(
         print("num z-mass integral: ", num_rho_z)
         print("Order of z-mass loss: ", order(z_mass_loss))
         print("ref energy integral: ", ref_energy)
-        print("num energy integral sg: ", num_energy)
+        print("num energy integral: ", num_energy)
         print("Order of energy loss: ", order(energy_loss))
         # Boolean checks with messages
 
@@ -562,6 +561,8 @@ class FlowModel(
         assert mass_conservative_Q
         assert z_mass_conservative_Q
         assert energy_conservative_Q
+        print("")
+        print("")
 
     def norm_vol_int(self, op: pp.ad.Operator, sd: pp.Grid) -> float:
         # Global volume normalization (sum over all subdomains) as in buoyancy_flow_model.py
@@ -637,13 +638,14 @@ class FlowModel(
             raise ValueError(
                 "Gravitational segregation is nonlinear in its simpler form."
             )
+        print("residual norm: ", residual_norm)
         return converged, diverged
 
 
 day = 86400
 t_scale = 1.0
-tf = 50.0 * day
-dt = 1.0 * day
+tf = 250.0 * day
+dt = 5.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
