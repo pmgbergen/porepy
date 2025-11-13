@@ -259,14 +259,14 @@ class ConformingFracturePropagation(FracturePropagation):
         v being the component normal to the fracture.
 
         Parameters:
-            d_u (array): relative displacements, sd_primary.dim x n.
-            rm (array): distance from correlation point to fracture tip.
-            parameters (pp.Parameters): assumed to contain constant
+            d_u: relative displacements, sd_primary.dim x n.
+            rm: distance from correlation point to fracture tip.
+            parameters: assumed to contain constant
                 mu (array): Shear modulus.
                 poisson_ratio (array): No, I'm not spelling it out!
 
         Returns:
-            K (array): the displacement correlation stress intensity factor
+            K: the displacement correlation stress intensity factor
             estimates.
         """
         mu: np.ndarray = parameters["shear_modulus"]

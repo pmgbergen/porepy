@@ -17,9 +17,7 @@ class TestMVEMDiscretization:
         """Compute stiffness operator for a given subdomain"""
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_default_data(
-            sd, {}, "flow", {"second_order_tensor": perm, "bc": bc}
-        )
+        data = pp.initialize_data({}, "flow", {"second_order_tensor": perm, "bc": bc})
         solver.discretize(sd, data)
 
         return solver.assemble_matrix(sd, data).todense()
@@ -389,8 +387,8 @@ class TestMVEMDiscretization:
 
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_default_data(
-            sd, {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
+        data = pp.initialize_data(
+            {}, "flow", {"second_order_tensor": perm, "bc": bc, "bc_values": bc_val}
         )
         solver.discretize(sd, data)
         M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -693,11 +691,15 @@ class TestMVEMRHS:
         """Compute rhs for given subdomain"""
         solver = pp.MVEM(keyword="flow")
 
-        data = pp.initialize_default_data(
-            sd,
+        data = pp.initialize_data(
             {},
             "flow",
-            {"second_order_tensor": perm, "bc": bc, "vector_source": vect},
+            {
+                "second_order_tensor": perm,
+                "bc": bc,
+                "vector_source": vect,
+                "bc_values": np.zeros(sd.num_faces),
+            },
         )
         solver.discretize(sd, data)
         return solver.assemble_matrix_rhs(sd, data)[1]
@@ -926,7 +928,7 @@ class TestMVEMRHS:
                 "second_order_tensor": perm,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -1016,7 +1018,7 @@ class TestMVEMRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -1107,7 +1109,7 @@ class TestMVEMRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -1242,7 +1244,7 @@ class TestVEMConvergence:
             "bc": bound,
             "bc_values": bc_val,
         }
-        return pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+        return pp.initialize_data({}, "flow", specified_parameters)
 
     def _error_p(self, sd, p, case):
         sol = np.array([self._solution(*pt, case) for pt in sd.cell_centers.T])

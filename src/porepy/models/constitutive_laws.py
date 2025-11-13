@@ -3019,12 +3019,13 @@ class ThreeFieldLinearElasticMechanicalStress:
     """Constitutive laws related to the three-field formulation of a linear elastic
     medium.
 
-    This class is not meant to be mixed in directly, but is used by other mixin classes,
-    see for instance TpsaMomentumBalanceMixin.
-
     This class defines the mechanical stress as a function of the displacement, rotation
     stress, and total pressure variables. The class further defines face-wise operators
     (think generalized fluxes) for the rotation and the solid mass.
+
+    Important:
+        This class is not meant to be mixed in directly, but is used by the mixin
+        classes TpsaMomentumBalanceMixin and TpsaPoromechanicsMixin.
 
     """
 
@@ -3305,6 +3306,10 @@ class ConstitutiveLawsTpsaPoromechanics:
     ammenable to the Tpsa discretization. The constitutive laws here are specific to the
     poromechanical extension of the pure mechanics problem, see also
     :class:`~porepy.models.constitutive_laws.ThreeFieldLinearElasticMechanicalStress`.
+
+    Important:
+        This class is not meant to be mixed in directly, but is used by the mixin
+        class TpsaPoromechanicsMixin.
 
     """
 

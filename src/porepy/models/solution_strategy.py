@@ -52,11 +52,9 @@ class SolutionStrategy(pp.PorePyModel):
         # we should have an enum here.
         self.convergence_status = False
         """Whether the non-linear iteration has converged."""
-        self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        self._nonlinear_discretizations: list[pp.ad.MergedOperator] = []
         """See :meth:`add_nonlinear_discretization`."""
-        self._nonlinear_diffusive_flux_discretizations: list[
-            pp.ad._ad_utils.MergedOperator
-        ] = []
+        self._nonlinear_diffusive_flux_discretizations: list[pp.ad.MergedOperator] = []
         """See :meth:`add_nonlinear_diffusive_flux_discretization`."""
         self.units = params.get("units", pp.Units())
         """Units of the model provided in ``params['units']``."""
@@ -443,7 +441,7 @@ class SolutionStrategy(pp.PorePyModel):
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
     @property
-    def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
+    def nonlinear_discretizations(self) -> list[pp.ad.MergedOperator]:
         """List of nonlinear discretizations in the equation system.
 
         This list encompasses discretizations other than flux discretizations, such as
@@ -462,7 +460,7 @@ class SolutionStrategy(pp.PorePyModel):
     @property
     def nonlinear_diffusive_flux_discretizations(
         self,
-    ) -> list[pp.ad._ad_utils.MergedOperator]:
+    ) -> list[pp.ad.MergedOperator]:
         """List of nonlinear flux discretizations in the equation system.
 
         Not to be confused with other discretizations (:meth:`nonlinear_discretizations`
@@ -484,7 +482,7 @@ class SolutionStrategy(pp.PorePyModel):
         return self._nonlinear_diffusive_flux_discretizations
 
     def add_nonlinear_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
+        self, discretization: pp.ad.MergedOperator
     ) -> None:
         """Add an entry to the list of :meth:`nonlinear_discretizations`.
 
@@ -505,7 +503,7 @@ class SolutionStrategy(pp.PorePyModel):
             self._nonlinear_discretizations.append(discretization)
 
     def add_nonlinear_diffusive_flux_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
+        self, discretization: pp.ad.MergedOperator
     ) -> None:
         """Add an entry to the list of :meth:`nonlinear_diffusive_flux_discretizations`.
 
@@ -991,10 +989,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Discretize nonlinear fluxes."""
         tic = time.time()
         # Uniquify to save computational time, then discretize.
-        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+        unique_discr = pp.ad.uniquify_discretization_list(
             self.nonlinear_diffusive_flux_discretizations
         )
-        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
         logger.debug(f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds.")
 
     def update_flux_values(self) -> None:
@@ -1010,10 +1008,10 @@ class SolutionStrategy(pp.PorePyModel):
         """Discretize nonlinear terms."""
         tic = time.time()
         # Uniquify to save computational time, then discretize.
-        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+        unique_discr = pp.ad.uniquify_discretization_list(
             self.nonlinear_discretizations
         )
-        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
         logger.debug(f"Re-discretized nonlinear terms in {time.time() - tic} seconds.")
 
     def darcy_flux_storage_keywords(self) -> list[str]:
