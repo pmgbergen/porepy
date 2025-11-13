@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 from tests.functional.setups.buoyancy_flow_model import (
     BuoyancyFlowModel2N,
     BuoyancyFlowModel3N,
@@ -63,8 +64,10 @@ def _build_buoyancy_model(
         "material_constants": {"solid": solid_constants},
         "time_manager": time_manager,
         "apply_schur_complement_reduction": False,
-        "nl_convergence_tol": np.inf,
-        "nl_convergence_tol_res": np.inf,
+        "nl_convergence_tol": ConvergenceTolerance(
+            tol_increment=np.inf,
+            tol_residual=np.inf,
+        ),
     }
 
     # Combine geometry with model class

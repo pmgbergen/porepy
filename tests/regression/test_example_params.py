@@ -25,7 +25,7 @@ def search_params_directory(root_dirs: list[Path]) -> set[str]:
     def search_params_file(filepath: Path) -> set[str]:
         """Scans the provided file and returns the found parameter keys."""
         matches: set[str] = set()
-        lines = filepath.read_text()
+        lines = filepath.read_text(encoding="utf-8")
         found = pattern_brackets.findall(lines)
         matches.update(found)
         found = pattern_get.findall(lines)

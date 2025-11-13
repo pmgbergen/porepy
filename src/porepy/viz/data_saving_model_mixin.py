@@ -62,14 +62,11 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
-        if not self._is_time_dependent():  # stationary problem
-            if (
-                self.nonlinear_solver_statistics.num_iteration > 0
-            ):  # avoid saving initial condition
-                collected_data = self.collect_data()
-                if collected_data is not None:
-                    self.results.append(collected_data)
-        else:  # time-dependent problem
+        if not self._is_time_dependent():
+            collected_data = self.collect_data()
+            if collected_data is not None:
+                self.results.append(collected_data)
+        else:
             t = self.time_manager.time  # current time
             scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
             if any(np.isclose(t, scheduled)):

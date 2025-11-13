@@ -1,40 +1,6 @@
-from typing import Any
-
-import numpy as np
-
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-
-
-class NonlinearSinglePhaseFlow(SinglePhaseFlow):
-    """Model class which forces a set number of nonlinear iterations to be run for
-    testing."""
-
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        """Method for checking convergence.
-
-        This method is only used for testing. It returns not converged if the iteration
-        count is smaller than a pre set value.
-
-        """
-        diverged = False
-        if (
-            self.nonlinear_solver_statistics.num_iteration
-            < self.expected_number_of_iterations
-        ):
-            converged = False
-            # :meth:`NewtonSolver.solve` expects a nonempty nonlinear_increment list, so
-            # we update it with dummy values.
-            self.nonlinear_solver_statistics.log_error(0.1, 0.1)
-            return converged, diverged
-        converged = True
-        return converged, diverged
+from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 def test_nonlinear_iteration_count():
@@ -44,11 +10,26 @@ def test_nonlinear_iteration_count():
     iteration count matches the pre set value after convergence is obtained.
 
     """
-    model = NonlinearSinglePhaseFlow({"times_to_export": []})
+    model = SinglePhaseFlow({"times_to_export": []})
     model.expected_number_of_iterations = 3
-    pp.run_time_dependent_model(model, {})
+    pp.run_time_dependent_model(
+        model,
+        {
+            "nl_convergence_tol": ConvergenceTolerance(
+                tol_increment=0, tol_residual=0, max_iterations=3
+            )
+        },
+    )
 
     assert (
         model.nonlinear_solver_statistics.num_iteration
+        == model.expected_number_of_iterations
+    )
+    assert (
+        len(model.nonlinear_solver_statistics.nonlinear_increment_norms)
+        == model.expected_number_of_iterations
+    )
+    assert (
+        len(model.nonlinear_solver_statistics.residual_norms)
         == model.expected_number_of_iterations
     )

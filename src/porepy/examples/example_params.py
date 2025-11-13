@@ -19,6 +19,10 @@ from porepy.applications.material_values.reference_values import (
 from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
+from porepy.numerics.nonlinear.convergence_check import (
+    AbsoluteConvergenceCriterion,
+    ConvergenceTolerance,
+)
 from porepy.numerics.nonlinear.line_search import (
     ConstraintLineSearch,
     LineSearchNewtonSolver,
@@ -96,10 +100,14 @@ solver_params = {
     "prepare_simulation": True,
     "progressbars": True,  # make sure you installed tqdm
     "_nl_progress_bar_position": 0,  # TODO: You don't want to change it.
-    "max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
-    "nl_divergence_tol": np.inf,
-    "nl_convergence_tol": 1e-10,  # Increment norm
-    "nl_convergence_tol_res": 1e-10,  # Residual norm
+    "nl_convergence_tol": ConvergenceTolerance(
+        tol_increment=1e-10,  # Increment norm tolerance for convergence
+        tol_residual=1e-10,  # Residual norm tolerance for convergence
+        max_increment=np.inf,  # Max increment norm tolerance for divergence
+        max_residual=np.inf,  # Max residual norm tolerance for divergence
+        max_iterations=10,  # Max iterations of a nonlinear solver (Newton)
+    ),
+    "nl_convergence_criterion": AbsoluteConvergenceCriterion(),
     # Line search / Solution Strategies. These are considered "advanced" options.
     # Delete the following lines for the default Newton's method.
     "nonlinear_solver": ConstraintLineSearchNonlinearSolver,  # Must be a class.

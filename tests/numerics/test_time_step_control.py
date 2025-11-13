@@ -15,13 +15,18 @@ scheduled times).
 """
 
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pytest
 
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.numerics.nonlinear.convergence_check import (
+    AbsoluteConvergenceCriterion,
+    ConvergenceInfo,
+    ConvergenceStatus,
+    ConvergenceTolerance,
+)
 
 
 class TestParameterInputs:
@@ -815,32 +820,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     def _is_nonlinear_problem(self):
         return True
 
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        # :meth:`NewtonSolver.solve` expects a nonempty nonlinear_increment list, so we
-        # update it with dummy values in all cases.
-        self.nonlinear_solver_statistics.log_error(0.1, 0.1)
-
-        if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
-            # Neither converged nor diverged
-            return False, False
-        if self.time_step_converged[self.time_step_idx] is True:
-            # Converged
-            return True, False
-        if self.time_step_converged[self.time_step_idx] is False:
-            # Diverged
-            return False, True
-        assert False, (
-            "Nonlinear solver did not stop iterating after the iteration limit."
-        )
-
-    # Minimizing computational expences.
-
+    # Minimizing computational expenses.
     def assemble_linear_system(self) -> None:
         pass
 
@@ -877,15 +857,13 @@ MAX_NONLINEAR_ITER = 10
         # Case 2: constant_dt. Should fail after nonlinear divergence.
         {
             "constant_dt": True,
-            "should_fail": True,
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
-        # minimal time step and failed.
+        # minimal time step and should fail.
         {
-            "should_fail": True,
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
@@ -902,7 +880,6 @@ MAX_NONLINEAR_ITER = 10
 def test_model_time_step_control(params: dict):
     """The integration test of the `TimeManager` class into PorePy models."""
     constant_dt = params.get("constant_dt", False)
-    should_fail = params.get("should_fail", False)
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
     exported_dt_expected = params["exported_dt_expected"]
@@ -917,6 +894,21 @@ def test_model_time_step_control(params: dict):
         iter_optimal_range=(4, 7),
         recomp_factor=0.3,
     )
+
+    class DynamicNewtonSolver(pp.NewtonSolver):
+        def check_convergence(
+            self, model, nonlinear_increment
+        ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+            if (
+                model.nonlinear_solver_statistics.num_iteration
+                < model.num_nonlinear_iterations[model.time_step_idx] - 1
+            ):
+                return ConvergenceStatus.NOT_CONVERGED, ConvergenceInfo(1.0, 1.0)
+            if model.time_step_converged[model.time_step_idx] is True:
+                return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
+            else:
+                return ConvergenceStatus.DIVERGED, ConvergenceInfo(np.nan, np.nan)
+
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,
         time_step_converged=time_step_converged,
@@ -926,10 +918,14 @@ def test_model_time_step_control(params: dict):
         },
     )
 
-    if should_fail:
-        with pytest.raises(ValueError):
-            pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
-    else:
-        pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
+    pp.run_time_dependent_model(
+        model,
+        {
+            "nonlinear_solver": DynamicNewtonSolver,
+            "nl_convergence_tol": ConvergenceTolerance(
+                tol_increment=1e-6, max_iterations=MAX_NONLINEAR_ITER
+            ),
+        },
+    )
 
     assert np.allclose(model.time_step_history, exported_dt_expected)

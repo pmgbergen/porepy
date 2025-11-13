@@ -8,6 +8,7 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -80,7 +81,8 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     # 0 specifies the lowest level, 1 the next-lowest etc.
     # When the ``NewtonSolver`` is called inside ``run_time_dependent_model``, the
     # ``_nl_progress_bar_position`` parameter with the updated position of the progress
-    # bar for the ``NewtonSolver`` is passed.
+    # bar for the ``NewtonSolver`` is passed. The keyword is assumed to be not touched
+    # by the user, and thus indicated as private.
     params.update({"_nl_progress_bar_position": 1})
 
     # Assign a solver
@@ -88,7 +90,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
 
     # Define a function that does all the work during one time step, except
     # for everything ``tqdm`` related.
-    def time_step() -> bool:
+    def time_step() -> ConvergenceStatus:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
         logger.info(
@@ -136,10 +138,16 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
             time_progressbar.set_description_str(
                 f"Time step {model.time_manager.time_index + 1}"
             )
-            converged: bool = time_step()
+            status = time_step()
             # Update progressbar length.
-            if converged:
+            if status.is_converged():
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
+            elif status.is_failed():
+                # Retry if not explicitly stopped.
+                pass
+            elif status.is_stopped():
+                logging.info("Aborting simulation due to convergence issues.")
+                break
 
     model.after_simulation()
 
