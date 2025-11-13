@@ -5,7 +5,7 @@ using the AD framework.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
 import scipy.sparse as sps
@@ -13,7 +13,7 @@ from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_parser, _ad_utils
+from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -213,6 +213,18 @@ class EquationSystem:
         """
 
         self._ad_parser = _ad_parser.AdParser(self.mdg)
+
+        self._secondary_block_permutation: dict[
+            Literal["row_perm_indices", "col_perm_indices", "block_sizes"], np.ndarray
+        ] = {}
+        """Stores the information on the permutations in the secondary block of the
+        linear system, which is to be eliminated when
+        ``model.params['apply_schur_complement_reduction'] == True``.
+
+        Permutations generated and stored using :func:`~porepy.numerics.linalg.
+        matrix_operations.generate_permutation_to_block_diag_matrix`.
+
+        """
 
     def SubSystem(
         self,
@@ -600,7 +612,7 @@ class EquationSystem:
         the order of the argument.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.get_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.get_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -615,23 +627,30 @@ class EquationSystem:
 
         Returns:
             The respective (sub) vector in numerical format, size anywhere between 0 and
-                :meth:`num_dofs`.
+            :meth:`num_dofs`.
 
         """
+        # Normalize the variable input.
         variables = self._parse_variable_type(variables)
-        var_ids = [var.id for var in variables]
+        var_ids = {var.id for var in variables}
+
         # Storage for atomic blocks of the sub vector (identified by name-grid pairs).
         values = []
 
-        # Loop over all blocks and process those requested.
-        # This ensures uniqueness and correct order.
+        # Cache for domain data to avoid recomputing it for the same domain.
+        data_cache = {}
+
         for id_ in self._variable_numbers:
             if id_ in var_ids:
                 variable = self._variables[id_]
+                domain = variable.domain
+
+                if domain not in data_cache:
+                    data_cache[domain] = self._get_data(domain)
 
                 val = pp.get_solution_values(
                     variable.name,
-                    self._get_data(variable.domain),
+                    data_cache[domain],
                     time_step_index=time_step_index,
                     iterate_index=iterate_index,
                 )
@@ -639,11 +658,8 @@ class EquationSystem:
                 values.append(val)
 
         # If there are matching blocks, concatenate and return.
-        if values:
-            return np.concatenate(values)
         # Else return an empty vector.
-        else:
-            return np.array([])
+        return np.concatenate(values) if values else np.empty(0)
 
     def set_variable_values(
         self,
@@ -664,7 +680,7 @@ class EquationSystem:
             by ``variables`` will raise respective errors by numpy.
 
         See also:
-            :meth:`~porepy.numerics.ad._ad_utils.set_solution_values`.
+            :meth:`~porepy.numerics.ad.ad_utils.set_solution_values`.
 
         Parameters:
             values: Vector of size corresponding to number of DOFs of the specified
@@ -729,7 +745,7 @@ class EquationSystem:
         """Method for shifting stored time step values in data sub-dictionary.
 
         For details of the value shifting see the method
-        :func:`~porepy.numerics.ad._ad_utils.shift_solution_values`.
+        :func:`~porepy.numerics.ad.ad_utils.shift_solution_values`.
 
         Parameters:
             variables: ``default=None``
@@ -1219,6 +1235,49 @@ class EquationSystem:
         else:
             raise ValueError(f"Cannot remove unknown equation {name}")
 
+    def update_equation(
+        self,
+        equation_name: str,
+        new_equation: Operator,
+        grids: Optional[DomainList] = None,
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
+    ) -> None:
+        """Updates an existing equation with a new equation operator.
+
+        This method removes the existing equation and sets a new equation under the same
+        name as the old equation.
+
+        Parameters:
+            equation_name: Name of the equation to be updated.
+            new_equation: New equation in AD form.
+            grids: A list of subdomain *or* interface grids on which the equation is
+                defined. The default value is None, and in that case, the grids of the
+                previous equation are used.
+            equations_per_grid_entity: a dictionary describing how many equations
+                ``equation_operator`` provides. This is a temporary work-around until
+                operators are able to provide information on their image space. The
+                dictionary must contain the number of equations per grid entity (cells,
+                faces, nodes) for the operator. The default value is None, and in that
+                case, the equations_per_grid_entity of the previous equation are used.
+
+        """
+        if grids is None:
+            grids = cast(
+                list[pp.Grid] | list[pp.MortarGrid],
+                list(self._equation_image_space_composition[equation_name].keys()),
+            )
+
+        if equations_per_grid_entity is None:
+            equations_per_grid_entity = self._equation_image_size_info[equation_name]
+
+        self.remove_equation(equation_name)
+        new_equation.set_name(equation_name)
+        self.set_equation(
+            equation=new_equation,
+            grids=grids,
+            equations_per_grid_entity=equations_per_grid_entity,
+        )
+
     def update_variable_num_dofs(self) -> None:
         """Update the count of degrees of freedom related to a MixedDimensionalGrid.
 
@@ -1266,7 +1325,7 @@ class EquationSystem:
             for child in operator.children:
                 discr += EquationSystem._recursive_discretization_search(child, list())
 
-        if isinstance(operator, _ad_utils.MergedOperator):
+        if isinstance(operator, pp.ad.MergedOperator):
             # We have reached the bottom; this is a discretization (example: mpfa.flux)
             discr.append(operator)
 
@@ -1496,8 +1555,8 @@ class EquationSystem:
             discr += self._recursive_discretization_search(eqn, list())
 
         # Uniquify to save computational time, then discretize.
-        unique_discr = _ad_utils.uniquify_discretization_list(discr)
-        _ad_utils.discretize_from_list(unique_discr, self.mdg)
+        unique_discr = pp.ad.uniquify_discretization_list(discr)
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
 
     @overload
     def assemble(
@@ -1686,34 +1745,18 @@ class EquationSystem:
         for :math:`A_{ss}` can be found.
         **The user must ensure both requirements are fulfilled.**
 
-        Note:
-            The optional arguments defining the secondary block, and the flag
-            ``excl_loc_prim_to_sec`` are meant for nested Schur-complements and
-            splitting solvers. This is an advanced usage and requires the user to be
-            careful, since the resulting blocks :math:`A_{pp}` and :math:`A_{ss}` might
-            end up to be not square. This will result in errors.
-
-        Examples:
-            The default inverter can be defined by
-
-            .. code-block:: python
-
-                import scipy.sparse as sps
-                inverter = lambda A: sps.csr_matrix(sps.linalg.inv(A.A))
-
-            It is costly in terms of computational time and memory, though.
-
-            TODO: We should rather use the block inverter in pp.matrix_operations. This
-            will require some work on ensuring the system is block-diagonal.
-
         Parameters:
-            primary_equations: a subset of equations specifying the primary subspace in
+            primary_equations: A subset of equations specifying the primary subspace in
                 row-sense.
-            primary_variables: VariableType input specifying the primary subspace in
+            primary_variables: A subset of variables specifying the primary subspace in
                 column-sense.
-            inverter (optional): callable object to compute the inverse of the matrix
-                :math:`A_{ss}`. By default, the scipy direct sparse inverter is used.
-            state (optional): see :meth:`assemble`. Defaults to None.
+            inverter: ``default=None``
+
+                Callable to compute the inverse of the matrix :math:`A_{ss}`.
+                :meth:`default_schur_complement_inverter` is used if not provided.
+            state: ``default=None``
+
+                See :meth:`assemble`. Defaults to None.
 
         Returns:
             Tuple containing
@@ -1734,7 +1777,7 @@ class EquationSystem:
 
         """
         if inverter is None:
-            inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+            inverter = self.default_schur_complement_inverter
 
         # Find the rows of the primary block. This can include both equations defined
         # on their full image, and equations specified on a subset of grids.
@@ -1907,6 +1950,41 @@ class EquationSystem:
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
+
+    def default_schur_complement_inverter(self, A: sps.spmatrix) -> sps.spmatrix:
+        """The inverter for the secondary block in the Schur complement
+        reduction.
+
+        The default implementation assumes the secondary block to be a permuted, block
+        diagonal matrix (local equations), and computes and stores the permutation
+        only *once*. It then proceeds to call an efficient, parallelized block-diagonal
+        matrix inverter.
+
+        See also:
+
+            - :func:`~porepy.numerics.linalg.matrix_operations.
+              generate_permutation_to_block_diag_matrix`
+            - :func:`~porepy.numerics.linalg.matrix_operations.
+              invert_permuted_block_diag_matrix`
+
+        """
+
+        # Generate permutations only once, if not already present.
+        if not self._secondary_block_permutation:
+            row_perm, col_perm, block_sizes = (
+                pp.matrix_operations.generate_permutation_to_block_diag_matrix(A)
+            )
+            self._secondary_block_permutation["row_perm_indices"] = row_perm
+            self._secondary_block_permutation["col_perm_indices"] = col_perm
+            self._secondary_block_permutation["block_sizes"] = block_sizes
+        else:
+            row_perm = self._secondary_block_permutation["row_perm_indices"]
+            col_perm = self._secondary_block_permutation["col_perm_indices"]
+            block_sizes = self._secondary_block_permutation["block_sizes"]
+
+        return pp.matrix_operations.invert_permuted_block_diag_matrix(
+            A, row_perm, col_perm, block_sizes
+        )
 
     ### Evaluate Ad operators ----------------------------------------------------------
 

@@ -644,6 +644,16 @@ else:
 
             """
 
+        def update_material_properties(self) -> None:
+            """Method for updating fluid and solid properties, which are not taken care
+            of by the AD framework (external calculations and surrogate operators).
+
+            The base method only defines the signature and individual physics model have
+            to override this method. A super-call to trigger other physics' update is
+            required.
+
+            """
+
     class FluidProtocol(Protocol):
         """This protocol provides declarations of methods defined in the
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
@@ -936,6 +946,27 @@ else:
 
             Raises:
                 ValueError: if incompatible file type provided.
+
+            """
+
+        def evaluate_and_scale(
+            self,
+            grids: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
+            method_name: str,
+            units: str,
+        ) -> np.ndarray:
+            """Evaluate a method for a derived quantity and scale the result to SI
+            units.
+
+            Parameters:
+                grids: Sequence of grids or mortar grids for which the method should be
+                    evaluated.
+                method_name: Name of the method to be evaluated.
+                units: Units of the quantity returned by the method. Should be parsable
+                    by :meth:`porepy.models.units.Units.convert_units`.
+
+            Returns:
+                Array of values for the quantity, scaled to SI units.
 
             """
 

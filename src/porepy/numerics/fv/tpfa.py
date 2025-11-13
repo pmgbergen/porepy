@@ -271,7 +271,7 @@ class Tpfa(pp.FVElliptic):
         vals = np.zeros((vector_source_dim, fi.size))
         vals[:, bnd.is_neu[fi]] = fc_cc[:vector_source_dim, bnd.is_neu[fi]]
         bound_pressure_vector_source = sps.coo_matrix(
-            (vals.ravel("f"), (rows, cols))
+            (vals.ravel("F"), (rows, cols))
         ).tocsr()
         matrix_dictionary[self.bound_pressure_vector_source_matrix_key] = (
             bound_pressure_vector_source

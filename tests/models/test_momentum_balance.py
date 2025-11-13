@@ -26,6 +26,13 @@ class LinearModel(
     pass
 
 
+class TpsaLinearModel(
+    pp.models.momentum_balance.TpsaMomentumBalanceMixin,
+    LinearModel,
+):
+    pass
+
+
 @pytest.mark.parametrize(
     "solid_vals,numerical_vals,north_displacement",
     [
@@ -34,15 +41,20 @@ class LinearModel(
         ({"porosity": 0.5}, {}, 0.2),
     ],
 )
-def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
+@pytest.mark.parametrize("model_class", [LinearModel, TpsaLinearModel])
+def test_2d_single_fracture(
+    solid_vals: dict, numerical_vals: dict, north_displacement: float, model_class
+):
     """Test that the solution is qualitatively sound.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants` and
+            corresponding values.
+        numerical_vals: Dictionary with keys as those in :class:`pp.NumericalConstants`
             and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        north_displacement: Value of displacement on the north boundary.
+        model_class: The model class to use, either :class:`LinearModel` or
+            :class:`TpsaLinearModel`.
 
     """
     # Instantiate constants and store in params.
@@ -52,10 +64,18 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
+        "time_manager": pp.TimeManager(
+            schedule=[0, pp.DAY],
+            dt_init=pp.DAY,
+            constant_dt=True,
+        ),  # Non-trivial time manager to avoid masking bugs.
     }
+    if model_class == TpsaLinearModel:
+        # Tpsa is only consistent on Cartesian grids, so do the test there.
+        params["cartesian"] = True
 
     # Create model and run simulation
-    model = LinearModel(params)
+    model = model_class(params)
     pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear

@@ -43,6 +43,14 @@ class Upwind(Discretization):
 
         """
 
+    @property
+    def flux_array_key(self) -> str:
+        return self._flux_array_key
+
+    @flux_array_key.setter
+    def flux_array_key(self, value: str) -> None:
+        self._flux_array_key = value
+
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method. In this
         case number of cells.
@@ -218,7 +226,16 @@ class Upwind(Discretization):
 
         # Get the sign of the advective flux.
         darcy_flux: np.ndarray = np.sign(parameter_dictionary[self._flux_array_key])
-        bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+
+        # Enables the creation of an upwind object even if boundary data is not
+        # externally provided.
+        if "bc" in parameter_dictionary:
+            bc: pp.BoundaryCondition = parameter_dictionary["bc"]
+        else:
+            # Set a Dirichlet condition by default. Motivation (from Omar Duran): If the
+            # advecting flux is non-zero on external facets, this choice ensures
+            # consistent handling of sinking phases.
+            bc = pp.BoundaryCondition(sd, sd.get_boundary_faces(), "dir")
 
         # Booleans of flux direction.
         pos_flux = darcy_flux >= 0
@@ -395,6 +412,14 @@ class UpwindCoupling(InterfaceDiscretization):
 
     def discretization_key(self):
         return self.key() + pp.DISCRETIZATION
+
+    @property
+    def flux_array_key(self) -> str:
+        return self._flux_array_key
+
+    @flux_array_key.setter
+    def flux_array_key(self, value: str) -> None:
+        self._flux_array_key = value
 
     def ndof(self, intf: pp.MortarGrid) -> int:
         return intf.num_cells

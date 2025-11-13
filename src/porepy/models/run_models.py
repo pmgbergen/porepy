@@ -7,21 +7,12 @@ from typing import Optional, Union
 
 import numpy as np
 
-# ``tqdm`` is not a dependency. Up to the user to install it.
-try:
-    # Avoid some mypy trouble.
-    from tqdm.autonotebook import trange  # type: ignore
-
-    from porepy.utils.ui_and_logging import (
-        logging_redirect_tqdm_with_level as logging_redirect_tqdm,
-    )
-
-except ImportError:
-    _IS_TQDM_AVAILABLE: bool = False
-else:
-    _IS_TQDM_AVAILABLE = True
-
 import porepy as pp
+from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import (
+    logging_redirect_tqdm_with_level as logging_redirect_tqdm,
+)
+from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -79,13 +70,18 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     if params.get("prepare_simulation", True):
         model.prepare_simulation()
 
+    if params.get("progressbars", False) and progressbar_class is DummyProgressBar:
+        logger.warning(
+            "Progress bars are requested, but `tqdm` is not installed. The time loop"
+            + " will run without progress bars."
+        )
     # When multiple nested ``tqdm`` bars are used, their position needs to be specified
     # such that they are displayed in the correct order. The orders are increasing, i.e.
     # 0 specifies the lowest level, 1 the next-lowest etc.
     # When the ``NewtonSolver`` is called inside ``run_time_dependent_model``, the
-    # ``progress_bar_position`` parameter with the updated position of the progress bar
-    # for the ``NewtonSolver`` is passed.
-    params.update({"progress_bar_position": 1})
+    # ``_nl_progress_bar_position`` parameter with the updated position of the progress
+    # bar for the ``NewtonSolver`` is passed.
+    params.update({"_nl_progress_bar_position": 1})
 
     # Assign a solver
     solver = _choose_solver(model, params)
@@ -105,46 +101,45 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
         # step succeeded or failed.
         return solver.solve(model)
 
-    # Progressbars turned off or tqdm not installed:
-    if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
-        while not model.time_manager.final_time_reached():
-            time_step()
+    # Redirect the root logger, s.t. no logger interferes with with the
+    # progressbars.
+    with logging_redirect_tqdm([logging.root]):
+        initial_time_step: float = model.time_manager.dt
 
-    # Progressbars turned on:
-    else:
-        # Redirect the root logger, s.t. no logger interferes with with the
-        # progressbars.
-        with logging_redirect_tqdm([logging.root]):
-            # Time loop
-            # Create a time bar. The length is estimated as the timesteps predetermined
+        # Check if the user wants a progress bar. Initialize an instance of the
+        # progressbar_class, which is either :class:`~tqdm.trange` or
+        # :class:`~DummyProgressbar` in case `tqdm` is not installed.
+        if params.get("progressbars", False):
+            # Create a time bar. The length is estimated as the time_steps predetermined
             # by the schedule and initial time step size.
-            # NOTE: If e.g. adaptive time stepping results in more time steps, the time
-            # bar will increase with partial steps corresponding to the ratio of the
-            # modified time step size to the initial time step size.
-            expected_timesteps: int = int(
+            # NOTE: If, e.g., adaptive time stepping results in more time steps, the
+            # time bar will increase with partial steps corresponding to the ratio of
+            # the modified time step size to the initial time step size.
+            expected_time_steps: int = int(
                 np.round(
                     (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
-                    / model.time_manager.dt
+                    / initial_time_step
                 )
             )
-
-            initial_time_step: float = model.time_manager.dt
-            time_progressbar = trange(
-                expected_timesteps,
+            time_progressbar = progressbar_class(
+                range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,
             )
+        # Otherwise, use a dummy progress bar.
+        else:
+            time_progressbar = DummyProgressBar()
 
-            while not model.time_manager.final_time_reached():
-                time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index + 1}"
-                )
-                converged: bool = time_step()
-                # If the current time step was solved, update time progressbar length by
-                # the time step size divided by the initial time step size.
-                if converged:
-                    time_progressbar.update(n=model.time_manager.dt / initial_time_step)
+        # Time loop.
+        while not model.time_manager.final_time_reached():
+            time_progressbar.set_description_str(
+                f"Time step {model.time_manager.time_index + 1}"
+            )
+            converged: bool = time_step()
+            # Update progressbar length.
+            if converged:
+                time_progressbar.update(n=model.time_manager.dt / initial_time_step)
 
     model.after_simulation()
 
@@ -176,11 +171,16 @@ def _run_iterative_model(model, params: dict) -> None:
     if params.get("prepare_simulation", True):
         model.prepare_simulation()
 
+    if params.get("progressbars", False) and progressbar_class is DummyProgressBar:
+        logger.warning(
+            "Progress bars are requested, but `tqdm` is not installed. The iterative"
+            + " loop will run without progress bars."
+        )
     # Change the position of the solver progress bar to 1, as position 0 is
     # occupied by the time progress bar.
     # This needs to be adapted, once a progress bar for the iterations is
     # introduced.
-    params.update({"progress_bar_position": 1})
+    params.update({"_nl_progress_bar_position": 1})
 
     # Assign a solver
     solver = _choose_solver(model, params)
@@ -203,46 +203,45 @@ def _run_iterative_model(model, params: dict) -> None:
             solver.solve(model)
         model.after_propagation_loop()
 
-    # Progressbars turned off or tqdm not installed:
-    if not params.get("progressbars", False) or not _IS_TQDM_AVAILABLE:
-        while not model.time_manager.final_time_reached():
-            time_step()
-    # Progressbars turned on:
-    else:
-        # Redirect the root logger, s.t. no logger interferes with with the
-        # progressbars.
-        with logging_redirect_tqdm([logging.root]):
-            # Time loop
-            # Create a time bar. The length is estimated as the number of timesteps
-            # predetermined by the schedule and initial time step size.
-            # Note: If e.g., some manual time stepping results in more time steps, the
-            # time bar will increase with partial steps corresponding to the ratio of
-            # the modified time step size to the initial time step size.
-            expected_timesteps: int = int(
+    # Redirect all loggers to not interfere with the progressbar.
+    with logging_redirect_tqdm([logging.root]):
+        initial_time_step: float = model.time_manager.dt
+
+        # Check if the user wants a progress bar. Initialize an instance of the
+        # progressbar_class, which is either :class:`~tqdm.trange` or
+        # :class:`~DummyProgressbar` in case `tqdm` is not installed.
+        if params.get("progressbars", False):
+            # Create a time bar. The length is estimated as the time_steps predetermined
+            # by the schedule and initial time step size.
+            # NOTE: If e.g. adaptive time stepping results in more time steps, the time
+            # bar will increase with partial steps corresponding to the ratio of the
+            # modified time step size to the initial time step size.
+            expected_time_steps: int = int(
                 np.round(
                     (model.time_manager.schedule[-1] - model.time_manager.schedule[0])
-                    / model.time_manager.dt
+                    / initial_time_step
                 )
             )
-            initial_time_step: float = model.time_manager.dt
-            # Assert that the initial time step is not zero, to avoid division by zero
-            # later on.
-            assert initial_time_step != 0
-            time_progressbar = trange(
-                expected_timesteps,
+            time_progressbar = progressbar_class(
+                range(expected_time_steps),
                 desc="time loop",
                 position=0,
                 dynamic_ncols=True,
             )
+        # Otherwise, use a dummy progress bar.
+        else:
+            time_progressbar = DummyProgressBar()
 
-            while not model.time_manager.final_time_reached():
-                time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index + 1}"
-                )
-                time_step()
-                # Update time progressbar by the time step size divided by the initial
-                # time step size.
-                time_progressbar.update(n=model._time_step / initial_time_step)
+        # Time loop.
+        while not model.time_manager.final_time_reached():
+            time_progressbar.set_description_str(
+                f"Time step {model.time_manager.time_index + 1}"
+            )
+            time_step()
+            # Update progressbar length. Currently, there is no convergence check
+            # returned by :meth:`time_step`. Failed time steps will cause the progress
+            # bar to overestimate progress and exceed the maximal time.
+            time_progressbar.update(n=model._time_step / initial_time_step)
 
     model.after_simulation()
 

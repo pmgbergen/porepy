@@ -14,6 +14,7 @@ Content:
 
 import numpy as np
 import scipy.sparse as sps
+
 import porepy as pp
 
 from . import arrays
@@ -132,6 +133,35 @@ def compare_md_grids(mdg1: pp.MixedDimensionalGrid, mdg2: pp.MixedDimensionalGri
             if not compare_mortar_grids(if1, if2):
                 return False
     return True
+
+
+def fix_cell_faces(cell_faces: sps.spmatrix) -> sps.spmatrix:
+    """Helper method to make sure that the cell-face relation for internal faces has one
+    positive and one negative item per row.
+
+    The method is inteded for tests where the actual cell-face relation is not
+    important. The sign convention for cell-faces is enforced by arbitrarily assigning a
+    -1 to the second occurrence of each internal face in the cell_faces matrix. In cases
+    where the signs in the cell-face relation matter, a more careful construction of the
+    matrix should be made.
+
+    Parameters:
+        cell_faces: A cell-face matrix where rows corresponding to internal faces may
+            have two positive or two negative entries.
+
+    Returns:
+        A cell-face matrix where rows corresponding to internal faces have one positive
+        and one negative entry.
+
+    """
+    r, c, _ = sps.find(cell_faces)
+    two_occurrences = np.where(np.bincount(r) == 2)[0]
+    for ri in two_occurrences:
+        inds = np.where(r == ri)[0]
+        cell_faces[r[inds[0]], c[inds[0]]] = 1
+        cell_faces[r[inds[1]], c[inds[1]]] = -1
+
+    return cell_faces
 
 
 def polytop_grid_2d() -> pp.Grid:

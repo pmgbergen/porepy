@@ -19,6 +19,13 @@ PorePy currently has the following distinguishing features:
 
 PorePy is developed by the Porous Media Group at the University of Bergen, Norway. The software is developed under projects funded by the Research Council of Norway, the European Research Council and Equinor.
 
+# Showcase
+The video below showcases a fully coupled flow and heat transport simulation in a fractured porous medium with 52 fractures. 
+In the simulation, cold fluid is injected through an injection well in the top right of the domain and produced from a production well on the opposite side.
+
+<p align="center">
+    <img src='tutorials/img/showcase_thermohydro.gif' width=540>
+</p>
 
 # Installation
 We recommend using PorePy through a Docker image. The development and stable versions can be obtained, respectively, by 
@@ -31,7 +38,7 @@ and
 
 Instructions to install from source can be found [here](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
-PorePy is developed under Python >=3.11.
+PorePy is developed under Python >=3.12.
 
 # Getting started
 Confer the [tutorials](https://github.com/pmgbergen/porepy/tree/develop/tutorials). 

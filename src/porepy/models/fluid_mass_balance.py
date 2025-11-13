@@ -595,14 +595,12 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
 
         for sd, data in self.mdg.subdomains(return_data=True):
             pp.initialize_data(
-                sd,
                 data,
                 self.mobility_keyword,
                 {"darcy_flux": np.zeros(sd.num_faces)},
             )
         for intf, data in self.mdg.interfaces(return_data=True):
             pp.initialize_data(
-                intf,
                 data,
                 self.mobility_keyword,
                 {"darcy_flux": np.zeros(intf.num_cells)},
@@ -861,6 +859,10 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
 
     """
+    darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+    interface_darcy_flux: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """See :class:`VariablesSinglePhaseFlow`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -891,18 +893,18 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         """
 
-    def set_discretization_parameters(self) -> None:
+    def update_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.
 
         The parameter fields of the data dictionaries are updated for all subdomains and
         interfaces. The data to be set is related to:
-            * The fluid diffusion, e.g., the permeability and boundary conditions for
-              the pressure. This applies to both subdomains and interfaces.
-            * Boundary conditions for the advective flux. This applies to subdomains
-              only.
+
+        - The fluid diffusion, e.g., the permeability and boundary conditions for the
+          pressure. This applies to subdomains and interfaces.
+        - Boundary conditions for the advective flux. This applies to subdomains only.
 
         """
-        super().set_discretization_parameters()
+        super().update_discretization_parameters()
         # Profiling indicated that for problems with many subdomains, evaluating the
         # permeability for one subdomain at a time is a significant bottleneck. We
         # therefore evaluate the permeability for all subdomains at
@@ -923,7 +925,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             loc_permeability = permeability_all_cells.restrict_to_cells(loc_cells)
 
             pp.initialize_data(
-                sd,
                 data,
                 self.darcy_keyword,
                 {
@@ -933,7 +934,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 },
             )
             pp.initialize_data(
-                sd,
                 data,
                 self.mobility_keyword,
                 {
@@ -944,7 +944,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         # Assign diffusivity in the normal direction of the fractures.
         for intf, intf_data in self.mdg.interfaces(return_data=True, codim=1):
             pp.initialize_data(
-                intf,
                 intf_data,
                 self.darcy_keyword,
                 {
@@ -952,13 +951,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 },
             )
 
-    def before_nonlinear_iteration(self):
+    def update_flux_values(self):
         """Evaluate Darcy flux for each subdomain and interface and store in the data
-        dictionary for use in upstream weighting. The Darcy flux is evaluated for all
-        subdomains and interfaces and distributed to the parameter dictionaries for all
-        keywords in self.darcy_flux_storage_keywords().
+        dictionary for use in upstream weighting.
+
+        The Darcy flux is evaluated for all subdomains and interfaces and distributed to
+        the parameter dictionaries for all keywords returned by
+        :meth:`darcy_flux_storage_keywords`.
 
         """
+
+        super().update_flux_values()
 
         def update_dicts(vals: np.ndarray, data: dict) -> None:
             """Update the data dictionary with the Darcy flux values."""
@@ -1003,8 +1006,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = well_darcy_flux[well_offsets[id] : well_offsets[id + 1]]
             update_dicts(vals, data)
 
-        super().before_nonlinear_iteration()
-
     def darcy_flux_storage_keywords(self) -> list[str]:
         """Return the keywords for which the Darcy flux values are stored.
 
@@ -1016,14 +1017,45 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         return super().darcy_flux_storage_keywords() + [self.mobility_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
-        """Collect discretizations for nonlinear terms."""
+        """Adds Discretizations related to the flow problem.
+
+        - The mobility discretization and
+        - the interface mobility discretization
+
+        are added to :meth:`nonlinear_discretizations`.
+
+        Calls :meth:`add_nonlinear_darcy_flux_discretization`, to add (optional)
+        nonlinear discretizations of the Darcy flux.
+
+        """
         super().set_nonlinear_discretizations()
+
+        subdomains = self.mdg.subdomains()
         self.add_nonlinear_discretization(
-            self.mobility_discretization(self.mdg.subdomains()).upwind(),
+            self.mobility_discretization(subdomains).upwind(),
         )
         self.add_nonlinear_discretization(
             self.interface_mobility_discretization(self.mdg.interfaces()).flux(),
         )
+
+        self.add_nonlinear_darcy_flux_discretization()
+
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Method to be overridden to add the Darcy flux discretization to the
+        nonlinear update routines.
+
+        Example:
+
+            .. code:: python3
+
+                self.add_nonlinear_diffusive_flux_discretization(
+                    self.darcy_flux_discretization(self.mdg.subdomains()).flux()
+                )
+
+        This method is called as part of :meth:`set_nonlinear_discretizations`.
+        The base implementation adds nothing.
+
+        """
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
