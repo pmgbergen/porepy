@@ -354,8 +354,13 @@ class FractureNetwork3d(object):
         fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
         gmsh.model.occ.synchronize()
 
-        mesh_control_dict, mesh_control_coord = self._insert_mesh_size_control_points(
+        mesh_control_tag, mesh_control_dict = self._insert_mesh_size_control_points(
             fracture_tags, mesh_args
+        )
+        gmsh.model.occ.synchronize()
+        control_tag = [(0, tag) for tag in mesh_control_tag]
+        _, tmp = gmsh.model.occ.fragment(
+            control_tag, fracture_tags, removeObject=True, removeTool=True
         )
 
         debug = []
@@ -703,6 +708,7 @@ class FractureNetwork3d(object):
 
         inserted_points = []
         insertion_surface = []
+        control_point_tags = []
 
         def point_already_present(pt, li):
             if len(inserted_points) == 0:
@@ -839,6 +845,7 @@ class FractureNetwork3d(object):
                         inserted_points.append(cp)
                         insertion_surface.append(f)
                         mesh_size_points[f].append((cp, dist_point_inside[c]))
+                        control_point_tags.append(p[c])
 
                     remove = np.setdiff1d(np.arange(len(p)), close)
                     for r in remove:
@@ -865,6 +872,7 @@ class FractureNetwork3d(object):
                     inserted_points.append(cp)
                     insertion_surface.append(f)
                     mesh_size_points[f].append((cp, distance_info[0]))
+                    control_point_tags.append(p)
                 else:
                     other_frac = f_1 if f == f_0 else f_0
                     line_info.append((cp, on_line, f, other_frac))
@@ -917,7 +925,7 @@ class FractureNetwork3d(object):
                         gmsh.model.occ.remove([(0, pi)])
                         break
 
-        return mesh_size_points, inserted_points
+        return control_point_tags, mesh_size_points
 
     def set_mesh_size(self, mesh_args):
         THRESHOLD = 0.4

@@ -650,19 +650,26 @@ class FractureNetwork2d:
             return np.dot(vec_to_point, vector) / np.dot(vector, vector)
 
         nd = self.domain.dim
-        isect_pt = []
 
-        inserted_points = []
-        insertion_lines = []
+        control_points: list[int] = []
+        # Gmsh index (check if correct) of the inserted mesh size control points.
+        inserted_points: list[np.ndarray] = []
+        # Coordinates of the mesh size control points already inserted. Used to avoid
+        # duplicates.
+        inserted_on_line: list[int] = []
+        # Index of lines where the points were inserted. Should have the same length as
+        # inserted_points.
 
         def point_already_present(pt, li):
+            # Check if a point is already present among the inserted points, within
+            # tolerance h_min, and on the same line.
             if len(inserted_points) == 0:
                 return False
             dists = np.linalg.norm(
                 np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
             )
             i = np.argmin(dists)
-            return dists[i] < h_min and insertion_lines[i] == li
+            return dists[i] < h_min and inserted_on_line[i] == li
 
         for f_0, f_1 in itertools.combinations(line_tags, 2):
             if f_0 in boundary_tags and f_1 in boundary_tags:
@@ -724,9 +731,9 @@ class FractureNetwork2d:
                     # X-intersections that are almost T-intersections.
                     loc_mesh_size = min(d)
                 else:
-                    isect_pt.append(p)
+                    control_points.append(p)
                     inserted_points.append(cp)
-                    insertion_lines.append(f)
+                    inserted_on_line.append(f)
 
                 info = mesh_size_points.get(f, [])
                 info.append((cp, loc_mesh_size))
@@ -890,12 +897,12 @@ class FractureNetwork2d:
                     info.append((next_point, d))
                     mesh_size_points[main_line_gmsh_ind] = info
                     inserted_points.append(next_point)
-                    insertion_lines.append(main_line_gmsh_ind)
-                    isect_pt.append(pi)
+                    inserted_on_line.append(main_line_gmsh_ind)
+                    control_points.append(pi)
                 prev_point = next_point
                 step_size = d
 
-        return isect_pt, mesh_size_points
+        return control_points, mesh_size_points
 
     def _set_1d_mesh_size(
         self,
