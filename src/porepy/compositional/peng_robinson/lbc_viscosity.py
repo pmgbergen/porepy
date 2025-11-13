@@ -211,15 +211,21 @@ def _dmu_zero(
 
     """
 
+    sqrtmws = np.sqrt(mws)
     ncomp = x.size
-    n = x * np.sqrt(mws)
+    n = x * sqrtmws
 
     dpt = np.zeros(2)
     for i in range(ncomp):
         dpt += n[i] * dmus[i, :]
     dpt /= np.sum(n)
 
-    dx = (mus * np.sqrt(mws) * n - np.sum(n * mus) * np.sqrt(mws)) / (np.sum(n) ** 2)
+    u = np.sum(n * mus)
+    v = np.sum(n)
+    du = sqrtmws * mus
+    dv = sqrtmws
+
+    dx = (du * v - u * dv) / (v**2)
 
     return np.hstack((dpt, dx))
 
@@ -260,7 +266,7 @@ def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> flo
     """
     Pcsatms = pcs / 101325  # Conversion from Pa to atm
     n = np.sum(x * Tcs) ** (1 / 6)
-    d = np.sqrt(np.sum(x * mws)) * np.cbrt(np.sum(x * Pcsatms) ** 2)
+    d = np.sqrt(np.sum(x * mws)) * np.cbrt(np.sum(x * Pcsatms)) ** 2
     return n / d
 
 
@@ -307,7 +313,7 @@ def _dxi(
     d = d1 * d2**2
 
     dn = (1 / 6) / np.sum(x * Tcs) ** (5 / 6) * Tcs
-    dd = 0.5 / d1 * d2**2 * mws + (2 / 3) * d1 / d2**2 * Pcsatms
+    dd = 0.5 / d1 * mws * d2**2 + d1 * (2 / 3) / d2 * Pcsatms
 
     return (dn * d - n * dd) / (d**2)
 
@@ -513,18 +519,14 @@ def _dmu_correction(
         - 0.040758 * rho_r**3
         + 0.0093324 * rho_r**4
     )
-    n = k**4 - 0.0001
-    dn = (
-        4
-        * k**3
-        * (
-            0.023364
-            + 2 * 0.058533 * rho_r
-            - 3 * 0.040758 * rho_r**2
-            + 4 * 0.0093324 * rho_r**3
-        )
-        * drho_r
+    dk = (
+        0.023364
+        + 2 * 0.058533 * rho_r
+        - 3 * 0.040758 * rho_r**2
+        + 4 * 0.0093324 * rho_r**3
     )
+    n = k**4 - 0.0001
+    dn = 4 * k**3 * dk * drho_r
 
     return (dn * xi - n * dxi) / (xi**2)
 

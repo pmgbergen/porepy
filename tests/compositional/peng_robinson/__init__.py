@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from threading import Lock
 
-import pytest
-
-import numpy as np
 import numba as nb
+import numpy as np
+import pytest
 
 import porepy as pp
 import porepy.compositional.peng_robinson as pr
@@ -134,10 +133,5 @@ def pr_eos(
         )
         eos.compile()
         _pr_eos_cache[cache_key] = eos
-
-        # def _clear_cache():
-        #     _pr_eos_cache.pop(cache_key, None)
-
-        # request.addfinalizer(_clear_cache)
 
     return eos

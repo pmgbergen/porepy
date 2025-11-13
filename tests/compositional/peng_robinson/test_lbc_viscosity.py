@@ -2,22 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 import porepy.compositional.peng_robinson as pr
-
 from porepy.applications.test_utils.derivative_testing import (
-    get_EOC_taylor,
     assert_order_at_least,
+    get_EOC_taylor,
 )
-
-from tests.compositional.peng_robinson import (
-    components,
-    comps_and_phases,
-    pr_eos,
-)
+from tests.compositional.peng_robinson import components, comps_and_phases, pr_eos
 
 
 @pytest.mark.skipped(reason="slow due to compilation.")
@@ -86,7 +80,7 @@ def test_lbc_derivatives(
         assert_order_at_least(
             orders,
             2.0,
-            tol=1.5e-1,
+            tol=2e-2,
             err_msg=f"mu ({comps_and_phases}) {d}",
             asymptotic=3,
         )

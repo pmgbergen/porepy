@@ -8,23 +8,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import porepy as pp
 import porepy.compositional.flash as pf
 import porepy.compositional.peng_robinson as pr
-
 from porepy.applications.test_utils.derivative_testing import (
-    get_EOC_taylor,
     assert_order_at_least,
+    get_EOC_taylor,
 )
-
-from tests.compositional.peng_robinson import (
-    components,
-    comps_and_phases,
-    pr_eos,
-)
+from tests.compositional.peng_robinson import components, comps_and_phases, pr_eos
 
 
 @pytest.fixture(scope="module")

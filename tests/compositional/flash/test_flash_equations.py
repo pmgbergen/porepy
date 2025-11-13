@@ -1,15 +1,14 @@
 """Module testing assembly of common flash equations as well as generic argument
 parsing."""
 
+import numpy as np
 import pytest
 
-import numpy as np
 import porepy as pp
-
 import porepy.compositional.flash as flash
 from porepy.applications.test_utils.derivative_testing import (
-    get_EOC_taylor,
     assert_order_at_least,
+    get_EOC_taylor,
 )
 
 

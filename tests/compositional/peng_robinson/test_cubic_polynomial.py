@@ -9,10 +9,9 @@ import numpy as np
 import pytest
 
 from porepy.applications.test_utils.derivative_testing import (
-    get_EOC_taylor,
     assert_order_at_least,
+    get_EOC_taylor,
 )
-
 from porepy.compositional.peng_robinson.compressibility_factor import (
     A_CRIT,
     B_CRIT,
