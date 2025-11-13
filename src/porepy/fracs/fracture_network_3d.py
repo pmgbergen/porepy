@@ -354,6 +354,12 @@ class FractureNetwork3d(object):
         fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
         gmsh.model.occ.synchronize()
 
+        mesh_control_dict, mesh_control_coord = self._insert_mesh_size_control_points(
+            fracture_tags, mesh_args
+        )
+
+        debug = []
+
         (
             intersection_points,
             intersection_lines,
@@ -636,6 +642,282 @@ class FractureNetwork3d(object):
             isect_mapping,
             num_parents,
         )
+
+    def _insert_mesh_size_control_points(self, fracture_tags: list[int], mesh_args):
+        nd = self.domain.dim
+
+        # Define a threshold for when to consider refining along fractures. This is a
+        # heuristic value which should be reconsidered. Scaling with mesh size on
+        # fractures is reasonable, but the factor 2 is arbitrary.
+        THRESHOLD_REFINEMENT = 2 * mesh_args["mesh_size_frac"]
+
+        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
+        # BETA and make them user parameters, IF the concept turns out to be useful and
+        # extendable to 3d.
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+
+        h_frac = mesh_args["mesh_size_frac"]
+        h_bound = mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.
+        h_min = mesh_args.get("mesh_size_min", h_frac / 10)
+
+        ### Get hold of lines representing fractures and boundaries.
+        domain_entities = gmsh.model.get_entities(nd)
+        # TODO: If there is more than one domain entity (the domain is split into parts
+        # by fractures), we need to pick out the outer boundary, that is, the ones which
+        # only occurs once.
+        boundaries = gmsh.model.get_boundary(
+            [(nd, tag) for _, tag in domain_entities], oriented=False
+        )
+        fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
+        boundary_tags = [tag for _, tag in boundaries]
+        fracture_tags = [tag for _, tag in fractures]
+        surface_tags = [tag for _, tag in gmsh.model.get_entities(nd - 1)]
+
+        # Note to self: keeping track of gmsh tags of points is futile. Instead, we need
+        # to identify points by their coordinates, and do a tolerance-based search.
+        mesh_size_points = {}
+        for f in surface_tags:
+            mesh_size_points[f] = []
+
+        fac = gmsh.model.occ
+
+        def project_onto_line(pt, start_of_line, vector):
+            vec_to_point = pt - start_of_line
+            # Project the vector onto the line defined by the start point and the
+            # direction vector, parametrized by t.
+            return np.dot(vec_to_point, vector) / np.dot(vector, vector)
+
+        nd = self.domain.dim
+        isect_pt = []
+
+        inserted_points = []
+        insertion_surface = []
+
+        def point_already_present(pt, li):
+            if len(inserted_points) == 0:
+                return False
+            dists = np.linalg.norm(
+                np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
+            )
+            i = np.argmin(dists)
+            return dists[i] < h_min and insertion_surface[i] == li
+
+        for f_0, f_1 in combinations(surface_tags, 2):
+            if f_0 in boundary_tags and f_1 in boundary_tags:
+                # No refinement between two boundary lines.
+                continue
+
+            distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
+            distances = distance_info
+            is_intersection = distances[0] < self.tol
+
+            if distance_info[0] > THRESHOLD_REFINEMENT:
+                continue
+
+            # For each of the endpoints of each the two lines, end_point_distance
+            # will store the distance and the closest points on the other line.
+
+            # The below loop extracts the following information regarding the two
+            # lines:
+            # - main_start_point: A closest point on one of the lines that is also
+            #   an endpoint of that line. There will be one or two such points; we
+            #   pick the first one we find.
+            # - vectors: Direction vectors along each line. For the line containing
+            #   main_start_point, the vector is oriented away from that point.
+            # - main_line_ind: Index (0 or 1) of the line containing
+            #   main_start_point.
+            #
+
+            elif is_intersection:
+                # Intersections will be handled elsewhere.
+                continue
+
+            # Mesh size to be used at the control point. It may be updated below.
+            loc_mesh_size = distance_info[0]
+
+            # Deal with fractures that do not intersect, but are closer than the
+            # refinement threshold. First, deal with the case of almost parallel
+            # fractures, identified by the angle between their normal vectors.
+            def get_normal(f):
+                bnd = gmsh.model.get_parametrization_bounds(nd - 1, f)
+                u_mid = 0.5 * (bnd[0][0] + bnd[1][0])
+                v_mid = 0.5 * (bnd[0][1] + bnd[1][1])
+                n = gmsh.model.getNormal(f, [u_mid, v_mid])
+                return np.array(n)
+
+            def get_parametric_coordinate(f, pt):
+                # Get the parametric coordinates (u,v) of point pt on surface f.
+                param_coords = gmsh.model.getParametrization(
+                    nd - 1, f, [pt[0], pt[1], pt[2]]
+                )
+                bnd = gmsh.model.get_parametrization_bounds(nd - 1, f)
+                return np.array([param_coords[0], param_coords[1]]), bnd
+
+            def surface_points(f, num_pts_u=5, num_pts_v=5):
+                # Get a grid of points on the surface f.
+                #
+                # NOTE: The parametrization here is somewhat random. Ideally, we would
+                # use an adaptive strategy that gives us a fair chance of mapping out
+                # the region where the two fractures are close, and assign points there.
+                bnd = gmsh.model.get_parametrization_bounds(nd - 1, f)
+                u_vals = np.linspace(bnd[0][0], bnd[1][0], num_pts_u)
+                v_vals = np.linspace(bnd[0][1], bnd[1][1], num_pts_v)
+                pts = []  # Physical coordinates of points
+                for u in u_vals:
+                    for v in v_vals:
+                        p = gmsh.model.getValue(nd - 1, f, [u, v]).tolist()
+                        pts += p
+                return pts
+
+            def project_points_to_surface(f, points):
+                # Project a set of physical points onto the surface f, returning the
+                # parametric coordinates (u,v) of the projections.
+
+                proj_pts, _ = gmsh.model.get_closest_point(nd - 1, f, points)
+                inside = [
+                    gmsh.model.is_inside(nd - 1, f, proj_pts[3 * i : 3 * (i + 1)])
+                    for i in range(len(points) // 3)
+                ]
+                return np.array(proj_pts), inside
+
+            n_0 = get_normal(f_0)
+            n_1 = get_normal(f_1)
+            cos_angle = np.abs(np.dot(n_0, n_1)) / (
+                np.linalg.norm(n_0) * np.linalg.norm(n_1)
+            )
+            if cos_angle > 0.866:  # Corresponds to 30 degrees. FIX.
+                # Fractures are almost parallel. We need to refine on the part of the
+                # surfaces that are overlapping, which means we first need to find this
+                # part.
+                # Get the
+
+                inside_0 = gmsh.model.is_inside(nd - 1, f_0, distance_info[1:4])
+                inside_1 = gmsh.model.is_inside(nd - 1, f_1, distance_info[4:7])
+                for f in [f_0, f_1]:
+                    if f == f_0 and inside_0:
+                        other_f = f_1
+                    elif f == f_1 and inside_1:
+                        other_f = f_0
+                    else:
+                        # If the closest point is not inside the other fracture, there
+                        # will be no overlap.
+                        continue
+
+                    # Get points on the surface of f.
+                    pts = surface_points(f)
+                    proj_pts, inside = project_points_to_surface(other_f, pts)
+
+                    proj_pts_inside = proj_pts.reshape((-1, 3))[
+                        np.array(inside, dtype=bool)
+                    ]
+
+                    p = [
+                        gmsh.model.occ.addPoint(pt[0], pt[1], pt[2])
+                        for pt in proj_pts_inside
+                    ]
+
+                    dist_point_inside = [
+                        gmsh.model.occ.get_distance(0, p_i, nd - 1, other_f)[0]
+                        for p_i in p
+                    ]
+                    close = np.where(
+                        np.array(dist_point_inside) < THRESHOLD_REFINEMENT
+                    )[0]
+                    for c in close:
+                        cp = proj_pts_inside[c]
+                        inserted_points.append(cp)
+                        insertion_surface.append(f)
+                        mesh_size_points[f].append((cp, dist_point_inside[c]))
+
+                    remove = np.setdiff1d(np.arange(len(p)), close)
+                    for r in remove:
+                        gmsh.model.occ.remove([(0, p[r])])
+
+            # Next, fractures that are not parallel. The closest point must be on the
+            # boundary of at least one of the fractures. Refine along these boundary
+            # lines.
+            line_info = []
+            for ind, (f, sl) in enumerate([(f_0, slice(1, 4)), (f_1, slice(4, 7))]):
+                cp = distance_info[sl]
+                p = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
+                gmsh.model.occ.synchronize()
+                bound_lines = [l[1] for l in gmsh.model.get_boundary([(nd - 1, f)])]
+
+                dist_line = np.array(
+                    [fac.getDistance(0, p, nd - 2, l)[0] for l in bound_lines]
+                )
+                on_line = [bound_lines[i] for i in np.where(dist_line < self.tol)[0]]
+
+                if len(on_line) == 0:
+                    # The closest point is not on any boundary line of f. Add the
+                    # closest point, but it is not associated with any line.
+                    inserted_points.append(cp)
+                    insertion_surface.append(f)
+                    mesh_size_points[f].append((cp, distance_info[0]))
+                else:
+                    other_frac = f_1 if f == f_0 else f_0
+                    line_info.append((cp, on_line, f, other_frac))
+
+            # This should be true for non-intersecting fractures, though, if the
+            # fractures are perfectly parallel, gmsh could choose to define a
+            # non-boundary point as the closest one.
+            assert len(line_info) > 0
+
+            for cp, line_ind, frac, other_frac in line_info:
+                for li in line_ind:
+                    # Get the endpoints of the line.
+                    bound_points = gmsh.model.get_boundary([(1, li)], oriented=False)
+                    start_pt, end_pt = [
+                        np.array(gmsh.model.get_bounding_box(*pt)[:3])
+                        for pt in bound_points
+                    ]
+
+                    line_vector = end_pt - start_pt
+
+                    # Project the closest point onto the line to get the parameter t.
+                    t = project_onto_line(cp, start_pt, line_vector)
+
+                    # Determine if the closest point is an endpoint of the line.
+                    if t < self.tol:
+                        main_start_point = start_pt
+                    elif t > np.linalg.norm(line_vector) - self.tol:
+                        main_start_point = end_pt
+                    else:
+                        # Not an endpoint.
+                        continue
+
+                    # Compute distance to the other fracture at this point.
+                    pi = gmsh.model.occ.addPoint(
+                        main_start_point[0],
+                        main_start_point[1],
+                        main_start_point[2],
+                    )
+                    gmsh.model.occ.synchronize()
+                    d_to_other = gmsh.model.occ.get_distance(0, pi, 2, other_frac)[0]
+
+                    if d_to_other < THRESHOLD_REFINEMENT:
+                        if not point_already_present(main_start_point, frac):
+                            inserted_points.append(main_start_point)
+                            insertion_surface.append(frac)
+                            mesh_size_points[frac].append(
+                                (main_start_point, d_to_other)
+                            )
+                    else:
+                        gmsh.model.occ.remove([(0, pi)])
+                        break
+
+        return mesh_size_points, inserted_points
 
     def set_mesh_size(self, mesh_args):
         THRESHOLD = 0.4

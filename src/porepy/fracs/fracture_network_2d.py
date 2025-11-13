@@ -1071,8 +1071,8 @@ class FractureNetwork2d:
                 # NOTE: If the definition of the threshold field is changed, the
                 # computation of the critical angle for almost parallel lines must also
                 # be updated. See the definition of variable 'angle_threshold' above.
-                gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
                 gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
                 if restrict_to_fractures:
                     gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
                     gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_end)
