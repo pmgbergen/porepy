@@ -26,7 +26,7 @@ from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 BUOYANCY_ON = True
-VERBOSE = False
+VERBOSE = True
 
 # max_iterations = 40 if BUOYANCY_ON else 30
 max_iterations = 30
@@ -39,8 +39,8 @@ time_schedule = [i * pp.DAY for i in range(121)]
 assert T_end_months > 5
 time_schedule += [i * 30 * pp.DAY for i in range(5, T_end_months + 1)]
 dt_init = 20 * pp.MINUTE
-dt_min = 10 * pp.MINUTE
-dt_max = 3 * pp.HOUR
+dt_min = pp.SECOND / 1e4
+dt_max = pp.DAY
 
 time_manager = pp.TimeManager(
     schedule=time_schedule,
@@ -50,13 +50,13 @@ time_manager = pp.TimeManager(
     iter_optimal_range=iter_range,
     iter_relax_factors=(0.75, 1.5),
     recomp_factor=0.5,
-    recomp_max=10,
+    recomp_max=100,
     print_info=VERBOSE,
     rtol=0.0,
 )
 
 phase_property_params = {
-    "phase_property_params": [0.0],
+    "phase_property_params": [0.25],
 }
 
 basalt_ = basalt.copy()
@@ -111,8 +111,8 @@ solver_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 1.,
-        "cell_size_fracture": 1.,
+        "cell_size": 0.5,
+        "cell_size_fracture": 0.5,
     },
 }
 
@@ -168,15 +168,15 @@ if __name__ == "__main__":
 
     model = ModelSetup(model_params)
 
-    # logging.basicConfig(level=logging.INFO)
-    # logging.getLogger("porepy").setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger("porepy").setLevel(logging.DEBUG)
     t_0 = time.time()
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
-    # if VERBOSE:
-    #     logging.getLogger("porepy").setLevel(logging.INFO)
-    # else:
-    #     logging.getLogger("porepy").setLevel(logging.WARNING)
+    if VERBOSE:
+        logging.getLogger("porepy").setLevel(logging.INFO)
+    else:
+        logging.getLogger("porepy").setLevel(logging.WARNING)
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
