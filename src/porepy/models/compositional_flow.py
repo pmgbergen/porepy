@@ -83,13 +83,8 @@ The following solution strategy mixins are available:
   storing fluid phase properties based on the underlying EoS and using the surrogate
   operator framework. This is a proper mixin, meaning it is not inheriting from any
   solution strategy and must be used together with some solution strategy for equations.
-- :class:`SolutionStrategyNonlinearMPFA`: A mixed in strategy for re-discretizing MPFA
-  discretizations of the Darcy and Fourier flux. It is also a proper mixin, to be used
-  in combination with some other, fully functional solution strategy.
 - :class:`SolutionStrategyCF`: Combining the solution strategy for updating phase
   properties, with the strategy for fluid mass and energy balance.
-- :class:`SolutionStrategyCFF`: Like the previous strategy but with
-  :class:`SolutionStrategyNonlinearMPFA` as an additional base.
 
 The two template models, :class:`CompositionalFlowTemplate` and
 :class:`CompositionalFractionalFlowTemplate` are starting points for non-isothermal,
@@ -107,11 +102,11 @@ The steps required by users to close the models and obtain runable models are:
 from __future__ import annotations
 
 import logging
-import time
 from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.compositional as compositional
@@ -126,6 +121,7 @@ def update_phase_properties(
     depth: int,
     update_derivatives: bool = True,
     use_extended_derivatives: bool = False,
+    update_fugacities: bool = False,
 ) -> None:
     """Helper method to update the phase properties and its derivatives.
 
@@ -148,6 +144,10 @@ def update_phase_properties(
 
             To be used in the the CFLE setting with the unified equilibrium formulation,
             where partial fractions are obtained by normalization of extended fractions.
+        update_fugacities: ``default=False``
+
+            If True, fugacity coefficients are also updates. To be used in combination
+            with local equilibrium conditions.
 
     """
     if isinstance(phase.density, pp.ad.SurrogateFactory):
@@ -179,6 +179,15 @@ def update_phase_properties(
                 props.dkappa_ext if use_extended_derivatives else props.dkappa, sd
             )
 
+    if update_fugacities:
+        dphis = props.dphis_ext if use_extended_derivatives else props.dphis
+        for k, comp in enumerate(phase.components):
+            phi = phase.fugacity_coefficient_of[comp]
+            if isinstance(phi, pp.ad.SurrogateFactory):
+                phi.progress_iterate_values_on_grid(props.phis[k], sd, depth=depth)
+                if update_derivatives:
+                    phi.set_derivatives_on_grid(dphis[k], sd)
+
 
 def is_fractional_flow(model: pp.PorePyModel) -> bool:
     """Checking the model parameters for the ``'fractional_flow'`` flag.
@@ -203,10 +212,8 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = compositional.get_equilibrium_type(model)
-    schur = model.params.get("reduce_linear_system", False)
-    darcy = model.params.get("rediscretize_darcy_flux", False)
-    fourier = model.params.get("rediscretize_fourier_flux", False)
+    et = compositional.get_local_equilibrium_condition(model)
+    schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
     dofs_loc = dofs / len(var_names)
@@ -214,11 +221,9 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
 
     logger.info(
         f"Configuration of model {model}:\n"
-        + f"\tEquilibrium type: {et}\n"
+        + f"\tEquilibrium condition: {et}\n"
         + f"\tFractional flow: {is_ff}"
         + f"\tEliminating secondary block via Schur complement: {schur}"
-        + f"\tRe-discretizing Darcy flux: {darcy}"
-        + f"\tRe-discretizing Fourier flux: {fourier}"
         + f"\tNumber of phases: {model.fluid.num_phases}\n"
         + f"\tNumber of components: {model.fluid.num_components}\n"
         + f"\tReference phase eliminated: {p_elim}\n"
@@ -226,6 +231,72 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
         + f"\tDOFs (locally): {dofs} ({dofs_loc})\n"
         + f"\tVariables: \n\t\t{var_msg}\n"
     )
+
+
+def get_primary_equations_cf(model: pp.PorePyModel) -> list[str]:
+    """Returns a list of primary equations assumed to be the default in the CF
+    setting.
+
+    The list includes:
+
+    1. The total mass balance equation.
+    2. The total energy balance equation.
+    3. Component mass balance equations for each independent component.
+
+    Parameters:
+        model: A PorePy model instance.
+
+    Returns:
+        A list of equation names.
+
+    """
+    equ_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.FluidMassBalanceEquations):
+        equ_names += [
+            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, pp.energy_balance.TotalEnergyBalanceEquations):
+        equ_names += [
+            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name()
+        ]
+    if isinstance(model, ComponentMassBalanceEquations):
+        equ_names += model.component_mass_balance_equation_names()
+
+    return equ_names
+
+
+def get_primary_variables_cf(model: pp.PorePyModel) -> list[str]:
+    """Returns a list of primary variables assumed to be the default in the CF setting.
+
+    The list includes:
+
+    1. The pressure variable.
+    2. The (specific fluid) enthalpy variable, in enthalpy-based formulations, else the
+       temperature.
+    3. The overall fraction variables for each independent component.
+    4. The tracer fraction variables for tracers in compounds (if any).
+
+    Parameters:
+        model: A PorePy model instance.
+
+    Returns:
+        A list of variable names.
+
+    """
+    var_names: list[str] = []
+    if isinstance(model, pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
+        var_names += [model.pressure_variable]
+
+    if isinstance(model, SolutionStrategyExtendedFluidMassAndEnergy):
+        var_names += [model.enthalpy_variable]
+    elif isinstance(model, pp.energy_balance.SolutionStrategyEnergyBalance):
+        var_names += [model.temperature_variable]
+
+    if isinstance(model, pp.compositional.CompositionalVariables):
+        var_names += model.overall_fraction_variables
+        var_names += model.tracer_fraction_variables
+
+    return var_names
 
 
 # region general PDEs.
@@ -250,15 +321,6 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
     well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
-
-    def set_equations(self) -> None:
-        """After the super-call, this method asserts additionally that the model is
-        using the fractional flow framework."""
-        super().set_equations()
-
-        assert self.params["rediscretize_darcy_flux"], (
-            "Model params['rediscretize_darcy_flux'] must be flagged as True."
-        )
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
@@ -337,13 +399,19 @@ class EnthalpyBasedEnergyBalanceEquations(
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
+    enthalpy_buoyancy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    enthalpy_buoyancy_jump: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsMulticomponent`."""
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Returns the internal energy of the fluid using the independent
         :meth:`~porepy.models.energy_balance.EnthalpyVariable.enthalpy` variable and the
-        :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid mixture
+        :attr:`~porepy.compositional.base.Fluid.density` of the fluid mixture
 
         .. math::
 
@@ -389,19 +457,41 @@ class EnthalpyBasedEnergyBalanceEquations(
                 [
                     phase.specific_enthalpy(domains)
                     * self.fractional_phase_mass_mobility(phase, domains)
-                    # * phase.density(domains)
-                    # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-            )  # / self.total_mobility(domains)
+            )
+            op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
             # the advected enthalpy and a super call is performed (where the respective
             # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
-        op.set_name("advected_enthalpy")
         return op
+
+    def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        if (
+            len(subdomains) == 0
+            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
+        ) and is_fractional_flow(self):
+            flux = self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
+                subdomains
+            )
+        else:
+            flux = super().enthalpy_flux(subdomains)
+        buoyancy_condition: bool = self.params.get(
+            "enable_buoyancy_effects", False
+        ) and not all([isinstance(g, pp.BoundaryGrid) for g in subdomains])
+        if buoyancy_condition:
+            flux += self.enthalpy_buoyancy(subdomains)
+        return flux
+
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        source = super().energy_source(subdomains)
+        buoyancy_condition: bool = self.params.get("enable_buoyancy_effects", False)
+        if buoyancy_condition:
+            source += self.enthalpy_buoyancy_jump(subdomains)
+        return source
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation):
@@ -419,7 +509,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     Important:
         The component mass balance equations expect the total mass balance (pressure
         equation) to be part of the system. That equation defines interface fluxes
-        between subdomains, which are used by the present class to advect components.
+        between subdomains, which are used by the present class to advected components.
 
         Also, this class relies on the Upwind discretization implemented there,
         especially on the definition of the boundary faces as either Neumann-type or
@@ -477,12 +567,22 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
 
+    component_buoyancy: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
+    component_buoyancy_jump: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsMulticomponent`."""
 
-    has_independent_fraction: Callable[[pp.Component], bool]
+    has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
     """Provided by mixin for compositional variables."""
 
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
@@ -533,6 +633,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             self.component_mass(component, subdomains), subdomains, dim=1
         )
         flux = self.component_flux(component, subdomains)
+        if self.params.get("enable_buoyancy_effects", False):
+            flux += self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
@@ -544,9 +646,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
-        using the :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid
-        mixture and the component's
-        :attr:`~porepy.compositional.base.Component.fraction`
+        using the :attr:`~porepy.compositional.base.Fluid.density` of the fluid mixture
+        and the component's :attr:`~porepy.compositional.base.Component.fraction`
 
         .. math::
 
@@ -805,6 +906,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
+        if self.params.get("enable_buoyancy_effects", False):
+            source += self.component_buoyancy_jump(component, subdomains)
+
         source.set_name(f"interface_component_flux_source_{component.name}")
         well_fluxes = (
             well_projection.mortar_to_secondary_int()
@@ -832,7 +936,7 @@ class PrimaryEquationsCF(
 
     They are PDEs consisting of
 
-    - 1 pressure equation,
+    - 1 fluid mass balance equation,
     - mass balance equations per component,
     - 1 energy balance,
 
@@ -841,10 +945,28 @@ class PrimaryEquationsCF(
     """
 
 
+class PrimaryEquationsCFF(
+    EnthalpyBasedEnergyBalanceEquations,
+    ComponentMassBalanceEquations,
+    MassicPressureEquations,
+):
+    """A collection of primary equations in the CFF setting.
+
+    They are PDEs consisting of
+
+    - 1 (massic) pressure equation,
+    - mass balance equations per component,
+    - 1 energy balance,
+
+    and relies on re-discretization of the Darcy flux.
+
+    """
+
+
 class VariablesCF(
-    pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
-    pp.energy_balance.EnthalpyVariable,
     compositional.CompositionalVariables,
+    pp.energy_balance.EnthalpyVariable,
+    pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
 ):
     """Bundles standard variables for non-isothermal flow (pressure and temperature)
     with fractional variables and an independent enthalpy variable."""
@@ -889,7 +1011,8 @@ class ConstitutiveLawsCF(
     pp.constitutive_laws.FluidMobility,
     # Contains the Upwind for the enthalpy flux, otherwise not required.
     # TODO Consider putting discretizations strictly outside of classes providing
-    # heuristics for thermodynamic properties.
+    # reformulation of fluid properties.
+    pp.constitutive_laws.FluidBuoyancy,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.SecondOrderTensorUtils,
@@ -1099,6 +1222,9 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
     """Intermediate mixin layer to provide an interface for calculating values of phase
     properties on the boundary, which are represented by surrogate factories.
 
+    Allows the user to define ``model.params['phase_property_params']`` which are passed
+    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+
     Important:
         The computation of phase properties is performed on all boundary cells,
         Neumann and Dirichlet. This may require non-trivial values for primary
@@ -1150,10 +1276,13 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     kappa_bc = np.zeros(0)
                 else:
                     dep_vals = [
-                        d([bg]).value(self.equation_system)
+                        self.equation_system.evaluate(d([bg]))
                         for d in self.dependencies_of_phase_properties(phase)
                     ]
-                    state = phase.compute_properties(*cast(list[np.ndarray], dep_vals))
+                    state = phase.compute_properties(
+                        *cast(list[np.ndarray], dep_vals),
+                        params=self.params.get("phase_property_params", None),
+                    )
                     rho_bc = state.rho
                     h_bc = state.h
                     mu_bc = state.mu
@@ -1286,6 +1415,8 @@ class BoundaryConditionsCF(
     # Put on top for override of update_all_boundary_values, which includes sub-routine
     # for updating phase properties on boundaries.
     BoundaryConditionsPhaseProperties,
+    # Put enthalpy above BC for p,T and fractions, in case they are required to evaluate
+    # enthalpy.
     pp.energy_balance.BoundaryConditionsEnthalpy,
     pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
     BoundaryConditionsMulticomponent,
@@ -1296,12 +1427,12 @@ class BoundaryConditionsCF(
 
 
 class BoundaryConditionsCFF(
-    # put on top for override of update_all_boundary_values, which includes sub-routine
-    # for fractional flow.
+    # Put on top for override of update_all_boundary_values, which includes sub-routine
+    # for fractional flow. This way the BC values of variables and phase properties are
+    # already provided in case they are required to compute f.e. the advective weight
+    # in the energy balance equation in the FF setting.
     BoundaryConditionsFractionalFlow,
-    pp.energy_balance.BoundaryConditionsEnthalpy,
-    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
-    BoundaryConditionsMulticomponent,
+    BoundaryConditionsCF,
 ):
     """Collection of BC value routines required for CF in the fractional flow
     formulation."""
@@ -1325,7 +1456,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
         [pp.Component, compositional.Compound], bool
     ]
     """Provided by mixin for compositional variables."""
-    has_independent_fraction: Callable[[pp.Component], bool]
+    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """Provided by mixin for compositional variables."""
 
     def set_initial_values_primary_variables(self) -> None:
@@ -1405,6 +1536,9 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
     This class assumes that phase properties are given as surrogate factories, which
     can get values assigned after initial values for their dependencies are set.
 
+    Allows the user to define ``model.params['phase_property_params']`` which are passed
+    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+
     """
 
     def initial_condition(self) -> None:
@@ -1420,53 +1554,27 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
         Derivative values are only stored for the current iterate.
 
         """
-        subdomains = self.mdg.subdomains()
-        ni = self.iterate_indices.size
-        nt = self.time_step_indices.size
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
+        )
 
         # Set the initial values on individual grids for the iterate indices.
-        for grid in subdomains:
+        for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
                 dep_vals = [
-                    d([grid]).value(self.equation_system)
+                    self.equation_system.evaluate(d([sd]))
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
 
                 phase_props = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals)
+                    *cast(list[np.ndarray], dep_vals),
+                    params=self.params.get("phase_property_params", None),
                 )
 
                 # Set values and derivative values for current current index.
-                update_phase_properties(grid, phase, phase_props, ni)
-
-                # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks to satisfy mypy, since the properties are
-                # type aliases containing some other type as well.
-                for _ in self.iterate_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_iterate_values_on_grid(
-                            phase_props.rho, grid, depth=ni
-                        )
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_iterate_values_on_grid(
-                            phase_props.h, grid, depth=ni
-                        )
-                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                        phase.viscosity.progress_iterate_values_on_grid(
-                            phase_props.mu, grid, depth=ni
-                        )
-                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                        phase.thermal_conductivity.progress_iterate_values_on_grid(
-                            phase_props.kappa, grid, depth=ni
-                        )
-                # Copy values to all time step indices.
-                for _ in self.time_step_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_values_in_time([grid], depth=nt)
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_values_in_time(
-                            [grid], depth=nt
-                        )
+                update_phase_properties(
+                    sd, phase, phase_props, 0, update_fugacities=equilibrium_defined
+                )
 
 
 class InitialConditionsCF(
@@ -1503,6 +1611,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
     :attr:`~porepy.compositional.base.Phase.eos` and :attr:`~porepy.compositional.
     compositional_mixins.FluidMixin.dependencies_of_phase_properties` is required.
 
+    Allows the user to define ``model.params['phase_property_params']`` which are passed
+    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+
     Note:
         When using this solution strategy mixin, make sure it is **above** all other
         solution strategies in order to work property. This is due to the assumed order
@@ -1510,56 +1621,52 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
     """
 
-    def update_thermodynamic_properties_of_phases(self) -> None:
-        """This method uses for each phase the underlying EoS to calculate
-        new values and derivative values of phase properties and to update them
-        them in the iterative sense, on all subdomains.
+    def update_material_properties(self) -> None:
+        """Calls :meth:`update_thermodynamic_properties_of_phases` after the
+        super-call."""
 
-        It is called in :meth:`before_nonlinear_iteration`.
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
+        super().update_material_properties()  # type:ignore[safe-super]
+        self.update_thermodynamic_properties_of_phases()
 
-        """
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
+        """This method uses for each phase the underlying EoS to calculate new values
+        and derivative values of phase properties and to update them in the iterative
+        sense, on all subdomains."""
 
         subdomains = self.mdg.subdomains()
-        ni = self.iterate_indices.size
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
+        )
 
         for grid in subdomains:
             for phase in self.fluid.phases:
                 # Compute the values of variables/state functions on which the phase
                 # properties depend.
                 dep_vals = [
-                    d([grid]).value(self.equation_system)
+                    self.equation_system.evaluate(d([grid]), state=state)
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
                 # Compute phase properties using the phase EoS.
-                phase_props = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals)
+                phase_state = phase.compute_properties(
+                    *cast(list[np.ndarray], dep_vals),
+                    params=self.params.get("phase_property_params", None),
                 )
 
                 # Set current iterate indices of values and derivatives.
-                update_phase_properties(grid, phase, phase_props, ni)
-
-    def before_nonlinear_iteration(self) -> None:
-        """Overwrites parent methods to perform an update of phase properties before
-        performing a super-call.
-
-        This overload assumes that re-discretizations are performed in the super-call,
-        especially of upwinding and potentially the flux discretization.
-
-        Fluid properties (surrogate operators) and their values must be updated before
-        any re-discretization due to discretizations depending on these values. They
-        appear in the non-linear part of various fluxes.
-
-        The update is scoped in :meth:`update_thermodynamic_properties_of_phases`, which
-        can be customized.
-
-        """
-        self.update_thermodynamic_properties_of_phases()
-        # NOTE: Mypy complaints about trivial body of protocol.
-        # But this is a mixin. We assert it is indeed a solution strategy and proceed.
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().before_nonlinear_iteration()  # type:ignore[safe-super]
+                # NOTE: Setting depth to zero does not shift the properties in the
+                # iterative sense, but updates only the current iterate.
+                update_phase_properties(
+                    grid,
+                    phase,
+                    phase_state,
+                    0,
+                    update_fugacities=equilibrium_defined,
+                )
 
     def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
@@ -1583,318 +1690,74 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
             if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
                 phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
+        """Attaches to the iterate and time step initialization and copies the values
+        of phase properties found at iterate index 0 to all other iterate and time step
+        indices.
 
-class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
-    """Solution strategy mixin for models using a non-linear MPFA flux discretization
-    which requires a re-discretization in each iteration.
+        This is done for all phases on all subdomains.
 
-    An example use case is compositional flow in the fractional formulation, where the
-    total mass mobility is a non-linear, isotropic contribution of the second-order
-    tensor in the Darcy flux.
+        While iterate indices are copied for all properties, time step indices are
+        copied only for density and specific enthalpy, as they are expected in
+        accumulation terms in balance equations.
 
-    This solution strategy searches for flags ``params['rediscretize_darcy_flux']`` and
-    ``params['rediscretize_fourier_flux']`` in the model parameters, and performs the
-    re-discretization if flagged True. By default, they are assumed to be False.
-
-    The flux discretizations are performed in :meth:`before_nonlinear_iteration`
-    **before** the super-call. Note that this is critical since upwinding (which is
-    expected to be part of the super-call) must be re-discretized **after** the fluxes
-    are re-discretized.
-
-    Notes:
-
-        1. Re-discretizing the MPFA is expensive and will slow down the simulation
-           noticeably.
-        2. When mixing in this class, it must be above other, fully functional solution
-           strategies in order for the super-call to work as intended.
-
-    """
-
-    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
-    """See :class:`~porepy.models.constitutive_laws.FouriersLaw`."""
-    darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
-    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
-
-    def __init__(self, params: Optional[dict] = None) -> None:
+        """
         assert isinstance(self, pp.SolutionStrategy), (
             "This is a mixin. Require SolutionStrategy as base."
         )
-        super().__init__(params)  # type:ignore[safe-super]
+        super().initialize_previous_iterate_and_time_step_values()  # type:ignore
 
-        self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        """Separate container for fluxes which need to be re-discretized. The separation
-        is necessary due to the re-discretization being performed at different stages
-        of the algorithm."""
-
-    def add_nonlinear_flux_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
-    ) -> None:
-        """Add an entry to the list of non-linear flux discretizations.
-
-        Parameters:
-            discretization: The nonlinear discretization to be added.
-
-        """
-        if discretization not in self._nonlinear_flux_discretizations:
-            self._nonlinear_flux_discretizations.append(discretization)
-
-    def set_nonlinear_discretizations(self) -> None:
-        """After the super-call, this method adds the
-        :meth:`fourier_flux_discretization` and the :meth:`darcy_flux_discretization`
-        to the update framework using :meth:`add_nonlinear_flux_discretization`."""
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().set_nonlinear_discretizations()  # type:ignore[safe-super]
-
-        subdomains = self.mdg.subdomains()
-
-        if self.params.get("rediscretize_fourier_flux", False):
-            self.add_nonlinear_flux_discretization(
-                self.fourier_flux_discretization(subdomains).flux()
-            )
-        if self.params.get("rediscretize_darcy_flux", False):
-            self.add_nonlinear_flux_discretization(
-                self.darcy_flux_discretization(subdomains).flux()
-            )
-
-    def rediscretize_fluxes(self) -> None:
-        """Discretizes added, nonlinear fluxes after ensuring uniqueness of
-        discretizations for efficiency reasons."""
-        # If the list is empty, fluxes are not re-discretized.
-        # The list is empty if nothing was added during set_nonlinear_discretizations.
-        if self._nonlinear_flux_discretizations:
-            tic = time.time()
-            # Get unique discretizations to save computational time, then discretize.
-            unique_discretizations = pp.ad._ad_utils.uniquify_discretization_list(
-                self._nonlinear_flux_discretizations
-            )
-            pp.ad._ad_utils.discretize_from_list(unique_discretizations, self.mdg)
-            logger.info(
-                "Re-discretized nonlinear fluxes in {} seconds".format(
-                    time.time() - tic
-                )
-            )
-
-    def before_nonlinear_iteration(self) -> None:
-        """Overloads the parent method to call :meth:`rediscretize_fluxes` before the
-        super-call.
-
-        This order is crucial since the re-discretization of upwinding is expected in
-        the super-call and the fluxes must be re-discretized before that.
-
-        """
-        self.rediscretize_fluxes()
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().before_nonlinear_iteration()  # type:ignore[safe-super]
-
-
-class SolutionStrategySchurComplement(pp.PorePyModel):
-    """Solution strategy mixing allowing the definition of primary variables and
-    equations in order to perform a Schur-complement elimination and expansion during
-    the solution of the linear system.
-
-    Intended use is for large models with local, algebraic equations which are secondary
-    in some sense.
-
-    Example use cases are any CF models with multiple phases and components, which
-    require either a closure in the form of constitutive equations or local equilibrium
-    conditions.
-
-    The Schur complement is defined by setting primary equations and variables. They
-    define the rows and columns respectively of the primary diagonal block, which is
-    *not* inverted for the Schur complement.
-
-    In order for the Schur complement reduction to be performed, the user must
-    provide a flag ``params['reduce_linear_system']`` in the model parameters. By
-    default this flag is False.
-
-    """
-
-    pressure_variable: str
-    enthalpy_variable: str
-
-    overall_fraction_variables: list[str]
-    tracer_fraction_variables: list[str]
-
-    component_mass_balance_equation_names: Callable[[], list[str]]
-
-    @property
-    def primary_equations(self) -> list[str]:
-        """Names of the primary equations.
-
-        They define the row-block which does not contain the sub-matrix which is to be
-        inverted for the Schur complement.
-
-        Parameters:
-            names: List of equation names to be set as primary equations.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the equations (currently) defined as primary equations.
-
-        """
-        return self._primary_equations
-
-    @primary_equations.setter
-    def primary_equations(self, names: list[str]) -> None:
-        known_equations = list(self.equation_system.equations.keys())
-        for n in names:
-            if n not in known_equations:
-                raise ValueError(f"Equation {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary equation names must be unique.")
-        # Shallow copy for safety
-        self._primary_equations = [n for n in names]
-
-    @property
-    def primary_variables(self) -> list[str]:
-        """Names of the primary variables.
-
-        They define the column-block which does not contain the sub-matrix which is to
-        be inverted for the Schur complement.
-
-        Parameters:
-            names: List of variable names to be set as primary variables.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the variables (currently) defined as primary variables.
-
-        """
-        return self._primary_variables
-
-    @primary_variables.setter
-    def primary_variables(self, names: list[str]) -> None:
-        known_variables = list(set(v.name for v in self.equation_system.variables))
-        for n in names:
-            if n not in known_variables:
-                raise ValueError(f"Variable {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary variables names must be unique.")
-        # Shallow copy for safety
-        self._primary_variables = [n for n in names]
-
-    @property
-    def secondary_equations(self) -> list[str]:
-        """The list of equation names indirectly defined as secondary.
-
-        They are given as the complement of :meth:`primary_equations` within all
-        equations found in the equation system.
-
-        Note:
-            Due to usage of Python's ``set``- operations, the resulting list may or may
-            not be in the order the equations were added to the model.
-
-        Returns:
-            A list of equation names defining the rows of the sub-matrix to be
-            inverted for the Schur complement.
-
-        """
-        all_equations = set([n for n in self.equation_system.equations.keys()])
-        return list(all_equations.difference(set(self.primary_equations)))
-
-    @property
-    def secondary_variables(self) -> list[str]:
-        """The list of variable (names) indirectly defined as secondary.
-
-        They are given as the complement of :meth:`primary_variables` within all
-        variables found in the equation system.
-
-        Note:
-            Due to usage of Python's ``set``- operations, the resulting list may or may
-            not be in the order the variables were created in the final model.
-
-        Returns:
-            A list of variable names defining the columns of the sub-matrix to be
-            inverted for the Schur complement.
-
-        """
-        all_variables = set([var.name for var in self.equation_system.variables])
-        return list(all_variables.difference(set(self.primary_variables)))
-
-    def get_primary_equations_cf(self) -> list[str]:
-        """Returns a list of primary equations assumed to be the default in the CF
-        setting.
-
-        The list includes:
-
-        1. The total mass balance equation.
-        2. Component mass balance equations for each independent component.
-        3. The total energy balance equation.
-
-        """
-        return [
-            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name(),
-            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
-        ] + self.component_mass_balance_equation_names()
-
-    def get_primary_variables_cf(self) -> list[str]:
-        """Returns a list of primary variables assumed to be the default in the CF
-        setting.
-
-        The list includes:
-
-        1. The pressure variable.
-        2. The overall fraction variables for each independent component.
-        3. The tracer fraction variables for tracers in compounds (if any).
-        4. The (specific fluid) enthalpy variable.
-
-        """
-        return (
-            [
-                self.pressure_variable,
-            ]
-            + self.overall_fraction_variables
-            + self.tracer_fraction_variables
-            + [
-                self.enthalpy_variable,
-            ]
+        ni = self.iterate_indices.size
+        nt = self.time_step_indices.size
+        equilibrium_defined = (
+            compositional.get_local_equilibrium_condition(self) is not None
         )
 
-    def assemble_linear_system(self) -> None:
-        """Assemble the linearized system and store it in :attr:`linear_system`.
+        for sd in self.mdg.subdomains():
+            for phase in self.fluid.phases:
+                # Progress iterate values to all iterate indices.
+                # NOTE need the if-checks for models where different properties are
+                # modelled with mixins providing constitutive laws (not surrogate
+                # operators).
+                for _ in self.iterate_indices:
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        vals = phase.density.get_values_on_grid(sd, iterate_index=0)
+                        phase.density.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        vals = phase.specific_enthalpy.get_values_on_grid(
+                            sd, iterate_index=0
+                        )
+                        phase.specific_enthalpy.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                        vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
+                        phase.viscosity.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
+                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                        vals = phase.thermal_conductivity.get_values_on_grid(
+                            sd, iterate_index=0
+                        )
+                        phase.thermal_conductivity.progress_iterate_values_on_grid(
+                            vals, sd, depth=ni
+                        )
 
-        This method performs a Schur complement elimination.
+                    if equilibrium_defined:
+                        for k, comp in enumerate(phase.components):
+                            phi = phase.fugacity_coefficient_of[comp]
+                            if isinstance(phi, pp.ad.SurrogateFactory):
+                                vals = phi.get_values_on_grid(sd, iterate_index=0)
+                                phi.progress_iterate_values_on_grid(vals, sd, depth=ni)
 
-        Uses the :meth:`primary_equations` and :meth:`primary_variables` to define the
-        Schur complement.
-
-        """
-        t_0 = time.time()
-
-        if self.params.get("reduce_linear_system", False):
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.primary_equations, self.primary_variables
-            )
-        else:
-            self.linear_system = self.equation_system.assemble()
-
-        t_1 = time.time()
-        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
-
-    def solve_linear_system(self) -> np.ndarray:
-        """After calling the parent method, the global solution is calculated by Schur
-        expansion."""
-
-        # NOTE mypy complaints about trivial body of protocol.
-        # But this is a mixin. We assert it is indeed a solution strategy and proceed
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        sol = super().solve_linear_system()  # type:ignore[safe-super]
-
-        if self.params.get("reduce_linear_system", False):
-            sol = self.equation_system.expand_schur_complement_solution(sol)
-        return sol
+                # Copy values to all time step indices.
+                for _ in self.time_step_indices:
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_values_in_time([sd], depth=nt)
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
 
 
 class SolutionStrategyExtendedFluidMassAndEnergy(
@@ -1932,7 +1795,6 @@ class SolutionStrategyExtendedFluidMassAndEnergy(
 
 class SolutionStrategyCF(
     SolutionStrategyPhaseProperties,
-    SolutionStrategySchurComplement,
     SolutionStrategyExtendedFluidMassAndEnergy,
 ):
     """Solution strategy for general compositional flow.
@@ -1945,7 +1807,7 @@ class SolutionStrategyCF(
     fully functional solution strategy for fluid mass and energy balance equations,
     including an independent fluid enthalpy variable.
 
-    The initialization parameters can contain the following entries:
+    Supports the following model parameters:
 
     - ``'eliminate_reference_phase'``: Defaults to True. If True, the molar fraction
       and saturation of the reference phase are eliminated by unity, reducing the size
@@ -1958,8 +1820,7 @@ class SolutionStrategyCF(
       non-linear weights in the advective fluxes in mass and energy balances as closed
       terms on the boundary. The user must then provide values for the non-linear
       weights explicitly. It also uses fractional mobilities, instead of regular ones.
-      To be used with consistently discretized diffusive parts or balance equations
-      (see also :class:`SolutionStrategyNonlinearMPFA`).
+      To be used with consistently discretized diffusive parts or balance equations.
     - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
       part, it should be a string indicating the fixed state of the local phase
       equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
@@ -1968,25 +1829,25 @@ class SolutionStrategyCF(
 
     """
 
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """If the fractional flow formulation is used, the nonlinear Darcy flux
+        discretization is added by default for all subdomains to the update routine."""
+        if is_fractional_flow(self):
+            self.add_nonlinear_diffusive_flux_discretization(
+                self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+            )
 
-class SolutionStrategyCFF(
-    SolutionStrategyPhaseProperties,
-    SolutionStrategyNonlinearMPFA,
-    SolutionStrategySchurComplement,
-    SolutionStrategyExtendedFluidMassAndEnergy,
-):
-    """Solution strategy for compositional flow including a re-discretization of MPFA
-    for Fourier and/or Darcy flux.
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Compositional flow models relay on re-discretization of the
+        Fourier flux, since the thermal conductivity is presumably a nonlinear fluid
+        property.
 
-    It is analogous to :class:`SolutionStrategyCF`, with the addition of
-    :class:`SolutionStrategyNonlinearMPFA`.
+        The discretization is added by default for all subdomains to the update routine.
 
-    The order of base classes is critical for the functionality to work as intended.
-    I.e., first the phase properties are updated, then the flux is re-discretized, and
-    finally other discretizations like upwinding are re-discretized via super-call to
-    the solution strategy for fluid mass and energy balance.
-
-    """
+        """
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+        )
 
 
 # endregion
@@ -2045,11 +1906,11 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
 
 class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
-    PrimaryEquationsCF,
+    PrimaryEquationsCFF,
     VariablesCF,
     BoundaryConditionsCFF,
     InitialConditionsCF,
-    SolutionStrategyCFF,
+    SolutionStrategyCF,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

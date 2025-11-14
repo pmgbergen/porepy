@@ -217,7 +217,12 @@ class Domain:
             ymin = np.min(polygon[:, 2:])
             ymax = np.max(polygon[:, 2:])
 
-            box = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
+            box: dict[str, pp.number] = {
+                "xmin": xmin,
+                "xmax": xmax,
+                "ymin": ymin,
+                "ymax": ymax,
+            }
 
         else:
             # For a polyhedron, we have to consider that the domain can be composed

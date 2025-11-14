@@ -11,7 +11,7 @@ import logging
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, Literal, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -52,12 +52,10 @@ class SolutionStrategy(pp.PorePyModel):
         # we should have an enum here.
         self.convergence_status = False
         """Whether the non-linear iteration has converged."""
-        self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        """List of non-linear discretizations, to be updated in every iteration.
-
-        See also :meth:`add_nonlinear_discretization`.
-
-        """
+        self._nonlinear_discretizations: list[pp.ad.MergedOperator] = []
+        """See :meth:`add_nonlinear_discretization`."""
+        self._nonlinear_diffusive_flux_discretizations: list[pp.ad.MergedOperator] = []
+        """See :meth:`add_nonlinear_diffusive_flux_discretization`."""
         self.units = params.get("units", pp.Units())
         """Units of the model provided in ``params['units']``."""
         # get default or user-provided reference values
@@ -73,12 +71,17 @@ class SolutionStrategy(pp.PorePyModel):
         Reference values can be provided through ``params['reference_values']``.
 
         """
+        # The explicit check (not get with a default) is to avoid instantiating a
+        # TimeManager if it is not needed. This is done to avoid unnecessary checks
+        # run in the manager.
+        if "time_manager" not in params:
+            self.time_manager = pp.TimeManager(
+                schedule=[0, 1], dt_init=1, constant_dt=True
+            )
+            """Time manager for the simulation."""
+        else:
+            self.time_manager = params["time_manager"]
 
-        self.time_manager = params.get(
-            "time_manager",
-            pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
-        )
-        """Time manager for the simulation."""
         self.restart_options = params.get(
             "restart_options",
             {
@@ -128,6 +131,12 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
+        self._schur_complement_primary_variables: list[str] = []
+        """See :meth:`schur_complement_primary_variables`."""
+
+        self._schur_complement_primary_equations: list[str] = []
+        """See :meth:`schur_complement_primary_equations`."""
+
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
@@ -160,7 +169,7 @@ class SolutionStrategy(pp.PorePyModel):
         self.reset_state_from_file()
         self.set_equations()
 
-        self.set_discretization_parameters()
+        self.update_discretization_parameters()
         self.discretize()
         self._initialize_linear_solver()
         self.set_nonlinear_discretizations()
@@ -192,15 +201,6 @@ class SolutionStrategy(pp.PorePyModel):
         """Create an equation_system manager on the mixed-dimensional grid."""
         if not hasattr(self, "equation_system"):
             self.equation_system = pp.ad.EquationSystem(self.mdg)
-
-    def set_discretization_parameters(self) -> None:
-        """Set parameters for the discretization.
-
-        This method is called before the discretization is performed. It is intended to
-        be used to set parameters for the discretization, such as the permeability, the
-        porosity, etc.
-
-        """
 
     def set_solver_statistics(self) -> None:
         """Set the solver statistics object.
@@ -251,6 +251,84 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         return np.array([0])
+
+    @property
+    def schur_complement_primary_equations(self) -> list[str]:
+        """Names of the primary equations for the Schur complement reduction of the
+        linear system.
+
+        They define the row-block which does not contain the sub-matrix which is to be
+        inverted for the Schur complement.
+
+        See also:
+
+            - :meth:`assemble_linear_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
+
+        Parameters:
+            names: List of equation names to be set as primary equations.
+
+        Raises:
+            ValueError: If any name is not known to the model's equation system or the
+                given names are not unique.
+
+        Returns:
+            The names of the equations (currently) defined as primary equations.
+
+        """
+        return self._schur_complement_primary_equations
+
+    @schur_complement_primary_equations.setter
+    def schur_complement_primary_equations(self, names: list[str]) -> None:
+        known_equations = list(self.equation_system.equations.keys())
+        for n in names:
+            if n not in known_equations:
+                raise ValueError(f"Equation {n} unknown to the equation system.")
+        if len(set(names)) != len(names):
+            raise ValueError("Primary equation names must be unique.")
+        # Shallow copy for safety, and keep order of equation system.
+        self._schur_complement_primary_equations = [
+            n for n in known_equations if n in names
+        ]
+
+    @property
+    def schur_complement_primary_variables(self) -> list[str]:
+        """Names of the primary variables for the Schur complement reduction of the
+        linear system.
+
+        They define the column-block which does not contain the sub-matrix which is to
+        be inverted for the Schur complement.
+
+        See also:
+
+            - :meth:`assemble_linear_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
+
+        Parameters:
+            names: List of variable names to be set as primary variables.
+
+        Raises:
+            ValueError: If any name is not known to the model's equation system or the
+                given names are not unique.
+
+        Returns:
+            The names of the variables (currently) defined as primary variables.
+
+        """
+        return self._schur_complement_primary_variables
+
+    @schur_complement_primary_variables.setter
+    def schur_complement_primary_variables(self, names: list[str]) -> None:
+        known_variables = list(set(v.name for v in self.equation_system.variables))
+        for n in names:
+            if n not in known_variables:
+                raise ValueError(f"Variable {n} unknown to the equation system.")
+        if len(set(names)) != len(names):
+            raise ValueError("Primary variables names must be unique.")
+        # Shallow copy for safety
+        self._schur_complement_primary_variables = [n for n in names]
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -362,45 +440,98 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.discretize()
         logger.info("Discretized in {} seconds".format(time.time() - tic))
 
-    def rediscretize(self) -> None:
-        """Discretize nonlinear terms."""
-        tic = time.time()
-        # Uniquify to save computational time, then discretize.
-        unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
-            self.nonlinear_discretizations
-        )
-        pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
-        logger.debug(
-            "Re-discretized nonlinear terms in {} seconds".format(time.time() - tic)
-        )
-
     @property
-    def nonlinear_discretizations(self) -> list[pp.ad._ad_utils.MergedOperator]:
-        """List of nonlinear discretizations in the equation system. The discretizations
-        are recomputed  in :meth:`before_nonlinear_iteration`.
+    def nonlinear_discretizations(self) -> list[pp.ad.MergedOperator]:
+        """List of nonlinear discretizations in the equation system.
+
+        This list encompasses discretizations other than flux discretizations, such as
+        Upwinding. It is crucial that fluxes are updated before Upwinding.
+
+        See also:
+            - :meth:`add_nonlinear_diffusive_flux_discretization`
+            - :meth:`update_derived_quantities`
+
+        Returns:
+            A list of merged operators wrapping underlying discretizations.
 
         """
         return self._nonlinear_discretizations
 
+    @property
+    def nonlinear_diffusive_flux_discretizations(
+        self,
+    ) -> list[pp.ad.MergedOperator]:
+        """List of nonlinear flux discretizations in the equation system.
+
+        Not to be confused with other discretizations (:meth:`nonlinear_discretizations`
+        ).
+
+        Individual physics (flow, energy, mechanics) can add respective MPxA
+        discretizations, if the second-order tensor is not constant.
+
+        Fluxes are discretized before other discretizations, such as upwinding.
+
+        See also:
+            - :meth:`add_nonlinear_diffusive_flux_discretization`
+            - :meth:`update_derived_quantities`
+
+        Returns:
+            A list of merged operators wrapping underlying discretizations.
+
+        """
+        return self._nonlinear_diffusive_flux_discretizations
+
     def add_nonlinear_discretization(
-        self, discretization: pp.ad._ad_utils.MergedOperator
+        self, discretization: pp.ad.MergedOperator
     ) -> None:
-        """Add an entry to the list of nonlinear discretizations.
+        """Add an entry to the list of :meth:`nonlinear_discretizations`.
 
         Parameters:
             discretization: The nonlinear discretization to be added.
 
         """
+        discr_type = type(discretization._discr)
+        admissible_types = [pp.Upwind, pp.UpwindCoupling]
+        if discr_type not in admissible_types:
+            raise TypeError(
+                f"Expecting discretizations of type {admissible_types}."
+                f" Got {discr_type}."
+            )
         # This guardrail is very weak. However, the discretization list is uniquified
         # before discretization, so it should not be a problem.
         if discretization not in self._nonlinear_discretizations:
             self._nonlinear_discretizations.append(discretization)
 
+    def add_nonlinear_diffusive_flux_discretization(
+        self, discretization: pp.ad.MergedOperator
+    ) -> None:
+        """Add an entry to the list of :meth:`nonlinear_diffusive_flux_discretizations`.
+
+        Parameters:
+            discretization: The nonlinear flux discretization to be added.
+
+        """
+        discr_type = type(discretization._discr)
+        admissible_types = [pp.Mpfa, pp.Tpfa]
+        if discr_type not in admissible_types:
+            raise TypeError(
+                f"Expecting discretizations of type {admissible_types}."
+                f" Got {discr_type}."
+            )
+        # This guardrail is very weak. However, the discretization list is uniquified
+        # before discretization, so it should not be a problem.
+        if discretization not in self._nonlinear_diffusive_flux_discretizations:
+            self._nonlinear_diffusive_flux_discretizations.append(discretization)
+
     def set_nonlinear_discretizations(self) -> None:
-        """Set the list of nonlinear discretizations.
+        """Set the list of all nonlinear discretizations.
 
         This method is called before the discretization is performed. It is intended to
         be used to set the list of nonlinear discretizations.
+
+        See also:
+            - :meth:`add_nonlinear_discretization`
+            - :meth:`add_nonlinear_diffusive_flux_discretization`
 
         """
 
@@ -408,33 +539,39 @@ class SolutionStrategy(pp.PorePyModel):
         """Method to be called before entering the non-linear solver, thus at the start
         of a new time step.
 
-        Possible usage is to update time-dependent parameters, discretizations etc.
+        The base method does the following:
+
+        1. Update the time step size in :attr:`ad_time_step`.
+        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
+           SolverStatistics.reset`.
+        3. Calls :meth:`update_time_dependent_ad_arrays`.
+        4. Calls :meth:`update_derived_quantities`.
 
         """
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
-        # Update the boundary conditions to both the time step and iterate solution.
-        self.update_time_dependent_ad_arrays()
         # Empty the log in the statistics object.
         self.nonlinear_solver_statistics.reset()
+        # Update the boundary conditions to both the time step and iterate solution.
+        self.update_time_dependent_ad_arrays()
+        # Update other dependent quantities such as discretizations.
+        self.update_derived_quantities()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
-        Possible usage is to update non-linear parameters, discretizations etc.
+        The base method only defines the method signature.
 
         """
-        # Update parameters before re-discretizing.
-        self.set_discretization_parameters()
-        # Re-discretize nonlinear terms. If none have been added to
-        # self.nonlinear_discretizations, this will be a no-op.
-        self.rediscretize()
 
     def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         """Method to be called after every non-linear iteration.
 
-        Possible usage is to distribute information on the new trial state, visualize
-        the current approximation etc.
+        The base method does the following:
+
+        1. Shift the existing solutions backwards in the iterative sense.
+        2. Store the ``nonlinear_increment`` in the current iterate additively.
+        3. Calls :meth:`update_derived_quantities`.
 
         Parameters:
             nonlinear_increment: The new solution, as computed by the non-linear solver.
@@ -444,10 +581,19 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.set_variable_values(
             values=nonlinear_increment, additive=True, iterate_index=0
         )
+        self.update_derived_quantities()
         self.nonlinear_solver_statistics.num_iteration += 1
 
     def after_nonlinear_convergence(self) -> None:
-        """Method to be called after every non-linear iteration.
+        """Method to be called after the non-linear iterations converge.
+
+        The base method does the following:
+
+        1. Shift existing solutions backwards in time.
+        2. Saves the current iterate values as the most recent time step values
+           (see :meth:`update_solution`).
+        3. Flags the model as converged (:attr:`convergence_status`).
+        4. Calls :meth:`save_data_time_step`.
 
         Possible usage is to distribute information on the solution, visualization, etc.
 
@@ -549,6 +695,11 @@ class SolutionStrategy(pp.PorePyModel):
                 f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
+            # # Check divergence.
+            diverged = (
+                nl_params["nl_divergence_tol"] is not np.inf
+                and residual_norm > nl_params["nl_divergence_tol"]
+            )
             # Check convergence requiring both the increment and residual to be small.
             converged_inc = (
                 nl_params["nl_convergence_tol"] is np.inf
@@ -559,7 +710,6 @@ class SolutionStrategy(pp.PorePyModel):
                 or residual_norm < nl_params["nl_convergence_tol_res"]
             )
             converged = converged_inc and converged_res
-            diverged = False
 
         # Log the errors (here increments and residuals)
         self.nonlinear_solver_statistics.log_error(
@@ -634,10 +784,48 @@ class SolutionStrategy(pp.PorePyModel):
 
         The linear system is defined by the current state of the model.
 
+        If ``params['apply_schur_complement_reduction']`` is True, the
+        :meth:`schur_complement_primary_variables` and
+        :meth:`schur_complement_primary_equations` are used to perform a Schur
+        complement technique.
+
+        To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
+        EquationSystem.default_schur_complement_inverter` is used by default.
+        This inverter assumes the secondary equations to consist of non-overlapping
+        blocks (local equations, block-diagonal matrix).
+        The user can provide a custom inverter
+        ``model.params['schur_complement_inverter']``, which is a callable taking a
+        sparse matrix and returning the inverse (sparse) matrix.
+
+        See Also:
+
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
+
         """
         t_0 = time.time()
-        self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
+
+        if self._apply_schur_complement_reduction():
+            assert self.schur_complement_primary_variables, (
+                "Primary column block for Schur technique not found."
+            )
+            assert self.schur_complement_primary_equations, (
+                "Primary row block for Schur technique not defined."
+            )
+            self.linear_system = self.equation_system.assemble_schur_complement_system(
+                self.schur_complement_primary_equations,
+                self.schur_complement_primary_variables,
+                inverter=cast(
+                    Callable[[sps.spmatrix], sps.spmatrix],
+                    self.params.get("schur_complement_inverter", None),
+                ),
+            )
+        else:
+            self.linear_system = self.equation_system.assemble()
+
+        t_1 = time.time()
+        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
@@ -687,9 +875,24 @@ class SolutionStrategy(pp.PorePyModel):
             raise ValueError(
                 f"AbstractModel does not know how to apply the linear solver {solver}"
             )
-        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
 
-        return np.atleast_1d(x)
+        x = np.atleast_1d(x)
+        if self._apply_schur_complement_reduction():
+            x = self.equation_system.expand_schur_complement_solution(x)
+
+        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
+        return x
+
+    def _apply_schur_complement_reduction(self) -> bool:
+        """Returns the model parameter on whether the linear system should be reduced
+        via Schur complement using the defined primary and secondary equations and
+        variables.
+
+        Can be set via ``model.params['apply_schur_complement_reduction'].
+        Returns False by default.
+
+        """
+        return bool(self.params.get("apply_schur_complement_reduction", False))
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear.
@@ -726,6 +929,90 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         self.update_all_boundary_conditions()
+
+    def update_derived_quantities(self) -> None:
+        """Performs an update of derived and secondary quantities entering the
+        equations.
+
+        These updates include flux values and discretization matrices, or surrogate
+        operators which wrap externalized computations. In principle, anything not part
+        of the evaluation process in the AD framework, can be put here if it requires
+        an update for the evaluation to lead to correct values.
+
+        The base method performs the following updates:
+
+        1. Update material properties (if necessary) based on the current state
+           (see :meth:`update_material_properties`).
+        2. Update discretization parameters, most crucially those entering the flux
+           discretization (see :meth:`update_discretization_parameters`).
+        3. Rediscretize the non-linear fluxes depending on above tensors
+           (see :meth:`rediscretize_fluxes`).
+        4. Evaluate and store fluxes for upstream discretizations
+           (see :meth:`update_flux_values`).
+        5. Rediscretize upstream (and possibly other) discretizations
+           (see :meth:`rediscretize`).
+
+        For a consistent evaluation of the system, this method is called in
+        :meth:`after_nonlinear_iteration` (after the global state vector changes) and in
+        :meth:`before_nonlinear_loop` (after the boundary conditions and other
+        time-dependent quantities change).
+
+        """
+        self.update_material_properties()
+        self.update_discretization_parameters()
+        self.rediscretize_fluxes()
+        self.update_flux_values()
+        self.rediscretize()
+
+    def update_material_properties(self) -> None:
+        """Method for updating fluid and solid properties, which are not taken care of
+        by the AD framework (external calculations and surrogate operators).
+
+        The base method only defines the signature and individual physics model have to
+        override this method. A super-call to trigger other physics' update is required.
+
+        """
+
+    def update_discretization_parameters(self) -> None:
+        """Method for evaluating and storing discretization parameters required for
+        discretizing fluxes and other discretizations.
+
+        This primarily involves second order tensors such as permeability and thermal
+        conductivity.
+
+        The base method only defines the signature and individual physics model have to
+        override this method. A super-call to trigger other physics' update is required.
+
+        """
+
+    def rediscretize_fluxes(self) -> None:
+        """Discretize nonlinear fluxes."""
+        tic = time.time()
+        # Uniquify to save computational time, then discretize.
+        unique_discr = pp.ad.uniquify_discretization_list(
+            self.nonlinear_diffusive_flux_discretizations
+        )
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
+        logger.debug(f"Re-discretized nonlinear fluxes in {time.time() - tic} seconds.")
+
+    def update_flux_values(self) -> None:
+        """Method for updating and storing flux values, to be used for a subsequent
+        discretization of upstream values.
+
+        The base method only defines the signature and individual physics model have to
+        override this method. A super-call to trigger other physics' update is required.
+
+        """
+
+    def rediscretize(self) -> None:
+        """Discretize nonlinear terms."""
+        tic = time.time()
+        # Uniquify to save computational time, then discretize.
+        unique_discr = pp.ad.uniquify_discretization_list(
+            self.nonlinear_discretizations
+        )
+        pp.ad.discretize_from_list(unique_discr, self.mdg)
+        logger.debug(f"Re-discretized nonlinear terms in {time.time() - tic} seconds.")
 
     def darcy_flux_storage_keywords(self) -> list[str]:
         """Return the keywords for which the Darcy flux values are stored.

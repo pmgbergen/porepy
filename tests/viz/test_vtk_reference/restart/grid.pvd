@@ -1,11 +1,17 @@
 <?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1" byte_order="LittleEndian" compressor="vtkZLibDataCompressor">
 <Collection>
+	<DataSet group="" part="" timestep="1.000000" file="grid_0_000001.vtu"/>
+	<DataSet group="" part="" timestep="1.000000" file="grid_1_000001.vtu"/>
+	<DataSet group="" part="" timestep="1.000000" file="grid_0_000001.vtu"/>
 	<DataSet group="" part="" timestep="1.000000" file="grid_1_000001.vtu"/>
 	<DataSet group="" part="" timestep="1.000000" file="grid_2_000001.vtu"/>
+	<DataSet group="" part="" timestep="1.000000" file="grid_mortar_0_000001.vtu"/>
 	<DataSet group="" part="" timestep="1.000000" file="grid_mortar_1_000001.vtu"/>
+	<DataSet group="" part="" timestep="2.000000" file="grid_0_000002.vtu"/>
 	<DataSet group="" part="" timestep="2.000000" file="grid_1_000002.vtu"/>
 	<DataSet group="" part="" timestep="2.000000" file="grid_2_000002.vtu"/>
+	<DataSet group="" part="" timestep="2.000000" file="grid_mortar_0_000002.vtu"/>
 	<DataSet group="" part="" timestep="2.000000" file="grid_mortar_1_000002.vtu"/>
 </Collection>
 </VTKFile>

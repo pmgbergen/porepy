@@ -24,11 +24,14 @@ from __future__ import annotations
 import logging
 from time import time
 from typing import Any, Literal
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+
+from . import _fvutils
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -228,7 +231,7 @@ class Biot(pp.Mpsa):
 
         # Update discretization. As part of the process, the mech_in_flow matrices
         # are moved back to the flow matrix dictionary.
-        pp.fvutils.partial_update_discretization(
+        _fvutils.partial_update_discretization(
             sd,
             sd_data,
             self.keyword,
@@ -275,7 +278,7 @@ class Biot(pp.Mpsa):
 
             Related to numerics:
                 - inverter (``str``): Which method to use for block inversion. See
-                    pp.fvutils.invert_diagonal_blocks for detail, and for default
+                    _fvutils.invert_diagonal_blocks for detail, and for default
                     options.
                 - mpfa_eta (``float``): Location of continuity point in MPSA. Defaults
                     to 1/3 for simplex grids, 0 otherwise.
@@ -301,7 +304,7 @@ class Biot(pp.Mpsa):
         bound: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
         constit: pp.FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
 
-        eta: float = parameter_dictionary.get("mpsa_eta", pp.fvutils.determine_eta(sd))
+        eta: float = parameter_dictionary.get("mpsa_eta", _fvutils.determine_eta(sd))
         inverter: Literal["python", "numba"] = parameter_dictionary.get(
             "inverter", "numba"
         )
@@ -318,21 +321,29 @@ class Biot(pp.Mpsa):
                 alphas[key] = alpha_input
 
         # Control of the number of subdomanis.
-        max_memory, num_subproblems = pp.fvutils.parse_partition_arguments(
+        max_memory, num_subproblems = _fvutils.parse_partition_arguments(
             parameter_dictionary.get("partition_arguments", {})
         )
 
         # Whether to update an existing discretization, or construct a new one.
         # If True, either specified_cells, _faces or _nodes should also be given, or
-        # else a full new discretization will be computed
+        # else a full new discretization will be computed.
         update: bool = parameter_dictionary.get("update_discretization", False)
+        if update:
+            # EK comment: The functionality to update discretizations has not been
+            # thoroughly tested and should be used with extreme care.
+            msg = "Discretization update is not fully tested"
+            msg += " and should be used with care.\n"
+            msg += "If you do not want to run into trouble, it is recommended to"
+            msg += " set 'update_discretization' to False in the parameter dictionary."
+            warn(msg)
 
         # The discretization can be limited to a specified set of cells, faces or nodes
         # If none of these are specified, the entire grid will be discretized.
         # NOTE: active_faces are all faces to have their stencils updated, while
         # active_cells may form a larger set (to accurately update all faces on a
         # subgrid, it is necessary to assign some overlap in terms cells).
-        active_cells, active_faces = pp.fvutils.find_active_indices(
+        active_cells, active_faces = _fvutils.find_active_indices(
             parameter_dictionary, sd
         )
 
@@ -402,7 +413,7 @@ class Biot(pp.Mpsa):
             l2g_cells,
             l2g_faces,
         ) in enumerate(
-            pp.fvutils.subproblems(
+            _fvutils.subproblems(
                 active_grid,
                 peak_memory_estimate,
                 max_memory=max_memory,
@@ -410,7 +421,7 @@ class Biot(pp.Mpsa):
             )
         ):
             # The partitioning into subgrids is done with an overlap (see
-            # fvutils.subproblems for a description). Cells and faces in the overlap
+            # _fvutils.subproblems for a description). Cells and faces in the overlap
             # will have a wrong discretization in one of two ways: Those faces that are
             # strictly in the overlap should not be included in the current
             # sub-discretization (their will be in the interior of a different
@@ -464,7 +475,7 @@ class Biot(pp.Mpsa):
             eliminate_face = np.where(
                 np.logical_not(np.isin(l2g_faces, faces_in_subgrid))
             )[0]
-            pp.fvutils.remove_nonlocal_contribution(
+            _fvutils.remove_nonlocal_contribution(
                 eliminate_face,
                 sd.dim,
                 loc_stress,
@@ -478,7 +489,7 @@ class Biot(pp.Mpsa):
             eliminate_cell = np.where(
                 np.logical_not(np.isin(l2g_cells, cells_in_subgrid))
             )[0]
-            pp.fvutils.remove_nonlocal_contribution(
+            _fvutils.remove_nonlocal_contribution(
                 eliminate_cell,
                 1,
                 *matrices_from_dict(loc_displacement_divergence),
@@ -488,10 +499,10 @@ class Biot(pp.Mpsa):
 
             # Next, transfer discretization matrices from the local to the active grid
             # Get a mapping from the local to the active grid
-            face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+            face_map_vec, cell_map_vec = pp.partition.subgrid_to_grid_mapping(
                 active_grid, l2g_faces, l2g_cells, is_vector=True
             )
-            face_map_scalar, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
+            _, cell_map_scalar = pp.partition.subgrid_to_grid_mapping(
                 active_grid, l2g_faces, l2g_cells, is_vector=False
             )
 
@@ -564,10 +575,10 @@ class Biot(pp.Mpsa):
 
         # We are done with the discretization. What remains is to map the computed
         # matrices back from the active grid to the full one.
-        face_map_vec, cell_map_vec = pp.fvutils.map_subgrid_to_grid(
+        face_map_vec, cell_map_vec = pp.partition.subgrid_to_grid_mapping(
             sd, extracted_faces, active_cells, is_vector=True
         )
-        face_map_scalar, cell_map_scalar = pp.fvutils.map_subgrid_to_grid(
+        _, cell_map_scalar = pp.partition.subgrid_to_grid_mapping(
             sd, extracted_faces, active_cells, is_vector=False
         )
 
@@ -613,7 +624,7 @@ class Biot(pp.Mpsa):
 
         # Eliminate any contributions not associated with the active grid
         eliminate_faces = np.setdiff1d(np.arange(sd.num_faces), active_faces)
-        pp.fvutils.remove_nonlocal_contribution(
+        _fvutils.remove_nonlocal_contribution(
             eliminate_faces,
             sd.dim,
             stress,
@@ -633,7 +644,7 @@ class Biot(pp.Mpsa):
         af_vec[active_faces] = 1
         update_cell_ind = np.where(tmp * af_vec)[0]
         eliminate_cells = np.setdiff1d(np.arange(sd.num_cells), update_cell_ind)
-        pp.fvutils.remove_nonlocal_contribution(
+        _fvutils.remove_nonlocal_contribution(
             eliminate_cells,
             1,
             *matrices_from_dict(displacement_divergence),
@@ -642,8 +653,8 @@ class Biot(pp.Mpsa):
         )
 
         # Either update the discretization scheme, or store the full one
-        matrices: dict[str, dict] = sd_data[pp.DISCRETIZATION_MATRICES]
-        matrices_m: dict[str, sps.spmatrix] = matrices[self.keyword]
+        matrices: dict[str, Any] = sd_data[pp.DISCRETIZATION_MATRICES]
+        matrices_m = matrices[self.keyword]
 
         if update:
             # The faces to be updated are given by active_faces
@@ -658,27 +669,28 @@ class Biot(pp.Mpsa):
                 update_face_ind
             ]
 
-            matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = (
-                displacement_divergence[update_cell_ind]
-            )
-            matrices_m[self.bound_displacement_divergence_matrix_key][
-                update_cell_ind
-            ] = bound_displacement_divergence[update_cell_ind]
-            matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = (
-                scalar_gradient[update_face_ind]
-            )
-            matrices_m[self.consistency_matrix_key][update_cell_ind] = consistency[
-                update_cell_ind
-            ]
+            for key in coupling_keywords:
+                matrices_m[self.displacement_divergence_matrix_key][update_cell_ind] = (
+                    displacement_divergence[key][update_cell_ind]
+                )
+                matrices_m[self.bound_displacement_divergence_matrix_key][
+                    update_cell_ind
+                ] = bound_displacement_divergence[key][update_cell_ind]
+                matrices_m[self.scalar_gradient_matrix_key][update_face_ind] = (
+                    scalar_gradient[key][update_face_ind]
+                )
+                matrices_m[self.consistency_matrix_key][update_cell_ind] = consistency[
+                    key
+                ][update_cell_ind]
+                matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
+                    bound_displacement_pressure[key][update_face_ind]
+                )
 
             matrices_m[self.bound_displacement_cell_matrix_key][update_face_ind] = (
                 bound_displacement_cell[update_face_ind]
             )
             matrices_m[self.bound_displacement_face_matrix_key][update_face_ind] = (
                 bound_displacement_face[update_face_ind]
-            )
-            matrices_m[self.bound_pressure_matrix_key][update_face_ind] = (
-                bound_displacement_pressure[update_face_ind]
             )
         else:
             matrices_m[self.stress_matrix_key] = stress
@@ -736,19 +748,17 @@ class Biot(pp.Mpsa):
         nd = sd.dim
 
         # Define subcell topology
-        subcell_topology = pp.fvutils.SubcellTopology(sd)
+        subcell_topology = _fvutils.SubcellTopology(sd)
         # The boundary conditions must be given on the subfaces
         if bound_mech.num_faces == subcell_topology.num_subfno_unique:
             subface_rhs = True
         else:
             # If they are given on the faces, expand the boundary conditions
-            bound_mech = pp.fvutils.boundary_to_sub_boundary(
-                bound_mech, subcell_topology
-            )
+            bound_mech = _fvutils.boundary_to_sub_boundary(bound_mech, subcell_topology)
             subface_rhs = False
 
         # Obtain mappings to exclude boundary faces for mechanics
-        bound_exclusion_mech = pp.fvutils.ExcludeBoundaries(
+        bound_exclusion_mech = _fvutils.ExcludeBoundaries(
             subcell_topology, bound_mech, nd
         )
 
@@ -775,7 +785,7 @@ class Biot(pp.Mpsa):
         if not hf_output:
             # If the boundary condition is given for faces we return the discretization
             # on for the face values. Otherwise, it is defined for the subfaces.
-            hf2f = pp.fvutils.map_hf_2_f(
+            hf2f = _fvutils.map_hf_2_f(
                 subcell_topology.fno_unique, subcell_topology.subfno_unique, nd
             )
             bound_stress = hf2f * bound_stress * hf2f.T
@@ -870,9 +880,9 @@ class Biot(pp.Mpsa):
     def _create_rhs_scalar_gradient(
         self,
         sd: pp.Grid,
-        subcell_topology: pp.fvutils.SubcellTopology,
+        subcell_topology: _fvutils.SubcellTopology,
         alpha: pp.SecondOrderTensor,
-        bound_exclusion: pp.fvutils.ExcludeBoundaries,
+        bound_exclusion: _fvutils.ExcludeBoundaries,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
         """Consistent discretization of scalar_gradient-term in MPSA-W method.
 
@@ -933,7 +943,7 @@ class Biot(pp.Mpsa):
             nAlpha_grad,
             cell_node_blocks,
             sub_cell_index,
-        ) = pp.fvutils.scalar_tensor_vector_prod(sd, alpha, subcell_topology)
+        ) = _fvutils.scalar_tensor_vector_prod(sd, alpha, subcell_topology)
         # Transfer nAlpha to a subface-based quantity by pairing expressions on the two
         # sides of the subface. That is, for internal faces, the elements corresponding
         # to the left and right side of the face will be put on the same row.
@@ -1001,7 +1011,7 @@ class Biot(pp.Mpsa):
 
         # Mapping from scalar cell values (e.g., the pressure as a potential) to subcell
         # vector quantities (pressure as a force on subcells).
-        sc2c = pp.fvutils.cell_scalar_to_subcell_vector(
+        sc2c = _fvutils.cell_scalar_to_subcell_vector(
             sd.dim, sub_cell_index, cell_node_blocks[0]
         )
         # The representation of unique_nAlpha_grad, ready to be multiplied with the

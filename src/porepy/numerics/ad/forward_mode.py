@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Any, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -105,7 +105,7 @@ class AdArray:
         s += f"Jacobian: {self.jac}"
         return s
 
-    def __getitem__(self, key: slice | np._ArrayLikeInt) -> AdArray:
+    def __getitem__(self, key: slice | np.ndarray[Any, np.dtype[np.int_]]) -> AdArray:
         """Slice the Ad Array row-wise (value and Jacobian).
 
         Parameters:
@@ -126,7 +126,7 @@ class AdArray:
 
     def __setitem__(
         self,
-        key: slice | np._ArrayLikeInt,
+        key: slice | np.ndarray[Any, np.dtype[np.int_]],
         new_value: pp.number | np.ndarray | AdArray,
     ) -> None:
         """Insert new values in :attr:`val` and :attr:`jac` row-wise.

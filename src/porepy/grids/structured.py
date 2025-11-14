@@ -175,9 +175,9 @@ class TensorGrid(Grid):
             num_nodes_per_face * num_faces,
         )
         face_nodes = np.hstack((face_nodes_x, face_nodes_y))
-        data = np.ones(face_nodes.shape, dtype=bool)
+        face_nodes_data = np.ones(face_nodes.shape, dtype=bool)
         face_nodes = sps.csc_matrix(
-            (data, face_nodes, indptr), shape=(num_nodes, num_faces)
+            (face_nodes_data, face_nodes, indptr), shape=(num_nodes, num_faces)
         )
 
         # Cell faces
@@ -198,7 +198,7 @@ class TensorGrid(Grid):
             np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
             num_faces_per_cell * num_cells,
         )
-        data = (
+        cell_faces_data = (
             np.vstack(
                 (
                     -np.ones(face_west.size),
@@ -211,7 +211,7 @@ class TensorGrid(Grid):
             .astype(int)
         )
         cell_faces = sps.csc_matrix(
-            (data, cell_faces, indptr), shape=(num_faces, num_cells)
+            (cell_faces_data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
         return nodes, face_nodes, cell_faces
 
@@ -289,9 +289,9 @@ class TensorGrid(Grid):
             num_nodes_per_face * num_faces,
         )
         face_nodes = np.hstack((face_nodes_x, face_nodes_y, face_nodes_z))
-        data = np.ones(face_nodes.shape, dtype=bool)
+        face_nodes_data = np.ones(face_nodes.shape, dtype=bool)
         face_nodes = sps.csc_matrix(
-            (data, face_nodes, indptr), shape=(num_nodes, num_faces)
+            (face_nodes_data, face_nodes, indptr), shape=(num_nodes, num_faces)
         )
 
         # Cell faces
@@ -321,7 +321,7 @@ class TensorGrid(Grid):
             np.arange(0, num_faces_per_cell * num_cells, num_faces_per_cell),
             num_faces_per_cell * num_cells,
         )
-        data = (
+        cell_faces_data = (
             np.vstack(
                 (
                     -np.ones(num_cells),
@@ -336,7 +336,7 @@ class TensorGrid(Grid):
             .astype(int)
         )
         cell_faces = sps.csc_matrix(
-            (data, cell_faces, indptr), shape=(num_faces, num_cells)
+            (cell_faces_data, cell_faces, indptr), shape=(num_faces, num_cells)
         )
         return nodes, face_nodes, cell_faces
 

@@ -1002,3 +1002,69 @@ def grid_is_connected(
     components = [np.array(list(i)) for i in component_generator]
 
     return is_connected, components
+
+
+def subgrid_to_grid_mapping(
+    sd: pp.Grid,
+    loc_faces: np.ndarray,
+    loc_cells: np.ndarray,
+    is_vector: bool,
+    nd: Optional[int] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Obtain mappings from the cells and faces of a subgrid back to a larger grid.
+
+    Args:
+        g (pp.Grid): The larger grid.
+        loc_faces (np.ndarray): For each face in the subgrid, the index of the
+            corresponding face in the larger grid.
+        loc_cells (np.ndarray): For each cell in the subgrid, the index of the
+            corresponding cell in the larger grid.
+        is_vector (bool): If True, the returned mappings are sized to fit with vector
+            variables, with nd elements per cell and face.
+        nd (int, optional): Dimension. Defaults to sd.dim.
+
+    Retuns:
+        sps.csr_matrix, size (sd.num_faces, loc_faces.size): Mapping from local to
+            global faces. If is_vector is True, the size is multiplied with sd.dim.
+        sps.csr_matrix, size (loc_cells.size, sd.num_cells): Mapping from global to
+            local cells. If is_vector is True, the size is multiplied with sd.dim.
+
+    """
+    if nd is None:
+        nd = sd.dim
+
+    num_faces_loc = loc_faces.size
+    num_cells_loc = loc_cells.size
+
+    if is_vector:
+        face_map = sps.csr_matrix(
+            (
+                np.ones(num_faces_loc * nd),
+                (
+                    pp.array_operations.expand_indices_nd(loc_faces, nd),
+                    np.arange(num_faces_loc * nd),
+                ),
+            ),
+            shape=(sd.num_faces * nd, num_faces_loc * nd),
+        )
+
+        cell_map = sps.csr_matrix(
+            (
+                np.ones(num_cells_loc * nd),
+                (
+                    np.arange(num_cells_loc * nd),
+                    pp.array_operations.expand_indices_nd(loc_cells, nd),
+                ),
+            ),
+            shape=(num_cells_loc * nd, sd.num_cells * nd),
+        )
+    else:
+        face_map = sps.csr_matrix(
+            (np.ones(num_faces_loc), (loc_faces, np.arange(num_faces_loc))),
+            shape=(sd.num_faces, num_faces_loc),
+        )
+        cell_map = sps.csr_matrix(
+            (np.ones(num_cells_loc), (np.arange(num_cells_loc), loc_cells)),
+            shape=(num_cells_loc, sd.num_cells),
+        )
+    return face_map, cell_map

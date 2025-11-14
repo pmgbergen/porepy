@@ -585,7 +585,7 @@ def test_extrusion_with_single_fracture():
     sd_1 = mdg.subdomains(dim=1)[0]
 
     z = np.array([0, 1, 2])
-    mdg_new, _ = pp.grid_extrusion.extrude_grid_bucket(mdg, z)
+    mdg_new, _ = pp.grid_extrusion.extrude_mdg(mdg, z)
 
     for dim in range(mdg.dim_max()):
         assert len(mdg.subdomains(dim=dim)) == len(mdg_new.subdomains(dim=dim + 1))
@@ -679,7 +679,7 @@ def test_extrusion_with_T_intersection():
     mdg = pp.meshing.cart_grid(f, [4, 3])
 
     z = np.array([0, 1])
-    mdg_new, _ = pp.grid_extrusion.extrude_grid_bucket(mdg, z)
+    mdg_new, _ = pp.grid_extrusion.extrude_mdg(mdg, z)
 
     # Do a simple test on grid geometry; if this fails, there is a more fundamental
     # problem that should be picked up by simpler tests.

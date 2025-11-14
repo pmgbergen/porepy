@@ -606,7 +606,7 @@ def uniquify_point_set(points: np.ndarray, tol: float):
     sorted_idx = np.argsort(point_norms)
 
     # Counting points with close norms.
-    close_norms_count = np.zeros(points.shape[1], dtype=np.int64)
+    close_norms_count = np.zeros(points.shape[1], dtype=np.int_)
     # Index corresponds to the current cluster of points with close norms.
     cluster_idx = 0
     # Norm of a point in the current cluster.
@@ -628,7 +628,7 @@ def uniquify_point_set(points: np.ndarray, tol: float):
     # Current number of unique points.
     num_unique = 0
     # Index of the cluster start.
-    cluster_start = 0
+    cluster_start: int = 0
 
     # Initializing result arrays.
     unique_pts = np.zeros_like(points)
@@ -657,7 +657,9 @@ def uniquify_point_set(points: np.ndarray, tol: float):
 
         # Updating the counters.
         num_unique += unique_size_inner
-        cluster_start += cluster_size
+        # Cast to int to make mypy happy (it considers np.int and int incompatible
+        # types).
+        cluster_start += int(cluster_size)
 
     # Slicing result arrays to remove unused space.
     unique_pts = unique_pts[:, :num_unique]

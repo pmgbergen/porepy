@@ -6,7 +6,7 @@ dimension of the highest-dimensional grid should be 2 at most.
 
 The two functions performing above are
 
-- :func:`extrude_grid_bucket`,
+- :func:`extrude_mdg`,
 - :func:`extrude_grid`.
 
 """
@@ -24,7 +24,7 @@ from porepy.grids import mortar_grid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
-def extrude_grid_bucket(
+def extrude_mdg(
     mdg: pp.MixedDimensionalGrid, z: np.ndarray
 ) -> tuple[pp.MixedDimensionalGrid, dict]:
     """Extrude a mixed-dimensional grid by extending all fixed-dimensional grids in the
@@ -333,12 +333,9 @@ def _extrude_2d(
     for k in range(num_cell_layers):
         fn_rows_vertical = np.hstack((fn_rows_vertical, fn_layer + nn_2d * k))
 
-    # Reshape the node indices into a single array
-    fn_rows_vertical = fn_rows_vertical.ravel("F")
-
-    # All vertical faces have exactly four nodes
+    # All vertical faces have exactly four nodes.
     nodes_per_face_vertical = 4
-    # Aim for a csc-representation of the faces. Column pointers
+    # Aim for a csc-representation of the faces. Column pointers.
     fn_cols_vertical = np.arange(
         0, nodes_per_face_vertical * nf_2d * num_cell_layers, nodes_per_face_vertical
     )
@@ -356,10 +353,10 @@ def _extrude_2d(
     # sign in the cell-face relation, so that the generated normal vector points out of
     # the cell with cf-value 1.
     # This requires a sorting of the nodes for each cell
-    for idx in range(nc_2d):
+    for cell_ind in range(nc_2d):
         # Node indices of this 2d cell
-        start = cn_2d.indptr[idx]
-        stop = cn_2d.indptr[idx + 1]
+        start = cn_2d.indptr[cell_ind]
+        stop = cn_2d.indptr[cell_ind + 1]
         ni = cn_ind_2d[start:stop]
 
         coord = g.nodes[:2, ni]
@@ -367,7 +364,7 @@ def _extrude_2d(
         # IMPLEMENTATION NOTE: this probably assumes convexity of the 2d cell.
         sort_ind = pp.sort_points.sort_point_plane(
             np.vstack((coord, np.zeros(coord.shape[1]))),
-            g.cell_centers[:, idx].reshape((-1, 1)),
+            g.cell_centers[:, cell_ind].reshape((-1, 1)),
         )
         # Indices that sort the nodes. The sort function contains a rotation, which
         # implies that it is unknown whether the ordering is cw or ccw. If the sorted
@@ -416,7 +413,7 @@ def _extrude_2d(
 
     # Put together the vertical and horizontal data, create the face-node relation
     indptr = np.hstack((fn_cols_vertical, fn_cols_horizontal)).astype(int)
-    indices = np.hstack((fn_rows_vertical, fn_rows_horizontal)).astype(int)
+    indices = np.hstack((fn_rows_vertical.ravel("F"), fn_rows_horizontal)).astype(int)
     data = np.ones(indices.size, dtype=int)
 
     # Finally, construct the face-node sparse matrix
@@ -632,12 +629,13 @@ def _extrude_1d(
         cf_rows = np.hstack((cf_rows, np.vstack((cf_vert_this, cf_hor_this))))
 
     # Finalize Cell-face relation
-    cf_rows = cf_rows.ravel("F")
     cf_cols = np.tile(np.arange(nc_new), (4, 1)).ravel("F")
     # Define positive and negative sides. The choices here are somewhat arbitrary.
     tmp = np.ones(nc_new, dtype=int)
     cf_data = np.vstack((-tmp, tmp, -tmp, tmp)).ravel("F")
-    cf = sps.coo_matrix((cf_data, (cf_rows, cf_cols)), shape=(nf_new, nc_new)).tocsc()
+    cf = sps.coo_matrix(
+        (cf_data, (cf_rows.ravel("F"), cf_cols)), shape=(nf_new, nc_new)
+    ).tocsc()
 
     tags = _define_tags(g, num_cell_layers)
 
@@ -804,7 +802,7 @@ def _create_mappings(
     g: pp.Grid, g_new: pp.Grid, num_cell_layers: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """Auxiliary function to create the extruded cell and face maps for
-    :func:`extrude_grid` and :func:`extrude_grid_bucket`."""
+    :func:`extrude_grid` and :func:`extrude_mdg`."""
 
     cell_map = np.empty(g.num_cells, dtype=object)
     for c in range(g.num_cells):

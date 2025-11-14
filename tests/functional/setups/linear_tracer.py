@@ -498,7 +498,6 @@ class TracerFlowModel_1p_ff(
     MassicPressureEquations,
     pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
     pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
-    pp.compositional_flow.SolutionStrategyNonlinearMPFA,
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.constitutive_laws.MassWeightedPermeability,
     pp.constitutive_laws.DarcysLawAd,
@@ -514,7 +513,6 @@ class TracerFlowModel_1p_ff(
     results: list[LinearTracerSaveData]
 
     def __init__(self, params=None):
-        params["rediscretize_darcy_flux"] = True
         params["fractional_flow"] = True
         super().__init__(params)
 
@@ -524,11 +522,17 @@ class TracerFlowModel_1p_ff(
         self.exact_sol = LinearTracerExactSolution1D(self)
         self.results: list[LinearTracerSaveData] = []
 
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """Re-discretizes the Darcy flux on all subdomains."""
+        self.add_nonlinear_diffusive_flux_discretization(
+            self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        )
+
 
 class TrivialEoS(pp.compositional.EquationOfState):
     """Trivial EoS returning 1 for every property and zero derivatives."""
 
-    def compute_phase_properties(self, phase_state, *thermodynamic_input):
+    def compute_phase_properties(self, phase_state, *thermodynamic_input, params=None):
         # Number of derivatives and number of values per derivative.
         nd = len(thermodynamic_input)
         nx = len(thermodynamic_input[0])
@@ -547,6 +551,8 @@ class TrivialEoS(pp.compositional.EquationOfState):
             drho=d.copy(),
             dmu=d.copy(),
             dkappa=d.copy(),
+            phis=np.zeros((self._nc, nx)),
+            dphis=np.zeros((self._nc, nd, nx)),
         )
 
 

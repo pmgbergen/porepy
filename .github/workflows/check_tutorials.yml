@@ -75,6 +75,7 @@ jobs:
     - name: Install requirements and PorePy
       run: |
         pip install .[testing]
+        pip install pypardiso
         pip freeze
 
     # Install jupyter - needed to run the tutorial notebooks.

@@ -41,7 +41,7 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     model = model_class(model_params)
     if isinstance(model, TracerFlowModel_3p):
         # To create phase fractions as variables and have a representation fo h_mix
-        model.params["equilibrium_type"] = "dummy"
+        model.params["equilibrium_condition"] = "dummy"
 
     model.prepare_simulation()
 
@@ -85,10 +85,10 @@ def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) 
 
     sol_data = results[time_index]
 
-    # After the first time step, more iterations are possible because the pressure
-    # must converge to its stationary profile.
+    # If the first time step takes more iterations than the others, that is a hint that
+    # something is off in the model MRO or general order of executed methods.
     if time_index == 0:
-        assert sol_data.num_iter <= 5
+        assert sol_data.num_iter <= 2
     # After pressure converged, linear transport should converge within 1 iteration.
     # But due to Upwinding, it is sometimes 2.
     else:

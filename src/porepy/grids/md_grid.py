@@ -812,7 +812,11 @@ class MixedDimensionalGrid:
         """
         if cond is None:
             cond = lambda g: True
-        diam_g = [np.amax(sd.cell_diameters()) for sd in self.subdomains() if cond(sd)]
+        diam_g = [
+            sd.cell_diameters(cell_wise=False, func=np.max)
+            for sd in self.subdomains()
+            if cond(sd)
+        ]
 
         diam_mg = [np.amax(mg.cell_diameters()) for mg in self.interfaces() if cond(mg)]
 
