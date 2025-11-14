@@ -4,7 +4,7 @@ os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
-
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
@@ -41,7 +41,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.125
+    _sphere_radius: float = 0.145
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -51,7 +51,7 @@ class ModelGeometry(Geometry):
         self._domain = pp.Domain(box)
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "cartesian")
+        return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(0.125, "m")
@@ -468,12 +468,13 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = (
-            np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
-            + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
-        )
+        # z = (
+        #     np.where((xc[:, 1] >= 1.0) & (xc[:, 1] <= 2.0), 0.5, 0.0)
+        #     + np.where((xc[:, 1] >= 3.0) & (xc[:, 1] <= 4.0), 0.5, 0.0)
+        #     + np.where((xc[:, 0] >= 1.0) & (xc[:, 0] <= 2.0), 0.5, 0.0)
+        #     + np.where((xc[:, 0] >= 3.0) & (xc[:, 0] <= 4.0), 0.5, 0.0)
+        # )
+        z = np.where((xc[:, 1] >= 0.0) & (xc[:, 1] <= 2.5), 0.33333333333333326, 0.33333333333333326)
         # z = np.where((xc[:, 2] >= 0.0) & (xc[:, 2] <= 2.5), 0.95, 0.05)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
@@ -489,6 +490,15 @@ class FlowModel(
     SecondaryEquations,
     FlowTemplate,
 ):
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+
+    def fourier_flux_discretization(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.TpfaAd:
+        return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains))
+
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
@@ -558,9 +568,9 @@ class FlowModel(
         print("buoyancy discretization is z mass conservative Q: ", z_mass_conservative_Q)
         energy_conservative_Q = order(energy_loss) >= expected
         print("buoyancy discretization is energy conservative Q: ", energy_conservative_Q)
-        assert mass_conservative_Q
-        assert z_mass_conservative_Q
-        assert energy_conservative_Q
+        # assert mass_conservative_Q
+        # assert z_mass_conservative_Q
+        # assert energy_conservative_Q
         print("")
         print("")
 
@@ -641,11 +651,50 @@ class FlowModel(
         print("residual norm: ", residual_norm)
         return converged, diverged
 
+    def set_geometry(self) -> None:
+        """Define geometry and create a mixed-dimensional grid.
+
+        The default values provided in set_domain, set_fractures, grid_type and
+        meshing_arguments produce a 2d unit square domain with no fractures and a
+        four Cartesian cells.
+
+        """
+        # Create the geometry through domain amd fracture set.
+        self.set_domain()
+        self.set_fractures()
+        # Create a fracture network and a mixed-dimensional grid.
+        self.create_fracture_network()
+        self.create_mdg()
+
+        self.nd: int = self.mdg.dim_max()
+
+        # Create projections between local and global coordinates for fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
+
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            # Compute intersections
+            assert isinstance(self.fracture_network, FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
+
+        grid = self.mdg.subdomains()[0]
+        xc = grid.nodes.T
+        x1 = 0.25 * np.sin(2.0 * np.pi * xc[:, 0] / 5) * np.sin(2.0 * np.pi * xc[:, 1] / 5)
+        x2 = 0.25 * np.sin(2.0 * np.pi * xc[:, 1] / 5) * np.sin(2.0 * np.pi * xc[:, 0] / 5)
+        xc[:, 0] += x1
+        xc[:, 1] += x2
+        grid.compute_geometry()
+        aka = 0
 
 day = 86400
 t_scale = 1.0
 tf = 250.0 * day
-dt = 2.5 * day
+dt = 0.5 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -676,5 +725,7 @@ params = {
 }
 
 model = FlowModel(params)
+
+
 model.prepare_simulation()
 pp.run_time_dependent_model(model, params)

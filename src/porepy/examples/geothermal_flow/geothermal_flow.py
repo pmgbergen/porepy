@@ -47,15 +47,15 @@ solid_constants = pp.SolidConstants(
 )
 material_constants = {"solid": solid_constants}
 params = {
+    "fractional_flow": True,
+    "enable_buoyancy_effects": True,
     "material_constants": material_constants,
-    "eliminate_reference_phase": True,  # s_liq eliminated, default is True
-    "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "apply_schur_complement_reduction": False,
+    "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-3,
-    "max_iterations": 50,
+    "nl_convergence_tol_res": 1.0e-4,
+    "max_iterations": 100,
 }
 
 
