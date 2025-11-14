@@ -21,7 +21,13 @@ import numba as nb
 import numpy as np
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
-from ..compiled_eos import CompiledEoS, ScalarFunction, VectorFunction
+from ..compiled_eos import (
+    PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
+    PROPERTY_FUNC_SIGNATURE,
+    CompiledEoS,
+    ScalarFunction,
+    VectorFunction,
+)
 from ..materials import FluidComponent
 
 __all__ = [
@@ -563,7 +569,7 @@ class LBCViscosity(CompiledEoS):
         else:
             rho_c = self.get_density_function()
 
-        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def mu_c(prearg: np.ndarray, p: float, T: float, x: np.ndarray) -> float:
             mus_pure = _mu_pure(T, tc, pc, mws)
             mu_zero = _mu_zero(x, mus_pure, mws)
@@ -593,7 +599,7 @@ class LBCViscosity(CompiledEoS):
         else:
             drho_c = self.get_density_derivative_function()
 
-        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,

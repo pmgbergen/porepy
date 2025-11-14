@@ -305,6 +305,39 @@ def _extend_and_regularize_jac(
     return df_npipm
 
 
+@_COMPILER(
+    nb.types.Tuple((nb.f8[:, :], nb.f8[:]))(nb.f8[:], nb.int_, nb.int_),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def _parse_xy(
+    X_gen: np.ndarray, ncomp: int, nphase: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Helper function to extract phase compositions and fractions from generic
+    argument.
+
+    Parameters:
+        Xgen: Generic argument, shape ``(nphase * ncomp + nphase,)``.
+        ncomp: Number of components.
+        nphase: Number of phases.
+
+    Returns:
+        Tuple containing:
+
+        - Phase compositions, shape ``(nphase, ncomp)``.
+        - Phase fractions, shape ``(nphase,)``.
+
+    """
+    npnc = nphase * ncomp
+    x = X_gen[-npnc:].copy().reshape((nphase, ncomp))
+    # Phase fractions
+    y = np.zeros(nphase)
+    y[1:] = X_gen[-(npnc + nphase - 1) : -npnc]
+    y[0] = 1.0 - y.sum()
+
+    return x, y
+
+
 @_COMPILER(SOLVER_FUNCTION_SIGNATURE, cache=NUMBA_CACHE)
 def npipm(
     X0: np.ndarray,
@@ -343,9 +376,9 @@ def npipm(
     heavy_ball = int(params["heavy_ball_momentum"])
 
     # Computing initial value for slack variable.
-    gen = parse_generic_arg(X0, ncomp, nphase, spec)
-    x = gen[1]
-    y = gen[2]
+    gen = _parse_xy(X0, ncomp, nphase)
+    x = gen[0]
+    y = gen[1]
     nu = np.sum(y * (1 - np.sum(x, axis=1))) / nphase
 
     # numba does not support stacking with inhomogeneous sequence of array and float.
@@ -416,9 +449,12 @@ def npipm(
                     X_i_j = X + rho_i * DX
                     Xgen = X_i_j[:-1]
                     nu = X_i_j[-1]
-                    gen = parse_generic_arg(Xgen, ncomp, nphase, spec)
-                    x = gen[1]
-                    y = gen[2]
+                    # gen = parse_generic_arg(Xgen, ncomp, nphase, spec)
+                    # x = gen[1]
+                    # y = gen[2]
+                    gen = _parse_xy(Xgen, ncomp, nphase)
+                    x = gen[0]
+                    y = gen[1]
                     f_i_j = _extend_and_regularize_res(F(Xgen), x, y, nu, u1, u2, eta)
                 except Exception:
                     # NOTE Here we allow the residual evaluation to fail and skip the
@@ -450,9 +486,12 @@ def npipm(
             try:
                 Xgen = X[:-1]
                 nu = X[-1]
-                gen = parse_generic_arg(Xgen, ncomp, nphase, spec)
-                x = gen[1]
-                y = gen[2]
+                # gen = parse_generic_arg(Xgen, ncomp, nphase, spec)
+                # x = gen[1]
+                # y = gen[2]
+                gen = _parse_xy(Xgen, ncomp, nphase)
+                x = gen[0]
+                y = gen[1]
                 f_i = _extend_and_regularize_res(F(Xgen), x, y, nu, u1, u2, eta)
                 res_i = np.linalg.norm(f_i)
             except Exception:

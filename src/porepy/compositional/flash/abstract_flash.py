@@ -707,8 +707,8 @@ class AbstractFlash(abc.ABC):
         # Parse field and format values to be plotted.
         vals: np.ndarray = self._parse_field(results, field)
         vals = vals.reshape(xm.shape)
-        xlabel = specification.name[0]
-        ylabel = specification.name[1]
+        xlabel = specification.name[1]
+        ylabel = specification.name[0]
         if transpose:
             vals = vals.transpose()
             xm, ym = [ym.transpose(), xm.transpose()]
@@ -748,7 +748,6 @@ class AbstractFlash(abc.ABC):
             xm,
             ym,
             vals,
-            label=field,
             **default_plotkwargs,
         )
         cax = ax.inset_axes((1.01, 0.2, 0.05, 0.6))

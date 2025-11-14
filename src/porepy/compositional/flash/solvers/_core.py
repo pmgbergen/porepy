@@ -259,21 +259,21 @@ def sequential_solver(
     n = X0.shape[0]
     result = np.zeros_like(X0)
     num_iter = np.zeros(n, dtype=np.int_)
-    converged = np.ones(n, dtype=np.int_) * 5
+    exitcodes = np.ones(n, dtype=np.int_) * 5
 
     for i in range(n):
         try:
-            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params, spec)
+            res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
         except Exception:
-            converged[i] = 5
+            exitcodes[i] = 5
             num_iter[i] = -1
             result[i, :] = np.nan
         else:
-            converged[i] = conv_i
+            exitcodes[i] = e_i
             num_iter[i] = n_i
             result[i] = res_i
 
-    return result, converged, num_iter
+    return result, exitcodes, num_iter
 
 
 @numba.njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL)
@@ -302,33 +302,23 @@ def parallel_solver(
     the sequential solver.
 
     Important:
-        As of now, numba does not support ``try.. except`` inside a parallelized
-        environment. If any flash problem crashes, they all do.
-        Solvers should be robust in terms of errors when used inside the parallel
-        application.
+        As of now, numba does not support ``try.. except`` in the parallel environment.
+        This makes this function fragile to exceptions thrown by the solver.
+        If an exception is thrown, the whole parallel execution is aborted.
 
     """
-
-    # alocating return values
     n = X0.shape[0]
     result = np.zeros_like(X0)
     num_iter = np.zeros(n, dtype=np.int_)
-    converged = np.ones(n, dtype=np.int_) * 5
+    exitcodes = np.ones(n, dtype=np.int_) * 5
 
-    # NOTE Numba can as of now not parallelize if there is a try-except clause within
-    # the parallelized loop. As a work-around we place it outside and use the sequential
-    # solver as a fallback.
-    try:
-        for i in numba.prange(n):
-            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params, spec)
-            converged[i] = conv_i
-            num_iter[i] = n_i
-            result[i] = res_i
-    except Exception:
-        print("Parallel solver threw an exception. Falling back to sequential solver.")
-        return sequential_solver(X0, F, DF, solver, solver_params, spec)
+    for i in numba.prange(n):
+        res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
+        exitcodes[i] = e_i
+        num_iter[i] = n_i
+        result[i] = res_i
 
-    return result, converged, num_iter
+    return result, exitcodes, num_iter
 
 
 MULTI_SOLVERS: dict[

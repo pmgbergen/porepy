@@ -10,6 +10,10 @@ import pytest
 
 import porepy as pp
 import porepy.compositional.peng_robinson as pr
+from porepy.compositional.compiled_eos import (
+    PROPERTY_FUNC_SIGNATURE,
+    PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
+)
 
 
 class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
@@ -20,14 +24,14 @@ class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
     """
 
     def get_conductivity_function(self):
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @nb.njit(PROPERTY_FUNC_SIGNATURE)
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
     def get_conductivity_derivative_function(self):
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @nb.njit(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
