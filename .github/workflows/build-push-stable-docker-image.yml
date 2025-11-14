@@ -1,3 +1,7 @@
+# Build a Docker image for main branch PRs and push it. This workflow is similar to
+# test-stable-docker-image.yml, but the current one pushes the image to Docker Hub.
+# It only runs on pushes (PRs accepted) to main, whereas test-stable-docker-image.yml
+# runs on pull requests to main.
 name: Publish Docker image for main branch
 
 on:
