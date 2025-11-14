@@ -6,6 +6,10 @@ name: Pytest (all tests)
 on:
   workflow_dispatch:
     # run jobs manually
+  pull_request:
+    branches:
+      - main
+
   schedule:
     # Do a weekly run of the tests (repeats every Sunday at 00:01)
     - cron: '1 0 * * 0'
