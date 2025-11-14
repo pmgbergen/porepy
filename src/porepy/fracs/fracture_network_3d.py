@@ -362,6 +362,22 @@ class FractureNetwork3d(object):
         _, tmp = gmsh.model.occ.fragment(
             control_tag, fracture_tags, removeObject=True, removeTool=True
         )
+        gmsh.model.occ.synchronize()
+
+        # There should be (I hope) no reason for a fracture to be split due to the
+        # insertion of mesh control points.
+        num_control_points = len(mesh_control_tag)
+        for i, tag in enumerate(tmp[:num_control_points]):
+            mesh_control_tag[i] = tag
+        for i, tag in enumerate(tmp[num_control_points:]):
+            if tag[0] == 2:
+                # Violation here points to a surface being split by control points,
+                # which is not expected.
+                assert tag[1] == fracture_tags[i][1]
+            else:
+                # Should be dimension 1, so a line that is split. The hope is we don't
+                # have to deal with this.
+                pass
 
         debug = []
 
@@ -373,6 +389,10 @@ class FractureNetwork3d(object):
         ) = self.process_intersections(
             fracture_tags, domain_tag, constraints=constraints
         )
+        if False:
+            # Here we need processing of intersection lines to insert mesh size control
+            # points.
+            pass
 
         ## Export physical entities to gmsh.
 
@@ -420,17 +440,18 @@ class FractureNetwork3d(object):
         gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
 
         fac.synchronize()
-        self.set_mesh_size(mesh_args)
-        fac.synchronize()
 
         if write_geo:
             gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
 
-        if dfn:
-            dim_meshing = 2
-        else:
-            dim_meshing = 3
-        gmsh.model.mesh.generate(dim_meshing)
+        # Set the mesh sizes after all geometry processing is done so that the
+        # identification of objects is not disturbed by retagging of objects.
+        self._set_background_mesh_field(
+            self._set_2d_mesh_size(mesh_args, mesh_control_dict)
+        )
+        fac.synchronize()
+
+        gmsh.model.mesh.generate(3)
 
         gmsh.write(str(file_name))
         if clear_gmsh:
@@ -647,6 +668,25 @@ class FractureNetwork3d(object):
             isect_mapping,
             num_parents,
         )
+
+    def _set_2d_mesh_size(
+        self,
+        mesh_args: dict[str, float],
+        mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
+        restrict_to_fractures: bool = True,
+    ) -> None:
+        assert False
+        return gmsh_fields
+
+    def _set_background_mesh_field(self, gmsh_fields: list[int]) -> None:
+        min_field = gmsh.model.mesh.field.add("Min")
+        gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
+        gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
+        # The background mesh incorporates all mesh size specifications. We turn off
+        # other mesh size specifications.
+        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
     def _insert_mesh_size_control_points(self, fracture_tags: list[int], mesh_args):
         nd = self.domain.dim
