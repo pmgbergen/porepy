@@ -121,7 +121,7 @@ else:
     f_2 = pp.PlaneFracture(
         np.array([[0.2, -0.3, 0.2], [0.2, 0.2, 0.2], [0.2, 0.2, 1], [0.2, -0.3, 1]]).T
     )
-    fractures = [f_0]
+    fractures = [f_0, f_2]
 
     domain = pp.Domain(
         {
@@ -135,7 +135,7 @@ else:
     )
     network = pp.create_fracture_network(fractures, domain)
 
-    mdg = network.mesh(mesh_args={"mesh_size_frac": 0.05, "mesh_size_bound": 0.1})
+    mdg = network.mesh(mesh_args={"mesh_size_frac": 0.3, "mesh_size_bound": 0.1})
 
     fn = "dev_meshing_3d"
 

@@ -91,6 +91,7 @@ if benchmark:
     mdg = network.mesh(mesh_args=mesh_size)
 else:
     fractures = [f for i in range(15) for f in fracture_generator(i)]
+    # fractures = [f for i in [8, 12] for f in fracture_generator(i)]
     network = pp.create_fracture_network(
         fractures, domain=pp.domains.nd_cube_domain(2, 1)
     )
