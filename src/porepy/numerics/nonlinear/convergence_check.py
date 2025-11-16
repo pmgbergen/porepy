@@ -431,7 +431,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 class AbsoluteConvergenceCriterion(RelativeConvergenceCriterion):
     """Absolute convergence criterion for nonlinear problems."""
 
-    def init_reference_value(self):
+    def init_reference_value(self) -> None:
         """Initialize the reference value manager for absolute convergence."""
         self.reference_value = ReferenceValue(
             condition=lambda x: False,
@@ -447,7 +447,7 @@ class DynamicRelativeConvergenceCriterion(RelativeConvergenceCriterion):
 
     """
 
-    def init_reference_value(self):
+    def init_reference_value(self) -> None:
         """Initialize the reference value manager for relative convergence."""
         self.reference_value = ReferenceValue(
             condition=lambda x: not np.isclose(x, 0.0) and not np.isnan(x),
