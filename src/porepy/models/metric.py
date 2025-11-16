@@ -31,10 +31,10 @@ class EuclideanMetric:
         """Compute the Euclidean norm of a variable.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional variable
+            values: algebraic representation of a mixed-dimensional variable.
 
         Returns:
-            float: measure of values
+            float: measure of values.
 
         """
         return self._euclidean_norm(values)
@@ -43,10 +43,10 @@ class EuclideanMetric:
         """Compute the Euclidean norm of an equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional equation
+            values: Algebraic representation of a mixed-dimensional equation.
 
         Returns:
-            float: measure of values
+            float: Measure of values.
 
         """
         return self._euclidean_norm(values)
@@ -96,10 +96,10 @@ class MultiphysicsEuclideanMetric:
         """Compute the Euclidean norm of each separate equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional equation
+            values: Algebraic representation of a mixed-dimensional equation.
 
         Returns:
-            dict[str, float]: measure of values for each equation block
+            dict[str, float]: measure of values for each equation block.
 
         """
         norms = {}
@@ -130,8 +130,9 @@ class MultiphysicsLebesgueMetric:
         """Compute the Lebesgue L2 norm of a variable or equation.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional variable or equation
-            dim: int, dimension of the variable or equation
+            values: Algebraic representation of a mixed-dimensional variable or
+                equation.
+            dim: Dimension of the variable or equation.
             subdomains: list of grids or mortar grids over which to integrate
 
         Returns:
@@ -170,10 +171,10 @@ class MultiphysicsLebesgueMetric:
         """Compute the Lebesgue L2 norm of each separate variable.
 
         Parameters:
-            values: algebraic representation of a mixed-dimensional variable
+            values: Algebraic representation of a mixed-dimensional variable.
 
         Returns:
-            dict[str, float]: measure of values for each variable block
+            dict[str, float]: measure of values for each variable block.
 
         """
         norms = {}
