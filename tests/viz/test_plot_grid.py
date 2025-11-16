@@ -81,7 +81,6 @@ def test_plot_grid_mdg(mdg: MixedDimensionalGrid, vector_variable: str):
         info="CNFO",
     )
 
-
 @pytest.mark.parametrize(
     "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
 )
@@ -108,6 +107,16 @@ def test_plot_grid_simple_grid(mdg: MixedDimensionalGrid, vector_variable: str):
         vector_scale=10,
         info="CNFO",
     )
+    if mdg.dim_max() == 2:
+        # Run also with plot_2d=True.
+        pp.plot_grid(
+            grid,
+            cell_value=scalar_data,
+            vector_value=vector_data,
+            vector_scale=10,
+            info="CNFO",
+            plot_2d=True,
+        )
 
 
 @pytest.fixture
