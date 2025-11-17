@@ -14,10 +14,10 @@ from numpy.typing import ArrayLike
 
 import porepy as pp
 
-from .fracture import Fracture
+from .fracture import PointBasedFracture
 
 
-class PlaneFracture(Fracture):
+class PlaneFracture(PointBasedFracture):
     """A class representing planar fractures in 3D in form of a (bounded) plane,
     i.e. manifolds of dimension 2 embedded in 3D.
 
