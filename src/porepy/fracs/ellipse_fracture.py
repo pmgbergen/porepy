@@ -18,7 +18,7 @@ import numpy as np
 import gmsh
 
 
-class EllipticFracture:
+class EllipticFracture(Fracture):
     """
     Class representing an elliptic fracture embedded in a 3D domain.
 
@@ -30,19 +30,37 @@ class EllipticFracture:
     and its spatial orientation given by three rotation angles in radians.
 
     Example:
+        Fracture centered at ``[0, 1, 0]``, with a ratio of lengths of 2, rotation in
+        xy-plane of 45 degrees, and an incline of 30 degrees
+        rotated around the x-axis:
+
+
         >>> import numpy as np
-        >>> import gmsh
-        >>> gmsh.initialize()
         >>> frac = EllipticFracture(
         ...     center=np.array([0.0, 0.0, 0.0]),
-        ...     major_axis=5.0,
+        ...     major_axis=4.0,
         ...     minor_axis=2.0,
-        ...     major_axis_angle=np.pi / 6,
-        ...     strike_angle=np.pi / 4,
-        ...     dip_angle=np.pi / 8,
+        ...     major_axis_angle=np.pi / 4,
+        ...     strike_angle=0,
+        ...     dip_angle=np.pi / 6,
         ... )
-        >>> tag = frac.fracture_to_gmsh_3D()
-        >>> gmsh.finalize()
+
+    Parameters:
+        center: ``shape=(3, 1)``
+
+            Center coordinates of fracture.
+        major_axis: Length of major axis (radius-like, not diameter).
+        minor_axis: Length of minor axis.
+
+            There are no checks on whether the minor axis is less or equal the major.
+        major_axis_angle: Rotation of the major axis from the x-axis in radians.
+            Measured before strike-dip rotation, see above.
+        strike_angle: Line of rotation for the dip. Given as angle in radians from the
+            x-direction.
+        dip_angle: Dip angle in radians, i.e., rotation around the strike direction.
+        index: ``default=None``
+
+            Index to be assigned to the fracture.
 
     """
 
@@ -56,102 +74,73 @@ class EllipticFracture:
         dip_angle: float,
         index: int | None = None,
     ):
-        """
-        Initialize an elliptic fracture in 3D.
-
-        Parameters:
-            center: Array of ``shape=(3, 1)``
-                Coordinates of the fracture center in 3D space.
-            major_axis: Length of the major semi-axis.
-            minor_axis: Length of the minor semi-axis.
-            major_axis_angle: rotation of the major axis in radians from the x-axis
-                before strike-dip rotation.
-            strike_angle: the direction of the strike line (rotation axis for dip)
-                in radians, measured from the x-axis in the xy-plane.
-            dip_angle: rotation of the fracture plane around the strike line in
-                radians, defining the inclination of the fracture.
-            index: Optional integer index to be assigned to the fracture.
-        """
-        self.center = np.asarray(center)
-        self.r1 = float(major_axis)
-        self.r2 = float(minor_axis)
-        self.major_axis_angle = float(major_axis_angle)
-        self.strike_angle = float(strike_angle)
-        self.dip_angle = float(dip_angle)
-        self.index = index
-
-    def set_index(self, index: int) -> None:
-        """Set the index of this fracture.
-
-        Parameters:
-            index: Index.
-
-        """
+        """Initialize an elliptic fracture in 3D."""
+        self.center = center
+        self.r1 = major_axis
+        self.r2 = minor_axis
+        self.major_axis_angle = major_axis_angle
+        self.strike_angle = strike_angle
+        self.dip_angle = dip_angle
         self.index = index
 
     def fracture_to_gmsh_3D(self) -> int:
         """
-        Create the elliptic fracture as an OpenCASCADE entity in Gmsh
-        and return the corresponding 2D surface tag.
+        Create the elliptic fracture as an OpenCASCADE entity in Gmsh and return the
+        corresponding 2D surface tag.
 
-        The procedure follows the same geometric logic as in
-        `create_elliptic_fracture` (polygonal version), but uses the
-        OpenCASCADE kernel for exact geometry definition.
-
-        Steps:
-            1. Create an elliptic disk at the origin in the XY-plane
-               with semi-axes (r1, r2).
-            2. Rotate around the Z-axis by `major_axis_angle`
-               to set the in-plane orientation.
-            3. Rotate around the strike axis (defined by `strike_angle`)
-               by `dip_angle` to impose the dip inclination.
-            4. Translate the fracture to its target center position.
+        The procedure follows the same geometric logic as in `create_elliptic_fracture`
+        (polygonal version), but uses the OpenCASCADE kernel for exact geometry
+        definition.
 
         Returns:
             int: Tag of the generated 2D OCC surface.
 
-        Notes:
-            The rotation order and axis definitions match those
-            in PorePy’s `create_elliptic_fracture`, ensuring consistent geometry.
-
         """
-        # 1) Create an elliptic disk centered at the origin in the XY-plane
+        # 1) Create an elliptic disk centered at the origin in the XY-plane.
         surface_tag = gmsh.model.occ.addDisk(0.0, 0.0, 0.0, self.r1, self.r2)
         dimTags = [(2, surface_tag)]
 
-        # 2) Rotate around the Z-axis by the in-plane major axis angle
+        # 2) Rotate around the Z-axis by the in-plane major axis angle.
         gmsh.model.occ.rotate(
-            dimTags,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            self.major_axis_angle,
+            dimTags, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, self.major_axis_angle
         )
 
-        # 3) Rotate around the strike direction by the dip angle
+        # 3) Rotate around the strike direction by the dip angle.
         strike_x = math.cos(self.strike_angle)
         strike_y = math.sin(self.strike_angle)
         strike_z = 0.0
 
         gmsh.model.occ.rotate(
-            dimTags,
-            0.0,
-            0.0,
-            0.0,
-            strike_x,
-            strike_y,
-            strike_z,
-            self.dip_angle,
+            dimTags, 0.0, 0.0, 0.0, strike_x, strike_y, strike_z, self.dip_angle
         )
 
-        # 4) Translate the surface to the specified center
+        # 4) Translate the surface to the specified center.
         gmsh.model.occ.translate(
             dimTags, self.center[0], self.center[1], self.center[2]
         )
 
-        # gmsh.model.occ.synchronize()
-
         return surface_tag
+
+    def __str__(self) -> str:
+        """The str-representation displays the number of points, normal and centroid."""
+        s = f"Elliptic fracture with major axis {self.r1} and minor axis {self.r2}\n"
+        s += "Center: \n" + str(self.center) + "\n"
+        s += "Normal: \n" + str(self.normal)
+        return s
+
+    def copy(self) -> Fracture:
+        """Return a copy of the fracture with the current vertices.
+
+        Returns:
+            EllipticFracture: A copy of the fracture.
+
+        """
+        return EllipticFracture(
+            center=self.center.copy(),
+            major_axis=self.r1,
+            minor_axis=self.r2,
+            major_axis_angle=self.major_axis_angle,
+            strike_angle=self.strike_angle,
+            dip_angle=self.dip_angle,
+            index=self.index,
+        )
