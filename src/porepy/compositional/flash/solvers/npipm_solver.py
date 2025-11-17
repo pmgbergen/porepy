@@ -30,7 +30,7 @@ _COMPILER = njit
 
 
 _NPIPM_SOLVER_PARAMS_KEYS: TypeAlias = Literal[
-    "npipm_u1", "npipm_u2", "npipm_eta", "heavy_ball_momentum"
+    "npipm_u1", "npipm_u2", "npipm_eta", "heavy_ball_momentum", "appleyard_chop"
 ]
 """Keys (names) for NPIPM solver parameters."""
 
@@ -44,6 +44,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
         "npipm_u2": 1.0,
         "npipm_eta": 0.5,
         "heavy_ball_momentum": 0.0,
+        "appleyard_chop": 0.2,
     },
     **DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,  # type:ignore[arg-type,dict-item]
 )
@@ -55,6 +56,8 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
 - ``'heavy_ball_momentum': 0.`` if True (non-zero), a heavy-ball momentum technique is
   applied to the line-search, adding the update from the previous iteration with some
   down-scaling to the current update.
+- ``'appleyard_chop': 0.2`` chopping the update for phase fractions and saturations to
+  allow maximally this value.
 
 This solver uses also the :func:`armijo_line_search`, and respective
 :data:`DEFAULT_ARMIJO_LINE_SEARCH_PARAMS`.
@@ -373,6 +376,7 @@ def npipm(
     u1 = float(params["npipm_u1"])
     u2 = float(params["npipm_u2"])
     eta = float(params["npipm_eta"])
+    appleyard = float(params["appleyard_chop"])
     heavy_ball = int(params["heavy_ball_momentum"])
 
     # Computing initial value for slack variable.
@@ -436,6 +440,12 @@ def npipm(
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
                 exitcode = 2
                 break
+
+            # Appleyard chop to update. TODO for saturations
+            if appleyard > 0.0:
+                dy = DX[-(ncomp * nphase + nphase - 1) : -ncomp * nphase]
+                dy[dy > appleyard] = appleyard
+                DX[-(ncomp * nphase + nphase - 1) : -ncomp * nphase] = dy
 
             # Armijo line search
             # rho_i = armijo_line_search(X[:-1], DX[:-1], F, params)

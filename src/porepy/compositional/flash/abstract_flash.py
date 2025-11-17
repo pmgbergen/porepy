@@ -541,7 +541,7 @@ class AbstractFlash(abc.ABC):
         transpose: bool = False,
         plotkwargs: Optional[dict] = None,
         **kwargs,
-    ) -> Figure:
+    ) -> tuple[Figure, FlashResults]:
         """ "Plot a 2D phase diagram for specified ranges.
 
         The type of flash performed is indicated with ``specification``.
@@ -594,6 +594,8 @@ class AbstractFlash(abc.ABC):
         - ``'initial_state'``: See :meth:`flash`.
         - ``'params'``: See :meth:`flash`.
         - ``'flash_kwargs'``: See :meth:`flash`.
+        - ``'eps'``: Used to define an absent phase numerically (i.e. values below this
+          will plot a phase as absent.)
 
         Parameters:
             specification: The flash to be calculated.
@@ -612,7 +614,8 @@ class AbstractFlash(abc.ABC):
             **kwargs: Keyword arguments for this function.
 
         Returns:
-            The handle to the created figure.
+            The handle to the created figure and the results of the flash performed to
+            obtain the figure.
 
         """
         # Parsing compositions.
@@ -705,7 +708,7 @@ class AbstractFlash(abc.ABC):
         )
 
         # Parse field and format values to be plotted.
-        vals: np.ndarray = self._parse_field(results, field)
+        vals: np.ndarray = self._parse_field(results, field, kwargs.get("eps", 1e-10))
         vals = vals.reshape(xm.shape)
         xlabel = specification.name[1]
         ylabel = specification.name[0]
@@ -756,9 +759,9 @@ class AbstractFlash(abc.ABC):
             cb_rr.set_ticks(cbticks)
             cb_rr.set_ticklabels(cblabels)
 
-        return fig
+        return fig, results
 
-    def _parse_field(self, results: FlashResults, field: str) -> np.ndarray:
+    def _parse_field(self, results: FlashResults, field: str, eps: float) -> np.ndarray:
         """ "Helper method to parse the field to be plotted in the phase diagram."""
         err_msg: str | None = None
         vals: np.ndarray | None = None
@@ -768,18 +771,25 @@ class AbstractFlash(abc.ABC):
         # Phase split is determined based on the phase fractions.
         if field == "phasesplit":
             y = results.y
+            y[y < eps] = 0.0
+            y[y > 1] = 1.0
+            y = pp.compositional.normalize_rows(y.T).T
+            gid = np.zeros(nphase, dtype=bool)
             if gasidx is not None:
-                yG = y[gasidx]
-                yL = np.array([v for i, v in enumerate(y) if i != gasidx])
+                gid[gasidx] = True
+            yL = y[~gid]
+            yG = y[gid]
+            if not np.any(gid):
+                yG = np.zeros(y.shape[0])
             else:
-                yG = np.zeros(y.shape[1])
-                yL = y
-            has_liquid: np.ndarray = (yL > 0.0).sum(axis=0).astype(int)
+                # Reshape
+                yG = yG[0]
+
             # Encoding values:
             # 0 - gas only
             # i in [1, 999], gas with i liquids
             # i in [1001, 2000], 1001 1 liquid, 1002 2 liquid ...
-            vals = has_liquid.copy()
+            vals = cast(np.ndarray, (yL > 0.0).sum(axis=0).astype(int))
             # Where no gas, shift by coding factor.
             vals[yG <= 0.0] += self._phasesplit_code_shift
             # Sanity check that pure gas is indicated by zero.
@@ -791,41 +801,47 @@ class AbstractFlash(abc.ABC):
             vals = vals.astype(int)
         # Other values are extraced from the results directly.
         else:
-            names = field.split("_")
-            n = len(names)
+            field_spec = field.split("_")
+            n = len(field_spec)
 
-            if "ext" in names or "normalized" in names:
-                base = f"{names[0]}_{names[1]}"
+            if "ext" in field_spec or "normalized" in field_spec:
+                base = f"{field_spec[0]}_{field_spec[1]}"
                 n -= 2
+                field_spec = field_spec[2:]
             else:
-                base = names[0]
+                base = field_spec[0]
                 n -= 1
+                field_spec = field_spec[1:]
 
-            # If just a field name without index, parse fluid property.
-            if n == 0:
+            if n > 3:
+                err_msg = f"Expecting at most 3 indices in field name, got {n}"
+            # No index at all can only mean fluid property.
+            elif n == 0:
                 if hasattr(results, base):
                     vals = getattr(results, base)
                 else:
                     err_msg = f"Fluid property {base} not defined."
-            elif n > 3:
-                err_msg = f"Expecting at most 3 indices in field name, got {n}"
             else:
-                phase_index = int(names[0])
+                phase_index = int(field_spec[0])
                 cd_index = None
                 d_index = None
                 if n >= 2:
-                    cd_index = int(names[1])
+                    cd_index = int(field_spec[1])
                 if n >= 3:
-                    d_index = int(names[2])
+                    d_index = int(field_spec[2])
 
                 if phase_index > nphase or phase_index < 1:
                     err_msg = f"Phase index in {field} out of range."
                 else:
-                    phase = results.phases[phase_index - 1]
-                    if hasattr(phase, base):
-                        vals = getattr(phase, base)
+                    # If n == 1, it can be saturations or fractions.
+                    if n == 1 and hasattr(results, base):
+                        vals = getattr(results, base)[phase_index - 1]
                     else:
-                        err_msg = f"Phase property {base} not defined."
+                        phase = results.phases[phase_index - 1]
+                        if hasattr(phase, base):
+                            vals = getattr(phase, base)
+                        else:
+                            err_msg = f"Property {base} not defined."
 
                 if cd_index is not None and vals is not None:
                     if vals.ndim != n:
