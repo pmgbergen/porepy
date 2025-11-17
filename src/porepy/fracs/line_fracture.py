@@ -8,10 +8,10 @@ from __future__ import annotations
 import gmsh
 import numpy as np
 
-from .fracture import Fracture
+from .fracture import PointBasedFracture
 
 
-class LineFracture(Fracture):
+class LineFracture(PointBasedFracture):
     """A class representing linear fractures in 2D, i.e. manifolds of dimension 1
     embedded in 2D.
 
