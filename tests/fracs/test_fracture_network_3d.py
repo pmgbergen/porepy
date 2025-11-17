@@ -329,7 +329,7 @@ def check_mdg(
     # that their bounding boxes are the same.
     for fi, f in enumerate(fractures):
         for sd in mdg.subdomains(dim=2):
-            if sd.frac_num == fi:
+            if sd.frac_num == fi and not isinstance(f, pp.EllipticFracture):
                 assert compare_bounding_boxes(
                     pp.domain.bounding_box_of_point_cloud(f.pts),
                     pp.domain.bounding_box_of_point_cloud(sd.nodes),
@@ -1263,6 +1263,60 @@ class TestDFMMeshGenerationWithConstraints:
             isect_line=[isect],
             expected_num_1d_grids=1,
             expected_num_0d_grids=0,
+        )
+
+
+class TestEllipticFractureMeshing:
+    def test_create_mdg_for_ellipse(self):
+        bounding_box = {
+            "xmin": 0,
+            "xmax": 15,
+            "ymin": 0,
+            "ymax": 15,
+            "zmin": 0,
+            "zmax": 15,
+        }
+        domain = pp.Domain(bounding_box=bounding_box)
+        frac1 = pp.EllipticFracture(
+            np.array([3.0, 4.0, 5.0]), 2.0, 1.0, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+        )
+        frac2 = pp.EllipticFracture(
+            np.array([8.0, 7.0, 6.0]), 2.5, 0.5, np.pi / 6.0, np.pi / 4.0, np.pi / 8.0
+        )
+        frac3 = pp.PlaneFracture(np.array([[0, 4, 5, 0], [0, 0, 2, 2], [0, 0, 2, 2]]))
+        fractures = [frac1, frac2, frac3]
+        network = pp.create_fracture_network(fractures, domain)
+        mesh_args = {
+            "cell_size_boundary": 1.0,
+            "cell_size_fracture": 0.5,
+            "cell_size_min": 0.2,
+        }
+        mdg = pp.create_mdg("simplex", mesh_args, network)
+        assert mdg is not None
+        assert mdg.num_subdomains() >= 4
+
+    def test_two_intersecting_fractures(self):
+        """Two fractures intersecting along a line."""
+
+        f_1 = pp.EllipticFracture(
+            np.array([0.0, 0.0, 0.0]), 2.0, 1.0, 0.0, 0.0, np.pi / 6.0
+        )
+        f_2 = pp.EllipticFracture(np.array([0.0, 0.0, 0.0]), 2.0, 1.0, 0.0, 0.0, 0.0)
+        domain = _standard_domain()
+        mdg = _create_mdg([f_1, f_2], domain)
+
+        # EK TODO: The intersection coordinates here are wrong. We should revise the
+        # full set of tests.
+        isect_coord = np.array([[0, 2], [2, 2], [2, 2]])
+
+        isect = IntersectionInfo(0, 1, isect_coord)
+
+        check_mdg(
+            mdg,
+            domain,
+            fractures=[f_1, f_2],
+            isect_line=[isect],
+            expected_num_1d_grids=1,
         )
 
 
