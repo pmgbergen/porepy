@@ -386,6 +386,8 @@ def _validate_args(
     Raises:
         - ValueError: Raises value error messages if:
             - fracture_network without a domain is provided and grid_type != "simplex"
+        - TypeError: Raises type error messages if:
+            - network contains an elliptic fracture and grid_type != "simplex".
 
     """
 
@@ -416,6 +418,17 @@ def _validate_args(
             # Giving a warning seems like a fair compromise between raising an
             # error and doing nothing.
             warn(f"Found {sz} fractures outside the domain boundary")
+
+        if any(
+            [
+                isinstance(frac, pp.EllipticFracture)
+                for frac in fracture_network.fractures
+            ]
+        ):
+            raise TypeError(
+                "Elliptic fractures should only be used with unstructured simplex"
+                " grids."
+            )
 
     if grid_type == "simplex":
         _validate_simplex_meshing_args_values(meshing_args)
@@ -810,7 +823,7 @@ def create_mdg(
 
     # Structured cases
     domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
-    if domain is not None:
+    if domain is not None and grid_type in ["cartesian", "tensor_grid"]:
         fractures = [f.pts for f in fracture_network.fractures]
         if dim == 3:
             # In 3d the bounding polygons for the fractures are added to the set of
