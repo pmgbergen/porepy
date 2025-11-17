@@ -81,6 +81,7 @@ def test_plot_grid_mdg(mdg: MixedDimensionalGrid, vector_variable: str):
         info="CNFO",
     )
 
+
 @pytest.mark.parametrize(
     "vector_variable", [VECTOR_VARIABLE_CELL, VECTOR_VARIABLE_FACE]
 )
