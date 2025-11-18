@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import copy
-from typing import Literal, Optional, Sequence, Union
+from pathlib import Path
+from typing import Literal, Optional, Sequence, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -32,7 +33,53 @@ class LoadGeometryMixin(pp.PorePyModel):
         ``set_domain``, ``create_fracture_network`` etc?
 
         """
-        ...
+        # geo_path = self.params.get("geo_file", None)
+        # msh_path = self.params.get("msh_file", None)
+        # csv_path = self.params.get("csv_file", None)
+
+        folder_path = (
+            Path(__file__).parent.parent
+            / "applications"
+            / "md_grids"
+            / "gmsh_file_library"
+            / "benchmark_3d_case_2"
+        )
+        geo_path = folder_path / f"mesh500.geo"
+
+        geo_path.chmod(777)
+
+        # Create mixed-dimensional grid.
+        mdg = pp.fracture_importer.dfm_from_gmsh(geo_path, dim=3)
+
+        # Also import fracture network.
+        fracture_network_path = folder_path / "fracture_network.csv"
+        # Set file permissions. This turned out to be important for GH actions.
+        fracture_network_path.chmod(777)
+
+        network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
+
+        # Create mixed-dimensional grid and fracture network.
+        self.mdg, self.fracture_network = mdg, network
+        self.nd: int = self.mdg.dim_max()
+
+        # Obtain domain and fracture list directly from the fracture network.
+        self._domain = cast(pp.Domain, self.fracture_network.domain)
+        self._fractures = self.fracture_network.fractures
+
+        # Create projection between local and global coordinates fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
+
+        # Create well network.
+        self.set_well_network()
+        if len(self.well_network.wells) > 0:
+            # Compute intersections.
+            assert isinstance(self.fracture_network, FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh wells and add fractures + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures
+            self.well_network.mesh(self.mdg)
 
     def export_geometry(self) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv``
