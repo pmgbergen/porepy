@@ -13,6 +13,41 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
+class LoadGeometryMixin(pp.PorePyModel):
+    def set_geometry(self) -> None:
+        """Load and set model geometry from ``msh``, ``geo``, and ``csv`` files that
+        contain a mesh and information about fractures.
+
+        The following attributes are set after running this method:
+        - ``self.mdg: pp.MixedDimensionalGrid``
+        - ``self._domain: pp.Domain``
+        - ``self.fracture_network: pp.FractureNetwork2D`` (or 3D) if a ``csv`` file is
+        provided. Otherwise an empty network?
+
+
+        TODO
+        - Differentiate between cases where all three files are provided and only one or
+        two are provided.
+        - Think about modularization! Does it make sense to write submethods
+        ``set_domain``, ``create_fracture_network`` etc?
+
+        """
+        ...
+
+    def export_geometry(self) -> None:
+        """Export mesh and fracture network to ``msh``, ``geo``, and ``csv``
+        files.
+
+        TODO
+        - Do we explicitely have to export ``self._domain`` or can this be inferred from
+        the ``msh``/``geo`` files.
+        - Consider adding options to export only two or three of the files. In
+        particular, if ``self.fracture_network`` is not set (can this even happen?)
+
+        """
+        ...
+
+
 class ModelGeometry(pp.PorePyModel):
     """This class provides geometry related methods and information for a simulation
     model."""
