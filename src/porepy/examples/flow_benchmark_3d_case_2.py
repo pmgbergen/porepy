@@ -156,7 +156,7 @@ class PermeabilitySpecification(Permeability):
 
 
 class BoundaryConditions(pp.PorePyModel):
-    r"""Define inlet and oulet boundary conditions as specified by the benchmark.
+    """Define inlet and oulet boundary conditions as specified by the benchmark.
 
     The inlet boundary is defined as:
 
