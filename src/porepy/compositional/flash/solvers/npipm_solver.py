@@ -44,7 +44,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
         "npipm_u2": 1.0,
         "npipm_eta": 0.5,
         "heavy_ball_momentum": 0.0,
-        "appleyard_chop": 0.2,
+        "appleyard_chop": 0.0,
     },
     **DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,  # type:ignore[arg-type,dict-item]
 )
@@ -56,8 +56,8 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
 - ``'heavy_ball_momentum': 0.`` if True (non-zero), a heavy-ball momentum technique is
   applied to the line-search, adding the update from the previous iteration with some
   down-scaling to the current update.
-- ``'appleyard_chop': 0.2`` chopping the update for phase fractions and saturations to
-  allow maximally this value.
+- ``'appleyard_chop': 0.0`` if non-zero, chopping the update for phase fractions and
+  saturations to allow maximally this value.
 
 This solver uses also the :func:`armijo_line_search`, and respective
 :data:`DEFAULT_ARMIJO_LINE_SEARCH_PARAMS`.

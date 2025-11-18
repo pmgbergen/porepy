@@ -276,7 +276,7 @@ def sequential_solver(
     return result, exitcodes, num_iter
 
 
-@numba.njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL)
+@numba.njit(_multi_solver_signature, cache=True, parallel=True, nogil=True)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -312,11 +312,15 @@ def parallel_solver(
     num_iter = np.zeros(n, dtype=np.int_)
     exitcodes = np.ones(n, dtype=np.int_) * 5
 
+    # try:
     for i in numba.prange(n):
         res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
         exitcodes[i] = e_i
         num_iter[i] = n_i
         result[i] = res_i
+    # except:
+    #     print('Parallel solver threw exception, falling back to sequential solver.')
+    #     return sequential_solver(X0, F, DF, solver, solver_params, spec)
 
     return result, exitcodes, num_iter
 
