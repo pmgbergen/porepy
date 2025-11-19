@@ -431,6 +431,502 @@ def check_mdg(
         assert found
 
 
+@pytest.fixture(scope="module")
+def unit_box() -> pp.Domain:
+    """Create a unit box domain for testing purposes."""
+    bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    domain = pp.Domain(bbox)
+    return domain
+
+
+def _verify_points_in_fracture(points: np.ndarray, fracture: pp.PlaneFracture):
+    """Verify that points lie in the plane of the fracture.
+
+    Parameters:
+        points: Points to verify.
+        fracture: Fracture defining the plane.
+
+    """
+    dist, *_ = pp.distances.points_polygon(points, fracture.pts)
+    assert np.allclose(dist, 0.0, atol=1e-6)
+
+
+def _verify_points_in_line(points: np.ndarray, start: np.ndarray, end: np.ndarray):
+    """Verify that points lie on the line defined by line_point and line_dir.
+
+    Parameters:
+        points: Points to verify.
+        start: Start point of the line.
+        end: End point of the line.
+
+    """
+    d, *_ = pp.distances.points_segments(
+        points, start.reshape((3, 1)), end.reshape((3, 1))
+    )
+    assert np.allclose(d, 0.0, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "x_coord, is_constraint",
+    [
+        # No fractures.
+        ([], []),
+        # Fracture fully inside the domain, not a constraint.
+        ([0.2], [False]),
+        # Fracture fully inside the domain, is a constraint.
+        ([0.2], [True]),
+        # Fracture on the boundary, not a constraint.
+        ([0.0], [False]),
+        # Fracture on the boundary, is a constraint.
+        ([0.0], [True]),
+        # Two fracutres fully inside the domain.
+        ([0.2, 0.5], [False, False]),
+        # Fracture outside the domain, not a constraint.
+        ([-0.5], [False]),
+        # Fracture outside the domain, is a constraint.
+        ([-0.5], [True]),
+        # Fracture on the domain boundary.
+        ([0.0], [False]),
+        # Constraint on the domain boundary.
+        ([0.0], [True]),
+        # One fracture inside, one outside, none a constraint.
+        ([0.2, -0.5], [False, False]),
+        # One fracture inside, one outside. Outside fracture first on the list.
+        ([-0.5, 0.2], [False, False]),
+        # One fracture inside, one outside, both constraints.
+        ([0.2, -0.5], [True, True]),
+        # One fracture inside, one outside. Constraint first on the list.
+        ([-0.5, 0.2], [True, False]),
+    ],
+)
+def test_meshing_no_intersections(
+    x_coord: list[float], is_constraint: list[bool], unit_box: pp.Domain
+):
+    """Test meshing of a single fracture without intersections.
+
+    Parameters:
+        x_coord: x-coordinate of the vertical fracture.
+        is_constraint: Whether the fracture is a constraint.
+        unit_box: Unit box domain.
+
+    """
+    is_fracture = len(x_coord) * [True]
+
+    fractures = []
+
+    for i, x in enumerate(x_coord):
+        if is_constraint[i] or x >= 1.0 or x <= 0.0:
+            is_fracture[i] = False
+
+    for i, x in enumerate(x_coord):
+        if is_fracture[i]:
+            fractures.append(
+                pp.PlaneFracture(
+                    np.array([[x, x, x, x], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
+                )
+            )
+
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.where(is_constraint)[0]
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(
+        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        constraints=constraints,
+    )
+
+    assert len(mdg.subdomains(dim=2)) == sum(is_fracture)
+    assert len(mdg.subdomains(dim=1)) == 0
+    assert len(mdg.subdomains(dim=0)) == 0
+
+    for i, f in enumerate(fractures):
+        # Find the corresponding 2d grid
+        for sd in mdg.subdomains(dim=2):
+            if sd.frac_num == i:
+                # Check that all nodes of the grid lie in the fracture plane
+                _verify_points_in_fracture(sd.nodes, f)
+
+
+@pytest.mark.parametrize(
+    "fracture_present, fracture_constraint, elliptic",
+    [
+        # Two fractures, zero to two constraints. All are PlanarFracture, no elliptic.
+        ([True, True, False], [False, False, False], [False, False, False]),
+        ([True, True, False], [True, False, False], [False, False, False]),
+        ([True, True, False], [True, True, False], [False, False, False]),
+        # Two fractures, zero to two constraints. One or two elliptic fractures.
+        ([True, True, False], [False, False, False], [True, False, False]),
+        ([True, True, False], [False, False, False], [True, True, False]),
+        ([True, True, False], [True, False, False], [True, False, False]),
+        ([True, True, False], [True, True, False], [True, True, False]),
+        # Three fractures, zero to three constraints. No elliptic fractures.
+        ([True, True, True], [False, False, False], [False, False, False]),
+        ([True, True, True], [True, False, False], [False, False, False]),
+        ([True, True, True], [True, True, False], [False, False, False]),
+        ([True, True, True], [True, True, True], [False, False, False]),
+        # Three fractures, one is a constraint. One to three elliptic fractures.
+        ([True, True, True], [True, False, False], [True, False, False]),
+        ([True, True, True], [True, True, False], [True, True, False]),
+        ([True, True, True], [True, True, True], [True, True, True]),
+    ],
+)
+def test_cross_intersection(
+    fracture_present: list[bool],
+    fracture_constraint: list[bool],
+    elliptic: list[bool],
+    unit_box: pp.Domain,
+):
+    """Test meshing of a cross intersection of 1-3 fractures"""
+    fractures = []
+    is_fracture = [a and not b for a, b in zip(fracture_present, fracture_constraint)]
+
+    base_0 = np.array([0.2, 0.2, 0.8, 0.8])
+    base_1 = np.array([0.2, 0.8, 0.8, 0.2])
+    base_2 = np.array([0.5, 0.5, 0.5, 0.5])
+
+    candidate_planar = [
+        pp.PlaneFracture(np.vstack((base_2, base_0, base_1))),
+        pp.PlaneFracture(np.vstack((base_1, base_2, base_0))),
+        pp.PlaneFracture(np.vstack((base_0, base_1, base_2))),
+    ]
+    candidate_elliptic = [
+        pp.EllipticFracture(
+            center=np.array([0.5, 0.5, 0.5]),
+            major_axis=0.3,
+            minor_axis=0.3,
+            major_axis_angle=0,
+            strike_angle=np.pi / 2,
+            dip_angle=np.pi / 2,
+        ),
+        pp.EllipticFracture(
+            center=np.array([0.5, 0.5, 0.5]),
+            major_axis=0.3,
+            minor_axis=0.3,
+            major_axis_angle=0,
+            strike_angle=0,
+            dip_angle=np.pi / 2,
+        ),
+        pp.EllipticFracture(
+            center=np.array([0.5, 0.5, 0.5]),
+            major_axis=0.3,
+            minor_axis=0.3,
+            major_axis_angle=0,
+            strike_angle=0,
+            dip_angle=0,
+        ),
+    ]
+
+    fractures = []
+    for i in range(3):
+        if fracture_present[i]:
+            if elliptic[i]:
+                fractures.append(candidate_elliptic[i])
+            else:
+                fractures.append(candidate_planar[i])
+
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.where(fracture_constraint)[0]
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(
+        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        constraints=constraints,
+    )
+    num_fractures = sum(is_fracture)
+    assert len(mdg.subdomains(dim=2)) == num_fractures
+    if num_fractures == 2:
+        assert len(mdg.subdomains(dim=1)) == 1
+        assert len(mdg.subdomains(dim=0)) == 0
+    elif num_fractures == 3:
+        assert len(mdg.subdomains(dim=1)) == 6
+        assert len(mdg.subdomains(dim=0)) == 1
+
+    for i, f in enumerate(fractures):
+        # Find the corresponding 2d grid
+        for sd in mdg.subdomains(dim=2):
+            if sd.frac_num == i:
+                # Check that all nodes of the grid lie in the fracture plane. Use the
+                # planar representation also for elliptic fractures, since the latter
+                # has no vertexes on which the comparison can be based. The test that
+                # the nodes of an elliptic fracture lie on the ellipse, and not only on
+                # a bounding polygon (which is whath the below replacement in effect
+                # will do) is done in test_elliptic_fracture.py
+                _verify_points_in_fracture(sd.nodes, candidate_planar[i])
+
+    def _check_line_intersection(frac_num_0, frac_num_1):
+        # Check the intersection line between fracture frac_num_0 and frac_num_1.
+
+        # Due to the fracture construction, the intersection line is along the
+        # coordinate axis not present in either fracture. The other coordinates are 0.5.
+        start = np.array([0.5, 0.5, 0.5])
+        end = np.array([0.5, 0.5, 0.5])
+        dim_not_present = np.setdiff1d([0, 1, 2], [frac_num_0, frac_num_1])[0]
+        start[dim_not_present] = 0.2
+        end[dim_not_present] = 0.8
+
+        for sd in mdg.subdomains(dim=1):
+            neighs = mdg.neighboring_subdomains(sd, only_higher=True)
+            if (
+                neighs[0].frac_num == frac_num_0 and neighs[1].frac_num == frac_num_1
+            ) or (
+                neighs[0].frac_num == frac_num_1 and neighs[1].frac_num == frac_num_0
+            ):
+                _verify_points_in_line(sd.nodes, start, end)
+
+    if is_fracture[0] and is_fracture[1]:
+        _check_line_intersection(0, 1)
+    if is_fracture[0] and is_fracture[2]:
+        _check_line_intersection(0, 2)
+    if is_fracture[1] and is_fracture[2]:
+        _check_line_intersection(1, 2)
+
+    if num_fractures == 3:
+        # Check the intersection line between fracture 0 and 2
+        assert np.allclose(
+            mdg.subdomains(dim=0)[0].cell_centers, np.array([[0.5], [0.5], [0.5]])
+        )
+
+
+@pytest.mark.parametrize(
+    "z_coord",
+    [
+        ([0.4, 0.6]),  # Full match in the z-range
+        ([0.3, 0.5]),  # Partial overlap, the two fractures overlap in z = [0.4, 0.5]
+        ([0.3, 0.7]),  # Fracture 1 fully contains fracture 0 in z-direction
+    ],
+)
+@pytest.mark.parametrize("is_t", [True, False])
+@pytest.mark.parametrize(
+    "is_constraint",
+    [
+        [False, False],  # No constraints
+        [True, False],  # One fracture is a constraint
+        [True, True],  # Both fractures are constraints
+    ],
+)
+def test_t_l_intersection(
+    z_coord: list[float], is_t: bool, is_constraint: list[bool], unit_box: pp.Domain
+):
+    fracture_0 = pp.PlaneFracture(
+        np.array([[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.4, 0.4, 0.6, 0.6]])
+    )
+    x_coord = 0.5 if is_t else 0.2
+    fracture_1 = pp.PlaneFracture(
+        np.array(
+            [
+                [x_coord, x_coord, x_coord, x_coord],
+                [0.2, 0.5, 0.5, 0.2],
+                [z_coord[0], z_coord[0], z_coord[1], z_coord[1]],
+            ]
+        )
+    )
+    fractures = [fracture_0, fracture_1]
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.where(is_constraint)[0]
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(
+        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        constraints=constraints,
+    )
+    num_fracs = 2 - sum(is_constraint)
+    assert len(mdg.subdomains(dim=2)) == num_fracs
+    assert len(mdg.subdomains(dim=1)) == (1 if num_fracs == 2 else 0)
+    assert len(mdg.subdomains(dim=0)) == 0
+
+    if num_fracs == 2:
+        # Check the intersection line between fracture 0 and 1.
+
+        # Due to the fracture construction, the intersection line is along the
+        # z-axis if T-intersection, otherwise along the x-axis. The other coordinates
+        # are 0.5.
+        start = np.array([x_coord, 0.5, z_coord[0]])
+        end = np.array([x_coord, 0.5, z_coord[1]])
+        sd = mdg.subdomains(dim=1)[0]
+        _verify_points_in_line(sd.nodes, start, end)
+
+
+@pytest.mark.parametrize(
+    "is_constraint",
+    [
+        [False, False, False],  # No constraints. Three intersection grids.
+        [True, False, False],  # Tall fracture is constraint. One intersection grid.
+        [False, False, True],  # Short fracture is constraint. One intersection grids.
+        [True, False, True],  # Both fractures are constraints. No intersection grids.
+        [True, True, True],  # All fractures are constraints. No intersection grids.
+    ],
+)
+def test_three_fractures_intersecting_along_line(
+    is_constraint: list[bool], unit_box: pp.Domain
+):
+    """Test meshing of three fractures intersecting along a line.
+
+    Parameters:
+        is_constraint: Whether each fracture is a constraint.
+        unit_box: Unit box domain.
+
+    """
+    fracture_0 = pp.PlaneFracture(
+        np.array([[0.2, 0.8, 0.8, 0.2], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
+    )
+    fracture_1 = pp.PlaneFracture(
+        np.array([[0.5, 0.5, 0.5, 0.5], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
+    )
+    fracture_2 = pp.PlaneFracture(
+        np.array([[0.2, 0.8, 0.8, 0.2], [0.2, 0.8, 0.8, 0.2], [0.3, 0.3, 0.7, 0.7]])
+    )
+    fractures = [fracture_0, fracture_1, fracture_2]
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.where(is_constraint)[0]
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(
+        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        constraints=constraints,
+    )
+    num_fracs = 3 - sum(is_constraint)
+    assert len(mdg.subdomains(dim=2)) == num_fracs
+    if num_fracs == 3:
+        expected_1d_grids = 3
+    elif num_fracs == 2:
+        expected_1d_grids = 1
+    else:
+        expected_1d_grids = 0
+    assert len(mdg.subdomains(dim=1)) == expected_1d_grids
+    assert len(mdg.subdomains(dim=0)) == 0
+
+    if num_fracs >= 2:
+        # Check the intersection line between fracture 0 and 1.
+
+        # Due to the fracture construction, the intersection line is along the
+        # z-axis . The other coordinates are 0.5
+        if is_constraint[0] or is_constraint[1]:
+            start = np.array([0.5, 0.5, 0.3])
+            end = np.array([0.5, 0.5, 0.7])
+        else:
+            start = np.array([0.5, 0.5, 0.2])
+            end = np.array([0.5, 0.5, 0.8])
+        sd = mdg.subdomains(dim=1)[0]
+        _verify_points_in_line(sd.nodes, start, end)
+
+
+@pytest.mark.parametrize(
+    "x_min, x_max, is_constraint",
+    [
+        (-0.5, 0.5, False),  # Fracture hits the boundary, not a constraint.
+        (-0.5, 0.5, True),  # Fracture hits the boundary, is a constraint.
+        (-0.5, 1.5, False),  # Fracture extends beyond the boundary, not a constraint.
+        (-0.5, 1.5, True),  # Fracture extends beyond the boundary, is a constraint.
+        (0.0, 1.0, False),  # Fracture exactly on the boundary, not a constraint.
+        (0.0, 1.0, True),  # Fracture exactly on the boundary, is a constraint.
+    ],
+)
+def test_fracture_hits_boundary(x_min, x_max, is_constraint, unit_box: pp.Domain):
+    """Test meshing of a fracture hitting the domain boundary.
+
+    Parameters:
+        x_min: Minimum x-coordinate of the fracture.
+        x_max: Maximum x-coordinate of the fracture.
+        is_constraint: Whether the fracture is a constraint.
+        unit_box: Unit box domain.
+
+    """
+    fracture = pp.PlaneFracture(
+        np.array(
+            [[x_min, x_max, x_max, x_min], [0.2, 0.2, 0.8, 0.8], [0.2, 0.2, 0.8, 0.8]]
+        )
+    )
+    fractures = [fracture]
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.array([0]) if is_constraint else None
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(
+        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        constraints=constraints,
+    )
+    num_fracs = 1 - (1 if is_constraint else 0)
+    assert len(mdg.subdomains(dim=2)) == num_fracs
+    assert len(mdg.subdomains(dim=1)) == 0
+    assert len(mdg.subdomains(dim=0)) == 0
+
+    truncated_x_min = max(x_min, 0.0)
+    truncated_x_max = min(x_max, 1.0)
+    truncated_fracture = pp.PlaneFracture(
+        np.array(
+            [
+                [truncated_x_min, truncated_x_max, truncated_x_max, truncated_x_min],
+                [0.2, 0.2, 0.8, 0.8],
+                [0.2, 0.2, 0.8, 0.8],
+            ]
+        )
+    )
+
+    if num_fracs == 1:
+        # Check that all nodes of the grid lie in the fracture plane
+        sd = mdg.subdomains(dim=2)[0]
+        _verify_points_in_fracture(sd.nodes, truncated_fracture)
+
+
+@pytest.mark.parametrize(
+    "extend_beyond",
+    [False, True],  # Fracture hits corner line or extends beyond it.
+)
+@pytest.mark.parametrize(
+    "is_constraint",
+    [False, True],  # Fracture is a constraint or not.
+)
+def test_fracture_hits_domain_corner_line(
+    extend_beyond: bool, is_constraint: bool, unit_box: pp.Domain
+):
+    """Test meshing of a fracture hitting the domain corner line.
+
+    Parameters:
+        extend_beyond: Whether the fracture extends beyond the domain corner line.
+        is_constraint: Whether the fracture is a constraint.
+        unit_box: Unit box domain.
+
+    """
+    x_min = 0.5
+    y_min = 0.5
+    x_max = 1.0 if extend_beyond else 1.5
+    y_max = 1.0 if extend_beyond else 1.5
+    z_min = 0.2
+    z_max = 0.8
+    fracture = pp.PlaneFracture(
+        np.array(
+            [
+                [x_min, x_max, x_max, x_min],
+                [y_min, y_min, y_max, y_max],
+                [z_min, z_min, z_max, z_max],
+            ]
+        )
+    )
+    fractures = [fracture]
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.array([0]) if is_constraint else None
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(
+        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        constraints=constraints,
+    )
+    num_fracs = 1 - (1 if is_constraint else 0)
+    assert len(mdg.subdomains(dim=2)) == num_fracs
+    assert len(mdg.subdomains(dim=1)) == 0
+    assert len(mdg.subdomains(dim=0)) == 0
+
+    truncated_x_max = min(x_max, 1.0)
+    truncated_y_max = min(y_max, 1.0)
+    truncated_fracture = pp.PlaneFracture(
+        np.array(
+            [
+                [x_min, truncated_x_max, truncated_x_max, x_min],
+                [y_min, y_min, truncated_y_max, truncated_y_max],
+                [z_min, z_min, z_max, z_max],
+            ]
+        )
+    )
+    if num_fracs == 1:
+        # Check that all nodes of the grid lie in the fracture plane
+        sd = mdg.subdomains(dim=2)[0]
+        _verify_points_in_fracture(sd.nodes, truncated_fracture)
+
+
 class TestDFMMeshGeneration:
     """Test meshing of fracture networks in 3d. No fracture hits the domain boundary."""
 
