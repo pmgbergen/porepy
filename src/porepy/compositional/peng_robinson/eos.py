@@ -627,6 +627,11 @@ class CompiledPengRobinson(CompiledEoS):
        near phase borders
     2. ``'eps'``: Numerical tolerance to determine zero (root case computation).
 
+    Warning:
+        Choosing ``smoothing_multiphase`` too big (say 0.2), can move the borders
+        between single and multiphase regions, leading to wrong results! Use with care
+        and only small numbers e.g., ``1e-4``.
+
     Parameters:
         components: A list of ``num_comp`` component instances.
         ideal_enthalpies: A list of ``num_comp`` callables representing the ideal

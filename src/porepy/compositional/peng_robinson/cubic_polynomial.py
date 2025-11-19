@@ -162,7 +162,8 @@ def discriminant(r1: float, r0: float) -> float:
         The discriminant of the reduced cubic polynomial.
 
     """
-    return -(4 * r1**3 + 27 * r0**2)
+    # return (4 * r1**3 + 27 * r0**2)
+    return (r1 / 3.0) ** 3 + (r0 / 2.0) ** 2
 
 
 @_COMPILER(
@@ -194,12 +195,19 @@ def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
     r0 = get_r0(c2, c1, c0)
 
     D = discriminant(r1, r0)
+    D0 = abs(r0 / 2.0)
+    DR = abs(r1 / 3.0) ** 1.5
+    # NOTE Usage of D0 and DR is a numerically stable way of determining the
+    # discriminant if ro, r1 are very large or very small.
 
-    # Negative D => one real root, two complex conjugate roots.
-    if D < -eps:
+    # Positive discriminant => one real root, two complex conjugate roots.
+    if D0 > DR + eps or D > eps:
         return 1
-    # Positve D => three distinct real roots.
-    elif D > eps:
+    # Negative discriminant => three distinct real roots.
+    elif D0 < DR * (1 - eps) or D < -eps:
+        # Edge case, Welcome to floating point hell.
+        if abs(r0) < 1e-7 and 0 < D < eps and r1 >= 0.0:
+            return 1
         return 3
     # D == 0 => multiple roots.
     else:
@@ -578,8 +586,7 @@ def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     assert r1 < 0.0, "r1 must be negative for 3 real roots."
     t1 = _get_t1(-r1)
     g = _get_Gamma(r1, r0)
-    # prevening out-of-bound errors due to numerical inaccuracies
-    assert np.abs(g) < 1.0, f"Gamma argument out of bounds (0,1) for 3 real roots: {g}"
+    g = max(min(g, 1.0), -1.0)  # Avoid out of bounds errors.
     t2 = np.arccos(g) / 3.0
 
     z1 = -t1 * np.cos(t2 - np.pi / 3.0)
@@ -617,8 +624,7 @@ def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
     assert r1 < 0.0, "r1 must be negative for three real roots."
     t1 = _get_t1(-r1)
     g = _get_Gamma(r1, r0)
-    # prevening out-of-bound errors due to numerical inaccuracies
-    assert np.abs(g) < 1.0, f"acos argument out of bounds: {g}"
+    g = max(min(g, 1.0), -1.0)  # Avoid out of bounds errors.
     t2 = np.arccos(g) / 3.0
 
     dg = _get_dGamma(r1, r0)

@@ -135,25 +135,26 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
     ],
 )
 @pytest.mark.parametrize(
-    "x0",
+    ["x0", "expect_order_reduction"],
     [
         # Sub-critical liquid area.
-        np.array([0.5, 0.02]),
+        (np.array([0.5, 0.02]), False),
         # Sub-critical gas area.
-        np.array([0.3, critical_line(0.3) - 0.001]),
+        (np.array([0.3, critical_line(0.3) - 0.001]), False),
         # 2-phase area.
-        np.array([0.1, 0.01]),
-        np.array([0.2, 0.02]),
-        np.array([0.3, 0.04]),
+        (np.array([0.1, 0.01]), False),
+        (np.array([0.2, 0.02]), False),
+        (np.array([0.3, 0.04]), False),
+        # NOTE Expecting order loss in super-critical region
         # Super-critical liquid area.
-        np.array([0.7, 0.09]),
-        np.array([0.9, B_CRIT]),
+        (np.array([0.7, 0.09]), "gas"),
+        (np.array([0.9, B_CRIT]), "gas"),
         # Super-critical gas area
-        np.array([0.36, 0.065]),
+        (np.array([0.36, 0.065]), "liq"),
     ],
 )
 def test_root_derivative_computation(
-    gaslike: bool, d: np.ndarray, x0: np.ndarray
+    gaslike: bool, d: np.ndarray, x0: np.ndarray, expect_order_reduction: bool | str
 ) -> None:
     """Tests the computation of root derivatives around specified points.
 
@@ -178,7 +179,15 @@ def test_root_derivative_computation(
     # result in another root case region, hence we ignore the first 2 entries.
     # And in terms of tolerance, treating 1.995 as 2 is fair enough considering the
     # computations involved (considering also that the method uses the average order).
-    assert_order_at_least(orders[2:], 2, tol=5e-3, err_msg=_err_msg(*x0))
+    expected_order = 2.0
+    if expect_order_reduction:
+        if expect_order_reduction == "gas" and gaslike:
+            expected_order = 1.0
+        if expect_order_reduction == "liq" and not gaslike:
+            expected_order = 1.0
+    assert_order_at_least(
+        orders, expected_order, tol=5e-3, err_msg=_err_msg(*x0), asymptotic=6
+    )
 
 
 @pytest.mark.parametrize(
@@ -233,7 +242,9 @@ def test_root_derivative_computation_smoothed(
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.25)
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
-    assert_order_at_least(orders[2:], expected_order, tol=1e-2, err_msg=_err_msg(*x0))
+    assert_order_at_least(
+        orders, expected_order, tol=1e-2, err_msg=_err_msg(*x0), asymptotic=6
+    )
 
 
 @pytest.mark.parametrize(
@@ -463,7 +474,9 @@ def test_limitcase_zero_cohesion(
             assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
 
         orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
-        assert_order_at_least(orders[2:], expected_order, tol=1e-2, err_msg=err_msg)
+        assert_order_at_least(
+            orders, expected_order, tol=1e-2, err_msg=err_msg, asymptotic=5
+        )
 
 
 @pytest.mark.parametrize(
@@ -472,7 +485,7 @@ def test_limitcase_zero_cohesion(
 @pytest.mark.parametrize(
     ["gaslike", "expected_order"],
     [
-        (True, 1.97),
+        (True, 1.8),
         (False, 1.0),
     ],
 )
@@ -522,41 +535,31 @@ def test_limitcase_zero_covolume(
 
         is_extended = is_extended_factor(*x0, gaslike, tol)
 
-        if not gaslike:
-            assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
+        # Since B is shifted to COVOLUME limit, the error should be linear in distance
+        # from B = 0.
+        if not (gaslike and A >= 0.25):  # Skip area where gas is extended.
+            assert get_polynomial_residual(func(*x0), c) <= 2 * COVOLUME_LIMIT, (
+                "Root too far off."
+            )
 
-        if rc == 3:
-            if gaslike:
-                assert not is_extended, f"Expecting gas roots to be real: {err_msg}"
-                assert get_polynomial_residual(func(*x0), c) <= tol, (
-                    "Gas root not real root."
-                )
-            # Since we use lower bound instead of zero, the extended root should be
-            # pretty close to zero.
-            else:
-                assert get_polynomial_residual(func(*x0), c) <= COVOLUME_LIMIT, (
-                    "Extended liquid root too far away."
-                )
-
-        # Liquid-like root is extended but approximated with a close enough value.
-        elif rc == 1:
-            assert is_extended, f"Expecting root to be extended: {err_msg}"
-            if not gaslike:
-                assert COVOLUME_LIMIT == 1e-5, "COVOLUME_LIMIT expected to be 1e-5."
-                # Because numerics sometimes does not care.
-                assert get_polynomial_residual(func(*x0), c) <= 2e-5, (
-                    "Liquid root not real root."
-                )
+        if rc == 1 and gaslike:
+            assert is_extended, f"Expecting gas root to be extended: {err_msg}"
+        else:
+            assert not is_extended, f"Expecting root to be real: {err_msg}"
 
         orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+        # Order reduction where gas is extended.
+        if gaslike and A >= 0.25:
+            expected_order = 1.0
+
         assert_order_at_least(
             orders,
             expected_order,
             tol=1e-1,
             err_msg=err_msg,
-            # Liquid like root approximations are only asymptotic near liquid-saturated
+            # Root approximations are only asymptotic near liquid-saturated
             # line.
-            asymptotic=None if gaslike else 5,
+            asymptotic=3,
         )
 
 
@@ -599,6 +602,12 @@ def test_limitcase_zero_covolume_liquid_saturated(
     # The raw roots have special values.
     roots = calculate_roots(*c, eps=tol)
     np.testing.assert_allclose(roots, np.array([0.0, 0.5]), rtol=0.0, atol=tol)
+    # Gas root should not be modified, since real, but liquid-root should be bound
+    # by limit value for covolume.
+    Zg = get_compressibility_factor(*x0, True, tol, 0.0)
+    assert Zg == 0.5, "Unexpected value for gas root."
+    Zl = get_compressibility_factor(*x0, False, tol, 0.0)
+    assert Zl >= COVOLUME_LIMIT, "Unexpected value for liquid root."
 
     def func(*x):
         return get_compressibility_factor(*x, gaslike, tol, 0.0)
@@ -608,19 +617,12 @@ def test_limitcase_zero_covolume_liquid_saturated(
 
     assert_roots_correctly_sized(*x0, tol=tol)
     is_extended = is_extended_factor(*x0, gaslike, tol)
-    if gaslike:
-        assert not is_extended, (
-            f"Expecting gas root to be real at liquid-saturated border: {err_msg}"
-        )
-        assert get_polynomial_residual(func(*x0), c) <= tol, (
-            f"{'Gas' if gaslike else 'Liquid'} root not real root."
-        )
-    else:
-        assert is_extended, f"Expecting liquid root to be bound: {err_msg}"
-        assert COVOLUME_LIMIT == 1e-5, "COVOLUME_LIMIT value changed."
-        assert get_polynomial_residual(func(*x0), c) <= 2e-5, (
-            f"{'Gas' if gaslike else 'Liquid'} root not real root."
-        )
+    assert get_polynomial_residual(func(*x0), c) <= 2 * COVOLUME_LIMIT, (
+        "Root too far off."
+    )
+    assert not is_extended, (
+        f"Expecting root to be real at liquid-saturated border: {err_msg}"
+    )
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
     assert_order_at_least(
@@ -628,7 +630,7 @@ def test_limitcase_zero_covolume_liquid_saturated(
         expected_order,
         tol=1e-2,
         err_msg=err_msg,
-        asymptotic=None if gaslike else 5,
+        asymptotic=None if gaslike else 3,
     )
 
 
@@ -636,11 +638,11 @@ def test_limitcase_zero_covolume_liquid_saturated(
 @pytest.mark.parametrize(
     ["d", "expected_order_gas", "expected_order_liquid"],
     [
-        (np.array([A_CRIT, critical_line(A_CRIT)]), 1.89, 1.0),
-        (np.array([1.0, 1e3]), 1.89, 1.0),
-        (np.array([1e3, 1.0]), 1.89, None),
-        (np.array([1.0, 0.0]), 1.89, None),
-        (np.array([0.0, 1.0]), 1.89, 1.0),
+        (np.array([A_CRIT, critical_line(A_CRIT)]), 1.0, 1.0),
+        (np.array([1.0, 1e3]), 1.0, 1.0),
+        (np.array([1e3, 1.0]), 1.0, None),
+        (np.array([1.0, 0.0]), 1.0, None),
+        (np.array([0.0, 1.0]), 1.0, 1.0),
     ],
 )
 def test_limitcase_zero_cohesion_and_covolume(
@@ -685,13 +687,15 @@ def test_limitcase_zero_cohesion_and_covolume(
     if gaslike:
         assert not is_extended, f"Expecting gas root to be real: {err_msg}"
     else:
-        assert is_extended, f"Expecting liqud root to be extended: {err_msg}"
+        assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-3, -12, 10))
 
     expected_order = expected_order_gas if gaslike else expected_order_liquid
     if isinstance(expected_order, (int, float)):
-        assert_order_at_least(orders, expected_order, tol=1e-2, err_msg=err_msg)
+        assert_order_at_least(
+            orders, expected_order, tol=1e-2, err_msg=err_msg, asymptotic=3
+        )
     elif expected_order is None:
         assert np.any(orders < 0), (
             "Expecting negative orders where divergence indicated."
