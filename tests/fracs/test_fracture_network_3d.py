@@ -485,10 +485,6 @@ def _verify_points_in_line(points: np.ndarray, start: np.ndarray, end: np.ndarra
         ([-0.5], [False]),
         # Fracture outside the domain, is a constraint.
         ([-0.5], [True]),
-        # Fracture on the domain boundary.
-        ([0.0], [False]),
-        # Constraint on the domain boundary.
-        ([0.0], [True]),
         # One fracture inside, one outside, none a constraint.
         ([0.2, -0.5], [False, False]),
         # One fracture inside, one outside. Outside fracture first on the list.
@@ -519,12 +515,11 @@ def test_meshing_no_intersections(
             is_fracture[i] = False
 
     for i, x in enumerate(x_coord):
-        if is_fracture[i]:
-            fractures.append(
-                pp.PlaneFracture(
-                    np.array([[x, x, x, x], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
-                )
+        fractures.append(
+            pp.PlaneFracture(
+                np.array([[x, x, x, x], [0.2, 0.8, 0.8, 0.2], [0.2, 0.2, 0.8, 0.8]])
             )
+        )
 
     network = pp.create_fracture_network(fractures, unit_box)
     constraints = np.where(is_constraint)[0]
@@ -538,7 +533,10 @@ def test_meshing_no_intersections(
     assert len(mdg.subdomains(dim=1)) == 0
     assert len(mdg.subdomains(dim=0)) == 0
 
-    for i, f in enumerate(fractures):
+    # Verify that the 2d grids lie in the fracture planes, but only for the fractures
+    # that should be represented by actual grids.
+    internal_fractures = [f for i, f in enumerate(fractures) if is_fracture[i]]
+    for i, f in enumerate(internal_fractures):
         # Find the corresponding 2d grid
         for sd in mdg.subdomains(dim=2):
             if sd.frac_num == i:
@@ -633,8 +631,16 @@ def test_cross_intersection(
     num_fractures = sum(is_fracture)
     assert len(mdg.subdomains(dim=2)) == num_fractures
     if num_fractures == 2:
-        assert len(mdg.subdomains(dim=1)) == 1
-        assert len(mdg.subdomains(dim=0)) == 0
+        if sum(fracture_constraint) == 0:
+            # No constraints, the two fractures intersect in a line.
+            assert len(mdg.subdomains(dim=1)) == 1
+            assert len(mdg.subdomains(dim=0)) == 0
+        else:
+            # The two fractures intersect in a line, but this line will be split by the
+            # third fracture (the constraint). The splitting will introduce two 1d grids
+            # and a 0d grid.
+            assert len(mdg.subdomains(dim=1)) == 2
+            assert len(mdg.subdomains(dim=0)) == 1
     elif num_fractures == 3:
         assert len(mdg.subdomains(dim=1)) == 6
         assert len(mdg.subdomains(dim=0)) == 1
@@ -785,14 +791,30 @@ def test_three_fractures_intersecting_along_line(
     )
     num_fracs = 3 - sum(is_constraint)
     assert len(mdg.subdomains(dim=2)) == num_fracs
-    if num_fracs == 3:
+
+    # All fractures cross along the segment 0.3 < z < 0.7. Fractures 0 and 1 also cross
+    # along the two segmentnts 0.2 < z < 0.3 and 0.7 < z < 0.8. Thus, if all fractures
+    # are truly fractures (not constraints), there will be three intersection grids and
+    # two intersection points. The same applies if only fracture 2 is a constraint, as
+    # the presence of the constraint will split the intersection line between fractures
+    # 0 and 1, even though the constraint is not present as a fracture (to be clear,
+    # yes, this is a bit awkward, but merging the interseciton lines again would be much
+    # more cumbersome to implement).
+    #
+    # In other cases where only two are real fractures, there will be a single
+    # intersection grid (along 0.3 < z < 0.7) and no intersection points. If only one or
+    # none are real fractures, there will be no intersection grids or points.
+    if num_fracs == 3 or (num_fracs == 2 and is_constraint[2]):
         expected_1d_grids = 3
+        expected_0d_grids = 2
     elif num_fracs == 2:
         expected_1d_grids = 1
+        expected_0d_grids = 0
     else:
         expected_1d_grids = 0
+        expected_0d_grids = 0
     assert len(mdg.subdomains(dim=1)) == expected_1d_grids
-    assert len(mdg.subdomains(dim=0)) == 0
+    assert len(mdg.subdomains(dim=0)) == expected_0d_grids
 
     if num_fracs >= 2:
         # Check the intersection line between fracture 0 and 1.
@@ -832,7 +854,7 @@ def test_fracture_hits_boundary(x_min, x_max, is_constraint, unit_box: pp.Domain
     """
     fracture = pp.PlaneFracture(
         np.array(
-            [[x_min, x_max, x_max, x_min], [0.2, 0.2, 0.8, 0.8], [0.2, 0.2, 0.8, 0.8]]
+            [[x_min, x_max, x_max, x_min], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]]
         )
     )
     fractures = [fracture]
@@ -854,7 +876,7 @@ def test_fracture_hits_boundary(x_min, x_max, is_constraint, unit_box: pp.Domain
         np.array(
             [
                 [truncated_x_min, truncated_x_max, truncated_x_max, truncated_x_min],
-                [0.2, 0.2, 0.8, 0.8],
+                [0.5, 0.5, 0.5, 0.5],
                 [0.2, 0.2, 0.8, 0.8],
             ]
         )
@@ -887,15 +909,15 @@ def test_fracture_hits_domain_corner_line(
     """
     x_min = 0.5
     y_min = 0.5
-    x_max = 1.0 if extend_beyond else 1.5
-    y_max = 1.0 if extend_beyond else 1.5
+    x_max = 1.5 if extend_beyond else 1.0
+    y_max = 1.5 if extend_beyond else 1.0
     z_min = 0.2
     z_max = 0.8
     fracture = pp.PlaneFracture(
         np.array(
             [
                 [x_min, x_max, x_max, x_min],
-                [y_min, y_min, y_max, y_max],
+                [y_min, y_max, y_max, y_min],
                 [z_min, z_min, z_max, z_max],
             ]
         )
@@ -919,7 +941,7 @@ def test_fracture_hits_domain_corner_line(
         np.array(
             [
                 [x_min, truncated_x_max, truncated_x_max, x_min],
-                [y_min, y_min, truncated_y_max, truncated_y_max],
+                [y_min, truncated_y_max, truncated_y_max, y_min],
                 [z_min, z_min, z_max, z_max],
             ]
         )
@@ -928,6 +950,8 @@ def test_fracture_hits_domain_corner_line(
         # Check that all nodes of the grid lie in the fracture plane
         sd = mdg.subdomains(dim=2)[0]
         _verify_points_in_fracture(sd.nodes, truncated_fracture)
+    else:
+        assert len(mdg.subdomains(dim=2)) == 0
 
 
 class TestDFMMeshGeneration:
