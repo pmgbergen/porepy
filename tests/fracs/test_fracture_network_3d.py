@@ -753,13 +753,15 @@ def test_t_l_intersection(
         [True, True, True],  # All fractures are constraints. No intersection grids.
     ],
 )
+@pytest.mark.parametrize("dfn", [True, False])
 def test_three_fractures_intersecting_along_line(
-    is_constraint: list[bool], unit_box: pp.Domain
+    is_constraint: list[bool], dfn: bool, unit_box: pp.Domain
 ):
     """Test meshing of three fractures intersecting along a line.
 
     Parameters:
         is_constraint: Whether each fracture is a constraint.
+        dfn: Whether to use DFN-style meshing.
         unit_box: Unit box domain.
 
     """
@@ -779,6 +781,7 @@ def test_three_fractures_intersecting_along_line(
     mdg = network.mesh(
         mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
         constraints=constraints,
+        dfn=dfn,
     )
     num_fracs = 3 - sum(is_constraint)
     assert len(mdg.subdomains(dim=2)) == num_fracs
@@ -1029,40 +1032,6 @@ class TestDFMMeshGeneration:
             isect_line=isect_lines,
             isect_pt=isect_pt,
         )
-
-
-class TestDFNMeshGeneration:
-    def _generate_mesh(self, fractures):
-        mesh_args = {"mesh_size_frac": 0.4, "mesh_size_bound": 1, "mesh_size_min": 0.2}
-        network = pp.create_fracture_network(fractures)
-        mdg = network.mesh(mesh_args, dfn=True)
-        return mdg
-
-    def test_conforming_two_fractures(self):
-        f_1 = pp.PlaneFracture(
-            np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T
-        )
-        f_2 = pp.PlaneFracture(
-            np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T
-        )
-        mdg = self._generate_mesh([f_1, f_2])
-        assert len(mdg.subdomains(dim=2)) == 2
-        assert len(mdg.subdomains(dim=1)) == 1
-
-    def test_conforming_three_fractures(self):
-        f_1 = pp.PlaneFracture(
-            np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]).T
-        )
-        f_2 = pp.PlaneFracture(
-            np.array([[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]).T
-        )
-        f_3 = pp.PlaneFracture(
-            np.array([[0, -1, -1], [0, 1, -1], [0, 1, 1], [0, -1, 1]]).T
-        )
-        mdg = self._generate_mesh([f_1, f_2, f_3])
-        assert len(mdg.subdomains(dim=2)) == 3
-        assert len(mdg.subdomains(dim=1)) == 6
-        assert len(mdg.subdomains(dim=0)) == 1
 
 
 class TestDFMPolytopeDomain:
