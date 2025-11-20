@@ -358,6 +358,7 @@ class FractureNetwork3d(object):
             intersection_lines,
             isect_mapping,
             num_parents_of_lines,
+            constraints,
         ) = self.process_intersections(
             fracture_tags, domain_tag, constraints=constraints
         )
@@ -632,6 +633,7 @@ class FractureNetwork3d(object):
             intersection_lines,
             isect_mapping,
             num_parents,
+            constraints,
         )
 
     def mesh_old(
