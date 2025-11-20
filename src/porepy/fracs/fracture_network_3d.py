@@ -459,20 +459,25 @@ class FractureNetwork3d(object):
 
         gmsh.model.occ.synchronize()
 
-        if self.domain is not None and not self.domain.is_boxed:
-            # It turns out (...) that for non-box domains, the fragmentation process may
-            # not eliminate parts of fractures that lie outside the domain. To
-            # understand why this is so might require a deep dive into OpenCascade. For
-            # now, we do a simple fix to eliminate (parts of) fractures that are outside
-            # the domain: Identify the vertexes of each fracture part, compute their
-            # distance to the domain. If any of these distances is larger than the
-            # tolerance, we drop the fracture from further consideration. There are
-            # surely cases where this simple approach fails, but it will have to do for
-            # now.
+        # It turns out (...) that the fragmentation process may not eliminate parts of
+        # fractures that lie outside the domain. To understand why this is so might
+        # require a deep dive into OpenCascade. For now, we do a simple fix to eliminate
+        # (parts of) fractures that are outside the domain: Identify the vertexes of
+        # each fracture part, compute their distance to the domain. If any of these
+        # distances is larger than the tolerance, we drop the fracture from further
+        # consideration. There are surely cases where this simple approach fails, but it
+        # will have to do for now.
 
-            keep = np.ones(len(isect_mapping[0]), dtype=bool)
-            for fi, frac in enumerate(isect_mapping[0]):
-                bounding_lines = gmsh.model.get_boundary([frac])
+        # Double loop: First over all fractures, then over all fragments of each
+        # fracture. We kick out fragments where at least one vertex is outside the
+        # domain (has a distance larger than tol). If all fragments of a fracture are
+        # kicked out, we need to remove the fracture altogether, and update the
+        # constraint indices accordingly.
+        keep = np.ones(len(isect_mapping), dtype=bool)
+        for fi, frac in enumerate(isect_mapping):
+            loc_keep = np.ones(len(frac), dtype=bool)
+            for sfi, sub_frac in enumerate(frac):
+                bounding_lines = gmsh.model.get_boundary([sub_frac])
                 bounding_points = []
                 for line in bounding_lines:
                     bounding_points += gmsh.model.get_boundary([line])
@@ -482,11 +487,12 @@ class FractureNetwork3d(object):
                     for pt in bounding_points
                 ]
                 if np.any(np.array(distances) > self.tol):
-                    keep[fi] = False
+                    loc_keep[sfi] = False
+            isect_mapping[fi] = [frac[i] for i in range(len(frac)) if loc_keep[i]]
+            keep[fi] = np.any(loc_keep)
 
-            isect_mapping[0] = [
-                isect_mapping[0][i] for i in range(len(keep)) if keep[i]
-            ]
+        isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
+        constraints = [c for c in constraints if keep[c]]
 
         # Partial implementation. Intersection lines are either on the boundary or
         # embedded in fractures. Make a list of both.
