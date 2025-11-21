@@ -437,17 +437,25 @@ class FractureNetwork2d:
         # - these will be intersections - and store the tag that gmsh has assigned them.
         boundary_points_fracture_indices = []
         for fi, old_fracture in enumerate(isect_mapping):
-            if len(old_fracture) > 0 and old_fracture[0][0] == nd:
-                # It is unclear if processing the domain will make any harm, but there
-                # is no need to take any chances. Skip it.
-                continue
+            if len(old_fracture) > 0:
+                if old_fracture[0][0] == nd:
+                    # It is unclear if processing the domain will make any harm, but there
+                    # is no need to take any chances. Skip it.
+                    continue
+                elif old_fracture[0][1] in boundary_tags_new:
+                    # Similarly, skip processing of boundary segments.
+                    continue
 
             # Retrieve the original gmsh tag, and then the index of the fracture in
             # self.fractures.
 
+            # Get hold of the gmsh tag used to represent this fracture before
+            # intersection removal.
             old_gmsh_tag = line_tags_new[fi]
             is_fracture = old_gmsh_tag in inv_fracture_tag_map
             if is_fracture:
+                # This may be a constraint fracture, in which case there is no need to
+                # work with intersection removal.
                 frac_ind = inv_fracture_tag_map[old_gmsh_tag]
                 if frac_ind in constraints:
                     # Constrained fractures are not to be considered for intersection
@@ -467,37 +475,17 @@ class FractureNetwork2d:
 
         # Find the unique boundary points and obtain a mapping from the full set of
         # boundary points to the unique ones.
-        unique_boundary_points, u2a_ind = np.unique(
-            boundary_points_fracture_indices, axis=0, return_inverse=True
-        )
-        # Count the number of occurrences of each unique boundary point. Points that
-        # occur more than once will be intersections.
-        multiple_occs = np.where(np.bincount(u2a_ind) > 1)[0]
-        # Store the gmsh representation of the intersection points.
-        intersection_points = [(0, unique_boundary_points[i][0]) for i in multiple_occs]
+        unique_boundary_points = np.unique(boundary_points_fracture_indices, axis=0)
 
         # Finally, we need to uniquify the intersection points, since the same point
         # will have been identified in at least two old fractures.
-        if len(intersection_points) > 0:
-            # Some extra gymnastics: intersection_points is a list of points at the
-            # intersection between 1d lines, but Gmsh fragment makes no difference
-            # between lines that we consider real fractures and constraints. Points that
-            # form part of a constraints are not added to intersection_points, since we
-            # skipped constraints in the previous loop. To identify those points that
-            # are on the intersection between real fractures, we filter away points that
-            # occur less than twice in intersection_points.
+        if unique_boundary_points.size > 0:
+            # Count the number of occurrences of each unique boundary point. Points that
+            # occur more than once will be intersections.
+            unique_intersection_points = np.where(
+                np.bincount(unique_boundary_points[:, 0]) > 1
+            )[0]
 
-            candidate_intersection_points, unique_2_all = np.unique(
-                # Take the second column, which contains the point tags. The first
-                # column is the dimension, which is always 0 here.
-                np.vstack(intersection_points)[:, 1],
-                axis=0,
-                return_inverse=True,
-            )
-            found_by_multiple_fractures = np.where(np.bincount(unique_2_all) > 1)[0]
-            unique_intersection_points = candidate_intersection_points[
-                found_by_multiple_fractures
-            ]
         else:
             # No intersections, simply create an empty list.
             unique_intersection_points = np.array([], dtype=int)
