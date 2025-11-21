@@ -109,6 +109,12 @@ def unit_square() -> pp.Domain:
     return pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
 
+@pytest.fixture(scope="module")
+def mesh_args() -> dict:
+    """Create standard mesh arguments for testing purposes."""
+    return {"mesh_size_bound": 1.0, "mesh_size_frac": 1.0, "mesh_size_min": 1e-5}
+
+
 def test_snap_fractures():
     p = np.array([[0, 2, 1, 1], [0, 0, 1e-3, 1]])
     e = np.array([[0, 2], [1, 3]])
@@ -314,7 +320,10 @@ def _verify_1d_grid_geometry(sd: pp.Grid, frac: pp.LineFracture) -> None:
     ],
 )
 def test_meshing_no_intersections(
-    x_coord: list[float], is_constraint: list[bool] | None, unit_square: pp.Domain
+    x_coord: list[float],
+    is_constraint: list[bool] | None,
+    unit_square: pp.Domain,
+    mesh_args: dict,
 ):
     """Test meshing of a single fracture without intersections.
 
@@ -324,6 +333,8 @@ def test_meshing_no_intersections(
         x_coord: x-coordinate of the vertical fracture.
         is_constraint: Whether the fracture is a constraint.
         unit_square: Unit square domain.
+        mesh_args: Meshing arguments.
+
     """
     if is_constraint is None:
         is_constraint = len(x_coord) * [False]
@@ -341,14 +352,7 @@ def test_meshing_no_intersections(
     network = pp.create_fracture_network(fractures, unit_square)
     constraints = np.where(is_constraint)[0]
     # Generate a mixed-dimensional grid with a grid as coarse as possible.
-    mdg = network.mesh(
-        {
-            "mesh_size_bound": 0.5,
-            "mesh_size_frac": 0.5,
-            "mesh_size_min": 0.5,
-        },
-        constraints=constraints,
-    )
+    mdg = network.mesh(mesh_args, constraints=constraints)
 
     assert len(mdg.subdomains(dim=1)) == sum(is_fracture)
     assert len(mdg.subdomains(dim=0)) == 0
@@ -371,7 +375,7 @@ def test_meshing_no_intersections(
     "is_constraint", [[False, False], [True, False], [False, True], [True, True]]
 )
 def test_meshing_two_intersecting_fractures(
-    x_coord: float, is_constraint: list[bool], unit_square: pp.Domain
+    x_coord: float, is_constraint: list[bool], unit_square: pp.Domain, mesh_args: dict
 ):
     """Test meshing of two intersecting fractures.
 
@@ -381,6 +385,7 @@ def test_meshing_two_intersecting_fractures(
         x_coord: x-coordinate of the vertical fracture.
         is_constraint: Whether each fracture is a constraint.
         unit_square: Unit square domain.
+        mesh_args: Meshing arguments.
 
     """
     fractures = [
@@ -391,14 +396,7 @@ def test_meshing_two_intersecting_fractures(
     network = pp.create_fracture_network(fractures, unit_square)
     constraints = np.where(is_constraint)[0]
     # Generate a mixed-dimensional grid with a grid as coarse as possible.
-    mdg = network.mesh(
-        {
-            "mesh_size_bound": 0.5,
-            "mesh_size_frac": 0.5,
-            "mesh_size_min": 0.5,
-        },
-        constraints=constraints,
-    )
+    mdg = network.mesh(mesh_args, constraints=constraints)
 
     assert len(mdg.subdomains(dim=1)) == 2 - sum(is_constraint)
     num_0d_grids = 0 if any(is_constraint) else 1
@@ -426,7 +424,7 @@ def test_meshing_two_intersecting_fractures(
 )
 @pytest.mark.parametrize("is_constraint", [False, True])
 def test_meshing_fracture_crosses_boundary(
-    x_coord: float, is_constraint: bool, unit_square: pp.Domain
+    x_coord: float, is_constraint: bool, unit_square: pp.Domain, mesh_args: dict
 ):
     """Test meshing of a fracture crossing the domain boundary.
 
@@ -437,6 +435,7 @@ def test_meshing_fracture_crosses_boundary(
             endpoint is at (1.5, 0.5), hence on the right of the domain.
         is_constraint: Whether the fracture is a constraint.
         unit_square: Unit square domain fixture.
+        mesh_args: Meshing arguments.
 
     """
     fracture = pp.LineFracture(np.array([[x_coord, 1.5], [0.5, 0.5]]))
@@ -444,14 +443,7 @@ def test_meshing_fracture_crosses_boundary(
     network = pp.create_fracture_network([fracture], unit_square)
     constraints = np.array([0]) if is_constraint else np.array([])
     # Generate a mixed-dimensional grid with a grid as coarse as possible.
-    mdg = network.mesh(
-        {
-            "mesh_size_bound": 0.5,
-            "mesh_size_frac": 0.5,
-            "mesh_size_min": 0.5,
-        },
-        constraints=constraints,
-    )
+    mdg = network.mesh(mesh_args, constraints=constraints)
     left_lim = max(0.0, x_coord)
 
     # The constrained fracture will be shorter than the original one.
