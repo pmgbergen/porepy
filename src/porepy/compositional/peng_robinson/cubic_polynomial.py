@@ -7,14 +7,16 @@ actual applications like the Peng-Robinson equation of state.
 The base formulation of the cubic polynomial is
 
 .. math::
-    z^3 + c_2 z^2 + c_1 z + c_0 = 0,
+    z^3 + c_0 z^2 + c_1 z + c_2 = 0,
 
 from which the reduced form is obtained as
 
 .. math::
-    z^3 + r_1 z + r_0 = 0.
+    z^3 + r_0 z + r_1 = 0.
 
-The root is a function of the coefficients :math:`c_0`, :math:`c_1`, and :math:`c_2`.
+The root is a function of the coefficient array :math:`c`.
+Throughout the module it holds :math:`c = [c_0, c_1, c_2]` and :math:`r=[r_0, r_1]`.
+
 Most importantly, this module implements also the derivatives of the roots with respect
 to the coefficients, which are essential in many applications.
 
@@ -36,6 +38,7 @@ import numpy as np
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 
 __all__ = [
+    "get_root_case",
     "calculate_roots",
     "calculate_root_derivatives",
 ]
@@ -50,281 +53,283 @@ compilation.
 """
 
 
+@_COMPILER(nb.f8(nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def _theta_from_r(r: np.ndarray) -> float:
+    """Calculate the auxiliary variable used in the trigonometric solution of
+    real roots of real cubic polynomials.
+
+    Parameters:
+        r: Reduced coefficients.
+
+    Returns:
+        The auxiliary variable.
+
+    """
+    return -r[1] / 2.0 * np.sqrt(27.0 / np.abs(r[0] ** 3))
+
+
+@_COMPILER(nb.f8[:](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def _dtheta_from_r(r: np.ndarray) -> np.ndarray:
+    """Gradient of :func:`_theta_from_r`.
+
+    Parameters:
+        r: Reduced coefficients.
+
+    Returns:
+        A ``(2,)`` array.
+
+    """
+    t = np.sqrt(27.0 / np.abs(r[0] ** 3))
+    return np.array(
+        [
+            r[1]
+            / 4.0
+            / t
+            * 27.0
+            / np.abs(r[0] ** 3) ** 2
+            * np.sign(r[0])
+            * 3.0
+            * r[0] ** 2,
+            -t / 2.0,
+        ]
+    )
+
+
 @_COMPILER(
-    nb.f8(nb.f8, nb.f8),
+    [
+        nb.f8[:](nb.f8[:]),
+        nb.f8[:](nb.int_[:]),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def get_r1(c2: float, c1: float) -> float:
-    """Calculate the reduced coefficient r1.
+def r_from_c(c: np.ndarray) -> np.ndarray:
+    """Computes the coefficients of the reduced polynomial
 
     .. math::
 
-        r_1 = c_1 - \\frac{c_2^2}{3}
+        x^3 + r_0 x + r_1
+
+    which is unique for all normalized cubic polynomials in standard form.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
-        The reduced coefficient r1.
+        An array with ``shape=(2,)`` containing the ``r_0`` and ``r_1``.
 
     """
-    return c1 - c2**2 / 3.0
+    return np.array(
+        (
+            (c[1] - c[0] ** 2 / 3.0),
+            (2.0 / 27.0 * c[0] ** 3 - c[0] * c[1] / 3.0 + c[2]),
+        )
+    ).astype(np.float64)
 
 
 @_COMPILER(
-    nb.f8[:](nb.f8),
+    [
+        nb.f8[:, :](nb.f8[:]),
+        nb.f8[:, :](nb.int_[:]),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def get_dr1(c2: float) -> np.ndarray:
-    """Derivatives of the reduced coefficient r1 with respect to c2, c1 and c0.
-
-    The derivative with respect to c1 is always 1.
-    The derivative with respect to c0 is always 0.
+def dr_from_c(c: np.ndarray) -> np.ndarray:
+    """Returns the derivatives of the reduced polynomial coefficients with respect to
+    the standard coefficients (Jacobian of :func:`r_from_c`)
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
-        A numpy array with ``shape=(3,)`` containing the derivatives with respect to
-        ``(c2, c1, c0)``.
+        An array with ``shape=(2, 3)`` containing the Jacobian.
 
     """
-    return np.array([-2.0 * c2 / 3.0, 1.0, 0.0])
+    dr = np.zeros((2, 3))
+    dr[0, 0] = -2.0 / 3.0 * c[0]
+    dr[0, 1] = 1.0
+    dr[1, 0] = 6.0 / 27.0 * c[0] ** 2 - c[1] / 3.0
+    dr[1, 1] = -c[0] / 3.0
+    dr[1, 2] = 1.0
+    return dr.astype(np.float64)
 
 
-@_COMPILER(
-    nb.f8(nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def get_r0(c2: float, c1: float, c0: float) -> float:
-    """Calculate the reduced coefficient r0.
-
-    .. math::
-
-        r_0 = \\frac{2}{27} c_2^3 - \\frac{c_1 c_2}{3} + c_0
-
-    Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
-
-    Returns:
-        The reduced coefficient r0.
-
-    """
-    return 2.0 / 27.0 * c2**3 - (c1 * c2) / 3.0 + c0
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def get_dr0(c2: float, c1: float) -> np.ndarray:
-    """Derivatives of the reduced coefficient r0 with respect to c2, c1 and c0.
-
-    The derivative with respect to c0 is always 1.
-
-    Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-
-    Returns:
-        A numpy array with ``shape=(3,)`` containing the derivatives with respect to
-        ``(c2, c1, c0)``.
-
-    """
-    return np.array([6.0 / 27.0 * c2**2 - c1 / 3.0, -c2 / 3.0, 1.0])
-
-
-@_COMPILER(
-    nb.f8(nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def discriminant(r1: float, r0: float) -> float:
+@_COMPILER([nb.f8(nb.f8[:]), nb.f8(nb.int_[:])], fastmath=NUMBA_FAST_MATH, cache=True)
+def discriminant(rc: np.ndarray) -> float:
     """Calculate the discriminant of the reduced cubic polynomial.
 
-    Note:
-        For normalized cubic polynomials where the coefficient of the monomial
-        :math:`z^3` is 1, the discriminant of the reduced polynomial is equal to
-        the discriminant of the original polynomial.
-
     Parameters:
-        r1: Reduced coefficient r1.
-        r0: Reduced coefficient r0.
+        rc: Reduced or normal coefficients.
+
+    Raises:
+        ValueError: If ``rc`` is not of size 2 or 3.
 
     Returns:
-        The discriminant of the reduced cubic polynomial.
+        The discriminant of the polynomial. If positive, the polynomial has 1 real root.
+        If negative, it has 3 distinct real roots. If zero, it has multiple real roots
+        with at least one with higher algebraic multiplicity.
 
     """
-    # return (4 * r1**3 + 27 * r0**2)
-    return (r1 / 3.0) ** 3 + (r0 / 2.0) ** 2
+    if rc.size == 2:
+        r = rc.astype(np.float64)
+    elif rc.size == 3:
+        r = r_from_c(rc)
+    else:
+        raise ValueError(
+            "Expecting coefficient array of size 2 or 3 (reduced or normal)."
+        )
+    return (r[0] / 3.0) ** 3 + (r[1] / 2.0) ** 2
 
 
 @_COMPILER(
-    nb.int_(nb.f8, nb.f8, nb.f8, nb.f8),
+    [
+        nb.int_(nb.f8[:], nb.f8),
+        nb.int_(nb.int_[:], nb.f8),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def get_root_case(c2: float, c1: float, c0: float, eps: float) -> int:
+def get_root_case(c: np.ndarray, eps: float) -> int:
     """Determine the case for the roots of the cubic polynomial.
 
-    The cases are:
-
-        - 3: Three distinct real roots.
-        - 2: One real root and one root with multiplicity two.
-        - 1: One real root and two complex conjugate roots.
-        - 0: One real root with multiplicity three (triple root).
-
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
-        eps: Tolerance for determining whether the discriminant is zero.
+        c: Coefficient in normal form.
+        eps: Tolerance for determining degeneracy.
 
     Returns:
-        An integer indicating the case (0, 1, 2 or 3).
+        An integer indicating the case.
+
+        - 3: 3 distinct real roots.
+        - 2: 2 distinct real roots, one with algebraic multiplicity of 2.
+        - 1: 1 real root and two complex conjugate roots.
+        - 0: 1 real root with multiplicity three (triple root).
 
     """
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
+    r = r_from_c(c)
+    D = discriminant(r)
+    absq = np.abs(r[1])
 
-    D = discriminant(r1, r0)
-    D0 = abs(r0 / 2.0)
-    DR = abs(r1 / 3.0) ** 1.5
+    # Degenerate case with triple root.
+    if max(np.abs(r[0]), absq) < eps:
+        return 0
+
     # NOTE Usage of D0 and DR is a numerically stable way of determining the
-    # discriminant if ro, r1 are very large or very small.
+    # discriminant if r contains very large or very small values.
+    D0 = np.abs(r[1] / 2.0)
+    DR = np.abs(r[0] / 3.0) ** 1.5
 
     # Positive discriminant => one real root, two complex conjugate roots.
-    if D0 > DR + eps or D > eps:
+    if D0 > DR * (1 + eps) or D > eps:
         return 1
     # Negative discriminant => three distinct real roots.
     elif D0 < DR * (1 - eps) or D < -eps:
-        # Edge case, Welcome to floating point hell.
-        if abs(r0) < 1e-7 and 0 < D < eps and r1 >= 0.0:
+        # Edge case, welcome to floating point hell. r[0] must be strictly negative for
+        # 3 roots.
+        if absq < 1e-7 and 0 < D < eps and r[0] >= 0.0:
             return 1
         return 3
-    # D == 0 => multiple roots.
+    # Degenerate case 2: Almost never the case but here for completeness.
+    # 2 distinct real roots, 1 with algebraic multiplicity of zero.
     else:
-        # r_1 == 0 => triple root.
-        if np.abs(r1) < eps:
-            return 0
-        # Else two roots, one with multiplicity two.
-        else:
-            return 2
+        assert np.abs(D) <= eps, "Expecting degenerate discriminant."
+        # # # Triple root
+        # if max(np.abs(r[0]), absq) < eps:
+        #     return 0
+        # # 2 distinct real roots, numerically almost never the case but here
+        # # for completeness.
+        # else:
+        return 2
 
 
-@_COMPILER(
-    nb.f8[:](nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def triple_root(c2: float) -> np.ndarray:
-    """Calculate the triple root of the cubic polynomial.
-
-    See also:
-        https://en.wikipedia.org/wiki/Cubic_equation#Multiple_root
+@_COMPILER(nb.f8[:](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def triple_root(c: np.ndarray) -> np.ndarray:
+    """Calculate the triple root of the cubic polynomial, which is always ``c_0 / 3``.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
         The triple root.
 
     """
-    return np.array([-c2 / 3.0])
+    return np.array([-c[0] / 3.0])
 
 
-@_COMPILER(
-    nb.f8[:, :](nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def d_triple_root(c2: float) -> np.ndarray:
-    """Derivatives of the triple root with respect to c2, c1 and c0.
-    This is a constant array with values (-1/3, 0, 0).
+@_COMPILER(nb.f8[:, :](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def d_triple_root(c: np.ndarray) -> np.ndarray:
+    """Derivatives of the triple root with respect to the coefficients.
 
     Note:
-        Though always a constant array, we keep the method format for simplicity of code
-        using the root computations.
-        Otherwise we would need a copy operation on a constant array, which is
-        cumbersome.
+        Though always a constant array, we keep the signature for compatibility with
+        other root methods.
+
+    Parameters:
+        c: Coefficients in normal form.
+
+    Returns:
+        A ``(3,)`` array containing ``(-1/3, 0, 0)``.
 
     """
     return np.array([[-1.0 / 3.0, 0.0, 0.0]])
 
 
-@_COMPILER(
-    nb.f8[:](nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
+@_COMPILER(nb.f8[:](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def two_roots(c: np.ndarray) -> np.ndarray:
     """Compute the two roots of the cubic polynomial, in the case where one of them has
     multiplicity two.
 
     See also:
         https://en.wikipedia.org/wiki/Cubic_equation#Multiple_root
 
+    Important:
+        Contrary to :func:`three_roots`, the ordering here happens explicitly since
+        the formula does not yield always properly ordered roots. I.e., there the
+        function is no smooth where the switch happens.
+
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
-        A numpy array with the two roots. The second entry contains the larger root.
+        A ``(2,)`` array containing the roots ordered by size.
 
     """
 
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
+    r = r_from_c(c)
 
-    u = 3.0 * r0 / r1
+    u = 3.0 * r[1] / r[0]
 
     z1 = u
     z2 = -u / 2.0
 
     if z1 < z2:
-        return np.array([z1, z2]) - c2 / 3.0
+        z = np.array([z1, z2])
     else:
-        return np.array([z2, z1]) - c2 / 3.0
+        z = np.array([z2, z1])
+
+    return z - c[0] / 3.0
 
 
-@_COMPILER(
-    nb.f8[:, :](nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
-    """Derivatives of the two roots with respect to c2, c1 and c0, in the case where one
-    of them has multiplicity two.
+@_COMPILER(nb.f8[:, :](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def d_two_roots(c: np.ndarray) -> np.ndarray:
+    """Jacobian of :func:`two_roots`.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
+        c: Coefficients in normal form..
 
     Returns:
-        A numpy array with shape (2, 3), where the first axis corresponds to the two
-        roots, and the second axis to the derivatives with respect to (c2, c1, c0).
-        The second row belongs to the larger root.
+        A ``(2, 3)`` array containing the derivatives with respect to ``c`` column-wise.
+        The second row belongs to the larger root (consistent order with
+        :func:`two_roots`).
 
     """
 
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
+    r = r_from_c(c)
+    dr = dr_from_c(c)
 
-    dr1 = get_dr1(c2)
-    dr0 = get_dr0(c2, c1)
+    u = 3.0 * r[1] / r[0]
 
-    u = 3.0 * r0 / r1
-
-    du = -3.0 * r0 / r1**2 * dr1 + 3.0 / r1 * dr0
+    du = -3.0 * r[1] / r[0] ** 2 * dr[0] + 3.0 / r[0] * dr[1]
 
     dc2 = np.array([-1.0 / 3.0, 0.0, 0.0])
 
@@ -337,98 +342,8 @@ def d_two_roots(c2: float, c1: float, c0: float) -> np.ndarray:
         return np.vstack((dz2_dc, dz1_dc))
 
 
-@_COMPILER(
-    nb.f8(nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def _get_Gamma(r1: float, r0: float) -> float:
-    """Calculate the auxiliary variable gamma, used in the trigonometric solution of
-    real roots of real cubic polynomials.
-
-    Parameters:
-        r1: Reduced coefficient r1.
-        r0: Reduced coefficient r0.
-
-    Returns:
-        The auxiliary variable gamma.
-
-    """
-    return -r0 / 2.0 * np.sqrt(27.0 / np.abs(r1**3))
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def _get_dGamma(r1: float, r0: float) -> np.ndarray:
-    """Derivatives of the auxiliary variable :math:`\\gamma` w.r.t. reduced
-    coefficients.
-
-    Parameters:
-        r1: Reduced coefficient r1.
-        r0: Reduced coefficient r0.
-
-    Returns:
-        A numpy array with ``shape=(2,)`` containing the derivatives with respect to
-        ``(r1, r0)``.
-
-    """
-    t = np.sqrt(27.0 / np.abs(r1**3))
-    return np.array(
-        [
-            r0 / 4.0 / t * 27.0 / np.abs(r1**3) ** 2 * np.sign(r1) * 3.0 * r1**2,
-            -t / 2.0,
-        ]
-    )
-
-
-@_COMPILER(
-    nb.f8(nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def _get_t1(r1: float) -> float:
-    """Calculate the auxiliary variable t1, used in the trigonometric solution of
-    real roots of real cubic polynomials.
-
-    Parameters:
-        r1: Reduced coefficient r1.
-
-    Returns:
-        The auxiliary variable t1.
-
-    """
-    assert r1 > 0.0, "Argument for auxiliary variable t1 must be positive."
-    return 2.0 * np.sqrt(r1 / 3.0)
-
-
-@_COMPILER(
-    nb.f8(nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def _get_dt1(r1: float) -> float:
-    """Derivatives of the auxiliary variable t1 w.r.t. reduced coefficient r1.
-
-    Parameters:
-        r1: Reduced coefficient r1.
-
-    Returns:
-        The derivative with respect to r1.
-
-    """
-    assert r1 > 0.0, "Argument for auxiliary variable t1 must be positive."
-    return np.sqrt(1.0 / (3.0 * r1))
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
+@_COMPILER(nb.f8[:](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def one_root(c: np.ndarray) -> np.ndarray:
     """Calculate the single (real) root of the cubic polynomial, where applicable.
 
     See also:
@@ -439,130 +354,107 @@ def one_root(c2: float, c1: float, c0: float) -> np.ndarray:
         Kubische_Gleichung#Die_F%C3%A4lle_mit_p_%E2%89%A0_0
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
-        The single (real) root.
+        A ``(1,)`` array containing the single real root.
 
     """
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
+    r = r_from_c(c)
+    eps = 1e-15
 
-    if r1 == 0.0:
+    # Edge case.
+    if np.abs(r[0]) <= eps:
         t1 = 1.0 / 3.0
-        t2_ = c2**3 - 27.0 * c0
+        t2_ = c[0] ** 3 - 27.0 * c[2]
         t2 = np.cbrt(np.abs(t2_)) * np.sign(t2_)
     else:
-        g = _get_Gamma(r1, r0)
+        theta = _theta_from_r(r)
+        t1 = np.sign(r[0]) * 2.0 * np.sqrt(np.abs(r[0]) / 3.0)
 
-        if r1 < 0.0:
-            absg = np.abs(g)
-            t1 = -_get_t1(-r1)
+        if r[0] < 0.0:
+            absg = np.abs(theta)
 
-            # Special case for numerical stability.
-            if 1.0 - 1e-14 < absg < 1.0 + 1e-14:
+            # Edge case.
+            if 1.0 - eps < absg < 1.0 + eps:
                 t1 *= -1.0
                 t2 = 1.0
             else:
-                t2 = np.sign(r0) * np.cosh(np.arccosh(absg) / 3.0)
+                t2 = np.sign(r[1]) * np.cosh(np.arccosh(absg) / 3.0)
 
-        elif r1 > 0.0:
-            t1 = _get_t1(r1)
-            t2 = np.sinh(np.arcsinh(g) / 3.0)
+        elif r[0] > 0.0:
+            t2 = np.sinh(np.arcsinh(theta) / 3.0)
 
-    return np.array([t1 * t2]) - c2 / 3.0
+    return np.array([t1 * t2]) - c[0] / 3.0
 
 
-@_COMPILER(
-    nb.f8[:, :](nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def d_one_root(c2: float, c1: float, c0: float) -> np.ndarray:
-    """Derivatives of the single (real) root with respect to c2, c1 and c0.
+@_COMPILER(nb.f8[:, :](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def d_one_root(c: np.ndarray) -> np.ndarray:
+    """Jacobian of :func:`one_root`.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
-        A numpy array with ``shape=(3,)`` containing the derivatives with respect to
-        ``(c2, c1, c0)``.
+        A ``(1,3)`` array containing the derivatives column-wise.
 
     """
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
 
-    if r1 == 0.0:
-        t2_ = c2**3 - 27.0 * c0
+    r = r_from_c(c)
+    dr = dr_from_c(c)
+    eps = 1e-15
 
-        t1 = 1.0 / 3.0
-        t2 = np.cbrt(np.abs(t2_))
+    if np.abs(r[0]) <= eps:
+        t1 = 1.0
+        t2 = np.cbrt(np.abs(r[1])) * np.sign(r[1])
 
         dt1 = np.zeros(3)
-        dt2 = (
-            1.0
-            / np.cbrt(np.abs(t2_) ** 2)
-            * np.sign(t2_)
-            * np.array([3 * c2**2, 0.0, -27.0])
-        )
+        dt2 = 1.0 / np.cbrt(np.abs(r[1]) ** 2) * np.sign(r[1]) * dr[1]
     else:
-        dr1 = get_dr1(c2)
-        dr0 = get_dr0(c2, c1)
+        theta = _theta_from_r(r)
+        dtheta = np.dot(_dtheta_from_r(r), dr)
 
-        g = _get_Gamma(r1, r0)
-        dg = _get_dGamma(r1, r0)
-        dg = dg[0] * dr1 + dg[1] * dr0
+        t1 = np.sign(r[0]) * 2.0 * np.sqrt(np.abs(r[0]) / 3.0)
+        dt1 = np.sqrt(1.0 / 3.0 / np.abs(r[0])) * dr[0]
 
-        if r1 < 0.0:
-            absg = np.abs(g)
-
-            t1 = -_get_t1(-r1)
-            dt1 = _get_dt1(-r1) * dr1
-
+        if r[0] < 0.0:
+            absg = np.abs(theta)
             dt2 = np.zeros(3)
 
             # Special case for numerical stability.
-            if 1.0 - 1e-14 < absg < 1.0 + 1e-14:
+            if 1.0 - eps < absg < 1.0 + eps:
                 t1 *= -1.0
                 dt1 *= -1.0
                 t2 = 1.0
             else:
                 t = np.cosh(np.arccosh(absg) / 3.0)
-                t2 = np.sign(r0) * t
+                t2 = np.sign(r[1]) * t
                 dt2 = (
-                    np.sign(r0)
+                    np.sign(r[1])
                     * np.sinh(np.arccosh(absg) / 3.0)
                     / np.sqrt(absg**2 - 1.0)
-                    * np.sign(g)
-                    * dg
                     / 3.0
+                    * np.sign(theta)
+                    * dtheta
                 )
-                if np.abs(r0) <= 1e-14:
-                    dt2 += t * dr0
 
-        elif r1 > 0.0:
-            t1 = _get_t1(r1)
-            t2 = np.sinh(np.arcsinh(g) / 3.0)
-
-            dt1 = _get_dt1(r1) * dr1
-            dt2 = np.cosh(np.arcsinh(g) / 3.0) / np.sqrt(g**2 + 1.0) * dg / 3.0
+        elif r[0] > 0.0:
+            t2 = np.sinh(np.arcsinh(theta) / 3.0)
+            dt2 = (
+                np.cosh(np.arcsinh(theta) / 3.0)
+                / np.sqrt(theta**2 + 1.0)
+                / 3.0
+                * dtheta
+            )
 
     z = t1 * dt2 + dt1 * t2 - np.array([1.0 / 3.0, 0.0, 0.0])
     return z.reshape((1, 3))
 
 
-@_COMPILER(
-    nb.f8[:](nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
+@_COMPILER(nb.f8[:](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def three_roots(c: np.ndarray) -> np.ndarray:
     """Compute the three distinct real roots of the cubic polynomial using the
-    trigonometric method of Vieta.
+    trigonometric approach.
 
     See also:
         https://en.wikipedia.org/wiki/
@@ -571,66 +463,56 @@ def three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
         https://de.wikipedia.org/wiki/
         Kubische_Gleichung#Die_F%C3%A4lle_mit_p_%E2%89%A0_0
 
+    Note:
+        In theory, the formula yields roots which are always ordered, but that has
+        not been tested. Might be non-smooth around areas where 2 roots approach
+        each other in terms of value.
+
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
+        c: Coefficients in normal form.
 
     Returns:
-        A numpy array with the three roots, sorted in ascending order.
+        A ``(3,)`` array containing the roots ordered by size.
 
     """
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
+    r = r_from_c(c)
 
-    assert r1 < 0.0, "r1 must be negative for 3 real roots."
-    t1 = _get_t1(-r1)
-    g = _get_Gamma(r1, r0)
-    g = max(min(g, 1.0), -1.0)  # Avoid out of bounds errors.
-    t2 = np.arccos(g) / 3.0
+    assert r[0] < 0.0, "r1 must be negative for 3 real roots."
+    t1 = 2.0 * np.sqrt(np.abs(r[0]) / 3.0)
+    theta = _theta_from_r(r)
+    theta = max(min(theta, 1.0), -1.0)  # Avoid out of bounds errors.
+    t2 = np.arccos(theta) / 3.0
 
     z1 = -t1 * np.cos(t2 - np.pi / 3.0)
     z2 = -t1 * np.cos(t2 + np.pi / 3.0)
     z3 = t1 * np.cos(t2)
 
-    return np.array([z1, z2, z3]) - c2 / 3.0
+    return np.array((z1, z2, z3)) - c[0] / 3.0
 
 
-@_COMPILER(
-    nb.f8[:, :](nb.f8, nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
-    """Derivatives of the three distinct real roots with respect to c2, c1 and c0.
+@_COMPILER(nb.f8[:, :](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
+def d_three_roots(c: np.ndarray) -> np.ndarray:
+    """Jacobian of :func:`two_roots`.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
+        c: Coefficients in normal form..
 
     Returns:
-        A numpy array with shape (3, 3), where the first axis corresponds to the three
-        roots, and the second axis to the derivatives with respect to (c2, c1, c0).
-        Like :func:`three_roots`, the roots are ordered by size in ascending order.
+        A ``(3, 3)`` array containing the derivatives with respect to ``c`` column-wise.
 
     """
-    r1 = get_r1(c2, c1)
-    r0 = get_r0(c2, c1, c0)
+    r = r_from_c(c)
+    dr = dr_from_c(c)
 
-    dr1 = get_dr1(c2)
-    dr0 = get_dr0(c2, c1)
+    assert r[0] < 0.0, "r1 must be negative for three real roots."
+    t1 = 2.0 * np.sqrt(np.abs(r[0]) / 3.0)
+    dt1 = -np.sqrt(1.0 / 3.0 / np.abs(r[0])) * dr[0]
+    theta = _theta_from_r(r)
+    theta = max(min(theta, 1.0), -1.0)  # Avoid out of bounds errors.
+    dtheta = np.dot(_dtheta_from_r(r), dr)
 
-    assert r1 < 0.0, "r1 must be negative for three real roots."
-    t1 = _get_t1(-r1)
-    g = _get_Gamma(r1, r0)
-    g = max(min(g, 1.0), -1.0)  # Avoid out of bounds errors.
-    t2 = np.arccos(g) / 3.0
-
-    dg = _get_dGamma(r1, r0)
-    dg = dg[0] * dr1 + dg[1] * dr0
-    dt1 = -_get_dt1(-r1) * dr1
-    dt2 = (-1 / np.sqrt(1.0 - g**2) * dg) / 3.0
+    t2 = np.arccos(theta) / 3.0
+    dt2 = (-1 / np.sqrt(1.0 - theta**2) * dtheta) / 3.0
 
     dc2 = np.array([-1.0 / 3.0, 0.0, 0.0])
 
@@ -641,33 +523,35 @@ def d_three_roots(c2: float, c1: float, c0: float) -> np.ndarray:
 
 
 @_COMPILER(
-    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8),
+    [
+        nb.f8[:](nb.f8[:], nb.f8),
+        nb.f8[:](nb.int_[:], nb.f8),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def calculate_roots(c2: float, c1: float, c0: float, eps: float) -> np.ndarray:
+def calculate_roots(c: np.ndarray, eps: float) -> np.ndarray:
     """Calculate the roots of a cubic polynomial represented by its coefficients
     :math:`c_2, c_1, c_0`.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
-        eps: Tolerance for determining whether the discriminant is zero.
+        c: Coefficient in normal form.
+        eps: Tolerance for determining degeneracy.
 
     Returns:
         A 1D array containing the real root(s) in ascending order.
 
     """
-    match get_root_case(c2, c1, c0, eps):
+    c_ = c.astype(np.float64)
+    match get_root_case(c_, eps):
         case 0:
-            val = triple_root(c2)
+            val = triple_root(c_)
         case 1:
-            val = one_root(c2, c1, c0)
+            val = one_root(c_)
         case 2:
-            val = two_roots(c2, c1, c0)
+            val = two_roots(c_)
         case 3:
-            val = three_roots(c2, c1, c0)
+            val = three_roots(c_)
         case _:
             # Should never happen.
             raise NotImplementedError(f"Uncovered root case encountered.")
@@ -676,37 +560,36 @@ def calculate_roots(c2: float, c1: float, c0: float, eps: float) -> np.ndarray:
 
 
 @_COMPILER(
-    nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8),
+    [
+        nb.f8[:, :](nb.f8[:], nb.f8),
+        nb.f8[:, :](nb.int_[:], nb.f8),
+    ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def calculate_root_derivatives(
-    c2: float, c1: float, c0: float, eps: float
-) -> np.ndarray:
-    """Calculate the derivative of roots of a cubic polynomial with respect to its
-    coefficients :math:`c_2, c_1, c_0`.
+def calculate_root_derivatives(c: np.ndarray, eps: float) -> np.ndarray:
+    """Jacobian of :func:`calculate_roots`.
 
     Parameters:
-        c2: Coefficient of the quadratic term in the cubic polynomial.
-        c1: Coefficient of the linear term in the cubic polynomial.
-        c0: Coefficient of the constant term in the cubic polynomial.
-        eps: Tolerance for determining whether the discriminant is zero.
+        c: Coefficient in normal form.
+        eps: Tolerance for determining degeneracy.
 
     Returns:
-        A 2D array containing the derivatives w.r.t. :math:`c_2, c_1, c_0` column wise.
-        Row-wise the derivatives correspond to the root returned by
+        A 2D array containing the derivatives w.r.t. ``c`` column-wise.
+        Row-wise the derivatives correspond to the roots returned by
         :func:`calculate_roots`.
 
     """
-    match get_root_case(c2, c1, c0, eps):
+    c_ = c.astype(np.float64)
+    match get_root_case(c_, eps):
         case 0:
-            val = d_triple_root(c2)
+            val = d_triple_root(c_)
         case 1:
-            val = d_one_root(c2, c1, c0)
+            val = d_one_root(c_)
         case 2:
-            val = d_two_roots(c2, c1, c0)
+            val = d_two_roots(c_)
         case 3:
-            val = d_three_roots(c2, c1, c0)
+            val = d_three_roots(c_)
         case _:
             # Should never happen.
             raise NotImplementedError(f"Uncovered root case encountered.")

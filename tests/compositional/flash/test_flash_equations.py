@@ -315,15 +315,13 @@ def test_mass_conservation(ncomp: int, nphase: int) -> None:
     nf = ncomp * nphase + nphase - 1
     directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
-    def func(*x):
-        xgen = np.array(x)
+    def func(xgen):
         _, x, y, z, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         res = flash.mass_conservation_res(x, y, z)
         assert res.shape == (ncomp - 1,), "Residual of unexpected shape."
         return res
 
-    def dfunc(*x):
-        xgen = np.array(x)
+    def dfunc(xgen):
         _, x, y, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         jac = flash.mass_conservation_jac(x, y)
         assert jac.shape == (ncomp - 1, nf + 2 + nphase - 1), (
@@ -378,15 +376,13 @@ def test_complementary_conditions(ncomp: int, nphase: int) -> None:
     nf = ncomp * nphase + nphase - 1
     directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
-    def func(*x):
-        xgen = np.array(x)
+    def func(xgen):
         _, x, y, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         res = flash.complementary_conditions_res(x, y)
         assert res.shape == (nphase,), "Residual of unexpected shape."
         return res
 
-    def dfunc(*x):
-        xgen = np.array(x)
+    def dfunc(xgen):
         _, x, y, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         jac = flash.complementary_conditions_jac(x, y)
         assert jac.shape == (nphase, nf + 2 + nphase - 1), (
@@ -440,16 +436,14 @@ def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
     # Target value of the constraint.
     phi = np.random.rand()
 
-    def func(*x):
-        xgen = np.array(x)
+    def func(xgen):
         sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array([_dummy_property(p, T, x_) for x_ in x])
         res = flash.first_order_constraint_res(phi, y if w_flag else sat, phis)
         assert res.shape == (1,), "Residual of unexpected shape."
         return res
 
-    def dfunc(*x):
-        xgen = np.array(x)
+    def dfunc(xgen):
         sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array([_dummy_property(p, T, x_) for x_ in x])
         dphis = np.array([_dummy_property_derivative(p, T, x_) for x_ in x])
@@ -506,16 +500,14 @@ def test_phase_mass_constraint(ncomp: int, nphase: int) -> None:
     nf = ncomp * nphase + 2 * (nphase - 1) + 2
     directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
-    def func(*x):
-        xgen = np.array(x)
+    def func(xgen):
         sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array([_dummy_property(p, T, x_) for x_ in x])
         res = flash.phase_mass_constraints_res(sat, y, phis)
         assert res.shape == (nphase - 1,), "Residual of unexpected shape."
         return res
 
-    def dfunc(*x):
-        xgen = np.array(x)
+    def dfunc(xgen):
         sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array([_dummy_property(p, T, x_) for x_ in x])
         dphis = np.array([_dummy_property_derivative(p, T, x_) for x_ in x])
@@ -566,8 +558,7 @@ def test_isofugacity_constraints(ncomp: int, nphase: int) -> None:
     # remove the directions.
     directions = np.vstack((directions[:2], directions[2 + 2 * (nphase - 1) :]))
 
-    def func(*x):
-        xgen = np.array(x)
+    def func(xgen):
         _, x, _, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array(
             [[_dummy_property(p, T, x_, power=i + 1) for i in range(ncomp)] for x_ in x]
@@ -577,8 +568,7 @@ def test_isofugacity_constraints(ncomp: int, nphase: int) -> None:
         assert res.shape == ((nphase - 1) * ncomp,), "Residual of unexpected shape."
         return res
 
-    def dfunc(*x):
-        xgen = np.array(x)
+    def dfunc(xgen):
         _, x, _, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
         phis = np.array(
             [[_dummy_property(p, T, x_, power=i + 1) for i in range(ncomp)] for x_ in x]

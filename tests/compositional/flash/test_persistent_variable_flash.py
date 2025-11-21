@@ -177,15 +177,13 @@ def test_assembly_of_flash_systems(
         case _:
             assert False, "Uncovered flash specification in test."
 
-    def func(*x):
-        xg = np.array(x)
-        r = res(xg)
+    def func(x):
+        r = res(x)
         assert r.shape == (base_dim,)
         return r
 
-    def dfunc(*x):
-        xg = np.array(x)
-        j = jac(xg)
+    def dfunc(x):
+        j = jac(x)
         j.shape == (base_dim, base_dim)
         return np.hstack((np.zeros((base_dim, dim_gen_arg - base_dim)), j))
 

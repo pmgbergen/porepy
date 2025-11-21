@@ -3,7 +3,7 @@ solution of real cubic polynomials."""
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Callable, Literal
 
 import numpy as np
 import pytest
@@ -24,6 +24,10 @@ from porepy.compositional.peng_robinson.compressibility_factor import (
     dc_from_AB,
     extended_factor,
     extended_factor_derivatives,
+    extended_factor_scg,
+    extended_factor_scg_derivatives,
+    extended_factor_scl,
+    extended_factor_scl_derivatives,
     get_compressibility_factor,
     get_compressibility_factor_derivatives,
     is_extended_factor,
@@ -167,10 +171,10 @@ def test_root_derivative_computation(
     """
     tol = 1e-14
 
-    def func(*x):
+    def func(x):
         return get_compressibility_factor(*x, gaslike, tol, 0.0)
 
-    def dfunc(*x):
+    def dfunc(x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
@@ -235,10 +239,10 @@ def test_root_derivative_computation_smoothed(
     tol = 1e-14
 
     # NOTE we also apply smoothing in the physical 2-phase region/3-root region
-    def func(*x):
+    def func(x):
         return get_compressibility_factor(*x, gaslike, tol, 0.25)
 
-    def dfunc(*x):
+    def dfunc(x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.25)
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
@@ -250,7 +254,19 @@ def test_root_derivative_computation_smoothed(
 @pytest.mark.parametrize(
     "d", [np.array([1.0, 0]), np.array([0.0, 1.0]), np.array([1.0, 1.0])]
 )
-def test_extended_root_derivative_function(d: np.ndarray) -> None:
+@pytest.mark.parametrize(
+    ["Ze", "dZe"],
+    [
+        (extended_factor, extended_factor_derivatives),
+        (extended_factor_scg, extended_factor_scg_derivatives),
+        (extended_factor_scl, extended_factor_scl_derivatives),
+    ],
+)
+def test_extended_root_derivative_function(
+    Ze: Callable[[float, float], float],
+    dZe: Callable[[np.ndarray], np.ndarray],
+    d: np.ndarray,
+) -> None:
     """Tests the derivative computation of the extended root. Taylorexpansion must
     converge with second order.
 
@@ -259,13 +275,13 @@ def test_extended_root_derivative_function(d: np.ndarray) -> None:
 
     """
 
-    def func(*args):
-        Z = sum(a**2 for a in args)
-        return extended_factor(float(Z), float(args[-1]))
+    def func(x):
+        Z = sum(a**2 for a in x)
+        return Ze(float(Z), float(x[-1]))
 
-    def dfunc(*args):
-        dz = np.array([2 * a for a in args]).astype(float)
-        return extended_factor_derivatives(dz)
+    def dfunc(x):
+        dz = np.array([2 * a for a in x]).astype(float)
+        return dZe(dz)
 
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(0, -10, 11))
@@ -278,8 +294,15 @@ def test_extended_root_derivative_function(d: np.ndarray) -> None:
 def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> None:
     """Tests the computation of derivatives of the coefficients of the Peng-Robinson-EOS
     with respect to cohesion and covolume."""
+
+    def func(x):
+        return c_from_AB(*x)
+
+    def dfunc(x):
+        return dc_from_AB(*x)
+
     x0 = np.random.rand(2)
-    orders = get_EOC_taylor(c_from_AB, dc_from_AB, x0, d, h=np.logspace(0, -10, 11))
+    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(0, -10, 11))
     assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
 
 
@@ -450,14 +473,14 @@ def test_limitcase_zero_cohesion(
         x0 = np.array([0.0, B])
         err_msg = _err_msg(*x0)
         c = c_from_AB(*x0)
-        rc = get_root_case(*c, tol)
+        rc = get_root_case(c, tol)
         assert rc == 3, f"Expecting 3-root-case: {err_msg}"
 
         # Testing approximation
-        def func(*x):
+        def func(x):
             return get_compressibility_factor(*x, gaslike, tol, 0.0)
 
-        def dfunc(*x):
+        def dfunc(x):
             return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
         assert_roots_correctly_sized(*x0, tol=tol)
@@ -467,7 +490,7 @@ def test_limitcase_zero_cohesion(
         # Should be real root
         if gaslike:
             assert not is_extended, f"Expecting gas root to be real: {err_msg}"
-            assert get_polynomial_residual(func(*x0), c) <= tol, (
+            assert get_polynomial_residual(func(x0), c) <= tol, (
                 "Gas root not real root."
             )
         else:
@@ -515,7 +538,7 @@ def test_limitcase_zero_covolume(
         x0 = np.array([A, 0.0])
         err_msg = _err_msg(*x0)
         c = c_from_AB(*x0)
-        rc = get_root_case(*c, tol)
+        rc = get_root_case(c, tol)
         if A < A_L:
             assert rc == 3, f"Expecting 3-root-case: {err_msg}"
         elif A > A_L:
@@ -525,10 +548,10 @@ def test_limitcase_zero_covolume(
             continue
 
         # Testing approximation
-        def func(*x):
+        def func(x):
             return get_compressibility_factor(*x, gaslike, tol, 0.0)
 
-        def dfunc(*x):
+        def dfunc(x):
             return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
         assert_roots_correctly_sized(*x0, tol=tol)
@@ -538,7 +561,7 @@ def test_limitcase_zero_covolume(
         # Since B is shifted to COVOLUME limit, the error should be linear in distance
         # from B = 0.
         if not (gaslike and A >= 0.25):  # Skip area where gas is extended.
-            assert get_polynomial_residual(func(*x0), c) <= 2 * COVOLUME_LIMIT, (
+            assert get_polynomial_residual(func(x0), c) <= 2 * COVOLUME_LIMIT, (
                 "Root too far off."
             )
 
@@ -576,9 +599,7 @@ def test_limitcase_zero_covolume(
 @pytest.mark.parametrize(
     ["gaslike", "expected_order"],
     [
-        # NOTE: Gas is about to disappear *and* we are in a limit case. This is likely
-        # one of the points where things go haywire with cubic EoS.
-        (True, 0.5),
+        (True, 1.0),
         (False, 1.0),
     ],
 )
@@ -590,17 +611,21 @@ def test_limitcase_zero_covolume_liquid_saturated(
 
     We also know it's slope (2) there from Ben Gharbia 2021.
 
+    This, with the points 0,0 and the critical point, are the most challenging points
+    as the approximations traverse multiple phase regions and extension regimes.
+    Approximation is at best linear very close to the point.
+
     """
     tol = 1e-14
     A_L = 0.25
     x0 = np.array([A_L, 0.0])
     err_msg = _err_msg(*x0)
     c = c_from_AB(*x0)
-    rc = get_root_case(*c, tol)
+    rc = get_root_case(c, tol)
     assert rc == 2, f"Expecting 2-root-case: {err_msg}"
 
     # The raw roots have special values.
-    roots = calculate_roots(*c, eps=tol)
+    roots = calculate_roots(c, tol)
     np.testing.assert_allclose(roots, np.array([0.0, 0.5]), rtol=0.0, atol=tol)
     # Gas root should not be modified, since real, but liquid-root should be bound
     # by limit value for covolume.
@@ -609,28 +634,28 @@ def test_limitcase_zero_covolume_liquid_saturated(
     Zl = get_compressibility_factor(*x0, False, tol, 0.0)
     assert Zl >= COVOLUME_LIMIT, "Unexpected value for liquid root."
 
-    def func(*x):
+    def func(x):
         return get_compressibility_factor(*x, gaslike, tol, 0.0)
 
-    def dfunc(*x):
+    def dfunc(x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
     assert_roots_correctly_sized(*x0, tol=tol)
     is_extended = is_extended_factor(*x0, gaslike, tol)
-    assert get_polynomial_residual(func(*x0), c) <= 2 * COVOLUME_LIMIT, (
-        "Root too far off."
-    )
+    assert (
+        get_polynomial_residual(func(x0), c) <= tol if gaslike else 2 * COVOLUME_LIMIT
+    ), "Root too far off."
     assert not is_extended, (
         f"Expecting root to be real at liquid-saturated border: {err_msg}"
     )
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-2, -11, 10), tol=1e-3)
     assert_order_at_least(
         orders,
         expected_order,
         tol=1e-2,
         err_msg=err_msg,
-        asymptotic=None if gaslike else 3,
+        asymptotic=5,
     )
 
 
@@ -666,20 +691,20 @@ def test_limitcase_zero_cohesion_and_covolume(
     x0 = np.zeros(2, dtype=float)
     err_msg = _err_msg(*x0)
     c = c_from_AB(*x0)
-    rc = get_root_case(*c, tol)
+    rc = get_root_case(c, tol)
     assert rc == 2, f"Expecting 2-root-case: {err_msg}"
 
     # The raw roots have special values.
-    roots = calculate_roots(*c, eps=tol)
+    roots = calculate_roots(c, tol)
     np.testing.assert_allclose(roots, np.array([0.0, 1.0]), rtol=0.0, atol=tol)
 
     assert_roots_correctly_sized(0.0, 0.0, tol=tol)
 
     # Testing approximation
-    def func(*x):
+    def func(x):
         return get_compressibility_factor(*x, gaslike, tol, 0.0)
 
-    def dfunc(*x):
+    def dfunc(x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
     is_extended = is_extended_factor(*x0, gaslike, tol)

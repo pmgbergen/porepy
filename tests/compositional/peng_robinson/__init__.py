@@ -11,8 +11,8 @@ import pytest
 import porepy as pp
 import porepy.compositional.peng_robinson as pr
 from porepy.compositional.compiled_eos import (
-    PROPERTY_FUNC_SIGNATURE,
     PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
+    PROPERTY_FUNC_SIGNATURE,
 )
 
 

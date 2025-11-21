@@ -644,7 +644,7 @@ def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
 
     """
     c = c_from_AB(A, B)
-    nroot = get_root_case(c[0], c[1], c[2], eps)
+    nroot = get_root_case(c, eps)
     is_sc = is_supercritical(A, B)
     # NOTE. Supercritical line and super-critical liquid-gas border are such that the
     # halfspace below them is open.
@@ -663,7 +663,7 @@ def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
     else:
         # Extension according to Ben Gharbia.
         if nroot == 1:
-            Z = one_root(c[0], c[1], c[2])
+            Z = one_root(c)
             Wsub = extended_factor(Z[0], B)
             if not gaslike and Z > Wsub:
                 is_extended = 1
@@ -728,7 +728,7 @@ def get_compressibility_factor(
     # we need. Not sure how much it saves.
     # NOTE: c contains the coefficients as the polynomial is read from left to right:
     # C[0] contains c_2, c[2] contains c_0
-    roots = calculate_roots(c[0], c[1], c[2], eps)
+    roots = calculate_roots(c, eps)
     assert roots[-1] > B, (
         "Expecting largest compressibility factor to be greater than covolume."
     )
@@ -797,8 +797,8 @@ def get_compressibility_factor(
         # Avoid a conflict with the other smoothing by demanding the projected B to be
         # bigger than B_crit.
         if d < smooth_sc and AB_p[1] >= B_CRIT:
-            c = c_from_AB(AB_p[0], AB_p[1])
-            Z = calculate_roots(c[0], c[1], c[2], eps)
+            c_p = c_from_AB(AB_p[0], AB_p[1])
+            Z = calculate_roots(c_p, eps)
             out = np.array([roots[smooth_sc_idx], Z[-1]])
             _smooth_supercritical_transition(0, d, smooth_sc, out)
             roots[smooth_sc_idx] = out[0]
@@ -810,8 +810,8 @@ def get_compressibility_factor(
             # Floating point operations can cause it to be slightly negative.
             d = 0.0 if d < 0.0 else d
             if d < smooth_sc:
-                c = c_from_AB(A, B_CRIT)
-                Z = calculate_roots(c[0], c[1], c[2], eps)
+                c_p = c_from_AB(A, B_CRIT)
+                Z = calculate_roots(c_p, eps)
                 if Z.size > 1:
                     raise NotImplementedError(
                         "SC-smoothing has ambiguous target value."
@@ -830,10 +830,10 @@ def get_compressibility_factor(
             # d = np.linalg.norm(AB - AB_p)
             # Avoid conflicts with the SC border line smoothing by demanding B <= B_crit
             if d < smooth_sc and AB_p[1] <= B_CRIT:
-                c = c_from_AB(AB_p[0], AB_p[1])
+                c_p = c_from_AB(AB_p[0], AB_p[1])
                 # Near A=B=0, it can lead to more than 1 real root. In any case it is
                 # the gas root which is real and which is used for the extension.
-                Z = calculate_roots(c[0], c[1], c[2], eps)
+                Z = calculate_roots(c_p, eps)
                 W = Wlsub(Z[-1], AB_p[1])
                 out = np.array([roots[0], W])
                 _smooth_supercritical_transition(0, d, smooth_sc, out)
@@ -919,11 +919,9 @@ def get_compressibility_factor_derivatives(
     dc_dAB = dc_from_AB(A, B)
 
     # Chainrule to obtain derivatives w.r.t. A and B.
-    droots: np.ndarray = np.dot(
-        calculate_root_derivatives(c[0], c[1], c[2], eps), dc_dAB
-    )
+    droots: np.ndarray = np.dot(calculate_root_derivatives(c, eps), dc_dAB)
 
-    roots = calculate_roots(c[0], c[1], c[2], eps)
+    roots = calculate_roots(c, eps)
     assert roots[-1] > B, (
         "Expecting largest compressibility factor to be greater than covolume."
     )
@@ -979,9 +977,9 @@ def get_compressibility_factor_derivatives(
         D = AB - AB_p
         d = np.sqrt(np.dot(D, ABMETRIC @ D))
         if d < smooth_sc and AB_p[1] >= B_CRIT:
-            c = c_from_AB(AB_p[0], AB_p[1])
+            c_p = c_from_AB(AB_p[0], AB_p[1])
             dc_dAB = dc_from_AB(AB_p[0], AB_p[1])
-            dZ = calculate_root_derivatives(c[0], c[1], c[2], eps)
+            dZ = calculate_root_derivatives(c_p, eps)
             dZ = np.dot(dZ, dc_dAB)
             out = np.empty((2, 2))
             out[0] = droots[smooth_sc_idx]
@@ -993,9 +991,9 @@ def get_compressibility_factor_derivatives(
             d = B - B_CRIT
             d = 0.0 if d < 0.0 else d
             if d < smooth_sc:
-                c = c_from_AB(A, B_CRIT)
+                c_p = c_from_AB(A, B_CRIT)
                 dc_dAB = dc_from_AB(A, B_CRIT)
-                dZ = calculate_root_derivatives(c[0], c[1], c[2], eps)
+                dZ = calculate_root_derivatives(c_p, eps)
                 dZ = np.dot(dZ, dc_dAB)
                 if dZ.shape[0] > 1:
                     raise NotImplementedError(
@@ -1013,9 +1011,8 @@ def get_compressibility_factor_derivatives(
             D = AB - AB_p
             d = np.sqrt(np.dot(D, ABMETRIC @ D))
             if d < smooth_sc and AB_p[1] <= B_CRIT:
-                c = c_from_AB(AB_p[0], AB_p[1])
-                c = c_from_AB(AB_p[0], AB_p[1])
-                dZ = calculate_root_derivatives(c[0], c[1], c[2], eps)
+                c_p = c_from_AB(AB_p[0], AB_p[1])
+                dZ = calculate_root_derivatives(c_p, eps)
                 dZ = np.dot(dZ, dc_dAB)
                 dW = dWlsub(dZ[-1])
                 out = np.empty((2, 2))

@@ -3,7 +3,7 @@ function."""
 
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from typing import Callable
 
 import numpy as np
 
@@ -14,8 +14,8 @@ __all__ = [
 
 
 def get_EOC_taylor(
-    func: Callable[[tuple[float, ...]], np.ndarray | float],
-    dfunc: Callable[[tuple[float, ...]], np.ndarray | float],
+    func: Callable[[np.ndarray], np.ndarray | float],
+    dfunc: Callable[[np.ndarray], np.ndarray | float],
     x0: np.ndarray,
     d: np.ndarray,
     h: np.ndarray,
@@ -29,10 +29,9 @@ def get_EOC_taylor(
     The EOC is estimated by computing the error between the exact function value and
     the first-order Taylor approximation for a sequence of step sizes.
 
-    The function and its derivative function are assumed to take floats as arguments.
-    The number of floats is indicated by the size of ``X0``. ``dfunc`` should return
-    a 2D array with shape (m, n) where m is the number of function outputs and n is
-    the number of input arguments (size of ``X0``).
+    The function and its derivative function are assumed to take arrays as arguments.
+    ``dfunc`` should return a 2D array with shape (m, n) where m is the number of
+    function outputs and n is the number of input arguments (size of ``X0``).
 
     Parameters:
         func: Function for which the derivative is computed.
@@ -54,8 +53,8 @@ def get_EOC_taylor(
     # Testing derivative along a random direction.
     errorlist = []
     for h_ in h:
-        approx = func(*x0) + h_ * (dfunc(*x0) @ d)
-        exact = func(*(x0 + h_ * d))
+        approx = func(x0) + h_ * (dfunc(x0) @ d)
+        exact = func(x0 + h_ * d)
         error = float(np.linalg.norm(exact - approx))
         # If errors are small, their ratios can falsely indicate order loss due to
         # floating point arithmetics.

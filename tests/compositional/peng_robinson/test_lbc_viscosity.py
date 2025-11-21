@@ -40,7 +40,7 @@ def test_lbc_derivatives(
     else:
         assert False, "Invalid phase specification."
 
-    def func(*x):
+    def func(x):
         p = x[0]
         T = x[1]
         xn = np.array(x[2:])
@@ -49,7 +49,7 @@ def test_lbc_derivatives(
         propfunc = pr_eos.funcs["mu"]
         return propfunc(preargfunc(state, p, T, xn, params), p, T, xn)
 
-    def dfunc(*x):
+    def dfunc(x):
         p = x[0]
         T = x[1]
         xn = np.array(x[2:])
