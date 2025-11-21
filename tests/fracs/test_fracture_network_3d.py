@@ -247,196 +247,18 @@ def test_mesh_size_determination():
     assert np.all(np.isclose(mesh_size, mesh_size_known))
 
 
-# Named tuple used to identify intersections of fractures by their parent fractures
-# and their coordinates. The coordinates should describe the full intersection line,
-# independent of how many 1d grids are created from it.
-IntersectionInfo = namedtuple("IntersectionInfo", ["parent_0", "parent_1", "coord"])
-IntersectionInfo3Frac = namedtuple(
-    "IntersectionInfo3Frac", ["parent_0", "parent_1", "parent_2", "coord"]
-)
-
-
-def _standard_domain(modify: bool = False) -> dict | pp.Domain:
-    """Create a standard domain for testing purposes."""
-    bbox = {"xmin": -2, "xmax": 2, "ymin": -2, "ymax": 2, "zmin": -2, "zmax": 2}
-    if modify:
-        return bbox
-    else:
-        domain = pp.Domain(bbox)
-        return domain
-
-
-def _create_mdg(
-    fractures, domain=None, mesh_args: dict | None = None, constraints=None
-) -> pp.MixedDimensionalGrid:
-    """Create a mixed-dimensional grid from a list of fractures."""
-    if mesh_args is None:
-        mesh_args = {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.1}
-    network = pp.create_fracture_network(fractures, domain=domain)
-    if constraints is None:
-        mdg = network.mesh(mesh_args)
-    else:
-        mdg = network.mesh(mesh_args, constraints=constraints)
-    return mdg
-
-
-def check_mdg(
-    mdg: pp.MixedDimensionalGrid,
-    domain: pp.Domain,
-    fractures=None,
-    isect_line=None,
-    isect_pt=None,
-    expected_num_1d_grids=0,
-    expected_num_0d_grids=0,
-):
-    """Validate the generated mixed-dimensional grid based on the expected grid
-    properties.
-
-    Parameters:
-        mdg: Grid to be validated
-        domain: Domain of the grid
-        fractures: List of fractures in the domain
-        isect_line: List of expected intersection lines
-        isect_pt: List of expected intersection points
-        expected_num_1d_grids: Expected number of 1d grids
-        expected_num_0d_grids: Expected number of 0d grids
-
-    """
-    if fractures is None:
-        fractures = []
-    if isect_line is None:
-        isect_line = []
-    if isect_pt is None:
-        isect_pt = []
-
-    def compare_bounding_boxes(box_1, box_2):
-        # Helper method to compare two bounding boxes
-        for k, v in box_1.items():
-            if np.abs(box_2[k] - v) > 1e-10:
-                return False
-        return True
-
-    # Get the bounding box of the nodes of the 3d grid.
-    bb = pp.domain.bounding_box_of_point_cloud(mdg.subdomains(dim=3)[0].nodes)
-    assert compare_bounding_boxes(bb, domain.bounding_box)
-
-    # Check that the number of subdomain grids are as expected
-    assert len(fractures) == len(mdg.subdomains(dim=2))
-    assert expected_num_1d_grids == len(mdg.subdomains(dim=1))
-    assert expected_num_0d_grids == len(mdg.subdomains(dim=0))
-
-    # Loop over all fractures, find the grid with the corresponding frac_num. Check
-    # that their bounding boxes are the same.
-    for fi, f in enumerate(fractures):
-        for sd in mdg.subdomains(dim=2):
-            if sd.frac_num == fi and not isinstance(f, pp.EllipticFracture):
-                assert compare_bounding_boxes(
-                    pp.domain.bounding_box_of_point_cloud(f.pts),
-                    pp.domain.bounding_box_of_point_cloud(sd.nodes),
-                )
-
-    # The bounding boxes of the constructed 1d grids will be compared to the expected
-    # values. To construct the grid bounding boxes, we will loop over all 1d grids and
-    # update the bounding box of the corresponding intersection grid.
-
-    # Bounding box for the computed intersection grids. The key is a tuple of the
-    # parent fractures, the value is a dictionary with the bounding box and the
-    # intersection line which should result from this combination of fractures.
-    ii_computed_box: dict[tuple[int, int] | tuple[int, int, int], dict] = {}
-
-    for isect in isect_line:
-        # The initial assumption is that the bounding box is empty, signified by min and
-        # max values being inf and -inf, respectively (meaningful values will be
-        # inserted once we start updating the boxes).
-        inital_box = {
-            "xmin": np.inf,
-            "xmax": -np.inf,
-            "ymin": np.inf,
-            "ymax": -np.inf,
-            "zmin": np.inf,
-            "zmax": -np.inf,
-        }
-        if isinstance(isect, IntersectionInfo):
-            # This is an intersection of two fractures. Sort the parents to get a
-            # unique key.
-            p_0, p_1 = sorted([isect.parent_0, isect.parent_1])
-
-            ii_computed_box[(p_0, p_1)] = {
-                "isect": isect,
-                "coord": inital_box,
-            }
-        elif isinstance(isect, IntersectionInfo3Frac):
-            # This is an intersection of three fractures.
-            p_0, p_1, p_2 = sorted([isect.parent_0, isect.parent_1, isect.parent_2])
-            ii_computed_box[(p_0, p_1, p_2)] = {
-                "coord": inital_box,
-                "isect": isect,
-            }
-
-    def update_box(box, update):
-        # Helper method to update a bounding box.
-        for k in ["xmin", "ymin", "zmin"]:
-            box["coord"][k] = min(box["coord"][k], update[k])
-        for k in ["xmax", "ymax", "zmax"]:
-            box["coord"][k] = max(box["coord"][k], update[k])
-
-    # Loop over the 1d domains, and update the bounding boxes of the intersection grid.
-    # Since a fracture intersection may be shared by several 1d grids (exactly how this
-    # is handled is not clear to EK at the moment, but it surely cannot be wrong to
-    # allow for more than one 1d grid to share an intersection), we need to update the
-    # bounding box of the intersection grid for each 1d grid that shares the
-    # intersection.
-    for sd in mdg.subdomains(dim=1):
-        # Get the parents (fractures) of the 1d grid
-        neighs = mdg.neighboring_subdomains(sd, only_higher=True)
-        # bounding box of the 1d grid
-        box = pp.domain.bounding_box_of_point_cloud(sd.nodes)
-
-        # Update the bounding box of the intersection grid (identified by the parent
-        # fractures).
-        if len(neighs) == 2:
-            f_0, f_1 = sorted([neighs[0].frac_num, neighs[1].frac_num])
-            update_box(ii_computed_box[(f_0, f_1)], box)
-
-        elif len(neighs) == 3:
-            f_0, f_1, f_2 = sorted(
-                [neighs[0].frac_num, neighs[1].frac_num, neighs[2].frac_num]
-            )
-            update_box(ii_computed_box[(f_0, f_1, f_2)], box)
-
-    # Check that the bounding boxes of the intersection grids correspond to the
-    # expected values.
-    for val in ii_computed_box.values():
-        coord = val["coord"]
-        isect = val["isect"]
-        assert compare_bounding_boxes(
-            coord, pp.domain.bounding_box_of_point_cloud(isect.coord)
-        )
-
-    # For each 0d grid, check that it is present as an expected intersection point.
-    for sd in mdg.subdomains(dim=0):
-        found = False
-        for p in isect_pt:
-            if np.allclose(p, sd.cell_centers):
-                found = True
-                break
-        assert found
-    # For each intersection point, check that it is present as a 0d grid.
-    for p in isect_pt:
-        found = False
-        for sd in mdg.subdomains(dim=0):
-            if np.allclose(p, sd.cell_centers):
-                found = True
-                break
-        assert found
-
-
 @pytest.fixture(scope="module")
 def unit_box() -> pp.Domain:
     """Create a unit box domain for testing purposes."""
     bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
     domain = pp.Domain(bbox)
     return domain
+
+
+@pytest.fixture(scope="module")
+def mesh_args() -> dict:
+    """Create standard mesh arguments for testing purposes."""
+    mesh_args = ({"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},)
 
 
 def _verify_points_in_fracture(points: np.ndarray, fracture: pp.PlaneFracture):
@@ -464,6 +286,29 @@ def _verify_points_in_line(points: np.ndarray, start: np.ndarray, end: np.ndarra
         points, start.reshape((3, 1)), end.reshape((3, 1))
     )
     assert np.allclose(d, 0.0, atol=1e-6)
+
+
+def _find_intersection_line(mdg, frac_num_0, frac_num_1):
+    """Find the 1d subdomain corresponding to the intersection of two fractures.
+
+    Parameters:
+        mdg: Mixed-dimensional grid.
+        frac_num_0: Fracture number of the first fracture.
+        frac_num_1: Fracture number of the second fracture.
+
+    Returns:
+        The 1d subdomain corresponding to the intersection line.
+        If the intersection line is not found, an assertion error is raised.
+
+    """
+
+    for sd in mdg.subdomains(dim=1):
+        neighs = mdg.neighboring_subdomains(sd, only_higher=True)
+        if (neighs[0].frac_num == frac_num_0 and neighs[1].frac_num == frac_num_1) or (
+            neighs[0].frac_num == frac_num_1 and neighs[1].frac_num == frac_num_0
+        ):
+            return sd
+    assert False, "Intersection line not found."
 
 
 @pytest.mark.parametrize(
@@ -496,7 +341,10 @@ def _verify_points_in_line(points: np.ndarray, start: np.ndarray, end: np.ndarra
     ],
 )
 def test_meshing_no_intersections(
-    x_coord: list[float], is_constraint: list[bool], unit_box: pp.Domain
+    x_coord: list[float],
+    is_constraint: list[bool],
+    unit_box: pp.Domain,
+    mesh_args: dict,
 ):
     """Test meshing of a single fracture without intersections.
 
@@ -504,6 +352,7 @@ def test_meshing_no_intersections(
         x_coord: x-coordinate of the vertical fracture.
         is_constraint: Whether the fracture is a constraint.
         unit_box: Unit box domain.
+        mesh_args: Mesh arguments for meshing.
 
     """
     is_fracture = len(x_coord) * [True]
@@ -523,11 +372,7 @@ def test_meshing_no_intersections(
 
     network = pp.create_fracture_network(fractures, unit_box)
     constraints = np.where(is_constraint)[0]
-    # Generate a mixed-dimensional grid with a grid as coarse as possible.
-    mdg = network.mesh(
-        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
-        constraints=constraints,
-    )
+    mdg = network.mesh(mesh_args=mesh_args, constraints=constraints)
 
     assert len(mdg.subdomains(dim=2)) == sum(is_fracture)
     assert len(mdg.subdomains(dim=1)) == 0
@@ -667,15 +512,8 @@ def test_cross_intersection(
         dim_not_present = np.setdiff1d([0, 1, 2], [frac_num_0, frac_num_1])[0]
         start[dim_not_present] = 0.2
         end[dim_not_present] = 0.8
-
-        for sd in mdg.subdomains(dim=1):
-            neighs = mdg.neighboring_subdomains(sd, only_higher=True)
-            if (
-                neighs[0].frac_num == frac_num_0 and neighs[1].frac_num == frac_num_1
-            ) or (
-                neighs[0].frac_num == frac_num_1 and neighs[1].frac_num == frac_num_0
-            ):
-                _verify_points_in_line(sd.nodes, start, end)
+        sd = _find_intersection_line(mdg, frac_num_0, frac_num_1)
+        _verify_points_in_line(sd.nodes, start, end)
 
     if is_fracture[0] and is_fracture[1]:
         _check_line_intersection(0, 1)
@@ -761,7 +599,7 @@ def test_t_l_intersection(
 )
 @pytest.mark.parametrize("dfn", [True, False])
 def test_three_fractures_intersecting_along_line(
-    is_constraint: list[bool], dfn: bool, unit_box: pp.Domain
+    is_constraint: list[bool], dfn: bool, unit_box: pp.Domain, mesh_args: dict
 ):
     """Test meshing of three fractures intersecting along a line.
 
@@ -785,7 +623,7 @@ def test_three_fractures_intersecting_along_line(
     constraints = np.where(is_constraint)[0]
     # Generate a mixed-dimensional grid with a grid as coarse as possible.
     mdg = network.mesh(
-        mesh_args={"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},
+        mesh_args=mesh_args,
         constraints=constraints,
         dfn=dfn,
     )
@@ -955,39 +793,39 @@ def test_fracture_hits_domain_corner_line(
 
 
 class TestDFMMeshGeneration:
-    """Test meshing of fracture networks in 3d. No fracture hits the domain boundary.
-
-    TODO: We could possibly delete the remaining tests, EK is not sure.
+    """Legacy tests for meshing. These cover aspects not covered by the more
+    parametrized tests above, and are therefore kept for completeness.
     """
 
-    def test_one_fracture_intersected_by_two(self):
+    def test_one_fracture_intersected_by_two(
+        self, unit_box: pp.Domain, mesh_args: dict
+    ):
         """One fracture, intersected by two other (but no point intersections)."""
 
-        f_1 = pp.PlaneFracture(np.array([[-1, 1, 1, -1], [0, 0, 0, 0], [-1, -1, 1, 1]]))
-        f_2 = pp.PlaneFracture(
-            np.array([[0, 0, 0, 0], [-1, 1, 1, -1], [-0.7, -0.7, 0.8, 0.8]])
+        f_0 = pp.PlaneFracture(
+            np.array([[0, 1, 1, 0], [0.5, 0.5, 0.5, 0.5], [0, 0, 1, 1]])
         )
-        f_3 = pp.PlaneFracture(f_2.pts + np.array([0.5, 0, 0]).reshape((-1, 1)))
+        f_1 = pp.PlaneFracture(
+            np.array([[0.2, 0.2, 0.2, 0.2], [0, 1, 1, 0], [0, 0, 0.8, 0.8]])
+        )
+        f_2 = pp.PlaneFracture(f_1.pts + np.array([0.5, 0, 0]).reshape((-1, 1)))
+        fractures = [f_0, f_1, f_2]
+        network = pp.create_fracture_network(fractures, unit_box)
+        mdg = network.mesh(mesh_args=mesh_args)
 
-        # Add some parameters for grid size
-        domain = _standard_domain()
-        mdg = _create_mdg([f_1, f_2, f_3], domain)
+        for sd in mdg.subdomains(dim=2):
+            _verify_points_in_fracture(sd.nodes, fractures[sd.frac_num])
 
-        isect_0_coord = np.array([[0, 0], [0, 0], [-0.7, 0.8]])
-
-        isect_1_coord = np.array([[0.5, 0.5], [0, 0], [-0.7, 0.8]])
-
-        isect_0 = IntersectionInfo(0, 1, isect_0_coord)
-        isect_1 = IntersectionInfo(0, 2, isect_1_coord)
-        check_mdg(
-            mdg,
-            domain,
-            fractures=[f_1, f_2, f_3],
-            isect_line=[isect_0, isect_1],
-            expected_num_1d_grids=2,
+        sd_0_1 = _find_intersection_line(mdg, 0, 1)
+        _verify_points_in_line(
+            sd_0_1.nodes, np.array([0.2, 0.5, 0]), np.array([0.2, 0.5, 0.8])
+        )
+        sd_0_2 = _find_intersection_line(mdg, 0, 2)
+        _verify_points_in_line(
+            sd_0_2.nodes, np.array([0.7, 0.5, 0]), np.array([0.7, 0.5, 0.8])
         )
 
-    def test_partial_rubics_cube(self):
+    def test_partial_rubics_cube(self, unit_box: pp.Domain, mesh_args: dict):
         """This is a part of a rubics-cube style fracture network."""
         f_0 = pp.PlaneFracture(
             np.array([[0.5, 0.5, 0.5, 0.5], [0, 1, 1, 0], [0, 0, 1, 1]])
@@ -1008,36 +846,45 @@ class TestDFMMeshGeneration:
         # This test does not use the standard domain or mesh size arguments, thus we
         # do meshing by hand.
         bbox = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
-        domain = pp.Domain(bbox)
+        fractures = [f_0, f_1, f_2, f_3, f_4]
+        network = pp.create_fracture_network(fractures, unit_box)
+        mdg = network.mesh(mesh_args=mesh_args)
 
-        mesh_args = {
-            "mesh_size_frac": 0.4,
-            "mesh_size_bound": 1,
-            "mesh_size_min": 0.2,
-            "return_expected": True,
-        }
-        network = pp.create_fracture_network([f_0, f_1, f_2, f_3, f_4], domain)
-        mdg = network.mesh(mesh_args)
+        for sd in mdg.subdomains(dim=2):
+            _verify_points_in_fracture(sd.nodes, fractures[sd.frac_num])
 
-        # Known intersection lines.
-        isect_lines = [
-            # Fracture 0 and 1
-            IntersectionInfo(0, 1, np.array([[0.5, 0.5], [0.5, 0.5], [0, 1]])),
-            # Fracture 0 and 2
-            IntersectionInfo(0, 2, np.array([[0.5, 0.5], [0, 1], [0.5, 0.5]])),
-            # Fracture 1 and 2
-            IntersectionInfo(1, 2, np.array([[0, 1], [0.5, 0.5], [0.5, 0.5]])),
-            # Fracture 0 and 3
-            IntersectionInfo(0, 3, np.array([[0.5, 0.5], [0.5, 1], [0.75, 0.75]])),
-            # Fracture 1 and 3
-            IntersectionInfo(1, 3, np.array([[0.5, 1], [0.5, 0.5], [0.75, 0.75]])),
-            # Fracture 1 and 4
-            IntersectionInfo(1, 4, np.array([[0.75, 0.75], [0.5, 0.5], [0.5, 1]])),
-            # Fracture 2 and 4
-            IntersectionInfo(2, 4, np.array([[0.75, 0.75], [0.5, 1], [0.5, 0.5]])),
-            # Fracture 3 and 4
-            IntersectionInfo(3, 4, np.array([[0.75, 0.75], [0.5, 1], [0.75, 0.75]])),
-        ]
+        sd_0_1 = _find_intersection_line(mdg, 0, 1)
+        _verify_points_in_line(
+            sd_0_1.nodes, np.array([0.5, 0.5, 0]), np.array([0.5, 0.5, 1])
+        )
+        sd_0_2 = _find_intersection_line(mdg, 0, 2)
+        _verify_points_in_line(
+            sd_0_2.nodes, np.array([0.5, 0, 0.5]), np.array([0.5, 1, 0.5])
+        )
+        sd_1_2 = _find_intersection_line(mdg, 1, 2)
+        _verify_points_in_line(
+            sd_1_2.nodes, np.array([0, 0.5, 0.5]), np.array([1, 0.5, 0.5])
+        )
+        sd_0_3 = _find_intersection_line(mdg, 0, 3)
+        _verify_points_in_line(
+            sd_0_3.nodes, np.array([0.5, 0.5, 0.5]), np.array([0.5, 1, 0.75])
+        )
+        sd_1_3 = _find_intersection_line(mdg, 1, 3)
+        _verify_points_in_line(
+            sd_1_3.nodes, np.array([0.5, 0.5, 0.75]), np.array([1, 0.5, 0.75])
+        )
+        sd_1_4 = _find_intersection_line(mdg, 1, 4)
+        _verify_points_in_line(
+            sd_1_4.nodes, np.array([0.75, 0.5, 0.5]), np.array([0.75, 0.5, 1])
+        )
+        sd_2_4 = _find_intersection_line(mdg, 2, 4)
+        _verify_points_in_line(
+            sd_2_4.nodes, np.array([0.75, 0.5, 0.5]), np.array([0.75, 1, 0.5])
+        )
+        sd_3_4 = _find_intersection_line(mdg, 3, 4)
+        _verify_points_in_line(
+            sd_3_4.nodes, np.array([0.75, 1, 0.75]), np.array([0.75, 0.5, 0.75])
+        )
 
         # Known intersection points.
         isect_pt = [
@@ -1047,15 +894,22 @@ class TestDFMMeshGeneration:
             np.array([0.75, 0.5, 0.5]).reshape((-1, 1)),
         ]
 
-        check_mdg(
-            mdg,
-            domain,
-            fractures=[f_0, f_1, f_2, f_3, f_4],
-            expected_num_1d_grids=15,
-            expected_num_0d_grids=4,
-            isect_line=isect_lines,
-            isect_pt=isect_pt,
-        )
+        # For each 0d grid, check that it is present as an expected intersection point.
+        for sd in mdg.subdomains(dim=0):
+            found = False
+            for p in isect_pt:
+                if np.allclose(p, sd.cell_centers):
+                    found = True
+                    break
+            assert found
+        # For each intersection point, check that it is present as a 0d grid.
+        for p in isect_pt:
+            found = False
+            for sd in mdg.subdomains(dim=0):
+                if np.allclose(p, sd.cell_centers):
+                    found = True
+                    break
+            assert found
 
 
 class TestDFMPolytopeDomain:
