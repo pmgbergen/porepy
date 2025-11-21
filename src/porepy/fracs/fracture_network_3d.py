@@ -473,6 +473,11 @@ class FractureNetwork3d(object):
         # domain (has a distance larger than tol). If all fragments of a fracture are
         # kicked out, we need to remove the fracture altogether, and update the
         # constraint indices accordingly.
+
+        # The domain tags may have changed during fragmentation, so get the current
+        # list.
+        domain_tags = [t[1] for t in gmsh.model.get_entities(nd)]
+
         keep = np.ones(len(isect_mapping), dtype=bool)
         for fi, frac in enumerate(isect_mapping):
             loc_keep = np.ones(len(frac), dtype=bool)
@@ -482,11 +487,18 @@ class FractureNetwork3d(object):
                 for line in bounding_lines:
                     bounding_points += gmsh.model.get_boundary([line])
 
-                distances = [
-                    gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
-                    for pt in bounding_points
-                ]
-                if np.any(np.array(distances) > self.tol):
+                # For each bounding point, compute the minimum distance to the different
+                # parts of the domain (the domain may have been split in multiple parts
+                # during fragmentation).
+                distances = np.zeros(len(bounding_points))
+                for i, pt in enumerate(bounding_points):
+                    distances[i] = min(
+                        gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
+                        for domain_tag in domain_tags
+                    )
+                # If any bounding point is outside all parts of the domain, we drop this
+                # sub-fracture.
+                if np.any(distances > self.tol):
                     loc_keep[sfi] = False
             isect_mapping[fi] = [frac[i] for i in range(len(frac)) if loc_keep[i]]
             keep[fi] = np.any(loc_keep)
