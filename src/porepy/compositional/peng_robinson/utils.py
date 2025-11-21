@@ -247,7 +247,7 @@ def get_bip_matrix(
 def VanDerWaals_covolume(
     X: Sequence[ArithmeticType], b: Sequence[ArithmeticType]
 ) -> ArithmeticType:
-    r"""Van Der Waals - mixing rule for co-volume term.
+    r"""Van Der Waals - mixing rule for covolume term.
 
     Parameters:
         x: A sequence of fractions.
@@ -276,9 +276,7 @@ def VanDerWaals_cohesion(
         bip: A 2D array of binary interaction parameters where ``bip[i][j]`` is
             the parameter between components ``i`` and ``j``.
             Symmetric, but the upper triangle of this 2D matrix is sufficient.
-        sqrt_func: ``default=``:func:`sympy.sqrt`
-
-            A function representing the square root applicable to the input type.
+        sqrt_func: A function representing the square root applicable to the input type.
 
     Returns:
         :math:`\sum_i\sum_k x_i x_k \sqrt{a_i a_k} (1 - \delta_{ik})`,

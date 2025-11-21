@@ -77,9 +77,10 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
     [
         ## Tests around critical point, which is a triple root.
         (A_CRIT, B_CRIT, True, 0),
-        # Supercritical points, must be in case with 1 real root, 2 complex-conjugated.
+        # Supercritical points, must be cases with 1 real root, 2 complex-conjugated.
         # We operate in general with a float64-precision and due to floating point
-        # arithmetics we can determin the root case down to this precision.
+        # arithmetics we can determin the root case down to this precision safely
+        # without introducing errors.
         (A_CRIT, B_CRIT + 1e-14, True, 1),
         (A_CRIT + 1e-14, B_CRIT, True, 1),
         (A_CRIT - 1e-14, B_CRIT, True, 1),
@@ -120,7 +121,7 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
         ),
     ],
 )
-def test_floating_point_stability(
+def test_floating_point_stability_for_degenerate_discriminant(
     A: float,
     B: float,
     is_sc: bool,
@@ -140,8 +141,11 @@ def test_floating_point_stability(
     3-root case delivers a close enough approximation (yields 2 roots with difference
     on order of defined eps).
 
-    It is also performed around the point AB=(0,0), which is a known 2-root case, for
-    the same reasons.
+    It is also performed around the point AB=(0,0), which is a known 2-root case but
+    here the floating point issues around a degenerate discriminant are more serious.
+    We loose some precision because we fall logically into the trigonometric case
+    computations for 3 roots (Trying to hit a point with limited number of floating
+    points...)
 
     Important:
         If changes break this test, something is not alright. Don't go down this path.

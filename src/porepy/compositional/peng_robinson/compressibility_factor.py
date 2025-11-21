@@ -17,7 +17,7 @@ This module wraps the functionality given in
 and their derivatives in terms of :math:`A` and :math:`B`.
 
 Additionally, it provides an extension procedure following the work of Ben Gharbia et
-al. (2021).
+al. (2021), as well es Lipovac et al. (2024).
 
 I.e., it provides an additional root in the 1-root area.
 
@@ -109,6 +109,11 @@ COVOLUME_LIMIT: float = 1e-7
 
 Required to treat the limit case of B -> 0.
 
+Note:
+    This value is highly related to how the cubic root computation is implemented for
+    the degenerate 2-root case. If sensitivity improves there, this can be decreased as
+    well.
+
 """
 
 
@@ -128,15 +133,15 @@ def c_from_AB(A: float, B: float) -> np.ndarray:
         c_0 = B^3 + B^2 - AB.
 
     Note:
-        The returned array contains the coefficients as the polynomial is read from
-        left to right: ``c[0]`` contains :math:`c_2`, ``c[2]`` contains :math:`c_0`.
+        The returned array contains the coefficients as required by the cubic polynomial
+        module.
 
     Parameters:
         A: Dimensionless cohesion.
         B: Dimensionless covolume.
 
     Returns:
-        A ``(3,)``-array containing the coefficients :math:`c_2, c_1, c_0`.
+        A ``(3,)``-array containing the coefficients :math:`c_0, c_1, c_2`.
 
     """
     return np.array(
@@ -162,7 +167,7 @@ def dc_from_AB(A: float, B: float) -> np.ndarray:
 
     Returns:
         A ``(3,2)``-array containing the derivatives of coefficients
-        :math:`c_2, c_1, c_0` with respect to :math:`A,B`.
+        :math:`c_0, c_1, c_2` with respect to :math:`A,B`.
 
     """
     return np.array(
@@ -186,11 +191,7 @@ def critical_line(A: float) -> float:
         A: Non-dimensional cohesion.
 
     Returns:
-        The critical line parametrized as ``B(A)``
-
-        .. math::
-
-            \\frac{B_{crit}}{A_{crit}} A
+        The critical line parametrized as :math:`B(A) = \\frac{B_{crit}}{A_{crit}} A`.
 
     """
     return (B_CRIT / A_CRIT) * A
@@ -358,7 +359,7 @@ def is_supercritical(A: float, B: float) -> bool:
     """Checks whether the pair of cohesion and covolume values lies in the supercritical
     area.
 
-    I.e., covolume is below the critical value and the critical line
+    I.e., covolume is on or above the critical value and the critical line
     :math:`\\frac{B_c}{A_c} * A`
 
     Parameters:
@@ -632,9 +633,9 @@ def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
         - 0: The indicated root (``gaslike`` or not) is not obtained through an
           extension procedure and is real. It is an actual root of the polynomial.
         - 1: The indicated root is liquidlike and in the subcritical area, where it is
-          extended. The gaslike root is real.
+          extended. The (bigger) gaslike root is real.
         - 2: The indicated root is gaslike and in the subcritical area, where it is
-          extended. The liquidlike root is real.
+          extended. The (smaller) liquidlike root is real.
         - ``10 + i``, with ``i`` being the number of roots (0 for triple root):
           The indicated root is liquidlike and in the supercritical area, where it
           is extended. The gaslike root is real.
@@ -694,6 +695,7 @@ def get_compressibility_factor(
 
     An extension procedure is applied in the one-root area, among others.
     Negative values of ``A`` or ``B`` are projected to zero.
+    Additionally, ``B`` is caped by :data:`COVOLUME_LIMIT`.
 
     See also:
         :func:`is_extended` for more information on extension procedures.

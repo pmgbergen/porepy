@@ -19,22 +19,23 @@ This is implemented in
 :mod:`~porepy.compositional.peng_robinson.compressibility_factor`.
 
 The equation of state itself is implemented using :mod:`numba`-compilation.
-Ahead-of-time compilation is mimicked using signatures, i.e. static types, which mich
-result in a slow import when importing this subpackage for the first time.
-Thermodynamic properties of a fluid are implemented using :mod:`sympy` to provide
-lambdified expressions for the properties, tailored to individual fluids.
+Ahead-of-time compilation is mimicked using signatures (eager compilation),
+i.e. static types, which mich result in a slow import when importing this subpackage for
+the first time. Thermodynamic properties of a fluid are implemented using :mod:`sympy`
+to provide lambdified expressions for the properties, tailored to individual fluids.
 They then need to be compiled before computations begin.
 For more see :mod:`~porepy.compositional.peng_robinson.eos`, and the two classes
 therein.
 
 Finally, some extensions are available, including the Soereide extension for brine
-mixtures (:mod:`~porepy.compositional.peng_robinson.soereide`), and Lphrenz-Bray-Clark
+mixtures (:mod:`~porepy.compositional.peng_robinson.soereide`), and Lohrenz-Bray-Clark
 correlations for viscosity (:mod:`~porepy.compositional.peng_robinson.lbc_viscosity`).
 Note however, that the latter is more general and can be used with any other EoS.
 
 References:
     [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
     [2]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
+    [2]: `Lipovac et al. (2024) <https://doi.org/10.1016/j.fluid.2023.113991>`_
     [3]: `Soereide (1992) <https://doi.org/10.1016/0378-3812(92)85105-H>`_
 
 """
