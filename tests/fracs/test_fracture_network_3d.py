@@ -258,7 +258,7 @@ def unit_box() -> pp.Domain:
 @pytest.fixture(scope="module")
 def mesh_args() -> dict:
     """Create standard mesh arguments for testing purposes."""
-    mesh_args = ({"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5},)
+    return {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5}
 
 
 def _verify_points_in_fracture(points: np.ndarray, fracture: pp.PlaneFracture):
