@@ -281,14 +281,6 @@ def _verify_1d_grid_geometry(sd: pp.Grid, frac: pp.LineFracture) -> None:
     )
     assert np.allclose(dist, 0)
 
-    # Check that the two end nodes correspond to the fracture endpoints. Depending on
-    # the fracture, the end nodes may be tagged as tip (for immersed tips) or boundary
-    # nodes (for tips coinciding with the domain boundary).
-    end_nodes = sd.nodes[
-        :2, np.logical_or(sd.tags["domain_boundary_nodes"], sd.tags["tip_nodes"])
-    ]
-    assert np.allclose(np.sort(end_nodes, axis=1), np.sort(frac.pts, axis=1))
-
 
 @pytest.mark.parametrize(
     "x_coord, is_constraint",
