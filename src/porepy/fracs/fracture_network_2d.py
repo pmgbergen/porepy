@@ -348,7 +348,10 @@ class FractureNetwork2d:
         ]
         # Insert points to control mesh size for nearly intersecting lines.
         boundary_tags = [t for _, t in gmsh.model.get_boundary([(2, domain_tag)])]
-        line_tags = [tag for _, tag in gmsh.model.get_entities(1)]
+        # Note to self: By placing the fracture tags first, we associate the index in
+        # line_tags with the fracture index (hopefully, there is no logical error
+        # connected to fractures being outside the domain, thereby already removed).
+        line_tags = fracture_tags + boundary_tags
 
         isect_pt, mesh_size_points = self._insert_mesh_size_control_points(
             fracture_tags, mesh_args
@@ -516,15 +519,32 @@ class FractureNetwork2d:
         # all the segments (found in isect_mapping) into a single physical group.
 
         fracture_to_line = {}
+        tmp_frac_line = []
         for i, line_group in enumerate(isect_mapping):
+            # A line_group here was formed after intersection removal. It may contain
+            # either a full fracture, or be one of several segments forming a fracture.
+            # In the latter case, the fracture was split into segments when mesh size
+            # control points were added to the fracture.
             all_lines = []
+            if line_group and line_group[0][1] in boundary_tags_new:
+                # Skip lines on the boundary.
+                continue
+
             for line in line_group:
                 if line[0] == 1:
                     all_lines.append(line[1])
+                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
             if all_lines:
-                fracs = fracture_to_line.get(i, [])
+                frac_ind = inv_fracture_tag_map[all_lines[0]]
+                fracs = fracture_to_line.get(frac_ind, [])
                 fracs.extend(all_lines)
-                fracture_to_line[i] = fracs
+                fracture_to_line[frac_ind] = fracs
+
+        # EK note to self: Failure of the following assertion implies if we have not
+        # managed to track all split fractures (due to intersections or the presence of
+        # boundary points). Not sure if we want to include it.
+        #
+        # assert len(set(tmp_frac_line)) == len(fracture_tags)
 
         for fi, segments in fracture_to_line.items():
             if fi in constraints:
