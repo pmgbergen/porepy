@@ -1374,7 +1374,9 @@ class FractureNetwork3d(object):
                 cp = distance_info[sl]
                 p = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
                 gmsh.model.occ.synchronize()
-                bound_lines = [l[1] for l in gmsh.model.get_boundary([(nd - 1, f)])]
+                bound_lines = [
+                    l[1] for l in gmsh.model.get_boundary([(nd - 1, f)], oriented=False)
+                ]
 
                 dist_line = np.array(
                     [fac.getDistance(0, p, nd - 2, l)[0] for l in bound_lines]
@@ -1398,47 +1400,19 @@ class FractureNetwork3d(object):
             assert len(line_info) > 0
 
             for cp, line_ind, frac, other_frac in line_info:
-                for li in line_ind:
-                    # Get the endpoints of the line.
-                    bound_points = gmsh.model.get_boundary([(1, li)], oriented=False)
-                    start_pt, end_pt = [
-                        np.array(gmsh.model.get_bounding_box(*pt)[:3])
-                        for pt in bound_points
-                    ]
-
-                    line_vector = end_pt - start_pt
-
-                    # Project the closest point onto the line to get the parameter t.
-                    t = project_onto_line(cp, start_pt, line_vector)
-
-                    # Determine if the closest point is an endpoint of the line.
-                    if t < self.tol:
-                        main_start_point = start_pt
-                    elif t > np.linalg.norm(line_vector) - self.tol:
-                        main_start_point = end_pt
-                    else:
-                        # Not an endpoint.
-                        continue
-
+                for _ in line_ind:
                     # Compute distance to the other fracture at this point.
-                    pi = gmsh.model.occ.addPoint(
-                        main_start_point[0],
-                        main_start_point[1],
-                        main_start_point[2],
-                    )
+                    pi = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
                     gmsh.model.occ.synchronize()
                     d_to_other = gmsh.model.occ.get_distance(0, pi, 2, other_frac)[0]
 
                     if d_to_other < THRESHOLD_REFINEMENT:
-                        if not point_already_present(main_start_point, frac):
-                            inserted_points.append(main_start_point)
+                        if not point_already_present(cp, frac):
+                            inserted_points.append(np.array(cp))
                             insertion_surface.append(frac)
-                            mesh_size_points[frac].append(
-                                (main_start_point, d_to_other)
-                            )
+                            mesh_size_points[frac].append((np.array(cp), d_to_other))
                     else:
                         gmsh.model.occ.remove([(0, pi)])
-                        break
 
         return control_point_tags, mesh_size_points
 
