@@ -1057,6 +1057,102 @@ class FractureNetwork3d(object):
 
         return gmsh_fields
 
+    def _set_3d_mesh_size(
+        self,
+        mesh_args: dict[str, float],
+        mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
+        intersection_lines: list[int],
+        intersection_line_parents: list[int],
+    ) -> None:
+        # For 3d meshing, we only set mesh sizes on the fractures, not in the domain
+        # volume. The rationale is that the volume mesh size will be controlled by the
+        # fracture mesh size and the overall mesh size in the domain.
+
+        gmsh_fields = self._set_2d_mesh_size(
+            mesh_args,
+            mesh_size_points,
+            intersection_lines,
+            intersection_line_parents,
+            restrict_to_fractures=False,
+        )
+
+        # Define a threshold for when to consider refining along fractures. This is a
+        # heuristic value which should be reconsidered. Scaling with mesh size on
+        # fractures is reasonable, but the factor 2 is arbitrary.
+        # THRESHOLD_REFINEMENT = mesh_args["mesh_size_frac"]
+
+        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
+        # BETA and make them user parameters, IF the concept turns out to be useful and
+        # extendable to 3d.
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+
+        h_frac = mesh_args["mesh_size_frac"]
+        h_bound = mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.
+        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
+
+        nd = 3
+
+        ### Get hold of lines representing fractures and boundaries.
+        domain_entities = gmsh.model.get_entities(nd)
+        # TODO: If there is more than one domain entity (the domain is split into parts
+        # by fractures), we need to pick out the outer boundary, that is, the ones which
+        # only occurs once.
+        boundaries = gmsh.model.get_boundary([(nd, tag) for _, tag in domain_entities])
+        fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
+
+        fracture_tags = [tag for _, tag in fractures]
+        ## Start feeding the mesh size information to gmsh fields.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
+
+        # TODO: Also include boundary lines here? Or are they implicitly assigned value
+        # h_bound?
+        for surface in fracture_tags:
+            # Adapt the number of sampling points along the line to its length and the
+            # fracture mesh size. There should be at least two points, though.
+            # end_points = gmsh.model.getBoundary([(nd, surface)], combined=False)
+            # length = gmsh.model.occ.get_distance(
+            #     end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
+            # )[0]
+            # num_points = max(2, int(np.ceil(length / h_frac)) + 1)
+            area = gmsh.model.occ.get_mass(nd - 1, surface)
+            length = np.sqrt(area)
+            num_points = 4
+
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "SurfacesList", [surface])
+            gmsh.model.mesh.field.setNumber(field, "Sampling", num_points)
+
+            restriction = gmsh.model.mesh.field.add("Restrict")
+            gmsh.model.mesh.field.setNumber(restriction, "InField", field)
+            gmsh.model.mesh.field.setNumbers(restriction, "VolumesList", domain_tags)
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", restriction)
+            # Start coarsening immediately from zero distance.
+            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+            # TODO: This enforces at least ALPHA elements along each fracture. Do we want
+            # this?
+            gmsh.model.mesh.field.setNumber(
+                threshold, "SizeMin", min(h_frac, length / ALPHA)
+            )
+            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+            gmsh_fields.append(threshold)
+
+        # Finally, as the background mesh, we take the minimum of all the created
+        # fields.
+        self._set_background_mesh_field(gmsh_fields)
+
     def _set_background_mesh_field(self, gmsh_fields: list[int]) -> None:
         min_field = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
