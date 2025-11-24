@@ -521,11 +521,6 @@ class FractureNetwork3d(object):
                         2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
                     )
 
-        # It turns out that if fractures split the domain into disjoint parts, gmsh may
-        # choose to redefine the domain as the sum of these parts. Therefore, we
-        # redefine the domain tags here, using all volumes in the model.
-        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
-
         # The domain.
         gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
 
@@ -537,11 +532,26 @@ class FractureNetwork3d(object):
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
         self._set_background_mesh_field(
-            self._set_2d_mesh_size(mesh_args, mesh_control_dict)
+            self._set_2d_mesh_size(
+                mesh_args,
+                mesh_control_dict,
+                intersection_lines,
+                intersection_line_parents,
+            )
         )
         fac.synchronize()
-
-        gmsh.model.mesh.generate(3)
+        gmsh.model.mesh.generate(nd - 1)
+        if not dfn:
+            # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
+            for field in gmsh.model.mesh.field.list():
+                gmsh.model.mesh.field.remove(field)
+            self._set_3d_mesh_size(
+                mesh_args,
+                mesh_control_dict,
+                intersection_lines,
+                intersection_line_parents,
+            )
+            gmsh.model.mesh.generate(3)
 
         gmsh.write(str(file_name))
         if clear_gmsh:
