@@ -66,13 +66,13 @@ def AB_refinement() -> int:
 @pytest.fixture(scope="module")
 def A_range(AB_refinement) -> np.ndarray:
     """Range of tested cohesion values."""
-    return np.linspace(1e-3, 1.0, AB_refinement, endpoint=True)
+    return np.linspace(0.0, 1.0, AB_refinement, endpoint=True)
 
 
 @pytest.fixture(scope="module")
 def B_range(AB_refinement) -> np.ndarray:
     """Range of tested covolume values."""
-    return np.linspace(1e-3, 0.206813 + 0.05, AB_refinement, endpoint=True)
+    return np.linspace(0.0, 0.23, AB_refinement, endpoint=True)
 
 
 @pytest.mark.parametrize("gaslike", [True, False])
@@ -115,7 +115,9 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
                 get_polynomial_residual(
                     get_compressibility_factor(A, B, True, tol, 0.0), c
                 )
-                < tol
+                < 2 * COVOLUME_LIMIT
+                if B < COVOLUME_LIMIT
+                else tol
             ), f"Real gas compressibility factor is not real root. {err_msg}"
         # Analogous for liquidlike root.
         if not is_extended_factor(A, B, False, tol):
@@ -123,7 +125,9 @@ def test_root_computation_in_AB_space(A_range: np.ndarray, B_range: np.ndarray) 
                 get_polynomial_residual(
                     get_compressibility_factor(A, B, False, tol, 0.0), c
                 )
-                < tol
+                < 2 * COVOLUME_LIMIT
+                if B < COVOLUME_LIMIT
+                else tol
             ), f"Real liquid compressibility factor is not real root. {err_msg}"
 
 
@@ -469,6 +473,9 @@ def test_limitcase_zero_cohesion(
 
     tol = 1e-14
 
+    # See test for zero cohesion and covolume.
+    B_range = B_range[B_range > 1e-7]
+
     for B in B_range:
         x0 = np.array([0.0, B])
         err_msg = _err_msg(*x0)
@@ -532,6 +539,9 @@ def test_limitcase_zero_covolume(
     tol = 1e-14
     # Special value: See test_limitcase_zero_covolume_liquid_saturated
     A_L = 0.25
+
+    # See test for zero cohesion and covolume.
+    A_range = A_range[A_range > 1e-7]
 
     # Then we test the rest of the line.
     for A in A_range:

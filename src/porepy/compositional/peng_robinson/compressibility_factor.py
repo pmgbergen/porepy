@@ -747,7 +747,7 @@ def get_compressibility_factor(
     # needs smoothing. Using potential indices as indicators.
     smooth_sc_idx: Literal[-1, 0, 1] = 1
     # Bandwidth around borders of regions in the super-critical area for smoothing.
-    smooth_sc: float = 0.07
+    smooth_sc: float = 0.001
 
     match extension_case:
         # No root is extended.
@@ -795,14 +795,14 @@ def get_compressibility_factor(
         # Normal projection onto line.
         AB_p = project_point_to_line(AB, _SC_BORDER_LINE, ABMETRIC)
         D = AB - AB_p
-        d = np.sqrt(np.dot(D, ABMETRIC @ D))
+        dsc = np.sqrt(np.dot(D, ABMETRIC @ D))
         # Avoid a conflict with the other smoothing by demanding the projected B to be
         # bigger than B_crit.
-        if d < smooth_sc and AB_p[1] >= B_CRIT:
+        if dsc < smooth_sc and AB_p[1] >= B_CRIT:
             c_p = c_from_AB(AB_p[0], AB_p[1])
             Z = calculate_roots(c_p, eps)
             out = np.array([roots[smooth_sc_idx], Z[-1]])
-            _smooth_supercritical_transition(0, d, smooth_sc, out)
+            _smooth_supercritical_transition(0, dsc, smooth_sc, out)
             roots[smooth_sc_idx] = out[0]
 
         # If gas extended, smooth towards sub-critical extension value on horizontal
@@ -811,7 +811,7 @@ def get_compressibility_factor(
             d = B - B_CRIT
             # Floating point operations can cause it to be slightly negative.
             d = 0.0 if d < 0.0 else d
-            if d < smooth_sc:
+            if d < min(smooth_sc, dsc):
                 c_p = c_from_AB(A, B_CRIT)
                 Z = calculate_roots(c_p, eps)
                 if Z.size > 1:
@@ -821,7 +821,10 @@ def get_compressibility_factor(
                 W = Wgsub(Z[0], B_CRIT)
                 out = np.array([roots[-1], W])
                 _smooth_supercritical_transition(0, d, smooth_sc, out)
-                roots[-1] = out[0]
+                # NOTE: We smooth only if the resulting root is greater or equal than
+                # before to avoid conflicts with smoothing towards the SC border line.
+                if d < dsc and out[0] >= roots[-1]:
+                    roots[-1] = out[0]
         # If liquid extended, smooth towards sub-critical extension value on critical
         # line.
         elif smooth_sc_idx == 0:
@@ -931,13 +934,14 @@ def get_compressibility_factor_derivatives(
     extension_case = is_extended_factor(A, B, gaslike, eps)
 
     # Shortcuts for quick switching between models.
+    Wgsub = extended_factor
     dWgsub = extended_factor_derivatives
     dWlsub = extended_factor_derivatives
     dWgsc = extended_factor_scg_derivatives
     dWlsc = extended_factor_scl_derivatives
 
     smooth_sc_idx: Literal[-1, 0, 1] = 1
-    smooth_sc: float = 0.07
+    smooth_sc: float = 0.001
 
     match extension_case:
         case 0:
@@ -977,8 +981,10 @@ def get_compressibility_factor_derivatives(
         AB = np.array([A, B])
         AB_p = project_point_to_line(AB, _SC_BORDER_LINE, ABMETRIC)
         D = AB - AB_p
-        d = np.sqrt(np.dot(D, ABMETRIC @ D))
-        if d < smooth_sc and AB_p[1] >= B_CRIT:
+        dsc = np.sqrt(np.dot(D, ABMETRIC @ D))
+        # Keep track of Zg in case needed for smoothing towards Bcrit
+        Zg = 0.0
+        if dsc < smooth_sc and AB_p[1] >= B_CRIT:
             c_p = c_from_AB(AB_p[0], AB_p[1])
             dc_dAB = dc_from_AB(AB_p[0], AB_p[1])
             dZ = calculate_root_derivatives(c_p, eps)
@@ -986,13 +992,17 @@ def get_compressibility_factor_derivatives(
             out = np.empty((2, 2))
             out[0] = droots[smooth_sc_idx]
             out[1] = dZ[-1]
-            _smooth_supercritical_transition(0, d, smooth_sc, out)
+            _smooth_supercritical_transition(0, dsc, smooth_sc, out)
             droots[smooth_sc_idx] = out[0]
+            Zg_ = calculate_roots(c_p, eps)
+            out_ = np.array([roots[-1], Wgsub(Zg_[0], AB_p[1])])
+            _smooth_supercritical_transition(0, dsc, smooth_sc, out_)
+            Zg = out_[0]
 
         if smooth_sc_idx == -1:
             d = B - B_CRIT
             d = 0.0 if d < 0.0 else d
-            if d < smooth_sc:
+            if d < min(smooth_sc, dsc) and Zg >= roots[-1]:
                 c_p = c_from_AB(A, B_CRIT)
                 dc_dAB = dc_from_AB(A, B_CRIT)
                 dZ = calculate_root_derivatives(c_p, eps)

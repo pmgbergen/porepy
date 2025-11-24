@@ -459,9 +459,6 @@ def npipm(
                     X_i_j = X + rho_i * DX
                     Xgen = X_i_j[:-1]
                     nu = X_i_j[-1]
-                    # gen = parse_generic_arg(Xgen, ncomp, nphase, spec)
-                    # x = gen[1]
-                    # y = gen[2]
                     gen = _parse_xy(Xgen, ncomp, nphase)
                     x = gen[0]
                     y = gen[1]
@@ -496,9 +493,6 @@ def npipm(
             try:
                 Xgen = X[:-1]
                 nu = X[-1]
-                # gen = parse_generic_arg(Xgen, ncomp, nphase, spec)
-                # x = gen[1]
-                # y = gen[2]
                 gen = _parse_xy(Xgen, ncomp, nphase)
                 x = gen[0]
                 y = gen[1]

@@ -41,7 +41,7 @@ def test_property_derivatives(
     else:
         assert False, "Invalid phase specification."
 
-    assert pr_eos._nc == ncomp, "Failure in test setup."
+    assert pr_eos.nc == ncomp, "Failure in test setup."
     assert pr_eos.is_compiled, "EoS not compiled."
 
     def func(x):

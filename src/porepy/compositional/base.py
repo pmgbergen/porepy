@@ -363,10 +363,10 @@ class EquationOfState:
     """
 
     def __init__(self, components: Sequence[ComponentLike]) -> None:
-        self._nc: int = len(components)
+        self.nc: int = len(components)
         """Number of components passed at instantiation."""
 
-        if self._nc == 0:
+        if self.nc == 0:
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
     def compute_phase_properties(

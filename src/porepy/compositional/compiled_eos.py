@@ -17,7 +17,7 @@ pre-argument for derivative functions.
 For more information on the expected signatures see:
 
 - :data:`PREARGUMENT_FUNC_SIGNATURE`
-- :data:`PREARGUMENT_FUNC_SIGNATURE`,
+- :data:`PREARGUMENT_DFUNC_SIGNATURE`,
 - :data:`PROPERTY_FUNC_SIGNATURE`,
 - :data:`PROPERTY_DERIVATIVE_FUNC_SIGNATURE`,
 - :data:`FUGACITY_COEFF_FUNC_SIGNATURE`,
@@ -158,6 +158,23 @@ and returns a 1D float array.
 
 """
 
+PREARGUMENT_DFUNC_SIGNATURE: nb.types.Type = nb.f8[:](
+    nb.f8[:], nb.f8, nb.f8, nb.f8[:], nb.f8[:]
+)
+"""Numba signature for pre-argument functions for derivatives.
+
+The function takes
+
+1. the result of the first pre-argument function,
+2. a pressure float value,
+3. a temperature float value,
+4. a 1D float array as partial fraction values,
+5. A 1D float array as parameter values,
+
+and returns a 1D float array.
+
+"""
+
 
 PROPERTY_FUNC_SIGNATURE: nb.types.Type = nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:])
 """Numba signature for thermodynamic property functions.
@@ -257,6 +274,27 @@ def prearg_template_func(
         return p * T * xn
     else:
         return xn
+
+
+@cfunc(PREARGUMENT_DFUNC_SIGNATURE, cache=True)
+def prearg_d_template_func(
+    prearg_val: np.ndarray, p: float, T: float, xn: np.ndarray, params: np.ndarray
+) -> np.ndarray:
+    """Template c-func for the pre-argument, both for property values and derivative
+    values.
+
+    Parameters:
+        prearg_val: Result of :func:`prearg_template_func`.
+        p: Pressure value.
+        T: Temperature value.
+        xn: 1D array containing normalized fractions.
+        params: 1D array containing parameters stored in the generic argument.
+
+    Returns:
+        Some 1D array.
+
+    """
+    return p * T * xn
 
 
 @cfunc(PROPERTY_FUNC_SIGNATURE, cache=True)
@@ -382,8 +420,7 @@ def _evaluate_vectorized_prearg_func(
     """Parallelized evaluation of some pre-argument function.
 
     Parameters:
-        property_diffs_func: Property derivative function to be evaluated.
-            See :func:`prearg_template_func`.
+        prearg_func: Some pre-argument function. See :func:`prearg_template_func`.
         phase_State: See :class:`~porepy.compositional._core.PhysicalState`.
         p: ``shape=(N,)``
 
@@ -410,6 +447,63 @@ def _evaluate_vectorized_prearg_func(
     for i in nb.prange(1, N):
         prearg[i] = prearg_func(phase_state, p[i], T[i], xn[i], params[i])
     return prearg
+
+
+@_COMPILER(
+    nb.f8[:, :](
+        typeof(prearg_d_template_func),
+        nb.f8[:, :],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+        nb.f8[:, :],
+    ),
+    parallel=NUMBA_PARALLEL,
+    cache=True,
+)
+def _evaluate_vectorized_prearg_d_func(
+    prearg_d_func: Callable[
+        [np.ndarray, float, float, np.ndarray, np.ndarray], np.ndarray
+    ],
+    prearg_val: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    xn: np.ndarray,
+    params: np.ndarray,
+) -> np.ndarray:
+    """Parallelized evaluation of some pre-argument function for derivatives.
+
+    Parameters:
+        prearg_d_func: Some pre-argument function for derivatives.
+            See :func:`prearg_d_template_func`.
+        prearg_val: ``shape=(N, M1)``
+
+            Results of the pre-argument function for properties.
+        p: ``shape=(N,)``
+
+            Pressure values.
+        T: ``shape=(N,)``
+
+            Temperature values.
+        xn: ``shape=(N, num_components)``
+
+            (Normalized) partial fractions.
+        params: ``shape=(N, num_params)``
+
+            Parameters for the pre-argument functions.
+
+    Returns:
+        An array of shape ``(N, M2)``, where each row represents an evaluation of
+        ``prearg_func``, evaluated with rows of the parameters.
+
+    """
+    N = p.shape[0]
+    prearg_0 = prearg_d_func(prearg_val[0], p[0], T[0], xn[0], params[0])
+    prearg_jac = np.empty((N, prearg_0.shape[0]))
+    prearg_jac[0] = prearg_0
+    for i in nb.prange(1, N):
+        prearg_jac[i] = prearg_d_func(prearg_val[i], p[i], T[i], xn[i], params[i])
+    return prearg_jac
 
 
 @_COMPILER(
@@ -979,12 +1073,13 @@ class CompiledEoS(EquationOfState):
         logger.info("Assembling vectorized functions ..")
 
         # Constructint vectorized computations for fast evaluation of properties.
-        k: PropertyFunctionNames
-        dk: PropertyFunctionNames
-        # Awkward definition of keys is for mypy.
-        keys: list[PropertyFunctionNames] = ["prearg_val", "prearg_jac"]
-        for k in keys:
-            self.gufuncs[k] = partial(_evaluate_vectorized_prearg_func, self.funcs[k])
+
+        self.gufuncs["prearg_val"] = partial(
+            _evaluate_vectorized_prearg_func, self.funcs["prearg_val"]
+        )
+        self.gufuncs["prearg_jac"] = partial(
+            _evaluate_vectorized_prearg_d_func, self.funcs["prearg_jac"]
+        )
 
         self.gufuncs["phis"] = partial(
             _evaluate_vectorized_fug_coeff_func, self.funcs["phis"]
@@ -993,7 +1088,7 @@ class CompiledEoS(EquationOfState):
             _evaluate_vectorized_fug_coeff_diff_func, self.funcs["dphis"]
         )
 
-        keys = ["h", "rho", "v", "mu", "kappa"]
+        keys: list[PropertyFunctionNames] = ["h", "rho", "v", "mu", "kappa"]
         for k in keys:
             self.gufuncs[k] = partial(_evaluate_vectorized_property_func, self.funcs[k])
             dk = cast(PropertyFunctionNames, f"d{k}")
@@ -1049,17 +1144,21 @@ class CompiledEoS(EquationOfState):
         if len(thermodynamic_input) == 3:
             x = thermodynamic_input[-1]
         # Partial fractions are passed individually.
-        elif len(thermodynamic_input) == 2 + self._nc:
-            x = np.array(thermodynamic_input[-self._nc :])
+        elif len(thermodynamic_input) == 2 + self.nc:
+            x = np.array(thermodynamic_input[-self.nc :])
+            thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
+        # If only 1 component
+        elif len(thermodynamic_input) == 2 and self.nc == 1:
+            x = np.ones(thermodynamic_input[0].size)
             thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
         else:
             raise ValueError(
                 "Compiled EoS expects input in format (p, T, x_matrix) or "
-                "(p, T, x_1, .., x_n)."
+                "(p, T, x_1, .., x_n) or (p, T) in case only 1 component."
             )
 
         # Reshape to matrix in the single-component case for compatibility reasons.
-        if self._nc == 1 and x.ndim == 1:
+        if self.nc == 1 and x.ndim == 1:
             x = x.reshape((1, x.shape[0]))
 
         assert x.ndim == 2, (
@@ -1092,13 +1191,10 @@ class CompiledEoS(EquationOfState):
             phase_state, *thermodynamic_input, params_array
         )
         prearg_jac = self.gufuncs["prearg_jac"](
-            phase_state, *thermodynamic_input, params_array
+            prearg_val, *thermodynamic_input, params_array
         )
 
         props = {}
-        k: PropertyFunctionNames
-        dk: PropertyFunctionNames
-
         keys: list[PropertyFunctionNames] = ["h", "rho", "phis", "mu", "kappa"]
         for k in keys:
             props[k] = self.gufuncs[k](prearg_val, *thermodynamic_input)

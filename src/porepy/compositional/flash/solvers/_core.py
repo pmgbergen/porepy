@@ -276,7 +276,7 @@ def sequential_solver(
     return result, exitcodes, num_iter
 
 
-@numba.njit(_multi_solver_signature, cache=True, parallel=True, nogil=True)
+@numba.njit(_multi_solver_signature, cache=False, parallel=NUMBA_PARALLEL, nogil=True)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -306,11 +306,23 @@ def parallel_solver(
         This makes this function fragile to exceptions thrown by the solver.
         If an exception is thrown, the whole parallel execution is aborted.
 
+    Note:
+        This method looks for a solver parameter called ``parallel_chunksize``.
+        If found, the user can provide it, otherwise it is computed based on cores and
+        size.
+
     """
     n = X0.shape[0]
     result = np.zeros_like(X0)
     num_iter = np.zeros(n, dtype=np.int_)
     exitcodes = np.ones(n, dtype=np.int_) * 5
+    if "parallel_chunksize" in solver_params:
+        cs = int(solver_params["parallel_chunksize"])
+    else:
+        # Default value for numba to compute its own chunksize.
+        cs = 0
+
+    numba.set_parallel_chunksize(cs)
 
     # try:
     for i in numba.prange(n):

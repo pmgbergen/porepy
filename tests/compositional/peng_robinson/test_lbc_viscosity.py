@@ -30,7 +30,7 @@ def test_lbc_derivatives(
     by assuring that the Taylor approximation is of second order."""
 
     ncomp = comps_and_phases[0]
-    assert pr_eos._nc == ncomp, "Failure in test setup."
+    assert pr_eos.nc == ncomp, "Failure in test setup."
     assert pr_eos.is_compiled, "EoS not compiled."
 
     if comps_and_phases[1] == "L":

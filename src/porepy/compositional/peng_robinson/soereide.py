@@ -325,7 +325,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
         dA_c = self._cfuncs["dA"]
         dB_c = self._cfuncs["dB"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
-        d = 2 + self._nc
+        d = 2 + self.nc
 
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]

@@ -209,7 +209,12 @@ def get_root_case(c: np.ndarray, eps: float) -> int:
     r = r_from_c(c)
     D = discriminant(r)
     absq = np.abs(r[1])
-    machine_eps = np.finfo(np.float64).eps
+
+    # Fail-safe:
+    if np.any(np.isnan(c)) or np.any(np.isinf(c)):
+        raise ValueError(
+            "Root case not determinable if nans or infs present in coefficients."
+        )
 
     # Degenerate case with triple root.
     if max(np.abs(r[0]), absq) < eps:
@@ -223,10 +228,6 @@ def get_root_case(c: np.ndarray, eps: float) -> int:
     # Positive discriminant => one real root, two complex conjugate roots.
     if D0 > DR * (1 + eps) or D > eps:
         return 1
-    # Degenerate case of 2 real roots, one with multiplicity 2.
-    # Almost never the case, and numerical relevance probably questionable.
-    elif np.abs(D0 - DR) / max(D0, DR, machine_eps) < machine_eps:
-        return 2
     # Negative discriminant => three distinct real roots.
     elif D0 < DR * (1 - eps) or D < -eps:
         # Edge case, welcome to floating point hell. r[0] must be strictly negative for
@@ -234,9 +235,8 @@ def get_root_case(c: np.ndarray, eps: float) -> int:
         if absq < 1e-7 and 0 < D < eps and r[0] >= 0.0:
             return 1
         return 3
-    # Degenerate case 2 roots: Fail safe. If all of the above criteria are not meat
-    # for floating point reasons, then we are in a zone where zero is not properly
-    # determined and the roots in all 3 branches (1,2,3) are numerically the same.
+    # Degenerate case 2 roots: Numerically almost never the case, but required for
+    # completeness.
     else:
         assert np.abs(D) <= eps, "Expecting degenerate discriminant."
         return 2

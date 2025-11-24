@@ -135,7 +135,7 @@ def test_assembly_of_flash_systems(
         (np.zeros((base_dim, dim_gen_arg - base_dim)), np.eye(base_dim))
     )
 
-    assert flash._eos._nc == ncomp, "Failure in test setup."
+    assert flash._eos.nc == ncomp, "Failure in test setup."
     assert flash._eos.is_compiled, "EoS not compiled."
     # This takes some time, but should not fail.
     flash.compile(flash_spec)
