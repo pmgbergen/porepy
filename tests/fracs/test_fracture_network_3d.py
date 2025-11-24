@@ -792,6 +792,54 @@ def test_fracture_hits_domain_corner_line(
         assert len(mdg.subdomains(dim=2)) == 0
 
 
+@pytest.mark.parametrize("num_fracs", [1, 2, 3])
+def test_domain_split_by_fractures(
+    num_fracs: int, unit_box: pp.Domain, mesh_args: dict
+):
+    """Test meshing when fractures split the domain into multiple subdomains.
+
+    This is known to be a weak point in the meshing algorithm, since Gmsh has a tendency
+    to treat the domain as multiple subdomains, generating edge cases that must be
+    handled in a robust implementation.
+
+    Parameters:
+        num_fracs: Number of fractures to include in the network. unit_square: Unit
+        square domain fixture. mesh_args: Meshing arguments.
+
+    """
+    fractures = [
+        pp.PlaneFracture(
+            np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0], [0.5, 0.5, 0.5, 0.5]])
+        ),
+        pp.PlaneFracture(
+            np.array([[0.0, 1.0, 1.0, 0.0], [0.5, 0.5, 0.5, 0.5], [0.0, 0.0, 1.0, 1.0]])
+        ),
+        pp.PlaneFracture(
+            np.array([[0.5, 0.5, 0.5, 0.5], [0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+        ),
+    ][:num_fracs]
+
+    network = pp.create_fracture_network(fractures, unit_box)
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(mesh_args)
+
+    # There should still be a single 3d grid as far as PorePy is concerned.
+    assert len(mdg.subdomains(dim=3)) == 1
+    # There should be num_fracs 1d grids.
+    assert len(mdg.subdomains(dim=2)) == num_fracs
+    # There should be 0, 1, or 3 1d grids depending on num_fracs.
+    expected_1d_grids = 0
+    if num_fracs == 2:
+        expected_1d_grids = 1
+    elif num_fracs == 3:
+        expected_1d_grids = 3
+    assert len(mdg.subdomains(dim=1)) == expected_1d_grids
+
+    # There should be a single 0d grid if there are three fractures.
+    num_0d_grids = 1 if num_fracs == 3 else 0
+    assert len(mdg.subdomains(dim=0)) == num_0d_grids
+
+
 class TestDFMMeshGeneration:
     """Legacy tests for meshing. These cover aspects not covered by the more
     parametrized tests above, and are therefore kept for completeness.
