@@ -921,13 +921,11 @@ class FractureNetwork3d(object):
             distances = distances[distances > self.tol]
             return np.min(distances)
 
-        def dist_point_lines(lines, point, threshold_from_zero: bool = False):
+        def dist_point_lines(lines, point):
             """Compute distance from point to all lines in lines."""
             distances = np.array(
                 [gmsh.model.occ.get_distance(0, point, 1, l)[0] for l in lines]
             )
-            if threshold_from_zero:
-                distances = distances[distances > self.tol]
             return np.min(distances)
 
         for surface, info in mesh_size.items():
@@ -964,6 +962,14 @@ class FractureNetwork3d(object):
                 line_points = np.empty((3, 0))
                 line_dist = np.array([])
 
+            # Distance to other objects for each point, as computed previously. Assign
+            # h_frac or h_bound to the endpoints, depending on whether the line is a
+            # fracture or boundary line. We also assign h_frac, since no refinement is
+            # needed just because this is an intersection point (if it is an
+            # intersection with a bad angle, this should be picked up by a close point
+            # on another line).
+            h_end = h_bound if surface in boundary_tags else h_frac
+
             # We need to detect lines that are close.
 
             control_points = (
@@ -979,13 +985,13 @@ class FractureNetwork3d(object):
                 if np.all(pd > 1e-6):
                     assert False
                 pi = gmsh_point_ind[int(np.argmin(pd))]
-                control_point_distance_to_lines.append(
-                    dist_point_lines(
-                        surface_lines + boundary_lines,
-                        pi,
-                        threshold_from_zero=True,
-                    )
-                )
+                d = dist_point_lines(surface_lines + boundary_lines, pi)
+                if d < self.tol:
+                    # For intersections, we assign the background mesh size for this
+                    # surface.
+                    control_point_distance_to_lines.append(h_end)
+                else:
+                    control_point_distance_to_lines.append(d)
 
             control_point_distance_to_lines = np.array(control_point_distance_to_lines)
             control_point_distance = np.minimum(
@@ -995,13 +1001,6 @@ class FractureNetwork3d(object):
             points, _, ind_map = pp.array_operations.uniquify_point_set(
                 np.hstack((line_points, control_points)), tol=h_min
             )
-            # Distance to other objects for each point, as computed previously. Assign
-            # h_frac or h_bound to the endpoints, depending on whether the line is a
-            # fracture or boundary line. We also assign h_frac, since no refinement is
-            # needed just because this is an intersection point (if it is an
-            # intersection with a bad angle, this should be picked up by a close point
-            # on another line).
-            h_end = h_bound if surface in boundary_tags else h_frac
 
             other_object_distances_all = np.hstack(
                 (
