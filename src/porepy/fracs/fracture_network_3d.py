@@ -434,6 +434,7 @@ class FractureNetwork3d(object):
         #         pass
 
         debug = []
+        surface_tags_new = fracture_tags_new + boundary_tags_new
 
         (
             intersection_points,
@@ -441,14 +442,37 @@ class FractureNetwork3d(object):
             isect_mapping,
             num_parents_of_lines,
             constraints,
+            intersection_line_parents,
         ) = self.process_intersections(
-            fracture_tags, domain_tag, constraints=constraints
+            surface_tags_new, domain_tag, constraints=constraints
         )
-        if False:
-            # Here we need processing of intersection lines to insert mesh size control
-            # points.
-            pass
 
+        # Transfer mesh size points to the new segments after intersection removal.
+        # This is common for 2d and 3d meshing.
+        new_mesh_control_dict = {}
+        for fi, old_fracture in enumerate(isect_mapping):
+            if len(old_fracture) > 0:
+                if old_fracture[0][0] == nd:
+                    # It is unclear if processing the domain will make any harm, but there
+                    # is no need to take any chances. Skip it.
+                    continue
+                elif old_fracture[0][1] in boundary_tags_new:
+                    # Similarly, skip processing of boundary segments. TODO: THIS DOES
+                    # NOT HOLD FOR MESH SIZE INFORMATION.
+                    continue
+
+            # Retrieve the original gmsh tag, and then the index of the fracture in
+            # self.fractures.
+
+            # Get hold of the gmsh tag used to represent this fracture before
+            # intersection removal.
+            old_gmsh_tag = surface_tags_new[fi]
+            for sub_frac in old_fracture:
+                if old_gmsh_tag in mesh_control_dict:
+                    # Update the mesh size points for the new segments.
+                    new_mesh_control_dict[sub_frac[1]] = mesh_control_dict[old_gmsh_tag]
+
+        mesh_control_dict = new_mesh_control_dict
         ## Export physical entities to gmsh.
 
         # Intersection points.
