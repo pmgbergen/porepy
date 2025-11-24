@@ -482,6 +482,7 @@ class FractureNetwork3d(object):
             )
 
         # Intersection lines.
+        # TODO: Should filter away lines that are between boundary surfaces only.
         for li, line in enumerate(intersection_lines):
             if num_parents_of_lines[li] < 2:
                 continue
@@ -493,11 +494,21 @@ class FractureNetwork3d(object):
                 f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
             )
 
+        # It turns out that if fractures split the domain into disjoint parts, gmsh may
+        # choose to redefine the domain as the sum of these parts. Therefore, we
+        # redefine the domain tags here, using all volumes in the model.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
+
         # Fractures.
+        boundary_surfaces = []
+        for dt in domain_tags:
+            boundary_surfaces += [
+                t for _, t in gmsh.model.get_boundary([(nd, dt)], oriented=False)
+            ]
         for i, frac in enumerate(isect_mapping):
             subfracs = []
             for subfrac in frac:
-                if subfrac[0] == 2:
+                if subfrac[0] == 2 and subfrac[1] not in boundary_surfaces:
                     subfracs.append(subfrac[1])
             if subfracs:
                 if i in constraints:
