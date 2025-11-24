@@ -5,8 +5,6 @@ import pytest
 import gmsh
 import porepy as pp
 from porepy.fracs import ellipse_fracture
-from collections import namedtuple
-from tests.fracs.test_fracture_network_3d import check_mdg
 
 
 @pytest.mark.parametrize(
