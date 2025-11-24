@@ -773,7 +773,288 @@ class FractureNetwork3d(object):
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         restrict_to_fractures: bool = True,
     ) -> None:
-        assert False
+        # Define a threshold for when to consider refining along fractures. This is a
+        # heuristic value which should be reconsidered. Scaling with mesh size on
+        # fractures is reasonable, but the factor 2 is arbitrary.
+        THRESHOLD_REFINEMENT = 2 * mesh_args["mesh_size_frac"]
+
+        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
+        # BETA and make them user parameters, IF the concept turns out to be useful and
+        # extendable to 3d.
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+        nd = 3
+
+        ### Get hold of lines representing fractures and boundaries.
+        domain_entities = gmsh.model.get_entities(nd)
+        # TODO: If there is more than one domain entity (the domain is split into parts
+        # by fractures), we need to pick out the outer boundary, that is, the ones which
+        # only occurs once.
+        boundaries = gmsh.model.get_boundary([(nd, tag) for _, tag in domain_entities])
+        fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
+
+        surface_tags = [tag for _, tag in gmsh.model.getEntities(nd - 1)]
+        fracture_tags = [tag for _, tag in fractures]
+        boundary_tags = [tag for _, tag in boundaries]
+
+        h_frac = mesh_args["mesh_size_frac"]
+        h_bound = mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.
+        h_min = mesh_args.get("mesh_size_min", h_frac / 10)
+
+        # The list of gmsh fields created.
+        gmsh_fields = []
+
+        # All mesh size control points should have been inserted already, so we just
+        # need to set up the fields and associate them with the points by the gmsh
+        # indices. To that end, create a list of all physical point coordinates.
+        # TODO: Create a helper class for this operation, common for 2d and 3d.
+        phys_coord = []
+        gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
+        for pi in gmsh_point_ind:
+            coord = gmsh.model.get_bounding_box(0, pi)[:3]
+            phys_coord.append(np.array(coord))
+        phys_coord = np.array(phys_coord).T
+
+        # The same point might have been inserted multiple times (e.g., if it lies at
+        # the intersection of multiple fractures). We need to uniquify the point set,
+        # and assign the minimum mesh size among all occurrences of the point. This will
+        # be helpful, e.g., to set the right size for an X-intersection which is almost
+        # a T-intersection. TODO: This can be a helper function, common in 2d and 3d.
+        # Also, we can do this after the control points have been inserted, so that it
+        # is done only once.
+        if len(mesh_size_points) > 0:
+            all_pts = []
+            mesh_sizes = []
+            line_item = []
+            for surface, info in mesh_size_points.items():
+                for i, d in enumerate(info):
+                    all_pts.append(d[0])
+                    mesh_sizes.append(d[1])
+                    line_item.append((surface, i))
+            all_pts = np.array(all_pts).T
+            mesh_sizes = np.array(mesh_sizes)
+
+            if all_pts.size > 0:
+                _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
+                    all_pts, tol=self.tol
+                )
+                min_size = np.empty(ind_map.size, dtype=float)
+                for i in range(ind_map.size):
+                    inds = inv_map == i
+                    min_size[i] = np.min(mesh_sizes[inds])
+
+                # Map back to lines.
+                for line_ind, pt_ind in enumerate(inv_map):
+                    surface = line_item[line_ind][0]
+                    item = line_item[line_ind][1]
+                    mesh_size_points[surface][item] = (
+                        mesh_size_points[surface][item][0],
+                        min_size[pt_ind],
+                    )
+
+        # For lines that with no extra mesh size control points, assign an empty list.
+        mesh_size = {tag: [] for tag in surface_tags}
+        mesh_size.update(mesh_size_points)
+
+        def dist_other_lines(lines, this_line):
+            """Compute distance from this_line to all other lines in lines."""
+            other_lines = [l for l in lines if l != this_line]
+            if len(other_lines) == 0:
+                return np.array([])
+
+            distances = np.array(
+                [
+                    gmsh.model.occ.get_distance(1, this_line, 1, l)[0]
+                    for l in other_lines
+                ]
+            )
+            distances = distances[distances > self.tol]
+            return np.min(distances)
+
+        def dist_point_lines(lines, point, threshold_from_zero: bool = False):
+            """Compute distance from point to all lines in lines."""
+            distances = np.array(
+                [gmsh.model.occ.get_distance(0, point, 1, l)[0] for l in lines]
+            )
+            if threshold_from_zero:
+                distances = distances[distances > self.tol]
+            return np.min(distances)
+
+        for surface, info in mesh_size.items():
+            # Uniquify the point set (the same point may have been identified multiple
+            # times).
+
+            # Boundary of the current surface.
+            boundary_lines = [
+                t
+                for _, t in gmsh.model.get_boundary([(nd - 1, surface)], oriented=False)
+            ]
+
+            surface_lines = intersection_lines[
+                np.any(intersection_line_parents == surface, axis=1)
+            ].tolist()
+
+            # Points on intersection lines. Since intersection of lines should result in
+            # the line being split, the line points should also contain such
+            # intersection points. Moreover, both lines and points should be embedded in
+            # the surface during the fragmentation process, hence the mesh size set here
+            # will be enforced during suface meshing.
+            line_points = []
+            line_dist = []
+            for line in surface_lines:
+                d = dist_other_lines(surface_lines + boundary_lines, line)
+                line_dist += [d, d]
+                bnd_pts = gmsh.model.get_boundary([(1, line)], oriented=False)
+
+                for p in bnd_pts:
+                    line_points.append(gmsh.model.occ.get_bounding_box(0, p[1])[:3])
+
+            line_points = np.array(line_points).T
+            if line_points.size == 0:
+                line_points = np.empty((3, 0))
+                line_dist = np.array([])
+
+            # We need to detect lines that are close.
+
+            control_points = (
+                np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
+            )
+            control_point_internal_distances = (
+                np.array([d[1] for d in info]) if len(info) > 0 else np.empty((0,))
+            )
+            control_point_distance_to_lines = []
+            for cp_d in info:
+                cp = cp_d[0]
+                pd = np.linalg.norm(phys_coord - cp.reshape(3, 1), axis=0)
+                if np.all(pd > 1e-6):
+                    assert False
+                pi = gmsh_point_ind[int(np.argmin(pd))]
+                control_point_distance_to_lines.append(
+                    dist_point_lines(
+                        surface_lines + boundary_lines,
+                        pi,
+                        threshold_from_zero=True,
+                    )
+                )
+
+            control_point_distance_to_lines = np.array(control_point_distance_to_lines)
+            control_point_distance = np.minimum(
+                control_point_internal_distances, control_point_distance_to_lines
+            )
+
+            points, _, ind_map = pp.array_operations.uniquify_point_set(
+                np.hstack((line_points, control_points)), tol=h_min
+            )
+            # Distance to other objects for each point, as computed previously. Assign
+            # h_frac or h_bound to the endpoints, depending on whether the line is a
+            # fracture or boundary line. We also assign h_frac, since no refinement is
+            # needed just because this is an intersection point (if it is an
+            # intersection with a bad angle, this should be picked up by a close point
+            # on another line).
+            h_end = h_bound if surface in boundary_tags else h_frac
+
+            other_object_distances_all = np.hstack(
+                (
+                    np.array([d if d > 0 else h_frac for d in line_dist]),
+                    np.array([d if d > 0 else h_frac for d in control_point_distance]),
+                )
+            )
+            # Reduce to one distance per unique point, picking the minimum distance if
+            # multiple distances were associated with the same geometric point.
+            other_object_distances = []
+            for i in range(points.shape[1]):
+                inds = ind_map == i
+                min_dist = np.min(other_object_distances_all[inds])
+                other_object_distances.append(min_dist)
+            other_object_distances = np.array(other_object_distances)
+
+            # Mesh size information that relates to either endpoints or points close to
+            # end points (which were filtered out) must be assigned to endpoints.
+
+            if points.shape[1] > 0:
+                # If there is more than one point in addition to the end points, we can
+                # compute the point-point distances in pairs along this line.
+                point_point_distances = pp.distances.pointset(points, max_diag=True)
+                min_dist_point = np.min(point_point_distances, axis=0)
+            else:
+                # This is an isolated point. There is no reason to do refinement for
+                # this line, though, if the same point is identified for other lines, it
+                # may be added there. Note to self: A standard X-intersection with no
+                # other lines in the vicinity will end up here.
+                continue
+                assert False
+
+            # The final distance to be used for mesh size calculation is the minimum of
+            # the distance to other objects and the distance to other close points on
+            # the same line.
+            dist = np.minimum(other_object_distances, min_dist_point)
+
+            for i, d in enumerate(dist):
+                # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
+                # related to almost intersection points.
+                if d > THRESHOLD_REFINEMENT:
+                    # No refinement needed at this point.
+                    continue
+                elif d == h_end:
+                    # This is likely an isolated endpoint.
+                    size = h_end
+                else:
+                    size = max(h_min, d) / ALPHA
+
+                field = gmsh.model.mesh.field.add("Distance")
+                pd = np.linalg.norm(phys_coord - points[:, i].reshape(3, 1), axis=0)
+                if np.all(pd > 1e-6):
+                    assert False
+                pi = gmsh_point_ind[int(np.argmin(pd))]
+
+                gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
+                if surface in boundary_tags:
+                    debug = []
+
+                threshold = gmsh.model.mesh.field.add("Threshold")
+                gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+                # NOTE: If the definition of the threshold field is changed, the
+                # computation of the critical angle for almost parallel lines must also
+                # be updated. See the definition of variable 'angle_threshold' above.
+                gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
+                gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
+                if restrict_to_fractures:
+                    gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+                    gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_end)
+                else:
+                    gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+                    gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+
+                # Note to self: The order is important here - the restriction must refer
+                # to the threshold field, not the other way around.
+                restriction = gmsh.model.mesh.field.add("Restrict")
+                gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
+                if restrict_to_fractures:
+                    gmsh.model.mesh.field.setNumbers(
+                        restriction, "CurvesList", surface_lines
+                    )
+                    gmsh.model.mesh.field.setNumbers(
+                        restriction, "SurfacesList", [surface]
+                    )
+                else:
+                    gmsh.model.mesh.field.setNumbers(
+                        restriction,
+                        "VolumesList",
+                        [entity[1] for entity in domain_entities],
+                    )
+
+                gmsh_fields.append(restriction)
+
         return gmsh_fields
 
     def _set_background_mesh_field(self, gmsh_fields: list[int]) -> None:
