@@ -13,6 +13,7 @@ from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.geometry.domain import Domain
 from pathlib import Path
+import gmsh
 
 
 def check_mdg_from_polytopal_2d_domain(
@@ -113,6 +114,23 @@ def unit_square() -> pp.Domain:
 def mesh_args() -> dict:
     """Create standard mesh arguments for testing purposes."""
     return {"mesh_size_bound": 1.0, "mesh_size_frac": 1.0, "mesh_size_min": 1e-5}
+
+
+@pytest.fixture(autouse=True)
+def finalize_gmsh():
+    """Fixture to ensure gmsh is finalized after each test.
+
+    This is to avoid tests failing because gmsh was not cleared after a previously
+    breaking test.
+    """
+    yield  # This is where the test runs
+    try:
+        # Try to clear and finalize gmsh after each test. This will raise an error
+        # if gmsh was not initialized in the test, but we can ignore that.
+        gmsh.clear()
+        gmsh.finalize()
+    except Exception:
+        pass
 
 
 def test_snap_fractures():
