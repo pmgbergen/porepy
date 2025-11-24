@@ -340,6 +340,10 @@ class FractureNetwork3d(object):
             constraints.sort()
 
         gmsh.initialize()
+        # Use HXT algorithm for 3d meshing by default. TODO: This should be a user
+        # option. Note to self: It is important to use Mesh.Algorithm3D, not
+        # Mesh3D.Algorithm, which triggers all sorts of issues.
+        gmsh.option.setNumber("Mesh.Algorithm3D", 10)
 
         fac = gmsh.model.occ
 
