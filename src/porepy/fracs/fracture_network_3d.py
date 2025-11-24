@@ -557,17 +557,18 @@ class FractureNetwork3d(object):
         return mdg
 
     def process_intersections(
-        self, fracture_tags: list[int], domain_tag: int, constraints: list[int]
+        self, surface_tags: list[int], domain_tag: int, constraints: list[int]
     ) -> None:
         nd = 3
+        dim_surface_tags = [(nd - 1, tag) for tag in surface_tags]
         if domain_tag >= 0:
             _, isect_mapping = gmsh.model.occ.fragment(
-                fracture_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
+                dim_surface_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
             )
         else:
             # Special handling of DFN-style meshing.
             _, isect_mapping = gmsh.model.occ.fragment(
-                fracture_tags, [], removeObject=True, removeTool=True
+                dim_surface_tags, [], removeObject=True, removeTool=True
             )
 
         gmsh.model.occ.synchronize()
@@ -593,6 +594,9 @@ class FractureNetwork3d(object):
 
         keep = np.ones(len(isect_mapping), dtype=bool)
         for fi, frac in enumerate(isect_mapping):
+            if frac and frac[0][0] == 3:
+                # This is the domain, keep it.
+                continue
             loc_keep = np.ones(len(frac), dtype=bool)
             for sfi, sub_frac in enumerate(frac):
                 bounding_lines = gmsh.model.get_boundary([sub_frac])
@@ -623,6 +627,9 @@ class FractureNetwork3d(object):
         # embedded in fractures. Make a list of both.
         bnd_lines = []
         embedded_lines = []
+
+        bound_frac_ind = int(len(self.fractures) - sum(np.logical_not(keep)))
+
         # Challenge: Since the mdg graph only accepts single edges between node pairs
         # (subdomains), if two intersection lines cross (think a Rubik's cube geometry),
         # the split part of the intersection line must be assigned the same physical
@@ -638,7 +645,7 @@ class FractureNetwork3d(object):
         # TODO: What if two fractures intersect in a point? This is likely not covered
         # here, and not considered in the current implementation of md dynamics in
         # general.
-        for fi, new_frac in enumerate(isect_mapping):
+        for fi, new_frac in enumerate(isect_mapping[:bound_frac_ind]):
             # Constraints do not contribute to intersection lines.
             if fi in constraints:
                 continue
@@ -759,18 +766,26 @@ class FractureNetwork3d(object):
         num_point_occ = np.bincount(points_of_intersection_lines)
         intersection_points = np.where(num_point_occ > 1)[0]
 
+        if len(line_parents) > 0:
+            line_parents = np.array(line_parents)
+        else:
+            line_parents = np.empty((0, 2), dtype=int)
+
         return (
             intersection_points,
             intersection_lines,
             isect_mapping,
             num_parents,
             constraints,
+            line_parents,
         )
 
     def _set_2d_mesh_size(
         self,
         mesh_args: dict[str, float],
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
+        intersection_lines: list[int],
+        intersection_line_parents: list[int],
         restrict_to_fractures: bool = True,
     ) -> None:
         # Define a threshold for when to consider refining along fractures. This is a
