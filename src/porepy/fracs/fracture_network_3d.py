@@ -351,7 +351,11 @@ class FractureNetwork3d(object):
             domain_tag = -1
 
         fracture_tags = self.fractures_to_gmsh_3D()
-        fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
+        # fracture_tags = [t for _, t in fracture_tags]
+        boundary_tags = [
+            t for _, t in gmsh.model.get_boundary([(nd, domain_tag)], oriented=False)
+        ]
+        surface_tags = fracture_tags + boundary_tags
         gmsh.model.occ.synchronize()
 
         mesh_control_tag, mesh_control_dict = self._insert_mesh_size_control_points(
@@ -359,25 +363,75 @@ class FractureNetwork3d(object):
         )
         gmsh.model.occ.synchronize()
         control_tag = [(0, tag) for tag in mesh_control_tag]
-        _, tmp = gmsh.model.occ.fragment(
-            control_tag, fracture_tags, removeObject=True, removeTool=True
-        )
-        gmsh.model.occ.synchronize()
 
-        # There should be (I hope) no reason for a fracture to be split due to the
-        # insertion of mesh control points.
-        num_control_points = len(mesh_control_tag)
-        for i, tag in enumerate(tmp[:num_control_points]):
-            mesh_control_tag[i] = tag
-        for i, tag in enumerate(tmp[num_control_points:]):
-            if tag[0] == 2:
-                # Violation here points to a surface being split by control points,
-                # which is not expected.
-                assert tag[1] == fracture_tags[i][1]
-            else:
-                # Should be dimension 1, so a line that is split. The hope is we don't
-                # have to deal with this.
-                pass
+        if len(mesh_control_tag) == 0:
+            # Map from the gmsh tags originally assigned to the fractures to the
+            # fractures after possible truncation and removal.
+            fracture_tag_map = {i: [i] for i in fracture_tags}
+            # List of new fracture tags after possible truncation and removal.
+            fracture_tags_new = copy.deepcopy(fracture_tags)
+            # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
+            inv_fracture_tag_map = {
+                i: counter for counter, i in enumerate(fracture_tags)
+            }
+            boundary_tags_new = boundary_tags
+        else:
+            # Do a fragmentation to embed the control points into the fracture and
+            # boundary lines. This will also update all tags, and we need to pursue
+            # them.
+            gmsh.model.occ.synchronize()
+            _, entity_map = gmsh.model.occ.fragment(
+                [(0, p) for p in mesh_control_tag],
+                [(nd - 1, f) for f in surface_tags],
+                removeObject=True,
+                removeTool=True,
+            )
+            gmsh.model.occ.synchronize()
+            new_mesh_control_dict = {}
+            # MONDAY 24.11: There must be issues with dim-tag pairs somewhere here. This
+            # is copied and pasted, but not corrected, from 2d.
+            surface_map = entity_map[len(mesh_control_tag) :]
+            fracture_tags_new = []
+            fracture_tag_map = {i: [] for i in fracture_tags}
+            boundary_tags_new = []
+            inv_fracture_tag_map = {}
+            for input_ind, (fi, info) in enumerate(zip(surface_tags, surface_map)):
+                new_tags = [i[1] for i in info if i[0] == nd - 1]
+                if fi in fracture_tags:
+                    fracture_tag_map[fi].extend(new_tags)
+                    fracture_tags_new += new_tags
+                elif fi in boundary_tags:
+                    boundary_tags_new += new_tags
+                for nt in new_tags:
+                    inv_fracture_tag_map[nt] = input_ind
+                    # Assign the mesh size points to all the new fracture segments. For
+                    # a fracture that was split into multiple segments, this will
+                    # introduce additional points that are outside the segment, but we
+                    # will have to deal with this later.
+                    if fi in mesh_control_dict:
+                        new_mesh_control_dict[nt] = mesh_control_dict[fi]
+
+            mesh_control_dict = new_mesh_control_dict
+
+        # _, tmp = gmsh.model.occ.fragment(
+        #     control_tag, fracture_tags, removeObject=True, removeTool=True
+        # )
+        # gmsh.model.occ.synchronize()
+
+        # # There should be (I hope) no reason for a fracture to be split due to the
+        # # insertion of mesh control points.
+        # num_control_points = len(mesh_control_tag)
+        # for i, tag in enumerate(tmp[:num_control_points]):
+        #     mesh_control_tag[i] = tag
+        # for i, tag in enumerate(tmp[num_control_points:]):
+        #     if tag[0] == 2:
+        #         # Violation here points to a surface being split by control points,
+        #         # which is not expected.
+        #         assert tag[1] == fracture_tags[i][1]
+        #     else:
+        #         # Should be dimension 1, so a line that is split. The hope is we don't
+        #         # have to deal with this.
+        #         pass
 
         debug = []
 
