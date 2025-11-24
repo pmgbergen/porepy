@@ -119,9 +119,17 @@ else:
         np.array([[0, 0, 0.5], [1, 0, 0.5], [1, 1, 0.5], [0, 1, 0.5]]).T
     )
     f_2 = pp.PlaneFracture(
-        np.array([[0.2, -0.3, 0.2], [0.2, 0.2, 0.2], [0.2, 0.2, 1], [0.2, -0.3, 1]]).T
+        np.array([[0.2, -0.3, -0.2], [0.2, 0.2, -0.2], [0.2, 0.2, 1], [0.2, -0.3, 1]]).T
     )
-    fractures = [f_0, f_2]
+    f_3 = pp.EllipticFracture(
+        center=np.array([0.0, 0.0, 1.0]),
+        major_axis=0.5,
+        minor_axis=0.2,
+        major_axis_angle=0.0,
+        strike_angle=np.pi / 2,
+        dip_angle=0.0,
+    )
+    fractures = [f_0, f_1, f_2, f_3]
 
     domain = pp.Domain(
         {
@@ -135,7 +143,7 @@ else:
     )
     network = pp.create_fracture_network(fractures, domain)
 
-    mdg = network.mesh(mesh_args={"mesh_size_frac": 0.3, "mesh_size_bound": 0.1})
+    mdg = network.mesh(mesh_args={"mesh_size_frac": 0.5, "mesh_size_bound": 1})
 
     fn = "dev_meshing_3d"
 
