@@ -1452,6 +1452,7 @@ class FractureNetwork3d(object):
                             mesh_size_points[frac].append((np.array(cp), d_to_other))
                     else:
                         gmsh.model.occ.remove([(0, pi)])
+            gmsh.model.occ.synchronize()
 
         return control_point_tags, mesh_size_points
 
