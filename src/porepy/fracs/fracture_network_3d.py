@@ -1427,7 +1427,7 @@ class FractureNetwork3d(object):
                     # closest point, but it is not associated with any line.
                     inserted_points.append(cp)
                     insertion_surface.append(f)
-                    mesh_size_points[f].append((cp, distance_info[0]))
+                    mesh_size_points[f].append((np.asarray(cp), distance_info[0]))
                     control_point_tags.append(p)
                 else:
                     other_frac = f_1 if f == f_0 else f_0
