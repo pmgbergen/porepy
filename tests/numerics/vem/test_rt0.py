@@ -57,9 +57,7 @@ class TestRaviartThomasDiscretization:
     def _matrix(self, sd, perm, bc):
         """Compute stiffness and projector operators for a given subdomain"""
         solver = pp.RT0(keyword="flow")
-        data = pp.initialize_default_data(
-            sd, {}, "flow", {"second_order_tensor": perm, "bc": bc}
-        )
+        data = pp.initialize_data({}, "flow", {"second_order_tensor": perm, "bc": bc})
         solver.discretize(sd, data)
         M = solver.assemble_matrix(sd, data).todense()
         P = data[pp.DISCRETIZATION_MATRICES]["flow"][solver.vector_proj_key].todense()
@@ -322,7 +320,7 @@ class TestRaviartThomasDiscretization:
             "second_order_tensor": perm,
             "bc_values": bc_val,
         }
-        data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+        data = pp.initialize_data({}, "flow", specified_parameters)
         solver.discretize(sd, data)
         M, rhs = solver.assemble_matrix_rhs(sd, data)
         up = sps.linalg.spsolve(M, rhs)
@@ -749,7 +747,7 @@ class TestRaviartThomasDiscretization:
                 "bc_values": bc_val,
                 "second_order_tensor": perm,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -836,7 +834,7 @@ class TestRaviartThomasDiscretization:
                 "second_order_tensor": perm,
                 "source": source,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -924,7 +922,7 @@ class TestRaviartThomasDiscretization:
                 "second_order_tensor": perm,
                 "source": source,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -2003,11 +2001,15 @@ class TestRaviartThomasRHS:
         """Compute rhs for given subdomain"""
         solver = pp.RT0(keyword="flow")
 
-        data = pp.initialize_default_data(
-            sd,
+        data = pp.initialize_data(
             {},
             "flow",
-            {"second_order_tensor": perm, "bc": bc, "vector_source": vect},
+            {
+                "second_order_tensor": perm,
+                "bc": bc,
+                "vector_source": vect,
+                "bc_values": np.zeros(sd.num_faces),
+            },
         )
         solver.discretize(sd, data)
         return solver.assemble_matrix_rhs(sd, data)[1]
@@ -2215,7 +2217,7 @@ class TestRaviartThomasRHS:
                 "second_order_tensor": perm,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             M, rhs = solver.assemble_matrix_rhs(sd, data)
@@ -2308,7 +2310,7 @@ class TestRaviartThomasRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)
@@ -2401,7 +2403,7 @@ class TestRaviartThomasRHS:
                 "source": source,
                 "vector_source": vect,
             }
-            data = pp.initialize_default_data(sd, {}, "flow", specified_parameters)
+            data = pp.initialize_data({}, "flow", specified_parameters)
 
             solver.discretize(sd, data)
             solver_rhs.discretize(sd, data)

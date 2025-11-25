@@ -316,30 +316,19 @@ def test_create_grids_with_high_dim_inclusion(
             assert INCLUSION_NAME in g.tags
 
             # Also check that the cells with the inclusion tag are indeed inside the
-            # inclusion box. This is complicated, since we add the inclusion in a way
-            # that seems not to be compatible with the ways of gmsh: The inclusion was
-            # added on top of the existing domain, instead of by carving out a piece of
-            # the domain and then adding the inclusion. This has two consequences:
-            # 1) The inclusion is somehow "floating" on top of the existing domain,
-            #    which means that the inclusion is covered by two sets of cells (don't
-            #    ask!). Hence, we cannot do a 1-1 comparison between those cells that
-            #    are inside the box and those that have the inclusion tag. This should
-            #    not be a problem for a properly constructed geometry, but it does give
-            #    some hints on how to construct the geometry if we want to avoid this.
-            # 2) Somehow, the overlapping cells are oriented in a way that does not fit
-            #    with our geometry computation, which results in some cells having
-            #    negative volume (EK did a quick check, and it seems that the
-            #    overlapping cells break with some tacit assumptions in our geometry
-            #    computations; however, since we have not encountered any practical
-            #    problems related to this, it seems highly plausible that this is caused
-            #    by Gmsh's reaction to our non-standard way of adding the inclusion).
-            #    Therefore, to get the cell centers, we cannot use g.compute_geometry(),
-            #    but rather need to compute the cell centers manually based on the
-            #    average coordinates of the cells' nodes.
-            cn = np.reshape(g.cell_nodes().tocsc().indices, (-1, g.dim + 1))
-            cx = np.mean(g.nodes[0, cn], axis=1)
-            cy = np.mean(g.nodes[1, cn], axis=1)
-            cz = np.mean(g.nodes[2, cn], axis=1)
+            # inclusion box. This is complicated, as the inclusion was added on top of
+            # the existing domain, instead of by carving out a piece of the domain and
+            # then adding the inclusion. Since the inclusion is somehow "floating" on
+            # top of the existing domain, this means that the inclusion is covered by
+            # two sets of cells (don't ask!). Hence, we cannot do a 1-1 comparison
+            # between those cells that are inside the box and those that have the
+            # inclusion tag. This should not be a problem for a properly constructed
+            # geometry, but it does give some hints on how to construct the geometry if
+            # we want to avoid this.
+            g.compute_geometry()
+            cx = g.cell_centers[0]
+            cy = g.cell_centers[1]
+            cz = g.cell_centers[2]
 
             if nd == 2:
                 inside_box = np.logical_and(

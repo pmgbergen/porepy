@@ -257,7 +257,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
 @pytest.mark.parametrize("neu_bcs", [False, True])
 def test_3d_linear_displacement(neu_bcs: bool):
-    """Test of a 3d linear displacement problem, for which Tpsa should be exact.
+    r"""Test of a 3d linear displacement problem, for which Tpsa should be exact.
 
     The analytical solution is u = [z, 0, 0], which results in \sigma_{1,3} =
     \sigma{3,1} = 1, with all other stress components equal to zero. The rotation will
