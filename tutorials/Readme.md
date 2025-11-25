@@ -16,7 +16,7 @@ It should however be noted that the appropriate order of reading may depend on t
 1. [Introduction](./introduction.ipynb) describes the overarching conceptual framework and its high-level implementation. It also lists some problems which may be solved using PorePy.
 2. [Grids](./grids.ipynb) describes the structure of individual grids and demonstrates construction of different types of grids. It also shows how to access and manipulate grid quantities.
 3. [Mixed-dimensional grids](./mixed_dimensional_grids.ipynb) describes the construction of mixed-dimensional grids. These grids represent a fracture network and the surrounding porous medium.
-4. [Single phase flow](./single_phase_flow.ipynb) is where we introduce PorePy model classes and show how to run a simulation. It also covers how to do minor adjustments in a model.
+4. [Single phase flow](./single_phase_flow.ipynb) is where we introduce PorePy model classes and show how to run a simulation, including how to do minor adjustments in a model. We also demonstrate how the simulation data is exported to formats suitable for external visualization (e.g ParaView).
 5. [Boundary conditions](./boundary_conditions.ipynb) demonstrates how to set boundary conditions in PorePy. Specifically it visits how to set scalar boundary conditions for the single phase flow problem, and vectorial boundary conditions for the momentum balance problem.
 6. [Poromechanics](./poromechanics.ipynb) covers the concept of setting up a multiphysics simulation by reusing single-physics model classes.
 7. [Conventions](./conventions.ipynb) defines some conventions used in PorePy. Specifically this is related to signs, boundary conditions etc.
@@ -24,8 +24,8 @@ It should however be noted that the appropriate order of reading may depend on t
 For the more experienced user, some more specific tutorials are also available:
 
 8. [Grid topology](./grid_topology.ipynb) covers how to access various topological properties of grids in PorePy. This includes the relation between cells, faces and nodes, as well as the direction of the face normal vectors.
-9. [Exporter](./exporter.ipynb) documents how to export data from PorePy for external visualization (e.g. ParaView). Several examples of exporting is demonstrated.
-10. [Exporting in models](./exporting_models.ipynb) shows how one can export data for visualization in PorePy model-based simulations.
+9. [Exporter](./exporter.ipynb) gives a thorough introduction to exporting of simulation data in PorePy, including examples of how to modify the exporter.
+10. [Exporting in models](./exporting_models.ipynb) shows how exporting of data can be combined with the model class framework of PorePy.
 11. [Diagnostics](./diagnostics.ipynb) provides a description of how to use the diagnostics tool in PorePy. The tool allows for visualizing properties of the discretized system of equations in PorePy.
 12. [Equations](./equations.ipynb) briefly covers some general basics about automatic differentiation (AD). It mainly covers how AD is extensively used in PorePy equations, which means that it is most useful for the users that want to define their own equations.
 13. [Benchmark simulation](./benchmark_simulation.ipynb) defines a problem from [this benchmark study](https://doi.org/10.1016/j.advwatres.2017.10.036) and also illustrates some ways of modifying a simulation model.
