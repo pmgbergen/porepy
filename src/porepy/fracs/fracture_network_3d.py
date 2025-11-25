@@ -2701,7 +2701,12 @@ class FractureNetwork3d(object):
         path = folder_name / file_name
         meshio.write(path, meshio_grid_to_export, binary=binary)
 
-    def to_csv(self, file_name: Path, domain: Optional[pp.Domain] = None) -> None:
+    def to_csv(
+        self,
+        file_name: Path,
+        write_header: bool = True,
+        domain: Optional[pp.Domain] = None,
+    ) -> None:
         """Save the 3D network on a CSV file with comma as separator.
 
         The format is as follows:
@@ -2717,6 +2722,10 @@ class FractureNetwork3d(object):
 
         Parameters:
             file_name: Name of the CSV file.
+            write_header: ``default=True``
+
+                Flag for writing headers for the five columns in the first row.
+
             domain: ``default=None``
 
                 Domain specification.
@@ -2724,13 +2733,13 @@ class FractureNetwork3d(object):
         """
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
-
-            # if the domain (as bounding box) is defined save it
+            if write_header:
+                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+                csv_writer.writerow(header)
             if domain is not None:
                 order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
                 csv_writer.writerow([domain.bounding_box[o] for o in order])
-
-            # write all the fractures
+            # Write all the fractures.
             for f in self.fractures:
                 csv_writer.writerow(f.pts.ravel(order="F"))
 

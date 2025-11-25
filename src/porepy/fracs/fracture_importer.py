@@ -195,7 +195,8 @@ def elliptic_network_3d_from_csv(
 
 
 def network_2d_from_csv(
-    f_name: Path,
+    file_name: Path,
+    has_domain: bool = False,
     tagcols: Optional[ArrayLike] = None,
     tol: float = 1e-8,
     max_num_fracs: Optional[int] = None,
@@ -262,11 +263,31 @@ def network_2d_from_csv(
     """
     npargs = {}
     # EK: Should these really be explicit keyword arguments?
+    # PvS: I question that too!
     npargs["delimiter"] = kwargs.get("delimiter", ",")
     npargs["skip_header"] = kwargs.get("skip_header", 1)
+    if has_domain:
+        npargs["skip_header"] += 1
+
+    # Check for a header.
+    #
+    if has_domain:
+        with open(file_name, "r") as csv_file:
+            spam_reader = csv.reader(csv_file, delimiter=kwargs.get("delimiter", ","))
+
+            bbox_as_array = np.asarray(next(spam_reader), dtype=float)
+            bbox = {
+                "xmin": bbox_as_array[0],
+                "xmax": bbox_as_array[3],
+                "ymin": bbox_as_array[1],
+                "ymax": bbox_as_array[4],
+                "zmin": bbox_as_array[2],
+                "zmax": bbox_as_array[5],
+            }
+            domain = pp.Domain(bbox)
 
     # Extract the data from the csv file
-    data = np.genfromtxt(f_name, **npargs)
+    data = np.genfromtxt(file_name, **npargs)
     # Shortcut if no data is loaded
     if data.size == 0:
         # We still consider the possibility that a domain is given.
@@ -383,7 +404,7 @@ def dfm_from_gmsh(file_name: Path, dim: int, **kwargs) -> pp.MixedDimensionalGri
         The physical names are stored in pp.Grid.tags of the subdomains.
     """
 
-    # run gmsh to create .msh file if
+    # Run gmsh to create .msh file.
     if file_name.suffix == ".msh":
         out_file = file_name
     else:
@@ -392,14 +413,14 @@ def dfm_from_gmsh(file_name: Path, dim: int, **kwargs) -> pp.MixedDimensionalGri
         in_file = file_name.with_suffix(".geo")
         out_file = file_name.with_suffix(".msh")
 
-        # initialize gmsh
+        # Initialize gmsh.
         gmsh.initialize()
-        # Reduce verbosity
+        # Reduce verbosity.
         gmsh.option.setNumber("General.Verbosity", 3)
-        # read the specified file.
+        # Read the specified file.
         gmsh.merge(str(in_file))
 
-        # Generate mesh, write
+        # Generate mesh and write.
         gmsh.model.mesh.generate(dim=dim)
         gmsh.write(str(out_file))
 
@@ -467,7 +488,7 @@ def dfm_3d_from_fab(
 def network_3d_from_fab(
     f_name: Path, return_all: bool = False, tol: Optional[float] = None
 ) -> Union[FractureNetwork3d, tuple[FractureNetwork3d, list[np.ndarray], np.ndarray]]:
-    """Create 3D fracture network from a ``.fab`` file, as specified by FracMan.
+    r"""Create 3D fracture network from a ``.fab`` file, as specified by FracMan.
 
     The filter is based on the ``.fab``-files available at the time of writing and
     may not cover all options available.
@@ -493,7 +514,7 @@ def network_3d_from_fab(
           item of the list contains the fractures cut by the domain boundary,
           represented by their ``num_points`` vertexes.
         - A numpy array, where for each element in the list of numpy arrays from
-          above, a :math:`\\pm 1` is associated, establishing which boundary the
+          above, a :math:`\pm 1` is associated, establishing which boundary the
           fracture is on.
 
     """
