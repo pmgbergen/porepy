@@ -193,8 +193,16 @@ class NewtonSolver:
         #     return status, info
 
         # Trivial nan-check
-        if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
+        if np.isnan(nonlinear_increment).any() and np.isnan(residual).any():
             return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
+        elif np.isnan(nonlinear_increment).any():
+            residual_norm = model.equation_norm(residual)
+            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, residual_norm)
+        elif np.isnan(residual).any():
+            nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
+            return ConvergenceStatus.NAN, ConvergenceInfo(
+                nonlinear_increment_norm, np.nan
+            )
 
         # Model-specific check. Compute norms of the nonlinear increment and residual.
         # Potentially a scalar, but also dictionaries are possible if equation-based
@@ -244,8 +252,7 @@ class NewtonSolver:
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            nonlinear_increment_norm: The norm of the nonlinear increment.
-            residual_norm: The norm of the residual.
+            info: Convergence information containing norms and other details.
 
         """
         assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)

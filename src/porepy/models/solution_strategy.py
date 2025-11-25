@@ -19,7 +19,10 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
-from porepy.viz.solver_statistics import NonlinearSolverStatistics
+from porepy.viz.solver_statistics import (
+    NonlinearSolverStatistics,
+    SolverStatisticsFactory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -218,8 +221,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         # Retrieve the value with a default of pp.SolverStatistics.
-        from porepy.viz.solver_statistics import SolverStatisticsFactory
-
         statistics = self.params.get(
             "nonlinear_solver_statistics",
             SolverStatisticsFactory.create_statistics_type(

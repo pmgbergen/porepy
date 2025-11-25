@@ -93,10 +93,22 @@ class LinearSolver:
     ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Simple convergence check for linear problems checking NaN values."""
         residual = model.equation_system.assemble(evaluate_jacobian=False)
-        if np.isnan(nonlinear_increment).any() or np.isnan(residual).any():
+        if np.isnan(nonlinear_increment).any() and np.isnan(residual).any():
             return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
+        elif np.isnan(nonlinear_increment).any():
+            residual_norm = model.equation_norm(residual)
+            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, residual_norm)
+        elif np.isnan(residual).any():
+            nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
+            return ConvergenceStatus.NAN, ConvergenceInfo(
+                nonlinear_increment_norm, np.nan
+            )
         else:
-            return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
+            nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
+            residual_norm = model.equation_norm(residual)
+            return ConvergenceStatus.CONVERGED, ConvergenceInfo(
+                nonlinear_increment_norm, residual_norm
+            )
 
     def update_solver_statistics(
         self,

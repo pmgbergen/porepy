@@ -9,7 +9,8 @@ This includes:
 
 """
 
-from abc import abstractmethod
+import sys
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Callable
@@ -124,22 +125,19 @@ class ReferenceValue:
 
         Returns:
             dict[str, float]: A dictionary with the valid reference values, and
-                ensuring that if a value is None, it is replaced with the default
-                reference value.
+                the default reference value if no reference value is set.
 
         """
         for key, value in values.items():
+            # Initialize reference value entry if not present.
             if key not in self.reference_value:
                 self.reference_value[key] = None
+            # Update reference value if condition is met and not already set.
             if self.condition(value) and self.reference_value[key] is None:
                 self.reference_value[key] = value
-
-        def default_value_for_none(value: float | None) -> float:
-            """Return a default value if the input is None."""
-            return value if value is not None else self.default_reference_value
-
+        # Return reference values, replacing None with default.
         return {
-            key: default_value_for_none(self.reference_value[key])
+            key: self.reference_value[key] or self.default_reference_value
             for key in values.keys()
         }
 
@@ -163,20 +161,21 @@ class ConvergenceTolerance:
     """Tolerance for increments for divergence."""
     max_residual: float = np.inf
     """Tolerance for residuals for divergence."""
-    max_iterations: int = 10000  # TODO replace with max int
+    max_iterations: int = sys.maxsize
     """Upper bound for number of iterations for divergence."""
 
 
 ### Base convergence criterion classes.
 
 
-class ConvergenceCriterion:
+class ConvergenceCriterion(ABC):
     """Base class for convergence criteria.
 
-    Requires the implementation of the `_check` method to define the convergence.
+    Requires the implementation of the `check` method to define the convergence.
 
     """
 
+    @abstractmethod
     def check(
         self,
         nonlinear_increment: float | dict[str, float],
@@ -196,15 +195,10 @@ class ConvergenceCriterion:
             ConvergenceInfo: Information about the convergence check.
 
         """
-        # Convert values to dict format
-        nonlinear_increment = self._make_dict(nonlinear_increment)
-        residual = self._make_dict(residual)
-
-        # Call the actual comparison
-        return self._check(nonlinear_increment, residual, tol)
+        pass
 
     def _check_dicts(self, dict1: dict[str, float], dict2: dict[str, float]) -> None:
-        """Check if two dictionaries have the same keys.
+        """Helper to check if two dictionaries have the same keys.
 
         Parameters:
             dict1: First dictionary to compare.
@@ -215,13 +209,16 @@ class ConvergenceCriterion:
 
         """
         if set(dict1.keys()) != set(dict2.keys()):
+            keys1 = set(dict1.keys())
+            keys2 = set(dict2.keys())
             raise ValueError(
-                "Dictionaries do not have the same keys: "
-                f"{dict1.keys()} vs {dict2.keys()}"
+                "Dictionaries do not have the same keys. "
+                f"Keys in first but not second: {keys1 - keys2}. "
+                f"Keys in second but not first: {keys2 - keys1}."
             )
 
     def _make_dict(self, value: float | dict[str, float]) -> dict[str, float]:
-        """Convert a float or a dict to a unified dict format.
+        """Helper to convert input to a unified dict format.
 
         Parameters:
             value: A float or a dict with string keys and float values.
@@ -234,28 +231,6 @@ class ConvergenceCriterion:
             return value
         else:
             return {"": value}
-
-    @abstractmethod
-    def _check(
-        self,
-        nonlinear_increment: dict[str, float],
-        residual: dict[str, float],
-        tol: ConvergenceTolerance,
-    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
-        """Check convergence.
-
-        Parameters:
-            nonlinear_increment: The increment in the solution variables from the
-                previous nonlinear iteration.
-            residual: The current residual vector of the nonlinear system.
-            tol: Collection of tolerances for assessing convergence.
-
-        Returns:
-            ConvergenceStatus: Convergence status of the non-linear iteration.
-            ConvergenceInfo: Information about the convergence check.
-
-        """
-        pass
 
 
 class RelativeConvergenceCriterion(ConvergenceCriterion):
@@ -270,8 +245,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 
     The reference values for the nonlinear increment and residual norms are managed,
     allowing for a flexible convergence check that adapts to the problem. This class
-    is abstract and requires the implementation of the `init_reference_value` method,
-    defining `reference_value`.
+    is abstract and requires the implementation of the `initialize_reference_value`
+    method, defining `reference_value`.
 
     """
 
@@ -280,7 +255,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 
     def __init__(self) -> None:
         """Initialize the relative convergence criterion."""
-        self.init_reference_value()
+        self.initialize_reference_value()
         self.reference_nonlinear_increment_norm: dict[str, float] = {}
         """Reference value for the nonlinear increment norm."""
         self.reference_residual_norm: dict[str, float] = {}
@@ -289,7 +264,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
     ### Manager methods for setting reference values
 
     @abstractmethod
-    def init_reference_value(self) -> None:
+    def initialize_reference_value(self) -> None:
         """Expect to instantiate `self.reference_value`."""
 
     def set_reference_value(
@@ -322,10 +297,10 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 
     ### Convergence check methods
 
-    def _check(
+    def check(
         self,
-        nonlinear_increment_norm: dict[str, float],
-        residual_norm: dict[str, float],
+        nonlinear_increment_norm: float | dict[str, float],
+        residual_norm: float | dict[str, float],
         tol: ConvergenceTolerance,
     ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence using relative norms.
@@ -340,7 +315,11 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
             ConvergenceInfo: Information about the convergence check.
 
         """
-        # Consistency checks
+        # Convert inputs to dicts for unified processing.
+        nonlinear_increment_norm = self._make_dict(nonlinear_increment_norm)
+        residual_norm = self._make_dict(residual_norm)
+
+        # Consistency checks.
         self._check_dicts(
             nonlinear_increment_norm, self.reference_nonlinear_increment_norm
         )
@@ -399,7 +378,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 # class NanConvergenceCriterion(ConvergenceCriterion):
 #    """Convergence criterion that checks for NaN values."""
 #
-#    def _check(
+#    def check(
 #        self,
 #        nonlinear_increment: dict[str, float],
 #        residual: dict[str, float],
@@ -418,6 +397,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 #            ConverenceInfo: Information about the convergence check.
 #
 #        """
+#        nonlinear_increment = self._make_dict(nonlinear_increment)
+#        residual = self._make_dict(residual)
 #        has_nan_increment = any(
 #            np.isnan(value) for value in nonlinear_increment.values()
 #        )
@@ -431,7 +412,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
 class AbsoluteConvergenceCriterion(RelativeConvergenceCriterion):
     """Absolute convergence criterion for nonlinear problems."""
 
-    def init_reference_value(self):
+    def initialize_reference_value(self):
         """Initialize the reference value manager for absolute convergence."""
         self.reference_value = ReferenceValue(
             condition=lambda x: False,
@@ -447,7 +428,7 @@ class DynamicRelativeConvergenceCriterion(RelativeConvergenceCriterion):
 
     """
 
-    def init_reference_value(self):
+    def initialize_reference_value(self):
         """Initialize the reference value manager for relative convergence."""
         self.reference_value = ReferenceValue(
             condition=lambda x: not np.isclose(x, 0.0) and not np.isnan(x),

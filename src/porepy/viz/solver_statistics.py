@@ -97,6 +97,7 @@ class SolverStatistics:
             **kwargs: Custom data to be added to the statistics object.
 
         """
+        # Append data to existing data with the same key, or replace - based on flag.
         if append:
 
             def _convert_values_to_list(d: dict) -> dict:
@@ -126,8 +127,12 @@ class SolverStatistics:
                         d[key_d] = [d[key_d], v[key_v]]
                 return d
 
+            # Append data to existing keys.
             for key, value in kwargs.items():
                 if key in self.custom_data:
+                    # Append data to existing key. Dict-data is expanded recursively.
+                    # Lists are expanded directly. Other data is converted to a list and
+                    # then expanded.
                     if isinstance(self.custom_data[key], dict):
                         _recursive_append(self.custom_data[key], value)
                     elif isinstance(self.custom_data[key], list):
@@ -135,12 +140,15 @@ class SolverStatistics:
                     else:
                         self.custom_data[key] = [self.custom_data[key], value]
                 else:
+                    # Key does not exist, create new entry. Distinguish between dict and
+                    # and non-dict values. Dicts are appended recursively.
                     if isinstance(value, dict):
                         self.custom_data[key] = {}
                         _recursive_append(self.custom_data[key], value)
                     else:
                         self.custom_data[key] = [value]
         else:
+            # Overwrite existing data.
             self.custom_data.update(kwargs)
 
     def reset(self) -> None:
@@ -195,6 +203,15 @@ class SolverStatistics:
         return data
 
     def append_data(self, data: dict[str, dict]) -> dict[str, dict]:
+        """Main function to append all data to the statistics dictionary.
+
+        Parameters:
+            data: Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with all data.
+
+        """
         data = self.append_global_data(data)
         data = self.append_iterative_data(data)
         data = self.append_custom_data(data)
@@ -270,8 +287,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         """Log errors produced from convergence criteria.
 
         Parameters:
-            nonlinear_increment_norm (float): Error in the increment.
-            residual_norm (float): Error in the residual.
+            info: Convergence information containing error norms.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
