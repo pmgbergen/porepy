@@ -86,16 +86,20 @@ class LoadGeometryMixin(pp.PorePyModel):
             # grid along with these grids' new interfaces to fractures
             self.well_network.mesh(self.mdg)
 
-    def export_geometry(self, folder_path: Path) -> None:
-        """Export mesh and fracture network to ``msh``, ``geo``, and ``csv``
-        files.
+    def create_and_export_geometry(self, folder_path: Path) -> None:
+        """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
 
-        TODO
-        - Consider adding options to export only two or three of the files. In
-        particular, if ``self.fracture_network`` is not set (can this even happen?)
+        Parameters:
+            folder_path: Path to folder where files are to be stored.
 
         """
-
+        # Create the geometry through domain amd fracture set.
+        self.set_domain()
+        self.set_fractures()
+        # Create a fracture network and a mixed-dimensional grid.
+        self.create_fracture_network()
+        # Create mixed-dimensional grid. Includes writing of mesh and geo files.
+        self.create_mdg()
         # The domain is exported as part of the fracture network.
         self.fracture_network.to_csv(
             folder_path / "fracture_network.csv", domain=self.domain
