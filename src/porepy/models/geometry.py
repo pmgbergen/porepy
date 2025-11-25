@@ -19,6 +19,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         """Load and set model geometry from ``msh``, ``geo``, and ``csv`` files that
         contain a mesh and information about fractures.
 
+        Assumes self.nd is set to the correct dimension before calling this method.
+
         The following attributes are set after running this method:
         - ``self.mdg: pp.MixedDimensionalGrid``
         - ``self._domain: pp.Domain``
@@ -36,26 +38,25 @@ class LoadGeometryMixin(pp.PorePyModel):
         fractures.
 
         """
-        # geo_path = self.params.get("geo_file", None)
-        # msh_path = self.params.get("msh_file", None)
-        # csv_path = self.params.get("csv_file", None)
+        geo_path = self.params.get("geo_file", None)
+        msh_path = self.params.get("msh_file", None)
+        csv_path = self.params.get("csv_file", None)
+        folder_path = Path(self.params.get("geometry_folder", "."))
+        if geo_path is None:
+            assert msh_path is not None, "Either geo_file or msh_file must be provided."
+            gmsh_path = Path(folder_path / msh_path)
+        else:
+            assert msh_path is None, "Only one of geo_file and msh_file should be provided."
+            gmsh_path = Path(folder_path / geo_path)
 
-        folder_path = (
-            Path(__file__).parent.parent
-            / "applications"
-            / "md_grids"
-            / "gmsh_file_library"
-            / "benchmark_3d_case_2"
-        )
-        geo_path = folder_path / f"mesh500.geo"
-
-        geo_path.chmod(777)
+        gmsh_path.chmod(777)
 
         # Create mixed-dimensional grid.
-        mdg = pp.fracture_importer.dfm_from_gmsh(geo_path, dim=3)
+        mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
 
         # Also import fracture network.
-        fracture_network_path = folder_path / "fracture_network.csv"
+        fracture_network_path = Path(folder_path / csv_path)
+
         # Set file permissions. This turned out to be important for GH actions.
         fracture_network_path.chmod(777)
 
@@ -100,6 +101,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         self.create_fracture_network()
         # Create mixed-dimensional grid. Includes writing of mesh and geo files.
         self.create_mdg()
+        self.nd: int = self.mdg.dim_max()
         # The domain is exported as part of the fracture network.
         self.fracture_network.to_csv(
             folder_path / "fracture_network.csv", domain=self.domain
