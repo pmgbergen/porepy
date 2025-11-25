@@ -26,6 +26,8 @@ import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
+from pathlib import Path
+
 
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
@@ -663,3 +665,21 @@ class TestGeometry:
         # transpose, which should give the identity matrix.
         val = pp.EquationSystem(geometry_model.mdg).evaluate(global_to_local).todense()
         assert np.allclose(val @ val.T, np.eye(val.shape[0]))
+
+    def test_load_geometry_mixin(
+        self,
+        geometry_class: type[pp.ModelGeometry],
+    ) -> None:
+        folder_path = (
+            Path(__file__).parent.parent.parent
+            / "src"
+            / "porepy"
+            / "applications"
+            / "md_grids"
+            / "gmsh_file_library"
+            / "benchmark_3d_case_2"
+        )
+        geo_path = folder_path / f"mesh500.geo"
+        fracture_network_path = folder_path / "fracture_network.csv"
+        num_fracs = 9
+        geometry_model = self.geometries[geometry_class, num_fracs]
