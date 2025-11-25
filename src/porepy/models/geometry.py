@@ -31,6 +31,9 @@ class LoadGeometryMixin(pp.PorePyModel):
         two are provided.
         - Think about modularization! Does it make sense to write submethods
         ``set_domain``, ``create_fracture_network`` etc?
+        - Implement functionality to differentiate between FractureNetwork2d,
+        FractureNetwork3d with plane fractures and FractureNetwork3d with elliptic
+        fractures.
 
         """
         # geo_path = self.params.get("geo_file", None)
@@ -56,6 +59,8 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Set file permissions. This turned out to be important for GH actions.
         fracture_network_path.chmod(777)
 
+        # FIXME Here, we need some functionality to determine the dimension from the
+        # given fracture network and mesh file.
         network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
 
         # Create mixed-dimensional grid and fracture network.
@@ -81,18 +86,20 @@ class LoadGeometryMixin(pp.PorePyModel):
             # grid along with these grids' new interfaces to fractures
             self.well_network.mesh(self.mdg)
 
-    def export_geometry(self) -> None:
+    def export_geometry(self, folder_path: Path) -> None:
         """Export mesh and fracture network to ``msh``, ``geo``, and ``csv``
         files.
 
         TODO
-        - Do we explicitely have to export ``self._domain`` or can this be inferred from
-        the ``msh``/``geo`` files.
         - Consider adding options to export only two or three of the files. In
         particular, if ``self.fracture_network`` is not set (can this even happen?)
 
         """
-        ...
+
+        # The domain is exported as part of the fracture network.
+        self.fracture_network.to_csv(
+            folder_path / "fracture_network.csv", domain=self.domain
+        )
 
 
 class ModelGeometry(pp.PorePyModel):
