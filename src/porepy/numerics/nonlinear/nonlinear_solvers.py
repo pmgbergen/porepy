@@ -281,8 +281,8 @@ class NewtonSolver:
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            status (ConvergenceStatus): Convergence status of the solver.
-            info (dict): Dictionary containing norms and other information.
+            status: Convergence status of the solver.
+            info: Dictionary containing norms and other information.
 
         """
         # Administration of solver statistics.

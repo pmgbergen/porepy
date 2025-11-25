@@ -77,7 +77,7 @@ class SolverStatistics:
         """Log the convergence status of the solver.
 
         Parameters:
-            convergence_status (ConvergenceStatus): Convergence status of the solver.
+            convergence_status: Convergence status of the solver.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
@@ -93,7 +93,7 @@ class SolverStatistics:
           same key, converting to a list if necessary.
 
         Parameters:
-            append (bool): Whether to append to existing data with the same key.
+            append: Whether to append to existing data with the same key.
             **kwargs: Custom data to be added to the statistics object.
 
         """
@@ -249,8 +249,8 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     Example:
 
-        After storing solver statistics to file, we can load the file and plot
-        the stored data, here for the first time step.
+        After storing solver statistics to file, we can load the file and plot the
+        stored data, here for the first time step.
 
         >>> import matplotlib.pyplot as plt
         >>> import json
@@ -373,9 +373,9 @@ class TimeStatistics(SolverStatistics):
         """Log time information.
 
         Parameters:
-            time_index (int): Current time step index.
-            time (float): Current time.
-            dt (float): Current time step size.
+            time_index: Current time step index.
+            time: Current time.
+            dt: Current time step size.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
@@ -385,7 +385,15 @@ class TimeStatistics(SolverStatistics):
         self.final_time_reached = final_time_reached
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary."""
+        """Append the current statistics to the data dictionary.
+
+        Parameters:
+            data: Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with global data.
+
+        """
         data = super().append_global_data(data)
         data["global"].update(
             {
@@ -395,7 +403,14 @@ class TimeStatistics(SolverStatistics):
         return data
 
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary."""
+        """Append the current statistics to the data dictionary.
+
+        Parameters:
+            data: Dictionary to append the statistics to.
+
+        Returns:
+            dict: Updated dictionary with iterative data.
+        """
         data = super().append_iterative_data(data)
         data[str(self.counter)] = {
             "final_time_reached": int(self.final_time_reached),

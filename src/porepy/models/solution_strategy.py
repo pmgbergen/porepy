@@ -640,8 +640,8 @@ class SolutionStrategy(pp.PorePyModel):
             status: The convergence status as returned by the non-linear solver.
 
         Returns:
-            ConvergenceStatus: The (possibly modified) convergence status,
-                if simulation failed.
+            ConvergenceStatus: The (possibly modified) convergence status, if
+                simulation failed.
 
         """
         self.save_data_time_step()
