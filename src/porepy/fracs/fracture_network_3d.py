@@ -1364,10 +1364,10 @@ class FractureNetwork3d(object):
 
                 inside_0 = gmsh.model.is_inside(nd - 1, f_0, distance_info[1:4])
                 inside_1 = gmsh.model.is_inside(nd - 1, f_1, distance_info[4:7])
-                for f in [f_0, f_1]:
-                    if f == f_0 and inside_0:
+                for main_f in [f_0, f_1]:
+                    if main_f == f_0 and inside_0:
                         other_f = f_1
-                    elif f == f_1 and inside_1:
+                    elif main_f == f_1 and inside_1:
                         other_f = f_0
                     else:
                         # If the closest point is not inside the other fracture, there
@@ -1375,35 +1375,48 @@ class FractureNetwork3d(object):
                         continue
 
                     # Get points on the surface of f.
-                    pts = surface_points(f)
-                    proj_pts, inside = project_points_to_surface(other_f, pts)
-
-                    proj_pts_inside = proj_pts.reshape((-1, 3))[
+                    points_on_main_surface = surface_points(main_f)
+                    # Project the points to the other surface and see if they are
+                    # inside. If the points are not inside (or on the boundary - that
+                    # should be covered elsewhere), we will not add them to the main
+                    # surface.
+                    _, inside = project_points_to_surface(
+                        other_f, points_on_main_surface
+                    )
+                    # Those points on the surface that are also projected to inside the
+                    # other fracture.
+                    surface_points = np.array(points_on_main_surface).reshape((-1, 3))[
                         np.array(inside, dtype=bool)
                     ]
-
-                    p = [
+                    # Add to gmsh model, get the distance.
+                    gmsh_tags_points_on_main_surface = [
                         gmsh.model.occ.addPoint(pt[0], pt[1], pt[2])
-                        for pt in proj_pts_inside
+                        for pt in surface_points
                     ]
-
+                    gmsh.model.occ.synchronize()
                     dist_point_inside = [
                         gmsh.model.occ.get_distance(0, p_i, nd - 1, other_f)[0]
-                        for p_i in p
+                        for p_i in gmsh_tags_points_on_main_surface
                     ]
+                    # Points that are closer than the refinement threshold will be
+                    # added.
                     close = np.where(
                         np.array(dist_point_inside) < THRESHOLD_REFINEMENT
                     )[0]
                     for c in close:
-                        cp = proj_pts_inside[c]
+                        cp = surface_points[c]
                         inserted_points.append(cp)
-                        insertion_surface.append(f)
-                        mesh_size_points[f].append((cp, dist_point_inside[c]))
-                        control_point_tags.append(p[c])
-
-                    remove = np.setdiff1d(np.arange(len(p)), close)
+                        insertion_surface.append(main_f)
+                        mesh_size_points[main_f].append((cp, dist_point_inside[c]))
+                        control_point_tags.append(gmsh_tags_points_on_main_surface[c])
+                    # Remove points that are not close.
+                    remove = np.setdiff1d(
+                        np.arange(len(gmsh_tags_points_on_main_surface)), close
+                    )
                     for r in remove:
-                        gmsh.model.occ.remove([(0, p[r])])
+                        gmsh.model.occ.remove(
+                            [(0, gmsh_tags_points_on_main_surface[r])]
+                        )
 
             # Next, fractures that are not parallel. The closest point must be on the
             # boundary of at least one of the fractures. Refine along these boundary
