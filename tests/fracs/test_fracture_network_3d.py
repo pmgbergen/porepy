@@ -261,6 +261,23 @@ def mesh_args() -> dict:
     return {"mesh_size_bound": 1, "mesh_size_frac": 1, "mesh_size_min": 0.5}
 
 
+@pytest.fixture(autouse=True)
+def finalize_gmsh():
+    """Fixture to ensure gmsh is finalized after each test.
+
+    This is to avoid tests failing because gmsh was not cleared after a previously
+    breaking test.
+    """
+    yield  # This is where the test runs
+    try:
+        # Try to clear and finalize gmsh after each test. This will raise an error
+        # if gmsh was not initialized in the test, but we can ignore that.
+        gmsh.clear()
+        gmsh.finalize()
+    except Exception:
+        pass
+
+
 def _verify_points_in_fracture(points: np.ndarray, fracture: pp.PlaneFracture):
     """Verify that points lie in the plane of the fracture.
 
