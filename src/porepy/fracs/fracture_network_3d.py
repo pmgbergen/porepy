@@ -1419,52 +1419,23 @@ class FractureNetwork3d(object):
                         )
 
             # Next, fractures that are not parallel. The closest point must be on the
-            # boundary of at least one of the fractures. Refine along these boundary
-            # lines.
-            line_info = []
-            for ind, (f, sl) in enumerate([(f_0, slice(1, 4)), (f_1, slice(4, 7))]):
+            # boundary of at least one of the fractures. For now, place a single point
+            # along these boundary lines - we may decide to do further refinement at a
+            # later state.
+            for f, sl in [(f_0, slice(1, 4)), (f_1, slice(4, 7))]:
                 cp = distance_info[sl]
+                if point_already_present(cp, f):
+                    continue
                 p = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
-                gmsh.model.occ.synchronize()
-                bound_lines = [
-                    l[1] for l in gmsh.model.get_boundary([(nd - 1, f)], oriented=False)
-                ]
 
-                dist_line = np.array(
-                    [fac.getDistance(0, p, nd - 2, l)[0] for l in bound_lines]
-                )
-                on_line = [bound_lines[i] for i in np.where(dist_line < self.tol)[0]]
+                # The closest point is not on any boundary line of f. Add the
+                # closest point to this surface, but it is not associated with any
+                # line.
+                inserted_points.append(cp)
+                insertion_surface.append(f)
+                mesh_size_points[f].append((np.asarray(cp), distance_info[0]))
+                control_point_tags.append(p)
 
-                if len(on_line) == 0:
-                    # The closest point is not on any boundary line of f. Add the
-                    # closest point, but it is not associated with any line.
-                    inserted_points.append(cp)
-                    insertion_surface.append(f)
-                    mesh_size_points[f].append((np.asarray(cp), distance_info[0]))
-                    control_point_tags.append(p)
-                else:
-                    other_frac = f_1 if f == f_0 else f_0
-                    line_info.append((cp, on_line, f, other_frac))
-
-            # This should be true for non-intersecting fractures, though, if the
-            # fractures are perfectly parallel, gmsh could choose to define a
-            # non-boundary point as the closest one.
-            assert len(line_info) > 0
-
-            for cp, line_ind, frac, other_frac in line_info:
-                for _ in line_ind:
-                    # Compute distance to the other fracture at this point.
-                    pi = gmsh.model.occ.addPoint(cp[0], cp[1], cp[2])
-                    gmsh.model.occ.synchronize()
-                    d_to_other = gmsh.model.occ.get_distance(0, pi, 2, other_frac)[0]
-
-                    if d_to_other < THRESHOLD_REFINEMENT:
-                        if not point_already_present(cp, frac):
-                            inserted_points.append(np.array(cp))
-                            insertion_surface.append(frac)
-                            mesh_size_points[frac].append((np.array(cp), d_to_other))
-                    else:
-                        gmsh.model.occ.remove([(0, pi)])
             gmsh.model.occ.synchronize()
 
         return control_point_tags, mesh_size_points
