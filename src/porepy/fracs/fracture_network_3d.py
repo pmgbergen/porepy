@@ -507,27 +507,39 @@ class FractureNetwork3d(object):
         # redefine the domain tags here, using all volumes in the model.
         domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
 
-        # Fractures.
-        boundary_surfaces = []
-        for dt in domain_tags:
-            boundary_surfaces += [
-                t for _, t in gmsh.model.get_boundary([(nd, dt)], oriented=False)
-            ]
-        for i, frac in enumerate(isect_mapping):
-            subfracs = []
-            for subfrac in frac:
-                if subfrac[0] == 2 and subfrac[1] not in boundary_surfaces:
-                    subfracs.append(subfrac[1])
-            if subfracs:
-                if i in constraints:
-                    gmsh.model.addPhysicalGroup(
-                        2, subfracs, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
-                    )
+        # Fractures. TODO: This is the same code as in 1d.
+        fracture_to_surface = {}
+        tmp_frac_line = []
+        for i, line_group in enumerate(isect_mapping):
+            # A line_group here was formed after intersection removal. It may contain
+            # either a full fracture, or be one of several segments forming a fracture.
+            # In the latter case, the fracture was split into segments when mesh size
+            # control points were added to the fracture.
+            all_lines = []
+            if line_group and line_group[0][1] in boundary_tags_new:
+                # Skip lines on the boundary.
+                continue
 
-                else:
-                    gmsh.model.addPhysicalGroup(
-                        2, subfracs, -1, f"{PhysicalNames.FRACTURE.value}{i}"
-                    )
+            for line in line_group:
+                if line[0] == nd - 1:
+                    all_lines.append(line[1])
+                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
+            if all_lines:
+                frac_ind = inv_fracture_tag_map[all_lines[0]]
+                fracs = fracture_to_surface.get(frac_ind, [])
+                fracs.extend(all_lines)
+                fracture_to_surface[frac_ind] = fracs
+
+        for i, frac in fracture_to_surface.items():
+            if i in constraints:
+                gmsh.model.addPhysicalGroup(
+                    2, frac, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
+                )
+
+            else:
+                gmsh.model.addPhysicalGroup(
+                    2, frac, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                )
 
         # The domain.
         gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
