@@ -638,8 +638,6 @@ class FractureNetwork3d(object):
         # list.
         domain_tags = [t[1] for t in gmsh.model.get_entities(nd)]
 
-        num_real_frac = sum([len(i) for i in fracture_tag_map.values()])
-
         keep = np.ones(len(isect_mapping), dtype=bool)
         for fi, frac in enumerate(isect_mapping):
             if frac and frac[0][0] == 3:
@@ -670,6 +668,20 @@ class FractureNetwork3d(object):
 
         isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
         constraints = [c for c in constraints if keep[c]]
+
+        # Count the number of fracture objects, excluding the domain boundary, but
+        # including possible multiple subfractures that have been split from a single
+        # fracture in the input data.
+        num_real_frac = 0
+        all_fracs = []
+        for f in fracture_tag_map.values():
+            all_fracs += f
+
+        for frac in isect_mapping:
+            if frac and frac[0][0] == 2:
+                for sub_frac in frac:
+                    if sub_frac[1] in all_fracs:
+                        num_real_frac += 1
 
         # Partial implementation. Intersection lines are either on the boundary or
         # embedded in fractures. Make a list of both.
