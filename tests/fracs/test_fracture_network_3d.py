@@ -306,25 +306,27 @@ def _verify_points_in_line(points: np.ndarray, start: np.ndarray, end: np.ndarra
 
 
 def _find_intersection_line(mdg, frac_num_0, frac_num_1):
-    """Find the 1d subdomain corresponding to the intersection of two fractures.
+    """Find the set of 1d subdomain corresponding to the intersection of two fractures.
 
     Parameters:
-        mdg: Mixed-dimensional grid.
-        frac_num_0: Fracture number of the first fracture.
+        mdg: Mixed-dimensional grid. frac_num_0: Fracture number of the first fracture.
         frac_num_1: Fracture number of the second fracture.
 
     Returns:
-        The 1d subdomain corresponding to the intersection line.
-        If the intersection line is not found, an assertion error is raised.
+        A list of 1d subdomains corresponding to the intersection line. The list may
+        contain multiple subdomains if the intersection line is split by other
+        fractures, or by mesh size control points.
 
     """
-
+    subdomains = []
     for sd in mdg.subdomains(dim=1):
         neighs = mdg.neighboring_subdomains(sd, only_higher=True)
         if (neighs[0].frac_num == frac_num_0 and neighs[1].frac_num == frac_num_1) or (
             neighs[0].frac_num == frac_num_1 and neighs[1].frac_num == frac_num_0
         ):
-            return sd
+            subdomains.append(sd)
+    if subdomains:
+        return subdomains
     assert False, "Intersection line not found."
 
 
@@ -529,8 +531,8 @@ def test_cross_intersection(
         dim_not_present = np.setdiff1d([0, 1, 2], [frac_num_0, frac_num_1])[0]
         start[dim_not_present] = 0.2
         end[dim_not_present] = 0.8
-        sd = _find_intersection_line(mdg, frac_num_0, frac_num_1)
-        _verify_points_in_line(sd.nodes, start, end)
+        for sd in _find_intersection_line(mdg, frac_num_0, frac_num_1):
+            _verify_points_in_line(sd.nodes, start, end)
 
     if is_fracture[0] and is_fracture[1]:
         _check_line_intersection(0, 1)
@@ -881,14 +883,14 @@ class TestDFMMeshGeneration:
         for sd in mdg.subdomains(dim=2):
             _verify_points_in_fracture(sd.nodes, fractures[sd.frac_num])
 
-        sd_0_1 = _find_intersection_line(mdg, 0, 1)
-        _verify_points_in_line(
-            sd_0_1.nodes, np.array([0.2, 0.5, 0]), np.array([0.2, 0.5, 0.8])
-        )
-        sd_0_2 = _find_intersection_line(mdg, 0, 2)
-        _verify_points_in_line(
-            sd_0_2.nodes, np.array([0.7, 0.5, 0]), np.array([0.7, 0.5, 0.8])
-        )
+        for sd in _find_intersection_line(mdg, 0, 1):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.2, 0.5, 0]), np.array([0.2, 0.5, 0.8])
+            )
+        for sd in _find_intersection_line(mdg, 0, 2):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.7, 0.5, 0]), np.array([0.7, 0.5, 0.8])
+            )
 
     def test_partial_rubics_cube(self, unit_box: pp.Domain, mesh_args: dict):
         """This is a part of a rubics-cube style fracture network."""
@@ -918,38 +920,38 @@ class TestDFMMeshGeneration:
         for sd in mdg.subdomains(dim=2):
             _verify_points_in_fracture(sd.nodes, fractures[sd.frac_num])
 
-        sd_0_1 = _find_intersection_line(mdg, 0, 1)
-        _verify_points_in_line(
-            sd_0_1.nodes, np.array([0.5, 0.5, 0]), np.array([0.5, 0.5, 1])
-        )
-        sd_0_2 = _find_intersection_line(mdg, 0, 2)
-        _verify_points_in_line(
-            sd_0_2.nodes, np.array([0.5, 0, 0.5]), np.array([0.5, 1, 0.5])
-        )
-        sd_1_2 = _find_intersection_line(mdg, 1, 2)
-        _verify_points_in_line(
-            sd_1_2.nodes, np.array([0, 0.5, 0.5]), np.array([1, 0.5, 0.5])
-        )
-        sd_0_3 = _find_intersection_line(mdg, 0, 3)
-        _verify_points_in_line(
-            sd_0_3.nodes, np.array([0.5, 0.5, 0.5]), np.array([0.5, 1, 0.75])
-        )
-        sd_1_3 = _find_intersection_line(mdg, 1, 3)
-        _verify_points_in_line(
-            sd_1_3.nodes, np.array([0.5, 0.5, 0.75]), np.array([1, 0.5, 0.75])
-        )
-        sd_1_4 = _find_intersection_line(mdg, 1, 4)
-        _verify_points_in_line(
-            sd_1_4.nodes, np.array([0.75, 0.5, 0.5]), np.array([0.75, 0.5, 1])
-        )
-        sd_2_4 = _find_intersection_line(mdg, 2, 4)
-        _verify_points_in_line(
-            sd_2_4.nodes, np.array([0.75, 0.5, 0.5]), np.array([0.75, 1, 0.5])
-        )
-        sd_3_4 = _find_intersection_line(mdg, 3, 4)
-        _verify_points_in_line(
-            sd_3_4.nodes, np.array([0.75, 1, 0.75]), np.array([0.75, 0.5, 0.75])
-        )
+        for sd in _find_intersection_line(mdg, 0, 1):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.5, 0.5, 0]), np.array([0.5, 0.5, 1])
+            )
+        for sd in _find_intersection_line(mdg, 0, 2):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.5, 0, 0.5]), np.array([0.5, 1, 0.5])
+            )
+        for sd in _find_intersection_line(mdg, 1, 2):
+            _verify_points_in_line(
+                sd.nodes, np.array([0, 0.5, 0.5]), np.array([1, 0.5, 0.5])
+            )
+        for sd in _find_intersection_line(mdg, 0, 3):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.5, 0.5, 0.5]), np.array([0.5, 1, 0.75])
+            )
+        for sd in _find_intersection_line(mdg, 1, 3):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.5, 0.5, 0.75]), np.array([1, 0.5, 0.75])
+            )
+        for sd in _find_intersection_line(mdg, 1, 4):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.75, 0.5, 0.5]), np.array([0.75, 0.5, 1])
+            )
+        for sd in _find_intersection_line(mdg, 2, 4):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.75, 0.5, 0.5]), np.array([0.75, 1, 0.5])
+            )
+        for sd in _find_intersection_line(mdg, 3, 4):
+            _verify_points_in_line(
+                sd.nodes, np.array([0.75, 1, 0.75]), np.array([0.75, 0.5, 0.75])
+            )
 
         # Known intersection points.
         isect_pt = [
