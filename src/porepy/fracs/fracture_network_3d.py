@@ -448,7 +448,11 @@ class FractureNetwork3d(object):
             constraints,
             intersection_line_parents,
         ) = self.process_intersections(
-            surface_tags_new, domain_tag, constraints=constraints
+            surface_tags_new,
+            domain_tag,
+            constraints=constraints,
+            fracture_tag_map=fracture_tag_map,
+            inv_fracture_tag_map=inv_fracture_tag_map,
         )
 
         # Transfer mesh size points to the new segments after intersection removal.
@@ -582,7 +586,12 @@ class FractureNetwork3d(object):
         return mdg
 
     def process_intersections(
-        self, surface_tags: list[int], domain_tag: int, constraints: list[int]
+        self,
+        surface_tags: list[int],
+        domain_tag: int,
+        constraints: list[int],
+        fracture_tag_map,
+        inv_fracture_tag_map,
     ) -> None:
         nd = 3
         dim_surface_tags = [(nd - 1, tag) for tag in surface_tags]
@@ -616,6 +625,8 @@ class FractureNetwork3d(object):
         # The domain tags may have changed during fragmentation, so get the current
         # list.
         domain_tags = [t[1] for t in gmsh.model.get_entities(nd)]
+
+        num_real_frac = sum([len(i) for i in fracture_tag_map.values()])
 
         keep = np.ones(len(isect_mapping), dtype=bool)
         for fi, frac in enumerate(isect_mapping):
@@ -653,8 +664,6 @@ class FractureNetwork3d(object):
         bnd_lines = []
         embedded_lines = []
 
-        bound_frac_ind = int(len(self.fractures) - sum(np.logical_not(keep)))
-
         # Challenge: Since the mdg graph only accepts single edges between node pairs
         # (subdomains), if two intersection lines cross (think a Rubik's cube geometry),
         # the split part of the intersection line must be assigned the same physical
@@ -670,9 +679,10 @@ class FractureNetwork3d(object):
         # TODO: What if two fractures intersect in a point? This is likely not covered
         # here, and not considered in the current implementation of md dynamics in
         # general.
-        for fi, new_frac in enumerate(isect_mapping[:bound_frac_ind]):
+        for fi, new_frac in enumerate(isect_mapping[:num_real_frac]):
+            frac_ind = inv_fracture_tag_map[new_frac[0][1]]
             # Constraints do not contribute to intersection lines.
-            if fi in constraints:
+            if frac_ind in constraints:
                 continue
 
             # A fracture can be split into multiple sub-fractures if they are fully cut
@@ -688,14 +698,14 @@ class FractureNetwork3d(object):
                 for parent_map in bnd:
                     if (
                         parent_map[0] == 1
-                    ):  # This is a line, not a point (would be b[0] == 0).
+                    ):  # This is a line, not a point (would be parent_map[0] == 0).
                         bnd_lines.append(parent_map[1])
                         # Keep track of the fracture index for each boundary line. Using
                         # fi (the enumeration counter of the outer for loop) ensures
                         # that even if a fracture was split into two sub-fractures
                         # during fragmentation, they will still be associated with the
                         # original fracture index.
-                        fi_bnd.append(fi)
+                        fi_bnd.append(frac_ind)
 
                 # Also find lines that are embedded in this subfracture (this will be an
                 # intersection line that does not cut subfrac in two).
@@ -704,7 +714,7 @@ class FractureNetwork3d(object):
                     if line[0] == 1:
                         embedded_lines.append(line[1])
                         # Also keep track of the fracture index for each embedded line.
-                        fi_embedded.append(fi)
+                        fi_embedded.append(frac_ind)
 
         # For a boundary line to be an intersection, it must be shared by at least two
         # fractures. TODO: What if it is on the boundary of one, but not the other, in a
