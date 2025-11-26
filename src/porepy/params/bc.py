@@ -101,7 +101,9 @@ class BoundaryCondition(AbstractBoundaryCondition):
             sd: Subdomain for which boundary conditions are set.
             faces: Faces for which conditions are assigned.
             cond: Conditions on the faces, in the same order as used in faces. Should be
-                as long as faces. The list elements should be "dir", "neu" or "rob".
+                as long as faces. The list elements should be "dir", "neu" or "rob". If
+                a single string is given, this condition is assigned to all faces in
+                faces.
 
         Raises:
             ValueError if faces are a boolean array with size not matching the number of
