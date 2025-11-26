@@ -757,7 +757,7 @@ class FractureNetwork3d(object):
                     fi_bnd[np.where(np.abs(bnd_lines) == line)[0]],
                     fi_embedded[np.where(np.abs(embedded_lines) == line)[0]],
                 )
-            )
+            ).astype(int)
             # Uniquify (thereby also sort) and turn to list.
             line_parents.append(np.unique(parent).tolist())
 
@@ -812,11 +812,6 @@ class FractureNetwork3d(object):
 
         num_point_occ = np.bincount(points_of_intersection_lines)
         intersection_points = np.where(num_point_occ > 1)[0]
-
-        if len(line_parents) > 0:
-            line_parents = np.array(line_parents)
-        else:
-            line_parents = np.empty((0, 2), dtype=int)
 
         return (
             intersection_points,
@@ -959,10 +954,14 @@ class FractureNetwork3d(object):
                 t
                 for _, t in gmsh.model.get_boundary([(nd - 1, surface)], oriented=False)
             ]
-
-            surface_lines = intersection_lines[
-                np.any(intersection_line_parents == surface, axis=1)
-            ].tolist()
+            # Find all intersection lines that are part of this surface.
+            surface_is_parent = np.array(
+                [np.any(par) for par in intersection_line_parents]
+            )
+            if surface_is_parent.size > 0:
+                surface_lines = intersection_lines[surface_is_parent].tolist()
+            else:
+                surface_lines = []
 
             # Points on intersection lines. Since intersection of lines should result in
             # the line being split, the line points should also contain such
