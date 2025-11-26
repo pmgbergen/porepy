@@ -1324,7 +1324,7 @@ class FractureNetwork3d(object):
                 bnd = gmsh.model.get_parametrization_bounds(nd - 1, f)
                 return np.array([param_coords[0], param_coords[1]]), bnd
 
-            def surface_points(f, num_pts_u=5, num_pts_v=5):
+            def place_points_on_surface(f, num_pts_u=5, num_pts_v=5):
                 # Get a grid of points on the surface f.
                 #
                 # NOTE: The parametrization here is somewhat random. Ideally, we would
@@ -1375,7 +1375,7 @@ class FractureNetwork3d(object):
                         continue
 
                     # Get points on the surface of f.
-                    points_on_main_surface = surface_points(main_f)
+                    points_on_main_surface = place_points_on_surface(main_f)
                     # Project the points to the other surface and see if they are
                     # inside. If the points are not inside (or on the boundary - that
                     # should be covered elsewhere), we will not add them to the main
@@ -1385,8 +1385,14 @@ class FractureNetwork3d(object):
                     )
                     # Those points on the surface that are also projected to inside the
                     # other fracture.
-                    surface_points = np.array(points_on_main_surface).reshape((-1, 3))[
-                        np.array(inside, dtype=bool)
+                    cand_surface_points = np.array(points_on_main_surface).reshape(
+                        (-1, 3)
+                    )[np.array(inside, dtype=bool)]
+                    # Filter away those points that have already been added.
+                    surface_points = [
+                        c
+                        for c in cand_surface_points
+                        if not point_already_present(c, main_f)
                     ]
                     # Add to gmsh model, get the distance.
                     gmsh_tags_points_on_main_surface = [
@@ -1409,6 +1415,7 @@ class FractureNetwork3d(object):
                         insertion_surface.append(main_f)
                         mesh_size_points[main_f].append((cp, dist_point_inside[c]))
                         control_point_tags.append(gmsh_tags_points_on_main_surface[c])
+
                     # Remove points that are not close.
                     remove = np.setdiff1d(
                         np.arange(len(gmsh_tags_points_on_main_surface)), close
@@ -1417,6 +1424,7 @@ class FractureNetwork3d(object):
                         gmsh.model.occ.remove(
                             [(0, gmsh_tags_points_on_main_surface[r])]
                         )
+                    gmsh.model.occ.synchronize()
 
             # Next, fractures that are not parallel. The closest point must be on the
             # boundary of at least one of the fractures. For now, place a single point
