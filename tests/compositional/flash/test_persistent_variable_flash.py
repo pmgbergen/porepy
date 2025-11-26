@@ -5,6 +5,8 @@ residuals and Jacobians for different flash specifications.
 
 from __future__ import annotations
 
+from itertools import product
+
 import numpy as np
 import pytest
 
@@ -81,28 +83,62 @@ def test_error_when_flashing_with_one_phase(
     assert False, "Fixture fetching should fail with CompositionalModellingError."
 
 
+def _dh_from_cp(
+    cp: tuple[int, str], spec: pf.FlashSpec
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    ncomp = cp[0]
+    nphase = len(cp[1])
+    dim_gen_arg = pf.dim_gen_arg(ncomp, nphase, spec)
+    # Base dimension covers phase fractions and extended partial fractions.
+    base_dim = ncomp * nphase + nphase - 1
+    directions = np.hstack(
+        (np.zeros((base_dim, dim_gen_arg - base_dim)), np.eye(base_dim))
+    )
+    h_fractions = np.logspace(0, -6, 7)
+    h_p = np.logspace(3, -3, 7)
+    h_T = np.logspace(2, -4, 7)
+
+    h_all: list[np.ndarray]
+    match spec:
+        case pf.FlashSpec.pT | pf.FlashSpec.vT:
+            h_all = [h_fractions] * base_dim
+        case pf.FlashSpec.ph:
+            h_all = [h_T] + [h_fractions] * (base_dim - 1)
+        case pf.FlashSpec.vh | pf.FlashSpec.vu:
+            h_all = [h_p, h_T] + [h_fractions] * (base_dim - 2)
+        case _:
+            assert False, "Uncovered flash specification in test."
+    return [(d, h) for d, h in zip(directions, h_all)]
+
+
 @pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.parametrize(
-    "flash_spec", [pf.FlashSpec.pT, pf.FlashSpec.ph, pf.FlashSpec.vh]
-)
-@pytest.mark.parametrize(
-    "comps_and_phases",
+    ["comps_and_phases", "flash_spec", "d", "h"],
     [
-        (1, "VL"),
-        (2, "VL"),
-        (2, "VLL"),
-        (2, "LL"),
-        (3, "VL"),
-        (3, "VLLL"),
-        (3, "LL"),
-        (3, "LLL"),
+        (cp, spec, d, h)
+        for cp, spec in product(
+            [
+                (1, "VL"),
+                (2, "VL"),
+                (2, "VLL"),
+                (2, "LL"),
+                (3, "VL"),
+                (3, "VLLL"),
+                (3, "LL"),
+                (3, "LLL"),
+            ],
+            [pf.FlashSpec.pT, pf.FlashSpec.ph, pf.FlashSpec.vh],
+        )
+        for d, h in _dh_from_cp(cp, spec)
     ],
-    indirect=True,
+    indirect=["comps_and_phases"],
 )
 @pytest.mark.parametrize("flash", ["PR"], indirect=True)
 def test_assembly_of_flash_systems(
     flash: pf.CompiledPersistentVariableFlash,
     comps_and_phases: tuple[int, str],
+    d: np.ndarray,
+    h: np.ndarray,
     flash_spec: pf.FlashSpec,
 ) -> None:
     """Tests the assembly of flash systems:
@@ -129,11 +165,6 @@ def test_assembly_of_flash_systems(
             base_dim += 2 + nphase - 1
         case _:
             assert False, "Uncovered flash specification in test."
-
-    # Directions for Taylor test.
-    directions = np.hstack(
-        (np.zeros((base_dim, dim_gen_arg - base_dim)), np.eye(base_dim))
-    )
 
     assert flash._eos.nc == ncomp, "Failure in test setup."
     assert flash._eos.is_compiled, "EoS not compiled."
@@ -162,20 +193,6 @@ def test_assembly_of_flash_systems(
     x0 = pf.assemble_generic_arg(
         sat, x, y, z, p, T, state1, state2, np.zeros(0), flash_spec
     )
-    h_fractions = np.logspace(0, -6, 7)
-    h_p = np.logspace(3, -3, 7)
-    h_T = np.logspace(2, -4, 7)
-
-    h_all: list[np.ndarray]
-    match flash_spec:
-        case pf.FlashSpec.pT | pf.FlashSpec.vT:
-            h_all = [h_fractions] * base_dim
-        case pf.FlashSpec.ph:
-            h_all = [h_T] + [h_fractions] * (base_dim - 1)
-        case pf.FlashSpec.vh | pf.FlashSpec.vu:
-            h_all = [h_p, h_T] + [h_fractions] * (base_dim - 2)
-        case _:
-            assert False, "Uncovered flash specification in test."
 
     def func(x):
         r = res(x)
@@ -187,12 +204,10 @@ def test_assembly_of_flash_systems(
         j.shape == (base_dim, base_dim)
         return np.hstack((np.zeros((base_dim, dim_gen_arg - base_dim)), j))
 
-    for d, h in zip(directions, h_all):
-        orders = get_EOC_taylor(func, dfunc, x0.copy(), d, h)
-        assert_order_at_least(
-            orders,
-            2.0,
-            tol=2e-2,
-            asymptotic=3,
-            err_msg=f"{flash_spec} ({comps_and_phases}) {d}",
-        )
+    orders = get_EOC_taylor(func, dfunc, x0.copy(), d, h)
+    assert_order_at_least(
+        orders,
+        2.0,
+        tol=2e-2,
+        asymptotic=3,
+    )

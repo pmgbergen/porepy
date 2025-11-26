@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 import time
 from functools import partial
-from typing import Callable, Optional, Sequence, cast
+from typing import Callable, Optional, cast
 
 import numba
 import numba.typed
@@ -18,7 +18,7 @@ from .._core import (
     NUMBA_CACHE,
     NUMBA_FAST_MATH,
     NUMBA_PARALLEL,
-    R_IDEAL_MOL,
+    R_U_MOL,
     cfunc,
     njit,
     typeof,
@@ -760,7 +760,7 @@ class FlashInitializer:
                     else:  # gas-like
                         Z = 0.7
 
-                    p = Z * T * R_IDEAL_MOL / s1
+                    p = Z * T * R_U_MOL / s1
 
                     # Make first fraction guess based on pseudo-critical values.
                     xf = assemble_generic_arg(

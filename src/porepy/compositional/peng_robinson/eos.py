@@ -8,7 +8,6 @@ The functions provided here are building on lambdified expressions created using
 from __future__ import annotations
 
 import logging
-import time
 from typing import Callable, Optional, Sequence
 
 import numba as nb
@@ -16,7 +15,7 @@ import numpy as np
 import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL_MOL, PhysicalState, njit
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_U_MOL, PhysicalState, njit
 from ..compiled_eos import (
     FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE,
     FUGACITY_COEFF_FUNC_SIGNATURE,
@@ -41,7 +40,6 @@ from .compressibility_factor import (
 from .utils import VanDerWaals_cohesion, VanDerWaals_covolume, thd_function_type
 
 __all__ = [
-    "SymbolicPengRobinson",
     "CompiledPengRobinson",
 ]
 
@@ -54,91 +52,6 @@ _COMPILER = njit
 Uses :func:`~porepy.compositional._core.njit`
 
 """
-
-
-def _compile_fugacities(
-    phis: Callable[[float, float, np.ndarray, float, float, float], np.ndarray],
-) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
-    """Helper function to compile the vector of fugacity coefficients.
-
-    It needs an additional reduction of shape from ``(num_comp, 1)`` to ``(num_comp,)``
-    because of the usage of a symbolic, vector-valued function."""
-    f = _COMPILER(phis)
-
-    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
-    def inner(p_, T_, X_, A_, B_, Z_):
-        phi_ = f(p_, T_, X_, A_, B_, Z_)
-        return phi_[:, 0]
-
-    return inner
-
-
-def _compile_thd_function_derivatives(
-    thd_df: Callable[[float, float, np.ndarray], list[float]],
-) -> Callable[[float, float, np.ndarray], np.ndarray]:
-    """Helper function to compile the gradient of a thermodynamic function.
-
-    Functions are supposed to take pressure, temperature and a vector of
-    fractions as arguments.
-
-    This helper function ensures that the return value is wrapped in an array, and not
-    a list (as by default returned when using sympy.lambdify).
-
-    It also enforces a signature ``(float64, float64, float64[:]) -> float64[:]``
-
-    """
-    df = _COMPILER(thd_df, fastmath=NUMBA_FAST_MATH)
-
-    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:]), fastmath=NUMBA_FAST_MATH)
-    def inner(p_, T_, X_):
-        return np.array(df(p_, T_, X_), dtype=np.float64)
-
-    return inner
-
-
-def _compile_extended_thd_function_derivatives(
-    ext_thd_df: Callable[[float, float, np.ndarray, float, float, float], list[float]],
-) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
-    """Helper function to compile the gradient of an extended thermodynamic function.
-
-    Functions are supposed to take pressure, temperature, a vector of
-    fractions, and the EoS specific terms cohesion, covolume and
-    compressibility factor as arguments.
-
-    This helper function ensures that the return value is wrapped in an array, and not
-    a list (as by default returned when using sympy.lambdify).
-
-    It also enforces a signature
-    ``(float64, float64, float64[:], float64, float64, float64) -> float64[:]``
-
-    """
-    df = _COMPILER(ext_thd_df)
-
-    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
-    def inner(p_, T_, X_, A_, B_, Z_):
-        return np.array(df(p_, T_, X_, A_, B_, Z_), dtype=np.float64)
-
-    return inner
-
-
-def _compile_density_derivative(
-    dv: Callable[[float, float, float], list[float]],
-) -> Callable[[float, float, float], np.ndarray]:
-    """Helper function to compile the gradient of the density.
-
-    Required to wrap the result in an array.
-
-    It also enforces a signature ``(float64, float64, float64) -> float64[:]``.
-
-    """
-
-    dv_ = _COMPILER(fastmath=NUMBA_FAST_MATH)(dv)
-
-    @_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8))
-    def inner(p_, T_, Z_):
-        return np.array(dv_(p_, T_, Z_), dtype=np.float64)
-
-    return inner
 
 
 @_COMPILER(cache=True)
@@ -239,7 +152,7 @@ class SymbolicPengRobinson:
         """List of critical pressures per component."""
 
         self.b_i_crit: list[float] = [
-            B_CRIT * (R_IDEAL_MOL * T_c) / p_c
+            B_CRIT * (R_U_MOL * T_c) / p_c
             for T_c, p_c in zip(self.T_i_crit, self.p_i_crit)
         ]
         """List of critical covolumes per component.
@@ -249,7 +162,7 @@ class SymbolicPengRobinson:
         """
 
         self.a_i_crit: list[float] = [
-            A_CRIT * (R_IDEAL_MOL**2 * T_c**2) / p_c
+            A_CRIT * (R_U_MOL**2 * T_c**2) / p_c
             for T_c, p_c in zip(self.T_i_crit, self.p_i_crit)
         ]
         """List of critical cohesion values per component.
@@ -286,7 +199,7 @@ class SymbolicPengRobinson:
         :math:`\\frac{b p}{R T}`.
 
         """
-        return self.b * self.p_s / (R_IDEAL_MOL * self.T_s)
+        return self.b * self.p_s / (R_U_MOL * self.T_s)
 
     @property
     def grad_pTx_B(self) -> list[sp.Expr]:
@@ -339,7 +252,7 @@ class SymbolicPengRobinson:
         :math:`\\frac{a p}{R^2 T^2}`.
 
         """
-        return self.a * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
+        return self.a * self.p_s / (R_U_MOL**2 * self.T_s**2)
 
     @property
     def grad_pTx_A(self) -> list[sp.Expr]:
@@ -369,7 +282,7 @@ class SymbolicPengRobinson:
         :math:`\\frac{p}{RTZ}`.
 
         """
-        return self.p_s / (self.Z_s * self.T_s * R_IDEAL_MOL)
+        return self.p_s / (self.Z_s * self.T_s * R_U_MOL)
 
     @property
     def grad_pTZ_rho(self) -> list[sp.Expr]:
@@ -443,7 +356,7 @@ class SymbolicPengRobinson:
         B = self.B_s
         Z = self.Z_s
         dA_dT = self.A.diff(self.T_s)
-        return R_IDEAL_MOL * T * (Z - 1) + (R_IDEAL_MOL / np.sqrt(8)) * (
+        return R_U_MOL * T * (Z - 1) + (R_U_MOL / np.sqrt(8)) * (
             dA_dT * T**2 + A * T
         ) / B * sp.ln(
             SymbolicPengRobinson._truncate(
@@ -519,7 +432,7 @@ class SymbolicPengRobinson:
         phi_i: list[sp.Expr] = []
 
         for i in range(len(self.x_s)):
-            B_i = self.b_i_crit[i] * self.p_s / (R_IDEAL_MOL * self.T_s)
+            B_i = self.b_i_crit[i] * self.p_s / (R_U_MOL * self.T_s)
             dA_dXi = A_expr.diff(self.x_s[i])
 
             # TODO fix translation issue between numba and sympy
@@ -561,7 +474,7 @@ class SymbolicPengRobinson:
                 self.b_i_crit[i] / self.b * (Z - 1)
                 - sp.ln(Z - B)
                 + self.a
-                / (np.sqrt(8) * self.b * R_IDEAL_MOL * self.T_s)
+                / (np.sqrt(8) * self.b * R_U_MOL * self.T_s)
                 * (self.b_i_crit[i] / self.b - da_dx[i] / self.a)
                 * ZB_term
             )
@@ -646,6 +559,53 @@ class SymbolicPengRobinson:
             )
 
 
+@_COMPILER(
+    [nb.f8[:, :](nb.f8[:]), nb.f8[:](nb.f8[:, :])], fastmath=NUMBA_FAST_MATH, cache=True
+)
+def compact_dense_symmat(mat_arr: np.ndarray) -> np.ndarray:
+    """Compact storage of symmetric, dense, square matrix by storing only (parts of)
+    rows of the upper triangle matrix, concatenated into a 1D array.
+
+    Serves also as a reverse operation (expanding 1D to 2D array.)
+
+    Parameters:
+        matt_arr: A 1D or a 2D array with ``shape=(n(n+1)/2,)`` or ``shape=(n,n)``
+            respectively.
+
+    Returns:
+        If ``mat_arr`` is a 1D array, returns a symmetric 2D array.
+        If ``mat_arr`` is a 2D array, returns a 1D array.
+
+    """
+    if mat_arr.ndim == 1:
+        m = mat_arr.size
+        n = (-1 + np.sqrt(1 + 8 * m)) / 2
+        N = int(n)
+        if n != N or N < 0:
+            raise ValueError("Could not determine square shape of original matrix.")
+    elif mat_arr.ndim == 2:
+        N = mat_arr.shape[0]
+        assert mat_arr.shape[1] == N, "Expecting square matrix"
+    else:
+        raise ValueError("Expecting either 1D or 2D array.")
+
+    ids = np.array([0] + [n * (n + 1) / 2 for n in range(N)]).astype(np.int_)
+
+    if mat_arr.ndim == 2:
+        out = np.zeros((int(N * (N + 1) / 2)))
+        for i in range(N):
+            out[i * N - ids[i] : (i + 1) * N - ids[i + 1]] = mat_arr[i, i:]
+    elif mat_arr.ndim == 1:
+        out = np.zeros((N, N))
+        for i in range(N):
+            out[i, i:] = mat_arr[i * N - ids[i] : (i + 1) * N - ids[i + 1]]
+            # For symmetry.
+            out[i, i] /= 2.0
+        out = out + out.T
+
+    return out
+
+
 @_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def bc_component(pc: np.ndarray, Tc: np.ndarray) -> float:
     """Computes the critical covolume of a component based on critical values.
@@ -659,7 +619,7 @@ def bc_component(pc: np.ndarray, Tc: np.ndarray) -> float:
         :data:`~porepy.compositional.peng_robinson.compressibility_factor.B_CRIT`.
 
     """
-    return B_CRIT * R_IDEAL_MOL * Tc / pc
+    return B_CRIT * R_U_MOL * Tc / pc
 
 
 @_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -675,7 +635,7 @@ def ac_component(pc: float, Tc: float) -> float:
         :data:`~porepy.compositional.peng_robinson.compressibility_factor.A_CRIT`.
 
     """
-    return A_CRIT * (R_IDEAL_MOL * Tc) ** 2 / pc**2
+    return A_CRIT * (R_U_MOL * Tc) ** 2 / pc**2
 
 
 @_COMPILER(nb.f8(nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -810,25 +770,25 @@ def grad_a_VdW(
     """
     nc = xn.size
     if nc == 1:
-        return np.array((dalpha_dT(T, Tcs[0], omegas[0]) * acs[0]))
+        return np.ones(1) * dalpha_dT(T, Tcs[0], omegas[0]) * acs[0]
 
     dadT = 0.0
     da = np.zeros(nc + 1)
 
     for i in range(nc):
-        dadT_i = dalpha_dT(T, Tcs[i], omegas[i]) * acs[i]
-        a_i = alpha(T, Tcs[i], omegas[i]) * acs[i]
+        dTai = acs[i] * dalpha_dT(T, Tcs[i], omegas[i])
+        ai = acs[i] * alpha(T, Tcs[i], omegas[i])
 
         for j in range(nc):
-            dadT_j = dalpha_dT(T, Tcs[j], omegas[j]) * acs[j]
-            a_j = alpha(T, Tcs[j], omegas[j]) * acs[j]
+            dTaj = acs[j] * dalpha_dT(T, Tcs[j], omegas[j])
+            aj = acs[j] * alpha(T, Tcs[j], omegas[j])
 
             dij = 1.0 - bips[i, j]
-            sij = np.sqrt(a_i * a_j)
+            saij = np.sqrt(ai * aj)
 
-            da[i + 1] += xn[j] * sij * dij
+            da[i + 1] += xn[j] * saij * dij
 
-            dadT += xn[i] * xn[j] / sij * (a_i * dadT_j + a_j * dadT_i) * dij
+            dadT += xn[i] * xn[j] / saij * (ai * dTaj + aj * dTai) * dij
 
     da *= 2.0
     da[0] = dadT / 2.0
@@ -870,7 +830,7 @@ def hess_a_VdW(
     """
     nc = xn.size
     if nc == 1:
-        return np.array((ddalpha_dTT(T, Tcs[0], omegas[0])))
+        return np.ones(1) * ddalpha_dTT(T, Tcs[0], omegas[0]) * acs[0]
 
     ii = 1 + nc
     grad_dTa = np.zeros(ii)
@@ -895,9 +855,10 @@ def hess_a_VdW(
                 * xj
                 * dij
                 / 2.0
+                / saij
                 * (
-                    (2.0 * dTai * dTaj + dTai * dTTaj + dTTai * dTaj) / saij
-                    - dTaij / 2 / saij**3
+                    (2.0 * dTai * dTaj + ai * dTTaj + dTTai * aj)
+                    - (dTaij / saij) ** 2 / 2.0
                 )
             )
             # Contribution to dxdT.
@@ -907,37 +868,10 @@ def hess_a_VdW(
                 Hess_x[i, j] = 2.0 * saij * dij
 
     # Hessian is symmetric, return only upper triangle (including diag).
-    hess_arr = np.zeros(int(nc * (nc + 1) / 2 + 1))
+    hess_arr = np.zeros(int((nc + 2) * (nc + 1) / 2))
     hess_arr[:ii] = grad_dTa
-    hess_arr[ii:] = Hess_x[np.triu_indices(nc)]
+    hess_arr[ii:] = compact_dense_symmat(Hess_x)
     return hess_arr
-
-
-@_COMPILER(nb.f8[:, :](nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
-def expand_compact_dense_sym_mat(mat_arr: np.ndarray) -> np.ndarray:
-    """Restores a compacted square dense symmetric matrix.
-
-    Parameters:
-        mat_arr: ``shape=(n(n+1)/2,)``
-
-            1D array containing the upper triangle part of the symmetric matrix, C-style
-            flattened.
-
-    Returns:
-        A symmetric, dense matrix of shape ``(n, n)``, where the first row corresponds
-        to the first ``n`` entries of ``mat_arr``, the second row starting with column 1
-        to the next ``n-1`` entries of ``mat_arr`` and so on.
-
-    """
-    m = mat_arr.size
-    n = (-1 + np.sqrt(1 + 8 * m)) / 2
-    ni = int(n)
-    if n != ni or ni < 0:
-        raise ValueError("Could not determine square shape of restored matrix.")
-
-    A = np.zeros((ni, ni))
-    A[np.triu_indices(ni)] = mat_arr
-    return (A + A.T) / 2
 
 
 @_COMPILER(
@@ -983,7 +917,7 @@ def lnphis(
     """
     nc = bcs.size
     out = np.zeros(nc)
-    RT = R_IDEAL_MOL * T
+    RT = R_U_MOL * T
     Zm = Z - 1.0
     AB = A / np.sqrt(8) / B
     # Cap numerically for stability.
@@ -993,7 +927,7 @@ def lnphis(
     # Special case: 1 component
     if nc == 1:
         phi = Zm - lnZB0 - AB * lnZB1
-        return np.array((phi))
+        return np.ones(1) * phi
 
     for i in range(nc):
         BiB = bcs[i] * p / RT / B
@@ -1053,7 +987,7 @@ def lnphis_jac(
     """
     nc = bcs.size
     out = np.zeros((nc, 6))
-    RT = R_IDEAL_MOL * T
+    RT = R_U_MOL * T
 
     Z_m = Z - 1.0
     AB = A / np.sqrt(8) / B
@@ -1062,10 +996,8 @@ def lnphis_jac(
     denom = Z + (1 - np.sqrt(2)) * B
     ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, 1e-15)
 
-    dZB1dZ = 2.0 * (Z + B) / denom**2
-    dZB1dB = (
-        (1 + np.sqrt(2)) * denom + (Z + (1 + np.sqrt(2)) * B) * (1 - np.sqrt(2))
-    ) / denom**2
+    dZB1dZ = -2.0 * np.sqrt(2) * B / denom**2
+    dZB1dB = 2.0 * np.sqrt(2) * Z / denom**2
 
     lnZB1 = np.log(ZB1)
 
@@ -1095,10 +1027,76 @@ def lnphis_jac(
             + AB * (lnZB1 * (-BiB / B) + (BiB - dAdxi / A) / np.abs(ZB1) * dZB1dB)
         )
         dp = dBiBdp * Z_m + AB * lnZB1 * (dBiBdp - dAdxip / A)
-        dT = -BiB / T * Z_m + AB * lnZB1 * (-BiB / T - 2.0 * dAdxi / T / A)
+        dT = -(BiB * Z_m + AB * lnZB1 * (BiB - 2.0 * dAdxi / A)) / T
         out[i] = np.array((dA, dB, dZ, dp, dT, ddadxi_))
 
     return out
+
+
+@_COMPILER(
+    nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def h_dep(
+    A: float,
+    B: float,
+    Z: float,
+    T: float,
+    dAdT: float,
+) -> float:
+    """Computes the departure enthalpy.
+
+    Parameters:
+        A: Dimensionless cohesion.
+        B: Dimensionless covolume.
+        Z: Compressibility factor.
+        T: Temperature.
+        dAdT: Derivative of dimensionless cohesion with respect to temperature.
+
+    Returns:
+        The departure enthalpy.
+
+    """
+    RT = R_U_MOL * T
+    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-15)
+    lnZB1 = np.log(ZB1)
+    return RT * (Z - 1.0) + RT / np.sqrt(8) / B * (T * dAdT + A) * lnZB1
+
+
+@_COMPILER(
+    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def grad_h_dep(
+    A: float,
+    B: float,
+    Z: float,
+    T: float,
+    dAdT: float,
+) -> np.ndarray:
+    """Gradient of :func:`h_dep` with respect to its arguments."""
+    RT = R_U_MOL * T
+    denom = Z + (1 - np.sqrt(2)) * B
+    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, 1e-15)
+
+    dZB1dZ = -2.0 * np.sqrt(2) * B / denom**2
+    dZB1dB = 2.0 * np.sqrt(2) * Z / denom**2
+
+    lnZB1 = np.log(ZB1)
+
+    dA = RT / np.sqrt(8) / B * lnZB1
+    dB = (
+        RT / np.sqrt(8) * (T * dAdT + A) * (1 / np.abs(ZB1) * dZB1dB / B - lnZB1 / B**2)
+    )
+    dZ = RT + RT / np.sqrt(8) / B * (T * dAdT + A) / np.abs(ZB1) * dZB1dZ
+    dT = R_U_MOL * (Z - 1.0) + R_U_MOL / np.sqrt(8) / B * lnZB1 * (
+        T * dAdT + A + T * dAdT
+    )
+    ddAdT = RT / np.sqrt(8) / B * T * lnZB1
+
+    return np.array((dA, dB, dZ, dT, ddAdT))
 
 
 class CompiledPengRobinson(CompiledEoS):
@@ -1206,7 +1204,7 @@ class CompiledPengRobinson(CompiledEoS):
             # Avoid redundant value storage if only 1 component.
             if nc == 1:
                 nc = 0
-            RT = R_IDEAL_MOL * T
+            RT = R_U_MOL * T
 
             # Computing dimensionless cohesion and covolume.
             a = a_VdW(T, xn, Tcs, omegas, acs, bips)
@@ -1270,7 +1268,7 @@ class CompiledPengRobinson(CompiledEoS):
                 nc = 0
 
             dn = 2 + nc
-            RT = R_IDEAL_MOL * T
+            RT = R_U_MOL * T
 
             s_m_ = s_m
             eps_ = eps
@@ -1371,7 +1369,7 @@ class CompiledPengRobinson(CompiledEoS):
             dA = prearg_jac[0:dn]
             dB = prearg_jac[dn : 2 * dn]
             dZ = prearg_jac[2 * dn : 3 * dn]
-            hess_a = expand_compact_dense_sym_mat(prearg_jac[3 * dn :])
+            hess_a = compact_dense_symmat(prearg_jac[3 * dn :])
 
             # Raw values, need expansion.
             dphis_ = lnphis_jac(A, B, Z, p, T, dadx, bs)
@@ -1388,22 +1386,23 @@ class CompiledPengRobinson(CompiledEoS):
         return dphi_mix_c
 
     def get_enthalpy_function(self) -> ScalarFunction:
-        h_dep_c = self._cfuncs["h_dep"]
-        h_ideal_c = self._cfuncs["h_ideal"]
-
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return h_ideal_c(p, T, xn) + h_dep_c(
-                p, T, xn, prearg[1], prearg[2], prearg[3]
-            )
+            nc = xn.size
+            h_id = ...
+            A = prearg[1]
+            B = prearg[2]
+            Z = prearg[3]
+            a = prearg[4]
+            dadT = prearg[-(1 + nc)]
+
+            RT = R_U_MOL * T
+            dAdT = p * dadT / RT**2 - 2.0 * a * p / RT / T
+            return h_id + h_dep(A, B, Z, T, dAdT)
 
         return h_c
 
     def get_enthalpy_derivative_function(self) -> VectorFunction:
-        d = 2 + self.nc
-        dh_dep_c = self._cfuncs["dh_dep"]
-        dh_ideal_c = self._cfuncs["dh_ideal"]
-
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dh_c(
             prearg_val: np.ndarray,
@@ -1412,24 +1411,47 @@ class CompiledPengRobinson(CompiledEoS):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            d_h_ideal = dh_ideal_c(p, T, xn)
-            d_h_dep = dh_dep_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
-            # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
-            dA = prearg_jac[0:d]
-            dB = prearg_jac[d : 2 * d]
-            dZ = prearg_jac[2 * d : 3 * d]
-            # expansion of derivatives of departure enthalpy (chain rule)
-            d_h_dep = (
-                d_h_dep[:-3] + d_h_dep[-3] * dA + d_h_dep[-2] * dB + d_h_dep[-1] * dZ
-            )
-            return d_h_ideal + d_h_dep
+            if xn.size > 1:
+                nc = xn.size
+            else:
+                nc = 0
+
+            dn = 2 + nc
+
+            dh_id = ...
+
+            A = prearg_val[1]
+            B = prearg_val[2]
+            Z = prearg_val[3]
+            a = prearg_val[4]
+            dadT = prearg_val[-(1 + nc)]
+
+            RT = R_U_MOL * T
+            dAdT = p * dadT / RT**2 - 2.0 * a * p / RT / T
+
+            dA = prearg_jac[0:dn]
+            dB = prearg_jac[dn : 2 * dn]
+            dZ = prearg_jac[2 * dn : 3 * dn]
+            # We do not need to expand the Hessian, assuming structure here.
+            grad_dadT = prearg_jac[3 * dn : 1 + nc]
+            grad_dAdT = p * grad_dadT / RT**2
+            grad_dAdT[0] -= 2.0 * a * p / RT / T
+
+            dh_dep = grad_h_dep(A, B, Z, T, dAdT)
+            dh = dh_dep[0] * dA + dh_dep[1] * dB + dh_dep[2] * dZ
+            dh[1] += dh_dep[3]
+            dh[1:] += dh_dep[4] * grad_dAdT
+
+            # Contribution of ideal part to derivative w.r.t. T and x
+            dh[1:] += dh_id
+            return dh
 
         return dh_c
 
     def get_density_function(self) -> ScalarFunction:
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            denom = R_IDEAL_MOL * T * prearg[3]
+            denom = R_U_MOL * T * prearg[3]
             return p / denom
 
         return rho_c
@@ -1449,7 +1471,7 @@ class CompiledPengRobinson(CompiledEoS):
                 dn = 2
 
             Z = prearg_val[3]
-            denom = R_IDEAL_MOL * T * Z
+            denom = R_U_MOL * T * Z
 
             dp = 1 / denom
             dT = -p / denom / T

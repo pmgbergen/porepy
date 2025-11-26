@@ -181,7 +181,7 @@ def test_root_derivative_computation(
     def dfunc(x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.0)
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
     # NOTE: There is a lot of trickery possible to make this test pass, but we try to
     # be fair. The changes in A,B of order 1e-3 are significant in the sense that it can
     # result in another root case region, hence we ignore the first 2 entries.
@@ -249,7 +249,7 @@ def test_root_derivative_computation_smoothed(
     def dfunc(x):
         return get_compressibility_factor_derivatives(*x, gaslike, tol, 0.25)
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
     assert_order_at_least(
         orders, expected_order, tol=1e-2, err_msg=_err_msg(*x0), asymptotic=6
     )
@@ -288,7 +288,7 @@ def test_extended_root_derivative_function(
         return dZe(dz)
 
     x0 = np.random.rand(2)
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(0, -10, 11))
+    orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(0, -10, 11))
     assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
 
 
@@ -306,7 +306,7 @@ def test_derivatives_of_polynom_coeffs_wrt_AB(d: np.ndarray) -> None:
         return dc_from_AB(*x)
 
     x0 = np.random.rand(2)
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(0, -10, 11))
+    orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(0, -10, 11))
     assert_order_at_least(orders, 2.0, tol=1e-3, err_msg=_err_msg(*x0))
 
 
@@ -503,7 +503,7 @@ def test_limitcase_zero_cohesion(
         else:
             assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
 
-        orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+        orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
         assert_order_at_least(
             orders, expected_order, tol=1e-2, err_msg=err_msg, asymptotic=5
         )
@@ -580,7 +580,7 @@ def test_limitcase_zero_covolume(
         else:
             assert not is_extended, f"Expecting root to be real: {err_msg}"
 
-        orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-1, -10, 10))
+        orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-1, -10, 10))
         # Order reduction where gas is extended.
         if gaslike and A >= 0.25:
             expected_order = 1.0
@@ -659,7 +659,7 @@ def test_limitcase_zero_covolume_liquid_saturated(
         f"Expecting root to be real at liquid-saturated border: {err_msg}"
     )
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-2, -11, 10), tol=1e-3)
+    orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-2, -11, 10), tol=1e-3)
     assert_order_at_least(
         orders,
         expected_order,
@@ -724,7 +724,7 @@ def test_limitcase_zero_cohesion_and_covolume(
     else:
         assert is_extended, f"Expecting liquid root to be extended: {err_msg}"
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h=np.logspace(-3, -12, 10))
+    orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(-3, -12, 10))
 
     expected_order = expected_order_gas if gaslike else expected_order_liquid
     if isinstance(expected_order, (int, float)):

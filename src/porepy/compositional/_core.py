@@ -3,6 +3,13 @@ compositional subpackage.
 
 Changes here should be done with much care.
 
+The thermodynamic reference state for the entire package is the same as for IAPWS:
+Internal energy and entropy of saturated water at the triple point is zero.
+
+References:
+    [1] `IAPWS 1997 (Revised) Industrial formulation
+    <https://iapws.org/public/documents/UWTF-/IF97-Rev.pdf>`_
+
 """
 
 from __future__ import annotations
@@ -15,9 +22,13 @@ import numba as nb
 from numba.core import sigutils
 
 __all__ = [
-    "R_IDEAL_MOL",
+    "R_U_MOL",
     "P_REF",
     "T_REF",
+    "U_REF",
+    "H_REF",
+    "S_REF",
+    "V_REF",
     "COMPOSITIONAL_VARIABLE_SYMBOLS",
     "PhysicalState",
 ]
@@ -128,56 +139,50 @@ Affected numba functionality includes:
 
 """
 
-R_IDEAL_MOL: float = 8.31446261815324
-"""Universal gas constant in ``[J / K mol]``."""
+R_U_MOL: float = 8.31446261815324
+"""Universal molar gas constant in ``[J / K mol]``."""
+
+MW_H2O: float = 18.01528e-3
+"""Molar weight of water in ``[kg / mol]``"""
 
 P_REF: float = 611.657
-"""The reference pressure for the composite module is set to the triple point pressure
-of pure water in ``[Pa]``.
-
-This value must be used to calculate the reference state when dealing with thermodynamic
-properties.
-
-"""
+"""The reference pressure is set to the triple point pressure of pure water in
+``[Pa]``."""
 
 T_REF: float = 273.16
-"""The reference temperature for the composite module is set to the triple point
-temperature of pure water in ``[K]``.
+"""The reference temperature is set to the triple point temperature of pure water in
+``[K]``."""
 
-This value must be used to calculate the reference state when dealing with thermodynamic
-properties.
+V_REF: float = 0.001 * MW_H2O
+"""The reference volume is set to liquid water volume at the triple point in
+``[m^3 / mol]``.
 
-"""
-
-V_REF: float = 1.0
-"""The reference volume is set to 1 ``[m^3]``.
-
-Computations in porous media, where densities are usually
-expressed as per Reference Element Volume, have to be adapted respectively.
+This is computed using the standard value for massic volume in ``[m^3 / kg]`` obtained
+from IAPWS, which is ``1e-3``, and a multiplication with :data:`MW_H2O`.
 
 """
 
-RHO_REF: float = P_REF / (R_IDEAL_MOL * T_REF) / V_REF
-"""The reference density is computed using the ideal gas law and :data:`P_REF`,
-:data:`T_REF`, :data:`V_REF` and :data:`R_IDEAL`. Its physical dimension is
-``[mol / m^3]``"""
+RHO_IG_REF: float = P_REF / (R_U_MOL * T_REF)
+"""The molar reference ideal gas density is computed using the ideal gas law and
+:data:`P_REF`, :data:`T_REF`, and :data:`R_U_MOL`."""
 
 U_REF: float = 0.0
-"""The reference value for the specific internal energy ``[J / mol]``, at :data:`T_REF`
-and :data:`P_REF`. It is set to zero."""
+"""The reference state for the specific internal energy ``[J / mol]``, at :data:`T_REF`
+and :data:`P_REF` of liquid water. It is set to zero according to IAPWS standard."""
 
-H_REF: float = U_REF + P_REF / RHO_REF
-"""The reference value for the specific enthalpy ``[J / mol]``.
+S_REF: float = 0.0
+"""The reference state for the specific entropy ``[J / K]``, at :data:`T_REF`
+and :data:`P_REF` of liquid water. It is set to zero according to IAPWS standard."""
 
-It holds :math:`h_r = u_r + \\frac{p_r}[\\rho_r]`
-
-"""
+H_REF: float = U_REF + P_REF * V_REF
+"""The reference value for the specific enthalpy ``[J / mol]``, using :data:`U_REF`,
+:data:`P_REF` and :data:`V_REF`."""
 
 _heat_capacity_ratio: float = 8.0 / 6.0
 """Heat capacity ratio for ideal, triatomic gases like water.
 Set to :math:`\\frac{8}{6}`"""
 
-CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_IDEAL_MOL
+CP_REF: float = _heat_capacity_ratio / (_heat_capacity_ratio - 1) * R_U_MOL
 """The specific heat capacity at constant pressure for ideal water vapor in
 ``[J / K mol]``.
 
@@ -190,7 +195,7 @@ See Also:
 
 """
 
-CV_REF: float = 1.0 / (_heat_capacity_ratio - 1) * R_IDEAL_MOL
+CV_REF: float = 1.0 / (_heat_capacity_ratio - 1) * R_U_MOL
 """The specific heat capacity at constant volume for ideal water vapor in
 ``[J / K mol]``.
 

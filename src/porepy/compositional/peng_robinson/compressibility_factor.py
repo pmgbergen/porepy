@@ -823,7 +823,7 @@ def get_compressibility_factor(
                 _smooth_supercritical_transition(0, d, smooth_sc, out)
                 # NOTE: We smooth only if the resulting root is greater or equal than
                 # before to avoid conflicts with smoothing towards the SC border line.
-                if d < dsc and out[0] >= roots[-1]:
+                if out[0] >= roots[-1]:
                     roots[-1] = out[0]
         # If liquid extended, smooth towards sub-critical extension value on critical
         # line.

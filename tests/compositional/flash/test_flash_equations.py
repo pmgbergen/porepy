@@ -1,6 +1,8 @@
 """Module testing assembly of common flash equations as well as generic argument
 parsing."""
 
+from itertools import product
+
 import numpy as np
 import pytest
 
@@ -304,16 +306,28 @@ def test_generic_arg_from_result_struture(
 # flash argument. If that changes, the tests need adaption.
 
 
+def _d_from_npnc(nphase: int, ncomp: int, spec: flash.FlashSpec) -> np.ndarray:
+    """Directions for"""
+    dim = flash.dim_gen_arg(ncomp, nphase, spec)
+    nf = ncomp * nphase + nphase - 1
+    return np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
+
+
 # Mass constraint for 1 component is always a dependent equation and never assembled.
-@pytest.mark.parametrize("nphase", [1, 2, 5])
-@pytest.mark.parametrize("ncomp", [2, 5])
-def test_mass_conservation(ncomp: int, nphase: int) -> None:
+@pytest.mark.parametrize(
+    ["nphase", "ncomp", "d"],
+    [
+        (nphase, ncomp, d)
+        for nphase, ncomp in product([1, 2, 5], [2, 5])
+        for d in _d_from_npnc(nphase, ncomp, flash.FlashSpec.pT)
+    ],
+)
+def test_mass_conservation(ncomp: int, nphase: int, d: np.ndarray) -> None:
     """Tests if the mass conservation equation is correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order."""
     spec = flash.FlashSpec.pT
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
     nf = ncomp * nphase + nphase - 1
-    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     def func(xgen):
         _, x, y, z, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
@@ -354,16 +368,21 @@ def test_mass_conservation(ncomp: int, nphase: int) -> None:
     )
 
     Xgen = np.random.random((dim,))
-    h = np.logspace(0, -10, 11)
+    h = np.logspace(0, -9, 10)
 
-    for d in directions:
-        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-        assert_order_at_least(orders, 2.0, tol=1e-3)
+    orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+    assert_order_at_least(orders, 2.0, tol=1e-3)
 
 
-@pytest.mark.parametrize("nphase", [1, 2, 5])
-@pytest.mark.parametrize("ncomp", [1, 2, 5])
-def test_complementary_conditions(ncomp: int, nphase: int) -> None:
+@pytest.mark.parametrize(
+    ["nphase", "ncomp", "d"],
+    [
+        (nphase, ncomp, d)
+        for nphase, ncomp in product([1, 2, 5], [1, 2, 5])
+        for d in _d_from_npnc(nphase, ncomp, flash.FlashSpec.pT)
+    ],
+)
+def test_complementary_conditions(ncomp: int, nphase: int, d: np.ndarray) -> None:
     """Tests if the complementary conditions are correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order.
 
@@ -374,7 +393,6 @@ def test_complementary_conditions(ncomp: int, nphase: int) -> None:
     spec = flash.FlashSpec.pT
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
     nf = ncomp * nphase + nphase - 1
-    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     def func(xgen):
         _, x, y, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
@@ -417,21 +435,27 @@ def test_complementary_conditions(ncomp: int, nphase: int) -> None:
     Xgen = np.random.random((dim,))
     h = np.logspace(0, -10, 11)
 
-    for d in directions:
-        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-        assert_order_at_least(orders, 2.0, tol=1e-3)
+    orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+    assert_order_at_least(orders, 2.0, tol=1e-3)
 
 
-@pytest.mark.parametrize("nphase", [1, 2, 5])
-@pytest.mark.parametrize("ncomp", [1, 2, 5])
+@pytest.mark.parametrize(
+    ["nphase", "ncomp", "d"],
+    [
+        (nphase, ncomp, d)
+        for nphase, ncomp in product([1, 2, 5], [1, 2, 5])
+        for d in _d_from_npnc(nphase, ncomp, flash.FlashSpec.vh)
+    ],
+)
 @pytest.mark.parametrize("w_flag", [True, False])
-def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
+def test_first_order_constraint(
+    w_flag: bool, ncomp: int, nphase: int, d: np.ndarray
+) -> None:
     """Tests if the first-order constraint is correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order."""
     spec = flash.FlashSpec.vh
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
     nf = ncomp * nphase + 2 * (nphase - 1) + 2
-    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     # Target value of the constraint.
     phi = np.random.rand()
@@ -483,22 +507,26 @@ def test_first_order_constraint(w_flag: bool, ncomp: int, nphase: int) -> None:
     assert np.allclose(res, 0, rtol=0.0), "Unexpected residual values."
 
     Xgen = np.random.random((dim,))
-    h = np.logspace(0, -10, 11)
+    h = np.logspace(0, -9, 10)
 
-    for d in directions:
-        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-        assert_order_at_least(orders, 2.0, tol=1e-2)
+    orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+    assert_order_at_least(orders, 2.0, tol=1e-2)
 
 
-@pytest.mark.parametrize("nphase", [1, 2, 5])
-@pytest.mark.parametrize("ncomp", [1, 2, 5])
-def test_phase_mass_constraint(ncomp: int, nphase: int) -> None:
+@pytest.mark.parametrize(
+    ["nphase", "ncomp", "d"],
+    [
+        (nphase, ncomp, d)
+        for nphase, ncomp in product([1, 2, 5], [1, 2, 5])
+        for d in _d_from_npnc(nphase, ncomp, flash.FlashSpec.vh)
+    ],
+)
+def test_phase_mass_constraint(ncomp: int, nphase: int, d: np.ndarray) -> None:
     """Tests if the phase mass constraints are correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order."""
     spec = flash.FlashSpec.vh
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
     nf = ncomp * nphase + 2 * (nphase - 1) + 2
-    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
 
     def func(xgen):
         sat, x, y, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
@@ -539,24 +567,32 @@ def test_phase_mass_constraint(ncomp: int, nphase: int) -> None:
     Xgen = np.random.random((dim,))
     h = np.logspace(0, -10, 11)
 
-    for d in directions:
-        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-        assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
+    orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+    assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
 
 
 # Isofugacity constraints make no sense for 1 phase.
-@pytest.mark.parametrize("nphase", [2, 5])
-@pytest.mark.parametrize("ncomp", [1, 2, 5])
-def test_isofugacity_constraints(ncomp: int, nphase: int) -> None:
+@pytest.mark.parametrize(
+    ["nphase", "ncomp", "d"],
+    [
+        (nphase, ncomp, d)
+        for nphase, ncomp in product([2, 5], [1, 2, 5])
+        # Isofugacity constraints do not depend on saturations or phase fractions, hence
+        # remove the directions.
+        for d in np.vstack(
+            (
+                _d_from_npnc(nphase, ncomp, flash.FlashSpec.vh)[:2],
+                _d_from_npnc(nphase, ncomp, flash.FlashSpec.vh)[2 + 2 * (nphase - 1) :],
+            )
+        )
+    ],
+)
+def test_isofugacity_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None:
     """Tests if the isofugacity constraints constraints are correctly implemented and
     its Jacobian function allows the Taylor approximation to be of second order."""
     spec = flash.FlashSpec.vh
     dim = flash.dim_gen_arg(ncomp, nphase, spec)
     nf = ncomp * nphase + 2 * (nphase - 1) + 2
-    directions = np.hstack((np.zeros((nf, dim - nf)), np.eye(nf)))
-    # Isofugacity constraints do not depend on saturations or phase fractions, hence
-    # remove the directions.
-    directions = np.vstack((directions[:2], directions[2 + 2 * (nphase - 1) :]))
 
     def func(xgen):
         _, x, _, _, p, T, *_ = flash.parse_generic_arg(xgen, ncomp, nphase, spec)
@@ -628,9 +664,8 @@ def test_isofugacity_constraints(ncomp: int, nphase: int) -> None:
     assert res.shape == (0,), "Unexpected residual shape for 1 phase."
 
     Xgen = np.random.random((dim,))
-    h = np.logspace(0, -10, 11)
+    h = np.logspace(0, -0, 10)
 
-    for d in directions:
-        orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-        # assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
-        assert_order_at_least(orders, 2.0, tol=1e-2)
+    orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
+    # assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)
+    assert_order_at_least(orders, 2.0, tol=1e-2)

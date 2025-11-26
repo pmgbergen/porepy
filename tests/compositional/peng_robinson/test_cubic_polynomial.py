@@ -337,7 +337,7 @@ def test_single_double_root_derivatives_around_triple_point(
     def _dfunc(x):
         return dfunc(np.array(x).astype(np.float64))
 
-    orders = get_EOC_taylor(_func, _dfunc, x0, d, h=np.logspace(-1, -10, 10))
+    orders = get_EOC_taylor(_func, _dfunc, x0, d, np.logspace(-1, -10, 10))
     assert_order_at_least(orders, 1.0, tol=1e-2)
 
 

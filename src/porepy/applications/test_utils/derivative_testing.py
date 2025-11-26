@@ -3,7 +3,7 @@ function."""
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
 
@@ -19,6 +19,8 @@ def get_EOC_taylor(
     x0: np.ndarray,
     d: np.ndarray,
     h: np.ndarray,
+    *,
+    ddfunc: Optional[Callable[[np.ndarray], np.ndarray | float]] = None,
     verbose: bool = False,
     tol: float = 1e-14,
 ) -> np.ndarray:
@@ -39,6 +41,7 @@ def get_EOC_taylor(
         x0: Point at which the derivative is computed.
         d: Direction along which the derivative is computed.
         h: Array of step sizes to use for the Taylor expansion.
+        ddfunc: If given, computes the second order Taylor approximation.
         verbose: If True, prints detailed information about errors and estimated orders.
         tol: Tolerance below which errors are considered zero
             (i.e., exact approximation).
@@ -54,6 +57,8 @@ def get_EOC_taylor(
     errorlist = []
     for h_ in h:
         approx = func(x0) + h_ * (dfunc(x0) @ d)
+        if ddfunc:
+            approx += h_**2 / 2 * (d.T @ (ddfunc(x0) @ d))
         exact = func(x0 + h_ * d)
         error = float(np.linalg.norm(exact - approx))
         # If errors are small, their ratios can falsely indicate order loss due to
@@ -103,6 +108,7 @@ def get_EOC_taylor(
 def assert_order_at_least(
     orders: np.ndarray,
     expected_order: float,
+    *,
     tol: float = 0.1,
     err_msg: str = "",
     asymptotic: int | None = None,

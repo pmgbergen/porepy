@@ -13,16 +13,31 @@ from porepy.applications.test_utils.derivative_testing import (
 )
 from tests.compositional.peng_robinson import components, comps_and_phases, pr_eos
 
+_dh_per_cp = lambda cp: [
+    (d, h)
+    for d, h in zip(
+        np.eye(2 + cp[0]),
+        [np.logspace(3, -3, 7), np.logspace(2, -4, 7)]
+        + cp[0] * [np.logspace(0, -6, 7)],
+    )
+]
+
 
 @pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.parametrize("params", [np.zeros(0), np.ones(1) * 0.2])
 @pytest.mark.parametrize(
-    "comps_and_phases",
-    [(1, "V"), (1, "L"), (2, "V"), (2, "L"), (3, "V"), (3, "L")],
-    indirect=True,
+    ["comps_and_phases", "d", "h"],
+    [
+        (cp, d, h)
+        for cp in [(1, "V"), (1, "L"), (2, "V"), (2, "L"), (3, "V"), (3, "L")]
+        for d, h in _dh_per_cp(cp)
+    ],
+    indirect=["comps_and_phases"],
 )
 def test_lbc_derivatives(
     comps_and_phases: tuple[int, str],
+    d: np.ndarray,
+    h: np.ndarray,
     params: np.ndarray,
     pr_eos: pr.CompiledPengRobinson,
 ) -> None:
@@ -70,17 +85,6 @@ def test_lbc_derivatives(
     x0[0] = 1e7  # Pressure in Pa
     x0[1] = 400.0  # Temperature in K
     x0[2:] = 1.0 / ncomp  # Partial fractions
-    directions = np.eye(2 + ncomp)
-    h_p = np.logspace(3, -3, 7)
-    h_T = np.logspace(2, -4, 7)
-    h_x = np.logspace(0, -6, 7)
 
-    for d, h in zip(directions, [h_p, h_T] + [h_x] * ncomp):
-        orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-10)
-        assert_order_at_least(
-            orders,
-            2.0,
-            tol=2e-2,
-            err_msg=f"mu ({comps_and_phases}) {d}",
-            asymptotic=3,
-        )
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-10)
+    assert_order_at_least(orders, 2.0, tol=2e-2, asymptotic=3)

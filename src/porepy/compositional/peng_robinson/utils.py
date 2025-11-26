@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Callable, Protocol, Sequence
 
 import numpy as np
 
-from .._core import R_IDEAL_MOL, T_REF
+from .._core import R_U_MOL, T_REF
 from ..base import Component
 from ..utils import safe_sum
 
@@ -134,7 +134,7 @@ def h_ideal_H2S(T: ArithmeticType) -> ArithmeticType:
     cp1: float = 3.931
     cp2: float = 1.49e-3
     cp3: float = -0.232e5
-    return R_IDEAL_MOL * (
+    return R_U_MOL * (
         cp1 * (T - T_REF)
         + cp2 / 2 * (T**2 - T_REF**2)
         - cp3 * (T ** (-1) - T_REF ** (-1))
@@ -155,7 +155,7 @@ def h_ideal_N2(T: ArithmeticType) -> ArithmeticType:
     cp1: float = 3.280
     cp2: float = 0.593e-3
     cp3: float = 0.04e5
-    return R_IDEAL_MOL * (
+    return R_U_MOL * (
         cp1 * (T - T_REF)
         + cp2 / 2 * (T**2 - T_REF**2)
         - cp3 * (T ** (-1) - T_REF ** (-1))
