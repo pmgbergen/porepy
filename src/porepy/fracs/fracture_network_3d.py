@@ -716,7 +716,7 @@ class FractureNetwork3d(object):
         boundary_lines = np.where(num_lines_occ > 1)[0]
         all_lines = np.hstack((embedded_lines, boundary_lines))
         # Fracture intersection lines, to be added as physical lines.
-        intersection_lines = np.unique(all_lines)
+        intersection_lines = np.unique(all_lines).astype(int)
 
         # Now, we need to find which intersection lines stem from the same set of
         # intersecting fractures (this can be two or more fractures). This requires some
