@@ -542,9 +542,17 @@ def test_cross_intersection(
         _check_line_intersection(1, 2)
 
     if num_fractures == 3:
-        # Check the intersection line between fracture 0 and 2
-        assert np.allclose(
-            mdg.subdomains(dim=0)[0].cell_centers, np.array([[0.5], [0.5], [0.5]])
+        # Verify that there is exactly one 0d grid located at the intersection point of
+        # the three fractures. There may be other points related to mesh size control,
+        # but these we ignore.
+        assert (
+            np.sum(
+                [
+                    np.allclose(sd.cell_centers, np.array([[0.5], [0.5], [0.5]]))
+                    for sd in mdg.subdomains(dim=0)
+                ]
+            )
+            == 1
         )
 
 
