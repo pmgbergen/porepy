@@ -209,6 +209,8 @@ class SubsurfaceCuboidDomain:
 
     """
 
+    domain: pp.Domain
+    """Model domain."""
     units: pp.Units
     """Model units."""
     params: dict
