@@ -628,17 +628,20 @@ class FractureNetwork3d(object):
         # consideration. There are surely cases where this simple approach fails, but it
         # will have to do for now.
 
+        # The domain tags may have changed during fragmentation, so get the current
+        # list.
+        domain_tags = [t[1] for t in gmsh.model.get_entities(nd)]
+        # Keep track of which fractures to keep.
+        keep = np.ones(len(isect_mapping), dtype=bool)
+        # Keep track of which fractures have had parts deleted. If all parts of a
+        # fracture have been deleted, we need to update the constraint indices.
+        part_of_fracture_deleted = []
+
         # Double loop: First over all fractures, then over all fragments of each
         # fracture. We kick out fragments where at least one vertex is outside the
         # domain (has a distance larger than tol). If all fragments of a fracture are
         # kicked out, we need to remove the fracture altogether, and update the
         # constraint indices accordingly.
-
-        # The domain tags may have changed during fragmentation, so get the current
-        # list.
-        domain_tags = [t[1] for t in gmsh.model.get_entities(nd)]
-
-        keep = np.ones(len(isect_mapping), dtype=bool)
         for fi, frac in enumerate(isect_mapping):
             if frac and frac[0][0] == 3:
                 # This is the domain, keep it.
@@ -663,11 +666,34 @@ class FractureNetwork3d(object):
                 # sub-fracture.
                 if np.any(distances > self.tol):
                     loc_keep[sfi] = False
+                    # Take note that part of this fracture (mapping back to the input
+                    # fracture index system) has been deleted.
+                    part_of_fracture_deleted.append(inv_fracture_tag_map[sub_frac[1]])
+            # Keep only the sub-fractures that are within the domain.
             isect_mapping[fi] = [frac[i] for i in range(len(frac)) if loc_keep[i]]
+            # If any sub-fracture is kept, we keep the fracture.
             keep[fi] = np.any(loc_keep)
 
+        # Remove fractures where all the sub-fractures were outside the domain.
         isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
-        constraints = [c for c in constraints if keep[c]]
+
+        # Update the constraint indices to account for fully removed fractures.
+        updated_constraints = []
+        # If a fracture has been fully removed, we need to decrement the indices of
+        # all following constraints.
+        num_frac_deleted = 0
+        for c in constraints:
+            num_orig_subfrac = list(inv_fracture_tag_map.values()).count(c)
+            num_deleted_subfrac = part_of_fracture_deleted.count(c)
+            if num_orig_subfrac == num_deleted_subfrac:
+                # The full fracture has been removed. It is not among the new
+                # constraints, but we need to adjust the indices of the following ones.
+                num_frac_deleted += 1
+            else:
+                # The fracture is still present, add it to the new constraints,
+                # adjusting the index accordingly.
+                updated_constraints.append(int(c) - num_frac_deleted)
+        constraints = updated_constraints
 
         # Count the number of fracture objects, excluding the domain boundary, but
         # including possible multiple subfractures that have been split from a single
