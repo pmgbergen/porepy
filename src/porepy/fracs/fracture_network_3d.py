@@ -964,11 +964,11 @@ class FractureNetwork3d(object):
         mesh_size = {tag: [] for tag in surface_tags}
         mesh_size.update(mesh_size_points)
 
-        def dist_other_lines(lines, this_line):
+        def dist_other_lines(lines, this_line, default_size):
             """Compute distance from this_line to all other lines in lines."""
             other_lines = [l for l in lines if l != this_line]
             if len(other_lines) == 0:
-                return np.array([])
+                return 0
 
             distances = np.array(
                 [
@@ -977,7 +977,9 @@ class FractureNetwork3d(object):
                 ]
             )
             distances = distances[distances > self.tol]
-            return np.min(distances)
+            if len(distances) == 0:
+                return default_size
+            return float(np.min(distances))
 
         def dist_point_lines(lines, point):
             """Compute distance from point to all lines in lines."""
@@ -996,13 +998,24 @@ class FractureNetwork3d(object):
                 for _, t in gmsh.model.get_boundary([(nd - 1, surface)], oriented=False)
             ]
             # Find all intersection lines that are part of this surface.
-            surface_is_parent = np.array(
-                [np.any(par) for par in intersection_line_parents]
-            )
+            surface_is_parent = np.zeros(len(intersection_lines), dtype=bool)
+            for li, par in enumerate(intersection_line_parents):
+                for fi in par:
+                    if surface in fracture_to_surface.get(fi, []):
+                        surface_is_parent[li] = True
+                        break
+
             if surface_is_parent.size > 0:
                 surface_lines = intersection_lines[surface_is_parent].tolist()
             else:
                 surface_lines = []
+            # Distance to other objects for each point, as computed previously. Assign
+            # h_frac or h_bound to the endpoints, depending on whether the line is a
+            # fracture or boundary line. We also assign h_frac, since no refinement is
+            # needed just because this is an intersection point (if it is an
+            # intersection with a bad angle, this should be picked up by a close point
+            # on another line).
+            h_end = h_bound if surface in boundary_tags else h_frac
 
             # Points on intersection lines. Since intersection of lines should result in
             # the line being split, the line points should also contain such
@@ -1012,7 +1025,7 @@ class FractureNetwork3d(object):
             line_points = []
             line_dist = []
             for line in surface_lines:
-                d = dist_other_lines(surface_lines + boundary_lines, line)
+                d = dist_other_lines(surface_lines + boundary_lines, line, h_end)
                 line_dist += [d, d]
                 bnd_pts = gmsh.model.get_boundary([(1, line)], oriented=False)
 
@@ -1022,15 +1035,7 @@ class FractureNetwork3d(object):
             line_points = np.array(line_points).T
             if line_points.size == 0:
                 line_points = np.empty((3, 0))
-                line_dist = np.array([])
-
-            # Distance to other objects for each point, as computed previously. Assign
-            # h_frac or h_bound to the endpoints, depending on whether the line is a
-            # fracture or boundary line. We also assign h_frac, since no refinement is
-            # needed just because this is an intersection point (if it is an
-            # intersection with a bad angle, this should be picked up by a close point
-            # on another line).
-            h_end = h_bound if surface in boundary_tags else h_frac
+                line_dist = []
 
             # We need to detect lines that are close.
 
