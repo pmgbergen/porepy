@@ -14,7 +14,8 @@ import logging
 import time
 import warnings
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Final
+import multiprocessing
 
 import meshio
 import numpy as np
@@ -25,9 +26,201 @@ from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, PhysicalNames
 from porepy.geometry import sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
+import heapq
+from collections import namedtuple
+from enum import Enum
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
+
+
+ij = namedtuple("Index", ["i", "j"])
+Point = namedtuple("Point", ["x", "y", "z"])
+
+
+class Direction(Enum):
+    WEST = "west"
+    EAST = "east"
+    SOUTH = "south"
+    NORTH = "north"
+
+
+class SurfacePointInserter:
+    """Helper class to insert points on fracture surfaces for mesh size control.
+
+    This class is used to manage the insertion of points on fracture surfaces in a
+    3D fracture network. The points are used to control the mesh size during the
+    meshing process, ensuring that the mesh is refined in areas of interest, such as
+    near fracture intersections.
+
+    Attributes:
+        fracture_tags: List of Gmsh tags corresponding to the fractures where points
+            will be inserted.
+        points_per_fracture: Dictionary mapping each fracture tag to a list of points
+            (as numpy arrays) to be inserted on that fracture.
+
+    """
+
+    def __init__(self, threshold, nd: int) -> None:
+        self._threshold = threshold
+        self._nd = nd
+
+    def compute_points(self, f_0, f_1, cp_0, cp_1):
+        """Compute points to be inserted on the surfaces of two fractures.
+
+        Given two fractures and their corresponding control points, this method
+        computes the points that need to be inserted on the surfaces of both fractures
+        to ensure proper mesh size control.
+
+        Args:
+            f_0: The first fracture object.
+            f_1: The second fracture object.
+            cp_0: Control point on the first fracture.
+            cp_1: Control point on the second fracture.
+
+        Returns:
+            A tuple containing two lists:
+                - List of points to be inserted on the first fracture.
+                - List of points to be inserted on the second fracture.
+
+        """
+        # Implementation goes here
+        points_0 = self._control_points(f_0, f_1, cp_0, cp_1)
+        points_1 = self._control_points(f_1, f_0, cp_1, cp_0)
+        return points_0, points_1
+
+    def _control_points(self, f_main, f_other, cp_0, cp_1):
+        t_i, t_j = self._tangent_basis(f_main, cp_0, cp_1)
+
+        def priority(ij):
+            return abs(ij.i) + abs(ij.j)
+
+        q = []
+        tab = {}
+        i = ij(0, 0)
+        heapq.heappush(q, (priority(i), i))
+        direction = {
+            Direction.WEST: True,
+            Direction.EAST: True,
+            Direction.SOUTH: True,
+            Direction.NORTH: True,
+        }
+        tab[i] = (Point(*cp_0), direction)
+        points_to_add = []
+        discarded_ijs = set()
+
+        while q:
+            _, i = heapq.heappop(q)
+            if i in discarded_ijs:
+                continue
+            print(len(q))
+            p, dirs = tab[i]
+
+            if not gmsh.model.isInside(self._nd - 1, f_main, p):
+                discarded_ijs.add(i)
+                tab.pop(i)
+                continue
+
+            gmsh_ind = gmsh.model.occ.add_point(*tab[i][0])
+            dist_other = gmsh.model.occ.get_distance(
+                0, gmsh_ind, self._nd - 1, f_other
+            )[0]
+            if dist_other > self._threshold:
+                # No need to add more points in this direction.
+                gmsh.model.remove([(0, gmsh_ind)])
+                discarded_ijs.add(i)
+                tab.pop(i)
+                continue
+            points_to_add.append((gmsh_ind, p, dist_other))
+
+            for direction, can_proceed in dirs.items():
+                if not can_proceed:
+                    continue
+
+                dir_new = copy.copy(dirs)
+                if direction == Direction.WEST:
+                    di = ij(i.i - 1, i.j)
+                    delta = -t_i * dist_other
+                    dir_new[Direction.EAST] = False
+                elif direction == Direction.EAST:
+                    di = ij(i.i + 1, i.j)
+                    delta = t_i * dist_other
+                    dir_new[Direction.WEST] = False
+                elif direction == Direction.SOUTH:
+                    di = ij(i.i, i.j - 1)
+                    delta = -t_j * dist_other
+                    dir_new[Direction.NORTH] = False
+                elif direction == Direction.NORTH:
+                    di = ij(i.i, i.j + 1)
+                    delta = t_j * dist_other
+                    dir_new[Direction.SOUTH] = False
+
+                if di in discarded_ijs:
+                    continue
+
+                p_new = Point(*(np.array(p) + delta))
+
+                if di in tab:
+                    p_new = self._closest_point(cp_0, p_new, tab[di][0])
+                    dir_new = self._direction_union(dir_new, tab[di][1])
+
+                tab[di] = (p_new, dir_new)
+                heapq.heappush(q, (priority(di), di))
+            discarded_ijs.add(i)
+            tab.pop(i)
+
+        return points_to_add
+
+    def _closest_point(self, start: Point, cand_0: Point, cand_1: Point) -> Point:
+        vec_0 = np.array(cand_0) - np.array(start)
+        vec_1 = np.array(cand_1) - np.array(start)
+
+        dist_0 = np.linalg.norm(vec_0)
+        dist_1 = np.linalg.norm(vec_1)
+
+        if dist_0 < dist_1:
+            return cand_0
+        else:
+            return cand_1
+
+    def _direction_union(self, dir_0: Direction, dir_1: Direction) -> Direction:
+        return {
+            Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
+            Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
+            Direction.SOUTH: dir_0[Direction.SOUTH] and dir_1[Direction.SOUTH],
+            Direction.NORTH: dir_0[Direction.NORTH] and dir_1[Direction.NORTH],
+        }
+
+    def _tangent_basis(self, f, cp_0, cp_1):
+        n_0 = self._get_normal(f)
+        vec = np.array(cp_1) - np.array(cp_0)
+        vec = vec / np.linalg.norm(vec)
+
+        proj_vec_0 = vec - np.dot(vec, n_0) * n_0
+        if np.linalg.norm(proj_vec_0) < 1e-12:
+            # The vector is (almost) aligned with the normal vector. Pick an
+            # arbitrary perpendicular direction.
+            if np.abs(n_0[0]) < 0.9:
+                arbitrary_vec = np.array([1.0, 0.0, 0.0])
+            else:
+                arbitrary_vec = np.array([0.0, 1.0, 0.0])
+            proj_vec_0 = np.cross(n_0, arbitrary_vec)
+        # Tangent vector in f_0 in the direction of maximum increase of distance to
+        # f_1.
+        t_0_max = proj_vec_0 / np.linalg.norm(proj_vec_0)
+        t_0_min = np.cross(n_0, t_0_max)
+        # Tangent vector in f_0 in the direction of minimum increase of distance to
+        # f_1.
+        t_0_min = t_0_min / np.linalg.norm(t_0_min)
+
+        return t_0_max, t_0_min
+
+    def _get_normal(self, f):
+        bnd = gmsh.model.get_parametrization_bounds(2, f)
+        u_mid = 0.5 * (bnd[0][0] + bnd[1][0])
+        v_mid = 0.5 * (bnd[0][1] + bnd[1][1])
+        n = gmsh.model.getNormal(f, [u_mid, v_mid])
+        return np.array(n)
 
 
 class FractureNetwork3d(object):
@@ -1351,6 +1544,8 @@ class FractureNetwork3d(object):
         insertion_surface = []
         control_point_tags = []
 
+        inserter = SurfacePointInserter(THRESHOLD_REFINEMENT, nd)
+
         def point_already_present(pt, li):
             if len(inserted_points) == 0:
                 return False
@@ -1389,6 +1584,25 @@ class FractureNetwork3d(object):
             elif is_intersection:
                 # Intersections will be handled elsewhere.
                 continue
+
+            points_0, points_1 = inserter.compute_points(
+                f_0, f_1, distance_info[1:4], distance_info[4:7]
+            )
+            debug = []
+            for _, pt, dist in points_0:
+                if point_already_present(pt, f_0):
+                    continue
+                mesh_size_points[f_0].append((np.array(pt), dist))
+                inserted_points.append(np.array(pt))
+                insertion_surface.append(f_0)
+            for _, pt, dist in points_1:
+                if point_already_present(pt, f_1):
+                    continue
+                mesh_size_points[f_1].append((np.array(pt), dist))
+                inserted_points.append(np.array(pt))
+                insertion_surface.append(f_1)
+
+            continue
 
             # Mesh size to be used at the control point. It may be updated below.
             loc_mesh_size = distance_info[0]
