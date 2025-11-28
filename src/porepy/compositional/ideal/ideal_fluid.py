@@ -25,6 +25,10 @@ __all__ = [
     "IdealProperty_pT",
     "GradIdealProperty_pT",
     "IdealProperty",
+    "ideal_rho",
+    "grad_ideal_rho",
+    "ideal_v",
+    "grad_ideal_v",
     "IdealFluid",
 ]
 

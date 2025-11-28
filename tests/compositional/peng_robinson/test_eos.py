@@ -6,22 +6,28 @@ import numpy as np
 import pytest
 
 import porepy as pp
+import porepy.compositional.ideal as pid
 import porepy.compositional.peng_robinson as pr
 from porepy.applications.test_utils.derivative_testing import (
     assert_order_at_least,
     get_EOC_taylor,
 )
 from porepy.compositional.peng_robinson.eos import (
+    a_dl,
     a_VdW,
     ac_component,
     alpha,
+    b_dl,
     bc_component,
     compact_dense_symmat,
     dalpha_dT,
     ddalpha_dTT,
+    grad_a_dl,
     grad_a_VdW,
+    grad_b_dl,
     grad_h_dep,
     h_dep,
+    hess_a_dl,
     hess_a_VdW,
     lnphis,
     lnphis_jac,
@@ -123,26 +129,25 @@ def test_alpha(omega: float):
     assert_order_at_least(orders, 3, tol=1e-2)
 
 
-_dh_per_n = (
-    lambda n: [
-        (d, h)
-        for d, h in zip(
-            np.eye(1 + n), [np.logspace(1, -5, 7)] + n * [np.logspace(0, -9, 10)]
-        )
-    ]
-    if n > 1
-    else [(np.ones(1), np.logspace(1, -5, 7))]
-)
+_dh_per_n = lambda n, pt: [
+    (d, h)
+    for d, h in (
+        zip(np.eye(pt + n), (n + pt) * [np.logspace(1, -5, 7)])
+        if n > 1
+        else zip(np.eye(pt + n)[:pt], pt * [np.logspace(1, -5, 7)])
+    )
+]
 
 
 @pytest.mark.parametrize(
-    ["nc", "d", "h"], [(n, d, h) for n in [1, 2, 5] for d, h in _dh_per_n(n)]
+    ["nc", "d", "h"], [(n, d, h) for n in [1, 2, 5] for d, h in _dh_per_n(n, 1)]
 )
-def test_cohesion_VdW_of_mixture(nc: int, d: np.ndarray, h: np.ndarray) -> None:
+def test_cohesion_VdW(nc: int, d: np.ndarray, h: np.ndarray) -> None:
     """Tests the implementation of the cohesion, its gradient and Hessian."""
 
     np.random.seed(42)
 
+    T = 300.0 + np.random.rand() * 100
     Tcs = 400 + np.random.rand(nc) * 10
     omegas = np.random.rand(nc) + 1e-5
     acs = 100.0 + np.random.rand(nc) * 10
@@ -150,7 +155,7 @@ def test_cohesion_VdW_of_mixture(nc: int, d: np.ndarray, h: np.ndarray) -> None:
     bips = (bips + bips.T) / 2.0
     np.fill_diagonal(bips, 0.0)
 
-    x0 = np.array([300.0] + [1 / nc] * nc)
+    x0 = np.array([T] + [1 / nc] * nc)
 
     def func(x: np.ndarray) -> float:
         T = x[0]
@@ -181,13 +186,123 @@ def test_cohesion_VdW_of_mixture(nc: int, d: np.ndarray, h: np.ndarray) -> None:
 
 
 @pytest.mark.parametrize(
+    ["nc", "d", "h"], [(n, d, h) for n in [1, 2, 5] for d, h in _dh_per_n(n, 2)]
+)
+def test_cohesion_VdW_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
+    """Tests the implementation of the dimensionless cohesion, its gradient and Hessian.
+
+    The VdW cohesion is used as its base.
+
+    """
+
+    np.random.seed(42)
+
+    p = 1e7 + np.random.rand() * 1e6
+    T = 300.0 + np.random.rand() * 100
+    Tcs = 400 + np.random.rand(nc) * 10
+    omegas = np.random.rand(nc) + 1e-5
+    acs = 100.0 + np.random.rand(nc) * 10
+    bips = np.random.random((nc, nc)) + 1e-5
+    bips = (bips + bips.T) / 2.0
+    np.fill_diagonal(bips, 0.0)
+
+    x0 = np.array([p, T] + [1 / nc] * nc)
+
+    def func(x: np.ndarray) -> float:
+        p = x[0]
+        T = x[1]
+        xn = x[2:]
+        a = a_VdW(T, xn, Tcs, omegas, acs, bips)
+        return a_dl(a, p, T)
+
+    def dfunc(x: np.ndarray) -> float:
+        p = x[0]
+        T = x[1]
+        xn = x[2:]
+        a = a_VdW(T, xn, Tcs, omegas, acs, bips)
+        grad_a = grad_a_VdW(T, xn, Tcs, omegas, acs, bips)
+        grad_A = grad_a_dl(grad_a, a, p, T)
+        if nc > 1:
+            return grad_A
+        else:
+            return np.hstack((grad_A, 0.0))
+
+    def ddfunc(x: np.ndarray) -> float:
+        p = x[0]
+        T = x[1]
+        xn = x[2:]
+        a = a_VdW(T, xn, Tcs, omegas, acs, bips)
+        grad_a = grad_a_VdW(T, xn, Tcs, omegas, acs, bips)
+        hess_a = hess_a_VdW(T, xn, Tcs, omegas, acs, bips)
+        hess_A = compact_dense_symmat(hess_a_dl(hess_a, grad_a, a, p, T))
+        if nc > 1:
+            return hess_A
+        else:
+            j = np.eye(3)
+            j[:-1, :-1] = hess_A
+            return j
+
+    # Test grad approximates function.
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
+    assert_order_at_least(orders, 2, tol=1e-2)
+
+    # Test Hessian approximates grad.
+    orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h, tol=1e-12)
+    assert_order_at_least(orders, 2, tol=1e-2)
+
+    # Test higher order approximation.
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12, ddfunc=ddfunc)
+    assert_order_at_least(orders, 3, tol=1e-2)
+
+
+@pytest.mark.parametrize(
+    ["nc", "d", "h"], [(n, d, h) for n in [1, 2, 5] for d, h in _dh_per_n(n, 2)]
+)
+def test_covolume_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
+    """Tests the implementation of the dimensionless covolume and its gradient.
+
+    Uses VdW covolume as its base
+    """
+
+    np.random.seed(42)
+
+    p = 1e7 + np.random.rand() * 1e6
+    T = 300.0 + np.random.rand() * 100
+    bcs = 100.0 + np.random.rand(nc) * 10
+    x0 = np.array([p, T] + [1 / nc] * nc)
+
+    def func(x: np.ndarray) -> float:
+        p = x[0]
+        T = x[1]
+        x = x[2:]
+        b = np.dot(x, bcs)
+        return b_dl(b, p, T)
+
+    def dfunc(x: np.ndarray) -> float:
+        p = x[0]
+        T = x[1]
+        x = x[2:]
+        b = np.dot(x, bcs)
+        grad_b = bcs.copy()
+        grad_B = grad_b_dl(grad_b, b, p, T)
+        if nc > 1:
+            return grad_B
+        else:
+            return np.hstack((grad_B, 0.0))
+
+    # Test grad approximates function.
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
+    assert_order_at_least(orders, 2, tol=1e-2)
+
+
+@pytest.mark.parametrize(
     ["d", "h"],
     [
         (d, h)
         for d, h in zip(
             np.eye(5),
             [
-                np.logspace(0, -9, 10),
+                np.logspace(2, -7, 10),
             ]
             * 5,
         )
@@ -198,10 +313,10 @@ def test_h_dep(d: np.ndarray, h: np.ndarray):
 
     np.random.seed(42)
 
-    A = np.random.rand() * 10 + 1e-2 + 10
-    B = np.random.rand() * 10 + 1e-2 + 10
+    A = np.random.rand() * 100 + 10
+    B = np.random.rand() * 100 + 10
     # Only restriction that Z must be greater than B.
-    Z = np.random.rand() * 10 + B + 10
+    Z = np.random.rand() * 100 + B + 300
     T = 400.0
     dAdT = np.random.rand() * 100 + 10
 
@@ -215,25 +330,23 @@ def test_h_dep(d: np.ndarray, h: np.ndarray):
 
     # NOTE The computations suffers from loss of precision due to logarithms of small
     # numbers and its derivative.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-8)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
     assert_order_at_least(orders, 2, tol=1e-2)
-
-
-def _dh_per_nc(nc: int) -> list[tuple[np.ndarray, np.ndarray]]:
-    hABZ = np.logspace(0, -9, 10)
-
-    if nc > 1:
-        ds = np.eye(6)
-        hs = [hABZ] * 3 + [np.logspace(2, -8, 10)] * 3
-    else:
-        ds = np.hstack((np.eye(3), np.zeros((3, 3))))
-        hs = [hABZ] * 3
-    return [(d, h) for d, h in zip(ds, hs)]
 
 
 @pytest.mark.parametrize(
     ["nc", "d", "h"],
-    [(n, d, h) for n in [1, 2, 5] for d, h in _dh_per_nc(n)],
+    [
+        (n, d, h)
+        for n in [1, 2, 5]
+        for d, h in zip(
+            np.eye(5),
+            [
+                np.logspace(2, -7, 10),
+            ]
+            * 5,
+        )
+    ],
 )
 def test_lnphis(nc: int, d: np.ndarray, h: np.ndarray) -> None:
     """Tests that the derivative computation for the logarithm of fugacities is
@@ -241,26 +354,25 @@ def test_lnphis(nc: int, d: np.ndarray, h: np.ndarray) -> None:
 
     np.random.seed(42)
 
-    A = np.random.rand() * 10 + 1e-2
-    B = np.random.rand() * 10 + 1e-2
+    A = np.random.rand() * 100 + 100
+    B = np.random.rand() * 100 + 100
     # Only restriction that Z must be greater than B.
-    Z = np.random.rand() * 10 + B
-    p = 1e6
-    T = 400.0
-    dadx = np.random.rand() * 100 + 10
+    Z = np.random.rand() * 100 + B + 300
+    dadx = np.random.rand() * 100 + 100
+    bi = np.random.rand() * 100 + 100
 
-    x0 = np.array((A, B, Z, p, T, dadx))
-
-    bcs = np.random.rand(nc) * 10 + 1
+    x0 = np.array((A, B, Z, dadx, bi))
 
     def func(x: np.ndarray) -> np.ndarray:
-        return lnphis(*x[:-1], np.ones(nc) * x[-1], bcs)
+        return lnphis(*x[:-2], np.ones(nc) * x[-2], np.ones(nc) * x[-1])
 
     def dfunc(x: np.ndarray) -> np.ndarray:
-        return lnphis_jac(*x[:-1], np.ones(nc) * x[-1], bcs)
+        return lnphis_jac(*x[:-2], np.ones(nc) * x[-2], np.ones(nc) * x[-1])
 
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-8)
-    assert_order_at_least(orders, 2, tol=1e-2)
+    # NOTE The computations suffers from loss of precision due to logarithms of small
+    # numbers and its derivative.
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
+    assert_order_at_least(orders, 2, tol=1e-2, asymptotic=7)
 
 
 _dh_per_cp_id = lambda cp: [
@@ -271,6 +383,34 @@ _dh_per_cp_id = lambda cp: [
         + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
     )
 ]
+
+
+@pytest.mark.parametrize(
+    ["d", "h"], [(d, h) for d, h in zip(np.eye(2), 2 * [np.logspace(2, -7, 10)])]
+)
+@pytest.mark.parametrize(
+    ["func", "dfunc"],
+    [(pid.ideal_rho, pid.grad_ideal_rho), (pid.ideal_v, pid.grad_ideal_v)],
+)
+def test_ideal_density_and_volume(func, dfunc, d: np.ndarray, h: np.ndarray) -> None:
+    """Tests the implementation of ideal density and volume and their derivative
+    implementation."""
+
+    np.random.seed(28)
+
+    p = 1e7 + np.random.rand() * 1e6
+    T = 300.0 + np.random.rand() * 1e2
+
+    x0 = np.array((p, T))
+
+    def func_(x):
+        return func(x[0], x[1])
+
+    def dfunc_(x):
+        return dfunc(x[0], x[1])
+
+    orders = get_EOC_taylor(func_, dfunc_, x0, d, h, tol=1e-14)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
 
 @pytest.mark.skipped(reason="slow due to compilation.")

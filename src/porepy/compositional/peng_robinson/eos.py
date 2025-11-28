@@ -39,7 +39,15 @@ from .compressibility_factor import (
 )
 
 __all__ = [
+    "compact_dense_symmat",
     "a_VdW",
+    "grad_a_VdW",
+    "hess_a_VdW",
+    "a_dl",
+    "grad_a_dl",
+    "hess_a_dl",
+    "b_dl",
+    "grad_b_dl",
     "CompiledPengRobinson",
 ]
 
@@ -52,6 +60,46 @@ _COMPILER = njit
 Uses :func:`~porepy.compositional._numba_interface.njit`.
 
 """
+
+
+@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def _lnZB1(Z: float, B: float, c: float) -> float:
+    r"""Special treatment of departure term to remain well-defined.
+
+    Parameters:
+        Z: Compressibility factor.
+        B: Dimensionless covolume.
+        c: Small, positive cut-off factor.
+
+    Returns:
+        :math:`\ln{\frac{Z +  (1 + \sqrt{2}) B}{Z +  (1 + \sqrt{2}) B}}`.
+        If the log-argument goes below ``c``, ``c`` is chosen,
+
+    """
+    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), c)
+    return np.log(ZB1)
+
+
+@_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def _grad_lnZB1(Z: float, B: float, c: float) -> float:
+    r"""Gradient of :func:`_lnZB1`.
+
+    Parameters:
+        Z: Compressibility factor.
+        B: Dimensionless covolume.
+        c: Small, positive cut-off factor.
+
+    Returns:
+        :math:`\ln{\frac{Z +  (1 + \sqrt{2}) B}{Z +  (1 + \sqrt{2}) B}}`.
+        If the log-argument goes below ``c``, ``c`` is chosen,
+
+    """
+    denom = Z + (1 - np.sqrt(2)) * B
+    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, c)
+
+    dZB1dZ = -2.0 * np.sqrt(2) * B / (denom * denom)
+    dZB1dB = 2.0 * np.sqrt(2) * Z / (denom * denom)
+    return np.array((dZB1dZ, dZB1dB)) / np.abs(ZB1)
 
 
 @_COMPILER(
@@ -115,6 +163,54 @@ def bc_component(pc: np.ndarray, Tc: np.ndarray) -> float:
 
     """
     return B_CRIT * R_U * Tc / pc
+
+
+@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def b_dl(b: float, p: float, T: float) -> float:
+    """Computes the dimensionless covolume.
+
+    Parameters:
+        a: Covolume.
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        :math:`\\frac{a p}{R T}`.
+
+    """
+    return b * p / (R_U * T)
+
+
+@_COMPILER(
+    nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True
+)
+def grad_b_dl(grad_b: np.ndarray, b: float, p: float, T: float) -> np.ndarray:
+    """Expands the gradient of the cohesion to the gradient to the dimensionless
+    cohesion by chainrule.
+
+    Note:
+        If there is only 1 component, i.e. ``grad_b`` contains only the (constant)
+        cohesion of the component, the resulting gradient is of shape ``(2,)``,
+        containing only pressure- and temperature derivative.
+
+    Parameters:
+        grad_b: Gradient of covolume. Expecting only derivatives w.r.t. partial
+            fractions.
+        b: Covolume.
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        A 1D array of size ``2 + grad_b.size``, pre-appending the
+        pressure- and temperature-derivative.
+
+    """
+    RT = R_U * T
+    dBdpT = np.array((b / RT, -b * p / (RT * T)))
+    if grad_b.size == 1:
+        return dBdpT
+    else:
+        return np.hstack((dBdpT, grad_b * p / RT))
 
 
 @_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -189,22 +285,22 @@ def ddalpha_dTT(T: float, Tc: float, omega: float) -> float:
 @_COMPILER(
     [
         nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-        nb.f8(
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 2, "C", readonly=True),
-        ),
-        nb.f8(
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 2, "C", readonly=False),
-        ),
+        # nb.f8(
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 2, "C", readonly=True),
+        # ),
+        # nb.f8(
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 2, "C", readonly=False),
+        # ),
     ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -258,22 +354,22 @@ def a_VdW(
 @_COMPILER(
     [
         nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-        nb.f8[:](
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 2, "C", readonly=True),
-        ),
-        nb.f8[:](
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 2, "C", readonly=False),
-        ),
+        # nb.f8[:](
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 2, "C", readonly=True),
+        # ),
+        # nb.f8[:](
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 2, "C", readonly=False),
+        # ),
     ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -336,22 +432,22 @@ def grad_a_VdW(
 @_COMPILER(
     [
         nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-        nb.f8[:](
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 2, "C", readonly=True),
-        ),
-        nb.f8[:](
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-            nb.types.Array(nb.f8, 2, "C", readonly=False),
-        ),
+        # nb.f8[:](
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        #     nb.types.Array(nb.f8, 2, "C", readonly=True),
+        # ),
+        # nb.f8[:](
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        #     nb.types.Array(nb.f8, 2, "C", readonly=False),
+        # ),
     ],
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -430,39 +526,130 @@ def hess_a_VdW(
     return hess_arr
 
 
+@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def a_dl(a: float, p: float, T: float) -> float:
+    """Computes the dimensionless cohesion.
+
+    Parameters:
+        a: Cohesion.
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        :math:`\\frac{a p}{(R T)^2}`.
+
+    """
+    RT = R_U * T
+    return a * p / (RT * RT)
+
+
+@_COMPILER(
+    nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True
+)
+def grad_a_dl(grad_a: np.ndarray, a: float, p: float, T: float) -> np.ndarray:
+    """Expands the gradient of the cohesion to the gradient to the dimensionless
+    cohesion by chainrule.
+
+    Note:
+        If there is only 1 component, i.e. ``grad_a`` contains only the temperature
+        derivative, the resulting gradient is of shape ``(2,)``, containing only
+        pressure- and temperature derivative.
+
+    Parameters:
+        grad_a: Gradient of cohesion. Expecting temperature derivative and possibly
+            derivatives w.r.t. partial fractions.
+        a: cohesion
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        A 1D array of size ``1 + grad_a.size``, pre-appending the
+        pressure-derivative.
+
+    """
+    RT2 = R_U * R_U * T * T
+
+    dAdp = a / RT2
+    dAdTx = grad_a * p / RT2
+    dAdTx[0] -= 2.0 * a * p / (RT2 * T)
+    if grad_a.size == 1:
+        return np.array((dAdp, dAdTx[0]))
+    else:
+        return np.hstack((np.ones(1) * dAdp, dAdTx))
+
+
+def hess_a_dl(
+    hess_a: np.ndarray, grad_a: np.ndarray, a: float, p: float, T: float
+) -> np.ndarray:
+    """Expands the Hessian of the cohesion to the Hessian of the dimensionless
+    cohesion.
+
+    Note:
+        If there is only 1 component (``hess_a.shape=(1,)`` and ``grad_a.shape=(1,)``),
+        the returned array contains the Hessian w.r.t. pressure and temperature.
+
+    Parameters:
+        hess_a: Hessian of cohesion in compact form.
+        grad_a: Gradient of cohesion.
+        a: cohesion
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        A compact form of the Hessian, consisting of the upper triangle including
+        diagonal, flattened C-style (row-major) to a 1D array (Hessian is symmetric).
+
+    """
+    RT2 = R_U * R_U * T * T
+    nc = grad_a.size - 1  # Should contain only 1 derivative if only 1 component.
+
+    # dpp is zero, linear in pressure.
+    dp_gradA = np.zeros(grad_a.size + 1)
+    dp_gradA[1:] = grad_a / RT2
+    dp_gradA[1] -= 2.0 * a / (RT2 * T)
+    # dA / dTdT
+    dTT = (hess_a[0] - 4.0 * grad_a[0] / T + 6.0 * a / (T * T)) * p / RT2
+
+    if nc == 0:
+        return np.array((dp_gradA[0], dp_gradA[1], dTT))
+
+    # Otherwise the Hessian of A can be split in d gradA / dp (first row) and the
+    # Hessian of dimensional a, scaled by the factor p/RT2.
+    # The second row, d gradA / dT, needs to account for factor.
+    hess_Tx_A = hess_a * p / RT2
+    hess_Tx_A[0] = dTT
+    hess_Tx_A[1 : 1 + nc] = (hess_a[1 : 1 + nc] - 2.0 * grad_a[1:] / T) * p / RT2
+
+    return np.hstack((dp_gradA, hess_Tx_A))
+
+
 @_COMPILER(
     [
-        nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
-        nb.f8[:](
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-        nb.f8[:](
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-        ),
+        nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
+        # nb.f8[:](
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        # ),
+        # nb.f8[:](
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        # ),
     ],
     fastmath=NUMBA_FAST_MATH,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def lnphis(
     A: float,
     B: float,
     Z: float,
-    p: float,
-    T: float,
-    dadx: np.ndarray,
-    bcs: np.ndarray,
+    dAdx: np.ndarray,
+    Bis: np.ndarray,
 ) -> np.ndarray:
     """Returns the logarithm of the fugacity coefficients per component.
 
@@ -472,60 +659,51 @@ def lnphis(
         A: Dimensionless cohesion.
         B: Dimensionless covolume.
         Z: Compressibility factor.
-        p: Pressure.
-        T: Temperature.
-        dadx: Derivative of the cohesion with respect to partial fractions. Must be
-            of same size as ``bc``.
-        bcs: Critical covolume per component.
+        dAdx: Derivative of the cohesion with respect to partial fractions.
+        Bis: Dimensionless covolume per component. Must be of same size as ``dAdx``.
 
     Returns:
-        A 1D array of size ``bc`` containing the logarithms of the fugacity
+        A 1D array of size ``dAdx`` containing the logarithms of the fugacity
         coefficients.
 
     """
-    nc = bcs.size
-    out = np.zeros(nc)
-    RT = R_U * T
+    nc = Bis.size
     Zm = Z - 1.0
-    AB = A / np.sqrt(8) / B
+    AB = A / (np.sqrt(8) * B)
     # Cap numerically for stability.
-    lnZB0 = np.log(max(Z - B, 1e-15))
-    lnZB1 = np.log(max((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-15))
+    lnZB0 = np.log(max(Z - B, 1e-14))
+    lnZB1 = _lnZB1(Z, B, 1e-14)
 
     # Special case: 1 component
     if nc == 1:
         phi = Zm - lnZB0 - AB * lnZB1
         return np.ones(1) * phi
 
+    out = np.zeros(nc)
+
     for i in range(nc):
-        BiB = bcs[i] * p / RT / B
-        dAdxi = dadx[i] * p / (RT * RT)
-        out[i] = BiB * Zm - lnZB0 + AB * (BiB - dAdxi / A) * lnZB1
+        out[i] = Bis[i] / B * Zm - lnZB0 - AB * (dAdx[i] / A - Bis[i] / B) * lnZB1
 
     return out
 
 
 @_COMPILER(
     [
-        nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
-        nb.f8[:, :](
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-        nb.f8[:, :](
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=False),
-        ),
+        nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
+        # nb.f8[:, :](
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
+        # ),
+        # nb.f8[:, :](
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8,
+        #     nb.f8[:],
+        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
+        # ),
     ],
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -534,10 +712,8 @@ def lnphis_jac(
     A: float,
     B: float,
     Z: float,
-    p: float,
-    T: float,
-    dadx: np.ndarray,
-    bcs: np.ndarray,
+    dAdx: np.ndarray,
+    Bis: np.ndarray,
 ) -> np.ndarray:
     """Jacobian of :func:`lnphis` with respect to it's arguments.
 
@@ -545,70 +721,55 @@ def lnphis_jac(
     coefficient depending on the mixing rule and the EoS.
 
     Notes:
-        1. The derivatives w.r.t. ``bc`` are not taken as this is assumed to be
-           constant array.
-        2. The derivatives w.r.t. ``dadx`` are performed only for ``dadx[i]`` in
-           row ``i`` of the ``lnphis``. Otherwise the output array would be of shape
-           ``(bc.size, 5 + bc.size)``.
+        The derivatives w.r.t. ``dAdx`` are performed only for ``dAdx[i]`` in
+        row ``i`` of the ``lnphis``. Same for ``Bis``.
 
     Parameters:
         A: Dimensionless cohesion.
         B: Dimensionless covolume.
         Z: Compressibility factor.
-        p: Pressure.
-        T: Temperature.
-        dadx: Derivative of the cohesion with respect to partial fractions. Must be
-            of same size as ``bc``.
-        bcs: Critical covolume per component.
+        dAdx: Derivative of the cohesion with respect to partial fractions.
+        Bis: Dimensionless covolume per component. Must be of same size as ``dAdx``.
 
     Returns:
-        A 2D array of size ``(bc.size, 6)`` containing the derivatives column-wise.
+        A 2D array of size ``(dAdx.size, 5)`` containing the derivatives column-wise.
 
     """
-    nc = bcs.size
-    out = np.zeros((nc, 6))
-    RT = R_U * T
+    nc = Bis.size
 
-    Z_m = Z - 1.0
-    AB = A / np.sqrt(8) / B
+    Zm = Z - 1.0
     # Cap numerically for stability.
     ZB0 = max(Z - B, 1e-15)
-    denom = Z + (1 - np.sqrt(2)) * B
-    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, 1e-15)
+    dlnZB0 = np.array((1, -1)) / np.abs(ZB0)
+    lnZB1 = _lnZB1(Z, B, 1e-14)
+    dlnZB1 = _grad_lnZB1(Z, B, 1e-14)
+    sB = np.sqrt(8) * B
+    AB = A / sB
 
-    dZB1dZ = -2.0 * np.sqrt(2) * B / (denom * denom)
-    dZB1dB = 2.0 * np.sqrt(2) * Z / (denom * denom)
-
-    lnZB1 = np.log(ZB1)
+    out = np.zeros((nc, 5))
 
     # Special case: 1 component
     if nc == 1:
-        dZ = 1 - 1 / np.abs(ZB0) - AB / np.abs(ZB1) * dZB1dZ
-        dA = -lnZB1 / np.sqrt(8) / B
-        dB = 1 / np.abs(ZB0) + AB / B * lnZB1 - AB / np.abs(ZB1) * dZB1dB
-        out[0, :3] = np.array((dA, dB, dZ))
+        out[0, 0] = -lnZB1 / sB
+        out[0, 1] = -dlnZB0[1] + AB / B * lnZB1 - AB * dlnZB1[1]
+        out[0, 2] = 1 - dlnZB0[0] - AB * dlnZB1[0]
         return out
 
-    # Derivative row-wise per dadxi[i] is the same for all.
-    ddadxi_ = -AB * lnZB1 / A * p / (RT * RT)
+    # Derivative row-wise per dAdxi[i] is the same for all.
+    ddAdx = -AB * lnZB1 / A
+    # Derivative row-wise per Bis[i] is also the same for all.
+    dBis = Zm / B + AB * lnZB1 / B
 
     for i in range(nc):
-        dBiBdp = bcs[i] / RT / B
-        BiB = dBiBdp * p
-        dAdxip = dadx[i] / (RT * RT)
-        dAdxi = dAdxip * p
-
-        dZ = BiB - 1 / np.abs(ZB0) + AB * (BiB - dAdxi / A) / np.abs(ZB1) * dZB1dZ
-        dA = (BiB - dAdxi / A) * lnZB1 / np.sqrt(8) / B + AB * lnZB1 * dAdxi / (A * A)
-        dB = (
-            -BiB / B * Z_m
-            + 1 / np.abs(ZB0)
-            - AB / B * (BiB - dAdxi / A) * lnZB1
-            + AB * (lnZB1 * (-BiB / B) + (BiB - dAdxi / A) / np.abs(ZB1) * dZB1dB)
+        D = dAdx[i] / A - Bis[i] / B
+        dBi = -Bis[i] / (B * B)
+        out[i, 0] = (AB * dAdx[i] / (A * A) - D / sB) * lnZB1
+        out[i, 1] = (
+            dBi * Zm - dlnZB0[1] - AB * (D * dlnZB1[1] - lnZB1 * dBi - lnZB1 * D / B)
         )
-        dp = dBiBdp * Z_m + AB * lnZB1 * (dBiBdp - dAdxip / A)
-        dT = -(BiB * Z_m + AB * lnZB1 * (BiB - 2.0 * dAdxi / A)) / T
-        out[i] = np.array((dA, dB, dZ, dp, dT, ddadxi_))
+        out[i, 2] = Bis[i] / B - dlnZB0[0] - AB * D * dlnZB1[0]
+        out[i, 3] = ddAdx
+        out[i, 4] = dBis
 
     return out
 
@@ -616,7 +777,7 @@ def lnphis_jac(
 @_COMPILER(
     nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def h_dep(
     A: float,
@@ -639,9 +800,9 @@ def h_dep(
 
     """
     RT = R_U * T
-    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), 1e-15)
-    lnZB1 = np.log(ZB1)
-    return RT * (Z - 1.0) + RT / np.sqrt(8) / B * (T * dAdT + A) * lnZB1
+    lnZB1 = _lnZB1(Z, B, 1e-14)
+    sB = np.sqrt(8) * B
+    return RT * (Z - 1.0) + RT * (T * dAdT + A) * lnZB1 / sB
 
 
 @_COMPILER(
@@ -658,24 +819,15 @@ def grad_h_dep(
 ) -> np.ndarray:
     """Gradient of :func:`h_dep` with respect to its arguments."""
     RT = R_U * T
-    denom = Z + (1 - np.sqrt(2)) * B
-    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, 1e-15)
+    lnZB1 = _lnZB1(Z, B, 1e-14)
+    dlnZB1 = _grad_lnZB1(Z, B, 1e-14)
+    sB = np.sqrt(8) * B
 
-    dZB1dZ = -2.0 * np.sqrt(2) * B / (denom * denom)
-    dZB1dB = 2.0 * np.sqrt(2) * Z / (denom * denom)
-
-    lnZB1 = np.log(ZB1)
-
-    dA = RT / np.sqrt(8) / B * lnZB1
-    dB = (
-        RT
-        / np.sqrt(8)
-        * (T * dAdT + A)
-        * (1 / np.abs(ZB1) * dZB1dB / B - lnZB1 / (B * B))
-    )
-    dZ = RT + RT / np.sqrt(8) / B * (T * dAdT + A) / np.abs(ZB1) * dZB1dZ
-    dT = R_U * (Z - 1.0) + R_U / np.sqrt(8) / B * lnZB1 * (T * dAdT + A + T * dAdT)
-    ddAdT = RT / np.sqrt(8) / B * T * lnZB1
+    dA = RT * lnZB1 / sB
+    dB = RT * (T * dAdT + A) * (dlnZB1[1] - lnZB1 / B) / sB
+    dZ = RT * (1.0 + (T * dAdT + A) * dlnZB1[0] / sB)
+    dT = R_U * (Z - 1.0 + lnZB1 / sB * (2.0 * T * dAdT + A))
+    ddAdT = RT * T * lnZB1 / sB
 
     return np.array((dA, dB, dZ, dT, ddAdT))
 
@@ -791,18 +943,11 @@ class CompiledPengRobinson(CompiledEoS):
             xn: np.ndarray,
             params: np.ndarray,
         ) -> np.ndarray:
-            nc = xn.size
             # Avoid redundant value storage if only 1 component.
-            if nc == 1:
-                nc = 0
-            RT = R_U * T
-
-            # Computing dimensionless cohesion and covolume.
-            a = a_VdW(T, xn, Tcs, omegas, acs, bips)
-            da = grad_a_VdW(T, xn, Tcs, omegas, acs, bips)
-            b = np.dot(xn, bcs)
-            A = a * p / (RT * RT)
-            B = b * p / RT
+            if xn.size == 1:
+                dn = 2
+            else:
+                dn = 2 + xn.size
 
             # Choose default parameters, and then parse given parameters.
             # Can only be done this way because params are a sub-array of the generic
@@ -817,23 +962,40 @@ class CompiledPengRobinson(CompiledEoS):
             if params.size >= 3:
                 eps_ = params[3]
 
-            if phase_state == PhysicalState.gas:
-                gaslike = True
-            elif phase_state == PhysicalState.liquid:
-                gaslike = False
-            else:
-                raise NotImplementedError(f"Unsupported phase state: {phase_state}.")
+            # Copying turns arrays into function locals, making compilation and
+            # signatures easier.
+            Tcs_ = Tcs.copy()
+            acs_ = acs.copy()
+            bcs_ = bcs.copy()
+            omegas_ = omegas.copy()
+            bips_ = bips.copy()
 
-            # Contains A, B, Z, phase state, a, b, da/dt and da/dx
-            prearg = np.zeros(7 + nc, dtype=np.float64)
+            # Computing cohesion, covolume, compressibility factor.
+            a = a_VdW(T, xn, Tcs_, omegas_, acs_, bips_)
+            grad_a = grad_a_VdW(T, xn, Tcs_, omegas_, acs_, bips_)
+            b = np.dot(xn, bcs_)
+
+            A = a_dl(a, p, T)
+            B = b_dl(b, p, T)
+            Z = get_compressibility_factor(
+                A,
+                B,
+                True if phase_state == PhysicalState.gas else False,
+                eps_,
+                s_m_,
+                s_sc_,
+            )
+            grad_A = grad_a_dl(grad_a, a, p, T)
+
+            prearg = np.zeros(6 + dn, dtype=np.float64)
 
             prearg[0] = float(phase_state.value)
             prearg[1] = A
             prearg[2] = B
-            prearg[3] = get_compressibility_factor(A, B, gaslike, eps_, s_m_, s_sc_)
+            prearg[3] = Z
             prearg[4] = a
             prearg[5] = b
-            prearg[-(1 + nc) :] = da
+            prearg[-dn:] = grad_A
 
             return prearg
 
@@ -858,12 +1020,10 @@ class CompiledPengRobinson(CompiledEoS):
             xn: np.ndarray,
             params: np.ndarray,
         ) -> np.ndarray:
-            nc = xn.size
-            if nc == 1:
-                nc = 0
-
-            dn = 2 + nc
-            RT = R_U * T
+            if xn.size == 1:
+                dn = 2
+            else:
+                dn = 2 + xn.size
 
             s_m_ = s_m
             eps_ = eps
@@ -875,43 +1035,38 @@ class CompiledPengRobinson(CompiledEoS):
             if params.size >= 3:
                 eps_ = params[3]
 
+            Tcs_ = Tcs.copy()
+            acs_ = acs.copy()
+            bcs_ = bcs.copy()
+            omegas_ = omegas.copy()
+            bips_ = bips.copy()
+
             phase_state = int(prearg_val[0])
             A = prearg_val[1]
             B = prearg_val[2]
             a = prearg_val[4]
             b = prearg_val[5]
-            da = prearg_val[-(1 + nc) :]
-            dA = da * p / (RT * RT)
-            hess_a = hess_a_VdW(T, xn, Tcs, omegas, acs, bips)
+            grad_a = grad_a_VdW(T, xn, Tcs_, omegas_, acs_, bips_)
+            hess_a = hess_a_VdW(T, xn, Tcs_, omegas_, acs_, bips_)
+            hess_A = hess_a_dl(hess_a, grad_a, a, p, T)
 
-            if phase_state == PhysicalState.gas.value:
-                gaslike = True
-            elif phase_state == PhysicalState.liquid.value:
-                gaslike = False
-            else:
-                raise NotImplementedError(f"Unsupported phase state: {phase_state}")
-
-            # Contains dA, dB, dZ and the compacted Hessian of a
-            prearg_jac = np.zeros((3 * dn + hess_a.size,), dtype=np.float64)
-
-            # Derivatives of A w.r.t. p, T, x.
-            prearg_jac[0] = a / (RT * RT)
-            prearg_jac[1] = dA[0] - a * p / RT / T
-            if nc > 1:
-                prearg_jac[2:dn] = dA[1:]
-            # Derivatives of B w.r.t. p, T, x.
-            prearg_jac[dn] = b / RT
-            prearg_jac[dn + 1] = -b * p / RT / T
-            if nc > 1:
-                prearg_jac[dn + 2 : 2 * dn] = bcs * p / RT
-
-            # Derivatives of Z w.r.t. p, T, x.
-            dZ_ = get_compressibility_factor_derivatives(
-                A, B, gaslike, eps_, s_m_, s_sc_
+            grad_A = prearg_val[-dn:]
+            grad_B = grad_b_dl(bcs_, b, p, T)
+            dZ = get_compressibility_factor_derivatives(
+                A,
+                B,
+                True if phase_state == PhysicalState.gas.value else False,
+                eps_,
+                s_m_,
+                s_sc_,
             )
-            dZ = dZ_[0] * prearg_jac[:dn] + dZ_[1] * prearg_jac[dn : 2 * dn]
-            prearg_jac[2 * dn : 3 * dn] = dZ
-            prearg_jac[3 * dn :] = hess_a
+            grad_Z = dZ[0] * grad_A + dZ[1] * grad_B
+
+            prearg_jac = np.zeros((2 * dn + hess_A.size,), dtype=np.float64)
+
+            prearg_jac[:dn] = grad_B
+            prearg_jac[dn : 2 * dn] = grad_Z
+            prearg_jac[2 * dn :] = hess_A
 
             return prearg_jac
 
@@ -924,19 +1079,22 @@ class CompiledPengRobinson(CompiledEoS):
         def phis_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
-            nc = xn.size
-            if nc == 1:
-                nc = 0
+            if xn.size == 1:
+                dn = 2
+            else:
+                dn = 2 + xn.size
 
             A = prearg[1]
             B = prearg[2]
             Z = prearg[3]
+            Bis = bs.copy() * p / (R_U * T)
+            grad_A = prearg[-dn:]
             if xn.size > 1:
-                dadx = prearg[-xn.size :]
+                dAdx = grad_A[2:]
             else:
-                dadx = np.ones(1)
+                dAdx = np.ones(1)
 
-            return lnphis(A, B, Z, p, T, dadx, bs)
+            return lnphis(A, B, Z, dAdx, Bis)
 
         return phis_c
 
@@ -951,33 +1109,49 @@ class CompiledPengRobinson(CompiledEoS):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
+            bs_ = bs.copy()
+
             A = prearg_val[1]
             B = prearg_val[2]
             Z = prearg_val[3]
-            if xn.size > 1:
-                dn = 2 + xn.size
-                dadx = prearg_val[-xn.size :]
-                hess_x_a = compact_dense_symmat(prearg_jac[3 * dn :])[1:]
-            else:
+            if xn.size == 1:
                 dn = 2
-                dadx = np.ones(1)
-                hess_x_a = np.zeros((1, 1))
+                dAdx = np.ones(1)
+                hess_A = np.zeros((1, 1))
+            else:
+                dn = 2 + xn.size
 
             dphis = np.zeros((xn.size, dn))
 
-            dA = prearg_jac[0:dn]
-            dB = prearg_jac[dn : 2 * dn]
-            dZ = prearg_jac[2 * dn : 3 * dn]
+            grad_A = prearg_val[-dn:]
+            grad_B = prearg_jac[:dn]
+            grad_Z = prearg_jac[dn : 2 * dn]
+            if dn > 1:
+                hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
+                dAdx = grad_A[2:]
+
+            RT = R_U * T
+            Bis = bs_.copy() * p / RT
 
             # Raw values, need expansion.
-            dphis_ = lnphis_jac(A, B, Z, p, T, dadx, bs)
+            dphis_ = lnphis_jac(A, B, Z, dAdx, Bis)
             for i in range(xn.size):
-                dphis[i] += dphis_[i, 0] * dA
-                dphis[i] += dphis_[i, 1] * dB
-                dphis[i] += dphis_[i, 2] * dZ
-                dphis[i, 0] += dphis_[i, 3]
-                dphis[i, 1] += dphis_[i, 4]
-                dphis[i, 1:] += dphis_[i, 5] * hess_x_a[i]
+                grad_Bi = np.zeros(dn)
+                grad_Bi[0] = bs_[i] / RT
+                grad_Bi[1] = -bs_[i] * p / (RT * T)
+
+                if dn > 2:
+                    grad_dAx = hess_A[2 + i]
+                else:
+                    grad_dAx = np.zeros(dn)
+
+                dphis[i] = (
+                    dphis_[i, 0] * grad_A
+                    + dphis_[i, 1] * grad_B
+                    + dphis_[i, 2] * grad_Z
+                    + dphis_[i, 3] * grad_dAx
+                    + dphis_[i, 4] * grad_Bi
+                )
 
             return dphis
 
@@ -988,17 +1162,16 @@ class CompiledPengRobinson(CompiledEoS):
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            nc = xn.size
-            h_id = h_id_c(T, xn)
+            if xn.size == 1:
+                dn = 2
+            else:
+                dn = 2 + xn.size
             A = prearg[1]
             B = prearg[2]
             Z = prearg[3]
-            a = prearg[4]
-            dadT = prearg[-(1 + nc)]
+            grad_A = prearg[-dn:]
 
-            RT = R_U * T
-            dAdT = p * dadT / (RT * RT) - 2.0 * a * p / RT / T
-            return h_id + h_dep(A, B, Z, T, dAdT)
+            return h_id_c(T, xn) + h_dep(A, B, Z, T, grad_A[1])
 
         return h_c
 
@@ -1013,38 +1186,31 @@ class CompiledPengRobinson(CompiledEoS):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            if xn.size > 1:
-                nc = xn.size
+            if xn.size == 1:
+                dn = 2
             else:
-                nc = 0
-
-            dn = 2 + nc
-
-            dh_id = dh_id_c(T, xn)
+                dn = 2 + xn.size
 
             A = prearg_val[1]
             B = prearg_val[2]
             Z = prearg_val[3]
-            a = prearg_val[4]
-            dadT = prearg_val[-(1 + nc)]
 
-            RT = R_U * T
-            dAdT = p * dadT / (RT * RT) - 2.0 * a * p / (RT * T)
+            grad_A = prearg_val[-dn:]
+            grad_B = prearg_jac[:dn]
+            grad_Z = prearg_jac[dn : 2 * dn]
+            hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
 
-            dA = prearg_jac[0:dn]
-            dB = prearg_jac[dn : 2 * dn]
-            dZ = prearg_jac[2 * dn : 3 * dn]
-            grad_dadT = compact_dense_symmat(prearg_jac[3 * dn :])[0]
-            grad_dAdT = p * grad_dadT / (RT * RT)
-            grad_dAdT[0] -= 2.0 * a * p / (RT * T)
-
-            dh_dep = grad_h_dep(A, B, Z, T, dAdT)
-            dh = dh_dep[0] * dA + dh_dep[1] * dB + dh_dep[2] * dZ
+            dh_dep = grad_h_dep(A, B, Z, T, grad_A[1])
+            dh = (
+                dh_dep[0] * grad_A
+                + dh_dep[1] * grad_B
+                + dh_dep[2] * grad_Z
+                # grad(dAdT)
+                + dh_dep[4] * hess_A[1]
+            )
             dh[1] += dh_dep[3]
-            dh[1:] += dh_dep[4] * grad_dAdT
-
             # Contribution of ideal part to derivative w.r.t. T and x
-            dh[1:] += dh_id
+            dh[1:] += dh_id_c(T, xn)
             return dh
 
         return dh_c
@@ -1073,7 +1239,7 @@ class CompiledPengRobinson(CompiledEoS):
 
             Z = prearg_val[3]
             # derivative of Z w.r.t. p, T, xn
-            dZ = prearg_jac[2 * dn : 3 * dn]
+            dZ = prearg_jac[dn : 2 * dn]
             # Chain rule.
             drho = -ideal_rho(p, T) / (Z * Z) * dZ
             # Contribution of ideal pT derivative
