@@ -20,7 +20,7 @@ from typing import Sequence
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
+from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ..compiled_eos import (
     PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
     PROPERTY_FUNC_SIGNATURE,
@@ -38,7 +38,7 @@ __all__ = [
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
-Uses :func:`~porepy.compositional._core.njit`
+Uses :func:`~porepy.compositional._numba_interface.njit`
 
 """
 
@@ -81,8 +81,9 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
     Pcsatms = pcs / 101325  # Conversion from Pa to atm
 
     for i in range(ncomp):
+        cpc = np.cbrt(Pcsatms[i])
         Tr = T / Tcs[i]
-        d = Tcs[i] ** (1 / 6) / (np.cbrt(Pcsatms[i] ** 2) * srmws[i])
+        d = Tcs[i] ** (1 / 6) / (cpc * cpc * srmws[i])
         if Tr < 1.5:
             n = 34e-5 * Tr**0.94
         else:
@@ -134,8 +135,9 @@ def _dmu_pure_dT(
     Pcsatms = pcs / 101325  # Conversion from Pa to atm
 
     for i in range(ncomp):
+        cpc = np.cbrt(Pcsatms[i])
         Tr = T / Tcs[i]
-        d = Tcs[i] ** (1 / 6) / (np.cbrt(Pcsatms[i] ** 2) * srmws[i])
+        d = Tcs[i] ** (1 / 6) / (cpc * cpc * srmws[i])
         if Tr < 1.5:
             n = (34e-5 * 0.94 / Tr**0.06) / Tcs[i]
         else:
@@ -154,11 +156,11 @@ def _dmu_pure_dT(
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
+def _mu_zero(xn: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
     """Mixture viscosity at low pressure..
 
     Parameters:
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         mus: ``shape=(n,)``
@@ -172,7 +174,7 @@ def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
         The mixture viscosity value in the unit of ``mus``.
 
     """
-    n = x * np.sqrt(mws)
+    n = xn * np.sqrt(mws)
     return np.sum(n * mus) / np.sum(n)
 
 
@@ -190,7 +192,7 @@ def _mu_zero(x: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
     cache=True,
 )
 def _dmu_zero(
-    x: np.ndarray, mus: np.ndarray, dmus: np.ndarray, mws: np.ndarray
+    xn: np.ndarray, mus: np.ndarray, dmus: np.ndarray, mws: np.ndarray
 ) -> np.ndarray:
     """Derivative of the mixture viscosity at low pressure.
 
@@ -198,7 +200,7 @@ def _dmu_zero(
     assumed to be part of ``dmus`` (i.e., pressure, temperature derivatives).
 
     Parameters:
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         mus: ``shape=(n,)``
@@ -218,22 +220,25 @@ def _dmu_zero(
     """
 
     sqrtmws = np.sqrt(mws)
-    ncomp = x.size
-    n = x * sqrtmws
+    ncomp = xn.size
+    n = xn * sqrtmws
 
     dpt = np.zeros(2)
     for i in range(ncomp):
         dpt += n[i] * dmus[i, :]
     dpt /= np.sum(n)
 
-    u = np.sum(n * mus)
-    v = np.sum(n)
-    du = sqrtmws * mus
-    dv = sqrtmws
+    if xn.size > 1:
+        u = np.sum(n * mus)
+        v = np.sum(n)
+        du = sqrtmws * mus
+        dv = sqrtmws
 
-    dx = (du * v - u * dv) / (v**2)
+        dx = (du * v - u * dv) / (v * v)
 
-    return np.hstack((dpt, dx))
+        return np.hstack((dpt, dx))
+    else:
+        return dpt
 
 
 @_COMPILER(
@@ -249,11 +254,11 @@ def _dmu_zero(
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> float:
+def _xi(xn: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> float:
     """Dimensionless density parameter.
 
     Parameters:
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         Tcs: ``shape=(n,)``
@@ -271,8 +276,9 @@ def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> flo
 
     """
     Pcsatms = pcs / 101325  # Conversion from Pa to atm
-    n = np.sum(x * Tcs) ** (1 / 6)
-    d = np.sqrt(np.sum(x * mws)) * np.cbrt(np.sum(x * Pcsatms)) ** 2
+    n = np.sum(xn * Tcs) ** (1 / 6)
+    cpc = np.cbrt(np.sum(xn * Pcsatms))
+    d = np.sqrt(np.sum(xn * mws)) * cpc * cpc
     return n / d
 
 
@@ -290,12 +296,12 @@ def _xi(x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> flo
     cache=True,
 )
 def _dxi(
-    x: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray
+    xn: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray
 ) -> np.ndarray:
     """Derivative of the dimensionless density parameter with respect to fractions.
 
     Parameters:
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         Tcs: ``shape=(n,)``
@@ -313,15 +319,15 @@ def _dxi(
 
     """
     Pcsatms = pcs / 101325  # Conversion from Pa to atm
-    n = np.sum(x * Tcs) ** (1 / 6)
-    d1 = np.sqrt(np.sum(x * mws))
-    d2 = np.cbrt(np.sum(x * Pcsatms))
-    d = d1 * d2**2
+    n = np.sum(xn * Tcs) ** (1 / 6)
+    d1 = np.sqrt(np.sum(xn * mws))
+    d2 = np.cbrt(np.sum(xn * Pcsatms))
+    d = d1 * d2 * d2
 
-    dn = (1 / 6) / np.sum(x * Tcs) ** (5 / 6) * Tcs
-    dd = 0.5 / d1 * mws * d2**2 + d1 * (2 / 3) / d2 * Pcsatms
+    dn = (1 / 6) / np.sum(xn * Tcs) ** (5 / 6) * Tcs
+    dd = 0.5 / d1 * mws * d2 * d2 + d1 * (2 / 3) / d2 * Pcsatms
 
-    return (dn * d - n * dd) / (d**2)
+    return (dn * d - n * dd) / (d * d)
 
 
 @_COMPILER(
@@ -334,7 +340,7 @@ def _dxi(
 )
 def _reduced_pseudo_density(
     rho: float,
-    x: np.ndarray,
+    xn: np.ndarray,
     vcs: np.ndarray,
 ) -> float:
     """Reduced pseudo-density using a mixing rule to obtain pseudo-critical values for
@@ -342,7 +348,7 @@ def _reduced_pseudo_density(
 
     Parameters:
         rho: Density in [mol / m^3].
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         vcs: ``shape=(n,)``
@@ -353,7 +359,7 @@ def _reduced_pseudo_density(
         The reduced pseudo-density in [-].
 
     """
-    return rho * np.sum(x * vcs)
+    return rho * np.sum(xn * vcs)
 
 
 @_COMPILER(
@@ -369,7 +375,7 @@ def _reduced_pseudo_density(
 def _d_reduced_pseudo_density(
     rho: float,
     drho: np.ndarray,
-    x: np.ndarray,
+    xn: np.ndarray,
     vcs: np.ndarray,
 ) -> float:
     """Derivative of the reduced pseudo-critical density with respect to the derivatives
@@ -382,14 +388,14 @@ def _d_reduced_pseudo_density(
 
             Derivatives of the density with respect to pressure, temperature and
             fractions.
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         vcs: ``shape=(n,)``
 
             Critical specific volumes of components in [m^3 / mol].
     """
-    drho_r = drho * np.sum(x * vcs)
+    drho_r = drho * np.sum(xn * vcs)
     drho_r[2:] += rho * vcs
     return drho_r
 
@@ -411,7 +417,7 @@ def _d_reduced_pseudo_density(
 )
 def _mu_correction(
     rho: float,
-    x: np.ndarray,
+    xn: np.ndarray,
     Tcs: np.ndarray,
     pcs: np.ndarray,
     vcs: np.ndarray,
@@ -421,7 +427,7 @@ def _mu_correction(
 
     Parameters:
         rho: Mixture density in [mol / m^3].
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         Tcs: ``shape=(n,)``
@@ -443,15 +449,17 @@ def _mu_correction(
         approximation of the reduced density
 
     """
-    rho_r = _reduced_pseudo_density(rho, x, vcs)
-    xi = _xi(x, Tcs, pcs, mws)
-    n = (
+    rho_r = _reduced_pseudo_density(rho, xn, vcs)
+    xi = _xi(xn, Tcs, pcs, mws)
+    rrho_r = rho_r * rho_r
+    rp = (
         0.1023
         + 0.023364 * rho_r
-        + 0.058533 * rho_r**2
-        - 0.040758 * rho_r**3
-        + 0.0093324 * rho_r**4
-    ) ** 4 - 0.0001
+        + 0.058533 * rrho_r
+        - 0.040758 * rrho_r * rho_r
+        + 0.0093324 * rrho_r * rrho_r
+    )
+    n = rp * rp * rp * rp - 0.0001
     return n / xi
 
 
@@ -474,7 +482,7 @@ def _mu_correction(
 def _dmu_correction(
     rho: float,
     drho: np.ndarray,
-    x: np.ndarray,
+    xn: np.ndarray,
     Tcs: np.ndarray,
     pcs: np.ndarray,
     vcs: np.ndarray,
@@ -487,7 +495,7 @@ def _dmu_correction(
         drho: ``shape=(2 + n,)``
 
             Derivative of density with respect to pressure, temperature and fractions.
-        x: ``shape=(n,)``
+        xn: ``shape=(n,)``
 
             Mole fractions per components in [-].
         Tcs: ``shape=(n,)``
@@ -511,30 +519,35 @@ def _dmu_correction(
 
     """
 
-    rho_r = _reduced_pseudo_density(rho, x, vcs)
-    xi = _xi(x, Tcs, pcs, mws)
+    rho_r = _reduced_pseudo_density(rho, xn, vcs)
+    xi = _xi(xn, Tcs, pcs, mws)
 
-    drho_r = _d_reduced_pseudo_density(rho, drho, x, vcs)
-    dxi = np.zeros(2 + x.size)
-    dxi[2:] = _dxi(x, Tcs, pcs, mws)
+    drho_r = _d_reduced_pseudo_density(rho, drho, xn, vcs)
+    if xn.size > 1:
+        dxi = np.zeros(2 + xn.size)
+        dxi[2:] = _dxi(xn, Tcs, pcs, mws)
+    else:
+        dxi = np.zeros(2)
 
+    rrho_r = rho_r * rho_r
     k = (
         0.1023
         + 0.023364 * rho_r
-        + 0.058533 * rho_r**2
-        - 0.040758 * rho_r**3
-        + 0.0093324 * rho_r**4
+        + 0.058533 * rrho_r
+        - 0.040758 * rrho_r * rho_r
+        + 0.0093324 * rrho_r * rrho_r
     )
     dk = (
         0.023364
         + 2 * 0.058533 * rho_r
-        - 3 * 0.040758 * rho_r**2
-        + 4 * 0.0093324 * rho_r**3
+        - 3 * 0.040758 * rrho_r
+        + 4 * 0.0093324 * rrho_r * rho_r
     )
-    n = k**4 - 0.0001
-    dn = 4 * k**3 * dk * drho_r
+    kk = k * k
+    n = kk * kk - 0.0001
+    dn = 4 * kk * k * dk * drho_r
 
-    return (dn * xi - n * dxi) / (xi**2)
+    return (dn * xi - n * dxi) / (xi * xi)
 
 
 class LBCViscosity(CompiledEoS):
@@ -570,11 +583,11 @@ class LBCViscosity(CompiledEoS):
             rho_c = self.get_density_function()
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
-        def mu_c(prearg: np.ndarray, p: float, T: float, x: np.ndarray) -> float:
+        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             mus_pure = _mu_pure(T, tc, pc, mws)
-            mu_zero = _mu_zero(x, mus_pure, mws)
+            mu_zero = _mu_zero(xn, mus_pure, mws)
 
-            mu_correction = _mu_correction(rho_c(prearg, p, T, x), x, tc, pc, vc, mws)
+            mu_correction = _mu_correction(rho_c(prearg, p, T, xn), xn, tc, pc, vc, mws)
 
             mu_val = mu_zero + mu_correction
             # Centipoise to Pa s

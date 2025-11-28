@@ -35,9 +35,9 @@ from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, 
 import numba as nb
 import numpy as np
 
-from ._core import NUMBA_PARALLEL, PhysicalState, cfunc, njit, typeof
+from ._numba_interface import NUMBA_PARALLEL, cfunc, njit, typeof
 from .base import Component, EquationOfState
-from .states import PhaseProperties
+from .states import PhaseProperties, PhysicalState
 from .utils import normalize_rows
 
 __all__ = [
@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
-Uses :func:`~porepy.compositional._core.njit`
+Uses :func:`~porepy.compositional._numba_interface.njit`.
 
 """
 
@@ -104,7 +104,8 @@ PhysicalStateMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(
     PhysicalState, nb.int_
 )
 """Numba type for function signatures which take members of
-:class:`~porepy.compositional._core.PhysicalState` as arguments or as a return value."""
+:class:`~porepy.compositional.states.PhysicalState` as arguments or as a return
+value."""
 
 
 class PropertyFunctionDict(TypedDict, total=False):
@@ -148,7 +149,7 @@ PREARGUMENT_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
 
 The function takes
 
-1. a :class:`~porepy.compositional._core.PhysicalState`,
+1. a :class:`~porepy.compositional.states.PhysicalState`,
 2. a pressure float value,
 3. a temperature float value,
 4. a 1D float array as partial fraction values,
@@ -260,7 +261,7 @@ def prearg_template_func(
     values.
 
     Parameters:
-        phase_State: See :class:`~porepy.compositional._core.PhysicalState`.
+        phase_State: See :class:`~porepy.compositional.states.PhysicalState`.
         p: Pressure value.
         T: Temperature value.
         xn: 1D array containing normalized fractions.
@@ -421,7 +422,7 @@ def _evaluate_vectorized_prearg_func(
 
     Parameters:
         prearg_func: Some pre-argument function. See :func:`prearg_template_func`.
-        phase_State: See :class:`~porepy.compositional._core.PhysicalState`.
+        phase_State: See :class:`~porepy.compositional.states.PhysicalState`.
         p: ``shape=(N,)``
 
             Pressure values.
@@ -606,7 +607,7 @@ def _evaluate_vectorized_property_derivatives_func(
     """
     N = p.shape[0]
     num_comp = xn.shape[1]
-    diffs = np.empty((2 + num_comp, N))
+    diffs = np.empty((2 + num_comp if num_comp > 1 else 2, N))
     for i in nb.prange(N):
         diffs[:, i] = property_diffs_func(
             prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
@@ -721,7 +722,7 @@ def _evaluate_vectorized_fug_coeff_diff_func(
 
     """
     n, ncomp = xn.shape
-    dphis = np.empty((ncomp, 2 + ncomp, n))
+    dphis = np.empty((ncomp, 2 + ncomp if ncomp > 1 else 2, n))
     for i in nb.prange(n):
         dphis[:, :, i] = fug_coeff_diff_func(
             prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
@@ -753,6 +754,15 @@ class CompiledEoS(EquationOfState):
     The ``prearg`` for the derivatives will be fed to the functions representing
     derivatives of thermodynamic quantities **additionally** to the ``prearg`` for
     residuals.
+
+    Important:
+        To keep code simple but still to some degree efficient, the signatures always
+        contain an argument for partial fractions, even for one-component fluids (pure
+        fluids). But the derivatives in that case should only return the p-T derivatives
+        i.e., a 1D array of size 2.
+        Concrete implementations needs to be case-sensitive to the number of components
+        and do not compute derivatives which in practice are zero.
+        The class will pass ones of shape ``(1,)`` in that case to the computations.
 
     Parameters:
         components: Sequence of components for which the EoS should be compiled.
@@ -1037,37 +1047,37 @@ class CompiledEoS(EquationOfState):
         if self.is_compiled:
             return
 
-        logger.info("Compiling property functions ..")
+        logger.info("Compiling real property functions ..")
 
         # region Element-wise computations
         self.funcs["prearg_val"] = self.get_prearg_for_values()
-        logger.debug("Compiling property functions 1/14")
+        logger.debug("Compiling real property functions 1/14")
         self.funcs["prearg_jac"] = self.get_prearg_for_derivatives()
-        logger.debug("Compiling property functions 2/14")
+        logger.debug("Compiling real property functions 2/14")
         self.funcs["phis"] = self.get_fugacity_function()
-        logger.debug("Compiling property functions 3/14")
+        logger.debug("Compiling real property functions 3/14")
         self.funcs["dphis"] = self.get_fugacity_derivative_function()
-        logger.debug("Compiling property functions 4/14")
+        logger.debug("Compiling real property functions 4/14")
         self.funcs["h"] = self.get_enthalpy_function()
-        logger.debug("Compiling property functions 5/14")
+        logger.debug("Compiling real property functions 5/14")
         self.funcs["dh"] = self.get_enthalpy_derivative_function()
-        logger.debug("Compiling property functions 6/14")
+        logger.debug("Compiling real property functions 6/14")
         self.funcs["rho"] = self.get_density_function()
-        logger.debug("Compiling property functions 7/14")
+        logger.debug("Compiling real property functions 7/14")
         self.funcs["drho"] = self.get_density_derivative_function()
-        logger.debug("Compiling property functions 8/14")
+        logger.debug("Compiling real property functions 8/14")
         self.funcs["v"] = self.get_volume_function()
-        logger.debug("Compiling property functions 9/14")
+        logger.debug("Compiling real property functions 9/14")
         self.funcs["dv"] = self.get_volume_derivative_function()
-        logger.debug("Compiling property functions 10/14")
+        logger.debug("Compiling real property functions 10/14")
         self.funcs["mu"] = self.get_viscosity_function()
-        logger.debug("Compiling property functions 11/14")
+        logger.debug("Compiling real property functions 11/14")
         self.funcs["dmu"] = self.get_viscosity_derivative_function()
-        logger.debug("Compiling property functions 12/14")
+        logger.debug("Compiling real property functions 12/14")
         self.funcs["kappa"] = self.get_conductivity_function()
-        logger.debug("Compiling property functions 13/14")
+        logger.debug("Compiling real property functions 13/14")
         self.funcs["dkappa"] = self.get_conductivity_derivative_function()
-        logger.debug("Compiling property functions 14/14")
+        logger.debug("Compiling real property functions 14/14")
         # endregion
 
         logger.info("Assembling vectorized functions ..")
@@ -1119,7 +1129,7 @@ class CompiledEoS(EquationOfState):
             They will be normalized before calling the compiled property functions
 
         Parameters:
-            phase_State: See :class:`~porepy.compositional._core.PhysicalState`.
+            phase_State: See :class:`~porepy.compositional.states.PhysicalState`.
             p: ``shape=(N,)``
 
                 Pressure values.

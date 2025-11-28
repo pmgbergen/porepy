@@ -13,7 +13,10 @@ References:
 import numba as nb
 import numpy as np
 
-from .._core import H_REF, NUMBA_FAST_MATH, R_U_MOL, T_REF, njit
+from .._global_thermodynamic_reference_state import R_U
+from .._global_thermodynamic_reference_state import H as H_REF
+from .._global_thermodynamic_reference_state import T as T_REF
+from .._numba_interface import NUMBA_FAST_MATH, njit
 from .ideal_fluid import IdealFluid
 
 __all__ = [
@@ -78,7 +81,7 @@ def deNevers_cp_of_T(cp: np.ndarray, T: float) -> float:
         The heat capacity in [J / K / mol].
 
     """
-    return R_U_MOL * (cp[0] + cp[1] * T + cp[2] * T**2 + cp[3] / T**2)
+    return R_U * (cp[0] + cp[1] * T + cp[2] * (T * T) + cp[3] / (T * T))
 
 
 @njit(
@@ -105,10 +108,12 @@ def deNevers_Icp_of_T(cp: np.ndarray, T: float, T0: float) -> float:
         The change in specific enthalpy from temperature ``T0`` to temperature ``T``.
 
     """
-    return R_U_MOL * (
+    TT = T * T
+    TT0 = T0 * T0
+    return R_U * (
         cp[0] * (T - T0)
-        + cp[1] * (T**2 - T0**2)
-        + cp[2] * (T**3 - T0**3)
+        + cp[1] / 2.0 * (TT - TT0)
+        + cp[2] / 3.0 * (TT * T - TT0 * T0)
         - cp[3] * (1.0 / T - 1.0 / T0)
     )
 
@@ -117,7 +122,7 @@ DELTA_H_REF_TRANSFORM: float = H_REF - (
     H_FORMATION_H2O_L_deNevers + deNevers_Icp_of_T(cp_h2o, T_REF, T_REF_deNevers)
 )
 """Change in enthalpy for reference temperature transform form :data:`T_REF_deNevers`
-to the reference temperature in PorePy :data:`~porepy.compositional._core.H_REF`.
+to the reference temperature in PorePy.
 
 Must be added to the ideal enthalpy calculations for all species obtained from the
 book by de Nevers.

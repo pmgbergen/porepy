@@ -22,7 +22,7 @@ import numba
 import numba.typed
 import numpy as np
 
-from ..._core import NUMBA_PARALLEL, cfunc, typeof
+from ..._numba_interface import NUMBA_PARALLEL, cfunc, typeof
 from ..abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
 
 __all__ = [

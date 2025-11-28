@@ -664,7 +664,7 @@ def test_isofugacity_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None
     assert res.shape == (0,), "Unexpected residual shape for 1 phase."
 
     Xgen = np.random.random((dim,))
-    h = np.logspace(0, -0, 10)
+    h = np.logspace(0, -9, 10)
 
     orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
     # assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=7)

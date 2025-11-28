@@ -345,7 +345,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 res_1 = mass_conservation_res(x, y, z)
                 res_2 = isofugacity_constraints_res(x, phis)
                 # Adding additional term with T appearing in first order conditions.
-                res_3 = first_order_constraint_res(h_target, y, h) / T**2
+                res_3 = first_order_constraint_res(h_target, y, h) / (T * T)
                 # Non-dimensional scaling of enthalpy constraint.
                 res_3 /= h_target
                 res_4 = complementary_conditions_res(x, y)
@@ -386,9 +386,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 jac_1 = mass_conservation_jac(x, y)
                 jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
-                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / T**2
+                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / (T * T)
                 h_res = first_order_constraint_res(h_target, y, hs)[0]
-                jac_3[0, 1] -= 2.0 / T**3 * h_res
+                jac_3[0, 1] -= 2.0 / (T * T * T) * h_res
                 # Scaling of constraint with target value.
                 jac_3 /= h_target
                 jac_4 = complementary_conditions_jac(x, y)
@@ -426,7 +426,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 res_1 = mass_conservation_res(x, y, z)
                 res_2 = isofugacity_constraints_res(x, phis)
-                res_3 = first_order_constraint_res(h_target, y, hs) / T**2
+                res_3 = first_order_constraint_res(h_target, y, hs) / (T * T)
                 # Non-dimensional scaling of first order constraints.
                 res_3 /= h_target
                 # res_4 *= v_target
@@ -473,9 +473,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 jac_1 = mass_conservation_jac(x, y)
                 jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
-                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / T**2
+                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / (T * T)
                 h_res = first_order_constraint_res(h_target, y, hs)[0]
-                jac_3[0, 1] -= 2.0 / T**3 * h_res
+                jac_3[0, 1] -= 2.0 / (T * T * T) * h_res
                 jac_4 = first_order_constraint_jac(s, rhos, drhos, False)
                 # Non-dimensional scaling of constraints.
                 jac_3 /= h_target

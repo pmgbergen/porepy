@@ -19,11 +19,11 @@ Note:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import IntEnum
 from typing import Optional, Sequence, cast
 
 import numpy as np
 
-from ._core import PhysicalState
 from .utils import (
     chainrule_fractional_derivatives,
     compute_saturations,
@@ -32,12 +32,32 @@ from .utils import (
 )
 
 __all__ = [
+    "PhysicalState",
     "ExtensiveProperties",
     "IntensiveProperties",
     "PhaseProperties",
     "FluidProperties",
     "initialize_fluid_properties",
 ]
+
+
+class PhysicalState(IntEnum):
+    """Integer Enum object for characterizing the physical states of a phase.
+
+    - Zero is reserved for undefined state.
+    - 1 - 9 is reserved for liquid-like states with 1 being the base state.
+    - 10 - 19 is reserved for gas-like states with 10 being the base state.
+
+    """
+
+    undefined = 0
+    """Undefined physical state."""
+
+    liquid = 1
+    """Base liquid-like state."""
+
+    gas = 10
+    """Base gas-like state."""
 
 
 @dataclass

@@ -30,7 +30,7 @@ from typing import Literal
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
+from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from .cubic_polynomial import (
     calculate_root_derivatives,
     calculate_roots,
@@ -675,7 +675,7 @@ def is_extended_factor(A: float, B: float, gaslike: bool, eps: float) -> int:
 
 
 @_COMPILER(
-    nb.f8(nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
+    nb.f8(nb.f8, nb.f8, nb.bool, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -685,6 +685,7 @@ def get_compressibility_factor(
     gaslike: bool,
     eps: float,
     smooth3: float,
+    smooth_sc: float,
 ) -> float:
     """Compute the compressibility factor for given :math:`A` and :math:`B`.
 
@@ -707,6 +708,7 @@ def get_compressibility_factor(
             (False) root.
         eps: Tolerance for detection of degeneracy/two-root and triple root case.
         smooth3: Smoothing parameter for the three-root area.
+        smooth_sc: Smoothing super-critical extension transitions.
 
     Returns:
         The compressibility factor.
@@ -746,8 +748,6 @@ def get_compressibility_factor(
     # Index for super-critical smoothing. Switches to zero or -1 indicating which root
     # needs smoothing. Using potential indices as indicators.
     smooth_sc_idx: Literal[-1, 0, 1] = 1
-    # Bandwidth around borders of regions in the super-critical area for smoothing.
-    smooth_sc: float = 0.001
 
     match extension_case:
         # No root is extended.
@@ -769,12 +769,16 @@ def get_compressibility_factor(
         # There are non-physical regions with num_roots != 1, which need treatment.
         # We cannot use the Ben Gharbia extension, as that value goes below B in the
         # supercritical area. Includes the 2 root point A,B = (0, 0)
-        case 10 | 11 | 12 | 13:
+        case 11 | 12 | 13:
             roots[0] = Wlsc(roots[-1], B)
             smooth_sc_idx = 0
         # Known super-critical triple points is the critical point Ac Bc.
-        case 20:
-            pass
+        # Raise not implemented error if it is not
+        case 10 | 20:
+            if not np.allclose((A, B), (A_CRIT, B_CRIT)):
+                raise NotImplementedError(
+                    "Encountered triple root which is not critical point."
+                )
         # Super-critical gas extension.
         # Contrary to the super-critical liquid, we only know how to deal with the
         # 1-root case.
@@ -879,7 +883,7 @@ def get_compressibility_factor(
 
 
 @_COMPILER(
-    nb.f8[:](nb.f8, nb.f8, nb.bool, nb.f8, nb.f8),
+    nb.f8[:](nb.f8, nb.f8, nb.bool, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -889,6 +893,7 @@ def get_compressibility_factor_derivatives(
     gaslike: bool,
     eps: float,
     smooth3: float,
+    smooth_sc: float,
 ) -> np.ndarray:
     """Compute the derivatives of the compressibility factor with respect to :math:`A`
     and :math:`B`.
@@ -902,6 +907,7 @@ def get_compressibility_factor_derivatives(
             (False) root.
         eps: Tolerance for detection of degeneracy/two-root and triple root case.
         smooth3: Smoothing parameter for the three-root area.
+        smooth_sc: Smoothing super-critical extension transitions.
 
     Returns:
         A ``(2,)``-array containing the derivatives w.r.t. cohesion and covolume.
@@ -941,7 +947,6 @@ def get_compressibility_factor_derivatives(
     dWlsc = extended_factor_scl_derivatives
 
     smooth_sc_idx: Literal[-1, 0, 1] = 1
-    smooth_sc: float = 0.001
 
     match extension_case:
         case 0:
@@ -961,11 +966,14 @@ def get_compressibility_factor_derivatives(
                 "Expecting shape (1, 2) of root derivatives in extension cases 2."
             )
             droots[-1] = dWgsub(droots[-1])
-        case 10 | 11 | 12 | 13:
+        case 11 | 12 | 13:
             droots[0] = dWlsc(droots[-1])
             smooth_sc_idx = 0
-        case 20:
-            pass
+        case 10 | 20:
+            if not np.allclose((A, B), (A_CRIT, B_CRIT)):
+                raise NotImplementedError(
+                    "Encountered triple root which is not critical point."
+                )
         case 21:
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension cases 21."

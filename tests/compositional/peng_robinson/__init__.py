@@ -3,17 +3,92 @@
 from __future__ import annotations
 
 from threading import Lock
+from typing import Literal
 
-import numba as nb
 import numpy as np
 import pytest
 
 import porepy as pp
 import porepy.compositional.peng_robinson as pr
+from porepy.compositional._numba_interface import njit
 from porepy.compositional.compiled_eos import (
     PROPERTY_DERIVATIVE_FUNC_SIGNATURE,
     PROPERTY_FUNC_SIGNATURE,
 )
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._numba_interface.njit`.
+
+"""
+
+
+def calculate_expected_order(
+    gaslike: bool,
+    tol: float,
+    /,
+    smooth_sc: float = 0.0,
+    smooth3: float = 0.0,
+    AB: tuple[float, float] | np.ndarray | None = None,
+    pTx: tuple[float, float, np.ndarray] | tuple[float, float] | None = None,
+    eos: pr.CompiledPengRobinson | None = None,
+) -> Literal[1, 2]:
+    """Calculates the expected order of approximation of the Taylor expansion.
+
+    By default we expect order 2. But if the compressibility factor is extended in the
+    super-critical area, and smoothing is applied, the expected order drops to 1.
+
+    Also, if smoothing is applied in the sub-critical area with 3 roots, the expected
+    order is 1.
+
+    Parameters:
+        gaslike: True if gaslike root, False if liquid-like root.
+        tol: Tolerance for root case detection.
+        smooth3: Smoothing factor in the sub-critical 3-root area.
+        smooth_sc: Smoothing factor in the super-critical extension case.
+        AB: If given, determines the extension case based on the cohesion and covolume
+            pair.
+        pTx: If AB is not given, but this, determines AB based on pressure, temperature
+            and partial fractions (if not pure fluid)
+        eos: The equation of state instance must given in case pTx is given.
+
+    Returns:
+        The expected order, which is either 2 or 1.
+
+    """
+    expected_order = 2
+
+    if AB is not None:
+        A = AB[0]
+        B = AB[1]
+    elif pTx is not None:
+        assert eos is not None, "Need EoS in case pTx is used for order determination."
+        p = pTx[0]
+        T = pTx[1]
+        if len(pTx) == 3:
+            xn = pTx[2]
+        else:
+            xn = np.ones(1)
+        RT = pp.compositional.THD_REF.R_U * T
+        a = pr.a_VdW(T, xn, eos.Tcs, eos.omegas, eos.acs, eos.bips)
+        b = np.dot(xn, eos.bcs)
+        A = a * p / (RT * RT)
+        B = b * p / RT
+
+    ec = pr.is_extended_factor(A, B, gaslike, tol)
+
+    if ec >= 10 and smooth_sc > 0.0:
+        expected_order = 1
+
+    if (
+        pr.get_root_case(pr.c_from_AB(A, B), tol) == 3
+        and smooth3 > 0
+        and not pr.is_supercritical(A, B)
+    ):
+        expected_order = 1
+
+    return expected_order
 
 
 class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
@@ -24,14 +99,14 @@ class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
     """
 
     def get_conductivity_function(self):
-        @nb.njit(PROPERTY_FUNC_SIGNATURE)
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
     def get_conductivity_derivative_function(self):
-        @nb.njit(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -39,7 +114,10 @@ class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            return np.zeros(2 + xn.shape[0], dtype=np.float64)
+            if xn.size > 1:
+                return np.zeros(2 + xn.shape[0])
+            else:
+                return np.zeros(2)
 
         return dkappa_c
 
@@ -124,7 +202,12 @@ def pr_eos(
             [0.0, 0.1652, -0.0122, 0.0],
         ],
     )
-    h_ideal = [pr.h_ideal_H2O, pr.h_ideal_CO2, pr.h_ideal_H2S, pr.h_ideal_N2]
+    ideal_fluids = [
+        pp.compositional.ideal.IdealH2O,
+        pp.compositional.ideal.IdealCO2,
+        pp.compositional.ideal.IdealH2S,
+        pp.compositional.ideal.IdealN2,
+    ]
 
     ncomp = comps_and_phases[0]
     assert ncomp == len(components), "Failure in test setup."
@@ -132,7 +215,7 @@ def pr_eos(
     with _cache_lock:
         eos = PRLBC(
             components=components,
-            ideal_enthalpies=h_ideal[:ncomp],
+            ideal_fluids=ideal_fluids[:ncomp],
             bip_matrix=bips[:ncomp, :ncomp],
         )
         eos.compile()

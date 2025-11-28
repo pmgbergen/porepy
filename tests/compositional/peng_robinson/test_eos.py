@@ -26,7 +26,12 @@ from porepy.compositional.peng_robinson.eos import (
     lnphis,
     lnphis_jac,
 )
-from tests.compositional.peng_robinson import components, comps_and_phases, pr_eos
+from tests.compositional.peng_robinson import (
+    calculate_expected_order,
+    components,
+    comps_and_phases,
+    pr_eos,
+)
 
 
 def test_critical_values():
@@ -34,13 +39,13 @@ def test_critical_values():
     point."""
     np.testing.assert_allclose(
         ac_component(1.0, 1.0),
-        pr.A_CRIT * pp.compositional.R_U_MOL**2,
+        pr.A_CRIT * pp.compositional.THD_REF.R_U**2,
         atol=1e-14,
         rtol=0.0,
     )
     np.testing.assert_allclose(
         bc_component(1.0, 1.0),
-        pr.B_CRIT * pp.compositional.R_U_MOL,
+        pr.B_CRIT * pp.compositional.THD_REF.R_U,
         atol=1e-14,
         rtol=0.0,
     )
@@ -105,17 +110,17 @@ def test_alpha(omega: float):
         return np.array([[ddalpha_dTT(T, Tc, omega)]])
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h)
-    assert_order_at_least(orders, 2.0, tol=1e-2)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test that the second derivative approximates the first derivative.
 
     orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h)
-    assert_order_at_least(orders, 2.0, tol=1e-2)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
     # Finally, test higher order approximation.
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h, ddfunc=ddfunc)
-    assert_order_at_least(orders, 3.0, tol=1e-2)
+    assert_order_at_least(orders, 3, tol=1e-2)
 
 
 _dh_per_n = (
@@ -164,15 +169,15 @@ def test_cohesion_VdW_of_mixture(nc: int, d: np.ndarray, h: np.ndarray) -> None:
 
     # Test grad approximates function.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
-    assert_order_at_least(orders, 2.0, tol=1e-2)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test Hessian approximates grad.
     orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h, tol=1e-12)
-    assert_order_at_least(orders, 2.0, tol=1e-2)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test higher order approximation.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12, ddfunc=ddfunc)
-    assert_order_at_least(orders, 3.0, tol=1e-2)
+    assert_order_at_least(orders, 3, tol=1e-2)
 
 
 @pytest.mark.parametrize(
@@ -211,7 +216,7 @@ def test_h_dep(d: np.ndarray, h: np.ndarray):
     # NOTE The computations suffers from loss of precision due to logarithms of small
     # numbers and its derivative.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-8)
-    assert_order_at_least(orders, 2.0, tol=1e-2)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
 
 def _dh_per_nc(nc: int) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -255,22 +260,82 @@ def test_lnphis(nc: int, d: np.ndarray, h: np.ndarray) -> None:
         return lnphis_jac(*x[:-1], np.ones(nc) * x[-1], bcs)
 
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-8)
-    assert_order_at_least(orders, 2.0, tol=1e-2)
+    assert_order_at_least(orders, 2, tol=1e-2)
 
 
-_dh_per_cp = lambda cp: [
+_dh_per_cp_id = lambda cp: [
     (d, h)
     for d, h in zip(
-        np.eye(2 + cp[0]),
-        [np.logspace(3, -3, 7), np.logspace(2, -4, 7)]
-        + cp[0] * [np.logspace(0, -6, 7)],
+        np.eye(1 + cp[0]) if cp[0] > 1 else np.eye(1),
+        [np.logspace(2, -4, 7)]
+        + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
     )
 ]
 
 
 @pytest.mark.skipped(reason="slow due to compilation.")
-@pytest.mark.parametrize("params", [np.zeros(0), np.ones(1) * 0.2])
-@pytest.mark.parametrize("prop", ["h", "v", "rho", "phis"])
+@pytest.mark.parametrize("prop", ["h", "u"])
+@pytest.mark.parametrize(
+    ["comps_and_phases", "d", "h"],
+    [(cp, d, h) for cp in [(1, "V"), (2, "V"), (3, "V")] for d, h in _dh_per_cp_id(cp)],
+    indirect=["comps_and_phases"],
+)
+def test_ideal_mixture_energies(
+    comps_and_phases: tuple[int, str],
+    d: np.ndarray,
+    h: np.ndarray,
+    prop: str,
+    pr_eos: pr.CompiledPengRobinson,
+) -> None:
+    """Test correctness of the Peng-Robinson EoS derivatives, i.e. that the Taylor
+    approximation is of second order.
+
+    Ideal energies do not depend on pressure, contrary to other or real properties.
+
+    """
+
+    dprop = f"d{prop}"
+    ncomp = comps_and_phases[0]
+
+    assert pr_eos.nc == ncomp, "Failure in test setup."
+    assert pr_eos.is_compiled, "EoS not compiled."
+
+    def func(x):
+        T = x[0]
+        xn = np.array(x[1:]) if ncomp > 1 else np.ones(1)
+        assert xn.size == ncomp, "Invalid number of components."
+        propfunc = pr_eos._ideal_funcs[prop]
+        return propfunc(T, xn)
+
+    def dfunc(x):
+        T = x[0]
+        xn = np.array(x[1:]) if ncomp > 1 else np.ones(1)
+        assert xn.size == ncomp, "Invalid number of components."
+        dpropfunc = pr_eos._ideal_funcs[dprop]
+        return dpropfunc(T, xn)
+
+    x0 = np.array([400.0] + ([1.0 / ncomp] * ncomp if ncomp > 1 else []))
+
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
+    assert_order_at_least(
+        orders,
+        2,
+        tol=1e-2,
+        asymptotic=5,
+    )
+
+
+_dh_per_cp = lambda cp: [
+    (d, h)
+    for d, h in zip(
+        np.eye(2 + cp[0]) if cp[0] > 1 else np.eye(2),
+        [np.logspace(3, -3, 7), np.logspace(2, -4, 7)]
+        + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
+    )
+]
+
+
+# @pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [
@@ -280,18 +345,40 @@ _dh_per_cp = lambda cp: [
     ],
     indirect=["comps_and_phases"],
 )
+@pytest.mark.parametrize("property_name", ["h", "v", "rho", "phis"])
+@pytest.mark.parametrize("smooth3", [0.0, 1e-4, 1e-1])
+@pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
+@pytest.mark.parametrize(
+    "x0_pT",
+    [
+        np.array((1e6, 300.0)),
+        np.array((1e6, 500.0)),
+        np.array((20e6, 300.0)),
+        np.array((20e6, 500.0)),
+    ],
+)
 def test_property_derivatives(
+    x0_pT: np.ndarray,
+    smooth3: float,
+    smooth_sc: float,
     comps_and_phases: tuple[int, str],
     d: np.ndarray,
     h: np.ndarray,
-    prop: str,
-    params: np.ndarray,
+    property_name: str,
     pr_eos: pr.CompiledPengRobinson,
 ) -> None:
     """Test correctness of the Peng-Robinson EoS derivatives, i.e. that the Taylor
-    approximation is of second order."""
+    approximation is of second order.
 
-    dprop = f"d{prop}"
+    The order can deteriorate if we are in the super-critical area where the
+    derivatives of the compressibility factor are approximated when smoothing.
+    The expected order is calculated accordingly.
+
+    """
+
+    tol = 1e-14
+    params = np.array((smooth3, smooth_sc, tol))
+
     ncomp = comps_and_phases[0]
 
     if comps_and_phases[1] == "L":
@@ -307,40 +394,46 @@ def test_property_derivatives(
     def func(x):
         p = x[0]
         T = x[1]
-        xn = np.array(x[2:])
+        xn = np.array(x[2:]) if ncomp > 1 else np.ones(1)
         assert xn.size == ncomp, "Invalid number of components."
         preargfunc = pr_eos.funcs["prearg_val"]
-        propfunc = pr_eos.funcs[prop]
+        propfunc = pr_eos.funcs[property_name]
         return propfunc(preargfunc(state, p, T, xn, params), p, T, xn)
 
     def dfunc(x):
         p = x[0]
         T = x[1]
-        xn = np.array(x[2:])
-        xn = xn / xn.sum()
+        xn = np.array(x[2:]) if ncomp > 1 else np.ones(1)
         assert xn.size == ncomp, "Invalid number of components."
         preargfunc = pr_eos.funcs["prearg_val"]
         preargdifffunc = pr_eos.funcs["prearg_jac"]
-        dpropfunc = pr_eos.funcs[dprop]
+        dpropfunc = pr_eos.funcs[f"d{property_name}"]
+        prearg_val = preargfunc(state, p, T, xn, params)
         return dpropfunc(
             preargfunc(state, p, T, xn, params),
-            preargdifffunc(state, p, T, xn, params),
+            preargdifffunc(prearg_val, p, T, xn, params),
             p,
             T,
             xn,
         )
 
-    x0 = np.zeros(2 + ncomp)
-    x0[0] = 1e7  # Pressure in Pa
-    x0[1] = 400.0  # Temperature in K
-    x0[2:] = 1.0 / ncomp  # Partial fractions
+    if ncomp > 1:
+        x0 = np.hstack((x0_pT, np.ones(ncomp) / ncomp))
+    else:
+        x0 = x0_pT
 
-    # TODO: Reduce tolerance once sympy dependency is removed.
-    # There is some suspected loss of precision due to floating point arithmetic.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-10)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
+    expected_order = calculate_expected_order(
+        True if state == pp.compositional.PhysicalState.gas else False,
+        tol,
+        smooth_sc=smooth_sc,
+        smooth3=smooth3,
+        pTx=(x0[0], x0[1], x0[2:]) if ncomp > 1 else (x0[0], x0[1]),
+        eos=pr_eos,
+    )
     assert_order_at_least(
         orders,
-        2.0,
-        tol=2.2e-1,
+        expected_order,
+        tol=2e-2,
         asymptotic=5,
     )

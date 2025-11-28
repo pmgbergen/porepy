@@ -31,7 +31,7 @@ import sympy as sp
 
 import porepy as pp
 
-from .._core import NUMBA_FAST_MATH, PhysicalState, njit
+from .._numba_interface import NUMBA_FAST_MATH, njit
 from ..base import Compound
 from ..compiled_eos import PREARGUMENT_FUNC_SIGNATURE
 from ..materials import FluidComponent
@@ -40,7 +40,6 @@ from .compressibility_factor import (
     get_compressibility_factor,
     get_compressibility_factor_derivatives,
 )
-from .utils import thd_function_type
 
 __all__ = [
     "NaClBrine",
@@ -52,7 +51,7 @@ __all__ = [
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
-Uses :func:`~porepy.compositional._core.njit`
+Uses :func:`~porepy.compositional._numba_interface.njit`.
 
 """
 
@@ -75,7 +74,7 @@ class NaClBrine(FluidComponent, Compound):
         self.active_tracers = [nacl]
 
 
-class SymbolicPengRobinsonSoereide(eos.SymbolicPengRobinson):
+class SymbolicPengRobinsonSoereide:
     """Extension of the symbolic PR EoS to account for salinity in the binary
     interaction parameters and cohesion.
 
@@ -103,7 +102,7 @@ class SymbolicPengRobinsonSoereide(eos.SymbolicPengRobinson):
     def __init__(
         self,
         components: Sequence[pp.FluidComponent],
-        ideal_enthalpies: Sequence[thd_function_type],
+        ideal_enthalpies: Sequence[pp.compositional.ideal.IdealFluid],
     ) -> None:
         # Check of assumptions.
         brine: Optional[pp.FluidComponent] = None
@@ -135,8 +134,6 @@ class SymbolicPengRobinsonSoereide(eos.SymbolicPengRobinson):
 
         # BIP matrix is symmetric.
         bip_matrix = bip_matrix + bip_matrix.T
-
-        super().__init__(components, ideal_enthalpies, bip_matrix)
 
         T_r = self.T_s / brine.critical_temperature
         self._alpha: sp.Expr = (
@@ -181,36 +178,6 @@ class SymbolicPengRobinsonSoereide(eos.SymbolicPengRobinson):
             1 + 0.08126 * self.c_s**0.75
         ) - 1.70235 * (1 + 0.25587 * self.c_s**0.75)
 
-    @property
-    def alphas(self) -> list[sp.Expr]:
-        """Overloads the parent method to insert the salinity-dependent :math:`\\alpha`
-        for the brine component."""
-        # alphas: list[sp.Expr] = eos_symbolic.PengRobinsonSymbolic.alphas.fget(self)
-        alphas = super().alphas
-        alphas[self._brine_index] = self._alpha
-        return alphas
-
-    @property
-    def A_func(self) -> Callable[[float, float, np.ndarray], float]:
-        """The cohesion of the extension depends also on molal salinity, which is
-        appended as the last argument after pressure, temperature and component
-        fractions."""
-        arg = (self.p_s, self.T_s, self.x_s, self.c_s)
-        return sp.lambdify(arg, self.A)
-
-    @property
-    def grad_pTx_A_func(self) -> Callable[[float, float, np.ndarray], list[float]]:
-        """Lambdified expression :meth:`grad_pTx_A` returning a list of floats of length
-        ``2 + num_comp``, representing the derivatives w.r.t. pressure, temperature and
-        component fractions.
-
-        Like :meth:`A`, molal salinity is added as an argument, but the respective
-        derivative is not!
-
-        """
-        arg = (self.p_s, self.T_s, self.x_s, self.c_s)
-        return sp.lambdify(arg, self.grad_pTx_A)
-
 
 class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     """Extension of the compiled PR EoS which expects the salinity as a parameter
@@ -232,15 +199,15 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     def __init__(
         self,
         components: Sequence[pp.FluidComponent],
-        ideal_enthalpies: Sequence[thd_function_type],
+        ideal_fluids: Sequence[pp.compositional.ideal.IdealFluid],
         params: Optional[dict[str, float]] = None,
     ) -> None:
         # Dummy BIPs for super call.
         nc = len(components)
-        super().__init__(components, ideal_enthalpies, np.zeros((nc, nc)), params)
+        super().__init__(components, ideal_fluids, np.zeros((nc, nc)), params)
 
         self.symbolic: SymbolicPengRobinsonSoereide = SymbolicPengRobinsonSoereide(
-            components, ideal_enthalpies
+            components, ideal_fluids
         )
 
         # If salinity is not provided, set default value to zero.
@@ -270,8 +237,8 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     def get_prearg_for_values(self) -> eos.VectorFunction:
         """Modified pre-argument for values expecting molal salinity as the first
         element in the parameters array argument."""
-        A_c = self._cfuncs["A"]
-        B_c = self._cfuncs["B"]
+        A_c = self._ideal_funcs["A"]
+        B_c = self._ideal_funcs["B"]
 
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
@@ -279,7 +246,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
 
         @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_val_c(
-            phase_state: PhysicalState,
+            phase_state: pp.compositional.PhysicalState,
             p: float,
             T: float,
             xn: np.ndarray,
@@ -297,9 +264,9 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
             if params.size >= 3:
                 eps_ = params[2]
 
-            if phase_state == PhysicalState.gas:
+            if phase_state == pp.compositional.PhysicalState.gas:
                 gaslike = True
-            elif phase_state == PhysicalState.liquid:
+            elif phase_state == pp.compositional.PhysicalState.liquid:
                 gaslike = False
             else:
                 raise NotImplementedError(f"Unsupported phase state: {phase_state}")
@@ -320,10 +287,10 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     def get_prearg_for_derivatives(self) -> eos.VectorFunction:
         """Modified pre-argument for derivatives expecting molal salinity as the first
         element in the parameters array argument."""
-        A_c = self._cfuncs["A"]
-        B_c = self._cfuncs["B"]
-        dA_c = self._cfuncs["dA"]
-        dB_c = self._cfuncs["dB"]
+        A_c = self._ideal_funcs["A"]
+        B_c = self._ideal_funcs["B"]
+        dA_c = self._ideal_funcs["dA"]
+        dB_c = self._ideal_funcs["dB"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
         d = 2 + self.nc
 
@@ -333,7 +300,7 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
 
         @_COMPILER(PREARGUMENT_FUNC_SIGNATURE)
         def prearg_jac_c(
-            phase_state: PhysicalState,
+            phase_state: pp.compositional.PhysicalState,
             p: float,
             T: float,
             xn: np.ndarray,
@@ -353,9 +320,9 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
             if params.size >= 4:
                 eps_ = params[2]
 
-            if phase_state == PhysicalState.gas:
+            if phase_state == pp.compositional.PhysicalState.gas:
                 gaslike = True
-            elif phase_state == PhysicalState.liquid:
+            elif phase_state == pp.compositional.PhysicalState.liquid:
                 gaslike = False
             else:
                 raise NotImplementedError(f"Unsupported phase state: {phase_state}")

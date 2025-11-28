@@ -14,11 +14,11 @@ import numpy as np
 
 import porepy as pp
 
-from .._core import (
+from .._global_thermodynamic_reference_state import R_U
+from .._numba_interface import (
     NUMBA_CACHE,
     NUMBA_FAST_MATH,
     NUMBA_PARALLEL,
-    R_U_MOL,
     cfunc,
     njit,
     typeof,
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
-Uses :func:`~porepy.compositional._core.njit`
+Uses :func:`~porepy.compositional._numba_interface.njit`
 
 """
 
@@ -760,7 +760,7 @@ class FlashInitializer:
                     else:  # gas-like
                         Z = 0.7
 
-                    p = Z * T * R_U_MOL / s1
+                    p = Z * T * R_U / s1
 
                     # Make first fraction guess based on pseudo-critical values.
                     xf = assemble_generic_arg(

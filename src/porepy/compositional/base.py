@@ -55,7 +55,6 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
-from ._core import PhysicalState
 from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
@@ -371,7 +370,7 @@ class EquationOfState:
 
     def compute_phase_properties(
         self,
-        phase_state: PhysicalState,
+        phase_state: pp.compositional.PhysicalState,
         *thermodynamic_input: np.ndarray,
         params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> PhaseProperties:
@@ -480,7 +479,7 @@ class Phase(Generic[ComponentLike]):
 
     def __init__(
         self,
-        state: PhysicalState,
+        state: pp.compositional.PhysicalState,
         name: str,
         eos: Optional[EquationOfState] = None,
     ) -> None:
@@ -502,8 +501,8 @@ class Phase(Generic[ComponentLike]):
         self.eos: Optional[EquationOfState] = eos
         """The EoS passed at instantiation."""
 
-        self.state: PhysicalState = state
-        """Physical state declared at instantiation (see :attr:`PhysicalStates`)."""
+        self.state: pp.compositional.PhysicalState = state
+        """Physical state declared at instantiation."""
 
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
@@ -777,7 +776,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         for phase in phases:
             double_names.append(phase.name)
-            if phase.state == PhysicalState.gas:
+            if phase.state == pp.compositional.PhysicalState.gas:
                 gaslike_phases.append(phase)
             else:
                 other_phases.append(phase)

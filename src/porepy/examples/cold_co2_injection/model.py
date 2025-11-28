@@ -16,19 +16,27 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Callable, Literal, Optional, Sequence, cast
 
-import numpy as np
 import numba as nb
+import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.fracs.wells_3d import _add_interface
+from porepy.compositional._numba_interface import njit
 from porepy.compositional.compiled_eos import (
     CompiledEoS,
     ScalarFunction,
     VectorFunction,
 )
+from porepy.fracs.wells_3d import _add_interface
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._numba_interface.njit`.
+
+"""
 
 
 class ConstantTransportProperties(CompiledEoS):
@@ -39,14 +47,14 @@ class ConstantTransportProperties(CompiledEoS):
     """
 
     def get_viscosity_function(self) -> ScalarFunction:
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1e-3
 
         return mu_c
 
     def get_viscosity_derivative_function(self) -> VectorFunction:
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -59,14 +67,14 @@ class ConstantTransportProperties(CompiledEoS):
         return dmu_c
 
     def get_conductivity_function(self) -> ScalarFunction:
-        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
     def get_conductivity_derivative_function(self) -> VectorFunction:
-        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+        @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -130,9 +138,10 @@ class FluidMixture(pp.PorePyModel):
         tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
         # Import here to avoid triggering computation before model setup.
+        import numba as nb
+
         import porepy.compositional.peng_robinson as pr
         import porepy.compositional.peng_robinson.lbc_viscosity as lbc
-        import numba as nb
 
         class PRLBC(lbc.LBCViscosity, pr.CompiledPengRobinson):
             """Peng-Robinson with LBC model for viscosity and constant thermal
@@ -140,7 +149,7 @@ class FluidMixture(pp.PorePyModel):
             (0.06)."""
 
             def get_conductivity_function(self):
-                @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+                @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
                 def kappa_c(
                     prearg: np.ndarray, p: float, T: float, xn: np.ndarray
                 ) -> float:
@@ -152,7 +161,7 @@ class FluidMixture(pp.PorePyModel):
                 return kappa_c
 
             def get_conductivity_derivative_function(self):
-                @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
+                @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
                 def dkappa_c(
                     prearg_val: np.ndarray,
                     prearg_jac: np.ndarray,
@@ -168,7 +177,9 @@ class FluidMixture(pp.PorePyModel):
             """Peng-Robinson with Constant Transport properties."""
 
         eos = PRCT(
-            components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
+            components,
+            [pp.compositional.ideal.IdealH2O, pp.compositional.ideal.IdealCO2],
+            pr.get_bip_matrix(components),
         )
         return [
             (pp.compositional.PhysicalState.liquid, "L", eos),

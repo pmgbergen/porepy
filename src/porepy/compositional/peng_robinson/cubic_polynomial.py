@@ -35,7 +35,7 @@ from __future__ import annotations
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
+from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 
 __all__ = [
     "get_root_case",

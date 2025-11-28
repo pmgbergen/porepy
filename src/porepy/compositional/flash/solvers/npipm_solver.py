@@ -10,7 +10,7 @@ from typing import Callable, Literal, TypeAlias
 import numba as nb
 import numpy as np
 
-from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH, njit
+from ..._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ..abstract_flash import FlashSpec
 from ..flash_equations import parse_generic_arg
 from ._armijo_line_search import (  # armijo_line_search,

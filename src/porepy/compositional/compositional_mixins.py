@@ -25,20 +25,33 @@ from typing import Callable, Sequence, cast
 
 import porepy as pp
 
-from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
-from ._core import PhysicalState
 from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
 from .utils import CompositionalModellingError
 
 __all__ = [
+    "VAR_SYMBOLS",
     "get_local_equilibrium_condition",
     "has_unified_equilibrium",
     "CompositionalVariables",
     "FluidMixin",
 ]
 
-DomainFunctionType = pp.DomainFunctionType
-ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
+
+VAR_SYMBOLS = {
+    "overall_fraction": "z",
+    "phase_fraction": "y",
+    "phase_saturation": "s",
+    "partial_fraction": "x",
+    "tracer_fraction": "c",
+}
+"""A dictionary mapping names of variables (key) to their symbol (value), which is used
+in the compositional framework in combination with some index.
+
+Important:
+    When using the composite framework, it is important to **not** name any other
+    variable using the symbols here.
+
+"""
 
 
 def _no_property_function(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -398,20 +411,20 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
     def _overall_fraction_variable(self, component: Component) -> str:
         """Returns the name of the fraction variable assigned to ``component``."""
-        return f"{symbols['overall_fraction']}_{component.name}"
+        return f"{VAR_SYMBOLS['overall_fraction']}_{component.name}"
 
     def _saturation_variable(self, phase: Phase) -> str:
         """Returns the name of the saturation variable assigned to ``phase``."""
-        return f"{symbols['phase_saturation']}_{phase.name}"
+        return f"{VAR_SYMBOLS['phase_saturation']}_{phase.name}"
 
     def _tracer_fraction_variable(self, tracer: Component, compound: Compound) -> str:
         """Returns the name of the tracer fraction variable assigned to tracer in a
         compound."""
-        return f"{symbols['tracer_fraction']}_{tracer.name}_{compound.name}"
+        return f"{VAR_SYMBOLS['tracer_fraction']}_{tracer.name}_{compound.name}"
 
     def _phase_fraction_variable(self, phase: Phase) -> str:
         """Returns the name of the phase fraction variable assigned to ``phase``."""
-        return f"{symbols['phase_fraction']}_{phase.name}"
+        return f"{VAR_SYMBOLS['phase_fraction']}_{phase.name}"
 
     def _partial_fraction_variable(self, component: Component, phase: Phase) -> str:
         """Returns the name of the (extended or partial) fraction variable of
@@ -422,9 +435,9 @@ class _MixtureDOFHandler(pp.PorePyModel):
             the case they are used, partial fractions are always dependent operators.
 
         """
-        return f"{symbols['phase_composition']}_{component.name}_{phase.name}"
+        return f"{VAR_SYMBOLS['partial_fraction']}_{component.name}_{phase.name}"
 
-    def _fraction_factory(self, name: str) -> DomainFunctionType:
+    def _fraction_factory(self, name: str) -> pp.DomainFunctionType:
         """Factory method to create a callable representing any independent fraction
         with given ``name`` on subdomain or boundary grids."""
 
@@ -633,7 +646,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
     def overall_fraction(
         self,
         component: Component,
-    ) -> DomainFunctionType:
+    ) -> pp.DomainFunctionType:
         """Getter method to create a callable representing the overall fraction of a
         component on a list of subdomains or boundaries.
 
@@ -651,7 +664,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         """
 
-        fraction: DomainFunctionType
+        fraction: pp.DomainFunctionType
 
         # If only 1 component, the fraction is always 1.
         if self.fluid.num_components == 1:
@@ -686,7 +699,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
     def tracer_fraction(
         self, tracer: pp.FluidComponent, compound: Compound
-    ) -> DomainFunctionType:
+    ) -> pp.DomainFunctionType:
         """Getter method to create a callable representing the tracer fraction of an
         active tracer in a compound, on a list of subdomains or boundaries.
 
@@ -714,7 +727,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         return fraction
 
-    def saturation(self, phase: Phase) -> DomainFunctionType:
+    def saturation(self, phase: Phase) -> pp.DomainFunctionType:
         """Analogous to :meth:`overall_fraction` but for phase saturations.
 
         Cases where the saturation is not an independent variable:
@@ -730,7 +743,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         """
 
-        saturation: DomainFunctionType
+        saturation: pp.DomainFunctionType
 
         # If only 1 phase, the saturation is always 1.
         if self.fluid.num_phases == 1:
@@ -762,10 +775,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         return saturation
 
-    def phase_fraction(self, phase: Phase) -> DomainFunctionType:
+    def phase_fraction(self, phase: Phase) -> pp.DomainFunctionType:
         """Analogous to :meth:`saturation` but for phase molar fractions."""
 
-        fraction: DomainFunctionType
+        fraction: pp.DomainFunctionType
         # Code is completely analogous to method saturation, except that we raise a
         # modelling error if no equilibrium is defined. Phase fractions can completely
         # be omitted in that case.
@@ -804,7 +817,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
     def extended_fraction(
         self, component: Component, phase: Phase
-    ) -> DomainFunctionType:
+    ) -> pp.DomainFunctionType:
         """Getter method to create a callable representing the extended fraction of a
         component in a phase, on a list of subdomains or boundaries.
 
@@ -831,7 +844,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             f"Component {component.name} not in phase {phase.name}"
         )
 
-        fraction: DomainFunctionType
+        fraction: pp.DomainFunctionType
 
         # Add this for completeness reasons, s.t. the phase has the respective
         # attribute. But raise an error if the user tries to access the fraction.
@@ -867,7 +880,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
     def partial_fraction(
         self, component: Component, phase: Phase
-    ) -> DomainFunctionType:
+    ) -> pp.DomainFunctionType:
         """Getter method to create a callable representing the partial fraction of a
         component in a phase, on a list of subdomains or boundaries.
 
@@ -893,7 +906,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             f"Component {component.name} not in phase {phase.name}"
         )
 
-        fraction: DomainFunctionType
+        fraction: pp.DomainFunctionType
 
         # Case only 1 component in phase: partial fraction is always 1
         if phase.num_components == 1:
@@ -1036,7 +1049,7 @@ class FluidMixin(pp.PorePyModel):
                 phase_state, name = config
                 eos = None
 
-            assert phase_state in PhysicalState, (
+            assert phase_state in pp.compositional.PhysicalState, (
                 f"Expecting a valid `PhysicalState`, got {phase_state}."
             )
             assert isinstance(name, str), (
@@ -1074,7 +1087,8 @@ class FluidMixin(pp.PorePyModel):
     def get_phase_configuration(
         self, components: Sequence[ComponentLike]
     ) -> Sequence[
-        tuple[PhysicalState, str] | tuple[PhysicalState, str, EquationOfState]
+        tuple[pp.compositional.PhysicalState, str]
+        | tuple[pp.compositional.PhysicalState, str, EquationOfState]
     ]:
         """Method to return a configuration of modelled phases.
 
@@ -1105,7 +1119,7 @@ class FluidMixin(pp.PorePyModel):
             heuristics.
 
         """
-        return [(PhysicalState.liquid, "liquid")]
+        return [(pp.compositional.PhysicalState.liquid, "liquid")]
 
     def set_components_in_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
@@ -1266,7 +1280,7 @@ class FluidMixin(pp.PorePyModel):
         """
         return []
 
-    def density_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+    def density_of_phase(self, phase: Phase) -> pp.ExtendedDomainFunctionType:
         """This base method returns the density of a ``phase`` as a
         :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`,
         if :meth:`dependencies_of_phase_properties` has a non-empty return value.
@@ -1291,7 +1305,7 @@ class FluidMixin(pp.PorePyModel):
         else:
             return _no_property_function
 
-    def specific_volume_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+    def specific_volume_of_phase(self, phase: Phase) -> pp.ExtendedDomainFunctionType:
         """The specific volume of the phase is returned as a function calling the
         the phase density and taking the reciprocal of it.
 
@@ -1312,7 +1326,7 @@ class FluidMixin(pp.PorePyModel):
 
         return volume
 
-    def specific_enthalpy_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+    def specific_enthalpy_of_phase(self, phase: Phase) -> pp.ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`, but for
         :attr:`~porepy.compositional.base.Phase.specific_enthalpy` of a ``phase``.
 
@@ -1331,7 +1345,7 @@ class FluidMixin(pp.PorePyModel):
         else:
             return _no_property_function
 
-    def viscosity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+    def viscosity_of_phase(self, phase: Phase) -> pp.ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`,  but for
         :attr:`~porepy.compositional.base.Phase.viscosity` of a ``phase``.
 
@@ -1350,7 +1364,9 @@ class FluidMixin(pp.PorePyModel):
         else:
             return _no_property_function
 
-    def thermal_conductivity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+    def thermal_conductivity_of_phase(
+        self, phase: Phase
+    ) -> pp.ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`, but for
         :attr:`~porepy.compositional.base.Phase.thermal_conductivity` of a ``phase``.
 
@@ -1371,7 +1387,7 @@ class FluidMixin(pp.PorePyModel):
 
     def fugacity_coefficient(
         self, component: Component, phase: Phase
-    ) -> ExtendedDomainFunctionType:
+    ) -> pp.ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`, but for
         :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of` of a ``phase``.
 

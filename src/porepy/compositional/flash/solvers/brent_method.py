@@ -8,7 +8,7 @@ from typing import Callable, Literal, TypeAlias
 import numba as nb
 import numpy as np
 
-from ..._core import njit
+from ..._numba_interface import njit
 from ._core import SOLVER_PARAMETERS_TYPE
 
 __all__ = [

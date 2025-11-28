@@ -35,7 +35,7 @@ from typing import Optional, Sequence
 import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
+from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
 from .abstract_flash import FlashResults, FlashSpec, FlashSpecMember_NUMBA_TYPE
 
 __all__ = [
@@ -1073,7 +1073,7 @@ def phase_mass_constraints_jac(
         # Now we require also the product rule for the term (y_j / rho_j) * rho.
         # (y_j / rho_j) * d rho is covered above, we need + rho * d (y_j / rho_j).
         # And we need this only w.r.t. to the dependencies of rho_j, which are p,T,x_ij
-        outer = -rho * y[j1] / rhos[j1] ** 2
+        outer = -rho * y[j1] / (rhos[j1] * rhos[j1])
         d = outer * drhos[j1]
         # Contribution to p,T, and the partial fractions respectively.
         jac[j, :2] += d[:2]

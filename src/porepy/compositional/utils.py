@@ -8,7 +8,7 @@ from typing import Sequence, TypeVar, cast
 import numba as nb
 import numpy as np
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
+from ._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
 
 __all__ = [
     "safe_sum",
@@ -25,6 +25,14 @@ _Addable = TypeVar("_Addable")
 Note:
     Used in :func:`safe_sum` to state that the return value type is the same as the
     argument type.
+
+"""
+
+
+_COMPILER = njit
+"""Decorator for compiling functions in this module.
+
+Uses :func:`~porepy.compositional._numba_interface.njit`.
 
 """
 
@@ -52,7 +60,7 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         return cast(_Addable, 0)
 
 
-@nb.njit(nb.f8[:, :](nb.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:, :](nb.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True)
 def normalize_rows(x: np.ndarray) -> np.ndarray:
     """Takes a 2D array and normalizes it row-wise.
 
@@ -75,7 +83,7 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
     return (x.T / x.sum(axis=1)).T
 
 
-@nb.njit(nb.f8[:](nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for
     :meth:`chainrule_fractional_derivatives` for non-vectorized input."""
@@ -91,7 +99,7 @@ def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.n
     return df_dx
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:, :]), cache=NUMBA_CACHE, parallel=NUMBA_PARALLEL
 )
 def _chainrule_fractional_derivatives_parallel(
@@ -154,7 +162,7 @@ def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.nd
     return df_dx
 
 
-@nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
 def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for :meth:`compute_saturations` for
     non-vectorized input."""
@@ -209,7 +217,7 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
     return s
 
 
-@nb.njit(
+@_COMPILER(
     nb.f8[:, :](nb.f8[:, :], nb.f8[:, :], nb.f8),
     cache=NUMBA_CACHE,
     parallel=NUMBA_PARALLEL,

@@ -12,16 +12,19 @@ References:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Literal, Optional, TypeAlias
+from typing import Callable, Literal, Optional, TypeAlias, Union
 
 import numba as nb
 import numpy as np
 
-from porepy.compositional._core import H_REF, NUMBA_FAST_MATH, R_U_MOL, T_REF, njit
+from .._global_thermodynamic_reference_state import R_U
+from .._numba_interface import NUMBA_FAST_MATH, njit
 
 __all__ = [
     "IdealProperty_T",
     "IdealProperty_pT",
+    "GradIdealProperty_pT",
+    "IdealProperty",
     "IdealFluid",
 ]
 
@@ -46,13 +49,87 @@ Used for Gibbs energy and entropy.
 
 """
 
+GradIdealProperty_pT: TypeAlias = Callable[[float, float], np.ndarray]
+"""Type of derivative of ideal property function which depends on 2 intensive state
+functions, pressure and temperature.
 
-IDP_T_COMPILER = njit(nb.f8(nb.f8))
+Used to type derivatives of a :data:`IdealProperty_pT`.
+
+"""
+
+IdealProperty: TypeAlias = Union[
+    IdealProperty_T, IdealProperty_pT, GradIdealProperty_pT
+]
+"""Union alias for all ideal property signatures."""
+
+
+_IDP_T_COMPILER = njit(nb.f8(nb.f8))
 """Compiler for ideal properties depending only on Temperature."""
 
 
-IDP_pT_COMPILER = njit(nb.f8(nb.f8, nb.f8))
+_IDP_pT_COMPILER = njit(nb.f8(nb.f8, nb.f8))
 """Compiler for ideal properties depending on both pressure and temperature."""
+
+
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def ideal_rho(p: float, T: float) -> float:
+    """Ideal gas density.
+
+    Parameters:
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        :math:`\\frac{p}{R T}`
+
+    """
+    return p / (R_U * T)
+
+
+@njit(nb.f8[:](nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def grad_ideal_rho(p: float, T: float) -> np.ndarray:
+    """Gradient of :func:`rho` with respect to pressure and temperature.
+
+    Parameters:
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        A 1D array of shape ``(2,)`` containing the derivatives.
+
+    """
+    RT = R_U * T
+    return np.array((1.0 / RT, -p / (RT * T)))
+
+
+@njit(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def ideal_v(p: float, T: float) -> float:
+    """Specific volume of an ideal gas.
+
+    Parameters:
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        :math:`\\frac{R T}{p}`
+
+    """
+    return R_U * T / p
+
+
+@njit(nb.f8[:](nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def grad_ideal_v(p: float, T: float) -> np.ndarray:
+    """Gradient of :func:`ideal_v` with respect to pressure and temperature.
+
+    Parameters:
+        p: Pressure.
+        T: Temperature.
+
+    Returns:
+        A 1D array of shape ``(2,)`` containing the derivatives.
+
+    """
+    return np.array((-R_U * T / (p * p), R_U / p))
 
 
 class IdealFluid:
@@ -76,12 +153,15 @@ class IdealFluid:
             raise ValueError("Require dudT if u is given.")
 
         self.funcs_raw: dict[
-            Literal["u", "h", "dhdT", "dudT"], IdealProperty_T | None
-        ] = {"h": h, "u": u, "dhdT": dhdT, "dudT": dudT}
+            Literal["u", "h", "dh", "du"], IdealProperty_T | IdealProperty_pT | None
+        ] = {"h": h, "u": u, "dh": dhdT, "du": dudT}
         """Contains the functions passed at instantiation."""
 
-        self.funcs: dict[Literal["u", "h", "dhdT", "dudT"], IdealProperty_T] = {}
-        """Contains compiled versions of :attr:`funcs_raw`"""
+        self.funcs: dict[
+            Literal["u", "h", "dh", "du", "rho", "drho", "v", "dv"], IdealProperty
+        ] = {}
+        """Contains compiled versions of :attr:`funcs_raw` and the functions for
+        ideal density and specific volume."""
 
         self.is_compiled: bool = False
         """Flag indicating if already compiled."""
@@ -98,41 +178,45 @@ class IdealFluid:
         dh_c: IdealProperty_T
         du_c: IdealProperty_T
 
-        if self.funcs_raw["u"] is not None and self.funcs_raw["dudT"] is not None:
+        if self.funcs_raw["u"] is not None and self.funcs_raw["du"] is not None:
             logger.info("Compiling ideal u and h(u)..")
 
-            u_c = IDP_T_COMPILER(self.funcs_raw["u"])
-            du_c = IDP_T_COMPILER(self.funcs_raw["dudT"])
+            u_c = _IDP_T_COMPILER(self.funcs_raw["u"])
+            du_c = _IDP_T_COMPILER(self.funcs_raw["du"])
 
-            @IDP_T_COMPILER
+            @_IDP_T_COMPILER
             def h_c(T: float) -> float:
-                return u_c(T) + R_U_MOL * T
+                return u_c(T) + R_U * T
 
-            @IDP_T_COMPILER
+            @_IDP_T_COMPILER
             def dh_c(T: float) -> float:
-                return du_c(T) + R_U_MOL
+                return du_c(T) + R_U
 
-        elif self.funcs_raw["h"] is not None and self.funcs_raw["dhdT"] is not None:
+        elif self.funcs_raw["h"] is not None and self.funcs_raw["dh"] is not None:
             logger.info("Compiling ideal h and u(h)..")
 
-            h_c = IDP_T_COMPILER(self.funcs_raw["h"])
-            dh_c = IDP_T_COMPILER(self.funcs_raw["dhdT"])
+            h_c = _IDP_T_COMPILER(self.funcs_raw["h"])
+            dh_c = _IDP_T_COMPILER(self.funcs_raw["dh"])
 
-            @IDP_T_COMPILER
+            @_IDP_T_COMPILER
             def u_c(T: float) -> float:
-                return h_c(T) - R_U_MOL * T
+                return h_c(T) - R_U * T
 
-            @IDP_T_COMPILER
+            @_IDP_T_COMPILER
             def du_c(T: float) -> float:
-                return dh_c(T) - R_U_MOL
+                return dh_c(T) - R_U
 
         else:
             raise RuntimeError("Lost references to raw functions u/h.")
 
         self.funcs = {
             "u": u_c,
-            "dudT": du_c,
+            "du": du_c,
             "h": h_c,
-            "dhdT": dh_c,
+            "dh": dh_c,
+            "rho": ideal_rho,
+            "drho": grad_ideal_rho,
+            "v": ideal_v,
+            "dv": grad_ideal_v,
         }
         self.is_compiled = True
