@@ -557,6 +557,7 @@ class FractureNetwork3d(object):
                 mesh_control_dict,
                 intersection_lines,
                 intersection_line_parents,
+                fracture_to_surface,
             )
         )
         fac.synchronize()
@@ -570,6 +571,7 @@ class FractureNetwork3d(object):
                 mesh_control_dict,
                 intersection_lines,
                 intersection_line_parents,
+                fracture_to_surface,
             )
             gmsh.model.mesh.generate(3)
 
@@ -866,6 +868,7 @@ class FractureNetwork3d(object):
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         intersection_lines: list[int],
         intersection_line_parents: list[int],
+        fracture_to_surface: dict[int, list[int]],
         restrict_to_fractures: bool = True,
     ) -> None:
         # Define a threshold for when to consider refining along fractures. This is a
@@ -1187,6 +1190,7 @@ class FractureNetwork3d(object):
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         intersection_lines: list[int],
         intersection_line_parents: list[int],
+        fracture_to_surface,
     ) -> None:
         # For 3d meshing, we only set mesh sizes on the fractures, not in the domain
         # volume. The rationale is that the volume mesh size will be controlled by the
@@ -1197,6 +1201,7 @@ class FractureNetwork3d(object):
             mesh_size_points,
             intersection_lines,
             intersection_line_parents,
+            fracture_to_surface,
             restrict_to_fractures=False,
         )
 
