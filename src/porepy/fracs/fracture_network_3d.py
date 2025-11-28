@@ -1153,6 +1153,32 @@ class FractureNetwork3d(object):
 
                 gmsh_fields.append(restriction)
 
+        for surface in mesh_size:
+            # Set a background mesh size for the surface itself, away from any
+            # refinement points. This will ensure that the mesh size is reasonable also
+            # in regions where no refinement is needed.
+            h_end = h_bound if surface in boundary_tags else h_frac
+
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "SurfacesList", [surface])
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMin", h_end)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_end)
+            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+            restriction = gmsh.model.mesh.field.add("Restrict")
+            gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
+            if restrict_to_fractures:
+                gmsh.model.mesh.field.setNumbers(restriction, "SurfacesList", [surface])
+            else:
+                gmsh.model.mesh.field.setNumbers(
+                    restriction,
+                    "VolumesList",
+                    [entity[1] for entity in domain_entities],
+                )
+            gmsh_fields.append(restriction)
+
         return gmsh_fields
 
     def _set_3d_mesh_size(
