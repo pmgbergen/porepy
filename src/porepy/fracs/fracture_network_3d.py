@@ -1080,18 +1080,17 @@ class FractureNetwork3d(object):
             # Mesh size information that relates to either endpoints or points close to
             # end points (which were filtered out) must be assigned to endpoints.
 
-            if points.shape[1] > 0:
+            if points.shape[1] > 1:
                 # If there is more than one point in addition to the end points, we can
                 # compute the point-point distances in pairs along this line.
                 point_point_distances = pp.distances.pointset(points, max_diag=True)
                 min_dist_point = np.min(point_point_distances, axis=0)
             else:
-                # This is an isolated point. There is no reason to do refinement for
-                # this line, though, if the same point is identified for other lines, it
-                # may be added there. Note to self: A standard X-intersection with no
-                # other lines in the vicinity will end up here.
-                continue
-                assert False
+                # If there is a single point, the point-point distance will return 0
+                # even with the diag exclusion. In this case, we just set the distance to
+                # a large value, so that the distance to other objects is the one that
+                # is used.
+                min_dist_point = 2 * other_object_distances + 1
 
             # The final distance to be used for mesh size calculation is the minimum of
             # the distance to other objects and the distance to other close points on
