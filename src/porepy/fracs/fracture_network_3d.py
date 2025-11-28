@@ -113,7 +113,6 @@ class SurfacePointInserter:
             _, i = heapq.heappop(q)
             if i in discarded_ijs:
                 continue
-            print(len(q))
             p, dirs = tab[i]
 
             if not gmsh.model.isInside(self._nd - 1, f_main, p):
@@ -127,7 +126,7 @@ class SurfacePointInserter:
             )[0]
             if dist_other > self._threshold:
                 # No need to add more points in this direction.
-                gmsh.model.remove([(0, gmsh_ind)])
+                gmsh.model.occ.remove([(0, gmsh_ind)])
                 discarded_ijs.add(i)
                 tab.pop(i)
                 continue
