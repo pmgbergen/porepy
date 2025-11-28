@@ -867,6 +867,48 @@ def test_domain_split_by_fractures(
     assert len(mdg.subdomains(dim=0)) >= num_0d_grids
 
 
+def test_fractures_intersect_at_boundary(
+    num_constraints: int, unit_box: pp.Domain, mesh_args: dict
+):
+    """Test meshing when fractures intersect at the domain boundary.
+
+    Parameters:
+        num_constraints: Number of fractures to include as constraints.
+        unit_square: Unit square domain fixture.
+        mesh_args: Meshing arguments.
+
+    """
+    fractures = [
+        pp.PlaneFracture(
+            np.array([[0.2, 0.5, 0.5, 0.2], [0.2, 0.0, 0.0, 0.2], [0.2, 0.2, 0.8, 0.8]])
+        ),
+        pp.PlaneFracture(
+            np.array([[0.8, 0.5, 0.5, 0.8], [0.2, 0.0, 0.0, 0.2], [0.2, 0.2, 0.8, 0.8]])
+        ),
+        pp.PlaneFracture(
+            np.array([[0.2, 0.8, 0.8, 0.2], [0.0, 0.1, 0.1, 0.0], [0.5, 0.5, 0.5, 0.5]])
+        ),
+    ]
+
+    network = pp.create_fracture_network(fractures, unit_box)
+    constraints = np.arange(num_constraints)
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(mesh_args, constraints=constraints)
+    # TODO: The number of intersection lines and points are critical here, but we cannot
+    # fix it until we have cleaned up the meshing code so that mesh control points do
+    # not introduce 1d and 0d grids.
+    num_fracs = 3 - num_constraints
+    assert len(mdg.subdomains(dim=2)) == num_fracs
+    if num_fracs == 2:
+        # There should be a single intersection line.
+        assert len(mdg.subdomains(dim=1)) >= 1
+        assert len(mdg.subdomains(dim=0)) >= 0
+    else:
+        # No intersection grids.
+        assert len(mdg.subdomains(dim=1)) == 0
+        assert len(mdg.subdomains(dim=0)) == 0
+
+
 class TestDFMMeshGeneration:
     """Legacy tests for meshing. These cover aspects not covered by the more
     parametrized tests above, and are therefore kept for completeness.

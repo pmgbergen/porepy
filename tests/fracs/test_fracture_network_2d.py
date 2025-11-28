@@ -498,3 +498,36 @@ def test_domain_split_by_fractures(
     # There should be a single 0d grid if there are two fractures.
     num_0d_grids = 1 if num_fracs == 2 else 0
     assert len(mdg.subdomains(dim=0)) == num_0d_grids
+
+
+@pytest.mark.parametrize("num_constraints", [0, 1, 2])
+def test_fractures_intersect_at_boundary(
+    num_constraints: int, unit_square: pp.Domain, mesh_args: dict
+):
+    """Test meshing when fractures intersect at the domain boundary.
+
+    This is known to be a weak point in the meshing algorithm, since Gmsh has a tendency
+    to treat the domain as multiple subdomains, generating edge cases that must be
+    handled in a robust implementation.
+
+    Parameters:
+        unit_square: Unit square domain fixture.
+        mesh_args: Meshing arguments.
+
+    """
+    fractures = [
+        pp.LineFracture(np.array([[0.2, 0.5], [0.2, 0.0]])),
+        pp.LineFracture(np.array([[0.8, 0.5], [0.2, 0.0]])),
+    ]
+    constraints = np.arange(num_constraints)
+
+    network = pp.create_fracture_network(fractures, unit_square)
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(mesh_args, constraints=constraints)
+
+    # There should still be a single 2d grid as far as PorePy is concerned.
+    assert len(mdg.subdomains(dim=2)) == 1
+    # There should be two 1d grids.
+    assert len(mdg.subdomains(dim=1)) == 2 - num_constraints
+    # There should be a single 0d grid.
+    assert len(mdg.subdomains(dim=0)) == 0
