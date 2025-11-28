@@ -464,13 +464,6 @@ class FractureNetwork3d(object):
                     # It is unclear if processing the domain will make any harm, but there
                     # is no need to take any chances. Skip it.
                     continue
-                elif old_fracture[0][1] in boundary_tags_new:
-                    # Similarly, skip processing of boundary segments. TODO: THIS DOES
-                    # NOT HOLD FOR MESH SIZE INFORMATION.
-                    continue
-
-            # Retrieve the original gmsh tag, and then the index of the fracture in
-            # self.fractures.
 
             # Get hold of the gmsh tag used to represent this fracture before
             # intersection removal.
