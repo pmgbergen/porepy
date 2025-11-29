@@ -44,15 +44,7 @@ Uses :func:`~porepy.compositional._numba_interface.njit`
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8[:](
-            nb.f8,
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -95,15 +87,7 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8[:](
-            nb.f8,
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -149,10 +133,7 @@ def _dmu_pure_dT(
 
 
 @_COMPILER(
-    [
-        nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8(nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
-    ],
+    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -179,15 +160,7 @@ def _mu_zero(xn: np.ndarray, mus: np.ndarray, mws: np.ndarray) -> float:
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
-        nb.f8[:](
-            nb.f8[:],
-            nb.f8[:],
-            nb.f8[:, :],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:, :], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -242,15 +215,7 @@ def _dmu_zero(
 
 
 @_COMPILER(
-    [
-        nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8(
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -283,15 +248,7 @@ def _xi(xn: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> fl
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8[:](
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -331,10 +288,7 @@ def _dxi(
 
 
 @_COMPILER(
-    [
-        nb.f8(nb.f8, nb.f8[:], nb.f8[:]),
-        nb.f8(nb.f8, nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)),
-    ],
+    nb.f8(nb.f8, nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -363,12 +317,7 @@ def _reduced_pseudo_density(
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8[:](
-            nb.f8, nb.f8[:], nb.f8[:], nb.types.Array(nb.f8, 1, "C", readonly=True)
-        ),
-    ],
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -401,17 +350,7 @@ def _d_reduced_pseudo_density(
 
 
 @_COMPILER(
-    [
-        nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8(
-            nb.f8,
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -464,18 +403,7 @@ def _mu_correction(
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
-        nb.f8[:](
-            nb.f8,
-            nb.f8[:],
-            nb.f8[:],
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-            nb.types.Array(nb.f8, 1, "C", readonly=True),
-        ),
-    ],
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -562,20 +490,31 @@ class LBCViscosity(CompiledEoS):
     def __init__(self, components: Sequence[FluidComponent], *args, **kwargs) -> None:
         super().__init__(components, *args, **kwargs)
 
-        self._mws = np.array([c.molar_mass for c in components])
-        """Molar weight per component in [kg/mol]."""
-        self._tc = np.array([c.critical_temperature for c in components])
-        """Critical temperature per component in [K]."""
-        self._pc = np.array([c.critical_pressure for c in components])
-        """Critical pressure per component in [Pa]."""
-        self._vc = np.array([c.critical_specific_volume for c in components])
-        """Critical specific volume per component in [m^3/mol]."""
+        self.Tcs: np.ndarray = np.array(
+            [c.critical_temperature for c in components]
+        ).astype(np.float64)
+        """Array of critical temperatures per component."""
+
+        self.pcs: np.ndarray = np.array(
+            [c.critical_pressure for c in components]
+        ).astype(np.float64)
+        """Array of critical pressures per component."""
+
+        self.vcs: np.ndarray = np.array(
+            [c.critical_specific_volume for c in components]
+        ).astype(np.float64)
+        """Array of critical specific volume per component."""
+
+        self.mws: np.ndarray = np.array([c.molar_mass for c in components]).astype(
+            np.float64
+        )
+        """Array of molar masses per component."""
 
     def get_viscosity_function(self) -> ScalarFunction:
-        mws = self._mws.copy()
-        tc = self._tc.copy()
-        pc = self._pc.copy()
-        vc = self._vc.copy()
+        mws = self.mws.copy()
+        Tcs = self.Tcs.copy()
+        pcs = self.pcs.copy()
+        vcs = self.vcs.copy()
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
@@ -584,10 +523,17 @@ class LBCViscosity(CompiledEoS):
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            mus_pure = _mu_pure(T, tc, pc, mws)
-            mu_zero = _mu_zero(xn, mus_pure, mws)
+            # Copy to create local object, simplifies compilation, remains in memory.
+            mws_ = mws.copy()
+            Tcs_ = Tcs.copy()
+            vcs_ = vcs.copy()
+            pcs_ = pcs.copy()
+            mus_pure = _mu_pure(T, Tcs_, pcs_, mws_)
+            mu_zero = _mu_zero(xn, mus_pure, mws_)
 
-            mu_correction = _mu_correction(rho_c(prearg, p, T, xn), xn, tc, pc, vc, mws)
+            mu_correction = _mu_correction(
+                rho_c(prearg, p, T, xn), xn, Tcs_, pcs_, vcs_, mws_
+            )
 
             mu_val = mu_zero + mu_correction
             # Centipoise to Pa s
@@ -597,10 +543,10 @@ class LBCViscosity(CompiledEoS):
         return mu_c
 
     def get_viscosity_derivative_function(self) -> VectorFunction:
-        mws = self._mws.copy()
-        tc = self._tc.copy()
-        pc = self._pc.copy()
-        vc = self._vc.copy()
+        mws = self.mws.copy()
+        Tcs = self.Tcs.copy()
+        pcs = self.pcs.copy()
+        vcs = self.vcs.copy()
 
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
@@ -620,19 +566,24 @@ class LBCViscosity(CompiledEoS):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            mus_pure = _mu_pure(T, tc, pc, mws)
-            dmus_pure_dpT = np.zeros((mus_pure.size, 2))
-            dmus_pure_dpT[:, 1] = _dmu_pure_dT(T, tc, pc, mws)
+            mws_ = mws.copy()
+            Tcs_ = Tcs.copy()
+            vcs_ = vcs.copy()
+            pcs_ = pcs.copy()
 
-            dmu_zero = _dmu_zero(xn, mus_pure, dmus_pure_dpT, mws)
+            mus_pure = _mu_pure(T, Tcs_, pcs_, mws_)
+            dmus_pure_dpT = np.zeros((mus_pure.size, 2))
+            dmus_pure_dpT[:, 1] = _dmu_pure_dT(T, Tcs_, pcs_, mws_)
+
+            dmu_zero = _dmu_zero(xn, mus_pure, dmus_pure_dpT, mws_)
             dmu_correction = _dmu_correction(
                 rho_c(prearg_val, p, T, xn),
                 drho_c(prearg_val, prearg_jac, p, T, xn),
                 xn,
-                tc,
-                pc,
-                vc,
-                mws,
+                Tcs_,
+                pcs_,
+                vcs_,
+                mws_,
             )
 
             dmu = dmu_zero + dmu_correction

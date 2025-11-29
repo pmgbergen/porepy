@@ -165,12 +165,22 @@ def test_cohesion_VdW(nc: int, d: np.ndarray, h: np.ndarray) -> None:
     def dfunc(x: np.ndarray) -> float:
         T = x[0]
         x = x[1:]
-        return grad_a_VdW(T, x, Tcs, omegas, acs, bips)
+        grad_a = grad_a_VdW(T, x, Tcs, omegas, acs, bips)
+        if nc > 1:
+            return grad_a
+        else:
+            return np.hstack((grad_a, 0.0))
 
     def ddfunc(x: np.ndarray) -> float:
         T = x[0]
         x = x[1:]
-        return compact_dense_symmat(hess_a_VdW(T, x, Tcs, omegas, acs, bips))
+        hess_a = compact_dense_symmat(hess_a_VdW(T, x, Tcs, omegas, acs, bips))
+        if nc > 1:
+            return hess_a
+        else:
+            j = np.eye(2)
+            j[:-1, :-1] = hess_a
+            return j
 
     # Test grad approximates function.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
@@ -475,7 +485,7 @@ _dh_per_cp = lambda cp: [
 ]
 
 
-# @pytest.mark.skipped(reason="slow due to compilation.")
+@pytest.mark.skipped(reason="slow due to compilation.")
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [

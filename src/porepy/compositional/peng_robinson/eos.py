@@ -283,25 +283,7 @@ def ddalpha_dTT(T: float, Tc: float, omega: float) -> float:
 
 
 @_COMPILER(
-    [
-        nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-        # nb.f8(
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 2, "C", readonly=True),
-        # ),
-        # nb.f8(
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 2, "C", readonly=False),
-        # ),
-    ],
+    nb.f8(nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -352,25 +334,7 @@ def a_VdW(
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-        # nb.f8[:](
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 2, "C", readonly=True),
-        # ),
-        # nb.f8[:](
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 2, "C", readonly=False),
-        # ),
-    ],
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -430,25 +394,7 @@ def grad_a_VdW(
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
-        # nb.f8[:](
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        #     nb.types.Array(nb.f8, 2, "C", readonly=True),
-        # ),
-        # nb.f8[:](
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        #     nb.types.Array(nb.f8, 2, "C", readonly=False),
-        # ),
-    ],
+    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -578,6 +524,11 @@ def grad_a_dl(grad_a: np.ndarray, a: float, p: float, T: float) -> np.ndarray:
         return np.hstack((np.ones(1) * dAdp, dAdTx))
 
 
+@_COMPILER(
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def hess_a_dl(
     hess_a: np.ndarray, grad_a: np.ndarray, a: float, p: float, T: float
 ) -> np.ndarray:
@@ -624,23 +575,7 @@ def hess_a_dl(
 
 
 @_COMPILER(
-    [
-        nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
-        # nb.f8[:](
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        # ),
-        # nb.f8[:](
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        # ),
-    ],
+    nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
@@ -688,25 +623,9 @@ def lnphis(
 
 
 @_COMPILER(
-    [
-        nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
-        # nb.f8[:, :](
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=True),
-        # ),
-        # nb.f8[:, :](
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8,
-        #     nb.f8[:],
-        #     nb.types.Array(nb.f8, 1, "C", readonly=False),
-        # ),
-    ],
+    nb.f8[:, :](nb.f8, nb.f8, nb.f8, nb.f8[:], nb.f8[:]),
     fastmath=NUMBA_FAST_MATH,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def lnphis_jac(
     A: float,
@@ -808,7 +727,7 @@ def h_dep(
 @_COMPILER(
     nb.f8[:](nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def grad_h_dep(
     A: float,
