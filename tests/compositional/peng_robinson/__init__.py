@@ -78,9 +78,30 @@ def calculate_expected_order(
 
     ec = pr.is_extended_factor(A, B, gaslike, tol)
 
+    # Order loss for super-critical smoothing because derivatives of smoothing weights
+    # are not computed.
     if ec >= 10 and smooth_sc > 0.0:
         expected_order = 1
 
+    # Order loss for extended super-critical root near the zero-cohesion limit.
+    if 10 <= ec < 20 and not gaslike and np.abs(A) < 1e-5:
+        expected_order = 1
+
+    # Order loss because of enforcement of lower B bound for liquid root.
+    if B <= pr.COVOLUME_LIMIT and not gaslike:
+        expected_order = 1
+
+    # Order loss because of liquid-saturated curve intersecting with covolume limit.
+    if B <= pr.COVOLUME_LIMIT and gaslike and A >= 0.25:
+        expected_order = 1
+
+    # Order loss due to limit case (0,0) is interaction of all root cases and Z becomes
+    # non-smooth.
+    if np.linalg.norm((A, B)) <= 1e-5:
+        expected_order = 1
+
+    # Order loss for sub-critical 3-root smoothing because derivatives of smoothing
+    # weights are not computed.
     if (
         pr.get_root_case(pr.c_from_AB(A, B), tol) == 3
         and smooth3 > 0

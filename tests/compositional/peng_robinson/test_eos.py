@@ -424,7 +424,7 @@ def test_ideal_density_and_volume(func, dfunc, d: np.ndarray, h: np.ndarray) -> 
 
 
 @pytest.mark.skipped(reason="slow due to compilation.")
-@pytest.mark.parametrize("prop", ["h", "u"])
+@pytest.mark.parametrize("property_name", ["h", "u"])
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [(cp, d, h) for cp in [(1, "V"), (2, "V"), (3, "V")] for d, h in _dh_per_cp_id(cp)],
@@ -434,7 +434,7 @@ def test_ideal_mixture_energies(
     comps_and_phases: tuple[int, str],
     d: np.ndarray,
     h: np.ndarray,
-    prop: str,
+    property_name: str,
     pr_eos: pr.CompiledPengRobinson,
 ) -> None:
     """Test correctness of the Peng-Robinson EoS derivatives, i.e. that the Taylor
@@ -444,7 +444,6 @@ def test_ideal_mixture_energies(
 
     """
 
-    dprop = f"d{prop}"
     ncomp = comps_and_phases[0]
 
     assert pr_eos.nc == ncomp, "Failure in test setup."
@@ -454,14 +453,14 @@ def test_ideal_mixture_energies(
         T = x[0]
         xn = np.array(x[1:]) if ncomp > 1 else np.ones(1)
         assert xn.size == ncomp, "Invalid number of components."
-        propfunc = pr_eos._ideal_funcs[prop]
+        propfunc = pr_eos._ideal_funcs[property_name]
         return propfunc(T, xn)
 
     def dfunc(x):
         T = x[0]
         xn = np.array(x[1:]) if ncomp > 1 else np.ones(1)
         assert xn.size == ncomp, "Invalid number of components."
-        dpropfunc = pr_eos._ideal_funcs[dprop]
+        dpropfunc = pr_eos._ideal_funcs[f"d{property_name}"]
         return dpropfunc(T, xn)
 
     x0 = np.array([400.0] + ([1.0 / ncomp] * ncomp if ncomp > 1 else []))
@@ -472,6 +471,7 @@ def test_ideal_mixture_energies(
         2,
         tol=1e-2,
         asymptotic=5,
+        err_msg=f"prop = {property_name}, x0 = {x0}, d = {d}",
     )
 
 
@@ -501,6 +501,7 @@ _dh_per_cp = lambda cp: [
 @pytest.mark.parametrize(
     "x0_pT",
     [
+        # Cover low and high pressure and temperature.
         np.array((1e6, 300.0)),
         np.array((1e6, 500.0)),
         np.array((20e6, 300.0)),
@@ -586,4 +587,8 @@ def test_property_derivatives(
         expected_order,
         tol=2e-2,
         asymptotic=5,
+        err_msg=(
+            f"prop = {property_name}, x0 = {x0}, d = {d}, "
+            f"smooth = {(smooth3, smooth_sc)}"
+        ),
     )

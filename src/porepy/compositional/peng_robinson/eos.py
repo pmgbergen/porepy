@@ -892,7 +892,7 @@ class CompiledPengRobinson(CompiledEoS):
             # Computing cohesion, covolume, compressibility factor.
             a = a_VdW(T, xn, Tcs_, omegas_, acs_, bips_)
             grad_a = grad_a_VdW(T, xn, Tcs_, omegas_, acs_, bips_)
-            b = np.dot(xn, bcs_)
+            b = np.sum(xn * bcs_)
 
             A = a_dl(a, p, T)
             B = b_dl(b, p, T)
@@ -1162,7 +1162,7 @@ class CompiledPengRobinson(CompiledEoS):
             # Chain rule.
             drho = -ideal_rho(p, T) / (Z * Z) * dZ
             # Contribution of ideal pT derivative
-            drho[:2] += grad_ideal_rho(p, T)
+            drho[:2] += grad_ideal_rho(p, T) / Z
 
             return drho
 
