@@ -97,8 +97,8 @@ def _grad_lnZB1(Z: float, B: float, c: float) -> float:
     denom = Z + (1 - np.sqrt(2)) * B
     ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, c)
 
-    dZB1dZ = -2.0 * np.sqrt(2) * B / (denom * denom)
-    dZB1dB = 2.0 * np.sqrt(2) * Z / (denom * denom)
+    dZB1dZ = -2.0 * np.sqrt(2) * B / denom**2
+    dZB1dB = 2.0 * np.sqrt(2) * Z / denom**2
     return np.array((dZB1dZ, dZB1dB)) / np.abs(ZB1)
 
 
@@ -279,7 +279,7 @@ def ddalpha_dTT(T: float, Tc: float, omega: float) -> float:
     """Returns the second derivative of :func:`alpha` w.r.t. temperature."""
     k = _k_of_omega(omega)
     sqrtTr = np.sqrt(max(T / Tc, 1e-15))
-    return k * (k + 1) / 2 / (Tc * Tc) / (sqrtTr * sqrtTr * sqrtTr)
+    return k * (k + 1) / (2.0 * Tc**2 * sqrtTr**3)
 
 
 @_COMPILER(
@@ -456,7 +456,7 @@ def hess_a_VdW(
                 / saij
                 * (
                     (2.0 * dTai * dTaj + ai * dTTaj + dTTai * aj)
-                    - dTaij * dTaij / (saij * saij) / 2.0
+                    - dTaij * dTaij / (2.0 * saij * saij)
                 )
             )
             # Contribution to dxdT.
