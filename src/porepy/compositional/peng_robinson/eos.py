@@ -991,7 +991,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return prearg_jac_c
 
-    def get_fugacity_function(self) -> VectorFunction:
+    def get_lnphis_function(self) -> VectorFunction:
         bs = self.bcs.copy()
 
         @_COMPILER(FUGACITY_COEFF_FUNC_SIGNATURE)
@@ -1017,7 +1017,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return phis_c
 
-    def get_fugacity_derivative_function(self) -> VectorFunction:
+    def get_lnphis_derivative_function(self) -> VectorFunction:
         bs = self.bcs.copy()
 
         @_COMPILER(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE)

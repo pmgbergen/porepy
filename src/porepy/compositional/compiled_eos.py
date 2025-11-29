@@ -137,7 +137,7 @@ class PropertyFunctionDict(TypedDict, total=False):
     dkappa: VectorFunction
     """Provided by :meth:`CompiledEoS.get_conductivity_derivative_function`."""
     phis: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_fugacity_function`."""
+    """Provided by :meth:`CompiledEoS.get_lnphis_function`."""
     dphis: VectorFunction
     """Provided by :meth:`CompiledEoS.get_fugacity_derivative_function`."""
 
@@ -831,8 +831,13 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_fugacity_function(self) -> VectorFunction:
+    def get_lnphis_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the fugacity coefficients.
+
+        Note:
+            This method must return the logarithm of the fugacity coefficients.
+            It is up to the modeler to risk applying the exponential and leave the log
+            space.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -842,7 +847,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_fugacity_derivative_function(self) -> VectorFunction:
+    def get_lnphis_derivative_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of fugacity
         coefficients.
 
@@ -850,6 +855,12 @@ class CompiledEoS(EquationOfState):
         row-wise in a matrix.
         It must contain the derivatives w.r.t. to the arguments and each fraction.
         I.e. the return value must be an array with ``shape=(num_comp, m + num_comp)``.
+
+        Note:
+            This method must return the derivative of the logarithm of the fugacity
+            coefficients, to be consistent with :meth:`get_lnphis_function`.
+            I.e., treat :math:`a = \\log{\\phi}` and return :math:`\\partial a` without
+            actually computing the derivative of the logarithm.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -1054,9 +1065,9 @@ class CompiledEoS(EquationOfState):
         logger.debug("Compiling real property functions 1/14")
         self.funcs["prearg_jac"] = self.get_prearg_for_derivatives()
         logger.debug("Compiling real property functions 2/14")
-        self.funcs["phis"] = self.get_fugacity_function()
+        self.funcs["phis"] = self.get_lnphis_function()
         logger.debug("Compiling real property functions 3/14")
-        self.funcs["dphis"] = self.get_fugacity_derivative_function()
+        self.funcs["dphis"] = self.get_lnphis_derivative_function()
         logger.debug("Compiling real property functions 4/14")
         self.funcs["h"] = self.get_enthalpy_function()
         logger.debug("Compiling real property functions 5/14")
