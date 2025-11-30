@@ -171,7 +171,7 @@ class WaterEoS(pr.CompiledPengRobinson):
     correlations to compute the transport properties viscosity and thermal conductivity.
     """
 
-    def get_viscosity_function(self) -> ceos.ScalarFunction:
+    def get_mu_function(self) -> ceos.ScalarFunction:
         @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1e-3
@@ -187,7 +187,7 @@ class WaterEoS(pr.CompiledPengRobinson):
 
         return mu_c
 
-    def get_viscosity_derivative_function(self) -> ceos.VectorFunction:
+    def get_grad_mu_function(self) -> ceos.VectorFunction:
         @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
@@ -200,7 +200,7 @@ class WaterEoS(pr.CompiledPengRobinson):
 
         return dmu_c
 
-    def get_conductivity_function(self) -> ceos.ScalarFunction:
+    def get_kappa_function(self) -> ceos.ScalarFunction:
         @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # return 1.0
@@ -216,7 +216,7 @@ class WaterEoS(pr.CompiledPengRobinson):
 
         return kappa_c
 
-    def get_conductivity_derivative_function(self) -> ceos.VectorFunction:
+    def get_grad_kappa_function(self) -> ceos.VectorFunction:
         @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,

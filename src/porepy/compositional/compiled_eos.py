@@ -82,6 +82,8 @@ PropertyFunctionNames: TypeAlias = Literal[
     "dphis",
     "h",
     "dh",
+    "u",
+    "du",
     "v",
     "dv",
     "rho",
@@ -117,29 +119,33 @@ class PropertyFunctionDict(TypedDict, total=False):
     prearg_jac: VectorFunction
     """Provided by :meth:`CompiledEoS.get_prearg_for_derivatives`."""
     h: ScalarFunction
-    """Provided by :meth:`CompiledEoS.get_enthalpy_function`."""
+    """Provided by :meth:`CompiledEoS.get_h_function`."""
     dh: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_enthalpy_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_grad_h_function`."""
+    u: ScalarFunction
+    """Provided by :meth:`CompiledEoS.get_u_function`."""
+    du: VectorFunction
+    """Provided by :meth:`CompiledEoS.get_grad_u_function`."""
     rho: ScalarFunction
-    """Provided by :meth:`CompiledEoS.get_density_function`."""
+    """Provided by :meth:`CompiledEoS.get_rho_function`."""
     drho: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_density_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_grad_rho_function`."""
     v: ScalarFunction
-    """Provided by :meth:`CompiledEoS.get_volume_function`."""
+    """Provided by :meth:`CompiledEoS.get_v_function`."""
     dv: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_volume_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_grad_v_function`."""
     mu: ScalarFunction
-    """Provided by :meth:`CompiledEoS.get_viscosity_function`."""
+    """Provided by :meth:`CompiledEoS.get_mu_function`."""
     dmu: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_viscosity_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_grad_mu_function`."""
     kappa: ScalarFunction
-    """Provided by :meth:`CompiledEoS.get_conductivity_function`."""
+    """Provided by :meth:`CompiledEoS.get_kappa_function`."""
     dkappa: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_conductivity_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_grad_kappa_function`."""
     phis: VectorFunction
     """Provided by :meth:`CompiledEoS.get_lnphis_function`."""
     dphis: VectorFunction
-    """Provided by :meth:`CompiledEoS.get_fugacity_derivative_function`."""
+    """Provided by :meth:`CompiledEoS.get_grad_lnphis_function`."""
 
 
 PREARGUMENT_FUNC_SIGNATURE: nb.types.Type = nb.f8[:](
@@ -847,7 +853,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_lnphis_derivative_function(self) -> VectorFunction:
+    def get_grad_lnphis_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of fugacity
         coefficients.
 
@@ -870,7 +876,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_enthalpy_function(self) -> ScalarFunction:
+    def get_h_function(self) -> ScalarFunction:
         """Abstract assembler for compiled computations of the specific molar enthalpy.
 
         Returns:
@@ -881,7 +887,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_enthalpy_derivative_function(self) -> VectorFunction:
+    def get_grad_h_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         enthalpy function for a phase.
 
@@ -893,7 +899,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_density_function(self) -> ScalarFunction:
+    def get_rho_function(self) -> ScalarFunction:
         """Abstract assembler for compiled computations of the density.
 
         Returns:
@@ -904,7 +910,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_density_derivative_function(self) -> VectorFunction:
+    def get_grad_rho_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         density function for a phase.
 
@@ -916,7 +922,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_viscosity_function(self) -> ScalarFunction:
+    def get_mu_function(self) -> ScalarFunction:
         """Abstract assembler for compiled computations of the dynamic molar viscosity.
 
         Returns:
@@ -927,7 +933,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_viscosity_derivative_function(self) -> VectorFunction:
+    def get_grad_mu_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         viscosity function for a phase.
 
@@ -939,7 +945,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_conductivity_function(self) -> ScalarFunction:
+    def get_kappa_function(self) -> ScalarFunction:
         """Abstract assembler for compiled computations of the thermal conductivity.
 
         Returns:
@@ -950,7 +956,7 @@ class CompiledEoS(EquationOfState):
         pass
 
     @abc.abstractmethod
-    def get_conductivity_derivative_function(self) -> VectorFunction:
+    def get_grad_kappa_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         conductivity function for a phase.
 
@@ -961,11 +967,11 @@ class CompiledEoS(EquationOfState):
         """
         pass
 
-    def get_volume_function(self) -> ScalarFunction:
+    def get_v_function(self) -> ScalarFunction:
         """Assembler for compiled computations of the specific molar volume.
 
         The volume is computed as the reciprocal of the return value of
-        :meth:`get_density_function`.
+        :meth:`get_rho_function`.
 
         Note:
             This function is compiled faster, if the density function has already been
@@ -978,7 +984,7 @@ class CompiledEoS(EquationOfState):
         """
         rho_c = self.funcs.get("rho", None)
         if rho_c is None:
-            rho_c = self.get_density_function()
+            rho_c = self.get_rho_function()
 
         rho_c = cast(ScalarFunction, rho_c)
 
@@ -992,13 +998,13 @@ class CompiledEoS(EquationOfState):
 
         return v_c
 
-    def get_volume_derivative_function(self) -> VectorFunction:
+    def get_grad_v_function(self) -> VectorFunction:
         """Assembler for compiled computations of the derivative of the
         volume function for a phase.
 
         Volume is expressed as the reciprocal of density.
-        Hence the computations utilize :meth:`get_density_function`,
-        :meth:`get_density_derivative_function` and the chain-rule to compute the
+        Hence the computations utilize :meth:`get_rho_function`,
+        :meth:`get_grad_rho_function` and the chain-rule to compute the
         derivatives.
 
         Note:
@@ -1012,11 +1018,11 @@ class CompiledEoS(EquationOfState):
         """
         rho_c = self.funcs.get("rho", None)
         if rho_c is None:
-            rho_c = self.get_density_function()
+            rho_c = self.get_rho_function()
 
         drho_c = self.funcs.get("drho", None)
         if drho_c is None:
-            drho_c = self.get_density_derivative_function()
+            drho_c = self.get_grad_rho_function()
 
         rho_c = cast(ScalarFunction, rho_c)
         drho_c = cast(VectorFunction, drho_c)
@@ -1060,36 +1066,20 @@ class CompiledEoS(EquationOfState):
 
         logger.info("Compiling real property functions ..")
 
-        # region Element-wise computations
         self.funcs["prearg_val"] = self.get_prearg_for_values()
-        logger.debug("Compiling real property functions 1/14")
         self.funcs["prearg_jac"] = self.get_prearg_for_derivatives()
-        logger.debug("Compiling real property functions 2/14")
         self.funcs["phis"] = self.get_lnphis_function()
-        logger.debug("Compiling real property functions 3/14")
-        self.funcs["dphis"] = self.get_lnphis_derivative_function()
-        logger.debug("Compiling real property functions 4/14")
-        self.funcs["h"] = self.get_enthalpy_function()
-        logger.debug("Compiling real property functions 5/14")
-        self.funcs["dh"] = self.get_enthalpy_derivative_function()
-        logger.debug("Compiling real property functions 6/14")
-        self.funcs["rho"] = self.get_density_function()
-        logger.debug("Compiling real property functions 7/14")
-        self.funcs["drho"] = self.get_density_derivative_function()
-        logger.debug("Compiling real property functions 8/14")
-        self.funcs["v"] = self.get_volume_function()
-        logger.debug("Compiling real property functions 9/14")
-        self.funcs["dv"] = self.get_volume_derivative_function()
-        logger.debug("Compiling real property functions 10/14")
-        self.funcs["mu"] = self.get_viscosity_function()
-        logger.debug("Compiling real property functions 11/14")
-        self.funcs["dmu"] = self.get_viscosity_derivative_function()
-        logger.debug("Compiling real property functions 12/14")
-        self.funcs["kappa"] = self.get_conductivity_function()
-        logger.debug("Compiling real property functions 13/14")
-        self.funcs["dkappa"] = self.get_conductivity_derivative_function()
-        logger.debug("Compiling real property functions 14/14")
-        # endregion
+        self.funcs["dphis"] = self.get_grad_lnphis_function()
+        self.funcs["h"] = self.get_h_function()
+        self.funcs["dh"] = self.get_grad_h_function()
+        self.funcs["rho"] = self.get_rho_function()
+        self.funcs["drho"] = self.get_grad_rho_function()
+        self.funcs["v"] = self.get_v_function()
+        self.funcs["dv"] = self.get_grad_v_function()
+        self.funcs["mu"] = self.get_mu_function()
+        self.funcs["dmu"] = self.get_grad_mu_function()
+        self.funcs["kappa"] = self.get_kappa_function()
+        self.funcs["dkappa"] = self.get_grad_kappa_function()
 
         logger.info("Assembling vectorized functions ..")
 
@@ -1116,8 +1106,6 @@ class CompiledEoS(EquationOfState):
             self.gufuncs[dk] = partial(
                 _evaluate_vectorized_property_derivatives_func, self.funcs[dk]
             )
-
-        # endregion
 
         self._is_compiled = True
 

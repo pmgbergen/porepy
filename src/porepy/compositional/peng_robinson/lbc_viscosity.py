@@ -517,7 +517,7 @@ class LBCViscosity(CompiledEoS):
         )
         """Array of molar masses per component."""
 
-    def get_viscosity_function(self) -> ScalarFunction:
+    def get_mu_function(self) -> ScalarFunction:
         mws = self.mws.copy()
         Tcs = self.Tcs.copy()
         pcs = self.pcs.copy()
@@ -526,7 +526,7 @@ class LBCViscosity(CompiledEoS):
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
         else:
-            rho_c = self.get_density_function()
+            rho_c = self.get_rho_function()
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
@@ -549,7 +549,7 @@ class LBCViscosity(CompiledEoS):
 
         return mu_c
 
-    def get_viscosity_derivative_function(self) -> VectorFunction:
+    def get_grad_mu_function(self) -> VectorFunction:
         mws = self.mws.copy()
         Tcs = self.Tcs.copy()
         pcs = self.pcs.copy()
@@ -558,12 +558,12 @@ class LBCViscosity(CompiledEoS):
         if "rho" in self.funcs:
             rho_c = self.funcs["rho"]
         else:
-            rho_c = self.get_density_function()
+            rho_c = self.get_rho_function()
 
         if "drho" in self.funcs:
             drho_c = self.funcs["drho"]
         else:
-            drho_c = self.get_density_derivative_function()
+            drho_c = self.get_grad_rho_function()
 
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dmu_c(

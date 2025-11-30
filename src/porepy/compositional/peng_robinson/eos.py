@@ -1012,7 +1012,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return phis_c
 
-    def get_lnphis_derivative_function(self) -> VectorFunction:
+    def get_grad_lnphis_function(self) -> VectorFunction:
         bs = self.bcs.copy()
 
         @_COMPILER(FUGACITY_COEFF_DERIVATIVE_FUNC_SIGNATURE)
@@ -1071,7 +1071,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return dphi_mix_c
 
-    def get_enthalpy_function(self) -> ScalarFunction:
+    def get_h_function(self) -> ScalarFunction:
         h_id_c = self._ideal_funcs["h"]
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
@@ -1089,7 +1089,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return h_c
 
-    def get_enthalpy_derivative_function(self) -> VectorFunction:
+    def get_grad_h_function(self) -> VectorFunction:
         dh_id_c = self._ideal_funcs["dh"]
 
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
@@ -1129,7 +1129,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return dh_c
 
-    def get_density_function(self) -> ScalarFunction:
+    def get_rho_function(self) -> ScalarFunction:
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # Real density is ideal density divided by compressibility factor.
@@ -1137,7 +1137,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         return rho_c
 
-    def get_density_derivative_function(self) -> VectorFunction:
+    def get_grad_rho_function(self) -> VectorFunction:
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def drho_c(
             prearg_val: np.ndarray,

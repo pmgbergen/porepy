@@ -46,14 +46,14 @@ class ConstantTransportProperties(CompiledEoS):
 
     """
 
-    def get_viscosity_function(self) -> ScalarFunction:
+    def get_mu_function(self) -> ScalarFunction:
         @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1e-3
 
         return mu_c
 
-    def get_viscosity_derivative_function(self) -> VectorFunction:
+    def get_grad_mu_function(self) -> VectorFunction:
         @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
@@ -66,14 +66,14 @@ class ConstantTransportProperties(CompiledEoS):
 
         return dmu_c
 
-    def get_conductivity_function(self) -> ScalarFunction:
+    def get_kappa_function(self) -> ScalarFunction:
         @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
-    def get_conductivity_derivative_function(self) -> VectorFunction:
+    def get_grad_kappa_function(self) -> VectorFunction:
         @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,
@@ -148,7 +148,7 @@ class FluidMixture(pp.PorePyModel):
             conductivity with reference values for water in liquid (0.6) and vapor form
             (0.06)."""
 
-            def get_conductivity_function(self):
+            def get_kappa_function(self):
                 @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
                 def kappa_c(
                     prearg: np.ndarray, p: float, T: float, xn: np.ndarray
@@ -160,7 +160,7 @@ class FluidMixture(pp.PorePyModel):
 
                 return kappa_c
 
-            def get_conductivity_derivative_function(self):
+            def get_grad_kappa_function(self):
                 @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
                 def dkappa_c(
                     prearg_val: np.ndarray,

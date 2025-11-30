@@ -37,6 +37,27 @@ from porepy.compositional.peng_robinson.cubic_polynomial import (
 )
 
 
+EPS: float = 1e-14
+"""Reliable epsilon for the detection of degenerate discriminants. 
+
+Below this value for float64, the discriminant checks become numerically unreliable.
+
+"""
+
+
+TOL_RES: float = 5e-14
+"""Maximal tolerance for the polynomial residual if the root is found.
+
+For float64, the last 2-3 bits are lost due to usage of cubic roots and
+trigonometric functions in the root formulae.
+
+Note:
+    Due to unclear floating point reasons, the two-root formula (though very simple),
+    requires this value. All other formulae are fine with ``1e-14``.
+
+"""
+
+
 def get_polynomial_residual(r: float | np.ndarray, c: np.ndarray) -> float | np.ndarray:
     r"""Computes the residual of a normalized polynomial.
 
@@ -81,9 +102,9 @@ def _get_random_coeffs_for_two_root_case() -> np.ndarray:
         # We operate in general with a float64-precision and due to floating point
         # arithmetics we can determin the root case down to this precision safely
         # without introducing errors.
-        (A_CRIT, B_CRIT + 1e-14, True, 1),
-        (A_CRIT + 1e-14, B_CRIT, True, 1),
-        (A_CRIT - 1e-14, B_CRIT, True, 1),
+        (A_CRIT, B_CRIT + EPS, True, 1),
+        (A_CRIT + EPS, B_CRIT, True, 1),
+        (A_CRIT - EPS, B_CRIT, True, 1),
         # First detection of 3-root region below critical point.
         (np.float64(0.4545650246634926), np.float64(0.07717075021475177), False, 3),
         (np.float64(0.4545650246634926), np.float64(0.07712476321475177), False, 3),
@@ -159,6 +180,7 @@ def test_floating_point_stability_for_degenerate_discriminant(
         rc: Expected root case.
 
     """
+    # Chose minimum possible tolerance for this test.
     eps = 1e-15
     c = c_from_AB(A, B)
     is_sc_comp = is_supercritical(A, B)
@@ -169,15 +191,12 @@ def test_floating_point_stability_for_degenerate_discriminant(
     r = calculate_roots(c, eps)
     # NOTE: Though simple, the two-root function loses precision in the last two ULPs.
     # I don't know why.
-    assert np.all(get_polynomial_residual(r, c) < 5e-14 if rc == 2 else eps), (
-        "Not actual root."
-    )
+    assert np.all(get_polynomial_residual(r, c) < TOL_RES), "Not actual root."
 
 
 def test_numerical_precision():
     """Sweeps accross the interval [-1, 1] for all coefficients and checks that the
     computed roots satisfy the polynomial equation up to a specified precision."""
-    eps = 1e-14
     N = 101
     c0 = np.linspace(-1, 1, N, endpoint=True)
     c1 = np.linspace(-1, 1, N, endpoint=True)
@@ -185,8 +204,10 @@ def test_numerical_precision():
 
     for c0_, c1_, c2_ in product(c0, c1, c2):
         c = np.array([c0_, c1_, c2_])
-        r = calculate_roots(c, eps)
-        assert np.all(get_polynomial_residual(r, c) < eps), f"Precision failure: {c}"
+        r = calculate_roots(c, EPS)
+        assert np.all(get_polynomial_residual(r, c) < TOL_RES), (
+            f"Precision failure: {c}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -246,15 +267,7 @@ def test_known_root_case_calculations(
 
     """
 
-    # NOTE: Due to numerics, we must allow this tolerance. The current code does not
-    # reach lower tolerances for all test cases.
-    tol = 1e-14
-    if root_case == 2:
-        tol_res = 5e-14
-    else:
-        tol_res = tol
-
-    calculated_root_case = get_root_case(coefficients, tol)
+    calculated_root_case = get_root_case(coefficients, EPS)
 
     # Test the calculated root case.
     assert calculated_root_case == root_case
@@ -281,15 +294,15 @@ def test_known_root_case_calculations(
             assert False, "Faulty test"
 
     # Test computed root.
-    np.testing.assert_allclose(vals, solution, atol=tol_res, rtol=0.0)
+    np.testing.assert_allclose(vals, solution, atol=TOL_RES, rtol=0.0)
 
     # Test that it is indeed a rood.
     residual = get_polynomial_residual(vals, coefficients)
-    np.testing.assert_allclose(residual, 0.0, atol=tol_res, rtol=0.0)
+    np.testing.assert_allclose(residual, 0.0, atol=TOL_RES, rtol=0.0)
 
     # Test that the call to the general function returns the same result.
-    genvals = calculate_roots(coefficients, tol)
-    np.testing.assert_allclose(genvals, solution, atol=tol_res, rtol=0.0)
+    genvals = calculate_roots(coefficients, EPS)
+    np.testing.assert_allclose(genvals, solution, atol=TOL_RES, rtol=0.0)
 
 
 def test_triple_root_derivatives() -> None:
@@ -303,7 +316,7 @@ def test_triple_root_derivatives() -> None:
     approximations = [(triple_root(X0 + h) - r) / h for h in h_values]
     np.testing.assert_allclose(np.array(approximations), -1 / 3, atol=1e-7, rtol=0.0)
     np.testing.assert_allclose(
-        dr, np.array([-1 / 3, 0.0, 0.0]).reshape((1, 3)), atol=1e-14, rtol=0.0
+        dr, np.array([-1 / 3, 0.0, 0.0]).reshape((1, 3)), atol=TOL_RES, rtol=0.0
     )
 
 

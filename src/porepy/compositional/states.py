@@ -95,6 +95,9 @@ class ExtensiveProperties:
     h: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Specific enthalpy."""
 
+    u: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    """Specific internal energy."""
+
     rho: np.ndarray = field(default_factory=lambda: np.zeros(0))
     """Density."""
 
@@ -144,6 +147,9 @@ class PhaseProperties(ExtensiveProperties):
 
     dh: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the specific enthalpy."""
+
+    du: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
+    """Derivatives of the specific internal energy."""
 
     drho: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
     """Derivatives of the density."""
@@ -307,6 +313,7 @@ class FluidProperties(IntensiveProperties, ExtensiveProperties):
         """
 
         self.h = safe_sum([y * state.h for y, state in zip(self.y, self.phases)])
+        self.u = safe_sum([y * state.u for y, state in zip(self.y, self.phases)])
         rho = cast(
             np.ndarray,
             safe_sum([s * state.rho for s, state in zip(self.sat, self.phases)]),
@@ -359,6 +366,7 @@ def initialize_fluid_properties(
     for j in range(nphase):
         phase_state = PhaseProperties(
             h=np.zeros(n),
+            u=np.zeros(n),
             rho=np.zeros(n),
             state=phase_states[j],
             x=np.zeros((ncomp[j], n)),
@@ -369,6 +377,7 @@ def initialize_fluid_properties(
 
         if with_derivatives:
             phase_state.dh = np.zeros((2 + ncomp[j], n))
+            phase_state.du = np.zeros((2 + ncomp[j], n))
             phase_state.drho = np.zeros((2 + ncomp[j], n))
             phase_state.dphis = np.zeros((ncomp[j], 2 + ncomp[j], n))
             phase_state.dmu = np.zeros((2 + ncomp[j], n))

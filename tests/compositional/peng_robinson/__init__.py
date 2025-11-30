@@ -119,14 +119,14 @@ class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
 
     """
 
-    def get_conductivity_function(self):
+    def get_kappa_function(self):
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
-    def get_conductivity_derivative_function(self):
+    def get_grad_kappa_function(self):
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dkappa_c(
             prearg_val: np.ndarray,
