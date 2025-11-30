@@ -75,11 +75,11 @@ def _mu_pure(T: float, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> np.
     for i in range(ncomp):
         cpc = np.cbrt(Pcsatms[i])
         Tr = T / Tcs[i]
-        d = Tcs[i] ** (1 / 6) / (cpc * cpc * srmws[i])
+        d = np.power(Tcs[i], 1.0 / 6.0) / (cpc * cpc * srmws[i])
         if Tr < 1.5:
-            n = 34e-5 * Tr**0.94
+            n = 34e-5 * np.power(Tr, 0.94)
         else:
-            n = 17.78e-5 * (4.58 * Tr - 1.67) ** (5 / 8)
+            n = 17.78e-5 * np.power(4.58 * Tr - 1.67, 5.0 / 8.0)
 
         mus[i] = n / d
 
@@ -116,16 +116,23 @@ def _dmu_pure_dT(
     mus = np.zeros(ncomp)
 
     srmws = np.sqrt(mws)
-    Pcsatms = pcs / 101325  # Conversion from Pa to atm
+    Pcsatms = pcs / 101325.0  # Conversion from Pa to atm
 
     for i in range(ncomp):
         cpc = np.cbrt(Pcsatms[i])
         Tr = T / Tcs[i]
-        d = Tcs[i] ** (1 / 6) / (cpc * cpc * srmws[i])
+        d = np.power(Tcs[i], 1.0 / 6.0) / (cpc * cpc * srmws[i])
         if Tr < 1.5:
-            n = (34e-5 * 0.94 / Tr**0.06) / Tcs[i]
+            n = (34e-5 * 0.94 / np.power(Tr, 0.06)) / Tcs[i]
         else:
-            n = 17.78e-5 * 5 / 8 / (4.58 * Tr - 1.67) ** (3 / 8) * 4.58 / Tcs[i]
+            n = (
+                17.78e-5
+                * 5.0
+                / 8.0
+                / np.power(4.58 * Tr - 1.67, 3.0 / 8.0)
+                * 4.58
+                / Tcs[i]
+            )
 
         mus[i] = n / d
 
@@ -241,7 +248,7 @@ def _xi(xn: np.ndarray, Tcs: np.ndarray, pcs: np.ndarray, mws: np.ndarray) -> fl
 
     """
     Pcsatms = pcs / 101325  # Conversion from Pa to atm
-    n = np.sum(xn * Tcs) ** (1 / 6)
+    n = np.power(np.sum(xn * Tcs), 1.0 / 6.0)
     cpc = np.cbrt(np.sum(xn * Pcsatms))
     d = np.sqrt(np.sum(xn * mws)) * cpc * cpc
     return n / d
@@ -275,14 +282,14 @@ def _dxi(
         A ``(n,)`` array containing the derivatives with respect to fractions.
 
     """
-    Pcsatms = pcs / 101325  # Conversion from Pa to atm
-    n = np.sum(xn * Tcs) ** (1 / 6)
+    Pcsatms = pcs / 101325.0  # Conversion from Pa to atm
+    n = np.power(np.sum(xn * Tcs), 1.0 / 6.0)
     d1 = np.sqrt(np.sum(xn * mws))
     d2 = np.cbrt(np.sum(xn * Pcsatms))
     d = d1 * d2 * d2
 
-    dn = (1 / 6) / np.sum(xn * Tcs) ** (5 / 6) * Tcs
-    dd = 0.5 / d1 * mws * d2 * d2 + d1 * (2 / 3) / d2 * Pcsatms
+    dn = Tcs / (6 * np.power(np.sum(xn * Tcs), 5.0 / 6.0))
+    dd = 0.5 / d1 * mws * d2 * d2 + d1 * (2.0 / 3.0) / d2 * Pcsatms
 
     return (dn * d - n * dd) / (d * d)
 

@@ -81,7 +81,8 @@ def deNevers_cp_of_T(cp: np.ndarray, T: float) -> float:
         The heat capacity in [J / K / mol].
 
     """
-    return R_U * (cp[0] + cp[1] * T + cp[2] * (T * T) + cp[3] / (T * T))
+    TT = T**2
+    return R_U * (cp[0] + cp[1] * T + cp[2] * TT + cp[3] / TT)
 
 
 @njit(
@@ -108,8 +109,8 @@ def deNevers_Icp_of_T(cp: np.ndarray, T: float, T0: float) -> float:
         The change in specific enthalpy from temperature ``T0`` to temperature ``T``.
 
     """
-    TT = T * T
-    TT0 = T0 * T0
+    TT = T**2
+    TT0 = T0**2
     return R_U * (
         cp[0] * (T - T0)
         + cp[1] / 2.0 * (TT - TT0)

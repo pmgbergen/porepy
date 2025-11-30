@@ -143,7 +143,7 @@ def compact_dense_symmat(mat_arr: np.ndarray) -> np.ndarray:
         for i in range(N):
             out[i, i:] = mat_arr[i * N - ids[i] : (i + 1) * N - ids[i + 1]]
             # For symmetry.
-            out[i, i] /= 2.0
+            out[i, i] *= 0.5
         out = out + out.T
 
     return out
@@ -227,7 +227,7 @@ def ac_component(pc: float, Tc: float) -> float:
 
     """
     RT = R_U * Tc
-    return A_CRIT * RT * RT / (pc * pc)
+    return A_CRIT * RT**2 / pc**2
 
 
 @_COMPILER(nb.f8(nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -235,14 +235,9 @@ def _k_of_omega(omega: float) -> float:
     """Returns the weight depending on the acentric factor, which is used in
     :func:`alpha` and its derivatives."""
     if omega < 0.491:
-        return 0.37464 + 1.54226 * omega - 0.26992 * omega * omega
+        return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
     else:
-        return (
-            0.379642
-            + 1.48503 * omega
-            - 0.164423 * omega * omega
-            + 0.016666 * omega * omega * omega
-        )
+        return 0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
 
 
 @_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
@@ -263,7 +258,7 @@ def alpha(T: float, Tc: float, omega: float) -> float:
     """
     Tr = max(T / Tc, 1e-15)
     salpha = 1.0 + _k_of_omega(omega) * (1.0 - np.sqrt(Tr))
-    return salpha * salpha
+    return salpha**2
 
 
 @_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=NUMBA_CACHE)
@@ -389,7 +384,7 @@ def grad_a_VdW(
             dadT += xn[i] * xn[j] / saij * (ai * dTaj + aj * dTai) * dij
 
     da *= 2.0
-    da[0] = dadT / 2.0
+    da[0] = dadT * 0.5
     return da
 
 
@@ -452,11 +447,11 @@ def hess_a_VdW(
                 xi
                 * xj
                 * dij
-                / 2.0
+                * 0.5
                 / saij
                 * (
                     (2.0 * dTai * dTaj + ai * dTTaj + dTTai * aj)
-                    - dTaij * dTaij / (2.0 * saij * saij)
+                    - 0.5 * (dTaij / saij) ** 2
                 )
             )
             # Contribution to dxdT.
@@ -485,8 +480,8 @@ def a_dl(a: float, p: float, T: float) -> float:
         :math:`\\frac{a p}{(R T)^2}`.
 
     """
-    RT = R_U * T
-    return a * p / (RT * RT)
+    iR = 1.0 / R_U**2
+    return iR * a * p / T**2
 
 
 @_COMPILER(
@@ -513,7 +508,7 @@ def grad_a_dl(grad_a: np.ndarray, a: float, p: float, T: float) -> np.ndarray:
         pressure-derivative.
 
     """
-    RT2 = R_U * R_U * T * T
+    RT2 = R_U**2 * T**2
 
     dAdp = a / RT2
     dAdTx = grad_a * p / RT2
@@ -551,7 +546,7 @@ def hess_a_dl(
         diagonal, flattened C-style (row-major) to a 1D array (Hessian is symmetric).
 
     """
-    RT2 = R_U * R_U * T * T
+    RT2 = R_U**2 * T**2
     nc = grad_a.size - 1  # Should contain only 1 derivative if only 1 component.
 
     # dpp is zero, linear in pressure.
@@ -559,7 +554,7 @@ def hess_a_dl(
     dp_gradA[1:] = grad_a / RT2
     dp_gradA[1] -= 2.0 * a / (RT2 * T)
     # dA / dTdT
-    dTT = (hess_a[0] - 4.0 * grad_a[0] / T + 6.0 * a / (T * T)) * p / RT2
+    dTT = (hess_a[0] - 4.0 * grad_a[0] / T + 6.0 * a / T**2) * p / RT2
 
     if nc == 0:
         return np.array((dp_gradA[0], dp_gradA[1], dTT))
@@ -681,8 +676,8 @@ def lnphis_jac(
 
     for i in range(nc):
         D = dAdx[i] / A - Bis[i] / B
-        dBi = -Bis[i] / (B * B)
-        out[i, 0] = (AB * dAdx[i] / (A * A) - D / sB) * lnZB1
+        dBi = -Bis[i] / B**2
+        out[i, 0] = (AB * dAdx[i] / A**2 - D / sB) * lnZB1
         out[i, 1] = (
             dBi * Zm - dlnZB0[1] - AB * (D * dlnZB1[1] - lnZB1 * dBi - lnZB1 * D / B)
         )
@@ -721,7 +716,7 @@ def h_dep(
     RT = R_U * T
     lnZB1 = _lnZB1(Z, B, 1e-14)
     sB = np.sqrt(8) * B
-    return RT * (Z - 1.0) + RT * (T * dAdT + A) * lnZB1 / sB
+    return RT * (Z - 1.0 + (T * dAdT + A) * lnZB1 / sB)
 
 
 @_COMPILER(
@@ -1160,7 +1155,7 @@ class CompiledPengRobinson(CompiledEoS):
             # derivative of Z w.r.t. p, T, xn
             dZ = prearg_jac[dn : 2 * dn]
             # Chain rule.
-            drho = -ideal_rho(p, T) / (Z * Z) * dZ
+            drho = -ideal_rho(p, T) / Z**2 * dZ
             # Contribution of ideal pT derivative
             drho[:2] += grad_ideal_rho(p, T) / Z
 
@@ -1188,6 +1183,7 @@ class CompiledPengRobinson(CompiledEoS):
             u_ids.append(f.funcs["u"])
             du_ids.append(f.funcs["du"])
 
+        # NOTE Convert to tuple, otherwise numba cannot access the functions properly.
         h_ids = tuple(h_ids)
         u_ids = tuple(u_ids)
         dh_ids = tuple(dh_ids)
