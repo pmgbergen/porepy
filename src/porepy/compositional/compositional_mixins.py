@@ -55,6 +55,7 @@ __all__ = [
     "FluidMixin",
     "ActivityModels",
     "ReactionRatesKineticArrhenius",
+    "ReactionRatesKineticFirstOrder",
 ]
 
 DomainFunctionType = pp.DomainFunctionType
@@ -2626,3 +2627,85 @@ class ReactionRatesKineticArrhenius:
     def equilibrium_constant(self, reaction: pp.Reaction):
         return 2.5e6
         # set a fake equilibrium constant
+
+
+
+
+class ReactionRatesKineticFirstOrder:
+    def set_kinetic_reaction_rates(
+        self, reactions: Sequence[pp.Reaction]
+    ) -> Sequence[pp.Reaction]:
+        """Sets the reaction rates for kinetic reactions.
+
+        Parameters:
+            reactions: A list of Reaction objects defining the chemical reactions.
+        This needs to be overridden to provide actual reaction rates.
+        """
+        S = self.fluid.stoichiometric_matrix
+        reaction_formulas = self.reaction_formulas
+        for reaction in reactions:
+            if reaction.is_kinetic:
+                k_0 = self.reaction_constant()
+                rxn_index = reaction_formulas.index(reaction.formula)
+
+                nu = S[rxn_index, :]
+                reactive_species = []
+                reactive_coeffs = []
+                for comp in self.fluid.components:
+                    if comp.name in self.species_names:
+                        sp_index = self.species_names.index(comp.name)
+                        if nu[sp_index] != 0:
+                            # Build subarrays for reactive species and their coefficients in this reaction
+                            reactive_species.append(comp)
+                            reactive_coeffs.append(nu[sp_index])
+                # finding the activities of the reactive species
+                for phase in self.fluid.phases:
+                    if phase.state == PhysicalState.solid:
+                        mineral_count = 0
+                    for comp in reactive_species:
+                        if comp in phase.components:
+                            if phase.state == PhysicalState.solid:
+                                mineral_count += 1
+                                if mineral_count > 1:
+                                    raise NotImplementedError(
+                                        "Multiple minerals in one reaction not implemented yet."
+                                    )
+
+                def rr(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    for comp in reactive_species:
+                        if comp in self.fluid.components:
+                            if comp.name=="CO2":
+                                concentration_CO2=self.total_molar_concentration(domains)*comp.fraction(domains)
+                    r = pp.ad.Scalar(k_0) * concentration_CO2
+                    return r
+
+                reaction.reaction_rate = rr
+            else:
+
+                def rr_eq(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+                    return pp.ad.Scalar(0.0, "equilibrium_reaction_rate")
+
+                reaction.reaction_rate = rr_eq
+
+        return reactions
+
+    def reaction_constant(self):
+        return 0.01
+    
+    def C_exact(self,x, t, C_in, u, k):
+        """Analytical CO2 solution for the constant-inflow benchmark."""
+        x = np.asarray(x)
+        C = np.zeros_like(x, dtype=float)
+        front = u * t
+        mask = x <= front
+        C[mask] = C_in * np.exp(-k * x[mask] / u)
+        return C
+
+    def D_exact(self,x, t, C_in, u, k):
+        """Analytical H2CO3 solution for the constant-inflow benchmark."""
+        x = np.asarray(x)
+        D = np.zeros_like(x, dtype=float)
+        front = u * t
+        mask = x <= front
+        D[mask] = C_in * (1.0 - np.exp(-k * x[mask] / u))
+        return D

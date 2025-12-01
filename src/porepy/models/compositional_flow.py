@@ -1937,6 +1937,28 @@ class InitialConditionsChemical(pp.InitialConditionMixin):
         return element_fraction
 
 
+    def ic_values_species_concentration(
+        self, component: pp.Component, sd: pp.Grid
+    ) -> np.ndarray:
+        if component.name != "H2O":
+            return 0 * np.ones(sd.num_cells, dtype=np.float64)
+        elif component.name == "H2O":
+            solute_conc = np.zeros(sd.num_cells)
+            for comp in self.fluid.components:
+                if comp.name != "H2O" and comp not in self.fluid.solid_components:
+                    solute_conc += self.ic_values_species_concentration(comp, sd)
+            ms = np.zeros(sd.num_cells)
+            for comp in self.fluid.solid_components:
+                ms += self.ic_values_mineral_saturation(comp, sd)
+
+            porosity = self.solid.total_porosity * (np.ones(sd.num_cells) - ms)
+            fluid_density = self.fluid.reference_component.density * np.ones(
+                sd.num_cells
+            )
+            water_conc = porosity * fluid_density - solute_conc
+            return water_conc
+
+
 class SolutionStrategyPhaseProperties(pp.PorePyModel):
     """A mixin solution strategy for CF models which use surrogate operators for phase
     properties (as is the default in the fluid mixin).
