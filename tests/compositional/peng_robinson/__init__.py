@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 # For debugging tests or runs without compilation.
+# NOTE: Consider making this either default for all tests, and run the tests in pure
+# Python, or somehow parametrize the test suite, which runs the compiled code only
+# during the weekend.
 import os
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 

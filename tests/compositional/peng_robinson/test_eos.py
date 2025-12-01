@@ -454,7 +454,7 @@ def test_ideal_density_and_volume(func, dfunc, d: np.ndarray, h: np.ndarray) -> 
     assert_order_at_least(orders, 2, tol=1e-2)
 
 
-@pytest.mark.skipped(reason="slow due to compilation.")
+@pytest.mark.skipped(reason="slow due to compilation")
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [(cp, d, h) for cp in [(1, "V"), (2, "V"), (3, "V")] for d, h in _dh_per_cp_id(cp)],
@@ -512,13 +512,13 @@ _dh_per_cp = lambda cp: [
     (d, h)
     for d, h in zip(
         np.eye(2 + cp[0]) if cp[0] > 1 else np.eye(2),
-        [np.logspace(3, -3, 7), np.logspace(1, -4, 6)]
+        [np.logspace(3, -3, 7), np.logspace(1, -5, 7)]
         + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
     )
 ]
 
 
-@pytest.mark.skipped(reason="slow due to compilation.")
+@pytest.mark.skipped(reason="slow due to compilation")
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [

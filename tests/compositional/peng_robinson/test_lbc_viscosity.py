@@ -28,7 +28,7 @@ _dh_per_cp = lambda cp: [
 ]
 
 
-@pytest.mark.skipped(reason="slow due to compilation.")
+@pytest.mark.skipped(reason="slow due to compilation")
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [
