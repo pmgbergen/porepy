@@ -1187,52 +1187,70 @@ class CompiledPengRobinson(CompiledEoS):
             u_ids.append(f.funcs["u"])
             du_ids.append(f.funcs["du"])
 
-        # NOTE Convert to tuple, otherwise numba cannot access the functions properly.
-        h_ids = tuple(h_ids)
-        u_ids = tuple(u_ids)
-        dh_ids = tuple(dh_ids)
-        du_ids = tuple(du_ids)
+        NC: int = self.nc
 
         compiler_Tx = njit(nb.f8(nb.f8, nb.f8[:]))
         compiler_gradTx = njit(nb.f8[:](nb.f8, nb.f8[:]))
 
         logger.info("Compiling ideal mixture property functions ..")
 
-        # region Compiling ideal property functions
+        # region Compiling ideal property functions.
 
-        @compiler_Tx
-        def h_ideal(T: float, xn: np.ndarray) -> float:
-            """Ideal enthalpy of the mixture."""
-            u = 0.0
-            for i in range(xn.size):
-                u += xn[i] * h_ids[i](T)
-            return u
+        # NOTE: numba has only experimental support for functions being passed around
+        # in containers. It may break parallelization for example.
+        # We resort temporary to this archaic way of defining the ideal mixture energies
+        # which surpasses ideal energies in containers and directly inserts the
+        # CDU dispatcher objects into the source code, which can than be compiled.
 
-        @compiler_gradTx
-        def dh_ideal(T: float, xn: np.ndarray) -> np.ndarray:
-            """Gradient of mixture ideal enthalpy w.r.t. temperature and fractions."""
-            dh = np.zeros(xn.size + 1)
-            for i in range(xn.size):
-                dh[0] += xn[i] * dh_ids[i](T)
-                dh[i + 1] = h_ids[i](T)
-            return dh
+        body = "def h_ideal_(T, xn):\n"
+        body += "    val = 0.0\n"
+        for i in range(NC):
+            body += f"    val += xn[{i}] * fh{i}(T)\n"
+        body += "    return val\n"
+        namespace = dict([(f"fh{i}", h_ids[i]) for i in range(NC)])
+        exec(body, namespace)
+        h_ideal_ = namespace["h_ideal_"]
+        h_ideal = compiler_Tx(h_ideal_)
 
-        @compiler_Tx
-        def u_ideal(T: float, xn: np.ndarray) -> float:
-            """Ideal enthalpy of the mixture."""
-            u = 0.0
-            for i in range(xn.size):
-                u += xn[i] * u_ids[i](T)
-            return u
+        body = "def u_ideal_(T, xn):\n"
+        body += "    val = 0.0\n"
+        for i in range(NC):
+            body += f"    val += xn[{i}] * fu{i}(T)\n"
+        body += "    return val\n"
+        namespace = dict([(f"fu{i}", u_ids[i]) for i in range(NC)])
+        exec(body, namespace)
+        u_ideal_ = namespace["u_ideal_"]
+        u_ideal = compiler_Tx(u_ideal_)
 
-        @compiler_gradTx
-        def du_ideal(T: float, xn: np.ndarray) -> np.ndarray:
-            """Gradient of mixture ideal enthalpy w.r.t. temperature and fractions."""
-            du = np.zeros(xn.size + 1)
-            for i in range(xn.size):
-                du[0] += xn[i] * du_ids[i](T)
-                du[i + 1] = u_ids[i](T)
-            return du
+        body = "def dh_ideal_(T, xn):\n"
+        body += "    diff = np.zeros(xn.size + 1)\n"
+        for i in range(NC):
+            body += f"    diff[0] += xn[{i}] * dfh{i}(T)\n"
+            body += f"    diff[{i + 1}] = fh{i}(T)\n"
+        body += "    return diff\n"
+        namespace = dict(
+            [("np", np)]
+            + [(f"fh{i}", h_ids[i]) for i in range(NC)]
+            + [(f"dfh{i}", dh_ids[i]) for i in range(NC)]
+        )
+        exec(body, namespace)
+        dh_ideal_ = namespace["dh_ideal_"]
+        dh_ideal = compiler_gradTx(dh_ideal_)
+
+        body = "def du_ideal_(T, xn):\n"
+        body += "    diff = np.zeros(xn.size + 1)\n"
+        for i in range(NC):
+            body += f"    diff[0] += xn[{i}] * dfu{i}(T)\n"
+            body += f"    diff[{i + 1}] = fu{i}(T)\n"
+        body += "    return diff\n"
+        namespace = dict(
+            [("np", np)]
+            + [(f"fu{i}", u_ids[i]) for i in range(NC)]
+            + [(f"dfu{i}", du_ids[i]) for i in range(NC)]
+        )
+        exec(body, namespace)
+        du_ideal_ = namespace["du_ideal_"]
+        du_ideal = compiler_gradTx(du_ideal_)
 
         # endregion
 
