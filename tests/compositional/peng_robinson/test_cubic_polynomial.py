@@ -36,7 +36,6 @@ from porepy.compositional.peng_robinson.cubic_polynomial import (
     two_roots,
 )
 
-
 EPS: float = 1e-14
 """Reliable epsilon for the detection of degenerate discriminants. 
 

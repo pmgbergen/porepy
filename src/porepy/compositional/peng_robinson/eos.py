@@ -62,43 +62,50 @@ Uses :func:`~porepy.compositional._numba_interface.njit`.
 """
 
 
-@_COMPILER(nb.f8(nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
-def _lnZB1(Z: float, B: float, c: float) -> float:
+@_COMPILER(nb.f8(nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def covolume_dep(Z: float, B: float) -> float:
     r"""Special treatment of departure term to remain well-defined.
 
     Parameters:
         Z: Compressibility factor.
         B: Dimensionless covolume.
-        c: Small, positive cut-off factor.
 
     Returns:
         :math:`\ln{\frac{Z +  (1 + \sqrt{2}) B}{Z +  (1 + \sqrt{2}) B}}`.
         If the log-argument goes below ``c``, ``c`` is chosen,
 
     """
-    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B), c)
-    return np.log(ZB1)
+    tol = 1e-14
+    _s2 = np.sqrt(2)
+    _cn = 1 + _s2
+    _cd = 1 - _s2
+    ZB1 = max((Z + _cn * B) / (Z + _cd * B), tol)
+    return np.log1p(ZB1 - 1.0)
 
 
-@_COMPILER(nb.f8[:](nb.f8, nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
-def _grad_lnZB1(Z: float, B: float, c: float) -> float:
+@_COMPILER(nb.f8[:](nb.f8, nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
+def grad_covolume_dep(Z: float, B: float) -> float:
     r"""Gradient of :func:`_lnZB1`.
 
     Parameters:
         Z: Compressibility factor.
         B: Dimensionless covolume.
-        c: Small, positive cut-off factor.
 
     Returns:
-        :math:`\ln{\frac{Z +  (1 + \sqrt{2}) B}{Z +  (1 + \sqrt{2}) B}}`.
-        If the log-argument goes below ``c``, ``c`` is chosen,
+        Derivatives w.r.t. Z and B.
 
     """
-    denom = Z + (1 - np.sqrt(2)) * B
-    ZB1 = max((Z + (1 + np.sqrt(2)) * B) / denom, c)
+    tol = 1e-14
+    _s2 = np.sqrt(2)
+    _cn = 1 + _s2
+    _cd = 1 - _s2
 
-    dZB1dZ = -2.0 * np.sqrt(2) * B / denom**2
-    dZB1dB = 2.0 * np.sqrt(2) * Z / denom**2
+    denom = Z + _cd * B
+    denom2 = denom**2
+    ZB1 = max((Z + _cn * B) / denom, tol)
+
+    dZB1dZ = -2.0 * _s2 * B / denom2
+    dZB1dB = 2.0 * _s2 * Z / denom2
     return np.array((dZB1dZ, dZB1dB)) / np.abs(ZB1)
 
 
@@ -602,7 +609,7 @@ def lnphis(
     AB = A / (np.sqrt(8) * B)
     # Cap numerically for stability.
     lnZB0 = np.log(max(Z - B, 1e-14))
-    lnZB1 = _lnZB1(Z, B, 1e-14)
+    lnZB1 = covolume_dep(Z, B)
 
     # Special case: 1 component
     if nc == 1:
@@ -655,8 +662,8 @@ def lnphis_jac(
     # Cap numerically for stability.
     ZB0 = max(Z - B, 1e-15)
     dlnZB0 = np.array((1, -1)) / np.abs(ZB0)
-    lnZB1 = _lnZB1(Z, B, 1e-14)
-    dlnZB1 = _grad_lnZB1(Z, B, 1e-14)
+    lnZB1 = covolume_dep(Z, B)
+    dlnZB1 = grad_covolume_dep(Z, B)
     sB = np.sqrt(8) * B
     AB = A / sB
 
@@ -693,14 +700,14 @@ def lnphis_jac(
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def h_dep(
+def u_dep(
     A: float,
     B: float,
     Z: float,
     T: float,
     dAdT: float,
 ) -> float:
-    """Computes the departure enthalpy.
+    """Computes the departure internal energy.
 
     Parameters:
         A: Dimensionless cohesion.
@@ -710,13 +717,13 @@ def h_dep(
         dAdT: Derivative of dimensionless cohesion with respect to temperature.
 
     Returns:
-        The departure enthalpy.
+        The departure internal energy.
 
     """
-    RT = R_U * T
-    lnZB1 = _lnZB1(Z, B, 1e-14)
-    sB = np.sqrt(8) * B
-    return RT * (Z - 1.0 + (T * dAdT + A) * lnZB1 / sB)
+    _c = -R_U / np.sqrt(8)
+    lnZB1 = covolume_dep(Z, B)
+    iB = 1.0 / B
+    return _c * T * (A + T * dAdT) * lnZB1 * iB
 
 
 @_COMPILER(
@@ -724,24 +731,26 @@ def h_dep(
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def grad_h_dep(
+def grad_u_dep(
     A: float,
     B: float,
     Z: float,
     T: float,
     dAdT: float,
 ) -> np.ndarray:
-    """Gradient of :func:`h_dep` with respect to its arguments."""
-    RT = R_U * T
-    lnZB1 = _lnZB1(Z, B, 1e-14)
-    dlnZB1 = _grad_lnZB1(Z, B, 1e-14)
-    sB = np.sqrt(8) * B
+    """Gradient of :func:`u_dep` with respect to its arguments."""
+    _c = -R_U / np.sqrt(8)
+    lnZB1 = covolume_dep(Z, B)
+    dlnZB1 = grad_covolume_dep(Z, B)
 
-    dA = RT * lnZB1 / sB
-    dB = RT * (T * dAdT + A) * (dlnZB1[1] - lnZB1 / B) / sB
-    dZ = RT * (1.0 + (T * dAdT + A) * dlnZB1[0] / sB)
-    dT = R_U * (Z - 1.0 + lnZB1 / sB * (2.0 * T * dAdT + A))
-    ddAdT = RT * T * lnZB1 / sB
+    cAA = _c * (A + T * dAdT)
+    iB = 1.0 / B
+
+    dA = _c * T * lnZB1 * iB
+    dB = cAA * T * (dlnZB1[1] - lnZB1 * iB) * iB
+    dZ = cAA * T * dlnZB1[0] * iB
+    dT = _c * (A + 2.0 * T * dAdT) * lnZB1 * iB
+    ddAdT = T * dA
 
     return np.array((dA, dB, dZ, dT, ddAdT))
 
@@ -752,6 +761,9 @@ class CompiledPengRobinson(CompiledEoS):
 
     The parameter array for the pre-argument function can have up to 3 entries
     (see also :attr:`params`).
+
+    Important:
+        All properties implemented here are molar quantities.
 
     Parameters:
         components: A list of ``num_comp`` component instances.
@@ -874,7 +886,7 @@ class CompiledPengRobinson(CompiledEoS):
             if params.size >= 2:
                 s_sc_ = params[1]
             if params.size >= 3:
-                eps_ = params[3]
+                eps_ = params[2]
 
             # Copying turns arrays into function locals, making compilation and
             # signatures easier.
@@ -947,7 +959,7 @@ class CompiledPengRobinson(CompiledEoS):
             if params.size >= 2:
                 s_sc_ = params[1]
             if params.size >= 3:
-                eps_ = params[3]
+                eps_ = params[2]
 
             Tcs_ = Tcs.copy()
             acs_ = acs.copy()
@@ -1085,7 +1097,9 @@ class CompiledPengRobinson(CompiledEoS):
             Z = prearg[3]
             grad_A = prearg[-dn:]
 
-            return h_id_c(T, xn) + h_dep(A, B, Z, T, grad_A[1])
+            RTZ = R_U * T * (Z - 1.0)
+
+            return h_id_c(T, xn) + u_dep(A, B, Z, T, grad_A[1]) + RTZ
 
         return h_c
 
@@ -1114,20 +1128,82 @@ class CompiledPengRobinson(CompiledEoS):
             grad_Z = prearg_jac[dn : 2 * dn]
             hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
 
-            dh_dep = grad_h_dep(A, B, Z, T, grad_A[1])
-            dh = (
-                dh_dep[0] * grad_A
-                + dh_dep[1] * grad_B
-                + dh_dep[2] * grad_Z
+            du_dep_ = grad_u_dep(A, B, Z, T, grad_A[1])
+            du_dep = (
+                du_dep_[0] * grad_A
+                + du_dep_[1] * grad_B
+                + du_dep_[2] * grad_Z
                 # grad(dAdT)
-                + dh_dep[4] * hess_A[1]
+                + du_dep_[4] * hess_A[1]
             )
-            dh[1] += dh_dep[3]
+            du_dep[1] += du_dep_[3]
             # Contribution of ideal part to derivative w.r.t. T and x
-            dh[1:] += dh_id_c(T, xn)
-            return dh
+            du_dep[1:] += dh_id_c(T, xn)
+
+            dRTZ = T * grad_Z
+            dRTZ[1] += Z - 1.0
+            return du_dep + R_U * dRTZ
 
         return dh_c
+
+    def get_u_function(self) -> ScalarFunction:
+        u_id_c = self._ideal_funcs["u"]
+
+        @_COMPILER(PROPERTY_FUNC_SIGNATURE)
+        def u_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
+            if xn.size == 1:
+                dn = 2
+            else:
+                dn = 2 + xn.size
+            A = prearg[1]
+            B = prearg[2]
+            Z = prearg[3]
+            grad_A = prearg[-dn:]
+
+            return u_id_c(T, xn) + u_dep(A, B, Z, T, grad_A[1])
+
+        return u_c
+
+    def get_grad_u_function(self) -> VectorFunction:
+        du_id_c = self._ideal_funcs["du"]
+
+        @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
+        def du_c(
+            prearg_val: np.ndarray,
+            prearg_jac: np.ndarray,
+            p: float,
+            T: float,
+            xn: np.ndarray,
+        ) -> np.ndarray:
+            if xn.size == 1:
+                dn = 2
+            else:
+                dn = 2 + xn.size
+
+            A = prearg_val[1]
+            B = prearg_val[2]
+            Z = prearg_val[3]
+
+            grad_A = prearg_val[-dn:]
+            grad_B = prearg_jac[:dn]
+            grad_Z = prearg_jac[dn : 2 * dn]
+            hess_A = compact_dense_symmat(prearg_jac[2 * dn :])
+
+            du_dep_ = grad_u_dep(A, B, Z, T, grad_A[1])
+            du_dep = (
+                du_dep_[0] * grad_A
+                + du_dep_[1] * grad_B
+                + du_dep_[2] * grad_Z
+                # grad(dAdT)
+                + du_dep_[4] * hess_A[1]
+            )
+            du_dep[1] += du_dep_[3]
+            # Contribution of ideal part to derivative w.r.t. T and x
+            du_dep[1:] += du_id_c(T, xn)
+
+            return du_dep
+
+        return du_c
 
     def get_rho_function(self) -> ScalarFunction:
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)

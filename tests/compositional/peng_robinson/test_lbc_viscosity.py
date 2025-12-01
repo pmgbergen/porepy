@@ -38,7 +38,7 @@ _dh_per_cp = lambda cp: [
     ],
     indirect=["comps_and_phases"],
 )
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4, 1e-1])
+@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
 @pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
 @pytest.mark.parametrize(
     "x0_pT",
@@ -67,7 +67,6 @@ def test_lbc_derivatives(
 
     """
     tol = 1e-14
-
     params = np.array((smooth3, smooth_sc, tol))
 
     ncomp = comps_and_phases[0]

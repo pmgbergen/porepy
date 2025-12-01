@@ -743,19 +743,31 @@ class CompiledEoS(EquationOfState):
 
     - fugacity coefficients
     - enthalpies
+    - internal energies
     - densities
     - the derivatives w.r.t. pressure, temperature and partial fractions (array)
 
     Respective functions must be assembled and compiled by a child class with a specific
     EoS. The compiled functions are expected to have a specific signature.
 
+    Note:
+        It is up to the modeler to implement molar or massic values. The base class
+        makes no distinguishing. Consistency is key.
+
+    It also provides an interface for transport properties expected by the remaining
+    PorePy framework:
+
+    - dynamic viscosity
+    - thermal conductivity
+    - their derivatives w.r.t. pressure, temperature and partial fractions (array)
+
+    There are two ``prearg`` computations: One for property values, one for the
+    derivatives.
+
     The purpose of the pre-argument is efficiency. Many EoS have computions of some
     co-terms or compressibility factors f.e., which must only be computed once for all
     remaining thermodynamic properties. The function for the ``prearg`` computation must
     also have a specific signature.
-
-    There are two ``prearg`` computations: One for property values, one for the
-    derivatives.
 
     The ``prearg`` for the derivatives will be fed to the functions representing
     derivatives of thermodynamic quantities **additionally** to the ``prearg`` for
@@ -854,7 +866,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_lnphis_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivative of fugacity
+        """Abstract assembler for compiled computations of the derivatives of fugacity
         coefficients.
 
         The functions should return the derivative fugacities for each component
@@ -877,7 +889,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_h_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the specific molar enthalpy.
+        """Abstract assembler for compiled computations of the specific enthalpy.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -888,8 +900,31 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_h_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivative of the
+        """Abstract assembler for compiled computations of the derivatives of the
         enthalpy function for a phase.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_u_function(self) -> ScalarFunction:
+        """Abstract assembler for compiled computations of the specific internal energy.
+
+        Returns:
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_grad_u_function(self) -> VectorFunction:
+        """Abstract assembler for compiled computations of the derivatives of the
+        internal energy function for a phase.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -911,7 +946,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_rho_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivative of the
+        """Abstract assembler for compiled computations of the derivatives of the
         density function for a phase.
 
         Returns:
@@ -923,7 +958,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_mu_function(self) -> ScalarFunction:
-        """Abstract assembler for compiled computations of the dynamic molar viscosity.
+        """Abstract assembler for compiled computations of the dynamic viscosity.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -934,7 +969,7 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_mu_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivative of the
+        """Abstract assembler for compiled computations of the derivatives of the
         viscosity function for a phase.
 
         Returns:
@@ -957,8 +992,8 @@ class CompiledEoS(EquationOfState):
 
     @abc.abstractmethod
     def get_grad_kappa_function(self) -> VectorFunction:
-        """Abstract assembler for compiled computations of the derivative of the
-        conductivity function for a phase.
+        """Abstract assembler for compiled computations of the derivatives of the
+        thermal conductivity function for a phase.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -968,9 +1003,9 @@ class CompiledEoS(EquationOfState):
         pass
 
     def get_v_function(self) -> ScalarFunction:
-        """Assembler for compiled computations of the specific molar volume.
+        """Assembler for compiled computations of the specific volume.
 
-        The volume is computed as the reciprocal of the return value of
+        The specific volume is computed as the reciprocal of the return value of
         :meth:`get_rho_function`.
 
         Note:
@@ -999,17 +1034,17 @@ class CompiledEoS(EquationOfState):
         return v_c
 
     def get_grad_v_function(self) -> VectorFunction:
-        """Assembler for compiled computations of the derivative of the
-        volume function for a phase.
+        """Assembler for compiled computations of the derivatives of the
+        specific volume for a phase.
 
-        Volume is expressed as the reciprocal of density.
+        Specific volume is expressed as the reciprocal of density.
         Hence the computations utilize :meth:`get_rho_function`,
         :meth:`get_grad_rho_function` and the chain-rule to compute the
         derivatives.
 
         Note:
             This function is compiled faster, if the density function and its
-            deritvative have already been compiled and stored in :attr:`funcs`.
+            derivatives have already been compiled and stored in :attr:`funcs`.
 
         Returns:
             A NJIT-ed function with signature as in
@@ -1072,6 +1107,8 @@ class CompiledEoS(EquationOfState):
         self.funcs["dphis"] = self.get_grad_lnphis_function()
         self.funcs["h"] = self.get_h_function()
         self.funcs["dh"] = self.get_grad_h_function()
+        self.funcs["u"] = self.get_u_function()
+        self.funcs["du"] = self.get_grad_u_function()
         self.funcs["rho"] = self.get_rho_function()
         self.funcs["drho"] = self.get_grad_rho_function()
         self.funcs["v"] = self.get_v_function()
@@ -1099,7 +1136,7 @@ class CompiledEoS(EquationOfState):
             _evaluate_vectorized_fug_coeff_diff_func, self.funcs["dphis"]
         )
 
-        keys: list[PropertyFunctionNames] = ["h", "rho", "v", "mu", "kappa"]
+        keys: list[PropertyFunctionNames] = ["h", "u", "rho", "v", "mu", "kappa"]
         for k in keys:
             self.gufuncs[k] = partial(_evaluate_vectorized_property_func, self.funcs[k])
             dk = cast(PropertyFunctionNames, f"d{k}")
@@ -1204,7 +1241,7 @@ class CompiledEoS(EquationOfState):
         )
 
         props = {}
-        keys: list[PropertyFunctionNames] = ["h", "rho", "phis", "mu", "kappa"]
+        keys: list[PropertyFunctionNames] = ["h", "u", "rho", "phis", "mu", "kappa"]
         for k in keys:
             props[k] = self.gufuncs[k](prearg_val, *thermodynamic_input)
             dk = cast(PropertyFunctionNames, f"d{k}")

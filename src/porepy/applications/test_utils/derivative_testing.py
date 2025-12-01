@@ -145,6 +145,5 @@ def assert_order_at_least(
         orders[np.isinf(orders)] = expected_order
         order_avg = np.mean(orders)
         assert np.all(order_avg >= expected_order - tol), (
-            f"Expected all orders to be at least {expected_order - tol}, "
-            f"but got {order_avg}: {err_msg}"
+            f"Expected: {expected_order - tol}; Actual: {order_avg}: {err_msg}"
         )

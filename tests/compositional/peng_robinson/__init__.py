@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+# For debugging tests or runs without compilation.
+import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 from threading import Lock
 from typing import Literal
 
@@ -179,14 +183,6 @@ def components(
         critical_temperature=373.1,
         molar_mass=0.03408088,
     )
-    # n2 = pp.compositional.FluidComponent(
-    #     name="N2",
-    #     acentric_factor=0.0372,
-    #     critical_pressure=3395800.0,
-    #     critical_specific_volume=8.94142472662e-05,
-    #     critical_temperature=126.192,
-    #     molar_mass=0.0280134,
-    # )
 
     comps = [h2o, co2, h2s]
     ncomp = comps_and_phases[0]
@@ -212,8 +208,6 @@ def pr_eos(
     configuration for all tests in a session."""
 
     cache_key = tuple(c.name for c in components)
-    if cache_key in _pr_eos_cache:
-        return _pr_eos_cache[cache_key]
 
     bips = np.array(
         [
@@ -234,6 +228,8 @@ def pr_eos(
     assert ncomp == len(components), "Failure in test setup."
 
     with _cache_lock:
+        if cache_key in _pr_eos_cache:
+            return _pr_eos_cache[cache_key]
         eos = PRLBC(
             components=components,
             ideal_fluids=ideal_fluids[:ncomp],

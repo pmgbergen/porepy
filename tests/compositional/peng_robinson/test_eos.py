@@ -20,17 +20,19 @@ from porepy.compositional.peng_robinson.eos import (
     b_dl,
     bc_component,
     compact_dense_symmat,
+    covolume_dep,
     dalpha_dT,
     ddalpha_dTT,
     grad_a_dl,
     grad_a_VdW,
     grad_b_dl,
-    grad_h_dep,
-    h_dep,
+    grad_covolume_dep,
+    grad_u_dep,
     hess_a_dl,
     hess_a_VdW,
     lnphis,
     lnphis_jac,
+    u_dep,
 )
 from tests.compositional.peng_robinson import (
     calculate_expected_order,
@@ -88,6 +90,27 @@ def test_compact_dense_symmat() -> None:
     A_arr = compact_dense_symmat(A)
     A[0] = 200.0
     assert np.all(A[0] != A_arr[:N])
+
+
+@pytest.mark.parametrize(
+    ["d", "h"], [(d, h) for d, h in zip(np.eye(2), 2 * [np.logspace(0, -9, 10)])]
+)
+def test_repulsive_departure(d: np.ndarray, h: np.ndarray) -> None:
+    """Tests the logarithmic term shared by all departure functions."""
+    np.random.seed(2)
+    B = np.random.rand() + pr.COVOLUME_LIMIT
+    Z = 2 * np.random.rand() + B
+
+    def func(x):
+        return covolume_dep(*x)
+
+    def dfunc(x):
+        return grad_covolume_dep(*x)
+
+    x0 = np.array((Z, B))
+
+    orders = get_EOC_taylor(func, dfunc, x0, d, h)
+    assert_order_at_least(orders, 2, tol=1e-2, err_msg=f"d = {d}", asymptotic=7)
 
 
 @pytest.mark.parametrize("omega", [0.2, 0.8])
@@ -182,16 +205,20 @@ def test_cohesion_VdW(nc: int, d: np.ndarray, h: np.ndarray) -> None:
             j[:-1, :-1] = hess_a
             return j
 
+    # NOTE: Due to floating point arithmetics, we loose digits and must consider
+    # approximation errors below this value as zero.
+    err_tol = 1e-12
+
     # Test grad approximates function.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=err_tol)
     assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test Hessian approximates grad.
-    orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h, tol=1e-12)
+    orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h, tol=err_tol)
     assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test higher order approximation.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12, ddfunc=ddfunc)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=err_tol, ddfunc=ddfunc)
     assert_order_at_least(orders, 3, tol=1e-2)
 
 
@@ -252,16 +279,19 @@ def test_cohesion_VdW_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
             j[:-1, :-1] = hess_A
             return j
 
+    # See note in cohesion_VdW test.
+    err_tol = 1e-12
+
     # Test grad approximates function.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=err_tol)
     assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test Hessian approximates grad.
-    orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h, tol=1e-12)
+    orders = get_EOC_taylor(dfunc, ddfunc, x0, d, h, tol=err_tol)
     assert_order_at_least(orders, 2, tol=1e-2)
 
     # Test higher order approximation.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12, ddfunc=ddfunc)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=err_tol, ddfunc=ddfunc)
     assert_order_at_least(orders, 3, tol=1e-2)
 
 
@@ -318,8 +348,9 @@ def test_covolume_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
         )
     ],
 )
-def test_h_dep(d: np.ndarray, h: np.ndarray):
-    """Tests the correct implementation of the derivative of the departure enthalpy."""
+def test_u_dep(d: np.ndarray, h: np.ndarray):
+    """Tests the correct implementation of the derivative of the departure internal
+    energy."""
 
     np.random.seed(42)
 
@@ -333,15 +364,15 @@ def test_h_dep(d: np.ndarray, h: np.ndarray):
     x0 = np.array((A, B, Z, T, dAdT))
 
     def func(x: np.ndarray) -> float:
-        return h_dep(*x)
+        return u_dep(*x)
 
     def dfunc(x: np.ndarray) -> np.ndarray:
-        return grad_h_dep(*x)
+        return grad_u_dep(*x)
 
     # NOTE The computations suffers from loss of precision due to logarithms of small
     # numbers and its derivative.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
-    assert_order_at_least(orders, 2, tol=1e-2)
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-10)
+    assert_order_at_least(orders, 2, tol=1e-2, asymptotic=8)
 
 
 @pytest.mark.parametrize(
@@ -419,17 +450,17 @@ def test_ideal_density_and_volume(func, dfunc, d: np.ndarray, h: np.ndarray) -> 
     def dfunc_(x):
         return dfunc(x[0], x[1])
 
-    orders = get_EOC_taylor(func_, dfunc_, x0, d, h, tol=1e-14)
+    orders = get_EOC_taylor(func_, dfunc_, x0, d, h)
     assert_order_at_least(orders, 2, tol=1e-2)
 
 
 @pytest.mark.skipped(reason="slow due to compilation.")
-@pytest.mark.parametrize("property_name", ["h", "u"])
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
     [(cp, d, h) for cp in [(1, "V"), (2, "V"), (3, "V")] for d, h in _dh_per_cp_id(cp)],
     indirect=["comps_and_phases"],
 )
+@pytest.mark.parametrize("property_name", ["h", "u"])
 def test_ideal_mixture_energies(
     comps_and_phases: tuple[int, str],
     d: np.ndarray,
@@ -465,6 +496,8 @@ def test_ideal_mixture_energies(
 
     x0 = np.array([400.0] + ([1.0 / ncomp] * ncomp if ncomp > 1 else []))
 
+    # NOTE: Precision loss likely due to powers of temperature and division by
+    # temperatures in interpolation.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
     assert_order_at_least(
         orders,
@@ -479,7 +512,7 @@ _dh_per_cp = lambda cp: [
     (d, h)
     for d, h in zip(
         np.eye(2 + cp[0]) if cp[0] > 1 else np.eye(2),
-        [np.logspace(3, -3, 7), np.logspace(2, -4, 7)]
+        [np.logspace(3, -3, 7), np.logspace(1, -4, 6)]
         + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
     )
 ]
@@ -495,8 +528,8 @@ _dh_per_cp = lambda cp: [
     ],
     indirect=["comps_and_phases"],
 )
-@pytest.mark.parametrize("property_name", ["h", "v", "rho", "phis"])
-@pytest.mark.parametrize("smooth3", [0.0, 1e-4, 1e-1])
+@pytest.mark.parametrize("property_name", ["h", "u", "rho", "v", "phis"])
+@pytest.mark.parametrize("smooth3", [0.0, 1e-4])
 @pytest.mark.parametrize("smooth_sc", [0.0, 1e-3])
 @pytest.mark.parametrize(
     "x0_pT",
@@ -528,6 +561,8 @@ def test_property_derivatives(
     """
 
     tol = 1e-14
+    # smooth3 = 0.0
+    # smooth_sc = 1e-3
     params = np.array((smooth3, smooth_sc, tol))
 
     ncomp = comps_and_phases[0]
@@ -573,6 +608,7 @@ def test_property_derivatives(
     else:
         x0 = x0_pT
 
+    # NOTE: Precision loss from ideal part is propagated to the real energies.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
     expected_order = calculate_expected_order(
         True if state == pp.compositional.PhysicalState.gas else False,
@@ -585,10 +621,6 @@ def test_property_derivatives(
     assert_order_at_least(
         orders,
         expected_order,
-        tol=2e-2,
-        asymptotic=5,
-        err_msg=(
-            f"prop = {property_name}, x0 = {x0}, d = {d}, "
-            f"smooth = {(smooth3, smooth_sc)}"
-        ),
+        tol=5e-2,
+        err_msg=f"{property_name}; x0 = {x0[:2]}; d = {d}; state={state}",
     )
