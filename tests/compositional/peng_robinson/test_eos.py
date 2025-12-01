@@ -153,12 +153,7 @@ def test_alpha(omega: float):
 
 
 _dh_per_n = lambda n, pt: [
-    (d, h)
-    for d, h in (
-        zip(np.eye(pt + n), (n + pt) * [np.logspace(1, -5, 7)])
-        if n > 1
-        else zip(np.eye(pt + n)[:pt], pt * [np.logspace(1, -5, 7)])
-    )
+    (d, h) for d, h in (zip(np.eye(pt + n), (n + pt) * [np.logspace(1, -5, 7)]))
 ]
 
 
@@ -188,22 +183,12 @@ def test_cohesion_VdW(nc: int, d: np.ndarray, h: np.ndarray) -> None:
     def dfunc(x: np.ndarray) -> float:
         T = x[0]
         x = x[1:]
-        grad_a = grad_a_VdW(T, x, Tcs, omegas, acs, bips)
-        if nc > 1:
-            return grad_a
-        else:
-            return np.hstack((grad_a, 0.0))
+        return grad_a_VdW(T, x, Tcs, omegas, acs, bips)
 
     def ddfunc(x: np.ndarray) -> float:
         T = x[0]
         x = x[1:]
-        hess_a = compact_dense_symmat(hess_a_VdW(T, x, Tcs, omegas, acs, bips))
-        if nc > 1:
-            return hess_a
-        else:
-            j = np.eye(2)
-            j[:-1, :-1] = hess_a
-            return j
+        return compact_dense_symmat(hess_a_VdW(T, x, Tcs, omegas, acs, bips))
 
     # NOTE: Due to floating point arithmetics, we loose digits and must consider
     # approximation errors below this value as zero.
@@ -258,11 +243,7 @@ def test_cohesion_VdW_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
         xn = x[2:]
         a = a_VdW(T, xn, Tcs, omegas, acs, bips)
         grad_a = grad_a_VdW(T, xn, Tcs, omegas, acs, bips)
-        grad_A = grad_a_dl(grad_a, a, p, T)
-        if nc > 1:
-            return grad_A
-        else:
-            return np.hstack((grad_A, 0.0))
+        return grad_a_dl(grad_a, a, p, T)
 
     def ddfunc(x: np.ndarray) -> float:
         p = x[0]
@@ -271,13 +252,7 @@ def test_cohesion_VdW_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
         a = a_VdW(T, xn, Tcs, omegas, acs, bips)
         grad_a = grad_a_VdW(T, xn, Tcs, omegas, acs, bips)
         hess_a = hess_a_VdW(T, xn, Tcs, omegas, acs, bips)
-        hess_A = compact_dense_symmat(hess_a_dl(hess_a, grad_a, a, p, T))
-        if nc > 1:
-            return hess_A
-        else:
-            j = np.eye(3)
-            j[:-1, :-1] = hess_A
-            return j
+        return compact_dense_symmat(hess_a_dl(hess_a, grad_a, a, p, T))
 
     # See note in cohesion_VdW test.
     err_tol = 1e-12
@@ -324,11 +299,7 @@ def test_covolume_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
         x = x[2:]
         b = np.dot(x, bcs)
         grad_b = bcs.copy()
-        grad_B = grad_b_dl(grad_b, b, p, T)
-        if nc > 1:
-            return grad_B
-        else:
-            return np.hstack((grad_B, 0.0))
+        return grad_b_dl(grad_b, b, p, T)
 
     # Test grad approximates function.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
@@ -337,16 +308,7 @@ def test_covolume_dl(nc: int, d: np.ndarray, h: np.ndarray) -> None:
 
 @pytest.mark.parametrize(
     ["d", "h"],
-    [
-        (d, h)
-        for d, h in zip(
-            np.eye(5),
-            [
-                np.logspace(2, -7, 10),
-            ]
-            * 5,
-        )
-    ],
+    [(d, h) for d, h in zip(np.eye(5), 5 * [np.logspace(2, -7, 10)])],
 )
 def test_u_dep(d: np.ndarray, h: np.ndarray):
     """Tests the correct implementation of the derivative of the departure internal
@@ -380,13 +342,7 @@ def test_u_dep(d: np.ndarray, h: np.ndarray):
     [
         (n, d, h)
         for n in [1, 2, 5]
-        for d, h in zip(
-            np.eye(5),
-            [
-                np.logspace(2, -7, 10),
-            ]
-            * 5,
-        )
+        for d, h in zip(np.eye(5), 5 * [np.logspace(2, -7, 10)])
     ],
 )
 def test_lnphis(nc: int, d: np.ndarray, h: np.ndarray) -> None:
@@ -414,16 +370,6 @@ def test_lnphis(nc: int, d: np.ndarray, h: np.ndarray) -> None:
     # numbers and its derivative.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-12)
     assert_order_at_least(orders, 2, tol=1e-2, asymptotic=7)
-
-
-_dh_per_cp_id = lambda cp: [
-    (d, h)
-    for d, h in zip(
-        np.eye(1 + cp[0]) if cp[0] > 1 else np.eye(1),
-        [np.logspace(2, -4, 7)]
-        + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
-    )
-]
 
 
 @pytest.mark.parametrize(
@@ -454,6 +400,14 @@ def test_ideal_density_and_volume(func, dfunc, d: np.ndarray, h: np.ndarray) -> 
     assert_order_at_least(orders, 2, tol=1e-2)
 
 
+_dh_per_cp_id = lambda cp: [
+    (d, h)
+    for d, h in zip(
+        np.eye(1 + cp[0]), [np.logspace(2, -4, 7)] + cp[0] * [np.logspace(0, -6, 7)]
+    )
+]
+
+
 @pytest.mark.skipped(reason="slow due to compilation")
 @pytest.mark.parametrize(
     ["comps_and_phases", "d", "h"],
@@ -482,19 +436,19 @@ def test_ideal_mixture_energies(
 
     def func(x):
         T = x[0]
-        xn = np.array(x[1:]) if ncomp > 1 else np.ones(1)
+        xn = np.array(x[1:])
         assert xn.size == ncomp, "Invalid number of components."
         propfunc = pr_eos._ideal_funcs[property_name]
         return propfunc(T, xn)
 
     def dfunc(x):
         T = x[0]
-        xn = np.array(x[1:]) if ncomp > 1 else np.ones(1)
+        xn = np.array(x[1:])
         assert xn.size == ncomp, "Invalid number of components."
         dpropfunc = pr_eos._ideal_funcs[f"d{property_name}"]
         return dpropfunc(T, xn)
 
-    x0 = np.array([400.0] + ([1.0 / ncomp] * ncomp if ncomp > 1 else []))
+    x0 = np.array([400.0] + ([1.0 / ncomp] * ncomp))
 
     # NOTE: Precision loss likely due to powers of temperature and division by
     # temperatures in interpolation.
@@ -511,9 +465,9 @@ def test_ideal_mixture_energies(
 _dh_per_cp = lambda cp: [
     (d, h)
     for d, h in zip(
-        np.eye(2 + cp[0]) if cp[0] > 1 else np.eye(2),
+        np.eye(2 + cp[0]),
         [np.logspace(3, -3, 7), np.logspace(1, -5, 7)]
-        + (cp[0] * [np.logspace(0, -6, 7)] if cp[0] > 0 else []),
+        + cp[0] * [np.logspace(0, -6, 7)],
     )
 ]
 
@@ -580,7 +534,7 @@ def test_property_derivatives(
     def func(x):
         p = x[0]
         T = x[1]
-        xn = np.array(x[2:]) if ncomp > 1 else np.ones(1)
+        xn = np.array(x[2:])
         assert xn.size == ncomp, "Invalid number of components."
         preargfunc = pr_eos.funcs["prearg_val"]
         propfunc = pr_eos.funcs[property_name]
@@ -589,7 +543,7 @@ def test_property_derivatives(
     def dfunc(x):
         p = x[0]
         T = x[1]
-        xn = np.array(x[2:]) if ncomp > 1 else np.ones(1)
+        xn = np.array(x[2:])
         assert xn.size == ncomp, "Invalid number of components."
         preargfunc = pr_eos.funcs["prearg_val"]
         preargdifffunc = pr_eos.funcs["prearg_jac"]
@@ -603,10 +557,7 @@ def test_property_derivatives(
             xn,
         )
 
-    if ncomp > 1:
-        x0 = np.hstack((x0_pT, np.ones(ncomp) / ncomp))
-    else:
-        x0 = x0_pT
+    x0 = np.hstack((x0_pT, np.ones(ncomp) / ncomp))
 
     # NOTE: Precision loss from ideal part is propagated to the real energies.
     orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)

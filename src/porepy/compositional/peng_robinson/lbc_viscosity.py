@@ -208,17 +208,14 @@ def _dmu_zero(
         dpt += n[i] * dmus[i, :]
     dpt /= np.sum(n)
 
-    if xn.size > 1:
-        u = np.sum(n * mus)
-        v = np.sum(n)
-        du = sqrtmws * mus
-        dv = sqrtmws
+    u = np.sum(n * mus)
+    v = np.sum(n)
+    du = sqrtmws * mus
+    dv = sqrtmws
 
-        dx = (du * v - u * dv) / (v * v)
+    dx = (du * v - u * dv) / (v * v)
 
-        return np.hstack((dpt, dx))
-    else:
-        return dpt
+    return np.hstack((dpt, dx))
 
 
 @_COMPILER(
@@ -458,11 +455,8 @@ def _dmu_correction(
     xi = _xi(xn, Tcs, pcs, mws)
 
     drho_r = _d_reduced_pseudo_density(rho, drho, xn, vcs)
-    if xn.size > 1:
-        dxi = np.zeros(2 + xn.size)
-        dxi[2:] = _dxi(xn, Tcs, pcs, mws)
-    else:
-        dxi = np.zeros(2)
+    dxi = np.zeros(2 + xn.size)
+    dxi[2:] = _dxi(xn, Tcs, pcs, mws)
 
     rrho_r = rho_r * rho_r
     k = (
@@ -531,15 +525,15 @@ class LBCViscosity(CompiledEoS):
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             # Copy to create local object, simplifies compilation, remains in memory.
-            mws_ = mws.copy()
-            Tcs_ = Tcs.copy()
-            vcs_ = vcs.copy()
-            pcs_ = pcs.copy()
-            mus_pure = _mu_pure(T, Tcs_, pcs_, mws_)
-            mu_zero = _mu_zero(xn, mus_pure, mws_)
+            _mws = mws.copy()
+            _Tcs = Tcs.copy()
+            _vcs = vcs.copy()
+            _pcs = pcs.copy()
+            mus_pure = _mu_pure(T, _Tcs, _pcs, _mws)
+            mu_zero = _mu_zero(xn, mus_pure, _mws)
 
             mu_correction = _mu_correction(
-                rho_c(prearg, p, T, xn), xn, Tcs_, pcs_, vcs_, mws_
+                rho_c(prearg, p, T, xn), xn, _Tcs, _pcs, _vcs, _mws
             )
 
             mu_val = mu_zero + mu_correction
@@ -573,24 +567,24 @@ class LBCViscosity(CompiledEoS):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            mws_ = mws.copy()
-            Tcs_ = Tcs.copy()
-            vcs_ = vcs.copy()
-            pcs_ = pcs.copy()
+            _mws = mws.copy()
+            _Tcs = Tcs.copy()
+            _vcs = vcs.copy()
+            _pcs = pcs.copy()
 
-            mus_pure = _mu_pure(T, Tcs_, pcs_, mws_)
+            mus_pure = _mu_pure(T, _Tcs, _pcs, _mws)
             dmus_pure_dpT = np.zeros((mus_pure.size, 2))
-            dmus_pure_dpT[:, 1] = _dmu_pure_dT(T, Tcs_, pcs_, mws_)
+            dmus_pure_dpT[:, 1] = _dmu_pure_dT(T, _Tcs, _pcs, _mws)
 
-            dmu_zero = _dmu_zero(xn, mus_pure, dmus_pure_dpT, mws_)
+            dmu_zero = _dmu_zero(xn, mus_pure, dmus_pure_dpT, _mws)
             dmu_correction = _dmu_correction(
                 rho_c(prearg_val, p, T, xn),
                 drho_c(prearg_val, prearg_jac, p, T, xn),
                 xn,
-                Tcs_,
-                pcs_,
-                vcs_,
-                mws_,
+                _Tcs,
+                _pcs,
+                _vcs,
+                _mws,
             )
 
             dmu = dmu_zero + dmu_correction

@@ -23,6 +23,7 @@ from porepy.compositional.compiled_eos import (
     PROPERTY_FUNC_SIGNATURE,
 )
 
+
 _COMPILER = njit
 """Decorator for compiling functions in this module.
 
