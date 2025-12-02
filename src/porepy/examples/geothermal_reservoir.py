@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Protocol, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, cast
 
 import numpy as np
 from numpy.typing import NDArray
