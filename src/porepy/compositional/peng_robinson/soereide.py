@@ -237,8 +237,8 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     def get_prearg_for_values(self) -> eos.VectorFunction:
         """Modified pre-argument for values expecting molal salinity as the first
         element in the parameters array argument."""
-        A_c = self._ideal_funcs["A"]
-        B_c = self._ideal_funcs["B"]
+        A_c = self.ideal_funcs["A"]
+        B_c = self.ideal_funcs["B"]
 
         eps = self.params["eps"]
         s_m = self.params["smoothing_multiphase"]
@@ -287,10 +287,10 @@ class CompiledPengRobinsonSoereide(eos.CompiledPengRobinson):
     def get_prearg_for_derivatives(self) -> eos.VectorFunction:
         """Modified pre-argument for derivatives expecting molal salinity as the first
         element in the parameters array argument."""
-        A_c = self._ideal_funcs["A"]
-        B_c = self._ideal_funcs["B"]
-        dA_c = self._ideal_funcs["dA"]
-        dB_c = self._ideal_funcs["dB"]
+        A_c = self.ideal_funcs["A"]
+        B_c = self.ideal_funcs["B"]
+        dA_c = self.ideal_funcs["dA"]
+        dB_c = self.ideal_funcs["dB"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
         d = 2 + self.nc
 

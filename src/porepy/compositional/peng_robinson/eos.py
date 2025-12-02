@@ -73,6 +73,11 @@ Uses :func:`~porepy.compositional._numba_interface.njit`.
 def covolume_dep(Z: float, B: float) -> float:
     r"""Special treatment of departure term to remain well-defined.
 
+    Note:
+        Consider switching to expression in terms of specific volume and
+        (dimensiona) covolume. Literature says more robust for near-critical
+        applications.
+
     Parameters:
         Z: Compressibility factor.
         B: Dimensionless covolume.
@@ -240,7 +245,7 @@ def ac_component(pc: float, Tc: float) -> float:
 
     """
     RT = R_U * Tc
-    return A_CRIT * RT**2 / pc**2
+    return A_CRIT * RT**2 / pc
 
 
 @_COMPILER(nb.f8(nb.f8), fastmath=NUMBA_FAST_MATH, cache=True)
@@ -682,7 +687,7 @@ def u_dep(
         The departure internal energy.
 
     """
-    _c = -R_U / np.sqrt(8)
+    _c = R_U / np.sqrt(8)
     lnZB1 = covolume_dep(Z, B)
     iB = 1.0 / B
     return _c * T * (A + T * dAdT) * lnZB1 * iB
@@ -701,7 +706,7 @@ def grad_u_dep(
     dAdT: float,
 ) -> np.ndarray:
     """Gradient of :func:`u_dep` with respect to its arguments."""
-    _c = -R_U / np.sqrt(8)
+    _c = R_U / np.sqrt(8)
     lnZB1 = covolume_dep(Z, B)
     dlnZB1 = grad_covolume_dep(Z, B)
 
@@ -811,7 +816,7 @@ class CompiledPengRobinson(CompiledEoS):
         )
         self.ideal_fluids: Sequence[IdealFluid] = ideal_fluids
 
-        self._ideal_funcs: PropertyFunctionDict = {}
+        self.ideal_funcs: PropertyFunctionDict = {}
         """Contains ideal parts for thermodynamic properties."""
 
     def get_prearg_for_values(self) -> VectorFunction:
@@ -1027,7 +1032,7 @@ class CompiledPengRobinson(CompiledEoS):
         return dphi_mix_c
 
     def get_h_function(self) -> ScalarFunction:
-        h_id_c = self._ideal_funcs["h"]
+        h_id_c = self.ideal_funcs["h"]
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
@@ -1044,7 +1049,7 @@ class CompiledPengRobinson(CompiledEoS):
         return h_c
 
     def get_grad_h_function(self) -> VectorFunction:
-        dh_id_c = self._ideal_funcs["dh"]
+        dh_id_c = self.ideal_funcs["dh"]
 
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def dh_c(
@@ -1084,7 +1089,7 @@ class CompiledPengRobinson(CompiledEoS):
         return dh_c
 
     def get_u_function(self) -> ScalarFunction:
-        u_id_c = self._ideal_funcs["u"]
+        u_id_c = self.ideal_funcs["u"]
 
         @_COMPILER(PROPERTY_FUNC_SIGNATURE)
         def u_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
@@ -1099,7 +1104,7 @@ class CompiledPengRobinson(CompiledEoS):
         return u_c
 
     def get_grad_u_function(self) -> VectorFunction:
-        du_id_c = self._ideal_funcs["du"]
+        du_id_c = self.ideal_funcs["du"]
 
         @_COMPILER(PROPERTY_DERIVATIVE_FUNC_SIGNATURE)
         def du_c(
@@ -1254,7 +1259,7 @@ class CompiledPengRobinson(CompiledEoS):
 
         # endregion
 
-        self._ideal_funcs = {
+        self.ideal_funcs = {
             "h": h_ideal,
             "dh": dh_ideal,
             "u": u_ideal,

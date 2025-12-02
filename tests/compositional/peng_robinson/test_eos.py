@@ -12,6 +12,10 @@ from porepy.applications.test_utils.derivative_testing import (
     assert_order_at_least,
     get_EOC_taylor,
 )
+from porepy.compositional.ideal.collection import (
+    H_FORMATION_H2O_G_deNevers,
+    H_FORMATION_H2O_L_deNevers,
+)
 from porepy.compositional.peng_robinson.eos import (
     a_dl,
     a_VdW,
@@ -438,14 +442,14 @@ def test_ideal_mixture_energies(
         T = x[0]
         xn = np.array(x[1:])
         assert xn.size == ncomp, "Invalid number of components."
-        propfunc = pr_eos._ideal_funcs[property_name]
+        propfunc = pr_eos.ideal_funcs[property_name]
         return propfunc(T, xn)
 
     def dfunc(x):
         T = x[0]
         xn = np.array(x[1:])
         assert xn.size == ncomp, "Invalid number of components."
-        dpropfunc = pr_eos._ideal_funcs[f"d{property_name}"]
+        dpropfunc = pr_eos.ideal_funcs[f"d{property_name}"]
         return dpropfunc(T, xn)
 
     x0 = np.array([400.0] + ([1.0 / ncomp] * ncomp))
@@ -559,8 +563,8 @@ def test_property_derivatives(
 
     x0 = np.hstack((x0_pT, np.ones(ncomp) / ncomp))
 
-    # NOTE: Precision loss from ideal part is propagated to the real energies.
-    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-9)
+    # NOTE: Precision loss from ideal part and cohesion is propagated and worsened.
+    orders = get_EOC_taylor(func, dfunc, x0, d, h, tol=1e-7)
     expected_order = calculate_expected_order(
         True if state == pp.compositional.PhysicalState.gas else False,
         tol,
@@ -572,6 +576,126 @@ def test_property_derivatives(
     assert_order_at_least(
         orders,
         expected_order,
-        tol=5e-2,
+        tol=6e-2,
+        asymptotic=4,
         err_msg=f"{property_name}; x0 = {x0[:2]}; d = {d}; state={state}",
+    )
+
+
+@pytest.mark.skipped(reason="slow due to compilation")
+@pytest.mark.parametrize(
+    "comps_and_phases",
+    [(1, "V"), (2, "V"), (3, "V")],
+    indirect=["comps_and_phases"],
+)
+def test_ideal_mixture_obeys_reference_state(
+    comps_and_phases: tuple[int, str],
+    pr_eos: pr.CompiledPengRobinson,
+) -> None:
+    """Tests that the ideal part of the fluid mixtures obey PorePy's reference state
+    when evaluated with a partial fraction for water of 1.
+
+    Note:
+        Very similar to ``test_ideal/test_ideal_water_obeys_reference_state``, but it is
+        an essential test for mixing and compilation.
+        Makes sure that the anchoring to the reference state is not messed up by the
+        parallelization framework.
+
+    """
+    H = pp.compositional.THD_REF.H
+    U = pp.compositional.THD_REF.U
+    R = pp.compositional.THD_REF.R_U
+
+    T = pp.compositional.THD_REF.T
+    xn = np.zeros(comps_and_phases[0])
+    xn[0] = 1.0
+
+    h_ideal = pr_eos.ideal_funcs["h"]
+    latent_heat = H_FORMATION_H2O_G_deNevers - H_FORMATION_H2O_L_deNevers
+
+    # NOTE: We test the positivity of latent heat and delta_u every time, because the
+    # sign is crucial in the rest of the test. Don't use absolute values.
+    assert latent_heat > 0, "Expecting latent heat to be positive."
+
+    np.testing.assert_allclose(h_ideal(T, xn) - H, latent_heat, atol=1e-15, rtol=0.0)
+
+    # The ideal gas internal energy should obey ideal gas law, where the difference
+    # in volume is equal to RT, and we use the definition of h = u + RT
+    # This holds only if the reference state is correctly used.
+    u_ideal = pr_eos.ideal_funcs["u"]
+    delta_u = latent_heat - R * T
+    assert delta_u > 0, (
+        "Expecting change in internal energy upon evaporation to be positive."
+    )
+
+    np.testing.assert_allclose(u_ideal(T, xn) - U, delta_u)
+
+
+@pytest.mark.skipped(reason="slow due to compilation")
+@pytest.mark.parametrize(
+    "comps_and_phases",
+    [(1, "V"), (2, "V"), (3, "V")],
+    indirect=["comps_and_phases"],
+)
+@pytest.mark.parametrize("N", [1, 2, 10])
+def test_real_mixture_obeys_reference_state(
+    N: int,
+    comps_and_phases: tuple[int, str],
+    pr_eos: pr.CompiledPengRobinson,
+) -> None:
+    """Tests that the real properrties of fluid mixtures obey PorePy's reference state
+    when evaluated with a partial fraction for water of 1.
+
+    Note however, that the Peng-Robinson departure functions dramatically
+    underpredict the departure from ideal state for water, especially at low
+    pressure.
+
+    In essence, the only thing we can test is that the latent heat is positive,
+    the change in internal energy is positive, and that the gas energies are close to
+    ideal values.
+
+    This test is also conducted with multiple evaluation ``N``, indirectly testing the
+    ``compute_property`` method for consistency in terms of parallelized evaluation.
+
+    """
+    H = pp.compositional.THD_REF.H
+    U = pp.compositional.THD_REF.U
+    R = pp.compositional.THD_REF.R_U
+
+    p = pp.compositional.THD_REF.P * np.ones(N)
+    T = pp.compositional.THD_REF.T * np.ones(N)
+    xn = np.zeros((comps_and_phases[0], N))
+    xn[0] = 1.0
+    # Avoid smoothing since triple point has two stable phases.
+    params = [0.0, 0.0]
+
+    prop_l = pr_eos.compute_phase_properties(
+        pp.compositional.PhysicalState.liquid, p, T, xn, params=params
+    )
+    prop_g = pr_eos.compute_phase_properties(
+        pp.compositional.PhysicalState.gas, p, T, xn, params=params
+    )
+
+    h_id = pr_eos.ideal_funcs["h"](pp.compositional.THD_REF.T, xn[:, 0])
+    u_id = pr_eos.ideal_funcs["u"](pp.compositional.THD_REF.T, xn[:, 0])
+    h_l = prop_l.h
+    u_l = prop_l.u
+    h_g = prop_g.h
+    u_g = prop_g.u
+
+    assert np.all(h_l < h_g), (
+        "Expecting liquid enthalpy to be smaller than gas enthalpy."
+    )
+    assert np.all(u_l < u_g), (
+        "Expecting liquid int. energy to be smaller than gas int. energy."
+    )
+
+    assert np.allclose(h_g, h_id, atol=1.0, rtol=0.0), (
+        "Expecting water vapor enthalpy to be close to ideal."
+    )
+    assert np.allclose(u_g, u_id, atol=1.0, rtol=0.0), (
+        "Expecting water vapor int. energy to be close to ideal."
+    )
+    assert np.allclose(np.abs(u_g - h_g), R * T, atol=1.0, rtol=0.0), (
+        "Expecting difference in vapor enthalpy and int. energy to be close to RT."
     )

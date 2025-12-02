@@ -143,10 +143,7 @@ class PRLBC(pr.CompiledPengRobinson, pr.LBCViscosity):
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            if xn.size > 1:
-                return np.zeros(2 + xn.shape[0])
-            else:
-                return np.zeros(2)
+            return np.zeros(2 + xn.shape[0])
 
         return dkappa_c
 

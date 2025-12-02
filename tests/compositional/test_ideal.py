@@ -50,7 +50,8 @@ def test_ideal_water_obeys_reference_state(
     # Assert that the ideal gas water enthalpy at the defined reference temperature is
     # equal to the difference in the given formation enthalpies.
     h = h2o.funcs["h"]
-    latent_heat = np.abs(H_FORMATION_H2O_G_deNevers - H_FORMATION_H2O_L_deNevers)
+    latent_heat = H_FORMATION_H2O_G_deNevers - H_FORMATION_H2O_L_deNevers
+    assert latent_heat > 0, "Expecting latent heat to be positive."
     np.testing.assert_allclose(
         h(pc.THD_REF.T) - pc.THD_REF.H, latent_heat, atol=1e-15, rtol=0.0
     )
@@ -59,8 +60,11 @@ def test_ideal_water_obeys_reference_state(
     # in volume is equal to RT, and we use the definition of h = u + RT
     # This holds only if the reference state is correctly used.
     u = h2o.funcs["u"]
-    delta_u = pc.THD_REF.U + np.abs(latent_heat - pc.THD_REF.R_U * pc.THD_REF.T)
-    np.testing.assert_allclose(u(pc.THD_REF.T), delta_u)
+    delta_u = latent_heat - pc.THD_REF.R_U * pc.THD_REF.T
+    assert delta_u > 0, (
+        "Expecting change in internal energy upon evaporation to be positive."
+    )
+    np.testing.assert_allclose(u(pc.THD_REF.T) - pc.THD_REF.U, delta_u)
 
 
 @pytest.mark.parametrize("name", ["u", "h"])

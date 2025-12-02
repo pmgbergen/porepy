@@ -613,7 +613,7 @@ def _evaluate_vectorized_property_derivatives_func(
     """
     N = p.shape[0]
     num_comp = xn.shape[1]
-    diffs = np.empty((2 + num_comp if num_comp > 1 else 2, N))
+    diffs = np.empty((2 + num_comp, N))
     for i in nb.prange(N):
         diffs[:, i] = property_diffs_func(
             prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
@@ -728,7 +728,7 @@ def _evaluate_vectorized_fug_coeff_diff_func(
 
     """
     n, ncomp = xn.shape
-    dphis = np.empty((ncomp, 2 + ncomp if ncomp > 1 else 2, n))
+    dphis = np.empty((ncomp, 2 + ncomp, n))
     for i in nb.prange(n):
         dphis[:, :, i] = fug_coeff_diff_func(
             prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
@@ -1195,7 +1195,7 @@ class CompiledEoS(EquationOfState):
             thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
         # If only 1 component
         elif len(thermodynamic_input) == 2 and self.nc == 1:
-            x = np.ones(thermodynamic_input[0].size)
+            x = np.ones((1, thermodynamic_input[0].size))
             thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
         else:
             raise ValueError(
@@ -1203,12 +1203,19 @@ class CompiledEoS(EquationOfState):
                 "(p, T, x_1, .., x_n) or (p, T) in case only 1 component."
             )
 
-        # Reshape to matrix in the single-component case for compatibility reasons.
-        if self.nc == 1 and x.ndim == 1:
-            x = x.reshape((1, x.shape[0]))
+        # Reshape to matrix in the single-value case for compatibility reasons.
+        if x.ndim == 1 and thermodynamic_input[0].size == 1:
+            x = x.reshape((self.nc, 1))
 
+        # Assert basic format to avoid unexpected behavior in compiled computations.
+        assert thermodynamic_input[0].shape == thermodynamic_input[1].shape, (
+            "Expecting thermodynamic input to be equally shaped."
+        )
         assert x.ndim == 2, (
             "Could not extract partial fractions as 2D array from thermodynamic input."
+        )
+        assert x.shape == (self.nc, thermodynamic_input[0].size), (
+            "Unexpected shape of partial fractions."
         )
 
         # NOTE: The vectorized functions expect fractions column-wise, while the
