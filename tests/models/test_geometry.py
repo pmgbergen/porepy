@@ -28,6 +28,8 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 from pathlib import Path
 
+import porepy.models.geometry
+
 
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
@@ -679,7 +681,34 @@ class TestGeometry:
             / "gmsh_file_library"
             / "benchmark_3d_case_2"
         )
-        geo_path = folder_path / f"mesh500.geo"
-        fracture_network_path = folder_path / "fracture_network.csv"
+        geo_path =  "mesh500.geo"
+        fracture_network_path =  "fracture_network.csv"
         num_fracs = 9
-        geometry_model = self.geometries[geometry_class, num_fracs]
+
+        geometry_class=models.add_mixin(
+            porepy.models.geometry.LoadGeometryMixin,
+            pp.ModelGeometry,
+        )
+
+        # List of number of fractures to test.
+        # Dictionary to store the geometry information.
+        self.geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry] = {}
+
+        # Create an instance of the geometry class.
+        geometry_model = geometry_class()
+        geometry_model.params = {
+            "geometry_folder": folder_path,
+            "geo_file": geo_path,
+            "csv_file": fracture_network_path,
+        }
+        geometry_model.nd=3#TODO remove this later
+        # Assign units to the geometry.
+        geometry_model.units = pp.Units()
+        # Set the geometry configuration.
+        geometry_model.set_geometry()
+
+        # The operator_cache is usually set by the SolutionStrategy, but since
+        # this class is used standalone, we need to set it here.
+        geometry_model._operator_cache = {}
+
+        self.geometries[(geometry_class, num_fracs)] = geometry_model
