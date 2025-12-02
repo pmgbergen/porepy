@@ -26,8 +26,6 @@ from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
-
 # Constants for fluid phase densities (kg/m^3)
 rho_w = 1000.0  #: Density of water (H2O)
 rho_o = 700.0  #: Density of oil (C5H12)

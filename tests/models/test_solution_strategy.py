@@ -41,7 +41,6 @@ from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.numerics.nonlinear.convergence_check import (
     AbsoluteConvergenceCriterion,
-    ConvergenceInfo,
     ConvergenceStatus,
     ConvergenceTolerance,
 )
