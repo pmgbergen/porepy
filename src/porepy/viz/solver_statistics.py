@@ -141,7 +141,7 @@ class SolverStatistics:
                         self.custom_data[key] = [self.custom_data[key], value]
                 else:
                     # Key does not exist, create new entry. Distinguish between dict and
-                    # and non-dict values. Dicts are appended recursively.
+                    # non-dict values. Dicts are appended recursively.
                     if isinstance(value, dict):
                         self.custom_data[key] = {}
                         _recursive_append(self.custom_data[key], value)

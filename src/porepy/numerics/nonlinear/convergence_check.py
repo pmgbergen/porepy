@@ -91,8 +91,8 @@ class ReferenceValue:
     """Reference value manager.
 
     It allows initializing a reference value only when a certain condition is met, and
-    provides a default value if the condition is not met. For updating reference
-    values, the object needs to be reset.
+    provides a default value if the condition is not met. For setting reference values,
+    the object needs to be reset.
 
     """
 
@@ -104,14 +104,14 @@ class ReferenceValue:
         """Define the reference value manager.
 
         Parameters:
-            condition: A callable that takes a value and returns True if it is a
-                valid reference value, False otherwise.
-            default_reference_value: The default value to return if the reference
-                value is not set or is None.
+            condition: A callable that takes a value and returns True if it is a valid
+                reference value, False otherwise.
+            default_reference_value: The default value to return if the reference value
+                is not set or is None.
 
         """
         self.condition: Callable[[float], bool] = condition
-        """Condition for updating the reference value."""
+        """Condition for setting the reference value."""
         self.default_reference_value: float = default_reference_value
         """Default value to return if the reference value is None."""
         self.reference_value: dict[str, float | None] = {}
@@ -124,8 +124,8 @@ class ReferenceValue:
             values: A dictionary of values to use for setting the reference value.
 
         Returns:
-            dict[str, float]: A dictionary with the valid reference values, and
-                the default reference value if no reference value is set.
+            dict[str, float]: A dictionary with the valid reference values, and the
+                default reference value if no reference value is set.
 
         """
         for key, value in values.items():
@@ -274,8 +274,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
     ) -> None:
         """Set the reference values for increments and residuals.
 
-        The actual update is done by the `reference_value` manager, which
-        ensures that the reference values are only updated if they meet the
+        The actual setting is done by the `reference_value` manager, which
+        ensures that the reference values are only set if they meet the
         specified conditions.
 
         Parameters:
