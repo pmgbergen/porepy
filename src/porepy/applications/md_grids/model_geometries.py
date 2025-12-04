@@ -211,15 +211,17 @@ class SubsurfaceCuboidDomain:
 
     domain: pp.Domain
     """Model domain."""
-    units: pp.Units
-    """Model units."""
+    nd: int
+    """Number of spatial dimensions."""
     params: dict
     """Model parameters."""
+    units: pp.Units
+    """Model units."""
 
     def domain_sizes(self) -> NDArray[np.float64]:
         """Return the size of the domain in each coordinate direction."""
         return self.units.convert_units(
-            self.params.get("domain_sizes", np.array([1.0, 1.0, 1.0])), "m"
+            self.params.get("domain_sizes", np.ones([self.nd], dtype=float)), "m"
         )
 
     def set_domain(self) -> None:
@@ -245,7 +247,8 @@ class SubsurfaceCuboidDomain:
             Depth values for the provided points.
 
         """
-        return self.domain.bounding_box["zmax"] - points[2, :]
+        key = "zmax" if self.nd == 3 else "ymax"
+        return self.domain.bounding_box[key] - points[self.nd - 1, :]
 
 
 class TwoWells3d(SubsurfaceCuboidDomain):
@@ -338,23 +341,6 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
     The case num_fractures < (size of arrays) is allowed, in which case only the first
     num_fractures entries are used.
 
-    TODO: Decide whether to replace properties with a defualt dictionary, i.e.,
-    def fracture_params(self) -> dict:
-        default_params = {
-            "num_fractures": 2,
-            "num_points": (10, 10),
-            "fracture_major_axes": (0.2, 0.2),
-            "fracture_minor_axes": (None, None),
-            "strike_angles": (np.pi / 4, np.pi / 4),
-            "dip_angles": (np.pi / 2, np.pi / 2),
-            "major_axis_angles": (0.0, 0.0),
-        }
-        user_params = self.params.get("fracture_params", {})
-        default_params.update(user_params)
-        return default_params
-    The parameters could then be retrieved as self.fracture_params["num_points"], etc.
-    This would reduce the number of properties, but possibly make the code less
-    explicit.
     """
 
     params: dict
@@ -362,108 +348,66 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
     units: pp.Units
     """Model units."""
 
-    @property
     def fracture_params(self) -> dict:
-        """Return fracture parameters."""
-        return self.params.get("fracture_params", {})
+        """Return fracture parameters with defaults.
 
-    @property
-    def num_fracture_points(self) -> NDArray[np.int32]:
-        """Return the number of points per fracture."""
-        return self.fracture_params.get("num_points", np.array((10, 10)))
-
-    @property
-    def fracture_major_axes(self) -> NDArray[np.float64]:
-        """Return the major axes of the two fractures.
-
-        Returns:
-            Array with the major axes of the two fractures.
-        """
-        default_axes = np.array([0.2, 0.2])
-        axes = self.fracture_params.get("fracture_major_axes", default_axes)
-        axes = self.units.convert_units(axes, "m")
-        return axes
-
-    @property
-    def fracture_minor_axes(self) -> NDArray[np.float64]:
-        """Return the minor axes of the two fractures.
-
-        If not specified, the minor axes are set equal to the major axes, resulting in
-        disk-shaped fractures.
+        The available parameters are:
+            - num_fractures: Number of fractures (default 2)
+            - fracture_major_axes: Major axes of the fractures (default [0.2, 0.2])
+            - fracture_minor_axes: Minor axes of the fractures (default equal to
+                major axes, whether explicitly provided or not)
+            - strike_angles: Strike angles of the fractures (default [pi/4, pi/4])
+            - dip_angles: Dip angles of the fractures (default [pi/2, pi/2])
+            - major_axis_angles: Major axis angles of the fractures (default [0.0, 0.0])
+            - num_points: Number of points to define each fracture (default [10, 10])
 
         Returns:
-            Array with the minor axes of the two fractures.
+            A dictionary with fracture parameters.
+
         """
-        default_axes = self.fracture_major_axes
-        axes = self.fracture_params.get("fracture_minor_axes", default_axes)
-        if axes is None:
-            axes = default_axes
-        else:
-            axes = self.units.convert_units(axes, "m")
-        return axes
+        default_params = {
+            "num_fractures": 2,
+            "num_points": np.array([10, 10]),
+            "fracture_major_axes": np.array([0.2, 0.2]),
+            "strike_angles": np.array([np.pi / 4, np.pi / 4]),
+            "dip_angles": np.array([np.pi / 2, np.pi / 2]),
+            "major_axis_angles": np.array([0.0, 0.0]),
+        }
+        # Update with user-provided parameters, converting units as needed.
+        units = ["-", "-", "m", "rad", "rad", "rad"]
+        user_params = self.params.get("fracture_params", {})
+        for key, unit in zip(default_params.keys(), units):
+            if key in user_params:
+                if unit == "m":
+                    default_params[key] = self.units.convert_units(
+                        user_params[key], "m"
+                    )
+                else:
+                    default_params[key] = user_params[key]
+        if "fracture_minor_axes" not in default_params:
+            default_params["fracture_minor_axes"] = default_params[
+                "fracture_major_axes"
+            ]
+        return default_params
 
-    @property
-    def strike_angles(self) -> NDArray[np.float64]:
-        """Return the strike angles of the two fractures.
-
-        If not specified, both strike angles are set to `pi/4`.
-
-        Returns:
-            Array with the strike angles of the two fractures.
-        """
-        default_strikes = np.array((np.pi / 4, np.pi / 4))
-        strikes = self.fracture_params.get("strike_angles", default_strikes)
-        return strikes
-
-    @property
-    def dip_angles(self) -> NDArray[np.float64]:
-        """Return the dip angles of the two fractures.
-
-        If not specified, both dip angles are set to `pi/2`.
-
-        Returns:
-            Array with the dip angles of the two fractures.
-        """
-        default_dips = np.array((np.pi / 2, np.pi / 2))
-        dips = self.fracture_params.get("dip_angles", default_dips)
-        return dips
-
-    @property
-    def major_axis_angles(self) -> NDArray[np.float64]:
-        """Return the major axis angles of the two fractures.
-
-        If not specified, both major axis angles are set to `0`.
-
-        Returns:
-            Array with the major axis angles of the two fractures.
-        """
-        default_angles = np.array((0.0, 0.0))
-        angles = self.fracture_params.get("major_axis_angles", default_angles)
-        return angles
-
-    @property
     def fracture_centers(self) -> tuple[np.ndarray, np.ndarray]:
         dx, dy, dz = self.domain_sizes()
         center_1 = np.array([0.35 * dx, 0.35 * dy, -0.6 * dz])
         center_2 = np.array([0.65 * dx, 0.65 * dy, -0.6 * dz])
         return center_1, center_2
 
-    @property
-    def num_fractures(self) -> int:
-        """Return the number of fractures."""
-        return self.fracture_params.get("num_fractures", 2)
-
     def set_fractures(self):
         """Set the two elliptic fractures."""
         self._fractures = []
-        for i in range(self.num_fractures):
+        params = self.fracture_params()
+        for i in range(params["num_fractures"]):
             f = pp.create_elliptic_fracture(
                 center=self.fracture_centers[i],
-                strike_angle=self.strike_angles[i],
-                dip_angle=self.dip_angles[i],
-                major_axis=self.fracture_major_axes[i],
-                minor_axis=self.fracture_minor_axes[i],
-                major_axis_angle=self.major_axis_angles[i],
-                num_points=self.num_fracture_points[i],
+                strike_angle=params["strike_angles"][i],
+                dip_angle=params["dip_angles"][i],
+                major_axis=params["fracture_major_axes"][i],
+                minor_axis=params["fracture_minor_axes"][i],
+                major_axis_angle=params["major_axis_angles"][i],
+                num_points=params["num_points"][i],
             )
             self._fractures.append(f)
