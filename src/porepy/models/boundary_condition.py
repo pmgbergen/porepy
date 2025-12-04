@@ -8,7 +8,7 @@
 """
 
 from functools import cached_property
-from typing import TYPE_CHECKING,  Callable, Sequence
+from typing import TYPE_CHECKING, Callable, Sequence
 
 import numpy as np
 

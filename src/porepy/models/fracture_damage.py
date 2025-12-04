@@ -1,5 +1,5 @@
 from functools import partial
-from typing import TYPE_CHECKING,  Callable, cast
+from typing import TYPE_CHECKING, Callable, cast
 
 import numpy as np
 

@@ -8,7 +8,7 @@ combination with the momentum balance model, but can be used as a standalone mod
 """
 
 from functools import partial
-from typing import TYPE_CHECKING,  Callable, Optional, cast
+from typing import TYPE_CHECKING, Callable, Optional, cast
 
 import numpy as np
 

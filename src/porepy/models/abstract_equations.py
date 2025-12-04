@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING,  Callable, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 

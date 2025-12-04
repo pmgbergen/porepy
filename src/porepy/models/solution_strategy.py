@@ -11,7 +11,7 @@ import logging
 import time
 import warnings
 from functools import partial
-from typing import TYPE_CHECKING,  Any, Callable, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps

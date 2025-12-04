@@ -103,7 +103,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import TYPE_CHECKING,  Callable, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Callable, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
