@@ -119,7 +119,7 @@ else:
                    of other physics models are also initialized.
     
                 Calling this method anywhere else explicitely via
-                ``self.set_initial_values_primary_variables()`` will invalidate the guarante
+                ``self.set_initial_values_primary_variables()`` will invalidate the guarantee
                 that the primary variables are initialized first, because it risks
                 circumventing the intended ``super()`` resolution.
     

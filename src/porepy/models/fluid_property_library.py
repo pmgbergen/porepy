@@ -1301,7 +1301,7 @@ if TYPE_CHECKING:
         """See runtime class definition for full documentation."""
 else:
     class ConstantFluidThermalConductivity:
-        """Ïmplementation of a constant thermal conductivity for a single-phase fluid."""
+        """Implementation of a constant thermal conductivity for a single-phase fluid."""
     
         def thermal_conductivity_of_phase(
             self, phase: pp.Phase
