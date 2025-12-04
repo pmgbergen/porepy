@@ -435,11 +435,11 @@ class GravityMagnitude:
 
 
 class LithostaticBoundaryStressValues(GravityMagnitude):
-    """Boundary conditions for the mechanics with lithostatic stress on all
-    boundaries.
+    """Boundary conditions for the mechanics with lithostatic stress on all boundaries.
 
     Neumann boundary conditions are defined on all boundaries, with stress values
-    corresponding to lithostatic stress.
+    corresponding to lithostatic stress. The principal stresses are assumed to align
+    with the coordinate axes.
 
     """
 
@@ -493,7 +493,7 @@ class LithostaticBoundaryStressValues(GravityMagnitude):
         depth = self.depth(boundary_grid.cell_centers)
 
         # The sign of the stress depends on the side of the domain according to the
-        # direction of the normal vector. Loop over directions.
+        # direction of the outer normal vector on the boundary. Loop over directions.
         for i, sides in enumerate(
             [["west", "east"], ["south", "north"], ["bottom", "top"]]
         ):
