@@ -960,7 +960,7 @@ class TestMixedDimGravity:
 
         Asserts:
             That the pressure profile is as expected within a tolerance for both
-            the primary and secondary subdomains.
+            the matrix and fracture subdomains.
             That the flux in the fracture is zero.
         """
         mdg = self.model.mdg
@@ -1003,7 +1003,7 @@ class TestMixedDimGravity:
         num_nodes_mortar: int,
         num_nodes_1d: int,
     ):
-        """Use homogeneous Neumann boundary conditions on top Dirichlet on bottom.
+        """Use homogeneous Neumann boundary conditions on top and Dirichlet on bottom.
 
         The pressure distribution should be hydrostatic.
 

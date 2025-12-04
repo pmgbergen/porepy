@@ -27,14 +27,16 @@ logging.basicConfig(level=logging.INFO)
 
 
 class WellBoundaryConditions(pp.PorePyModel):
-    """Class defining boundary conditions for geothermal reservoir models
-    with wells and fractures.
+    """Class defining boundary conditions values for geothermal reservoir models with wells.
 
     We impose the well protocols as boundary conditions on the appropriate grids. For
-    the boundaries of the 3d matrix grid (and any fracture grids), we impose hydrostatic
-    pressure and a thermal gradient temperature, corresponding to Dirichlet boundary
-    conditions for pressure and temperature. We default Dirichlet conditions for all
-    fluxes and all boundaries.
+    the boundaries of the 3d matrix grid (and any fracture grids), we impose whatever
+    boundary conditions are defined in the super classes. On the well grids, we
+    prescribe Dirichlet data. We do not explicitly set the BC type on the well grids,
+    so it is assumed that the BC type is defined elsewhere, e.g., in a mixin class. If
+    that class specifies Neumann BCs on the well grids, an extension of the model is
+    needed to change the BC type to Dirichlet or to prescribe flux values from
+    protocols.
 
     Super calls in methods `bc_values_pressure` and `bc_values_temperature` suggest that
     this class should be used as a mixin with higher MRO priority than classes defining
@@ -50,18 +52,21 @@ class WellBoundaryConditions(pp.PorePyModel):
         """Return boundary values for pressure on all boundaries.
 
         Parameters:
-            sd: The subdomain for which to return the BC values.
+            bg: The boundary grid for which to return the BC values.
 
         Returns:
-            The boundary values for pressure on the given subdomain.
+            The boundary values for pressure on the given boundary grid.
         """
         sd = bg.parent
+        # Ignore super call for type checking, as it is assumed to be present for this
+        # mixin class.
         values = super().bc_values_pressure(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
             well_tag = self.well_names[sd.tags["parent_well_index"]]
             protocol = self.well_protocols()[well_tag]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
+            # The top of the domain is '.top' in 3d, '.north' in 2d.
             inds = domain_sides.top if self.nd == 3 else domain_sides.north
             # Set pressure values according to the well protocol.
             values[inds] = self.units.convert_units(
@@ -78,10 +83,10 @@ class WellBoundaryConditions(pp.PorePyModel):
         """Return boundary values for temperature on all boundaries.
 
         Parameters:
-            sd: The subdomain for which to return the BC values.
+            bg: The boundary grid for which to return the BC values.
 
         Returns:
-            The boundary values for temperature on the given subdomain.
+            The boundary values for temperature on the given boundary grid.
         """
         sd = bg.parent
         values = super().bc_values_temperature(bg)  # type: ignore[misc]
@@ -130,6 +135,9 @@ class WellBoundaryConditions(pp.PorePyModel):
 
         Returns:
             The well value at the current time.
+
+        Raises:
+            ValueError: If the current time is outside the range of the provided times.
         """
         if current_time < times[0]:
             raise ValueError("Current time is before the start of the well protocol.")
@@ -144,7 +152,7 @@ class WellBoundaryConditions(pp.PorePyModel):
         Returns:
             Dictionary with well protocols, each containing a dictionary with
             time-dependent temperatures and pressures, with each value being an array of
-            size equal to the number of time steps.
+            size equal to the number of scheduled times in the time manager.
         """
         num_times = self.time_manager.schedule.size
         protocols: dict[str, dict[str, NDArray[np.float64]]] = {}
@@ -224,6 +232,7 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
 
         Parameters:
             sd: The subdomain for which to return the BC type.
+
         Returns:
             The boundary condition type for Fourier flux on the given subdomain.
         """
@@ -261,12 +270,6 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         # Determine if we are at the start of the second time interval.
         t_prev = self.time_manager.time - self.time_manager.dt
         rediscretize_flow = np.isclose(t_prev, self.time_manager.schedule[1])
-        interval_ind = np.searchsorted(
-            self.time_manager.schedule, self.time_manager.time, side="right"
-        )
-        logger.info(
-            f"Time {self.time_manager.time:.4e}, interval index {interval_ind}."
-        )
 
         if rediscretize_flow:
             # Add Darcy flux discretization on well grids.
