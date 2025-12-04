@@ -103,7 +103,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import Callable, Optional, Sequence, cast
+from typing import TYPE_CHECKING,  Callable, Optional, Sequence, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -1593,173 +1593,177 @@ class InitialConditionsCF(
 # region Solution strategies.
 
 
-class SolutionStrategyPhaseProperties(pp.PorePyModel):
-    """A mixin solution strategy for CF models which use surrogate operators for phase
-    properties (as is the default in the fluid mixin).
-
-    In this case, the phase properties must be evaluated and respective values and
-    derivative values stored. The EoS of each phase is used to perform respective
-    evaluation.
-
-    Intended use is for models which implement custom EoS or correlations as EoS objects
-    and use them as part of the constitutive modelling of fluid phase properties.
-
-    This is a proper mixin providing only overloads of some methods. It is to be used
-    in a model on top of a fully functional solution strategy.
-
-    An understanding of constitutive modelling using
-    :attr:`~porepy.compositional.base.Phase.eos` and :attr:`~porepy.compositional.
-    compositional_mixins.FluidMixin.dependencies_of_phase_properties` is required.
-
-    Allows the user to define ``model.params['phase_property_params']`` which are passed
-    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
-
-    Note:
-        When using this solution strategy mixin, make sure it is **above** all other
-        solution strategies in order to work property. This is due to the assumed order
-        of execution implemented here (property update before any super-call).
-
-    """
-
-    def update_material_properties(self) -> None:
-        """Calls :meth:`update_thermodynamic_properties_of_phases` after the
-        super-call."""
-
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().update_material_properties()  # type:ignore[safe-super]
-        self.update_thermodynamic_properties_of_phases()
-
-    def update_thermodynamic_properties_of_phases(
-        self, state: Optional[np.ndarray] = None
-    ) -> None:
-        """This method uses for each phase the underlying EoS to calculate new values
-        and derivative values of phase properties and to update them in the iterative
-        sense, on all subdomains."""
-
-        subdomains = self.mdg.subdomains()
-        equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
-        )
-
-        for grid in subdomains:
-            for phase in self.fluid.phases:
-                # Compute the values of variables/state functions on which the phase
-                # properties depend.
-                dep_vals = [
-                    self.equation_system.evaluate(d([grid]), state=state)
-                    for d in self.dependencies_of_phase_properties(phase)
-                ]
-                # Compute phase properties using the phase EoS.
-                phase_state = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals),
-                    params=self.params.get("phase_property_params", None),
-                )
-
-                # Set current iterate indices of values and derivatives.
-                # NOTE: Setting depth to zero does not shift the properties in the
-                # iterative sense, but updates only the current iterate.
-                update_phase_properties(
-                    grid,
-                    phase,
-                    phase_state,
-                    0,
-                    update_fugacities=equilibrium_defined,
-                )
-
-    def after_nonlinear_convergence(self) -> None:
-        """Progresses phase properties in time, if they are surrogate factories.
-
-        Phase properties expected in the accumulation term (time-derivative) include
-        density and specific enthalpy.
-
-        The progression is performed after the super-call.
-
+if TYPE_CHECKING:
+    class SolutionStrategyPhaseProperties(pp.PorePyModel):
+        """See runtime class definition for full documentation."""
+else:
+    class SolutionStrategyPhaseProperties:
+        """A mixin solution strategy for CF models which use surrogate operators for phase
+        properties (as is the default in the fluid mixin).
+    
+        In this case, the phase properties must be evaluated and respective values and
+        derivative values stored. The EoS of each phase is used to perform respective
+        evaluation.
+    
+        Intended use is for models which implement custom EoS or correlations as EoS objects
+        and use them as part of the constitutive modelling of fluid phase properties.
+    
+        This is a proper mixin providing only overloads of some methods. It is to be used
+        in a model on top of a fully functional solution strategy.
+    
+        An understanding of constitutive modelling using
+        :attr:`~porepy.compositional.base.Phase.eos` and :attr:`~porepy.compositional.
+        compositional_mixins.FluidMixin.dependencies_of_phase_properties` is required.
+    
+        Allows the user to define ``model.params['phase_property_params']`` which are passed
+        as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+    
+        Note:
+            When using this solution strategy mixin, make sure it is **above** all other
+            solution strategies in order to work property. This is due to the assumed order
+            of execution implemented here (property update before any super-call).
+    
         """
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().after_nonlinear_convergence()  # type:ignore[safe-super]
-
-        subdomains = self.mdg.subdomains()
-        nt = self.time_step_indices.size
-        for phase in self.fluid.phases:
-            if isinstance(phase.density, pp.ad.SurrogateFactory):
-                phase.density.progress_values_in_time(subdomains, depth=nt)
-            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
-
-    def initialize_previous_iterate_and_time_step_values(self) -> None:
-        """Attaches to the iterate and time step initialization and copies the values
-        of phase properties found at iterate index 0 to all other iterate and time step
-        indices.
-
-        This is done for all phases on all subdomains.
-
-        While iterate indices are copied for all properties, time step indices are
-        copied only for density and specific enthalpy, as they are expected in
-        accumulation terms in balance equations.
-
-        """
-        assert isinstance(self, pp.SolutionStrategy), (
-            "This is a mixin. Require SolutionStrategy as base."
-        )
-        super().initialize_previous_iterate_and_time_step_values()  # type:ignore
-
-        ni = self.iterate_indices.size
-        nt = self.time_step_indices.size
-        equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
-        )
-
-        for sd in self.mdg.subdomains():
+    
+        def update_material_properties(self) -> None:
+            """Calls :meth:`update_thermodynamic_properties_of_phases` after the
+            super-call."""
+    
+            assert isinstance(self, pp.SolutionStrategy), (
+                "This is a mixin. Require SolutionStrategy as base."
+            )
+            super().update_material_properties()  # type:ignore[safe-super]
+            self.update_thermodynamic_properties_of_phases()
+    
+        def update_thermodynamic_properties_of_phases(
+            self, state: Optional[np.ndarray] = None
+        ) -> None:
+            """This method uses for each phase the underlying EoS to calculate new values
+            and derivative values of phase properties and to update them in the iterative
+            sense, on all subdomains."""
+    
+            subdomains = self.mdg.subdomains()
+            equilibrium_defined = (
+                compositional.get_local_equilibrium_condition(self) is not None
+            )
+    
+            for grid in subdomains:
+                for phase in self.fluid.phases:
+                    # Compute the values of variables/state functions on which the phase
+                    # properties depend.
+                    dep_vals = [
+                        self.equation_system.evaluate(d([grid]), state=state)
+                        for d in self.dependencies_of_phase_properties(phase)
+                    ]
+                    # Compute phase properties using the phase EoS.
+                    phase_state = phase.compute_properties(
+                        *cast(list[np.ndarray], dep_vals),
+                        params=self.params.get("phase_property_params", None),
+                    )
+    
+                    # Set current iterate indices of values and derivatives.
+                    # NOTE: Setting depth to zero does not shift the properties in the
+                    # iterative sense, but updates only the current iterate.
+                    update_phase_properties(
+                        grid,
+                        phase,
+                        phase_state,
+                        0,
+                        update_fugacities=equilibrium_defined,
+                    )
+    
+        def after_nonlinear_convergence(self) -> None:
+            """Progresses phase properties in time, if they are surrogate factories.
+    
+            Phase properties expected in the accumulation term (time-derivative) include
+            density and specific enthalpy.
+    
+            The progression is performed after the super-call.
+    
+            """
+            assert isinstance(self, pp.SolutionStrategy), (
+                "This is a mixin. Require SolutionStrategy as base."
+            )
+            super().after_nonlinear_convergence()  # type:ignore[safe-super]
+    
+            subdomains = self.mdg.subdomains()
+            nt = self.time_step_indices.size
             for phase in self.fluid.phases:
-                # Progress iterate values to all iterate indices.
-                # NOTE need the if-checks for models where different properties are
-                # modelled with mixins providing constitutive laws (not surrogate
-                # operators).
-                for _ in self.iterate_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        vals = phase.density.get_values_on_grid(sd, iterate_index=0)
-                        phase.density.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        vals = phase.specific_enthalpy.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.specific_enthalpy.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                        vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
-                        phase.viscosity.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                        vals = phase.thermal_conductivity.get_values_on_grid(
-                            sd, iterate_index=0
-                        )
-                        phase.thermal_conductivity.progress_iterate_values_on_grid(
-                            vals, sd, depth=ni
-                        )
-
-                    if equilibrium_defined:
-                        for k, comp in enumerate(phase.components):
-                            phi = phase.fugacity_coefficient_of[comp]
-                            if isinstance(phi, pp.ad.SurrogateFactory):
-                                vals = phi.get_values_on_grid(sd, iterate_index=0)
-                                phi.progress_iterate_values_on_grid(vals, sd, depth=ni)
-
-                # Copy values to all time step indices.
-                for _ in self.time_step_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_values_in_time([sd], depth=nt)
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
-
-
+                if isinstance(phase.density, pp.ad.SurrogateFactory):
+                    phase.density.progress_values_in_time(subdomains, depth=nt)
+                if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                    phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
+    
+        def initialize_previous_iterate_and_time_step_values(self) -> None:
+            """Attaches to the iterate and time step initialization and copies the values
+            of phase properties found at iterate index 0 to all other iterate and time step
+            indices.
+    
+            This is done for all phases on all subdomains.
+    
+            While iterate indices are copied for all properties, time step indices are
+            copied only for density and specific enthalpy, as they are expected in
+            accumulation terms in balance equations.
+    
+            """
+            assert isinstance(self, pp.SolutionStrategy), (
+                "This is a mixin. Require SolutionStrategy as base."
+            )
+            super().initialize_previous_iterate_and_time_step_values()  # type:ignore
+    
+            ni = self.iterate_indices.size
+            nt = self.time_step_indices.size
+            equilibrium_defined = (
+                compositional.get_local_equilibrium_condition(self) is not None
+            )
+    
+            for sd in self.mdg.subdomains():
+                for phase in self.fluid.phases:
+                    # Progress iterate values to all iterate indices.
+                    # NOTE need the if-checks for models where different properties are
+                    # modelled with mixins providing constitutive laws (not surrogate
+                    # operators).
+                    for _ in self.iterate_indices:
+                        if isinstance(phase.density, pp.ad.SurrogateFactory):
+                            vals = phase.density.get_values_on_grid(sd, iterate_index=0)
+                            phase.density.progress_iterate_values_on_grid(
+                                vals, sd, depth=ni
+                            )
+                        if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                            vals = phase.specific_enthalpy.get_values_on_grid(
+                                sd, iterate_index=0
+                            )
+                            phase.specific_enthalpy.progress_iterate_values_on_grid(
+                                vals, sd, depth=ni
+                            )
+                        if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                            vals = phase.viscosity.get_values_on_grid(sd, iterate_index=0)
+                            phase.viscosity.progress_iterate_values_on_grid(
+                                vals, sd, depth=ni
+                            )
+                        if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                            vals = phase.thermal_conductivity.get_values_on_grid(
+                                sd, iterate_index=0
+                            )
+                            phase.thermal_conductivity.progress_iterate_values_on_grid(
+                                vals, sd, depth=ni
+                            )
+    
+                        if equilibrium_defined:
+                            for k, comp in enumerate(phase.components):
+                                phi = phase.fugacity_coefficient_of[comp]
+                                if isinstance(phi, pp.ad.SurrogateFactory):
+                                    vals = phi.get_values_on_grid(sd, iterate_index=0)
+                                    phi.progress_iterate_values_on_grid(vals, sd, depth=ni)
+    
+                    # Copy values to all time step indices.
+                    for _ in self.time_step_indices:
+                        if isinstance(phase.density, pp.ad.SurrogateFactory):
+                            phase.density.progress_values_in_time([sd], depth=nt)
+                        if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                            phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
+    
+    
 class SolutionStrategyExtendedFluidMassAndEnergy(
     pp.mass_and_energy_balance.SolutionStrategyFluidMassAndEnergy
 ):

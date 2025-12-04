@@ -8,7 +8,7 @@ combination with the momentum balance model, but can be used as a standalone mod
 """
 
 from functools import partial
-from typing import Callable, Optional, cast
+from typing import TYPE_CHECKING,  Callable, Optional, cast
 
 import numpy as np
 
@@ -255,94 +255,98 @@ class ConstitutiveLawsContactMechanics(
     """Class for constitutive equations for contact mechanics."""
 
 
-class InterfaceDisplacementArray(pp.PorePyModel):
-    """Displacement on interfaces as a TimeDependentDenseArray.
-
-    Intended usage is to define the displacement on the interfaces as a parameter, not a
-    primary variable.
-
-    """
-
-    interface_displacement_parameter_key: str
-    """Key for the interface displacement parameter."""
-    nd: int
-    """Ambient dimension of the problem."""
-
-    def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Displacement on interfaces [m].
-
-        Parameters:
-            interfaces: List of interface grids.
-
-        Returns:
-            Operator representing the displacement on the interfaces.
-
+if TYPE_CHECKING:
+    class InterfaceDisplacementArray(pp.PorePyModel):
+        """See runtime class definition for full documentation."""
+else:
+    class InterfaceDisplacementArray:
+        """Displacement on interfaces as a TimeDependentDenseArray.
+    
+        Intended usage is to define the displacement on the interfaces as a parameter, not a
+        primary variable.
+    
         """
-        return pp.ad.TimeDependentDenseArray(
-            self.interface_displacement_parameter_key, interfaces
-        )
-
-    def interface_displacement_parameter_values(
-        self, interface: pp.MortarGrid
-    ) -> np.ndarray:
-        """Displacement on interfaces [m].
-
-        Parameters:
-            interface: Single interface grid.
-
-        Returns:
-            Array representing the displacement on the interface of shape (nd,
-            num_cells).
-
-        """
-        return np.zeros((self.nd, interface.num_cells))
-
-    def update_time_dependent_ad_arrays(self) -> None:
-        """Update values of external sources and boundary conditions."""
-        super().update_time_dependent_ad_arrays()  # type: ignore[misc]
-        self.update_interface_displacement_parameter()
-
-    def update_interface_displacement_parameter(self) -> None:
-        """Update the interface displacement parameter.
-
-        This method updates the values of the time-dependentinterface displacement
-        parameter, which is used as a substitute for the displacement variable on the
-        interfaces.
-
-        The method is intended to be called at the beginning of each time step to update
-        the values of the interface displacement parameter. The values are shifted
-        backwards in time and the most recent values are set to the unknown time step.
-
-        """
-
-        name = self.interface_displacement_parameter_key
-        for intf, data in self.mdg.interfaces(return_data=True):
-            if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
-                # Use the values at the unknown time step from the previous time step.
-                vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
-            else:
-                # No current value stored. The method was called during the
-                # initialization.
-                vals = self.interface_displacement_parameter_values(intf).ravel(
-                    order="F"
-                )
-
-            # Before setting the new, most recent time step, shift the stored values
-            # backwards in time.
-            pp.shift_solution_values(
-                name=name,
-                data=data,
-                location=pp.TIME_STEP_SOLUTIONS,
-                max_index=len(self.time_step_indices),
+    
+        interface_displacement_parameter_key: str
+        """Key for the interface displacement parameter."""
+        nd: int
+        """Ambient dimension of the problem."""
+    
+        def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+            """Displacement on interfaces [m].
+    
+            Parameters:
+                interfaces: List of interface grids.
+    
+            Returns:
+                Operator representing the displacement on the interfaces.
+    
+            """
+            return pp.ad.TimeDependentDenseArray(
+                self.interface_displacement_parameter_key, interfaces
             )
-            # Set the values of current time to most recent previous time.
-            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
-
-            # Set the unknown time step values.
-            vals = self.interface_displacement_parameter_values(intf).ravel(order="F")
-            pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
-
-
+    
+        def interface_displacement_parameter_values(
+            self, interface: pp.MortarGrid
+        ) -> np.ndarray:
+            """Displacement on interfaces [m].
+    
+            Parameters:
+                interface: Single interface grid.
+    
+            Returns:
+                Array representing the displacement on the interface of shape (nd,
+                num_cells).
+    
+            """
+            return np.zeros((self.nd, interface.num_cells))
+    
+        def update_time_dependent_ad_arrays(self) -> None:
+            """Update values of external sources and boundary conditions."""
+            super().update_time_dependent_ad_arrays()  # type: ignore[misc]
+            self.update_interface_displacement_parameter()
+    
+        def update_interface_displacement_parameter(self) -> None:
+            """Update the interface displacement parameter.
+    
+            This method updates the values of the time-dependentinterface displacement
+            parameter, which is used as a substitute for the displacement variable on the
+            interfaces.
+    
+            The method is intended to be called at the beginning of each time step to update
+            the values of the interface displacement parameter. The values are shifted
+            backwards in time and the most recent values are set to the unknown time step.
+    
+            """
+    
+            name = self.interface_displacement_parameter_key
+            for intf, data in self.mdg.interfaces(return_data=True):
+                if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
+                    # Use the values at the unknown time step from the previous time step.
+                    vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
+                else:
+                    # No current value stored. The method was called during the
+                    # initialization.
+                    vals = self.interface_displacement_parameter_values(intf).ravel(
+                        order="F"
+                    )
+    
+                # Before setting the new, most recent time step, shift the stored values
+                # backwards in time.
+                pp.shift_solution_values(
+                    name=name,
+                    data=data,
+                    location=pp.TIME_STEP_SOLUTIONS,
+                    max_index=len(self.time_step_indices),
+                )
+                # Set the values of current time to most recent previous time.
+                pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
+    
+                # Set the unknown time step values.
+                vals = self.interface_displacement_parameter_values(intf).ravel(order="F")
+                pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
+    
+    
 class ContactTractionVariable(VariableMixin):
     """Contact traction variable for contact mechanics."""
 
