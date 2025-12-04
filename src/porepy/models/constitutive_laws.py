@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING,  Callable, Literal, Optional, Sequence, TypeVar, Union, cast
+from typing import Callable, Literal, Optional, Sequence, TypeVar, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -23,273 +23,265 @@ Scalar = pp.ad.Scalar
 ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
-if TYPE_CHECKING:
-    class DisplacementJump(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class DisplacementJump:
-        """Displacement jump on fractures.
-    
-        The displacement jump is the difference between the displacement on the two sides of
-        a fracture. It is defined in the local coordinate system of the fracture, and is
-        expressed as a vector of length nd, where nd is the ambient dimension of the
-        problem. The jump is split into an elastic and a plastic component, where the
-        elastic component reverts if the tractions are removed, while the plastic component
-        remains.
-    
+class DisplacementJump:
+    """Displacement jump on fractures.
+
+    The displacement jump is the difference between the displacement on the two sides of
+    a fracture. It is defined in the local coordinate system of the fracture, and is
+    expressed as a vector of length nd, where nd is the ambient dimension of the
+    problem. The jump is split into an elastic and a plastic component, where the
+    elastic component reverts if the tractions are removed, while the plastic component
+    remains.
+
+    """
+
+    interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Operator giving the displacement on interfaces."""
+    elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the normal component of the elastic fracture deformation."""
+    elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of the elastic fracture deformation."""
+
+    @pp.ad.cached_method
+    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Displacement jump on fracture-matrix interfaces.
+
+        Parameters:
+            subdomains: List of subdomains where the displacement jump is defined.
+                Should be a fracture subdomain.
+
+        Returns:
+            Operator for the displacement jump.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
         """
-    
-        interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-        """Operator giving the displacement on interfaces."""
-        elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Operator giving the normal component of the elastic fracture deformation."""
-        elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Operator giving the tangential component of the elastic fracture deformation."""
-    
-        @pp.ad.cached_method
-        def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Displacement jump on fracture-matrix interfaces.
-    
-            Parameters:
-                subdomains: List of subdomains where the displacement jump is defined.
-                    Should be a fracture subdomain.
-    
-            Returns:
-                Operator for the displacement jump.
-    
-            Raises:
-                 AssertionError: If the subdomains are not fractures, i.e. have dimension
-                    `nd - 1`.
-    
-            """
-            if not all([sd.dim == self.nd - 1 for sd in subdomains]):
-                raise ValueError("Displacement jump only defined on fractures")
-    
-            interfaces = self.subdomains_to_interfaces(subdomains, [1])
-            # Only use matrix-fracture interfaces
-            interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, self.nd
-            )
-            # The displacement jmup is expressed in the local coordinates of the fracture.
-            # First use the sign of the mortar sides to get a difference, then map first
-            # from the interface to the fracture, and finally to the local coordinates.
-            rotated_jumps: pp.ad.Operator = (
-                self.local_coordinates(subdomains)
-                @ mortar_projection.mortar_to_secondary_avg()
-                @ mortar_projection.sign_of_mortar_sides()
-                @ self.interface_displacement(interfaces)
-            )
-            rotated_jumps.set_name("Rotated_displacement_jump")
-            return rotated_jumps
-    
-        @pp.ad.cached_method
-        def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """The elastic component of the displacement jump [m].
-    
-            The elastic displacement jump is composed of a tangential and normal component,
-            each implementing a relation between displacement jumps, contact tractions and
-            stiffness. The relation may or may not be linear.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Operator representing the elastic displacement jump.
-    
-            """
-            # The jumps are defined in local coordinates. Prepare to project the tangential
-            # and normal components of the displacement jump from (nd-1) and 1 dimensions,
-            # respectively, to nd dimensions.
-            basis = self.basis(subdomains, dim=self.nd)
-            local_basis = self.basis(subdomains, dim=self.nd - 1)
-            tangential_to_nd = pp.ad.sum_projection_list(
-                [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
-            )
-            normal_to_nd = basis[-1]
-    
-            u_t = self.elastic_tangential_fracture_deformation(subdomains)
-            u_n = self.elastic_normal_fracture_deformation(subdomains)
-            return tangential_to_nd @ u_t + normal_to_nd @ u_n
-    
-        def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """The plastic component of the displacement jump.
-    
-            The plastic displacement jump is the difference between the total displacement
-            jump and the elastic displacement jump.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Operator representing the plastic displacement jump.
-    
-            """
-            total_jump = self.displacement_jump(subdomains)
-            elastic_jump = self.elastic_displacement_jump(subdomains)
-            u_p = total_jump - elastic_jump
-            u_p.set_name("plastic_displacement_jump")
-            return u_p
-    
-    
-if TYPE_CHECKING:
-    class DimensionReduction(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class DimensionReduction:
-        """Apertures and specific volumes."""
-    
-        def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
-            """Get the aperture of a single grid.
-    
-            Parameters:
-                grid: Grid for which to compute the aperture.
-    
-            Returns:
-                Aperture for each cell in the grid.
-    
-            """
-            # NOTE: The aperture concept is not well defined for nd. However, we include it
-            # for simplified implementation of specific volumes, which are defined as
-            # aperture^nd-dim and should be 1 for dim=nd.
-            aperture = np.ones(grid.num_cells)
-            if grid.dim < self.nd:
-                if self.is_well(grid):
-                    # This is a well. The aperture is the well radius.
-                    aperture *= self.solid.well_radius
-                else:
-                    aperture = self.solid.residual_aperture * aperture
+        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
+            raise ValueError("Displacement jump only defined on fractures")
+
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Only use matrix-fracture interfaces
+        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, self.nd
+        )
+        # The displacement jmup is expressed in the local coordinates of the fracture.
+        # First use the sign of the mortar sides to get a difference, then map first
+        # from the interface to the fracture, and finally to the local coordinates.
+        rotated_jumps: pp.ad.Operator = (
+            self.local_coordinates(subdomains)
+            @ mortar_projection.mortar_to_secondary_avg()
+            @ mortar_projection.sign_of_mortar_sides()
+            @ self.interface_displacement(interfaces)
+        )
+        rotated_jumps.set_name("Rotated_displacement_jump")
+        return rotated_jumps
+
+    @pp.ad.cached_method
+    def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The elastic component of the displacement jump [m].
+
+        The elastic displacement jump is composed of a tangential and normal component,
+        each implementing a relation between displacement jumps, contact tractions and
+        stiffness. The relation may or may not be linear.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic displacement jump.
+
+        """
+        # The jumps are defined in local coordinates. Prepare to project the tangential
+        # and normal components of the displacement jump from (nd-1) and 1 dimensions,
+        # respectively, to nd dimensions.
+        basis = self.basis(subdomains, dim=self.nd)
+        local_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_to_nd = pp.ad.sum_projection_list(
+            [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
+        )
+        normal_to_nd = basis[-1]
+
+        u_t = self.elastic_tangential_fracture_deformation(subdomains)
+        u_n = self.elastic_normal_fracture_deformation(subdomains)
+        return tangential_to_nd @ u_t + normal_to_nd @ u_n
+
+    def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The plastic component of the displacement jump.
+
+        The plastic displacement jump is the difference between the total displacement
+        jump and the elastic displacement jump.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the plastic displacement jump.
+
+        """
+        total_jump = self.displacement_jump(subdomains)
+        elastic_jump = self.elastic_displacement_jump(subdomains)
+        u_p = total_jump - elastic_jump
+        u_p.set_name("plastic_displacement_jump")
+        return u_p
+
+
+class DimensionReduction:
+    """Apertures and specific volumes."""
+
+    def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
+        """Get the aperture of a single grid.
+
+        Parameters:
+            grid: Grid for which to compute the aperture.
+
+        Returns:
+            Aperture for each cell in the grid.
+
+        """
+        # NOTE: The aperture concept is not well defined for nd. However, we include it
+        # for simplified implementation of specific volumes, which are defined as
+        # aperture^nd-dim and should be 1 for dim=nd.
+        aperture = np.ones(grid.num_cells)
+        if grid.dim < self.nd:
+            if self.is_well(grid):
+                # This is a well. The aperture is the well radius.
+                aperture *= self.solid.well_radius
             else:
-                # For the matrix, the aperture is one, but needs to be scaled by the
-                # length units.
-                aperture = self.units.convert_units(aperture, "m")
-            return aperture
-    
-        @pp.ad.cached_method
-        def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Aperture [m].
-    
-            Aperture is a characteristic thickness of a cell, with units [m]. It's value is
-            1 in matrix, thickness of fractures and "side length" of cross-sectional
-            area/volume (or "specific volume") for intersections of dimension 1 and 0.
-    
-            See also:
-                :meth:specific_volume.
-    
-            Parameters:
-                subdomains: List of subdomain grids.
-    
-            Returns:
-                Ad operator representing the aperture for each cell in each subdomain.
-    
-            """
-            if len(subdomains) == 0:
-                return pp.wrap_as_dense_ad_array(0, size=0)
-            projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-    
-            # The implementation here is not perfect, but it seems to be what is needed
-            # to make the Ad framework happy: Build the global array by looping over
-            # subdomains and add the local contributions.
-            # Note that the aperture is an array (in the Ad sense) not a matrix, thus there
-            # is no risk of the number of columns being wrong (as there would be if we
-            # were to wrap the aperture as an Ad matrix).
-    
-            for i, sd in enumerate(subdomains):
-                # First make the local aperture array.
-                a_loc = pp.wrap_as_dense_ad_array(self.grid_aperture(sd))
-                # Expand to a global array.
-                a_glob = projection.cell_prolongation([sd]) @ a_loc
-                if i == 0:
-                    apertures = a_glob
-                else:
-                    apertures += a_glob
-            apertures.set_name("aperture")
-    
-            return apertures
-    
-        @pp.ad.cached_method
-        def specific_volume(
-            self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
-        ) -> pp.ad.Operator:
-            """Specific volume [m^(nd-d)].
-    
-            For subdomains, the specific volume is the cross-sectional area/volume of the
-            cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
-            volume is inherited from the higher-dimensional subdomain neighbor.
-    
-            See also:
-                :meth:aperture.
-    
-            Parameters:
-                subdomains: List of subdomain or interface grids.
-    
-            Returns:
-                Specific volume for each cell.
-    
-            """
-            if len(grids) == 0:
-                return pp.wrap_as_dense_ad_array(0, size=0)
-    
-            if isinstance(grids[0], pp.MortarGrid):
-                # For interfaces, the specific volume is inherited from the
-                # higher-dimensional subdomain neighbor.
-                assert all(isinstance(g, pp.MortarGrid) for g in grids), "Mixed grids"
-    
-                interfaces: list[pp.MortarGrid] = [
-                    g for g in grids if isinstance(g, pp.MortarGrid)
-                ]  # appease mypy.
-                neighbor_subdomains = self.interfaces_to_subdomains(interfaces)
-                projection = pp.ad.MortarProjections(
-                    self.mdg, neighbor_subdomains, interfaces
+                aperture = self.solid.residual_aperture * aperture
+        else:
+            # For the matrix, the aperture is one, but needs to be scaled by the
+            # length units.
+            aperture = self.units.convert_units(aperture, "m")
+        return aperture
+
+    @pp.ad.cached_method
+    def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Aperture [m].
+
+        Aperture is a characteristic thickness of a cell, with units [m]. It's value is
+        1 in matrix, thickness of fractures and "side length" of cross-sectional
+        area/volume (or "specific volume") for intersections of dimension 1 and 0.
+
+        See also:
+            :meth:specific_volume.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Ad operator representing the aperture for each cell in each subdomain.
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+
+        # The implementation here is not perfect, but it seems to be what is needed
+        # to make the Ad framework happy: Build the global array by looping over
+        # subdomains and add the local contributions.
+        # Note that the aperture is an array (in the Ad sense) not a matrix, thus there
+        # is no risk of the number of columns being wrong (as there would be if we
+        # were to wrap the aperture as an Ad matrix).
+
+        for i, sd in enumerate(subdomains):
+            # First make the local aperture array.
+            a_loc = pp.wrap_as_dense_ad_array(self.grid_aperture(sd))
+            # Expand to a global array.
+            a_glob = projection.cell_prolongation([sd]) @ a_loc
+            if i == 0:
+                apertures = a_glob
+            else:
+                apertures += a_glob
+        apertures.set_name("aperture")
+
+        return apertures
+
+    @pp.ad.cached_method
+    def specific_volume(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
+    ) -> pp.ad.Operator:
+        """Specific volume [m^(nd-d)].
+
+        For subdomains, the specific volume is the cross-sectional area/volume of the
+        cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
+        volume is inherited from the higher-dimensional subdomain neighbor.
+
+        See also:
+            :meth:aperture.
+
+        Parameters:
+            subdomains: List of subdomain or interface grids.
+
+        Returns:
+            Specific volume for each cell.
+
+        """
+        if len(grids) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+
+        if isinstance(grids[0], pp.MortarGrid):
+            # For interfaces, the specific volume is inherited from the
+            # higher-dimensional subdomain neighbor.
+            assert all(isinstance(g, pp.MortarGrid) for g in grids), "Mixed grids"
+
+            interfaces: list[pp.MortarGrid] = [
+                g for g in grids if isinstance(g, pp.MortarGrid)
+            ]  # appease mypy.
+            neighbor_subdomains = self.interfaces_to_subdomains(interfaces)
+            projection = pp.ad.MortarProjections(
+                self.mdg, neighbor_subdomains, interfaces
+            )
+            # Check that all interfaces are of the same co-dimension
+            codim = interfaces[0].codim
+            assert all(intf.codim == codim for intf in interfaces)
+            if codim == 1:
+                trace = pp.ad.Trace(neighbor_subdomains)
+                specific_volume_neighbors = trace.trace @ self.specific_volume(
+                    neighbor_subdomains
                 )
-                # Check that all interfaces are of the same co-dimension
-                codim = interfaces[0].codim
-                assert all(intf.codim == codim for intf in interfaces)
-                if codim == 1:
-                    trace = pp.ad.Trace(neighbor_subdomains)
-                    specific_volume_neighbors = trace.trace @ self.specific_volume(
-                        neighbor_subdomains
-                    )
-                else:
-                    specific_volume_neighbors = self.specific_volume(neighbor_subdomains)
-                specific_volume = (
-                    projection.primary_to_mortar_avg() @ specific_volume_neighbors
-                )
-                specific_volume.set_name("specific_volume")
-                return specific_volume
-    
-            assert all(isinstance(g, pp.Grid) for g in grids), "Mixed grids"
-            subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
-            # Compute specific volume as the cross-sectional area/volume
-            # of the cell, i.e. raise to the power nd-dim
-            subdomain_projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-            specific_volume: pp.ad.Operator = None  # type: ignore
-    
-            # Loop over dimensions, and add the contribution from each subdomain within
-            # that dimension.
-            # NOTE: The loop is reversed, to ensure that the subdomains are processed in the
-            # same order as will be returned by an iteration over the subdomains of the
-            # mixed-dimensional grid. If the order in input argument subdomains is
-            # different, the result will likely be wrong.
-            for dim in range(self.nd, -1, -1):
-                sd_dim = [sd for sd in subdomains if sd.dim == dim]
-                if len(sd_dim) == 0:
-                    continue
-                a_loc = self.aperture(sd_dim)
-                specific_volume_loc = a_loc ** Scalar(self.nd - dim)
-                specific_volume_glob = (
-                    subdomain_projection.cell_prolongation(sd_dim) @ specific_volume_loc
-                )
-                if specific_volume is None:
-                    specific_volume = specific_volume_glob
-                else:
-                    specific_volume = specific_volume + specific_volume_glob
-    
+            else:
+                specific_volume_neighbors = self.specific_volume(neighbor_subdomains)
+            specific_volume = (
+                projection.primary_to_mortar_avg() @ specific_volume_neighbors
+            )
             specific_volume.set_name("specific_volume")
-    
             return specific_volume
-    
-    
+
+        assert all(isinstance(g, pp.Grid) for g in grids), "Mixed grids"
+        subdomains: list[pp.Grid] = [g for g in grids if isinstance(g, pp.Grid)]
+        # Compute specific volume as the cross-sectional area/volume
+        # of the cell, i.e. raise to the power nd-dim
+        subdomain_projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        specific_volume: pp.ad.Operator = None  # type: ignore
+
+        # Loop over dimensions, and add the contribution from each subdomain within
+        # that dimension.
+        # NOTE: The loop is reversed, to ensure that the subdomains are processed in the
+        # same order as will be returned by an iteration over the subdomains of the
+        # mixed-dimensional grid. If the order in input argument subdomains is
+        # different, the result will likely be wrong.
+        for dim in range(self.nd, -1, -1):
+            sd_dim = [sd for sd in subdomains if sd.dim == dim]
+            if len(sd_dim) == 0:
+                continue
+            a_loc = self.aperture(sd_dim)
+            specific_volume_loc = a_loc ** Scalar(self.nd - dim)
+            specific_volume_glob = (
+                subdomain_projection.cell_prolongation(sd_dim) @ specific_volume_loc
+            )
+            if specific_volume is None:
+                specific_volume = specific_volume_glob
+            else:
+                specific_volume = specific_volume + specific_volume_glob
+
+        specific_volume.set_name("specific_volume")
+
+        return specific_volume
+
+
 class DisplacementJumpAperture(DimensionReduction):
     """Fracture aperture from displacement jump."""
 
@@ -496,139 +488,131 @@ class DisplacementJumpAperture(DimensionReduction):
         return apertures
 
 
-if TYPE_CHECKING:
-    class SecondOrderTensorUtils(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class SecondOrderTensorUtils:
-        def isotropic_second_order_tensor(
-            self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
-        ) -> pp.ad.Operator:
-            """Isotropic permeability [m^2].
-    
-            Parameters:
-                subdomains: Subdomains where the permeability is defined.
-                permeability: Permeability operator, scalar per cell.
-    
-            Returns:
-                3d isotropic permeability, with nonzero values on the diagonal and zero
-                values elsewhere. K is a second order tensor having 3^2 entries per cell,
-                represented as an array of length 9*nc. The values are ordered as
-                    Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
-    
-            """
-            if len(subdomains) == 0:
-                return pp.wrap_as_dense_ad_array(0, size=0)
-            basis = self.basis(subdomains, 9)
-            diagonal_indices = [0, 4, 8]
-            permeability = pp.ad.sum_operator_list(
-                [basis[i] @ permeability for i in diagonal_indices]
+class SecondOrderTensorUtils:
+    def isotropic_second_order_tensor(
+        self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
+    ) -> pp.ad.Operator:
+        """Isotropic permeability [m^2].
+
+        Parameters:
+            subdomains: Subdomains where the permeability is defined.
+            permeability: Permeability operator, scalar per cell.
+
+        Returns:
+            3d isotropic permeability, with nonzero values on the diagonal and zero
+            values elsewhere. K is a second order tensor having 3^2 entries per cell,
+            represented as an array of length 9*nc. The values are ordered as
+                Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+
+        """
+        if len(subdomains) == 0:
+            return pp.wrap_as_dense_ad_array(0, size=0)
+        basis = self.basis(subdomains, 9)
+        diagonal_indices = [0, 4, 8]
+        permeability = pp.ad.sum_operator_list(
+            [basis[i] @ permeability for i in diagonal_indices]
+        )
+        permeability.set_name("isotropic_second_order_tensor")
+        return permeability
+
+    def operator_to_SecondOrderTensor(
+        self,
+        subdomains: list[pp.Grid],
+        operator: pp.ad.Operator,
+        fallback_value: number,
+    ) -> pp.SecondOrderTensor:
+        """Convert Ad operator to PorePy tensor representation.
+
+        Parameters:
+            subdomains: Subdomains where the operator is defined.
+            operator: Operator to convert.
+
+        Returns:
+            SecondOrderTensor representation of the operator.
+
+        """
+        # Evaluate as 9 x num_cells array
+        volume = self.equation_system.evaluate(self.specific_volume(subdomains))
+        try:
+            tensor = self.equation_system.evaluate(operator)
+        except KeyError:
+            # If the tensor depends on an not yet computed discretization matrix,
+            # fall back on reference value.
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            tensor = fallback_value * np.ones(num_cells) * volume
+            return pp.SecondOrderTensor(tensor)
+
+        if not isinstance(tensor, np.ndarray):
+            # Raise error rather than cast for verbosity of function which is not
+            # directly exposed to the user, but depends on a frequently user-defined
+            # quantity (the tensor being converted).
+            raise ValueError(
+                f"Operator {operator.name} has type {type(tensor)}, "
+                f"expected numpy array for conversion to SecondOrderTensor."
             )
-            permeability.set_name("isotropic_second_order_tensor")
-            return permeability
-    
-        def operator_to_SecondOrderTensor(
-            self,
-            subdomains: list[pp.Grid],
-            operator: pp.ad.Operator,
-            fallback_value: number,
-        ) -> pp.SecondOrderTensor:
-            """Convert Ad operator to PorePy tensor representation.
-    
-            Parameters:
-                subdomains: Subdomains where the operator is defined.
-                operator: Operator to convert.
-    
-            Returns:
-                SecondOrderTensor representation of the operator.
-    
-            """
-            # Evaluate as 9 x num_cells array
-            volume = self.equation_system.evaluate(self.specific_volume(subdomains))
-            try:
-                tensor = self.equation_system.evaluate(operator)
-            except KeyError:
-                # If the tensor depends on an not yet computed discretization matrix,
-                # fall back on reference value.
-                num_cells = sum(sd.num_cells for sd in subdomains)
-                tensor = fallback_value * np.ones(num_cells) * volume
-                return pp.SecondOrderTensor(tensor)
-    
-            if not isinstance(tensor, np.ndarray):
-                # Raise error rather than cast for verbosity of function which is not
-                # directly exposed to the user, but depends on a frequently user-defined
-                # quantity (the tensor being converted).
-                raise ValueError(
-                    f"Operator {operator.name} has type {type(tensor)}, "
-                    f"expected numpy array for conversion to SecondOrderTensor."
-                )
-            val = tensor.reshape(9, -1, order="F")
-            # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
-            # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
-            # num_cells array.
-            diagonal_indices = [0, 4, 8]
-            tensor_components = [val[i] for i in diagonal_indices]
-            # Check that the operator is indeed symmetric.
-            off_diagonal_indices = [1, 2, 5]
-            other_indices = [3, 6, 7]
-            for i, j in zip(off_diagonal_indices, other_indices):
-                if not np.allclose(val[i], val[j]):
-                    raise ValueError(f"Operator is not symmetric for indices {i} and {j}.")
-                tensor_components.append(val[i])
-    
-            # Scale by specific volume
-            args = [a * volume for a in tensor_components]
-            return pp.SecondOrderTensor(*args)
-    
-    
-if TYPE_CHECKING:
-    class ConstantPermeability(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ConstantPermeability:
-        """A spatially homogeneous permeability field."""
-    
-        def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Permeability [m^2].
-    
-            The permeability is quantity which enters the discretized equations in a form
-            that cannot be differentiated by Ad (this is at least true for a subset of the
-            relevant discretizations). For this reason, the permeability is not returned as
-            an Ad operator, but as a numpy array, to be wrapped as a SecondOrderTensor and
-            passed as a discretization parameter.
-    
-            Parameters:
-                subdomains: Subdomains where the permeability is defined.
-    
-            Returns:
-                Cell-wise permeability tensor. The value is picked from the solid constants.
-    
-            """
-            size = sum(sd.num_cells for sd in subdomains)
-            permeability = pp.wrap_as_dense_ad_array(
-                self.solid.permeability, size, name="permeability"
-            )
-            return self.isotropic_second_order_tensor(subdomains, permeability)
-    
-        def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-            """Normal permeability [m^2].
-    
-            Contrary to the permeability, the normal permeability typically enters into the
-            discrete equations in a form that can be differentiated by Ad. For this reason,
-            the normal permeability is returned as an Ad operator.
-    
-            Parameters:
-                interfaces: List of interface grids. Not used in this implementation, but
-                    included for compatibility with other implementations.
-    
-            Returns:
-                Scalar normal permeability on the interfaces between subdomains, represented
-                as an Ad operator. The value is picked from the solid constants.
-    
-            """
-            return Scalar(self.solid.normal_permeability)
-    
-    
+        val = tensor.reshape(9, -1, order="F")
+        # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
+        # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
+        # num_cells array.
+        diagonal_indices = [0, 4, 8]
+        tensor_components = [val[i] for i in diagonal_indices]
+        # Check that the operator is indeed symmetric.
+        off_diagonal_indices = [1, 2, 5]
+        other_indices = [3, 6, 7]
+        for i, j in zip(off_diagonal_indices, other_indices):
+            if not np.allclose(val[i], val[j]):
+                raise ValueError(f"Operator is not symmetric for indices {i} and {j}.")
+            tensor_components.append(val[i])
+
+        # Scale by specific volume
+        args = [a * volume for a in tensor_components]
+        return pp.SecondOrderTensor(*args)
+
+
+class ConstantPermeability:
+    """A spatially homogeneous permeability field."""
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability [m^2].
+
+        The permeability is quantity which enters the discretized equations in a form
+        that cannot be differentiated by Ad (this is at least true for a subset of the
+        relevant discretizations). For this reason, the permeability is not returned as
+        an Ad operator, but as a numpy array, to be wrapped as a SecondOrderTensor and
+        passed as a discretization parameter.
+
+        Parameters:
+            subdomains: Subdomains where the permeability is defined.
+
+        Returns:
+            Cell-wise permeability tensor. The value is picked from the solid constants.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        permeability = pp.wrap_as_dense_ad_array(
+            self.solid.permeability, size, name="permeability"
+        )
+        return self.isotropic_second_order_tensor(subdomains, permeability)
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Normal permeability [m^2].
+
+        Contrary to the permeability, the normal permeability typically enters into the
+        discrete equations in a form that can be differentiated by Ad. For this reason,
+        the normal permeability is returned as an Ad operator.
+
+        Parameters:
+            interfaces: List of interface grids. Not used in this implementation, but
+                included for compatibility with other implementations.
+
+        Returns:
+            Scalar normal permeability on the interfaces between subdomains, represented
+            as an Ad operator. The value is picked from the solid constants.
+
+        """
+        return Scalar(self.solid.normal_permeability)
+
+
 class MassWeightedPermeability(ConstantPermeability):
     """A non-linear permeability model where the total mass mobility of the fluid is
     an isotropic contribution to the otherwise constant, absolute permeability tensor.
@@ -865,965 +849,957 @@ class CubicLawPermeability(DimensionDependentPermeability):
         return self.cubic_law_permeability(subdomains)
 
 
-if TYPE_CHECKING:
-    class DarcysLaw(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class DarcysLaw:
-        """This class could be refactored to reuse for other diffusive fluxes, such as
-        heat conduction. It's somewhat cumbersome, though, since potential, discretization,
-        and boundary conditions all need to be passed around.
+class DarcysLaw:
+    """This class could be refactored to reuse for other diffusive fluxes, such as
+    heat conduction. It's somewhat cumbersome, though, since potential, discretization,
+    and boundary conditions all need to be passed around.
+    """
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+    normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Normal permeability. Normally defined in a mixin instance of :
+    class:`~porepy.models.constitutive_laws.ConstantPermeability`.
+
+    """
+    darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
+    bc_data_darcy_flux_key: str
+    """See
+    :attr:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
+    bc_data_darcy_flux_key`.
+
+    """
+    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the Darcy flux. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
+
+    """
+
+    gravity_force: Callable[
+        [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
+        pp.ad.Operator,
+    ]
+    """Gravity force. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.GravityForce` or
+    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
+
+    """
+
+    def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the pressure is defined.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
         """
-    
-        pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Pressure variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    
-        """
-        interface_darcy_flux: Callable[
-            [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-        ]
-        """Darcy flux variables on interfaces. Normally defined in a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    
-        """
-        normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-        """Normal permeability. Normally defined in a mixin instance of :
-        class:`~porepy.models.constitutive_laws.ConstantPermeability`.
-    
-        """
-        darcy_keyword: str
-        """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
-        instance of
-        :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-    
-        """
-        bc_data_darcy_flux_key: str
-        """See
-        :attr:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow.
-        bc_data_darcy_flux_key`.
-    
-        """
-        bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-        """Function that returns the boundary condition type for the Darcy flux. Normally
-        provided by a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
-    
-        """
-    
-        gravity_force: Callable[
-            [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
-            pp.ad.Operator,
-        ]
-        """Gravity force. Normally provided by a mixin instance of
-        :class:`~porepy.models.constitutive_laws.GravityForce` or
-        :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
-    
-        """
-    
-        def pressure_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Pressure on the subdomain boundaries.
-    
-            Parameters:
-                subdomains: List of subdomains where the pressure is defined.
-    
-            Returns:
-                Pressure on the subdomain boundaries. Parsing the operator will return a
-                face-wise array.
-    
-            """
-            interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-            discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
-                subdomains
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+        # We know p is variable, since called on subdomains, not boundaries.
+        p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
+
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=subdomains
+        )
+
+        pressure_trace = (
+            discr.bound_pressure_cell() @ p
+            + discr.bound_pressure_face()
+            @ (
+                projection.mortar_to_primary_int()
+                @ self.interface_darcy_flux(interfaces)
             )
-            # We know p is variable, since called on subdomains, not boundaries.
-            p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
-    
-            boundary_operator = self.combine_boundary_operators_darcy_flux(
-                subdomains=subdomains
-            )
-    
-            pressure_trace = (
-                discr.bound_pressure_cell() @ p
-                + discr.bound_pressure_face()
-                @ (
-                    projection.mortar_to_primary_int()
-                    @ self.interface_darcy_flux(interfaces)
-                )
-                + discr.bound_pressure_face() @ boundary_operator
-                + discr.bound_pressure_vector_source()
-                @ self.vector_source_darcy_flux(subdomains)
-            )
-            return pressure_trace
-    
-        @pp.ad.cached_method
-        def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            """Discretization of Darcy's law.
-    
-            Note:
-                The fluid mobility is not included in the Darcy flux. This is because we
-                discretize it with an upstream scheme. This means that the fluid mobility
-                may have to be included when using the flux in a transport equation. The
-                units of the Darcy flux are [m^2 Pa / s].
-    
-            Parameters:
-                domains: List of domains where the Darcy flux is defined.
-    
-            Raises:
-                ValueError if the domains are a mixture of grids and boundary grids.
-    
-            Returns:
-                Face-wise Darcy flux in cubic meters per second.
-    
-            """
-    
-            if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
-                # Note: in case of the empty subdomain list, the time dependent array is
-                # still returned. Otherwise, this method produces an infinite recursion
-                # loop. It does not affect real computations anyhow.
-                return self.create_boundary_operator(
-                    name=self.bc_data_darcy_flux_key,
-                    domains=cast(Sequence[pp.BoundaryGrid], domains),
-                )
-    
-            # Check that the domains are grids.
-            if not all([isinstance(g, pp.Grid) for g in domains]):
-                raise ValueError(
-                    """Argument `domains` should either be a list of grids or a list of
-                    boundary grids."""
-                )
-            # By now we know that subdomains is a list of grids, so we can cast it as such
-            # (in the typing sense).
-            domains = cast(list[pp.Grid], domains)
-    
-            interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
-            intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
-    
-            boundary_operator = self.combine_boundary_operators_darcy_flux(
-                subdomains=domains
-            )
-    
-            discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
-                domains
-            )
-            flux: pp.ad.Operator = (
-                discr.flux() @ self.pressure(domains)
-                + discr.bound_flux()
-                @ (
-                    boundary_operator
-                    + intf_projection.mortar_to_primary_int()
-                    @ self.interface_darcy_flux(interfaces)
-                )
-                + discr.vector_source() @ self.vector_source_darcy_flux(domains)
-            )
-            flux.set_name("Darcy_flux")
-            return flux
-    
-        def combine_boundary_operators_darcy_flux(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Combine Darcy flux boundary operators.
-    
-            Note that the default Robin operator is the same as that of Neumann. Override
-            this method to define and assign another boundary operator of your choice. The
-            new operator should then be passed as an argument to the
-            _combine_boundary_operators method, just like self.darcy_flux is passed to
-            robin_operator in the default model.
-    
-            Parameters:
-                subdomains: List of the subdomains whose boundary operators are to be
-                    combined.
-    
-            Returns:
-                The combined Darcy flux boundary operator.
-    
-            """
-            op = self._combine_boundary_operators(
-                subdomains=subdomains,
-                dirichlet_operator=self.pressure,
-                neumann_operator=self.darcy_flux,
-                robin_operator=self.darcy_flux,
-                bc_type=self.bc_type_darcy_flux,
-                name="bc_values_" + self.bc_data_darcy_flux_key,
-            )
-            return op
-    
-        def interface_darcy_flux_equation(
-            self, interfaces: list[pp.MortarGrid]
-        ) -> pp.ad.Operator:
-            """Darcy flux on interfaces.
-    
-            The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
-    
-            Parameters:
-                interfaces: List of interface grids.
-    
-            Returns:
-                Operator representing the Darcy flux equation on the interfaces.
-    
-            """
-            subdomains = self.interfaces_to_subdomains(interfaces)
-    
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-    
-            # Gradient operator in the normal direction. The collapsed distance is
-            # :math:`\frac{a}{2}` on either side of the fracture.
-            # We assume here that :meth:`aperture` is implemented to give a meaningful value
-            # also for subdomains of co-dimension > 1.
-            normal_gradient = pp.ad.Scalar(2) * (
-                projection.secondary_to_mortar_avg()
-                @ self.aperture(subdomains) ** Scalar(-1)
-            )
-            normal_gradient.set_name("normal_gradient")
-    
-            # Project the two pressures to the interface and multiply with the normal
-            # diffusivity.
-            pressure_l = projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
-            pressure_h = projection.primary_to_mortar_avg() @ self.pressure_trace(
-                subdomains
-            )
-            eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
-                self.normal_permeability(interfaces)
-                * (
-                    normal_gradient * (pressure_h - pressure_l)
-                    + self.interface_vector_source_darcy_flux(interfaces)
-                ),
-                interfaces,
-                1,
-            )
-            eq.set_name("interface_darcy_flux_equation")
-            return eq
-    
-        def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
-            """Discretization object for the Darcy flux term.
-    
-            Parameters:
-                subdomains: List of subdomains where the Darcy flux is defined.
-    
-            Returns:
-                Discretization of the Darcy flux.
-    
-            """
-            return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
-    
-        def vector_source_darcy_flux(
-            self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
-        ) -> pp.ad.Operator:
-            """Vector source term. Represents gravity effects.
-    
-            Parameters:
-                grids: List of subdomain or interface grids where the vector source is
-                    defined.
-    
-            Returns:
-                Cell-wise nd-vector source term operator.
-    
-            """
-            return self.gravity_force(grids, "fluid")
-    
-        def interface_vector_source_darcy_flux(
-            self, interfaces: list[pp.MortarGrid]
-        ) -> pp.ad.Operator:
-            """Interface vector source term.
-    
-            The term is the dot product of unit normals and vector source values.
-            Normalization is needed to balance the integration done in the interface flux
-            law.
-    
-            Parameters:
-                interfaces: List of interfaces where the vector source is defined.
-    
-            Returns:
-                Cell-wise vector source term.
-    
-            """
-            # Account for sign of boundary face normals.
-            # No scaling with interface cell volumes.
-            normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
-            # Project vector source from lower-dimensional neighbors to the interfaces.
-            # This allows including pressure and temperature dependent density, which would
-            # not be defined on the interface.
-            subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
-            projection = pp.ad.MortarProjections(
-                self.mdg, subdomain_neighbors, interfaces, dim=self.nd
-            )
-            # int? @EK
-            vector_source = (
-                projection.secondary_to_mortar_avg()
-                @ self.vector_source_darcy_flux(subdomain_neighbors)
-            )
-            # Make dot product with vector source in two steps. First multiply the vector
-            # source with a matrix (though the formal mypy type is Operator, the matrix is
-            # composed by summation).
-            normals_times_source = normals * vector_source
-            # Then sum over the nd dimensions. The result will in effect be a matrix.
-            nd_to_scalar_sum = pp.ad.sum_projection_list(
-                [e.T for e in self.basis(interfaces, dim=self.nd)]
-            )
-            # Finally, the dot product between normal vectors and the vector source. This
-            # must be implemented as a matrix-vector product (yes, this is confusing).
-            dot_product = nd_to_scalar_sum @ normals_times_source
-            dot_product.set_name("Interface vector source term")
-            return dot_product
-    
-    
-if TYPE_CHECKING:
-    class AdTpfaFlux(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class AdTpfaFlux:
-        """Differentiable discretization of a diffusive flux.
-    
-        The diffusive flux is given by
-    
-            q = - K (grad p - g)
-    
-        where K is the diffusivity tensor and p is the primary variable/potential. In the
-        case of Darcy's law, the diffusivity tensor is the permeability tensor and the
-        primary variable is the pressure. The implementation is agnostic to this, and can be
-        used for other constitutive laws as well (e.g. Fourier's law).
-    
-        To use for a specific constitutive law, the following methods must be used when
-        overriding specific methods:
-        - diffusive_flux: Discretization of the diffusive flux. This method should be called
-            by the overriding method (darcy_flux, fourier_flux etc).
-        - potential_trace: Discretization of the potential on the subdomain boundaries. This
-            method should be called by the overriding method (pressure_trace,
-            temperature_trace etc).
-    
+            + discr.bound_pressure_face() @ boundary_operator
+            + discr.bound_pressure_vector_source()
+            @ self.vector_source_darcy_flux(subdomains)
+        )
+        return pressure_trace
+
+    @pp.ad.cached_method
+    def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Discretization of Darcy's law.
+
         Note:
-            This class implicitly assumes conventions on naming of methods and BC value
-            keys. Specifically, the BC values keys are assumed to be of the form
-            "bc_values_" + flux_name, where flux_name is the name of the flux (e.g.
-            "darcy_flux" or "fourier_flux"). The same goes for "inteface_" + flux_name and
-            flux_name + "_discretization". These conventions are used to simplify the
-            implementation of the class' methods. TODO: Consider making this more explicit.
-    
+            The fluid mobility is not included in the Darcy flux. This is because we
+            discretize it with an upstream scheme. This means that the fluid mobility
+            may have to be included when using the flux in a transport equation. The
+            units of the Darcy flux are [m^2 Pa / s].
+
+        Parameters:
+            domains: List of domains where the Darcy flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Face-wise Darcy flux in cubic meters per second.
+
         """
-    
-        def diffusive_flux(
-            self,
-            domains: pp.SubdomainsOrBoundaries,
-            potential: Callable[[list[pp.Grid]], pp.ad.Operator],
-            diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
-            boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
-            flux_name: str,
-        ) -> pp.ad.Operator:
-            """Discretization of a diffusive constitutive law.
-    
-            Parameters:
-                domains: List of domains where the flux is defined.
-                potential: Method returning the potential as an Ad operator.
-                diffusivity_tensor: Method returning the diffusivity tensor as an Ad
-                    operator. For Darcy's and Fourier's law, this is the permeability and
-                    thermal conductivity, respectively.
-                boundary_operator: Method returning the boundary operator as an Ad
-                    operator.
-    
-            Raises:
-                ValueError if the domains are a mixture of grids and boundary grids.
-    
-            Returns:
-                Face-wise integrated flux.
-    
-            """
-            # NOTE (relevant for debugging): The returned derivative of the transmissibility
-            # is of the form
-            #   dp * dT/d(psi)    (psi is a primary variable)
-            # where dp is the pressure difference across the face. Experience has shown that
-            # the dp factor is easily overlooked when comparing a computed and a 'known'
-            # value, resulting in frustration.
-    
-            if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
-                # Note: in case of an empty subdomain list, the time dependent array is
-                # still returned. Otherwise, this method produces an infinite recursion
-                # loop. It does not affect real computations.
-                domains = cast(Sequence[pp.BoundaryGrid], domains)
-                return self.create_boundary_operator(
-                    name=flux_name,
-                    domains=domains,
-                )
-            domains = cast(list[pp.Grid], domains)
-    
-            # Check that the subdomains are grids.
-            if not all([isinstance(g, pp.Grid) for g in domains]):
-                raise ValueError(
-                    """Argument subdomains a mixture of grids and boundary grids."""
-                )
-    
-            boundary_grids = self.subdomains_to_boundary_grids(domains)
-            interfaces: Sequence[pp.MortarGrid] = self.subdomains_to_interfaces(
-                domains, [1]
+
+        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            # Note: in case of the empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations anyhow.
+            return self.create_boundary_operator(
+                name=self.bc_data_darcy_flux_key,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
-            intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
-    
-            # Compute the transmissibility matrix, see the called function for details. Also
-            # obtain various helper objects.
-            (
-                t_f,
-                diff_discr,
-                hf_to_f,
-                d_vec,
-            ) = self.__transmissibility_matrix(domains, diffusivity_tensor)
-    
-            # Treatment of boundary conditions.
-            one = pp.ad.Scalar(1)
-            # Obtain filters that lett pass external boundary faces (divided into Dirichlet
-            # and Neumann faces), internal boundary faces (faces between subdomains), and
-            # tip faces (on immersed tips of domains).
-            external_dir_filter, external_neu_filter = diff_discr.external_boundary_filters(
-                self.mdg, domains, boundary_grids, "bc_values_" + flux_name
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument `domains` should either be a list of grids or a list of
+                boundary grids."""
             )
-            internal_boundary_filter = diff_discr.internal_boundary_filter(domains)
-            tip_filter = diff_discr.tip_filter(domains)
-    
-            # The Tpfa transmissibility of a face with a Neumann condition is zero. Thus
-            # eliminate the transmissibilities on external Neumann faces, as well as on
-            # internal boundaries and tip faces, both of which by assumption are assigned
-            # Neumann conditions.
-            t_f = (
-                one - (external_neu_filter + internal_boundary_filter + tip_filter)
-            ) * t_f
-    
-            # Sign of boundary faces.
-            bnd_sgn = diff_discr.boundary_sign(domains)
-            # Discretization of boundary conditions: On Neumann faces, we will simply add
-            # the flux, with a sign change if the normal vector is pointing inwards.
-            neu_bnd = external_neu_filter * bnd_sgn
-            # On Dirichlet faces, an assigned Dirichlet value (assuming zero potential in
-            # the cell adjacent to the face) will induce a flux proportional to t_f. (The
-            # actual flux through the face is found by adding the contribution from the cell
-            # center potential, this is taken care of).
-            dir_bnd = external_dir_filter * (-bnd_sgn * t_f)
-            t_bnd = neu_bnd + dir_bnd
-    
-            # Discretization of vector source:
-            #
-            # The flux through a face with normal vector n_j, as seen from cell i, driven by
-            # a vector source v_i in cell i, is given by
-            #
-            #   q_j = n_j^T K_i v_i
-            #
-            # A Tpfa-style discretization of this term will apply harmonic averaging of the
-            # permeabilities (see function __transmissibility_matrix), and multiply with the
-            # difference in vector source between the two cells. We have already computed
-            # the transmissibility matrix, which computes the product of the permeability
-            # tensor, the normal vector and a unit vector from cell to face center. To
-            # convert this to a discretizaiton for the vector source, we first need to
-            # project the vector source onto the unit vector from cell to face center.
-            # Second, the vector source should be scaled by the distance from cell to face
-            # center. This can be seen as compensating for the distance in the denominator
-            # of the half-face transmissibility, or as converting the vector source into a
-            # potential-like quantity before applying the flux calculation.
-    
-            # The vector source can be 2d or 3d, but the geometry, thus discretization, is
-            # always 3d, thus we need to map from nd to 3d.
-            cells_nd_to_3d = diff_discr.nd_to_3d(domains, self.nd)
-            # Mapping from cells to half-faces of 3d quantities.
-            cells_to_hf_3d = diff_discr.half_face_map(
-                domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
+
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
+        intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
+
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=domains
+        )
+
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            domains
+        )
+        flux: pp.ad.Operator = (
+            discr.flux() @ self.pressure(domains)
+            + discr.bound_flux()
+            @ (
+                boundary_operator
+                + intf_projection.mortar_to_primary_int()
+                @ self.interface_darcy_flux(interfaces)
             )
-    
-            # Build a mapping for the cell-wise vector source, unravelled from the right:
-            # First, map the vector source from nd to 3d. Second, map from cells to
-            # half-faces. Third, project the vector source onto the vector from cell center
-            # to half-face center (this is the vector which Tpfa uses as a proxy for the
-            # full gradient, see comments in the method __transmissibility_matrix). As the
-            # rows of d_vec have length equal to the distance, this compensates for the
-            # distance in the denominator of the half-face transmissibility. Fourth, map
-            # from half-faces to faces, using a mapping with signs, thereby taking the
-            # difference between the two vector sources.
-            vector_source_c_to_f = pp.ad.SparseArray(
-                hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d
+            + discr.vector_source() @ self.vector_source_darcy_flux(domains)
+        )
+        flux.set_name("Darcy_flux")
+        return flux
+
+    def combine_boundary_operators_darcy_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine Darcy flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.darcy_flux is passed to
+        robin_operator in the default model.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Darcy flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(
+            subdomains=subdomains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            robin_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy_flux,
+            name="bc_values_" + self.bc_data_darcy_flux_key,
+        )
+        return op
+
+    def interface_darcy_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Darcy flux on interfaces.
+
+        The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the Darcy flux equation on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        # Gradient operator in the normal direction. The collapsed distance is
+        # :math:`\frac{a}{2}` on either side of the fracture.
+        # We assume here that :meth:`aperture` is implemented to give a meaningful value
+        # also for subdomains of co-dimension > 1.
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg()
+            @ self.aperture(subdomains) ** Scalar(-1)
+        )
+        normal_gradient.set_name("normal_gradient")
+
+        # Project the two pressures to the interface and multiply with the normal
+        # diffusivity.
+        pressure_l = projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
+        pressure_h = projection.primary_to_mortar_avg() @ self.pressure_trace(
+            subdomains
+        )
+        eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
+            self.normal_permeability(interfaces)
+            * (
+                normal_gradient * (pressure_h - pressure_l)
+                + self.interface_vector_source_darcy_flux(interfaces)
+            ),
+            interfaces,
+            1,
+        )
+        eq.set_name("interface_darcy_flux_equation")
+        return eq
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        """Discretization object for the Darcy flux term.
+
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Discretization of the Darcy flux.
+
+        """
+        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
+
+    def vector_source_darcy_flux(
+        self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
+    ) -> pp.ad.Operator:
+        """Vector source term. Represents gravity effects.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
+        """
+        return self.gravity_force(grids, "fluid")
+
+    def interface_vector_source_darcy_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Interface vector source term.
+
+        The term is the dot product of unit normals and vector source values.
+        Normalization is needed to balance the integration done in the interface flux
+        law.
+
+        Parameters:
+            interfaces: List of interfaces where the vector source is defined.
+
+        Returns:
+            Cell-wise vector source term.
+
+        """
+        # Account for sign of boundary face normals.
+        # No scaling with interface cell volumes.
+        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+        # Project vector source from lower-dimensional neighbors to the interfaces.
+        # This allows including pressure and temperature dependent density, which would
+        # not be defined on the interface.
+        subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(
+            self.mdg, subdomain_neighbors, interfaces, dim=self.nd
+        )
+        # int? @EK
+        vector_source = (
+            projection.secondary_to_mortar_avg()
+            @ self.vector_source_darcy_flux(subdomain_neighbors)
+        )
+        # Make dot product with vector source in two steps. First multiply the vector
+        # source with a matrix (though the formal mypy type is Operator, the matrix is
+        # composed by summation).
+        normals_times_source = normals * vector_source
+        # Then sum over the nd dimensions. The result will in effect be a matrix.
+        nd_to_scalar_sum = pp.ad.sum_projection_list(
+            [e.T for e in self.basis(interfaces, dim=self.nd)]
+        )
+        # Finally, the dot product between normal vectors and the vector source. This
+        # must be implemented as a matrix-vector product (yes, this is confusing).
+        dot_product = nd_to_scalar_sum @ normals_times_source
+        dot_product.set_name("Interface vector source term")
+        return dot_product
+
+
+class AdTpfaFlux:
+    """Differentiable discretization of a diffusive flux.
+
+    The diffusive flux is given by
+
+        q = - K (grad p - g)
+
+    where K is the diffusivity tensor and p is the primary variable/potential. In the
+    case of Darcy's law, the diffusivity tensor is the permeability tensor and the
+    primary variable is the pressure. The implementation is agnostic to this, and can be
+    used for other constitutive laws as well (e.g. Fourier's law).
+
+    To use for a specific constitutive law, the following methods must be used when
+    overriding specific methods:
+    - diffusive_flux: Discretization of the diffusive flux. This method should be called
+        by the overriding method (darcy_flux, fourier_flux etc).
+    - potential_trace: Discretization of the potential on the subdomain boundaries. This
+        method should be called by the overriding method (pressure_trace,
+        temperature_trace etc).
+
+    Note:
+        This class implicitly assumes conventions on naming of methods and BC value
+        keys. Specifically, the BC values keys are assumed to be of the form
+        "bc_values_" + flux_name, where flux_name is the name of the flux (e.g.
+        "darcy_flux" or "fourier_flux"). The same goes for "inteface_" + flux_name and
+        flux_name + "_discretization". These conventions are used to simplify the
+        implementation of the class' methods. TODO: Consider making this more explicit.
+
+    """
+
+    def diffusive_flux(
+        self,
+        domains: pp.SubdomainsOrBoundaries,
+        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
+        flux_name: str,
+    ) -> pp.ad.Operator:
+        """Discretization of a diffusive constitutive law.
+
+        Parameters:
+            domains: List of domains where the flux is defined.
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
+                operator. For Darcy's and Fourier's law, this is the permeability and
+                thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Face-wise integrated flux.
+
+        """
+        # NOTE (relevant for debugging): The returned derivative of the transmissibility
+        # is of the form
+        #   dp * dT/d(psi)    (psi is a primary variable)
+        # where dp is the pressure difference across the face. Experience has shown that
+        # the dp factor is easily overlooked when comparing a computed and a 'known'
+        # value, resulting in frustration.
+
+        if len(domains) == 0 or all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            # Note: in case of an empty subdomain list, the time dependent array is
+            # still returned. Otherwise, this method produces an infinite recursion
+            # loop. It does not affect real computations.
+            domains = cast(Sequence[pp.BoundaryGrid], domains)
+            return self.create_boundary_operator(
+                name=flux_name,
+                domains=domains,
             )
-    
-            # Fetch the constitutive law for the vector source.
-            vector_source_cells = getattr(self, "vector_source_" + flux_name)(domains)
-    
-            # Compute the difference in pressure and vector source between the two cells on
-            # the sides of each face.
-            potential_difference = pp.ad.SparseArray(
-                diff_discr.face_pairing_from_cell_array(domains)
-            ) @ potential(domains)
-            vector_source_difference = vector_source_c_to_f @ vector_source_cells
-    
-            # Fetch the discretization of the Darcy flux
-            base_discr = getattr(self, flux_name + "_discretization")(domains)
-    
-            # Compose the discretization of the Darcy flux q = T(k(u)) * p, (where the k(u)
-            # dependency can be replaced by other primary variables. The chain rule gives
-            #
-            #  dT = p * (dT/du) * du + T dp
-            #
-            # A similar expression holds for the vector source term. If the base
-            # discretization (which calculates T in the above equation) is Tpfa, the full
-            # expression will be obtained by the Ad machinery and there is no need for
-            # special treatment. If the base discretization is Mpfa, we need to mix this
-            # T-matrix with the the Tpfa-style approximation of dT/du, as is done in the
-            # below if-statement.
-            if isinstance(base_discr, pp.ad.MpfaAd):
-                # To obtain a mixture of Tpfa and Mpfa, we utilize pp.ad.Function, one for
-                # the flux and one for the vector source.
-    
-                # Define the Ad function for the flux
-                flux_p = pp.ad.Function(
-                    # Mypy raises an error here since functool.partial returns a 'partial',
-                    # while pp.ad.Function expects a Callable. partial.__call__ is a
-                    # Callable, and we know this is the way the function will be evaluated
-                    # in ad parsing, so we ignore the error.
-                    partial(  # type: ignore[arg-type]
-                        self.__mpfa_flux_discretization, base_discr
-                    ),
-                    "differentiable_mpfa",
-                )(t_f, potential_difference, potential(domains))
-    
-                # Define the Ad function for the vector source
-                vector_source_d = pp.ad.Function(
-                    partial(  # type: ignore[arg-type]
-                        self.__mpfa_vector_source_discretization, base_discr
-                    ),
-                    "differentiable_mpfa_vector_source",
-                )(t_f, vector_source_difference, vector_source_cells)
-    
-            else:
-                # The base discretization is Tpfa, so we can rely on the Ad machinery to
-                # compose the full expression.
-                flux_p = t_f * potential_difference
-                vector_source_d = t_f * vector_source_difference
-    
-            # As the base discretization is only invoked inside a function, and then only by
-            # the parse()-method, that is, not on operator form, it will not be found in the
-            # search for discretization schemes in the operator tree (implemented in the
-            # Operator class), and therefore, it will not actually be discretized. To
-            # circumvent this problem, we artifically add a term that involves the base
-            # discretization on operator form, and multiply it by zero to avoid it having
-            # any real impact on the equation. This is certainly an ugly hack, but it will
-            # have to do for now.
-            flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
-    
-            # Get boundary condition values
-            boundary_value_operator = boundary_operator(domains)
-    
-            # Compose the full discretization of the Darcy flux, which consists of three
-            # terms: The flux due to pressure differences, the flux due to boundary
-            # conditions, and the flux due to the vector source.
-            flux: pp.ad.Operator = (
-                flux_p
-                + t_bnd
-                * (
-                    boundary_value_operator
-                    + intf_projection.mortar_to_primary_int()
-                    @ getattr(self, "interface_" + flux_name)(interfaces)
-                )
-                + vector_source_d
+        domains = cast(list[pp.Grid], domains)
+
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
             )
-            flux.set_name("Differentiable diffusive flux")
-            return flux
-    
-        def potential_trace(
-            self,
-            subdomains: list[pp.Grid],
-            potential: Callable[[list[pp.Grid]], pp.ad.Operator],
-            diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
-            boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
-            flux_name: str,
-        ) -> pp.ad.Operator:
-            """Pressure on the subdomain boundaries.
-    
-            Parameters:
-                subdomains: List of subdomains where the pressure is defined.
-                potential: Method returning the potential as an Ad operator.
-                diffusivity_tensor: Method returning the diffusivity tensor as an Ad
-                    operator. For Darcy's and Fourier's law, this is the permeability and
-                    thermal conductivity, respectively.
-                boundary_operator: Method returning the boundary operator as an Ad
-                    operator.
-    
-            Returns:
-                Pressure on the subdomain boundaries. Parsing the operator will return a
-                face-wise array.
-    
-            """
-            interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-            boundary_grids = self.subdomains_to_boundary_grids(subdomains)
-    
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-    
-            boundary_value_operator = boundary_operator(subdomains)
-            base_discr = getattr(self, flux_name + "_discretization")(subdomains)
-            # Obtain the transmissibilities in operator form. Ignore other outputs.
-            t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
-            one = pp.ad.Scalar(1)
-    
-            # BC filters for Dirichlet and Neumann faces.
-            diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
-            dir_filter, neu_filter = diff_discr.external_boundary_filters(
-                self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
+
+        boundary_grids = self.subdomains_to_boundary_grids(domains)
+        interfaces: Sequence[pp.MortarGrid] = self.subdomains_to_interfaces(
+            domains, [1]
+        )
+        intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
+
+        # Compute the transmissibility matrix, see the called function for details. Also
+        # obtain various helper objects.
+        (
+            t_f,
+            diff_discr,
+            hf_to_f,
+            d_vec,
+        ) = self.__transmissibility_matrix(domains, diffusivity_tensor)
+
+        # Treatment of boundary conditions.
+        one = pp.ad.Scalar(1)
+        # Obtain filters that lett pass external boundary faces (divided into Dirichlet
+        # and Neumann faces), internal boundary faces (faces between subdomains), and
+        # tip faces (on immersed tips of domains).
+        external_dir_filter, external_neu_filter = diff_discr.external_boundary_filters(
+            self.mdg, domains, boundary_grids, "bc_values_" + flux_name
+        )
+        internal_boundary_filter = diff_discr.internal_boundary_filter(domains)
+        tip_filter = diff_discr.tip_filter(domains)
+
+        # The Tpfa transmissibility of a face with a Neumann condition is zero. Thus
+        # eliminate the transmissibilities on external Neumann faces, as well as on
+        # internal boundaries and tip faces, both of which by assumption are assigned
+        # Neumann conditions.
+        t_f = (
+            one - (external_neu_filter + internal_boundary_filter + tip_filter)
+        ) * t_f
+
+        # Sign of boundary faces.
+        bnd_sgn = diff_discr.boundary_sign(domains)
+        # Discretization of boundary conditions: On Neumann faces, we will simply add
+        # the flux, with a sign change if the normal vector is pointing inwards.
+        neu_bnd = external_neu_filter * bnd_sgn
+        # On Dirichlet faces, an assigned Dirichlet value (assuming zero potential in
+        # the cell adjacent to the face) will induce a flux proportional to t_f. (The
+        # actual flux through the face is found by adding the contribution from the cell
+        # center potential, this is taken care of).
+        dir_bnd = external_dir_filter * (-bnd_sgn * t_f)
+        t_bnd = neu_bnd + dir_bnd
+
+        # Discretization of vector source:
+        #
+        # The flux through a face with normal vector n_j, as seen from cell i, driven by
+        # a vector source v_i in cell i, is given by
+        #
+        #   q_j = n_j^T K_i v_i
+        #
+        # A Tpfa-style discretization of this term will apply harmonic averaging of the
+        # permeabilities (see function __transmissibility_matrix), and multiply with the
+        # difference in vector source between the two cells. We have already computed
+        # the transmissibility matrix, which computes the product of the permeability
+        # tensor, the normal vector and a unit vector from cell to face center. To
+        # convert this to a discretizaiton for the vector source, we first need to
+        # project the vector source onto the unit vector from cell to face center.
+        # Second, the vector source should be scaled by the distance from cell to face
+        # center. This can be seen as compensating for the distance in the denominator
+        # of the half-face transmissibility, or as converting the vector source into a
+        # potential-like quantity before applying the flux calculation.
+
+        # The vector source can be 2d or 3d, but the geometry, thus discretization, is
+        # always 3d, thus we need to map from nd to 3d.
+        cells_nd_to_3d = diff_discr.nd_to_3d(domains, self.nd)
+        # Mapping from cells to half-faces of 3d quantities.
+        cells_to_hf_3d = diff_discr.half_face_map(
+            domains, from_entity="cells", with_sign=False, dimensions=(3, 3)
+        )
+
+        # Build a mapping for the cell-wise vector source, unravelled from the right:
+        # First, map the vector source from nd to 3d. Second, map from cells to
+        # half-faces. Third, project the vector source onto the vector from cell center
+        # to half-face center (this is the vector which Tpfa uses as a proxy for the
+        # full gradient, see comments in the method __transmissibility_matrix). As the
+        # rows of d_vec have length equal to the distance, this compensates for the
+        # distance in the denominator of the half-face transmissibility. Fourth, map
+        # from half-faces to faces, using a mapping with signs, thereby taking the
+        # difference between the two vector sources.
+        vector_source_c_to_f = pp.ad.SparseArray(
+            hf_to_f @ d_vec @ cells_to_hf_3d @ cells_nd_to_3d
+        )
+
+        # Fetch the constitutive law for the vector source.
+        vector_source_cells = getattr(self, "vector_source_" + flux_name)(domains)
+
+        # Compute the difference in pressure and vector source between the two cells on
+        # the sides of each face.
+        potential_difference = pp.ad.SparseArray(
+            diff_discr.face_pairing_from_cell_array(domains)
+        ) @ potential(domains)
+        vector_source_difference = vector_source_c_to_f @ vector_source_cells
+
+        # Fetch the discretization of the Darcy flux
+        base_discr = getattr(self, flux_name + "_discretization")(domains)
+
+        # Compose the discretization of the Darcy flux q = T(k(u)) * p, (where the k(u)
+        # dependency can be replaced by other primary variables. The chain rule gives
+        #
+        #  dT = p * (dT/du) * du + T dp
+        #
+        # A similar expression holds for the vector source term. If the base
+        # discretization (which calculates T in the above equation) is Tpfa, the full
+        # expression will be obtained by the Ad machinery and there is no need for
+        # special treatment. If the base discretization is Mpfa, we need to mix this
+        # T-matrix with the the Tpfa-style approximation of dT/du, as is done in the
+        # below if-statement.
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # To obtain a mixture of Tpfa and Mpfa, we utilize pp.ad.Function, one for
+            # the flux and one for the vector source.
+
+            # Define the Ad function for the flux
+            flux_p = pp.ad.Function(
+                # Mypy raises an error here since functool.partial returns a 'partial',
+                # while pp.ad.Function expects a Callable. partial.__call__ is a
+                # Callable, and we know this is the way the function will be evaluated
+                # in ad parsing, so we ignore the error.
+                partial(  # type: ignore[arg-type]
+                    self.__mpfa_flux_discretization, base_discr
+                ),
+                "differentiable_mpfa",
+            )(t_f, potential_difference, potential(domains))
+
+            # Define the Ad function for the vector source
+            vector_source_d = pp.ad.Function(
+                partial(  # type: ignore[arg-type]
+                    self.__mpfa_vector_source_discretization, base_discr
+                ),
+                "differentiable_mpfa_vector_source",
+            )(t_f, vector_source_difference, vector_source_cells)
+
+        else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the full expression.
+            flux_p = t_f * potential_difference
+            vector_source_d = t_f * vector_source_difference
+
+        # As the base discretization is only invoked inside a function, and then only by
+        # the parse()-method, that is, not on operator form, it will not be found in the
+        # search for discretization schemes in the operator tree (implemented in the
+        # Operator class), and therefore, it will not actually be discretized. To
+        # circumvent this problem, we artifically add a term that involves the base
+        # discretization on operator form, and multiply it by zero to avoid it having
+        # any real impact on the equation. This is certainly an ugly hack, but it will
+        # have to do for now.
+        flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
+
+        # Get boundary condition values
+        boundary_value_operator = boundary_operator(domains)
+
+        # Compose the full discretization of the Darcy flux, which consists of three
+        # terms: The flux due to pressure differences, the flux due to boundary
+        # conditions, and the flux due to the vector source.
+        flux: pp.ad.Operator = (
+            flux_p
+            + t_bnd
+            * (
+                boundary_value_operator
+                + intf_projection.mortar_to_primary_int()
+                @ getattr(self, "interface_" + flux_name)(interfaces)
             )
-            # Also a separate filter for internal boundaries, which are always Neumann.
-            internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
-    
-            # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
-            # on Neumann faces (both external and internal - see Tpfa.discretize). Named
-            # "bound_pressure_face" and not "bound_potential_face" to be consistent with the
-            # base discretization.
-            bound_pressure_face_discr = dir_filter - (
-                neu_filter + internal_boundary_filter
-            ) * (one / t_f_full)
-    
-            # Project the interface flux to the primary grid, preparing for discretization
-            # on internal boundaries.
-            projected_internal_flux = projection.mortar_to_primary_int() @ getattr(
-                self, "interface_" + flux_name
-            )(interfaces)
-    
-            if isinstance(base_discr, pp.ad.MpfaAd):
-                # Approximate the derivative of the transmissibility matrix with respect to
-                # permeability by a Tpfa-style discretization.
-                boundary_value_contribution = pp.ad.Function(
-                    # See comment in diffusive_flux method for explanation why the type
-                    # ignore is needed.
-                    partial(  # type: ignore[arg-type]
-                        self.__mpfa_bound_pressure_discretization, base_discr
-                    ),
-                    "differentiable_mpfa",
-                )(
-                    bound_pressure_face_discr,
-                    projected_internal_flux,
-                    boundary_value_operator,
-                )
-    
-            else:
-                # The base discretization is Tpfa, so we can rely on the Ad machinery to
-                # compose the discretization, treating internal and external boundaries
-                # equally.
-                boundary_value_contribution = bound_pressure_face_discr * (
-                    projected_internal_flux + boundary_value_operator
-                )
-    
-            # As the base discretization is only invoked inside a function, and then only by
-            # the parse()-method, that is, not on operator form, it will not be found in the
-            # search for discretization schemes in the operator tree (implemented in the
-            # Operator class), and therefore, it will not actually be discretized. To
-            # circumvent this problem, we artifically add a term that involves the base
-            # discretization on operator form, and multiply it by zero to avoid it having
-            # any real impact on the equation. This is certainly an ugly hack, but it will
-            # have to do for now.
-            # TODO: Do we need this trick here, or is it sufficient to do so in the
-            # diffusive flux method?
-            boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
-                0
-            ) * base_discr.flux() @ potential(subdomains)
-    
-            pressure_trace = (
-                base_discr.bound_pressure_cell() @ potential(subdomains)
-                # Contribution from boundaries.
-                + boundary_value_contribution
-                # the vector source is independent of k
-                + base_discr.bound_pressure_vector_source()
-                @ getattr(self, "vector_source_" + flux_name)(subdomains)
+            + vector_source_d
+        )
+        flux.set_name("Differentiable diffusive flux")
+        return flux
+
+    def potential_trace(
+        self,
+        subdomains: list[pp.Grid],
+        potential: Callable[[list[pp.Grid]], pp.ad.Operator],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
+        flux_name: str,
+    ) -> pp.ad.Operator:
+        """Pressure on the subdomain boundaries.
+
+        Parameters:
+            subdomains: List of subdomains where the pressure is defined.
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
+                operator. For Darcy's and Fourier's law, this is the permeability and
+                thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
+
+        Returns:
+            Pressure on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
+        """
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        boundary_grids = self.subdomains_to_boundary_grids(subdomains)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        boundary_value_operator = boundary_operator(subdomains)
+        base_discr = getattr(self, flux_name + "_discretization")(subdomains)
+        # Obtain the transmissibilities in operator form. Ignore other outputs.
+        t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
+        one = pp.ad.Scalar(1)
+
+        # BC filters for Dirichlet and Neumann faces.
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
+        dir_filter, neu_filter = diff_discr.external_boundary_filters(
+            self.mdg, subdomains, boundary_grids, "bc_values_" + flux_name
+        )
+        # Also a separate filter for internal boundaries, which are always Neumann.
+        internal_boundary_filter = diff_discr.internal_boundary_filter(subdomains)
+
+        # Face contribution to boundary potential is 1 on Dirichlet faces, -1/t_f_full
+        # on Neumann faces (both external and internal - see Tpfa.discretize). Named
+        # "bound_pressure_face" and not "bound_potential_face" to be consistent with the
+        # base discretization.
+        bound_pressure_face_discr = dir_filter - (
+            neu_filter + internal_boundary_filter
+        ) * (one / t_f_full)
+
+        # Project the interface flux to the primary grid, preparing for discretization
+        # on internal boundaries.
+        projected_internal_flux = projection.mortar_to_primary_int() @ getattr(
+            self, "interface_" + flux_name
+        )(interfaces)
+
+        if isinstance(base_discr, pp.ad.MpfaAd):
+            # Approximate the derivative of the transmissibility matrix with respect to
+            # permeability by a Tpfa-style discretization.
+            boundary_value_contribution = pp.ad.Function(
+                # See comment in diffusive_flux method for explanation why the type
+                # ignore is needed.
+                partial(  # type: ignore[arg-type]
+                    self.__mpfa_bound_pressure_discretization, base_discr
+                ),
+                "differentiable_mpfa",
+            )(
+                bound_pressure_face_discr,
+                projected_internal_flux,
+                boundary_value_operator,
             )
-            return pressure_trace
-    
-        def __transmissibility_matrix(
-            self,
-            subdomains: list[pp.Grid],
-            diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
-        ) -> tuple[
-            pp.ad.Operator,
-            pp.numerics.fv.tpfa.DifferentiableTpfa,
-            sps.spmatrix,
-            sps.spmatrix,
-        ]:
-            """Compute the Tpfa transmissibility matrix for a list of subdomains."""
-            # In Tpfa, the Darcy flux through a face with normal vector n_j, as seen from
-            # cell i, is given by (subscripts indicate face or cell index)
-            #
-            #    q_j = n_j^T K_i e_ij (p_i - p_j) / dist_ij
-            #
-            # Here, K_i is the permeability tensor in cell i, e_ij is the unit vector from
-            # cell i to face j, and dist_ij is the distance between the cell center and the
-            # face center. Comparing with the continuous formulation, we see that the
-            # pressure gradient is approximated by the pressure difference, divided by
-            # distance, in the direction between cell and face centers. Writing out the
-            # expression for the half-face transmissibility
-            #
-            #    t = n_r^T K_rs e_s / dist
-            #
-            # Here, subscripts indicate (Cartesian) dimensions, the summation convention is
-            # applied, and dist again represent the distance from cell to face center. (EK:
-            # the change of meaning of subscript is unfortunate, but it is very important to
-            # understand how the components of the permeability tensor and the normal and
-            # distance vectors are multiplied.) This formulation can be reformulated to
-            #
-            #   t = n_r^T e_s K_rs / dist
-            #
-            # where the point is that, by right multiplying the permeability tensor, this
-            # can be represented as an Ad operator (which upon parsing will be an AdArray
-            # which only can be right multiplied). The below code implements this
-            # formulation. The full transmissibility matrix is obtained by taking the
-            # harmonic mean of the two half-face transmissibilities on each face.
-    
-            # The cell-wise permeability tensor is represented as an Ad operator which
-            # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
-            # volume.
-            basis = self.basis(subdomains, dim=9)
-            volumes = pp.ad.sum_operator_list(
-                [e @ self.specific_volume(subdomains) for e in basis]
+
+        else:
+            # The base discretization is Tpfa, so we can rely on the Ad machinery to
+            # compose the discretization, treating internal and external boundaries
+            # equally.
+            boundary_value_contribution = bound_pressure_face_discr * (
+                projected_internal_flux + boundary_value_operator
             )
-            k_c = volumes * diffusivity_tensor(subdomains)
-    
-            # Create the helper discretization object, which will be used to generate
-            # grid-related quantities and mappings.
-            diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
-    
-            # Get the normal vector, vector from cell center to face center (d_vec), and
-            # distance from cell center to face center (dist) for each half-face.
-            n, d_vec, dist = diff_discr.half_face_geometry_matrices(subdomains)
-    
-            # Compose the geometric part of the half-face transmissibilities. Note that
-            # dividing d_vec by dist essentially forms a unit vector from cell to face
-            # center.
-            d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
-    
-            # Form the full half-face transmissibilities and take its reciprocal, preparing
-            # for a harmonic mean between the two half-face transmissibilities on ecah side
-            # of a face.
-            one = pp.ad.Scalar(1)
-            t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
-    
-            # Compose full-face transmissibilities
-            # Sum over half-faces to get transmissibility on faces.
-            # Include sign to cancel the effect of the d_vec @ n having opposite signs on
-            # the two half-faces.
-            hf_to_f = diff_discr.half_face_map(
-                subdomains, to_entity="faces", with_sign=True
+
+        # As the base discretization is only invoked inside a function, and then only by
+        # the parse()-method, that is, not on operator form, it will not be found in the
+        # search for discretization schemes in the operator tree (implemented in the
+        # Operator class), and therefore, it will not actually be discretized. To
+        # circumvent this problem, we artifically add a term that involves the base
+        # discretization on operator form, and multiply it by zero to avoid it having
+        # any real impact on the equation. This is certainly an ugly hack, but it will
+        # have to do for now.
+        # TODO: Do we need this trick here, or is it sufficient to do so in the
+        # diffusive flux method?
+        boundary_value_contribution = boundary_value_contribution + pp.ad.Scalar(
+            0
+        ) * base_discr.flux() @ potential(subdomains)
+
+        pressure_trace = (
+            base_discr.bound_pressure_cell() @ potential(subdomains)
+            # Contribution from boundaries.
+            + boundary_value_contribution
+            # the vector source is independent of k
+            + base_discr.bound_pressure_vector_source()
+            @ getattr(self, "vector_source_" + flux_name)(subdomains)
+        )
+        return pressure_trace
+
+    def __transmissibility_matrix(
+        self,
+        subdomains: list[pp.Grid],
+        diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+    ) -> tuple[
+        pp.ad.Operator,
+        pp.numerics.fv.tpfa.DifferentiableTpfa,
+        sps.spmatrix,
+        sps.spmatrix,
+    ]:
+        """Compute the Tpfa transmissibility matrix for a list of subdomains."""
+        # In Tpfa, the Darcy flux through a face with normal vector n_j, as seen from
+        # cell i, is given by (subscripts indicate face or cell index)
+        #
+        #    q_j = n_j^T K_i e_ij (p_i - p_j) / dist_ij
+        #
+        # Here, K_i is the permeability tensor in cell i, e_ij is the unit vector from
+        # cell i to face j, and dist_ij is the distance between the cell center and the
+        # face center. Comparing with the continuous formulation, we see that the
+        # pressure gradient is approximated by the pressure difference, divided by
+        # distance, in the direction between cell and face centers. Writing out the
+        # expression for the half-face transmissibility
+        #
+        #    t = n_r^T K_rs e_s / dist
+        #
+        # Here, subscripts indicate (Cartesian) dimensions, the summation convention is
+        # applied, and dist again represent the distance from cell to face center. (EK:
+        # the change of meaning of subscript is unfortunate, but it is very important to
+        # understand how the components of the permeability tensor and the normal and
+        # distance vectors are multiplied.) This formulation can be reformulated to
+        #
+        #   t = n_r^T e_s K_rs / dist
+        #
+        # where the point is that, by right multiplying the permeability tensor, this
+        # can be represented as an Ad operator (which upon parsing will be an AdArray
+        # which only can be right multiplied). The below code implements this
+        # formulation. The full transmissibility matrix is obtained by taking the
+        # harmonic mean of the two half-face transmissibilities on each face.
+
+        # The cell-wise permeability tensor is represented as an Ad operator which
+        # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
+        # volume.
+        basis = self.basis(subdomains, dim=9)
+        volumes = pp.ad.sum_operator_list(
+            [e @ self.specific_volume(subdomains) for e in basis]
+        )
+        k_c = volumes * diffusivity_tensor(subdomains)
+
+        # Create the helper discretization object, which will be used to generate
+        # grid-related quantities and mappings.
+        diff_discr = pp.numerics.fv.tpfa.DifferentiableTpfa()
+
+        # Get the normal vector, vector from cell center to face center (d_vec), and
+        # distance from cell center to face center (dist) for each half-face.
+        n, d_vec, dist = diff_discr.half_face_geometry_matrices(subdomains)
+
+        # Compose the geometric part of the half-face transmissibilities. Note that
+        # dividing d_vec by dist essentially forms a unit vector from cell to face
+        # center.
+        d_n_by_dist = sps.diags(1 / dist) * d_vec @ n
+
+        # Form the full half-face transmissibilities and take its reciprocal, preparing
+        # for a harmonic mean between the two half-face transmissibilities on ecah side
+        # of a face.
+        one = pp.ad.Scalar(1)
+        t_hf_inv = one / (pp.ad.SparseArray(d_n_by_dist) @ k_c)
+
+        # Compose full-face transmissibilities
+        # Sum over half-faces to get transmissibility on faces.
+        # Include sign to cancel the effect of the d_vec @ n having opposite signs on
+        # the two half-faces.
+        hf_to_f = diff_discr.half_face_map(
+            subdomains, to_entity="faces", with_sign=True
+        )
+        # Take the harmonic mean of the two half-face transmissibilities.
+        t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
+        t_f_full.set_name("transmissibility matrix")
+        return t_f_full, diff_discr, hf_to_f, d_vec
+
+    def __mpfa_flux_discretization(
+        self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
+    ) -> ArrayType:
+        """Approximate the product rule for the expression d(T_MPFA * p), where T_MPFA
+        is the transmissibility matrix for an Mpfa discretization.
+
+        The approximation is taken as
+
+            d(T_MPFA * p) ~ T_MPFA * dp + p_diff * d(T_TPFA)
+
+        where, for a single face, p_diff is the difference in pressure between the two
+        cells on either side of the face - the method self.diffusive_flux() for
+        further explanation.
+
+        Parameters:
+            base_discr: Base discretization of the flux. T_f: Transmissibility matrix.
+            p_diff: Difference in potential between the two cells on either side of the
+                face.
+            p: Potential.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the flux associated with
+                the potential difference.
+
+        """
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.flux is a sparse matrix, so we can call parse
+        # directly.
+        base_flux = base_discr.flux().parse(self.mdg)
+        # If the function has been called using .value, p is a numpy array and we pass
+        # only the value.
+        if not isinstance(p, pp.ad.AdArray):
+            return base_flux @ p
+        # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
+        # its val and jac attributes.
+        val = base_flux @ p.val
+        jac = base_flux @ p.jac
+
+        if hasattr(T_f, "jac"):
+            # Add the contribution to the Jacobian matrix from the derivative of the
+            # transmissibility matrix times the pressure difference. To see why this is
+            # correct, it may be useful to consider the flux over a single face
+            # (corresponding to one row in the Jacobian matrix).
+            jac += sps.diags(p_diff.val) @ T_f.jac
+
+        return pp.ad.AdArray(val, jac)
+
+    def __mpfa_vector_source_discretization(
+        self,
+        base_discr: pp.ad.MpfaAd,
+        T_f: ArrayType,
+        vs_diff: ArrayType,
+        vs: ArrayType,
+    ) -> ArrayType:
+        """Approximate the product rule for the expression d(VS_MPFA * vs), where
+        VS_MPFA is the Mpfa discretization of the vector source, and vs is the vector
+        source.
+
+         The approximation is taken as
+
+            d(VS_MPFA * vs) ~ VS_MPFA * d(vs) + vs_diff * d(VS_TPFA)
+
+        where, for a single face, vs_diff is the difference in vector source between
+        the two cells on either side of the face, see the method self.diffusive_flux()
+        for further explanation.
+
+        Parameters:
+            base_discr: Base discretization of the vector source.
+            T_f: Transmissibility matrix.
+            vs_diff: Difference in vector source between the two cells on either side of
+                the face.
+            vs: Vector source.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the flux associated with
+            the vector source.
+
+        """
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.vector_source is a sparse matrix, so we can call parse
+        # directly.
+        base_discr_vector_source = base_discr.vector_source().parse(self.mdg)
+
+        # Composing the full expression for the vector source term is a bit tricky, as
+        # any of the three arguments may be either a numpy array or an AdArray. We need
+        # to handle all combinations of these cases.
+        #
+        # First, we check if any of the arguments are numpy arrays, which would
+        # correspond to the case where the Operator is evaluated for its residual only.
+        # In this case, we simply return the product of the base discretization with the
+        # vector source.
+        if (
+            isinstance(T_f, np.ndarray)
+            and isinstance(vs, np.ndarray)
+            and isinstance(vs_diff, np.ndarray)
+        ):
+            # The value is a numpy array, and we simply return the product with the base
+            # discretization.
+            return base_discr_vector_source @ vs
+
+        # We now know that the return value should be an AdArray, and we need to compute
+        # the Jacobian as well as the value. However, the type of vs (thus vs_diff) can
+        # still be either numpy array or AdArray: The former corresponds to a constant
+        # vector source, the latter to a vector source that depends on the primary
+        # variable (e.g., a non-constant density in a gravity term). We need to unify
+        # these cases:
+        if isinstance(vs, np.ndarray):
+            # If this is broken, something really weird is going on.
+            assert isinstance(vs_diff, np.ndarray)
+            vs_val = vs
+            vs_diff_val = vs_diff
+
+            num_rows = vs_val.size
+            num_cols = self.equation_system.num_dofs()
+            vs_jac = sps.csr_matrix((num_rows, num_cols))
+        else:
+            # The value is an AdArray, and we can access its val and jac attributes.
+            vs_val = vs.val
+            vs_diff_val = vs_diff.val
+            vs_jac = vs.jac
+
+        # The value is an AdArray, and we need to compute the Jacobian as well as the
+        # value.
+        val = base_discr_vector_source @ vs_val
+        # The contribution from differentiating the vector source term to the Jacobian
+        # of the flux.
+        jac = base_discr.vector_source().parse(self.mdg) @ vs_jac
+
+        if hasattr(T_f, "jac"):
+            # Add the contribution to the Jacobian matrix from the derivative of the
+            # transmissibility matrix times the vector source difference.
+            jac += sps.diags(vs_diff_val) @ T_f.jac
+
+        return pp.ad.AdArray(val, jac)
+
+    def __mpfa_bound_pressure_discretization(
+        self,
+        base_discr: pp.ad.MpfaAd,
+        bound_pressure_face: ArrayType,
+        internal_flux: ArrayType,
+        external_bc: ArrayType,
+    ) -> ArrayType:
+        """Approximate the product rule for the expression d(PT_MPFA * bc), where
+        PT_MPFA is the Mpfa discretization of the potential trace reconstruction, and bc
+        represents boundary conditions (internal and external).
+
+        The approximation is taken as
+
+            d(PT_MPFA * bc) ~ PT_MPFA * d(bc) + bc * d(PT_TPFA)
+
+        where, for a single face, bc is the boundary condition value, and d(bc) is the
+        differential of the boundary condition value. The latter will be non-zero *only*
+        for internal boundaries (where it will typically represent the derivative of
+        an interface flux).
+
+        Parameters:
+            base_discr: Base discretization of the pressure trace. bound_pressure_face:
+            Pressure trace discretization, computed with
+                differentiable tpfa.
+            internal_flux: Interface fluxes.
+            external_bc: External boundary conditions.
+
+        Returns:
+            AdArray with value and Jacobian matrix representing the reconstructed
+                pressure trace.
+
+        """
+        # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
+        # the inputs are not Ad-operators, but numerical values.
+
+        # We know that base_discr.bound_pressure_face is a sparse matrix, so we can call
+        # parse directly. At the time of evaluation, internal_flux will be an AdArray,
+        # thus we can access its val and jac attributes, while external_flux is a numpy
+        # array.
+        base_term = base_discr.bound_pressure_face().parse(self.mdg)
+        # The value is the standard product of the matrix and boundary values.
+
+        # If the function has been called using .value, p is a numpy array and we pass
+        # only the value.
+        if not isinstance(internal_flux, pp.ad.AdArray):
+            return base_term @ (internal_flux + external_bc)
+
+        # Otherwise, at the time of evaluation, internal_flux will be an AdArray, thus
+        # we can access its val and jac attributes.
+
+        # EK: Testing revealed a case where the external_bc was an AdArray. The precise
+        # reason for this is not clear (it could be a straightforward result of the
+        # rules of parsing), but to cover all cases, we do a if-else here.
+        if isinstance(external_bc, pp.ad.AdArray):
+            external_bc_val = external_bc.val
+        else:
+            external_bc_val = external_bc
+
+        # Use external_bc (both Dirichlet and Neumann) since both enter into the
+        # pressure trace reconstruction.
+        val = base_term @ (internal_flux.val + external_bc_val)
+        # The Jacobian matrix has one term corresponding to the standard (e.g.,
+        # non-differentiable FV) discretization. No need to add the external boundary
+        # values, as they should not be differentiated.
+        jac = base_term @ internal_flux.jac
+
+        if hasattr(bound_pressure_face, "jac"):
+            # If the permeability, thus the pressure reconstruction operator, has a
+            # Jacobian, add its contribution. For external Dirichlet boundaries, the
+            # Jacobian is zero (the element is constant 1), thus these faces give no
+            # contribution. There will be a contribution from external Neumann
+            # boundaries, as well as from internal boundaries (which are always
+            # Neumann).
+            jac += (
+                sps.diags(internal_flux.val + external_bc_val) @ bound_pressure_face.jac
             )
-            # Take the harmonic mean of the two half-face transmissibilities.
-            t_f_full = one / (pp.ad.SparseArray(hf_to_f) @ t_hf_inv)
-            t_f_full.set_name("transmissibility matrix")
-            return t_f_full, diff_discr, hf_to_f, d_vec
-    
-        def __mpfa_flux_discretization(
-            self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
-        ) -> ArrayType:
-            """Approximate the product rule for the expression d(T_MPFA * p), where T_MPFA
-            is the transmissibility matrix for an Mpfa discretization.
-    
-            The approximation is taken as
-    
-                d(T_MPFA * p) ~ T_MPFA * dp + p_diff * d(T_TPFA)
-    
-            where, for a single face, p_diff is the difference in pressure between the two
-            cells on either side of the face - the method self.diffusive_flux() for
-            further explanation.
-    
-            Parameters:
-                base_discr: Base discretization of the flux. T_f: Transmissibility matrix.
-                p_diff: Difference in potential between the two cells on either side of the
-                    face.
-                p: Potential.
-    
-            Returns:
-                AdArray with value and Jacobian matrix representing the flux associated with
-                    the potential difference.
-    
-            """
-            # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
-            # the inputs are not Ad-operators, but numerical values.
-    
-            # We know that base_discr.flux is a sparse matrix, so we can call parse
-            # directly.
-            base_flux = base_discr.flux().parse(self.mdg)
-            # If the function has been called using .value, p is a numpy array and we pass
-            # only the value.
-            if not isinstance(p, pp.ad.AdArray):
-                return base_flux @ p
-            # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
-            # its val and jac attributes.
-            val = base_flux @ p.val
-            jac = base_flux @ p.jac
-    
-            if hasattr(T_f, "jac"):
-                # Add the contribution to the Jacobian matrix from the derivative of the
-                # transmissibility matrix times the pressure difference. To see why this is
-                # correct, it may be useful to consider the flux over a single face
-                # (corresponding to one row in the Jacobian matrix).
-                jac += sps.diags(p_diff.val) @ T_f.jac
-    
-            return pp.ad.AdArray(val, jac)
-    
-        def __mpfa_vector_source_discretization(
-            self,
-            base_discr: pp.ad.MpfaAd,
-            T_f: ArrayType,
-            vs_diff: ArrayType,
-            vs: ArrayType,
-        ) -> ArrayType:
-            """Approximate the product rule for the expression d(VS_MPFA * vs), where
-            VS_MPFA is the Mpfa discretization of the vector source, and vs is the vector
-            source.
-    
-             The approximation is taken as
-    
-                d(VS_MPFA * vs) ~ VS_MPFA * d(vs) + vs_diff * d(VS_TPFA)
-    
-            where, for a single face, vs_diff is the difference in vector source between
-            the two cells on either side of the face, see the method self.diffusive_flux()
-            for further explanation.
-    
-            Parameters:
-                base_discr: Base discretization of the vector source.
-                T_f: Transmissibility matrix.
-                vs_diff: Difference in vector source between the two cells on either side of
-                    the face.
-                vs: Vector source.
-    
-            Returns:
-                AdArray with value and Jacobian matrix representing the flux associated with
-                the vector source.
-    
-            """
-            # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
-            # the inputs are not Ad-operators, but numerical values.
-    
-            # We know that base_discr.vector_source is a sparse matrix, so we can call parse
-            # directly.
-            base_discr_vector_source = base_discr.vector_source().parse(self.mdg)
-    
-            # Composing the full expression for the vector source term is a bit tricky, as
-            # any of the three arguments may be either a numpy array or an AdArray. We need
-            # to handle all combinations of these cases.
-            #
-            # First, we check if any of the arguments are numpy arrays, which would
-            # correspond to the case where the Operator is evaluated for its residual only.
-            # In this case, we simply return the product of the base discretization with the
-            # vector source.
-            if (
-                isinstance(T_f, np.ndarray)
-                and isinstance(vs, np.ndarray)
-                and isinstance(vs_diff, np.ndarray)
-            ):
-                # The value is a numpy array, and we simply return the product with the base
-                # discretization.
-                return base_discr_vector_source @ vs
-    
-            # We now know that the return value should be an AdArray, and we need to compute
-            # the Jacobian as well as the value. However, the type of vs (thus vs_diff) can
-            # still be either numpy array or AdArray: The former corresponds to a constant
-            # vector source, the latter to a vector source that depends on the primary
-            # variable (e.g., a non-constant density in a gravity term). We need to unify
-            # these cases:
-            if isinstance(vs, np.ndarray):
-                # If this is broken, something really weird is going on.
-                assert isinstance(vs_diff, np.ndarray)
-                vs_val = vs
-                vs_diff_val = vs_diff
-    
-                num_rows = vs_val.size
-                num_cols = self.equation_system.num_dofs()
-                vs_jac = sps.csr_matrix((num_rows, num_cols))
-            else:
-                # The value is an AdArray, and we can access its val and jac attributes.
-                vs_val = vs.val
-                vs_diff_val = vs_diff.val
-                vs_jac = vs.jac
-    
-            # The value is an AdArray, and we need to compute the Jacobian as well as the
-            # value.
-            val = base_discr_vector_source @ vs_val
-            # The contribution from differentiating the vector source term to the Jacobian
-            # of the flux.
-            jac = base_discr.vector_source().parse(self.mdg) @ vs_jac
-    
-            if hasattr(T_f, "jac"):
-                # Add the contribution to the Jacobian matrix from the derivative of the
-                # transmissibility matrix times the vector source difference.
-                jac += sps.diags(vs_diff_val) @ T_f.jac
-    
-            return pp.ad.AdArray(val, jac)
-    
-        def __mpfa_bound_pressure_discretization(
-            self,
-            base_discr: pp.ad.MpfaAd,
-            bound_pressure_face: ArrayType,
-            internal_flux: ArrayType,
-            external_bc: ArrayType,
-        ) -> ArrayType:
-            """Approximate the product rule for the expression d(PT_MPFA * bc), where
-            PT_MPFA is the Mpfa discretization of the potential trace reconstruction, and bc
-            represents boundary conditions (internal and external).
-    
-            The approximation is taken as
-    
-                d(PT_MPFA * bc) ~ PT_MPFA * d(bc) + bc * d(PT_TPFA)
-    
-            where, for a single face, bc is the boundary condition value, and d(bc) is the
-            differential of the boundary condition value. The latter will be non-zero *only*
-            for internal boundaries (where it will typically represent the derivative of
-            an interface flux).
-    
-            Parameters:
-                base_discr: Base discretization of the pressure trace. bound_pressure_face:
-                Pressure trace discretization, computed with
-                    differentiable tpfa.
-                internal_flux: Interface fluxes.
-                external_bc: External boundary conditions.
-    
-            Returns:
-                AdArray with value and Jacobian matrix representing the reconstructed
-                    pressure trace.
-    
-            """
-            # NOTE: Keep in mind that this functions will be evaluated in forward mode, thus
-            # the inputs are not Ad-operators, but numerical values.
-    
-            # We know that base_discr.bound_pressure_face is a sparse matrix, so we can call
-            # parse directly. At the time of evaluation, internal_flux will be an AdArray,
-            # thus we can access its val and jac attributes, while external_flux is a numpy
-            # array.
-            base_term = base_discr.bound_pressure_face().parse(self.mdg)
-            # The value is the standard product of the matrix and boundary values.
-    
-            # If the function has been called using .value, p is a numpy array and we pass
-            # only the value.
-            if not isinstance(internal_flux, pp.ad.AdArray):
-                return base_term @ (internal_flux + external_bc)
-    
-            # Otherwise, at the time of evaluation, internal_flux will be an AdArray, thus
-            # we can access its val and jac attributes.
-    
-            # EK: Testing revealed a case where the external_bc was an AdArray. The precise
-            # reason for this is not clear (it could be a straightforward result of the
-            # rules of parsing), but to cover all cases, we do a if-else here.
-            if isinstance(external_bc, pp.ad.AdArray):
-                external_bc_val = external_bc.val
-            else:
-                external_bc_val = external_bc
-    
-            # Use external_bc (both Dirichlet and Neumann) since both enter into the
-            # pressure trace reconstruction.
-            val = base_term @ (internal_flux.val + external_bc_val)
-            # The Jacobian matrix has one term corresponding to the standard (e.g.,
-            # non-differentiable FV) discretization. No need to add the external boundary
-            # values, as they should not be differentiated.
-            jac = base_term @ internal_flux.jac
-    
-            if hasattr(bound_pressure_face, "jac"):
-                # If the permeability, thus the pressure reconstruction operator, has a
-                # Jacobian, add its contribution. For external Dirichlet boundaries, the
-                # Jacobian is zero (the element is constant 1), thus these faces give no
-                # contribution. There will be a contribution from external Neumann
-                # boundaries, as well as from internal boundaries (which are always
-                # Neumann).
-                jac += (
-                    sps.diags(internal_flux.val + external_bc_val) @ bound_pressure_face.jac
-                )
-    
-            return pp.ad.AdArray(val, jac)
-    
-    
+
+        return pp.ad.AdArray(val, jac)
+
+
 class DarcysLawAd(AdTpfaFlux):
     """Adaptive discretization of the Darcy flux from generic adaptive flux class."""
 
@@ -1889,239 +1865,231 @@ class DarcysLawAd(AdTpfaFlux):
         return pressure_trace
 
 
-if TYPE_CHECKING:
-    class PeacemanWellFlux(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class PeacemanWellFlux:
-        """Well fluxes.
-    
-        Relations between well fluxes and pressures are implemented in this class.
-        Peaceman 1977 https://doi.org/10.2118/6893-PA
-    
-        Assumes permeability is cell-wise scalar.
-    
+class PeacemanWellFlux:
+    """Well fluxes.
+
+    Relations between well fluxes and pressures are implemented in this class.
+    Peaceman 1977 https://doi.org/10.2118/6893-PA
+
+    Assumes permeability is cell-wise scalar.
+
+    """
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable."""
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """Well flux variable."""
+    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Function that returns the permeability of a subdomain. Normally provided by a
+    mixin class with a suitable permeability definition.
+
+    """
+
+    def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Equation relating the well flux to the difference between well and formation
+        pressure.
+
+        For details, see Lie: An introduction to reservoir simulation using MATLAB/GNU
+        Octave, 2019, Section 4.3.
+
+        Parameters:
+            interfaces: List of interfaces where the well fluxes are defined.
+
+        Returns:
+            Cell-wise well flux operator, units [kg * m^{nd-1} * s^-2].
+
         """
-    
-        pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Pressure variable."""
-        well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
-        """Well flux variable."""
-        permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Function that returns the permeability of a subdomain. Normally provided by a
-        mixin class with a suitable permeability definition.
-    
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
+        r_w = self.well_radius(subdomains)
+        skin_factor = self.skin_factor(interfaces)
+        r_e = self.equivalent_well_radius(subdomains)
+
+        f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
+
+        # We assume isotropic permeability and extract xx component.
+        e_i = self.e_i(subdomains, i=0, dim=9).T
+
+        # To get a transmissivity, we multiply the permeability with the length of the
+        # well within one cell. For a 0d-2d coupling, this will be the aperture of the
+        # 2d fracture cell; in practice the number is obtained by multiplying with the
+        # specific volume of the mortar cell (which will incorporate the specific volume
+        # of the higher-dimensional neighbor, that is, the fracture). For a 1d-3d
+        # coupling, we will need the length of the well within the 3d cell (see the MRST
+        # book, p.128, for comments regarding deviated wells). Again, this could be
+        # obtained by a volume integral over the mortar cell; however, as 1d-3d
+        # couplings have not yet been implemented, we will raise an error in this case.
+        if any([sd.dim == 3 for sd in subdomains]):
+            raise NotImplementedError(
+                "The 1d-3d coupling has not yet been implemented. "
+            )
+        elif any([sd.dim == 1 for sd in subdomains]):
+            # This is a 1d-2d (or 1d-1d) coupling, for which the Peaceman model is
+            # not applicable.
+            # TODO: Revisit when we implement 1d-3d coupling.
+            raise ValueError("The Peaceman model assumes a coupling of codimension 2")
+
+        isotropic_permeability = e_i @ self.permeability(subdomains)
+
+        well_index = self.volume_integral(
+            pp.ad.Scalar(2 * np.pi)
+            * projection.primary_to_mortar_avg()
+            @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
+            interfaces,
+            1,
+        )
+        eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
+            projection.primary_to_mortar_avg() @ self.pressure(subdomains)
+            - projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
+        )
+        eq.set_name("well_flux_equation")
+        return eq
+
+    def equivalent_well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute equivalent radius for Peaceman well model.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise equivalent radius operator [m].
+
         """
-    
-        def well_flux_equation(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-            """Equation relating the well flux to the difference between well and formation
-            pressure.
-    
-            For details, see Lie: An introduction to reservoir simulation using MATLAB/GNU
-            Octave, 2019, Section 4.3.
-    
-            Parameters:
-                interfaces: List of interfaces where the well fluxes are defined.
-    
-            Returns:
-                Cell-wise well flux operator, units [kg * m^{nd-1} * s^-2].
-    
-            """
-    
-            subdomains = self.interfaces_to_subdomains(interfaces)
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-            r_w = self.well_radius(subdomains)
-            skin_factor = self.skin_factor(interfaces)
-            r_e = self.equivalent_well_radius(subdomains)
-    
-            f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
-    
-            # We assume isotropic permeability and extract xx component.
-            e_i = self.e_i(subdomains, i=0, dim=9).T
-    
-            # To get a transmissivity, we multiply the permeability with the length of the
-            # well within one cell. For a 0d-2d coupling, this will be the aperture of the
-            # 2d fracture cell; in practice the number is obtained by multiplying with the
-            # specific volume of the mortar cell (which will incorporate the specific volume
-            # of the higher-dimensional neighbor, that is, the fracture). For a 1d-3d
-            # coupling, we will need the length of the well within the 3d cell (see the MRST
-            # book, p.128, for comments regarding deviated wells). Again, this could be
-            # obtained by a volume integral over the mortar cell; however, as 1d-3d
-            # couplings have not yet been implemented, we will raise an error in this case.
-            if any([sd.dim == 3 for sd in subdomains]):
-                raise NotImplementedError(
-                    "The 1d-3d coupling has not yet been implemented. "
-                )
-            elif any([sd.dim == 1 for sd in subdomains]):
-                # This is a 1d-2d (or 1d-1d) coupling, for which the Peaceman model is
-                # not applicable.
-                # TODO: Revisit when we implement 1d-3d coupling.
-                raise ValueError("The Peaceman model assumes a coupling of codimension 2")
-    
-            isotropic_permeability = e_i @ self.permeability(subdomains)
-    
-            well_index = self.volume_integral(
-                pp.ad.Scalar(2 * np.pi)
-                * projection.primary_to_mortar_avg()
-                @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
-                interfaces,
-                1,
-            )
-            eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
-                projection.primary_to_mortar_avg() @ self.pressure(subdomains)
-                - projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
-            )
-            eq.set_name("well_flux_equation")
-            return eq
-    
-        def equivalent_well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Compute equivalent radius for Peaceman well model.
-    
-            Parameters:
-                subdomains: List of subdomains.
-    
-            Returns:
-                Cell-wise equivalent radius operator [m].
-    
-            """
-            # Implementational note: The computation of equivalent radius is highly
-            # simplified and ignores discretization and anisotropy effects. For more
-            # advanced alternatives, see the MRST book,
-            # https://www.cambridge.org/core/books/an-introduction-to-
-            # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
-            if len(subdomains) == 0:
-                # Set 0.2 as the unused value for equivalent radius. This is a bit
-                # arbitrary, but 0 is a bad choice, as it will lead to division by zero.
-                return Scalar(0.2, name="equivalent_well_radius")
-    
-            h_list = []
-            for sd in subdomains:
-                if sd.dim == 0:
-                    # Avoid division by zero for points. The value is not used in calling
-                    # method well_flux_equation, as all wells are 1d.
-                    h_list.append(np.array([1]))
-                else:
-                    h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
-            r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
-            r_e.set_name("equivalent_well_radius")
-            return r_e
-    
-        def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-            """Compute skin factor for Peaceman well model.
-    
-            Parameters:
-                interfaces: List of interfaces.
-    
-            Returns:
-                Skin factor operator [-].
-    
-            """
-            skin_factor = pp.ad.Scalar(self.solid.skin_factor)
-            skin_factor.set_name("skin_factor")
-            return skin_factor
-    
-        def well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Compute well radius for Peaceman well model.
-    
-            Parameters:
-                subdomains: List of subdomains.
-    
-            Returns:
-                Cell-wise well radius operator [m].
-    
-            """
-            r_w = pp.ad.Scalar(self.solid.well_radius)
-            r_w.set_name("well_radius")
-            return r_w
-    
-    
-if TYPE_CHECKING:
-    class ThermalExpansion(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ThermalExpansion:
-        """Thermal expansion coefficients for the solid."""
-    
-        def solid_thermal_expansion_coefficient(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Thermal expansion of the solid.
-    
-            This is an expression of the volumetric changes of the solid due to temperature
-            changes.
-    
-            Parameters:
-                subdomains: List of subdomains where the thermal expansion is defined.
-    
-            Returns:
-                Thermal expansion of the fluid [1/K], represented as an Ad operator. The
-                value is constant for all subdomains.
-    
-            """
-            return Scalar(self.solid.thermal_expansion, "solid_thermal_expansion")
-    
-        def solid_thermal_expansion_tensor(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.SecondOrderTensor:
-            """Tensor representing the mechanical force associated with thermal expansion
-            and contraction.
-    
-            The tensor can be considered a representation of strains due to temperature
-            changes. It can be used to compute stress, e.g., by a Biot discretization, and
-            is thus associated with an equation for momentum conservation.
-    
-            Parameters:
-                subdomains: Subdomains where the thermo-mechanical coupling tensor is
-                    defined.
-    
-            Returns:
-                Thermo-mechanical coupling tensor [Pa].
-    
-            """
-            # EK: I added some documentation here, since I went through the pain of figuring
-            # out the tensor algebra, and I don't want to do that over again. The conversion
-            # from a thermal strain, given by self.solid.thermal_expansion() to the
-            # corresponding stress, is in general given as (see e.g. Coussy 2004, eq 4.13a)
-            #
-            #    sigma_ij = C_ijkl * a_kl * T
-            #
-            # where sigma is the stress, C is the stiffness tensor (represented as a fourth
-            # order tensor), a is the thermal strain, and the summation convention is
-            # applied. For a linear isotropic material, the stiffness tensor is given by
-            #
-            #    C_ijkl = lambda * delta_ij * delta_kl + mu * (delta_ik * delta_jl +
-            #             delta_il * delta_jk)    [thanks, co-pilot!]
-            #
-            # where d_ij is the Kronecker delta, and lambda and mu are the Lame parameters.
-            # Some algebra gives that for a general expansion tensor, the thermal stress is
-            #
-            #   sigma_ij = mu * (a_ij + a_ji) * T + lambda * a_kk * d_ij * T
-            #
-            # where a_kk of course equals the trace of a.
-            #
-            # The below implementation assumes that the thermal expansion is isotropic, thus
-            # the coefficients simplifies further to
-            #
-            #  sigma_ij = (2 * mu + 3 * lambda) * a * T * d_ij
-            #
-            # which can be found in, for instance, Boley & Weiner: Theory of thermal
-            # stresses, Dover (ISBN:978-0-486-69579-2), Eq. 1.12.14 p.30.
-            #
-            # If anyone ever overrides this method to include a full thermal expansion
-            # tensor, it is strongly advised to first check the above calculation, as it
-            # should not be fully trusted.
-    
-            size = sum(sd.num_cells for sd in subdomains)
-    
-            lmbda = self.solid.lame_lambda
-            mu = self.solid.shear_modulus
-            alpha = self.solid.thermal_expansion
-    
-            val = (2 * mu + 3 * lmbda) * alpha
-    
-            return pp.SecondOrderTensor(val * np.ones(size))
-    
-    
+        # Implementational note: The computation of equivalent radius is highly
+        # simplified and ignores discretization and anisotropy effects. For more
+        # advanced alternatives, see the MRST book,
+        # https://www.cambridge.org/core/books/an-introduction-to-
+        # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
+        if len(subdomains) == 0:
+            # Set 0.2 as the unused value for equivalent radius. This is a bit
+            # arbitrary, but 0 is a bad choice, as it will lead to division by zero.
+            return Scalar(0.2, name="equivalent_well_radius")
+
+        h_list = []
+        for sd in subdomains:
+            if sd.dim == 0:
+                # Avoid division by zero for points. The value is not used in calling
+                # method well_flux_equation, as all wells are 1d.
+                h_list.append(np.array([1]))
+            else:
+                h_list.append(np.power(sd.cell_volumes, 1 / sd.dim))
+        r_e = Scalar(0.2) * pp.wrap_as_dense_ad_array(np.concatenate(h_list))
+        r_e.set_name("equivalent_well_radius")
+        return r_e
+
+    def skin_factor(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Compute skin factor for Peaceman well model.
+
+        Parameters:
+            interfaces: List of interfaces.
+
+        Returns:
+            Skin factor operator [-].
+
+        """
+        skin_factor = pp.ad.Scalar(self.solid.skin_factor)
+        skin_factor.set_name("skin_factor")
+        return skin_factor
+
+    def well_radius(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Compute well radius for Peaceman well model.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise well radius operator [m].
+
+        """
+        r_w = pp.ad.Scalar(self.solid.well_radius)
+        r_w.set_name("well_radius")
+        return r_w
+
+
+class ThermalExpansion:
+    """Thermal expansion coefficients for the solid."""
+
+    def solid_thermal_expansion_coefficient(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Thermal expansion of the solid.
+
+        This is an expression of the volumetric changes of the solid due to temperature
+        changes.
+
+        Parameters:
+            subdomains: List of subdomains where the thermal expansion is defined.
+
+        Returns:
+            Thermal expansion of the fluid [1/K], represented as an Ad operator. The
+            value is constant for all subdomains.
+
+        """
+        return Scalar(self.solid.thermal_expansion, "solid_thermal_expansion")
+
+    def solid_thermal_expansion_tensor(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.SecondOrderTensor:
+        """Tensor representing the mechanical force associated with thermal expansion
+        and contraction.
+
+        The tensor can be considered a representation of strains due to temperature
+        changes. It can be used to compute stress, e.g., by a Biot discretization, and
+        is thus associated with an equation for momentum conservation.
+
+        Parameters:
+            subdomains: Subdomains where the thermo-mechanical coupling tensor is
+                defined.
+
+        Returns:
+            Thermo-mechanical coupling tensor [Pa].
+
+        """
+        # EK: I added some documentation here, since I went through the pain of figuring
+        # out the tensor algebra, and I don't want to do that over again. The conversion
+        # from a thermal strain, given by self.solid.thermal_expansion() to the
+        # corresponding stress, is in general given as (see e.g. Coussy 2004, eq 4.13a)
+        #
+        #    sigma_ij = C_ijkl * a_kl * T
+        #
+        # where sigma is the stress, C is the stiffness tensor (represented as a fourth
+        # order tensor), a is the thermal strain, and the summation convention is
+        # applied. For a linear isotropic material, the stiffness tensor is given by
+        #
+        #    C_ijkl = lambda * delta_ij * delta_kl + mu * (delta_ik * delta_jl +
+        #             delta_il * delta_jk)    [thanks, co-pilot!]
+        #
+        # where d_ij is the Kronecker delta, and lambda and mu are the Lame parameters.
+        # Some algebra gives that for a general expansion tensor, the thermal stress is
+        #
+        #   sigma_ij = mu * (a_ij + a_ji) * T + lambda * a_kk * d_ij * T
+        #
+        # where a_kk of course equals the trace of a.
+        #
+        # The below implementation assumes that the thermal expansion is isotropic, thus
+        # the coefficients simplifies further to
+        #
+        #  sigma_ij = (2 * mu + 3 * lambda) * a * T * d_ij
+        #
+        # which can be found in, for instance, Boley & Weiner: Theory of thermal
+        # stresses, Dover (ISBN:978-0-486-69579-2), Eq. 1.12.14 p.30.
+        #
+        # If anyone ever overrides this method to include a full thermal expansion
+        # tensor, it is strongly advised to first check the above calculation, as it
+        # should not be fully trusted.
+
+        size = sum(sd.num_cells for sd in subdomains)
+
+        lmbda = self.solid.lame_lambda
+        mu = self.solid.shear_modulus
+        alpha = self.solid.thermal_expansion
+
+        val = (2 * mu + 3 * lmbda) * alpha
+
+        return pp.SecondOrderTensor(val * np.ones(size))
+
+
 class ThermalConductivityLTE(ConstantFluidThermalConductivity):
     """Thermal conductivity in the local thermal equilibrium approximation."""
 
@@ -2213,266 +2181,262 @@ class ThermalConductivityCF(ThermalConductivityLTE):
         return normal_conductivity
 
 
-if TYPE_CHECKING:
-    class FouriersLaw(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class FouriersLaw:
-        """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
-        cumbersome, though, since potential, discretization, and boundary conditions all
-        need to be passed around.
+class FouriersLaw:
+    """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
+    cumbersome, though, since potential, discretization, and boundary conditions all
+    need to be passed around.
+    """
+
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Temperature variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+
+    """
+    interface_fourier_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Fourier flux variable on interfaces. Normally defined in a mixin instance of
+   :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
+
+    """
+    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Conductivity on a mortar grid. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
+
+    """
+    fourier_keyword: str
+    """Keyword used to identify the Fourier flux discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+
+    """
+    bc_data_fourier_flux_key: str
+    """See
+    :attr:`~porepy.models.energy_balance.BoundaryConditionsEnergyBalance.
+    bc_data_fourier_flux_key`.
+
+    """
+    bc_type_fourier_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the Fourier flux. Normally
+    defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
+
+    """
+
+    def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Temperature on the subdomain boundaries.
+
+        .. note::
+            The below implementation assumes the heat flux is discretized with a finite
+            volume method (either Tpfa or Mpfa). Other discretizations may be possible,
+            but would likely require a modification of this (and several other) methods.
+
+        Parameters:
+            subdomains: List of subdomains where the temperature is defined.
+
+        Returns:
+            Temperature on the subdomain boundaries. Parsing the operator will return a
+            face-wise array.
+
         """
-    
-        temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Temperature variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-    
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
+            subdomains
+        )
+
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
+        )
+        # We know t is a variable, since method is called on subdomains, not boundaries.
+        t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
+        temperature_trace = (
+            discr.bound_pressure_cell() @ t  # "pressure" is a legacy misnomer
+            + discr.bound_pressure_face()
+            @ (
+                projection.mortar_to_primary_int()
+                @ self.interface_fourier_flux(interfaces)
+            )
+            + discr.bound_pressure_face() @ boundary_operator_fourier
+            + discr.bound_pressure_vector_source()
+            @ self.vector_source_fourier_flux(subdomains)
+        )
+        return temperature_trace
+
+    def fourier_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Discrete Fourier flux on subdomains.
+
+        .. note::
+            The below implementation assumes the heat flux is discretized with a finite
+            volume method (either Tpfa or Mpfa). Other discretizations may be possible,
+            but would likely require a modification of this (and several other) methods.
+
+        Parameters:
+            subdomains: List of subdomains where the Fourier flux is defined.
+
+        Returns:
+            An Ad-operator representing the Fourier flux on the subdomains.
+
         """
-        interface_fourier_flux: Callable[
-            [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-        ]
-        """Fourier flux variable on interfaces. Normally defined in a mixin instance of
-       :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
-    
+
+        if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
+            # Given Neumann data prescribed for Fourier flux on boundary.
+            domains = cast(Sequence[pp.BoundaryGrid], subdomains)
+            return self.create_boundary_operator(
+                name=self.bc_data_fourier_flux_key, domains=domains
+            )
+        subdomains = cast(list[pp.Grid], subdomains)
+
+        interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
+            subdomains
+        )
+
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
+        )
+
+        flux: pp.ad.Operator = (
+            discr.flux() @ self.temperature(subdomains)
+            + discr.bound_flux()
+            @ (
+                boundary_operator_fourier
+                + projection.mortar_to_primary_int()
+                @ self.interface_fourier_flux(interfaces)
+            )
+            + discr.vector_source() @ self.vector_source_fourier_flux(subdomains)
+        )
+        flux.set_name("Fourier_flux")
+        return flux
+
+    def combine_boundary_operators_fourier_flux(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine Fourier flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.fourier_flux is passed to
+        robin_operator in the default model.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Fourier flux boundary operator.
+
         """
-        normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-        """Conductivity on a mortar grid. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
-    
+        op = self._combine_boundary_operators(
+            subdomains=subdomains,
+            dirichlet_operator=self.temperature,
+            neumann_operator=self.fourier_flux,
+            robin_operator=self.fourier_flux,
+            bc_type=self.bc_type_fourier_flux,
+            name="bc_values_" + self.bc_data_fourier_flux_key,
+        )
+        return op
+
+    def interface_fourier_flux_equation(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Discrete Fourier flux on interfaces.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the Fourier flux equation on the interfaces.
+
         """
-        fourier_keyword: str
-        """Keyword used to identify the Fourier flux discretization. Normally set by a mixin
-        instance of
-        :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
-    
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        # Gradient operator in the normal direction. The collapsed distance is
+        # :math:`\frac{a}{2}` on either side of the fracture.
+        normal_gradient = pp.ad.Scalar(2) * (
+            projection.secondary_to_mortar_avg()
+            @ self.aperture(subdomains) ** Scalar(-1)
+        )
+        normal_gradient.set_name("normal_gradient")
+
+        # Project the two temperatures to the interface and multiply with the normal
+        # conductivity.
+        # See comments in :meth:`interface_darcy_flux_equation` for more information on
+        # the terms in the below equation.
+        temperature_h = projection.primary_to_mortar_avg() @ self.temperature_trace(
+            subdomains
+        )
+        temperature_l = projection.secondary_to_mortar_avg() @ self.temperature(
+            subdomains
+        )
+        eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
+            self.normal_thermal_conductivity(interfaces)
+            * (
+                normal_gradient * (temperature_h - temperature_l)
+                + self.interface_vector_source_fourier_flux(interfaces)
+            ),
+            interfaces,
+            1,
+        )
+        eq.set_name("interface_fourier_flux_equation")
+        return eq
+
+    def vector_source_fourier_flux(
+        self, grids: Union[Sequence[pp.Grid], Sequence[pp.MortarGrid]]
+    ) -> pp.ad.Operator:
+        """Vector source term. Zero for Fourier flux.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
         """
-        bc_data_fourier_flux_key: str
-        """See
-        :attr:`~porepy.models.energy_balance.BoundaryConditionsEnergyBalance.
-        bc_data_fourier_flux_key`.
-    
+        val = self.units.convert_units(0, "K * m^-1")
+        size = int(sum(g.num_cells for g in grids) * self.nd)
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        return source
+
+    def interface_vector_source_fourier_flux(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Vector source term. Zero for Fourier flux.
+
+        Corresponds to the inner product of a nd vector source with normal vectors.
+
+        Parameters:
+            interfaces: List of interface grids where the vector source is defined.
+
+        Returns:
+            Cell-wise nd-vector source term operator.
+
         """
-        bc_type_fourier_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-        """Function that returns the boundary condition type for the Fourier flux. Normally
-        defined in a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
-    
+        val = self.units.convert_units(0, "K * m^-1")
+        size = int(sum(g.num_cells for g in interfaces))
+        source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
+        return source
+
+    def fourier_flux_discretization(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.MpfaAd:
+        """Fourier flux discretization.
+
+        Parameters:
+            subdomains: List of subdomains where the Fourier flux is defined.
+
+        Returns:
+            Discretization object for the Fourier flux.
+
         """
-    
-        def temperature_trace(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Temperature on the subdomain boundaries.
-    
-            .. note::
-                The below implementation assumes the heat flux is discretized with a finite
-                volume method (either Tpfa or Mpfa). Other discretizations may be possible,
-                but would likely require a modification of this (and several other) methods.
-    
-            Parameters:
-                subdomains: List of subdomains where the temperature is defined.
-    
-            Returns:
-                Temperature on the subdomain boundaries. Parsing the operator will return a
-                face-wise array.
-    
-            """
-            interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-            discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
-                subdomains
-            )
-    
-            boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
-                subdomains=subdomains
-            )
-            # We know t is a variable, since method is called on subdomains, not boundaries.
-            t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
-            temperature_trace = (
-                discr.bound_pressure_cell() @ t  # "pressure" is a legacy misnomer
-                + discr.bound_pressure_face()
-                @ (
-                    projection.mortar_to_primary_int()
-                    @ self.interface_fourier_flux(interfaces)
-                )
-                + discr.bound_pressure_face() @ boundary_operator_fourier
-                + discr.bound_pressure_vector_source()
-                @ self.vector_source_fourier_flux(subdomains)
-            )
-            return temperature_trace
-    
-        def fourier_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            """Discrete Fourier flux on subdomains.
-    
-            .. note::
-                The below implementation assumes the heat flux is discretized with a finite
-                volume method (either Tpfa or Mpfa). Other discretizations may be possible,
-                but would likely require a modification of this (and several other) methods.
-    
-            Parameters:
-                subdomains: List of subdomains where the Fourier flux is defined.
-    
-            Returns:
-                An Ad-operator representing the Fourier flux on the subdomains.
-    
-            """
-    
-            if len(subdomains) == 0 or isinstance(subdomains[0], pp.BoundaryGrid):
-                # Given Neumann data prescribed for Fourier flux on boundary.
-                domains = cast(Sequence[pp.BoundaryGrid], subdomains)
-                return self.create_boundary_operator(
-                    name=self.bc_data_fourier_flux_key, domains=domains
-                )
-            subdomains = cast(list[pp.Grid], subdomains)
-    
-            interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-            discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
-                subdomains
-            )
-    
-            boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
-                subdomains=subdomains
-            )
-    
-            flux: pp.ad.Operator = (
-                discr.flux() @ self.temperature(subdomains)
-                + discr.bound_flux()
-                @ (
-                    boundary_operator_fourier
-                    + projection.mortar_to_primary_int()
-                    @ self.interface_fourier_flux(interfaces)
-                )
-                + discr.vector_source() @ self.vector_source_fourier_flux(subdomains)
-            )
-            flux.set_name("Fourier_flux")
-            return flux
-    
-        def combine_boundary_operators_fourier_flux(
-            self, subdomains: Sequence[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Combine Fourier flux boundary operators.
-    
-            Note that the default Robin operator is the same as that of Neumann. Override
-            this method to define and assign another boundary operator of your choice. The
-            new operator should then be passed as an argument to the
-            _combine_boundary_operators method, just like self.fourier_flux is passed to
-            robin_operator in the default model.
-    
-            Parameters:
-                subdomains: List of the subdomains whose boundary operators are to be
-                    combined.
-    
-            Returns:
-                The combined Fourier flux boundary operator.
-    
-            """
-            op = self._combine_boundary_operators(
-                subdomains=subdomains,
-                dirichlet_operator=self.temperature,
-                neumann_operator=self.fourier_flux,
-                robin_operator=self.fourier_flux,
-                bc_type=self.bc_type_fourier_flux,
-                name="bc_values_" + self.bc_data_fourier_flux_key,
-            )
-            return op
-    
-        def interface_fourier_flux_equation(
-            self, interfaces: list[pp.MortarGrid]
-        ) -> pp.ad.Operator:
-            """Discrete Fourier flux on interfaces.
-    
-            Parameters:
-                interfaces: List of interface grids.
-    
-            Returns:
-                Operator representing the Fourier flux equation on the interfaces.
-    
-            """
-            subdomains = self.interfaces_to_subdomains(interfaces)
-    
-            projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-    
-            # Gradient operator in the normal direction. The collapsed distance is
-            # :math:`\frac{a}{2}` on either side of the fracture.
-            normal_gradient = pp.ad.Scalar(2) * (
-                projection.secondary_to_mortar_avg()
-                @ self.aperture(subdomains) ** Scalar(-1)
-            )
-            normal_gradient.set_name("normal_gradient")
-    
-            # Project the two temperatures to the interface and multiply with the normal
-            # conductivity.
-            # See comments in :meth:`interface_darcy_flux_equation` for more information on
-            # the terms in the below equation.
-            temperature_h = projection.primary_to_mortar_avg() @ self.temperature_trace(
-                subdomains
-            )
-            temperature_l = projection.secondary_to_mortar_avg() @ self.temperature(
-                subdomains
-            )
-            eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
-                self.normal_thermal_conductivity(interfaces)
-                * (
-                    normal_gradient * (temperature_h - temperature_l)
-                    + self.interface_vector_source_fourier_flux(interfaces)
-                ),
-                interfaces,
-                1,
-            )
-            eq.set_name("interface_fourier_flux_equation")
-            return eq
-    
-        def vector_source_fourier_flux(
-            self, grids: Union[Sequence[pp.Grid], Sequence[pp.MortarGrid]]
-        ) -> pp.ad.Operator:
-            """Vector source term. Zero for Fourier flux.
-    
-            Parameters:
-                grids: List of subdomain or interface grids where the vector source is
-                    defined.
-    
-            Returns:
-                Cell-wise nd-vector source term operator.
-    
-            """
-            val = self.units.convert_units(0, "K * m^-1")
-            size = int(sum(g.num_cells for g in grids) * self.nd)
-            source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
-            return source
-    
-        def interface_vector_source_fourier_flux(
-            self, interfaces: list[pp.MortarGrid]
-        ) -> pp.ad.Operator:
-            """Vector source term. Zero for Fourier flux.
-    
-            Corresponds to the inner product of a nd vector source with normal vectors.
-    
-            Parameters:
-                interfaces: List of interface grids where the vector source is defined.
-    
-            Returns:
-                Cell-wise nd-vector source term operator.
-    
-            """
-            val = self.units.convert_units(0, "K * m^-1")
-            size = int(sum(g.num_cells for g in interfaces))
-            source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
-            return source
-    
-        def fourier_flux_discretization(
-            self, subdomains: Sequence[pp.Grid]
-        ) -> pp.ad.MpfaAd:
-            """Fourier flux discretization.
-    
-            Parameters:
-                subdomains: List of subdomains where the Fourier flux is defined.
-    
-            Returns:
-                Discretization object for the Fourier flux.
-    
-            """
-            return pp.ad.MpfaAd(self.fourier_keyword, list(subdomains))
-    
-    
+        return pp.ad.MpfaAd(self.fourier_keyword, list(subdomains))
+
+
 class FouriersLawAd(AdTpfaFlux):
     """Adaptive discretization of the Fourier flux from generic adaptive flux class."""
 
@@ -2540,155 +2504,151 @@ class FouriersLawAd(AdTpfaFlux):
         return temperature_trace
 
 
-if TYPE_CHECKING:
-    class AdvectiveFlux(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class AdvectiveFlux:
-        """Mixin class for discretizing advective fluxes."""
-    
-        interface_darcy_flux: Callable[
-            [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-        ]
-        """Darcy flux variables on interfaces. Normally defined in a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+class AdvectiveFlux:
+    """Mixin class for discretizing advective fluxes."""
+
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Darcy flux variables on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """Well flux variables on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+
+    def advective_flux(
+        self,
+        subdomains: list[pp.Grid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindAd,
+        bc_values: pp.ad.Operator,
+        interface_flux: Optional[
+            Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+        ] = None,
+    ) -> pp.ad.Operator:
+        """An operator representing the advective flux on subdomains.
+
+        .. note::
+            The implementation assumes that the advective flux is discretized using a
+            standard upwind discretization. Other discretizations may be possible, but
+            this has not been considered.
+
+        Parameters:
+            subdomains: List of subdomains.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+            bc_values: Boundary conditions for the advective flux.
+            interface_flux: Interface flux operator/variable. If subdomains have no
+                neighboring interfaces, this argument can be omitted.
+
+        Returns:
+            Operator representing the advective flux.
+
         """
-        well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
-        """Well flux variables on interfaces. Normally defined in a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+        darcy_flux = self.darcy_flux(subdomains)
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        flux: pp.ad.Operator = (
+            darcy_flux * (discr.upwind() @ advected_entity)
+            + discr.bound_transport_dir() @ (darcy_flux * bc_values)
+            # Advective flux coming from lower-dimensional subdomains
+            + discr.bound_transport_neu() @ bc_values
+        )
+        if interface_flux is not None:
+            flux += (
+                discr.bound_transport_neu()
+                @ mortar_projection.mortar_to_primary_int()
+                @ interface_flux(interfaces)
+            )
+        else:
+            assert len(interfaces) == 0
+        return flux
+
+    def interface_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """An operator represetning the advective flux on interfaces.
+
+        .. note::
+            The implementation here is tailored for discretization using an upwind
+            discretization for the advective interface flux. Other discretizaitons may
+            be possible, but this has not been considered.
+
+        Parameters:
+            interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+
         """
-    
-        def advective_flux(
-            self,
-            subdomains: list[pp.Grid],
-            advected_entity: pp.ad.Operator,
-            discr: pp.ad.UpwindAd,
-            bc_values: pp.ad.Operator,
-            interface_flux: Optional[
-                Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-            ] = None,
-        ) -> pp.ad.Operator:
-            """An operator representing the advective flux on subdomains.
-    
-            .. note::
-                The implementation assumes that the advective flux is discretized using a
-                standard upwind discretization. Other discretizations may be possible, but
-                this has not been considered.
-    
-            Parameters:
-                subdomains: List of subdomains.
-                advected_entity: Operator representing the advected entity.
-                discr: Discretization of the advective flux.
-                bc_values: Boundary conditions for the advective flux.
-                interface_flux: Interface flux operator/variable. If subdomains have no
-                    neighboring interfaces, this argument can be omitted.
-    
-            Returns:
-                Operator representing the advective flux.
-    
-            """
-            darcy_flux = self.darcy_flux(subdomains)
-            interfaces = self.subdomains_to_interfaces(subdomains, [1])
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, dim=1
-            )
-            flux: pp.ad.Operator = (
-                darcy_flux * (discr.upwind() @ advected_entity)
-                + discr.bound_transport_dir() @ (darcy_flux * bc_values)
-                # Advective flux coming from lower-dimensional subdomains
-                + discr.bound_transport_neu() @ bc_values
-            )
-            if interface_flux is not None:
-                flux += (
-                    discr.bound_transport_neu()
-                    @ mortar_projection.mortar_to_primary_int()
-                    @ interface_flux(interfaces)
-                )
-            else:
-                assert len(interfaces) == 0
-            return flux
-    
-        def interface_advective_flux(
-            self,
-            interfaces: list[pp.MortarGrid],
-            advected_entity: pp.ad.Operator,
-            discr: pp.ad.UpwindCouplingAd,
-        ) -> pp.ad.Operator:
-            """An operator represetning the advective flux on interfaces.
-    
-            .. note::
-                The implementation here is tailored for discretization using an upwind
-                discretization for the advective interface flux. Other discretizaitons may
-                be possible, but this has not been considered.
-    
-            Parameters:
-                interfaces: List of interface grids.
-                advected_entity: Operator representing the advected entity.
-                discr: Discretization of the advective flux.
-    
-            Returns:
-                Operator representing the advective flux on the interfaces.
-    
-            """
-            # If no interfaces are given, make sure to proceed with a non-empty subdomain
-            # list if relevant.
-            subdomains = self.interfaces_to_subdomains(interfaces)
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, dim=1
-            )
-            trace = pp.ad.Trace(subdomains)
-            # Project the two advected entities to the interface and multiply with upstream
-            # weights and the interface Darcy flux.
-            interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
-                discr.upwind_primary()
-                @ mortar_projection.primary_to_mortar_avg()
-                @ trace.trace
-                @ advected_entity
-                + discr.upwind_secondary()
-                @ mortar_projection.secondary_to_mortar_avg()
-                @ advected_entity
-            )
-            return interface_flux
-    
-        def well_advective_flux(
-            self,
-            interfaces: list[pp.MortarGrid],
-            advected_entity: pp.ad.Operator,
-            discr: pp.ad.UpwindCouplingAd,
-        ) -> pp.ad.Operator:
-            """An operator represetning the advective flux on interfaces.
-    
-            .. note::
-                The implementation here is tailored for discretization using an upwind
-                discretization for the advective interface flux. Other discretizaitons may
-                be possible, but this has not been considered.
-    
-            Parameters:
-                interfaces: List of interface grids.
-                advected_entity: Operator representing the advected entity.
-                discr: Discretization of the advective flux.
-    
-            Returns:
-                Operator representing the advective flux on the interfaces.
-    
-            """
-            subdomains = self.interfaces_to_subdomains(interfaces)
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, dim=1
-            )
-            # Project the two advected entities to the interface and multiply with upstream
-            # weights and the interface Darcy flux.
-            interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
-                discr.upwind_primary()
-                @ mortar_projection.primary_to_mortar_avg()
-                @ advected_entity
-                + discr.upwind_secondary()
-                @ mortar_projection.secondary_to_mortar_avg()
-                @ advected_entity
-            )
-            return interface_flux
-    
-    
+        # If no interfaces are given, make sure to proceed with a non-empty subdomain
+        # list if relevant.
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        trace = pp.ad.Trace(subdomains)
+        # Project the two advected entities to the interface and multiply with upstream
+        # weights and the interface Darcy flux.
+        interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
+            discr.upwind_primary()
+            @ mortar_projection.primary_to_mortar_avg()
+            @ trace.trace
+            @ advected_entity
+            + discr.upwind_secondary()
+            @ mortar_projection.secondary_to_mortar_avg()
+            @ advected_entity
+        )
+        return interface_flux
+
+    def well_advective_flux(
+        self,
+        interfaces: list[pp.MortarGrid],
+        advected_entity: pp.ad.Operator,
+        discr: pp.ad.UpwindCouplingAd,
+    ) -> pp.ad.Operator:
+        """An operator represetning the advective flux on interfaces.
+
+        .. note::
+            The implementation here is tailored for discretization using an upwind
+            discretization for the advective interface flux. Other discretizaitons may
+            be possible, but this has not been considered.
+
+        Parameters:
+            interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=1
+        )
+        # Project the two advected entities to the interface and multiply with upstream
+        # weights and the interface Darcy flux.
+        interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
+            discr.upwind_primary()
+            @ mortar_projection.primary_to_mortar_avg()
+            @ advected_entity
+            + discr.upwind_secondary()
+            @ mortar_projection.secondary_to_mortar_avg()
+            @ advected_entity
+        )
+        return interface_flux
+
+
 class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
     """Class for representing the enthalpy, computed from the perturbation from a
     reference temperature, for both fluid and solid."""
@@ -2759,314 +2719,302 @@ class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
         return enthalpy
 
 
-if TYPE_CHECKING:
-    class GravityForce(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class GravityForce:
-        """Gravity force.
-    
-        The gravity force is defined as the product of the fluid density and the gravity
-        vector:
-    
-        .. math::
-            g = -\\rho \\mathbf{g}= -\\rho \\begin{bmatrix} 0 \\\\ 0 \\\\ G \\end{bmatrix}
-    
-        where :math:`\\rho` is the fluid density, and :math:`G` is the magnitude of the
-        gravity acceleration.
-    
-        To be used in fluid fluxes and as body force in the force/momentum balance equation.
-    
+class GravityForce:
+    """Gravity force.
+
+    The gravity force is defined as the product of the fluid density and the gravity
+    vector:
+
+    .. math::
+        g = -\\rho \\mathbf{g}= -\\rho \\begin{bmatrix} 0 \\\\ 0 \\\\ G \\end{bmatrix}
+
+    where :math:`\\rho` is the fluid density, and :math:`G` is the magnitude of the
+    gravity acceleration.
+
+    To be used in fluid fluxes and as body force in the force/momentum balance equation.
+
+    """
+
+    solid_density: Callable[[list[pp.Grid] | list[pp.MortarGrid]], pp.ad.Operator]
+    """Callable returning the solid density on some subdomains.
+    See e.g.,:class:`ConstantSolidDensity`."""
+
+    porosity: Callable[[list[pp.Grid] | list[pp.MortarGrid]], pp.ad.Operator]
+    """Callable returning the porosity. See e.g.,:class:`ConstantPorosity`."""
+
+    def gravity_force(
+        self,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: Literal["fluid", "solid", "bulk"],
+    ) -> pp.ad.Operator:
+        """Gravity force term on either subdomains or interfaces.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+            material: Name of the material. Could be either "fluid", "solid", or
+                "bulk".
+
+        Returns:
+            Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
+
         """
-    
-        solid_density: Callable[[list[pp.Grid] | list[pp.MortarGrid]], pp.ad.Operator]
-        """Callable returning the solid density on some subdomains.
-        See e.g.,:class:`ConstantSolidDensity`."""
-    
-        porosity: Callable[[list[pp.Grid] | list[pp.MortarGrid]], pp.ad.Operator]
-        """Callable returning the porosity. See e.g.,:class:`ConstantPorosity`."""
-    
-        def gravity_force(
-            self,
-            grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-            material: Literal["fluid", "solid", "bulk"],
-        ) -> pp.ad.Operator:
-            """Gravity force term on either subdomains or interfaces.
-    
-            Parameters:
-                grids: List of subdomain or interface grids where the vector source is
-                    defined.
-                material: Name of the material. Could be either "fluid", "solid", or
-                    "bulk".
-    
-            Returns:
-                Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
-    
-            """
-            val = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-            size = int(sum(g.num_cells for g in grids))
-            gravity: pp.ad.Operator
-            gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
-            if material == "fluid":
-                rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
-            elif material == "solid":
-                rho = self.solid_density(grids)
-            elif material == "bulk":
-                phi = self.porosity(grids)
-                rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
-                rho_s = self.solid_density(grids)
-                rho = phi * rho_f + (pp.ad.Scalar(1.0) - phi) * rho_s
-            else:
-                raise ValueError(f"Unsupported gravity force for material '{material}'.")
-    
-            # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
-            e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
-            gravity = Scalar(-1) * e_n @ (rho * gravity)
-            gravity.set_name("gravity_force")
-            return gravity
-    
-    
-if TYPE_CHECKING:
-    class ZeroGravityForce(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ZeroGravityForce:
-        """Zero gravity force.
-    
-        To be used in fluid fluxes and as body force in the force/momentum balance equation.
-    
+        val = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+        size = int(sum(g.num_cells for g in grids))
+        gravity: pp.ad.Operator
+        gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
+        if material == "fluid":
+            rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
+        elif material == "solid":
+            rho = self.solid_density(grids)
+        elif material == "bulk":
+            phi = self.porosity(grids)
+            rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
+            rho_s = self.solid_density(grids)
+            rho = phi * rho_f + (pp.ad.Scalar(1.0) - phi) * rho_s
+        else:
+            raise ValueError(f"Unsupported gravity force for material '{material}'.")
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
+        e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
+        gravity = Scalar(-1) * e_n @ (rho * gravity)
+        gravity.set_name("gravity_force")
+        return gravity
+
+
+class ZeroGravityForce:
+    """Zero gravity force.
+
+    To be used in fluid fluxes and as body force in the force/momentum balance equation.
+
+    """
+
+    def gravity_force(
+        self,
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: Literal["fluid", "solid", "bulk"],
+    ) -> pp.ad.Operator:
+        """Gravity force term on either subdomains or interfaces.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+            material: Name of the material. Could be either "fluid", "solid", or "bulk".
+
+        Returns:
+            Cell-wise nd-vector representing the gravity force.
+
         """
-    
-        def gravity_force(
-            self,
-            grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-            material: Literal["fluid", "solid", "bulk"],
-        ) -> pp.ad.Operator:
-            """Gravity force term on either subdomains or interfaces.
-    
-            Parameters:
-                grids: List of subdomain or interface grids where the vector source is
-                    defined.
-                material: Name of the material. Could be either "fluid", "solid", or "bulk".
-    
-            Returns:
-                Cell-wise nd-vector representing the gravity force.
-    
-            """
-            size = int(sum(g.num_cells for g in grids) * self.nd)
-            return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
-    
-    
-if TYPE_CHECKING:
-    class LinearElasticMechanicalStress(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class LinearElasticMechanicalStress:
-        """Linear elastic stress tensor.
-    
-        To be used in mechanical problems, e.g. force balance.
-    
+        size = int(sum(g.num_cells for g in grids) * self.nd)
+        return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
+
+
+class LinearElasticMechanicalStress:
+    """Linear elastic stress tensor.
+
+    To be used in mechanical problems, e.g. force balance.
+
+    """
+
+    stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    interface_displacement: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Displacement variable on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
+
+    """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+
+    """
+
+    bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the momentum problem.
+    Normally provided by a mixin instance of
+    :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
+
+    """
+
+    def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Linear elastic mechanical stress.
+
+        .. note::
+            The below discretization assumes the stress is discretized with a Mpsa
+            finite volume discretization. Other discretizations may be possible, but are
+            not available in PorePy at the moment, and would likely require changes to
+            this method.
+
+        Parameters:
+            grids: List of subdomains or boundary grids. If subdomains, should be of
+                co-dimension 0.
+
+        Raises:
+            ValueError: If any grid is not of co-dimension 0.
+            ValueError: If any the method is called with a mixture of subdomains and
+                boundary grids.
+
+        Returns:
+            Ad operator representing the mechanical stress on the faces of the grids.
+
         """
-    
-        stress_keyword: str
-        """Keyword used to identify the stress discretization. Normally set by a mixin
-        instance of
-        :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-    
-        """
-        displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-        """Displacement variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    
-        """
-        interface_displacement: Callable[
-            [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-        ]
-        """Displacement variable on interfaces. Normally defined in a mixin instance of
-        :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    
-        """
-        contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Contact traction variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
-    
-        """
-        characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Characteristic contact traction. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
-        :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
-    
-        """
-    
-        bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
-        """Function that returns the boundary condition type for the momentum problem.
-        Normally provided by a mixin instance of
-        :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
-    
-        """
-    
-        def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            """Linear elastic mechanical stress.
-    
-            .. note::
-                The below discretization assumes the stress is discretized with a Mpsa
-                finite volume discretization. Other discretizations may be possible, but are
-                not available in PorePy at the moment, and would likely require changes to
-                this method.
-    
-            Parameters:
-                grids: List of subdomains or boundary grids. If subdomains, should be of
-                    co-dimension 0.
-    
-            Raises:
-                ValueError: If any grid is not of co-dimension 0.
-                ValueError: If any the method is called with a mixture of subdomains and
-                    boundary grids.
-    
-            Returns:
-                Ad operator representing the mechanical stress on the faces of the grids.
-    
-            """
-            if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-                domains = cast(Sequence[pp.BoundaryGrid], domains)
-                return self.create_boundary_operator(
-                    name=self.stress_keyword, domains=domains
-                )
-    
-            # Check that the subdomains are grids.
-            if not all([isinstance(g, pp.Grid) for g in domains]):
-                raise ValueError(
-                    """Argument subdomains a mixture of grids and boundary grids."""
-                )
-            # By now we know that subdomains is a list of grids, so we can cast it as such
-            # (in the typing sense).
-            domains = cast(list[pp.Grid], domains)
-    
-            for sd in domains:
-                # The mechanical stress is only defined on subdomains of co-dimension 0.
-                if sd.dim != self.nd:
-                    raise ValueError("Subdomain must be of co-dimension 0.")
-    
-            # No need to facilitate changing of stress discretization, only one is available
-            # at the moment.
-            discr = self.stress_discretization(domains)
-            # Partly for mypy: Make sure the stress discretization has not been set to
-            # TpsaAd; that would require the use of a different formulation.
-            assert isinstance(discr, (pp.ad.MpsaAd, pp.ad.BiotAd))
-    
-            # Fractures in the domain.
-            interfaces = self.subdomains_to_interfaces(domains, [1])
-    
-            # Boundary conditions on external boundaries
-            boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
-            proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
-            # The stress in the subdomanis is the sum of the stress in the subdomain, the
-            # stress on the external boundaries, and the stress on the interfaces. The
-            # latter is found by projecting the displacement on the interfaces to the
-            # subdomains, and let these act as Dirichlet boundary conditions on the
-            # subdomains.
-            stress = (
-                discr.stress() @ self.displacement(domains)
-                + discr.bound_stress() @ boundary_operator
-                + discr.bound_stress()
-                @ proj.mortar_to_primary_avg()
-                @ self.interface_displacement(interfaces)
+        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
+            domains = cast(Sequence[pp.BoundaryGrid], domains)
+            return self.create_boundary_operator(
+                name=self.stress_keyword, domains=domains
             )
-            stress.set_name("mechanical_stress")
-            return stress
-    
-        def combine_boundary_operators_mechanical_stress(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Combine mechanical stress boundary operators.
-    
-            Note that the default Robin operator is the same as that of Neumann. Override
-            this method to define and assign another boundary operator of your choice. The
-            new operator should then be passed as an argument to the
-            _combine_boundary_operators method, just like self.mechanical_stress is passed
-            to robin_operator in the default model.
-    
-            Parameters:
-                subdomains: List of the subdomains whose boundary operators are to be
-                    combined.
-    
-            Returns:
-                The combined mechanical stress boundary operator.
-    
-            """
-            op = self._combine_boundary_operators(
-                subdomains=subdomains,
-                dirichlet_operator=self.displacement,
-                neumann_operator=self.mechanical_stress,
-                robin_operator=self.mechanical_stress,
-                bc_type=self.bc_type_mechanics,
-                dim=self.nd,
-                name="bc_values_mechanics",
+
+        # Check that the subdomains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument subdomains a mixture of grids and boundary grids."""
             )
-            return op
-    
-        def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-            """Fracture stress on interfaces [Pa].
-    
-            Parameters:
-                interfaces: List of interfaces where the stress is defined.
-    
-            Returns:
-                Fracture stress operator.
-    
-            Raises:
-                ValueError: If any interface is not of co-dimension 1.
-    
-            """
-            for interface in interfaces:
-                if any([interface.dim != self.nd - 1]):
-                    raise ValueError("Interface must be of co-dimension 1.")
-    
-            # Subdomains of the interfaces
-            subdomains = self.interfaces_to_subdomains(interfaces)
-            # Isolate the fracture subdomains
-            fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
-            # Projection between all subdomains of the interfaces
-            subdomain_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
-            # Projection between the subdomains and the interfaces
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, self.nd
-            )
-            # Spelled out, the stress on the interface is found by mapping the contact
-            # traction (a primary variable) from local to global coordinates (note the
-            # transpose), prolonging the traction from the fracture subdomains to all
-            # subdomains (the domain of definition for the mortar projections), projecting
-            # to the interface, and switching the sign of the traction depending on the sign
-            # of the mortar sides.
-            nondim_traction = (
-                mortar_projection.sign_of_mortar_sides()
-                @ mortar_projection.secondary_to_mortar_int()
-                @ subdomain_projection.cell_prolongation(fracture_subdomains)
-                @ self.local_coordinates(fracture_subdomains).transpose()
-                @ self.contact_traction(fracture_subdomains)
-            )
-            # Rescale to physical units from the scaled contact traction.
-            traction = nondim_traction * self.characteristic_contact_traction(
-                fracture_subdomains
-            )
-            traction.set_name("mechanical_fracture_stress")
-            return traction
-    
-        def stress_discretization(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.BiotAd | pp.ad.MpsaAd | pp.ad.TpsaAd:
-            """Discretization of the stress tensor.
-    
-            Parameters:
-                subdomains: List of subdomains where the stress is defined.
-    
-            Returns:
-                Discretization operator for the stress tensor.
-    
-            """
-            return pp.ad.MpsaAd(self.stress_keyword, subdomains)
-    
-    
+        # By now we know that subdomains is a list of grids, so we can cast it as such
+        # (in the typing sense).
+        domains = cast(list[pp.Grid], domains)
+
+        for sd in domains:
+            # The mechanical stress is only defined on subdomains of co-dimension 0.
+            if sd.dim != self.nd:
+                raise ValueError("Subdomain must be of co-dimension 0.")
+
+        # No need to facilitate changing of stress discretization, only one is available
+        # at the moment.
+        discr = self.stress_discretization(domains)
+        # Partly for mypy: Make sure the stress discretization has not been set to
+        # TpsaAd; that would require the use of a different formulation.
+        assert isinstance(discr, (pp.ad.MpsaAd, pp.ad.BiotAd))
+
+        # Fractures in the domain.
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+
+        # Boundary conditions on external boundaries
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
+        proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
+        # The stress in the subdomanis is the sum of the stress in the subdomain, the
+        # stress on the external boundaries, and the stress on the interfaces. The
+        # latter is found by projecting the displacement on the interfaces to the
+        # subdomains, and let these act as Dirichlet boundary conditions on the
+        # subdomains.
+        stress = (
+            discr.stress() @ self.displacement(domains)
+            + discr.bound_stress() @ boundary_operator
+            + discr.bound_stress()
+            @ proj.mortar_to_primary_avg()
+            @ self.interface_displacement(interfaces)
+        )
+        stress.set_name("mechanical_stress")
+        return stress
+
+    def combine_boundary_operators_mechanical_stress(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine mechanical stress boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.mechanical_stress is passed
+        to robin_operator in the default model.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined mechanical stress boundary operator.
+
+        """
+        op = self._combine_boundary_operators(
+            subdomains=subdomains,
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            robin_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
+            dim=self.nd,
+            name="bc_values_mechanics",
+        )
+        return op
+
+    def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Fracture stress on interfaces [Pa].
+
+        Parameters:
+            interfaces: List of interfaces where the stress is defined.
+
+        Returns:
+            Fracture stress operator.
+
+        Raises:
+            ValueError: If any interface is not of co-dimension 1.
+
+        """
+        for interface in interfaces:
+            if any([interface.dim != self.nd - 1]):
+                raise ValueError("Interface must be of co-dimension 1.")
+
+        # Subdomains of the interfaces
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        # Isolate the fracture subdomains
+        fracture_subdomains = [sd for sd in subdomains if sd.dim == self.nd - 1]
+        # Projection between all subdomains of the interfaces
+        subdomain_projection = pp.ad.SubdomainProjections(subdomains, self.nd)
+        # Projection between the subdomains and the interfaces
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, self.nd
+        )
+        # Spelled out, the stress on the interface is found by mapping the contact
+        # traction (a primary variable) from local to global coordinates (note the
+        # transpose), prolonging the traction from the fracture subdomains to all
+        # subdomains (the domain of definition for the mortar projections), projecting
+        # to the interface, and switching the sign of the traction depending on the sign
+        # of the mortar sides.
+        nondim_traction = (
+            mortar_projection.sign_of_mortar_sides()
+            @ mortar_projection.secondary_to_mortar_int()
+            @ subdomain_projection.cell_prolongation(fracture_subdomains)
+            @ self.local_coordinates(fracture_subdomains).transpose()
+            @ self.contact_traction(fracture_subdomains)
+        )
+        # Rescale to physical units from the scaled contact traction.
+        traction = nondim_traction * self.characteristic_contact_traction(
+            fracture_subdomains
+        )
+        traction.set_name("mechanical_fracture_stress")
+        return traction
+
+    def stress_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.BiotAd | pp.ad.MpsaAd | pp.ad.TpsaAd:
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator for the stress tensor.
+
+        """
+        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+
+
 class ThreeFieldLinearElasticMechanicalStress:
     """Constitutive laws related to the three-field formulation of a linear elastic
     medium.
@@ -3643,462 +3591,434 @@ class ThermoPressureStress(PressureStress):
         return stress
 
 
-if TYPE_CHECKING:
-    class ConstantSolidDensity(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ConstantSolidDensity:
-        def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-            """Constant solid density.
-    
-            Parameters:
-                subdomains: List of subdomains where the density is defined.
-    
-            Returns:
-                Scalar operator representing the solid density. The (constant) value is
-                    picked from the solid constants.
-    
-            """
-            return Scalar(self.solid.density, "solid_density")
-    
-    
-if TYPE_CHECKING:
-    class ElasticModuli(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ElasticModuli:
-        """Linear elastic properties of a solid.
-    
-        Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
-        parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the
-        former. Also provides a method for computing the stiffness matrix as a
-        FourthOrderTensor.
+class ConstantSolidDensity:
+    def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Constant solid density.
+
+        Parameters:
+            subdomains: List of subdomains where the density is defined.
+
+        Returns:
+            Scalar operator representing the solid density. The (constant) value is
+                picked from the solid constants.
+
         """
-    
-        def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Shear modulus [Pa].
-    
-            Parameters:
-                subdomains: List of subdomains where the shear modulus is defined.
-    
-            Returns:
-                Cell-wise shear modulus operator. The value is picked from the solid
+        return Scalar(self.solid.density, "solid_density")
+
+
+class ElasticModuli:
+    """Linear elastic properties of a solid.
+
+    Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
+    parameters (bulk_modulus, lame_mu, poisson_ratio). The latter are computed from the
+    former. Also provides a method for computing the stiffness matrix as a
+    FourthOrderTensor.
+    """
+
+    def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Shear modulus [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the shear modulus is defined.
+
+        Returns:
+            Cell-wise shear modulus operator. The value is picked from the solid
+            constants.
+
+        """
+        return Scalar(self.solid.shear_modulus, "shear_modulus")
+
+    def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Lame's first parameter [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the shear modulus is defined.
+
+        Returns:
+            Cell-wise Lame's first parameter operator. The value is picked from the
+                solid constants.
+
+        """
+        return Scalar(self.solid.lame_lambda, "lame_lambda")
+
+    def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Young's modulus [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the Young's modulus is defined.
+
+        Returns:
+            Cell-wise Young's modulus in Pascal. The value is picked from the solid
                 constants.
-    
-            """
-            return Scalar(self.solid.shear_modulus, "shear_modulus")
-    
-        def lame_lambda(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Lame's first parameter [Pa].
-    
-            Parameters:
-                subdomains: List of subdomains where the shear modulus is defined.
-    
-            Returns:
-                Cell-wise Lame's first parameter operator. The value is picked from the
-                    solid constants.
-    
-            """
-            return Scalar(self.solid.lame_lambda, "lame_lambda")
-    
-        def youngs_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Young's modulus [Pa].
-    
-            Parameters:
-                subdomains: List of subdomains where the Young's modulus is defined.
-    
-            Returns:
-                Cell-wise Young's modulus in Pascal. The value is picked from the solid
-                    constants.
-    
-            """
-            val = (
-                self.solid.shear_modulus
-                * (3 * self.solid.lame_lambda + 2 * self.solid.shear_modulus)
-                / (self.solid.lame_lambda + self.solid.shear_modulus)
-            )
-            return Scalar(val, "youngs_modulus")
-    
-        def bulk_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Bulk modulus [Pa]."""
-            val = self.solid.lame_lambda + 2 * self.solid.shear_modulus / 3
-            return Scalar(val, "bulk_modulus")
-    
-        def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
-            """Stiffness tensor [Pa].
-    
-            Parameters:
-                subdomain: Subdomain where the stiffness tensor is defined.
-    
-            Returns:
-                Cell-wise stiffness tensor in SI units.
-    
-            """
-            lmbda = self.solid.lame_lambda * np.ones(subdomain.num_cells)
-            mu = self.solid.shear_modulus * np.ones(subdomain.num_cells)
-            return pp.FourthOrderTensor(mu, lmbda)
-    
-    
-if TYPE_CHECKING:
-    class CharacteristicTractionFromDisplacement(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class CharacteristicTractionFromDisplacement:
-        """Mixin that fetches the characteristic displacement from the solid constants and
-        computes the characteristic contact traction as a function of the characteristic
-        displacement. If the inverse relationship is wanted, i.e., u_char=u_char(t_char),
-        use the mixin CharacteristicDisplacementFromTraction instead."""
-    
-        youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Young's modulus. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-    
+
         """
-    
-        def characteristic_contact_traction(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Characteristic traction [Pa].
-    
-            Parameters:
-                subdomains: List of subdomains where the characteristic traction is defined.
-    
-            Returns:
-                Scalar operator representing the characteristic traction.
-    
-            """
-            size = Scalar(np.max(self.domain.side_lengths()))
-            strain = self.characteristic_displacement(subdomains) / size
-            t_char = strain * self.youngs_modulus(subdomains)
-            t_char.set_name("characteristic_contact_traction")
-            return t_char
-    
-        def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Characteristic displacement [m].
-    
-            Parameters:
-                subdomains: List of subdomains where the characteristic displacement is
-                    defined.
-    
-            Returns:
-                Scalar operator representing the characteristic displacement.
-    
-            """
-            u_char = Scalar(self.numerical.characteristic_displacement)
-            u_char.set_name("characteristic_displacement")
-            return u_char
-    
-    
-if TYPE_CHECKING:
-    class CharacteristicDisplacementFromTraction(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class CharacteristicDisplacementFromTraction:
-        """Mixin that fetches the characteristic traction from the solid constants and
-        computes the characteristic displacement as a function of the characteristic contact
-        traction. If the inverse relationship is wanted, i.e., t_char=t_char(u_char), use
-        the mixin CharacteristicTractionFromDisplacement instead."""
-    
-        youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Young's modulus. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-    
+        val = (
+            self.solid.shear_modulus
+            * (3 * self.solid.lame_lambda + 2 * self.solid.shear_modulus)
+            / (self.solid.lame_lambda + self.solid.shear_modulus)
+        )
+        return Scalar(val, "youngs_modulus")
+
+    def bulk_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Bulk modulus [Pa]."""
+        val = self.solid.lame_lambda + 2 * self.solid.shear_modulus / 3
+        return Scalar(val, "bulk_modulus")
+
+    def stiffness_tensor(self, subdomain: pp.Grid) -> pp.FourthOrderTensor:
+        """Stiffness tensor [Pa].
+
+        Parameters:
+            subdomain: Subdomain where the stiffness tensor is defined.
+
+        Returns:
+            Cell-wise stiffness tensor in SI units.
+
         """
-    
-        def characteristic_contact_traction(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Characteristic traction [Pa].
-    
-            Parameters:
-                subdomains: List of subdomains where the characteristic traction is defined.
-    
-            Returns:
-                Scalar operator representing the characteristic traction.
-    
-            """
-            t_char = Scalar(self.numerical.characteristic_contact_traction)
-            t_char.set_name("characteristic_contact_traction")
-            return t_char
-    
-        def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Characteristic displacement [m].
-    
-            Parameters:
-                subdomains: List of subdomains where the characteristic displacement is
-                    defined.
-    
-            Returns:
-                Scalar operator representing the characteristic displacement.
-    
-            """
-            size = Scalar(np.max(self.domain.side_lengths()))
-            strain = self.characteristic_contact_traction(subdomains) / self.youngs_modulus(
-                subdomains
-            )
-            u_char = size * strain
-            u_char.set_name("characteristic_displacement")
-            return u_char
-    
-    
-if TYPE_CHECKING:
-    class CoulombFrictionBound(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class CoulombFrictionBound:
-        """Friction bound for fracture deformation.
-    
-        This class is intended for use with fracture deformation models.
+        lmbda = self.solid.lame_lambda * np.ones(subdomain.num_cells)
+        mu = self.solid.shear_modulus * np.ones(subdomain.num_cells)
+        return pp.FourthOrderTensor(mu, lmbda)
+
+
+class CharacteristicTractionFromDisplacement:
+    """Mixin that fetches the characteristic displacement from the solid constants and
+    computes the characteristic contact traction as a function of the characteristic
+    displacement. If the inverse relationship is wanted, i.e., u_char=u_char(t_char),
+    use the mixin CharacteristicDisplacementFromTraction instead."""
+
+    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Young's modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
         """
-    
-        contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Contact traction variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
-    
+        size = Scalar(np.max(self.domain.side_lengths()))
+        strain = self.characteristic_displacement(subdomains) / size
+        t_char = strain * self.youngs_modulus(subdomains)
+        t_char.set_name("characteristic_contact_traction")
+        return t_char
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
         """
-    
-        def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Friction bound [-].
-    
-            Dimensionless, since fracture deformation equations consider non-dimensional
-            tractions. In this class, the bound is given by
-    
-            .. math::
-                - F t_n
-    
-            where :math:`F` is the friction coefficient and :math:`t_n` is the normal
-            component of the contact traction.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Cell-wise friction bound operator [-].
-    
-            """
-            t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
-                subdomains
-            )
-            bound: pp.ad.Operator = (
-                Scalar(-1.0) * self.friction_coefficient(subdomains) * t_n
-            )
-            bound.set_name("friction_bound")
-            return bound
-    
-        def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Friction coefficient [-].
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Friction coefficient operator.
-    
-            """
-            return Scalar(self.solid.friction_coefficient, "friction_coefficient")
-    
-    
-if TYPE_CHECKING:
-    class ShearDilation(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ShearDilation:
-        """Class for calculating fracture dilation due to tangential shearing.
-    
-        The main method of the class is :meth:`shear_dilation_gap`.
-    
+        u_char = Scalar(self.numerical.characteristic_displacement)
+        u_char.set_name("characteristic_displacement")
+        return u_char
+
+
+class CharacteristicDisplacementFromTraction:
+    """Mixin that fetches the characteristic traction from the solid constants and
+    computes the characteristic displacement as a function of the characteristic contact
+    traction. If the inverse relationship is wanted, i.e., t_char=t_char(u_char), use
+    the mixin CharacteristicTractionFromDisplacement instead."""
+
+    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Young's modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
         """
-    
-        plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """The plastic component of the displacement jump. Normally defined in a mixin
-        instance of
-        :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+        t_char = Scalar(self.numerical.characteristic_contact_traction)
+        t_char.set_name("characteristic_contact_traction")
+        return t_char
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
         """
-    
-        def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Shear dilation [m].
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Cell-wise shear dilation.
-    
-            """
-            angle: pp.ad.Operator = self.dilation_angle(subdomains)
-            f_norm = pp.ad.Function(
-                partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
-            )
-            f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
-            shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
-                self.tangential_component(subdomains)
-                @ self.plastic_displacement_jump(subdomains)
-            )
-    
-            shear_dilation.set_name("shear_dilation")
-            return shear_dilation
-    
-        def dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Dilation angle [rad].
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Cell-wise dilation angle operator [rad].
-    
-            """
-            return Scalar(self.solid.dilation_angle, "dilation_angle")
-    
-    
-if TYPE_CHECKING:
-    class BartonBandis(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class BartonBandis:
-        r"""Implementation of the Barton-Bandis model for elastic fracture normal
-        deformation.
-    
-        The Barton-Bandis model represents a non-linear elastic deformation in the normal
-        direction of a fracture. Specifically, the increase in normal opening,
-        :math:``\Delta u_n``, under a force :math:``\sigma_n`` (negative for compression),
-        is given as
-    
+        size = Scalar(np.max(self.domain.side_lengths()))
+        strain = self.characteristic_contact_traction(subdomains) / self.youngs_modulus(
+            subdomains
+        )
+        u_char = size * strain
+        u_char.set_name("characteristic_displacement")
+        return u_char
+
+
+class CoulombFrictionBound:
+    """Friction bound for fracture deformation.
+
+    This class is intended for use with fracture deformation models.
+    """
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
+
+    """
+
+    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction bound [-].
+
+        Dimensionless, since fracture deformation equations consider non-dimensional
+        tractions. In this class, the bound is given by
+
         .. math::
-    
-            \Delta u_n = \Delta u_n^{max}
-                + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
-    
-        where :math:``\Delta u_n^{max}`` is the maximum fracture opening and the material
-        constant :math:``K_n`` is known as the fracture normal stiffness.
-    
-        The Barton-Bandis equation is defined in
-        :meth:``elastic_normal_fracture_deformation`` while the two parameters
-        :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
-        :meth:``maximum_elastic_fracture_opening`` and :meth:``fracture_normal_stiffness``.
-    
+            - F t_n
+
+        where :math:`F` is the friction coefficient and :math:`t_n` is the normal
+        component of the contact traction.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction bound operator [-].
+
         """
-    
-        contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Contact traction variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
-    
+        t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
+            subdomains
+        )
+        bound: pp.ad.Operator = (
+            Scalar(-1.0) * self.friction_coefficient(subdomains) * t_n
+        )
+        bound.set_name("friction_bound")
+        return bound
+
+    def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Friction coefficient [-].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Friction coefficient operator.
+
         """
-        characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Characteristic contact traction. Normally defined in a mixin instance of either
-        :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
-        :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
-    
+        return Scalar(self.solid.friction_coefficient, "friction_coefficient")
+
+
+class ShearDilation:
+    """Class for calculating fracture dilation due to tangential shearing.
+
+    The main method of the class is :meth:`shear_dilation_gap`.
+
+    """
+
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+    """
+
+    def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Shear dilation [m].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise shear dilation.
+
         """
-    
-        def elastic_normal_fracture_deformation(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Barton-Bandis model for elastic normal deformation of a fracture [m].
-    
-            The model computes an increase in the normal opening as a function of the
-            contact traction and material constants as elaborated in the class
-            documentation.
-    
-            The returned value depends on the value of the solid constant
-            maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model
-            is void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
-            division. Otherwise, an operator which implements the Barton-Bandis model is
-            returned. The special treatment amounts to a continuous extension in the limit
-            of zero maximum fracture opening.
-    
-            The implementation is based on the paper
-    
-            References:
-                Fundamentals of Rock Joint Deformation, by S.C. Bandis, A.C.Lumdsen, N.R.
-                Barton, International Journal of Rock Mechanics & Mining Sciences, 1983,
-                Link: https://doi.org/10.1016/0148-9062(83)90595-8.
-    
-                See in particular Equations (8)-(9) (page 10) in that paper.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Raises:
-                ValueError: If the maximum fracture opening is negative.
-    
-            Returns:
-                The elastic fracture opening, as computed by the Barton-Bandis model.
-    
-            """
-            # The maximum opening of the fracture.
-            maximum_opening = self.maximum_elastic_fracture_opening(subdomains)
-    
-            # If the maximum opening is zero, the Barton-Bandis model is not valid in the
-            # case of zero normal traction. In this case, we return an empty operator.
-            # If the maximum opening is negative, an error is raised.
-            val = self.equation_system.evaluate(maximum_opening)
-            if np.any(val == 0):
-                num_cells = sum(sd.num_cells for sd in subdomains)
-                return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
-            elif np.any(val < 0):
-                raise ValueError("The maximum opening must be non-negative.")
-    
-            nd_vec_to_normal = self.normal_component(subdomains)
-    
-            # The scaled effective contact traction [-]. The papers by Barton and Bandis
-            # assume positive traction in contact, thus we need to switch the sign.
-            contact_traction = Scalar(-1) * self.contact_traction(subdomains)
-    
-            # Normal component of the traction.
-            normal_traction = nd_vec_to_normal @ contact_traction
-    
-            # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m.
-            normal_stiffness = self.fracture_normal_stiffness(subdomains)
-            # Rescale, since contact traction is dimensionless.
-            scaled_stiffness = normal_stiffness / self.characteristic_contact_traction(
-                subdomains
-            )
-    
-            # The opening is found from the 1983 paper.
-            opening_decrease = (
-                normal_traction
-                * maximum_opening
-                / (scaled_stiffness * maximum_opening + normal_traction)
-            )
-            elastic_opening = maximum_opening - opening_decrease
-            elastic_opening.set_name("Barton-Bandis_elastic_opening")
-            return elastic_opening
-    
-        def maximum_elastic_fracture_opening(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """The maximum opening of a fracture [m].
-    
-            Used in the Barton-Bandis model for normal elastic fracture deformation.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                The maximum allowed increase in fracture opening.
-    
-            """
-            max_opening = self.solid.maximum_elastic_fracture_opening
-            return Scalar(max_opening, "maximum_elastic_fracture_opening")
-    
-        def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """The normal stiffness of a fracture [Pa*m^-1].
-    
-            Used in the Barton-Bandis model for normal elastic fracture deformation.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                The fracture normal stiffness.
-    
-            """
-    
-            normal_stiffness = self.solid.fracture_normal_stiffness
-            return Scalar(normal_stiffness, "fracture_normal_stiffness")
-    
-    
+        angle: pp.ad.Operator = self.dilation_angle(subdomains)
+        f_norm = pp.ad.Function(
+            partial(pp.ad.functions.l2_norm, self.nd - 1), "norm_function"
+        )
+        f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
+        shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
+            self.tangential_component(subdomains)
+            @ self.plastic_displacement_jump(subdomains)
+        )
+
+        shear_dilation.set_name("shear_dilation")
+        return shear_dilation
+
+    def dilation_angle(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Dilation angle [rad].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise dilation angle operator [rad].
+
+        """
+        return Scalar(self.solid.dilation_angle, "dilation_angle")
+
+
+class BartonBandis:
+    r"""Implementation of the Barton-Bandis model for elastic fracture normal
+    deformation.
+
+    The Barton-Bandis model represents a non-linear elastic deformation in the normal
+    direction of a fracture. Specifically, the increase in normal opening,
+    :math:``\Delta u_n``, under a force :math:``\sigma_n`` (negative for compression),
+    is given as
+
+    .. math::
+
+        \Delta u_n = \Delta u_n^{max}
+            + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
+
+    where :math:``\Delta u_n^{max}`` is the maximum fracture opening and the material
+    constant :math:``K_n`` is known as the fracture normal stiffness.
+
+    The Barton-Bandis equation is defined in
+    :meth:``elastic_normal_fracture_deformation`` while the two parameters
+    :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
+    :meth:``maximum_elastic_fracture_opening`` and :meth:``fracture_normal_stiffness``.
+
+    """
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
+
+    """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of either
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+
+    """
+
+    def elastic_normal_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Barton-Bandis model for elastic normal deformation of a fracture [m].
+
+        The model computes an increase in the normal opening as a function of the
+        contact traction and material constants as elaborated in the class
+        documentation.
+
+        The returned value depends on the value of the solid constant
+        maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model
+        is void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
+        division. Otherwise, an operator which implements the Barton-Bandis model is
+        returned. The special treatment amounts to a continuous extension in the limit
+        of zero maximum fracture opening.
+
+        The implementation is based on the paper
+
+        References:
+            Fundamentals of Rock Joint Deformation, by S.C. Bandis, A.C.Lumdsen, N.R.
+            Barton, International Journal of Rock Mechanics & Mining Sciences, 1983,
+            Link: https://doi.org/10.1016/0148-9062(83)90595-8.
+
+            See in particular Equations (8)-(9) (page 10) in that paper.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Raises:
+            ValueError: If the maximum fracture opening is negative.
+
+        Returns:
+            The elastic fracture opening, as computed by the Barton-Bandis model.
+
+        """
+        # The maximum opening of the fracture.
+        maximum_opening = self.maximum_elastic_fracture_opening(subdomains)
+
+        # If the maximum opening is zero, the Barton-Bandis model is not valid in the
+        # case of zero normal traction. In this case, we return an empty operator.
+        # If the maximum opening is negative, an error is raised.
+        val = self.equation_system.evaluate(maximum_opening)
+        if np.any(val == 0):
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
+        elif np.any(val < 0):
+            raise ValueError("The maximum opening must be non-negative.")
+
+        nd_vec_to_normal = self.normal_component(subdomains)
+
+        # The scaled effective contact traction [-]. The papers by Barton and Bandis
+        # assume positive traction in contact, thus we need to switch the sign.
+        contact_traction = Scalar(-1) * self.contact_traction(subdomains)
+
+        # Normal component of the traction.
+        normal_traction = nd_vec_to_normal @ contact_traction
+
+        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m.
+        normal_stiffness = self.fracture_normal_stiffness(subdomains)
+        # Rescale, since contact traction is dimensionless.
+        scaled_stiffness = normal_stiffness / self.characteristic_contact_traction(
+            subdomains
+        )
+
+        # The opening is found from the 1983 paper.
+        opening_decrease = (
+            normal_traction
+            * maximum_opening
+            / (scaled_stiffness * maximum_opening + normal_traction)
+        )
+        elastic_opening = maximum_opening - opening_decrease
+        elastic_opening.set_name("Barton-Bandis_elastic_opening")
+        return elastic_opening
+
+    def maximum_elastic_fracture_opening(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The maximum opening of a fracture [m].
+
+        Used in the Barton-Bandis model for normal elastic fracture deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The maximum allowed increase in fracture opening.
+
+        """
+        max_opening = self.solid.maximum_elastic_fracture_opening
+        return Scalar(max_opening, "maximum_elastic_fracture_opening")
+
+    def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The normal stiffness of a fracture [Pa*m^-1].
+
+        Used in the Barton-Bandis model for normal elastic fracture deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture normal stiffness.
+
+        """
+
+        normal_stiffness = self.solid.fracture_normal_stiffness
+        return Scalar(normal_stiffness, "fracture_normal_stiffness")
+
+
 class FractureGap(BartonBandis, ShearDilation):
     """Class for calculating the fracture gap.
 
@@ -4139,752 +4059,720 @@ class FractureGap(BartonBandis, ShearDilation):
         return Scalar(self.solid.fracture_gap, "reference_fracture_gap")
 
 
-if TYPE_CHECKING:
-    class ElasticTangentialFractureDeformation(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ElasticTangentialFractureDeformation:
-        """Constitutive relation for elastic tangential deformation.
-    
-        The elastic tangential deformation is the tangential component of the displacement
-        jump. Here, we impose a linear relation between the tangential component of the
-        contact traction and the tangential deformation. The relation is given by
-    
+class ElasticTangentialFractureDeformation:
+    """Constitutive relation for elastic tangential deformation.
+
+    The elastic tangential deformation is the tangential component of the displacement
+    jump. Here, we impose a linear relation between the tangential component of the
+    contact traction and the tangential deformation. The relation is given by
+
+    .. math::
+        u_t = \frac{t_t}{K_t},
+
+    where :math:`u_t` is the elastic tangential deformation, :math:`t_t` is the
+    tangential component of the contact traction, and :math:`K_t` is the tangential
+    stiffness of the fracture.
+
+    """
+
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction."""
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable."""
+
+    def fracture_tangential_stiffness(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The tangential stiffness of a fracture [Pa*m^-1].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture tangential stiffness.
+
+        """
+        stiffness = self.solid.fracture_tangential_stiffness
+        return Scalar(stiffness, "fracture_tangential_stiffness")
+
+    def elastic_tangential_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The elastic tangential fracture deformation [m].
+
+        The elastic tangential fracture deformation is the tangential component of the
+        displacement jump, which is the solution to the contact mechanics problem in the
+        absence of plastic deformation.
+
+        The elastic tangential deformation is given by
         .. math::
             u_t = \frac{t_t}{K_t},
-    
-        where :math:`u_t` is the elastic tangential deformation, :math:`t_t` is the
-        tangential component of the contact traction, and :math:`K_t` is the tangential
-        stiffness of the fracture.
-    
+        where :math:`t_t` is the tangential component of the contact traction and
+        :math:`K_t` is the tangential stiffness. If the stiffness is negative, the
+        deformation is set to zero, thus avoiding using :math:`K_t->inf` to represent
+        no tangential deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic tangential fracture deformation.
+
         """
-    
-        characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Characteristic contact traction."""
-        contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Contact traction variable."""
-    
-        def fracture_tangential_stiffness(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """The tangential stiffness of a fracture [Pa*m^-1].
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                The fracture tangential stiffness.
-    
-            """
-            stiffness = self.solid.fracture_tangential_stiffness
-            return Scalar(stiffness, "fracture_tangential_stiffness")
-    
-        def elastic_tangential_fracture_deformation(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """The elastic tangential fracture deformation [m].
-    
-            The elastic tangential fracture deformation is the tangential component of the
-            displacement jump, which is the solution to the contact mechanics problem in the
-            absence of plastic deformation.
-    
-            The elastic tangential deformation is given by
-            .. math::
-                u_t = \frac{t_t}{K_t},
-            where :math:`t_t` is the tangential component of the contact traction and
-            :math:`K_t` is the tangential stiffness. If the stiffness is negative, the
-            deformation is set to zero, thus avoiding using :math:`K_t->inf` to represent
-            no tangential deformation.
-    
-            Parameters:
-                subdomains: List of fracture subdomains.
-    
-            Returns:
-                Operator representing the elastic tangential fracture deformation.
-    
-            """
-            nd_vec_to_tangential = self.tangential_component(subdomains)
-            t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
-    
-            stiffness = self.fracture_tangential_stiffness(subdomains)
-            # Retrieve the *unscaled* stiffness value for the check below.
-            # We need cast for convert_units. By implementation of stiffness, it can only be
-            # a number.
-            stiffness_value = self.units.convert_units(
-                cast(pp.number, self.equation_system.evaluate(stiffness)),
-                "Pa*m^-1",
-                to_si=True,
-            )
-            if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
-                # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
-                # are used to avoid numerical issues, but allowing for a float value.
-                num_cells = sum(sd.num_cells for sd in subdomains)
-                zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
-                zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
-                return zero_u_t
-            # Since contact traction is nondimensional, the stiffness must be scaled by the
-            # characteristic contact traction.
-            scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
-            u_t = t_t / scaled_stiffness
-            u_t.set_name("elastic_tangential_fracture_deformation")
-            return u_t
-    
-    
-if TYPE_CHECKING:
-    class FrictionDamage(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class FrictionDamage:
-        """Frictional damage relations.
-    
-        The frictional damage is computed from the history variable h, according to J. White
-        (2014) https://doi.org/10.1002/nag.2247, as
-    
-        .. math::
-            d = 1+(d_0-1)  exp⁡(-c h)
-    
-        where :math:`d_0` is the initial damage and c is a material parameter. The
-        damage is used to compute the frictional bound according to
-    
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+        t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
+
+        stiffness = self.fracture_tangential_stiffness(subdomains)
+        # Retrieve the *unscaled* stiffness value for the check below.
+        # We need cast for convert_units. By implementation of stiffness, it can only be
+        # a number.
+        stiffness_value = self.units.convert_units(
+            cast(pp.number, self.equation_system.evaluate(stiffness)),
+            "Pa*m^-1",
+            to_si=True,
+        )
+        if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
+            # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
+            # are used to avoid numerical issues, but allowing for a float value.
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
+            zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
+            return zero_u_t
+        # Since contact traction is nondimensional, the stiffness must be scaled by the
+        # characteristic contact traction.
+        scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
+        u_t = t_t / scaled_stiffness
+        u_t.set_name("elastic_tangential_fracture_deformation")
+        return u_t
+
+
+class FrictionDamage:
+    """Frictional damage relations.
+
+    The frictional damage is computed from the history variable h, according to J. White
+    (2014) https://doi.org/10.1002/nag.2247, as
+
+    .. math::
+        d = 1+(d_0-1)  exp⁡(-c h)
+
+    where :math:`d_0` is the initial damage and c is a material parameter. The
+    damage is used to compute the frictional bound according to
+
+    .. math::
+        b = d b_0,
+
+    where :math:`b_0` is the non-damaged friction bound.
+
+    """
+
+    solid: FractureDamageSolidConstants
+    """SolidConstants with frictional damage parameters."""
+
+    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable provided by the DamageHistoryVariable mixin."""
+
+    def friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Frictional damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
+
+        Returns:
+            Operator for nondimensionalized frictional damage.
+
+        """
+        # Get the history variable.
+        history = self.damage_history(subdomains)
+
+        # Get the initial damage and the material parameter.
+        d0 = self.initial_friction_damage(subdomains)
+        c = self.friction_damage_decay(subdomains)
+
+        # Compute the damage.
+        f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
+        one = pp.ad.Scalar(1.0)
+        return one + (d0 - one) * f_exp(-c * history)
+
+    def initial_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Initial damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the initial damage is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Scalar for nondimensionalized initial damage.
+
+        """
+        return pp.ad.Scalar(self.solid.initial_friction_damage)
+
+    def friction_damage_decay(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Damage decay [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage decay is defined. Should
+            be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Scalar for dimensionless damage decay.
+
+        """
+        return pp.ad.Scalar(self.solid.friction_damage_decay)
+
+    def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Frictional bound [-].
+
+        The frictional bound is computed from the frictional damage as
+
         .. math::
             b = d b_0,
-    
+
         where :math:`b_0` is the non-damaged friction bound.
-    
-        """
-    
-        solid: FractureDamageSolidConstants
-        """SolidConstants with frictional damage parameters."""
-    
-        damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-        """Damage history variable provided by the DamageHistoryVariable mixin."""
-    
-        def friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Frictional damage [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the damage is defined. Should be of co-
-                    dimension one, i.e. fractures.
-    
-            Returns:
-                Operator for nondimensionalized frictional damage.
-    
-            """
-            # Get the history variable.
-            history = self.damage_history(subdomains)
-    
-            # Get the initial damage and the material parameter.
-            d0 = self.initial_friction_damage(subdomains)
-            c = self.friction_damage_decay(subdomains)
-    
-            # Compute the damage.
-            f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
-            one = pp.ad.Scalar(1.0)
-            return one + (d0 - one) * f_exp(-c * history)
-    
-        def initial_friction_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-            """Initial damage [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the initial damage is defined. Should
-                    be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Scalar for nondimensionalized initial damage.
-    
-            """
-            return pp.ad.Scalar(self.solid.initial_friction_damage)
-    
-        def friction_damage_decay(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-            """Damage decay [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the damage decay is defined. Should
+
+        Parameters:
+            subdomains: List of subdomains where the frictional bound is defined. Should
                 be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Scalar for dimensionless damage decay.
-    
-            """
-            return pp.ad.Scalar(self.solid.friction_damage_decay)
-    
-        def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Frictional bound [-].
-    
-            The frictional bound is computed from the frictional damage as
-    
-            .. math::
-                b = d b_0,
-    
-            where :math:`b_0` is the non-damaged friction bound.
-    
-            Parameters:
-                subdomains: List of subdomains where the frictional bound is defined. Should
-                    be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Operator for nondimensionalized frictional bound.
-    
-            """
-            # Check that the super class has a friction bound method. Otherwise, something
-            # has gone wrong in the inheritance.
-            if not hasattr(super(), "friction_bound"):
-                raise ValueError(
-                    "The super class of FrictionDamage must have a friction_bound method."
-                )
-            # Combine the frictional damage with the non-damaged friction bound.
-            intact_bound = super().friction_bound(subdomains)  # type: ignore[misc]
-            return self.friction_damage(subdomains) * intact_bound
-    
-    
-if TYPE_CHECKING:
-    class DilationDamage(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class DilationDamage:
-        """Dilation damage relations.
-    
-    
-        The dilation damage is computed from the history variable h according to J. White
-        (2014) https://doi.org/10.1002/nag.2247, as
-    
-        .. math::
-            d = 1+(d_0-1)  exp⁡(-c h)
-    
-        where :math:`d_0` is the initial damage and c is a material parameter. The damage is
-        used to compute the shear dilation gap according to
-    
-        .. math::
-            g = d g_0,
-    
-        where :math:`g_0` is the non-damaged dilation gap.
-    
+
+        Returns:
+            Operator for nondimensionalized frictional bound.
+
         """
-    
-        solid: FractureDamageSolidConstants
-        """SolidConstants with dilation damage parameters."""
-    
-        damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
-        """Damage history variable provided by the DamageHistoryVariable mixin."""
-    
-        def dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Dilation damage [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the damage is defined. Should
+        # Check that the super class has a friction bound method. Otherwise, something
+        # has gone wrong in the inheritance.
+        if not hasattr(super(), "friction_bound"):
+            raise ValueError(
+                "The super class of FrictionDamage must have a friction_bound method."
+            )
+        # Combine the frictional damage with the non-damaged friction bound.
+        intact_bound = super().friction_bound(subdomains)  # type: ignore[misc]
+        return self.friction_damage(subdomains) * intact_bound
+
+
+class DilationDamage:
+    """Dilation damage relations.
+
+
+    The dilation damage is computed from the history variable h according to J. White
+    (2014) https://doi.org/10.1002/nag.2247, as
+
+    .. math::
+        d = 1+(d_0-1)  exp⁡(-c h)
+
+    where :math:`d_0` is the initial damage and c is a material parameter. The damage is
+    used to compute the shear dilation gap according to
+
+    .. math::
+        g = d g_0,
+
+    where :math:`g_0` is the non-damaged dilation gap.
+
+    """
+
+    solid: FractureDamageSolidConstants
+    """SolidConstants with dilation damage parameters."""
+
+    damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
+    """Damage history variable provided by the DamageHistoryVariable mixin."""
+
+    def dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Dilation damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage is defined. Should
+            be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for dimensionless dilation damage.
+
+        """
+        # Get the history variable.
+        history = self.damage_history(subdomains)
+
+        # Get the initial damage and the material parameter.
+        d0 = self.initial_dilation_damage(subdomains)
+        c = self.dilation_damage_decay(subdomains)
+
+        # Compute the damage.
+        f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
+        one = pp.ad.Scalar(1.0)
+        return one + (d0 - one) * f_exp(-c * history)
+
+    def initial_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Initial damage [-].
+
+        Parameters:
+            subdomains: List of subdomains where the initial damage is defined. Should
                 be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Operator for dimensionless dilation damage.
-    
-            """
-            # Get the history variable.
-            history = self.damage_history(subdomains)
-    
-            # Get the initial damage and the material parameter.
-            d0 = self.initial_dilation_damage(subdomains)
-            c = self.dilation_damage_decay(subdomains)
-    
-            # Compute the damage.
-            f_exp = pp.ad.Function(pp.ad.functions.exp, "exp")
-            one = pp.ad.Scalar(1.0)
-            return one + (d0 - one) * f_exp(-c * history)
-    
-        def initial_dilation_damage(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-            """Initial damage [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the initial damage is defined. Should
-                    be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Scalar for nondimensionalized initial damage.
-    
-            """
-            return pp.ad.Scalar(self.solid.initial_dilation_damage)
-    
-        def dilation_damage_decay(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
-            """Damage decay [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the damage decay is defined. Should
-                    be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Scalar for nondimensionalized damage decay.
-    
-            """
-            return pp.ad.Scalar(self.solid.dilation_damage_decay)
-    
-        def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Shear dilation gap [m].
-    
-            Parameters:
-                subdomains: List of subdomains where the shear dilation gap is defined.
-                    Should be of co-dimension one, i.e. fractures.
-    
-            Returns:
-                Operator for nondimensionalized shear dilation gap.
-    
-            """
-            # Check that the super class has a shear dilation gap method. Otherwise,
-            # something has gone wrong in the inheritance.
-            if not hasattr(super(), "shear_dilation_gap"):
-                raise ValueError(
-                    "The super class of DilationDamage must have a shear_dilation_gap "
-                    "method."
-                )
-            # Combine the dilation damage with the non-damaged dilation gap.
-            intact_gap = super().shear_dilation_gap(subdomains)  # type: ignore[misc]
-            return self.dilation_damage(subdomains) * intact_gap
-    
-    
-if TYPE_CHECKING:
-    class BiotCoefficient(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class BiotCoefficient:
-        """Biot coefficient and tensor."""
-    
-        def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """A coefficient for volumetric changes due to pressure perturbations in Biot's
-            equations.
-    
-            Parameters:
-                subdomains: List of subdomains where the Biot coefficient is defined.
-    
-            Returns:
-                Biot coefficient operator, units [-].
-    
-            """
-            return Scalar(self.solid.biot_coefficient, "biot_coefficient")
-    
-        def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
-            """Second-order tensor representing the force caused by a pressure perturbation
-            in Biot's equations.
-    
-            Parameters:
-                subdomains: List of subdomains where the Biot tensor is defined.
-    
-            Returns:
-                Cell-wise Biot isotropic tensor, units: [-]. The value is set equal to the
-                Biot coefficient in the solid constants.
-    
-            """
-            size = sum(sd.num_cells for sd in subdomains)
-            value = self.solid.biot_coefficient
-            return pp.SecondOrderTensor(value * np.ones(size))
-    
-    
-if TYPE_CHECKING:
-    class SpecificStorage(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class SpecificStorage:
-        """Specific storage."""
-    
-        def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            r"""Specific storage [1/Pa], i.e. inverse of the Biot modulus.
-    
-            The specific storage :math:`S_\varepsilon` can also be obtained from more
-            fundamental quantities, i.e., :math:`S_\varepsilon = (\alpha - \phi_0) K_d^{
-            -1} + \phi_0 c_f)`, where :math:`\alpha` is the Biot's coefficient,
-            :math:`\phi_0` is the reference porosity, :math:`K_d` is the solid's bulk
-            modulus, and :math:`c_f` is the fluid compressibility.
-    
-            Parameters:
-                subdomains: List of subdomains where the specific storage is defined.
-    
-            Returns:
-                Specific storage operator.
-    
-            Note:
-                Only used when :class:`BiotPoroMechanicsPorosity` is used as a part of the
-                constitutive laws.
-    
-            """
-            return Scalar(self.solid.specific_storage, "specific_storage")
-    
-    
-if TYPE_CHECKING:
-    class ConstantPorosity(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class ConstantPorosity:
-        def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Constant porosity [-].
-    
-            The porosity is assumed to be constant, and is defined by the solid constant
-            object.
-    
-            Parameters:
-                subdomains: List of subdomains where the porosity is defined.
-    
-            Returns:
-                The porosity represented as an Ad operator. The value is constant for all
-                subdomains.
-    
-            """
-            return Scalar(self.solid.porosity, "porosity")
-    
-    
-if TYPE_CHECKING:
-    class PoroMechanicsPorosity(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class PoroMechanicsPorosity:
-        r"""Porosity for poromechanical models.
-    
+
+        Returns:
+            Scalar for nondimensionalized initial damage.
+
+        """
+        return pp.ad.Scalar(self.solid.initial_dilation_damage)
+
+    def dilation_damage_decay(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+        """Damage decay [-].
+
+        Parameters:
+            subdomains: List of subdomains where the damage decay is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Scalar for nondimensionalized damage decay.
+
+        """
+        return pp.ad.Scalar(self.solid.dilation_damage_decay)
+
+    def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Shear dilation gap [m].
+
+        Parameters:
+            subdomains: List of subdomains where the shear dilation gap is defined.
+                Should be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Operator for nondimensionalized shear dilation gap.
+
+        """
+        # Check that the super class has a shear dilation gap method. Otherwise,
+        # something has gone wrong in the inheritance.
+        if not hasattr(super(), "shear_dilation_gap"):
+            raise ValueError(
+                "The super class of DilationDamage must have a shear_dilation_gap "
+                "method."
+            )
+        # Combine the dilation damage with the non-damaged dilation gap.
+        intact_gap = super().shear_dilation_gap(subdomains)  # type: ignore[misc]
+        return self.dilation_damage(subdomains) * intact_gap
+
+
+class BiotCoefficient:
+    """Biot coefficient and tensor."""
+
+    def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """A coefficient for volumetric changes due to pressure perturbations in Biot's
+        equations.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot coefficient is defined.
+
+        Returns:
+            Biot coefficient operator, units [-].
+
+        """
+        return Scalar(self.solid.biot_coefficient, "biot_coefficient")
+
+    def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
+        """Second-order tensor representing the force caused by a pressure perturbation
+        in Biot's equations.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot tensor is defined.
+
+        Returns:
+            Cell-wise Biot isotropic tensor, units: [-]. The value is set equal to the
+            Biot coefficient in the solid constants.
+
+        """
+        size = sum(sd.num_cells for sd in subdomains)
+        value = self.solid.biot_coefficient
+        return pp.SecondOrderTensor(value * np.ones(size))
+
+
+class SpecificStorage:
+    """Specific storage."""
+
+    def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        r"""Specific storage [1/Pa], i.e. inverse of the Biot modulus.
+
+        The specific storage :math:`S_\varepsilon` can also be obtained from more
+        fundamental quantities, i.e., :math:`S_\varepsilon = (\alpha - \phi_0) K_d^{
+        -1} + \phi_0 c_f)`, where :math:`\alpha` is the Biot's coefficient,
+        :math:`\phi_0` is the reference porosity, :math:`K_d` is the solid's bulk
+        modulus, and :math:`c_f` is the fluid compressibility.
+
+        Parameters:
+            subdomains: List of subdomains where the specific storage is defined.
+
+        Returns:
+            Specific storage operator.
+
         Note:
-            For legacy reasons, the discretization matrices for the :math:`\nabla \cdot
-            \mathbf{u}` and consistency terms include a volume integral. That factor is
-            counteracted in :meth:`displacement_divergence` and :meth:`_mpsa_consistency`,
-            respectively. This ensure that the returned operators correspond to intensive
-            quantities and are compatible with the rest of this class. The assumption is
-            that the porosity will be integrated over cell volumes later before entering the
-            equation.
-    
+            Only used when :class:`BiotPoroMechanicsPorosity` is used as a part of the
+            constitutive laws.
+
         """
-    
-        biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Biot coefficient. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
-    
+        return Scalar(self.solid.specific_storage, "specific_storage")
+
+
+class ConstantPorosity:
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Constant porosity [-].
+
+        The porosity is assumed to be constant, and is defined by the solid constant
+        object.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            The porosity represented as an Ad operator. The value is constant for all
+            subdomains.
+
         """
-        bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Bulk modulus. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-    
+        return Scalar(self.solid.porosity, "porosity")
+
+
+class PoroMechanicsPorosity:
+    r"""Porosity for poromechanical models.
+
+    Note:
+        For legacy reasons, the discretization matrices for the :math:`\nabla \cdot
+        \mathbf{u}` and consistency terms include a volume integral. That factor is
+        counteracted in :meth:`displacement_divergence` and :meth:`_mpsa_consistency`,
+        respectively. This ensure that the returned operators correspond to intensive
+        quantities and are compatible with the rest of this class. The assumption is
+        that the porosity will be integrated over cell volumes later before entering the
+        equation.
+
+    """
+
+    biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Biot coefficient. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
+
+    """
+    bulk_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Bulk modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+    stress_keyword: str
+    """Keyword used to identify the stress discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+
+    """
+    darcy_keyword: str
+    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
+    instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    """Displacement variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    interface_displacement: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """Displacement variable on interfaces. Normally defined in a mixin instance of
+    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Pressure variable. Normally defined in a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+
+    """
+    pressure_variable: str
+    """Name of the pressure variable. Normally set by a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
+
+    bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the momentum problem.
+    Normally provided by a mixin instance of
+    :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
+
+    """
+
+    combine_boundary_operators_mechanical_stress: Callable[
+        [Sequence[pp.Grid]], pp.ad.Operator
+    ]
+    """Combine mechanical stress boundary operators for different types of boundary
+    conditions. Can be provided by a mixin class of type
+    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+    """
+
+    mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Operator to define the mechanical stress. Can be provided by a mixin class of
+    type :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
+    """
+    stress_discretization: Callable[
+        [list[pp.Grid]], pp.ad.TpsaAd | pp.ad.MpsaAd | pp.ad.BiotAd
+    ]
+    """Stress discretization applied."""
+
+    def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity.
+
+        Pressure and displacement dependent porosity in the matrix. Unitary in fractures
+        and intersections.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Porosity operator.
+
         """
-        stress_keyword: str
-        """Keyword used to identify the stress discretization. Normally set by a mixin
-        instance of
-        :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-    
+        subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
+        subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
+        projection = pp.ad.SubdomainProjections(subdomains, dim=1)
+        # Constant unitary porosity in fractures and intersections.
+        size = sum(sd.num_cells for sd in subdomains_lower)
+        one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
+        phi_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
+            subdomains_nd
+        )
+        phi_lower = projection.cell_prolongation(subdomains_lower) @ one
+        phi = phi_nd + phi_lower
+        phi.set_name("porosity")
+        return phi
+
+    def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Porosity in the nd-dimensional matrix [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise porosity operator [-].
+
         """
-        darcy_keyword: str
-        """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
-        instance of
-        :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-    
-        """
-        displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-        """Displacement variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    
-        """
-        interface_displacement: Callable[
-            [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-        ]
-        """Displacement variable on interfaces. Normally defined in a mixin instance of
-        :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-    
-        """
-        pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Pressure variable. Normally defined in a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-    
-        """
-        pressure_variable: str
-        """Name of the pressure variable. Normally set by a mixin instance of
-        :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-        """
-    
-        bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
-        """Function that returns the boundary condition type for the momentum problem.
-        Normally provided by a mixin instance of
-        :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
-    
-        """
-    
-        combine_boundary_operators_mechanical_stress: Callable[
-            [Sequence[pp.Grid]], pp.ad.Operator
-        ]
-        """Combine mechanical stress boundary operators for different types of boundary
-        conditions. Can be provided by a mixin class of type
-        :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
-        """
-    
-        mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Operator to define the mechanical stress. Can be provided by a mixin class of
-        type :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress`.
-        """
-        stress_discretization: Callable[
-            [list[pp.Grid]], pp.ad.TpsaAd | pp.ad.MpsaAd | pp.ad.BiotAd
-        ]
-        """Stress discretization applied."""
-    
-        def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Porosity.
-    
-            Pressure and displacement dependent porosity in the matrix. Unitary in fractures
-            and intersections.
-    
-            Parameters:
-                subdomains: List of subdomains where the porosity is defined.
-    
-            Returns:
-                Porosity operator.
-    
-            """
-            subdomains_nd = [sd for sd in subdomains if sd.dim == self.nd]
-            subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
-            projection = pp.ad.SubdomainProjections(subdomains, dim=1)
-            # Constant unitary porosity in fractures and intersections.
-            size = sum(sd.num_cells for sd in subdomains_lower)
-            one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
-            phi_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
-                subdomains_nd
+
+        # Sanity check
+        if not all([sd.dim == self.nd for sd in subdomains]):
+            raise ValueError("Subdomains must be of dimension nd.")
+
+        # Add contributions to poromechanics porosity
+        phi = (
+            self.reference_porosity(subdomains)
+            + self.porosity_change_from_pressure(subdomains)
+            + self.porosity_change_from_displacement(subdomains)
+        )
+
+        if not isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
+            # If the stress discretization is not TPSA, add the consistency term. For
+            # clarity, there is also a consistency term in the TPSA discretization, but
+            # this is already included in the solid mass balance discretization.
+            phi += self._mpsa_consistency(
+                subdomains, self.darcy_keyword, self.pressure_variable
             )
-            phi_lower = projection.cell_prolongation(subdomains_lower) @ one
-            phi = phi_nd + phi_lower
-            phi.set_name("porosity")
-            return phi
-    
-        def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Porosity in the nd-dimensional matrix [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the porosity is defined.
-    
-            Returns:
-                Cell-wise porosity operator [-].
-    
-            """
-    
-            # Sanity check
-            if not all([sd.dim == self.nd for sd in subdomains]):
-                raise ValueError("Subdomains must be of dimension nd.")
-    
-            # Add contributions to poromechanics porosity
-            phi = (
-                self.reference_porosity(subdomains)
-                + self.porosity_change_from_pressure(subdomains)
-                + self.porosity_change_from_displacement(subdomains)
-            )
-    
-            if not isinstance(self.stress_discretization(subdomains), pp.ad.TpsaAd):
-                # If the stress discretization is not TPSA, add the consistency term. For
-                # clarity, there is also a consistency term in the TPSA discretization, but
-                # this is already included in the solid mass balance discretization.
-                phi += self._mpsa_consistency(
-                    subdomains, self.darcy_keyword, self.pressure_variable
-                )
-    
-            phi.set_name("Stabilized matrix porosity")
-    
-            return phi
-    
-        def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Reference porosity.
-    
-            Parameters:
-                subdomains: List of subdomains where the reference porosity is defined.
-    
-            Returns:
-                Reference porosity operator.
-    
-            """
-            return Scalar(self.solid.porosity, "reference_porosity")
-    
-        def porosity_change_from_pressure(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Contribution of the pressure changes to the matrix porosity [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the porosity is defined.
-    
-            Returns:
-                Cell-wise contribution of the pressure changes to the matrix porosity [-].
-    
-            """
-    
-            # Retrieve material parameters.
-            alpha = self.biot_coefficient(subdomains)
-            phi_ref = self.reference_porosity(subdomains)
-            bulk_modulus = self.bulk_modulus(subdomains)
-    
-            # Pressure changes
-            dp = self.perturbation_from_reference("pressure", subdomains)
-    
-            # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
-            n_inv = (alpha - phi_ref) * (Scalar(1) - alpha) / bulk_modulus
-    
-            # Pressure change contribution
-            pressure_contribution = n_inv * dp
-            pressure_contribution.set_name("Porosity change from pressure")
-    
-            return pressure_contribution
-    
-        def porosity_change_from_displacement(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Contribution of the divergence displacement to the matrix porosity [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the porosity is defined.
-    
-            Returns:
-                Cell-wise contribution of the divergence of the displacement to the matrix
-                porosity. Scaling with Biot's coefficient is already included.
-    
-            """
-            # Implementation note: Scaling of the displacement divergence with Biot's tensor
-            # (in the form of a double dot product) is already included in the
-            # discretization of the displacement divergence. Therefore, no additional
-            # scaling is needed here.
-            div_u_contribution = self.displacement_divergence(subdomains)
-            div_u_contribution.set_name("Porosity change from displacement")
-            return div_u_contribution
-    
-        def displacement_divergence(
-            self,
-            subdomains: list[pp.Grid],
-        ) -> pp.ad.Operator:
-            """Divergence of displacement [-].
-    
-            This is ``alpha : grad(u)`` where ``alpha`` is the Biot tensor and ``u`` is
-            the displacement. If the tensor is isotropic, the expression simplifies to
-            ``alpha * div(u)``, where ``alpha`` can be interpreted as a scalar.
-    
-            Parameters:
-                subdomains: List of subdomains where the divergence is defined.
-    
-            Returns:
-                Divergence operator accounting from contributions from interior of the
-                domain and from internal and external boundaries.
-    
-            """
-            # Sanity check on dimension
-            if not all(sd.dim == self.nd for sd in subdomains):
-                raise ValueError("Displacement divergence only defined in nd.")
-    
-            # Obtain neighbouring interfaces
-            interfaces = self.subdomains_to_interfaces(subdomains, [1])
-            # Mock discretization (empty `discretize` method), used to access discretization
-            # matrices computed by Biot discretization.
-            discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-            # Projections
-            sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, subdomains, interfaces, dim=self.nd
-            )
-    
-            boundary_operator = self.combine_boundary_operators_mechanical_stress(
-                subdomains
-            )
-    
-            # Compose operator.
-            displacement_divergence_integrated = discr.displacement_divergence(
-                self.darcy_keyword
-            ) @ self.displacement(subdomains) + discr.bound_displacement_divergence(
-                self.darcy_keyword
-            ) @ (
-                boundary_operator
-                + sd_projection.face_restriction(subdomains)
-                @ mortar_projection.mortar_to_primary_avg()
-                @ self.interface_displacement(interfaces)
-            )
-            # Divide by cell volumes to counteract integration. The displacement_divergence
-            # discretization contains a volume integral. Since this is used here together
-            # with intensive quantities, we need to divide by cell volumes.
-            cell_volumes_inv = Scalar(1) / self.wrap_grid_attribute(
-                subdomains, "cell_volumes", dim=1
-            )
-            displacement_divergence = cell_volumes_inv * displacement_divergence_integrated
-            displacement_divergence.set_name("displacement_divergence")
-            return displacement_divergence
-    
-        def _mpsa_consistency(
-            self, subdomains: list[pp.Grid], physics_name: str, variable_name: str
-        ) -> pp.ad.Operator:
-            """Consistency term for Mpsa discretizations of coupled problems.
-    
-            This function returns a diffusion-type term that is needed to ensure an
-            MPSA-type discretization of poromechanics (or
-            thermomechanics/thermoporomechanics) is stable in the limit of vanishing time
-            steps and permeability. The term arises naturally from the MPSA discretization,
-            see Nordbotten 2016 (doi:10.1137/15M1014280) for details.
-    
-            Parameters:
-                subdomains: List of subdomains where the consistency is defined.
-                physics_name: The physics keyword for which the consistency is computed.
-                    This is the keyword used in the scalar_vector_mapping provided to the
-                    Mpsa Biot discretization.
-                variable_name: Name of the variable which should have a consistency term.
-    
-            Returns:
-                Biot consistency operator.
-    
-            """
-            # Sanity check on dimension
-            if not all(sd.dim == self.nd for sd in subdomains):
-                raise ValueError("Mpsa consistency only defined in nd.")
-    
-            discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-    
-            # The consistency is based on perturbation. If the variable is used directly,
-            # results will not match if the reference state is not zero, see
-            # :func:`test_without_fracture` in test_poromechanics.py.
-            dp = self.perturbation_from_reference(variable_name, subdomains)
-            consistency_integrated = discr.consistency(physics_name) @ dp
-    
-            # Divide by cell volumes to counteract integration.
-            # The consistency discretization contains a volume integral. Since the
-            # consistency term is used here together with intensive quantities, we need to
-            # divide by cell volumes.
-            cell_volumes_inverse = Scalar(1) / self.wrap_grid_attribute(
-                subdomains, "cell_volumes", dim=1
-            )
-            consistency = cell_volumes_inverse * consistency_integrated
-            consistency.set_name("mpsa_consistency")
-            return consistency
-    
-    
-if TYPE_CHECKING:
-    class BiotPoroMechanicsPorosity(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class BiotPoroMechanicsPorosity:
-        """Porosity for poromechanical models following classical Biot's theory.
-    
-        The porosity is defined such that, after the chain rule is applied to the
-        accumulation term, the classical conservation equation from the Biot equations is
-        recovered.
-    
-        Note that we assume constant fluid density and constant specific storage.
-    
+
+        phi.set_name("Stabilized matrix porosity")
+
+        return phi
+
+    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Reference porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the reference porosity is defined.
+
+        Returns:
+            Reference porosity operator.
+
         """
-    
-        specific_storage: Callable[[list[pp.Grid]], pp.ad.Operator]
-        """Specific storage. Normally defined in a mixin instance of
-        :class:`~porepy.models.constitutive_laws.SpecificStorage`.
-    
+        return Scalar(self.solid.porosity, "reference_porosity")
+
+    def porosity_change_from_pressure(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the pressure changes to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the pressure changes to the matrix porosity [-].
+
         """
-    
-        def porosity_change_from_pressure(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """Contribution of the pressure changes to the matrix porosity [-].
-    
-            Parameters:
-                subdomains: List of subdomains where the porosity is defined.
-    
-            Returns:
-                Cell-wise contribution of the pressure changes to the matrix porosity [-].
-    
-            """
-            specific_storage = self.specific_storage(subdomains)
-            dp = self.perturbation_from_reference("pressure", subdomains)
-    
-            # Pressure change contribution
-            pressure_contribution = specific_storage * dp
-            pressure_contribution.set_name("Biot's porosity change from pressure")
-    
-            return pressure_contribution
-    
-    
+
+        # Retrieve material parameters.
+        alpha = self.biot_coefficient(subdomains)
+        phi_ref = self.reference_porosity(subdomains)
+        bulk_modulus = self.bulk_modulus(subdomains)
+
+        # Pressure changes
+        dp = self.perturbation_from_reference("pressure", subdomains)
+
+        # Compute 1/N as defined in Coussy, 2004, https://doi.org/10.1002/0470092718.
+        n_inv = (alpha - phi_ref) * (Scalar(1) - alpha) / bulk_modulus
+
+        # Pressure change contribution
+        pressure_contribution = n_inv * dp
+        pressure_contribution.set_name("Porosity change from pressure")
+
+        return pressure_contribution
+
+    def porosity_change_from_displacement(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the divergence displacement to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the divergence of the displacement to the matrix
+            porosity. Scaling with Biot's coefficient is already included.
+
+        """
+        # Implementation note: Scaling of the displacement divergence with Biot's tensor
+        # (in the form of a double dot product) is already included in the
+        # discretization of the displacement divergence. Therefore, no additional
+        # scaling is needed here.
+        div_u_contribution = self.displacement_divergence(subdomains)
+        div_u_contribution.set_name("Porosity change from displacement")
+        return div_u_contribution
+
+    def displacement_divergence(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Divergence of displacement [-].
+
+        This is ``alpha : grad(u)`` where ``alpha`` is the Biot tensor and ``u`` is
+        the displacement. If the tensor is isotropic, the expression simplifies to
+        ``alpha * div(u)``, where ``alpha`` can be interpreted as a scalar.
+
+        Parameters:
+            subdomains: List of subdomains where the divergence is defined.
+
+        Returns:
+            Divergence operator accounting from contributions from interior of the
+            domain and from internal and external boundaries.
+
+        """
+        # Sanity check on dimension
+        if not all(sd.dim == self.nd for sd in subdomains):
+            raise ValueError("Displacement divergence only defined in nd.")
+
+        # Obtain neighbouring interfaces
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Mock discretization (empty `discretize` method), used to access discretization
+        # matrices computed by Biot discretization.
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+        # Projections
+        sd_projection = pp.ad.SubdomainProjections(subdomains, dim=self.nd)
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, dim=self.nd
+        )
+
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(
+            subdomains
+        )
+
+        # Compose operator.
+        displacement_divergence_integrated = discr.displacement_divergence(
+            self.darcy_keyword
+        ) @ self.displacement(subdomains) + discr.bound_displacement_divergence(
+            self.darcy_keyword
+        ) @ (
+            boundary_operator
+            + sd_projection.face_restriction(subdomains)
+            @ mortar_projection.mortar_to_primary_avg()
+            @ self.interface_displacement(interfaces)
+        )
+        # Divide by cell volumes to counteract integration. The displacement_divergence
+        # discretization contains a volume integral. Since this is used here together
+        # with intensive quantities, we need to divide by cell volumes.
+        cell_volumes_inv = Scalar(1) / self.wrap_grid_attribute(
+            subdomains, "cell_volumes", dim=1
+        )
+        displacement_divergence = cell_volumes_inv * displacement_divergence_integrated
+        displacement_divergence.set_name("displacement_divergence")
+        return displacement_divergence
+
+    def _mpsa_consistency(
+        self, subdomains: list[pp.Grid], physics_name: str, variable_name: str
+    ) -> pp.ad.Operator:
+        """Consistency term for Mpsa discretizations of coupled problems.
+
+        This function returns a diffusion-type term that is needed to ensure an
+        MPSA-type discretization of poromechanics (or
+        thermomechanics/thermoporomechanics) is stable in the limit of vanishing time
+        steps and permeability. The term arises naturally from the MPSA discretization,
+        see Nordbotten 2016 (doi:10.1137/15M1014280) for details.
+
+        Parameters:
+            subdomains: List of subdomains where the consistency is defined.
+            physics_name: The physics keyword for which the consistency is computed.
+                This is the keyword used in the scalar_vector_mapping provided to the
+                Mpsa Biot discretization.
+            variable_name: Name of the variable which should have a consistency term.
+
+        Returns:
+            Biot consistency operator.
+
+        """
+        # Sanity check on dimension
+        if not all(sd.dim == self.nd for sd in subdomains):
+            raise ValueError("Mpsa consistency only defined in nd.")
+
+        discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
+
+        # The consistency is based on perturbation. If the variable is used directly,
+        # results will not match if the reference state is not zero, see
+        # :func:`test_without_fracture` in test_poromechanics.py.
+        dp = self.perturbation_from_reference(variable_name, subdomains)
+        consistency_integrated = discr.consistency(physics_name) @ dp
+
+        # Divide by cell volumes to counteract integration.
+        # The consistency discretization contains a volume integral. Since the
+        # consistency term is used here together with intensive quantities, we need to
+        # divide by cell volumes.
+        cell_volumes_inverse = Scalar(1) / self.wrap_grid_attribute(
+            subdomains, "cell_volumes", dim=1
+        )
+        consistency = cell_volumes_inverse * consistency_integrated
+        consistency.set_name("mpsa_consistency")
+        return consistency
+
+
+class BiotPoroMechanicsPorosity:
+    """Porosity for poromechanical models following classical Biot's theory.
+
+    The porosity is defined such that, after the chain rule is applied to the
+    accumulation term, the classical conservation equation from the Biot equations is
+    recovered.
+
+    Note that we assume constant fluid density and constant specific storage.
+
+    """
+
+    specific_storage: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Specific storage. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.SpecificStorage`.
+
+    """
+
+    def porosity_change_from_pressure(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Contribution of the pressure changes to the matrix porosity [-].
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            Cell-wise contribution of the pressure changes to the matrix porosity [-].
+
+        """
+        specific_storage = self.specific_storage(subdomains)
+        dp = self.perturbation_from_reference("pressure", subdomains)
+
+        # Pressure change contribution
+        pressure_contribution = specific_storage * dp
+        pressure_contribution.set_name("Biot's porosity change from pressure")
+
+        return pressure_contribution
+
+
 class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     """Add thermal effects to matrix porosity."""
 

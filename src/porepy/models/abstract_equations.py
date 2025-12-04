@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Callable, Optional, Sequence, Union, cast
+from typing import Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -23,59 +23,55 @@ import porepy as pp
 from porepy.numerics.ad.equation_system import GridEntity
 
 
-if TYPE_CHECKING:
-    class EquationMixin(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class EquationMixin:
-        """General class for equations defining an interface to introduce equations into
-        a model.
-    
-        Note:
-            When creating multi-physics models, the order of equations will reflect
-            the order of inheritance of individual equation classes.
-    
-            Say we have two equation classes combined into one multi-physics model:
-    
-            .. code::python
-    
-                class Equation1(EquationMixin):
-    
-                    def set_equations(self):
-                        super().set_equation()
-                        # proceed to set equation 1
-    
-                class Equation2(EquationMixin):
-    
-                    def set_equations(self):
-                        super().set_equation()
-                        # proceed to set equation 2
-    
-                class ModelEquations(Equation1, Equation2):
-                    pass
-    
-            Notice that in both ``set_equations`` the super-call comes first. The way
-            ``super()`` works is that ``Equation1`` will be called first, which in return
-            executes the code of ``Equation2`` first. I.e., the order of equations
-            introduced into the system is the reverse order of equation classes in the
-            inheritance tree of the combined class.
-    
-            Notice also, that the combined class ``ModelEquations`` does not need an
-            implementation of ``set_equations``.
-    
+class EquationMixin:
+    """General class for equations defining an interface to introduce equations into
+    a model.
+
+    Note:
+        When creating multi-physics models, the order of equations will reflect
+        the order of inheritance of individual equation classes.
+
+        Say we have two equation classes combined into one multi-physics model:
+
+        .. code::python
+
+            class Equation1(EquationMixin):
+
+                def set_equations(self):
+                    super().set_equation()
+                    # proceed to set equation 1
+
+            class Equation2(EquationMixin):
+
+                def set_equations(self):
+                    super().set_equation()
+                    # proceed to set equation 2
+
+            class ModelEquations(Equation1, Equation2):
+                pass
+
+        Notice that in both ``set_equations`` the super-call comes first. The way
+        ``super()`` works is that ``Equation1`` will be called first, which in return
+        executes the code of ``Equation2`` first. I.e., the order of equations
+        introduced into the system is the reverse order of equation classes in the
+        inheritance tree of the combined class.
+
+        Notice also, that the combined class ``ModelEquations`` does not need an
+        implementation of ``set_equations``.
+
+    """
+
+    def set_equations(self) -> None:
+        """Method to be overridden to set equations on some grid.
+
+        The base class method does nothing and is implemented to provide the right
+        signature and to help the super call to resolve the setting of equations in
+        multi-physics models.
+
         """
-    
-        def set_equations(self) -> None:
-            """Method to be overridden to set equations on some grid.
-    
-            The base class method does nothing and is implemented to provide the right
-            signature and to help the super call to resolve the setting of equations in
-            multi-physics models.
-    
-            """
-            pass
-    
-    
+        pass
+
+
 class BalanceEquation(EquationMixin):
     """Generic class for scalar and vector balance equations.
 
@@ -483,64 +479,60 @@ class LocalElimination(EquationMixin):
                 expr.set_derivatives_on_grid(diffs, grid)
 
 
-if TYPE_CHECKING:
-    class VariableMixin(pp.PorePyModel):
-        """See runtime class definition for full documentation."""
-else:
-    class VariableMixin:
-        """Mixin class for variables.
-    
-        This class is intended to be used together with the other model classes providing
-        generic functionality for variables.
-    
-        TODO: Refactor depending on whether other abstract classes are needed. Also, not
-        restricted to variables, but also to operators  (e.g. representing a secondary
-        variable) having a reference value.
-    
+class VariableMixin:
+    """Mixin class for variables.
+
+    This class is intended to be used together with the other model classes providing
+    generic functionality for variables.
+
+    TODO: Refactor depending on whether other abstract classes are needed. Also, not
+    restricted to variables, but also to operators  (e.g. representing a secondary
+    variable) having a reference value.
+
+    """
+
+    def create_variables(self) -> None:
+        """Method to be overridden to introduce variables on subdomains on interfaces.
+
+        The base class method does nothing and is implemented to provide the right
+        signature and to help the super call to resolve the creation of variables in
+        multi-physics models.
+
+        Note:
+            When creating multi-physics models, the order of variables will reflect
+            the order of inheritance of individual variable classes.
+
         """
-    
-        def create_variables(self) -> None:
-            """Method to be overridden to introduce variables on subdomains on interfaces.
-    
-            The base class method does nothing and is implemented to provide the right
-            signature and to help the super call to resolve the creation of variables in
-            multi-physics models.
-    
-            Note:
-                When creating multi-physics models, the order of variables will reflect
-                the order of inheritance of individual variable classes.
-    
-            """
-            pass
-    
-        def perturbation_from_reference(self, name: str, grids: list[pp.Grid]):
-            """Perturbation of some quantity ``name`` from its reference value.
-    
-            The parameter ``name`` should be the name of a mixed-in method, returning an
-            AD operator for given ``grids``.
-    
-            ``name`` should also be defined in the model's :attr:`reference_values`.
-    
-            This method calls the model method with given ``name`` on given ``grids`` to
-            create an operator ``A``. It then fetches the respective reference value and
-            wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
-    
-            Parameters:
-                name: Name of the quantity to be perturbed from a reference value.
-                grids: List of subdomain or interface grids on which the quantity is
-                    defined.
-    
-            Returns:
-                Operator for the perturbation.
-    
-            """
-            quantity = getattr(self, name)
-            # This will throw an error if the attribute is not callable
-            quantity_op = cast(pp.ad.Operator, quantity(grids))
-            # the reference values are a data class instance storing only numbers
-            quantity_ref = cast(pp.number, getattr(self.reference_variable_values, name))
-            # The casting reflects the expected outcome, and is used to help linters find
-            # the set_name method
-            quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)
-            quantity_perturbed.set_name(f"{name}_perturbation")
-            return quantity_perturbed
+        pass
+
+    def perturbation_from_reference(self, name: str, grids: list[pp.Grid]):
+        """Perturbation of some quantity ``name`` from its reference value.
+
+        The parameter ``name`` should be the name of a mixed-in method, returning an
+        AD operator for given ``grids``.
+
+        ``name`` should also be defined in the model's :attr:`reference_values`.
+
+        This method calls the model method with given ``name`` on given ``grids`` to
+        create an operator ``A``. It then fetches the respective reference value and
+        wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
+
+        Parameters:
+            name: Name of the quantity to be perturbed from a reference value.
+            grids: List of subdomain or interface grids on which the quantity is
+                defined.
+
+        Returns:
+            Operator for the perturbation.
+
+        """
+        quantity = getattr(self, name)
+        # This will throw an error if the attribute is not callable
+        quantity_op = cast(pp.ad.Operator, quantity(grids))
+        # the reference values are a data class instance storing only numbers
+        quantity_ref = cast(pp.number, getattr(self.reference_variable_values, name))
+        # The casting reflects the expected outcome, and is used to help linters find
+        # the set_name method
+        quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)
+        quantity_perturbed.set_name(f"{name}_perturbation")
+        return quantity_perturbed
