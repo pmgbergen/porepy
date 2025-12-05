@@ -219,9 +219,11 @@ class SubsurfaceCuboidDomain:
     """Model units."""
 
     def domain_sizes(self) -> NDArray[np.float64]:
-        """Return the size of the domain in each coordinate direction."""
+        """Return the size of the domain in each of the three coordinate directions."""
+        # Hard-coded to 3 instead of self.nd since nd is not necessarily set when this
+        # method is (first) called. Justified since this is a *cuboid* domain.
         return self.units.convert_units(
-            self.params.get("domain_sizes", np.ones([self.nd], dtype=float)), "m"
+            self.params.get("domain_sizes", np.ones(3, dtype=float)), "m"
         )
 
     def set_domain(self) -> None:
@@ -390,6 +392,7 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
             ]
         return default_params
 
+    @property
     def fracture_centers(self) -> tuple[np.ndarray, np.ndarray]:
         dx, dy, dz = self.domain_sizes()
         center_1 = np.array([0.35 * dx, 0.35 * dy, -0.6 * dz])
