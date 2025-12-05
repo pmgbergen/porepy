@@ -10,12 +10,29 @@ from typing import Any, Optional, Type
 
 import numpy as np
 
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceInfo,
-    ConvergenceStatus,
-)
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from copy import copy
 
 logger = logging.getLogger(__name__)
+
+
+def _recursive_append(d: dict, v: dict) -> dict:
+    """Auxiliary function to recursively append dictionaries."""
+    for key_v, value_v in v.items():
+        if key_v not in d:
+            d[key_v] = copy(value_v)
+        else:
+            if isinstance(d[key_v], dict):
+                assert isinstance(value_v, dict)
+                d[key_v] = _recursive_append(d[key_v], value_v)
+            elif isinstance(d[key_v], list):
+                assert isinstance(value_v, (float, int))
+                d[key_v].append(value_v)
+            else:
+                assert isinstance(value_v, (float, int))
+                d[key_v] = [d[key_v], value_v]
+
+    return d
 
 
 class NumpyJSONEncoder(json.JSONEncoder):
@@ -97,56 +114,9 @@ class SolverStatistics:
             **kwargs: Custom data to be added to the statistics object.
 
         """
-        # Append data to existing data with the same key, or replace - based on flag.
         if append:
-
-            def _convert_values_to_list(d: dict) -> dict:
-                """Auxiliary function to convert all values in a dictionary to lists."""
-                for key in d:
-                    if isinstance(d[key], dict):
-                        _convert_values_to_list(d[key])
-                    elif not isinstance(d[key], list):
-                        d[key] = [d[key]]
-                return d
-
-            def _recursive_append(d: dict, v: dict) -> dict:
-                """Auxiliary function to recursively append dictionaries."""
-                if len(d.keys()) == 0:
-                    d.update(_convert_values_to_list(v))
-                    return d
-                assert d.keys() == v.keys(), (
-                    """Dictionaries must have the same keys, """
-                    f"""got {d.keys()} and {v.keys()}"""
-                )
-                for key_d, key_v in zip(d.keys(), v.keys()):
-                    if isinstance(d[key_d], dict) and isinstance(v[key_v], dict):
-                        d = _recursive_append(d[key_d], v[key_v])
-                    elif isinstance(d[key_d], list):
-                        d[key_d].append(v[key_v])
-                    else:
-                        d[key_d] = [d[key_d], v[key_v]]
-                return d
-
             # Append data to existing keys.
-            for key, value in kwargs.items():
-                if key in self.custom_data:
-                    # Append data to existing key. Dict-data is expanded recursively.
-                    # Lists are expanded directly. Other data is converted to a list and
-                    # then expanded.
-                    if isinstance(self.custom_data[key], dict):
-                        _recursive_append(self.custom_data[key], value)
-                    elif isinstance(self.custom_data[key], list):
-                        self.custom_data[key].append(value)
-                    else:
-                        self.custom_data[key] = [self.custom_data[key], value]
-                else:
-                    # Key does not exist, create new entry. Distinguish between dict and
-                    # non-dict values. Dicts are appended recursively.
-                    if isinstance(value, dict):
-                        self.custom_data[key] = {}
-                        _recursive_append(self.custom_data[key], value)
-                    else:
-                        self.custom_data[key] = [value]
+            self.custom_data = _recursive_append(self.custom_data, kwargs)
         else:
             # Overwrite existing data.
             self.custom_data.update(kwargs)
@@ -268,10 +238,8 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     num_iteration: int = field(default=0)
     """Number of non-linear iterations performed for current time step."""
-    nonlinear_increment_norms: list[float] = field(default_factory=list)
-    """List of increment magnitudes for each non-linear iteration."""
-    residual_norms: list[float] = field(default_factory=list)
-    """List of residual for each non-linear iteration."""
+    info: list[float] | dict[str, list[float]] = field(default_factory=list)
+    """Convergence information containing error norms."""
     global_num_iteration: list[int] = field(default_factory=list)
     """List of number of iterations for entire run."""
 
@@ -283,23 +251,35 @@ class NonlinearSolverStatistics(SolverStatistics):
         """Advance the iteration count by one."""
         self.num_iteration += 1
 
-    def log_error(self, info: ConvergenceInfo, **kwargs) -> None:
-        """Log errors produced from convergence criteria.
+    def log_info(self, info: dict | float, **kwargs) -> None:
+        """Log info produced from convergence criteria.
 
         Parameters:
             info: Convergence information containing error norms.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
-        self.nonlinear_increment_norms.append(info.nonlinear_increment_norm)
-        self.residual_norms.append(info.residual_norm)
+        if isinstance(info, dict):
+            if not isinstance(self.info, dict):
+                assert len(self.info) == 0
+                self.info = {}
+            self.info = _recursive_append(self.info, info)
+        elif isinstance(info, float):
+            if not isinstance(self.info, list):
+                assert len(self.info) == 0
+                self.info = []
+            self.info.append(info)
+        else:
+            raise TypeError(
+                """Info must be either a float or a dictionary, """
+                f"""got {type(info)}"""
+            )
 
     def reset(self) -> None:
         """Reset the statistics object, and restart counting iterations."""
         super().reset()
         self.num_iteration = 0
-        self.nonlinear_increment_norms.clear()
-        self.residual_norms.clear()
+        self.info.clear()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary.
@@ -332,8 +312,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.counter)].update(
             {
                 "num_iteration": self.num_iteration,
-                "nonlinear_increment_norms": self.nonlinear_increment_norms,
-                "residual_norms": self.residual_norms,
+                "info": self.info,
             }
         )
 
