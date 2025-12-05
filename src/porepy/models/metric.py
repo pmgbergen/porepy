@@ -5,7 +5,6 @@ From plain Euclidean norms to model-specific L2 norms of states and equations.
 """
 
 from functools import partial
-from typing import Callable
 
 import numpy as np
 
@@ -25,42 +24,9 @@ class EuclideanMetric:
             float: measure of values
 
         """
-        return np.linalg.norm(values) / np.sqrt(values.size)
+        return np.linalg.norm(values) / np.sqrt(values.size) if values.size > 0 else 0.0
 
-    def variable_norm(self, values: np.ndarray) -> float:
-        """Compute the Euclidean norm of a variable.
-
-        Parameters:
-            values: algebraic representation of a mixed-dimensional variable.
-
-        Returns:
-            float: measure of values.
-
-        """
-        return self._euclidean_norm(values)
-
-    def equation_norm(self, values: np.ndarray) -> float:
-        """Compute the Euclidean norm of an equation.
-
-        Parameters:
-            values: Algebraic representation of a mixed-dimensional equation.
-
-        Returns:
-            float: Measure of values.
-
-        """
-        return self._euclidean_norm(values)
-
-
-class MultiphysicsEuclideanMetric:
-    """Plain Euclidean norm for variables and equations, computed per variable and
-    equation block.
-
-    """
-
-    equation_system: pp.EquationSystem
-
-    def _euclidean_norm(self, values: np.ndarray) -> float:
+    def __call__(self, values: np.ndarray) -> float:
         """Compute the Euclidean norm of an array.
 
         Parameters:
@@ -70,9 +36,19 @@ class MultiphysicsEuclideanMetric:
             float: measure of values
 
         """
-        return np.linalg.norm(values) / np.sqrt(values.size)
+        return self._euclidean_norm(values)
 
-    def variable_norm(self, values: np.ndarray) -> dict[str, float]:
+
+class VariableBasedEuclideanMetric(EuclideanMetric):
+    """Plain Euclidean norm for variables and equations, computed per variable and
+    equation block.
+
+    """
+
+    def __init__(self, model) -> None:
+        self.model = model
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
         """Compute the Euclidean norm of each separate variable.
 
         Parameters:
@@ -84,15 +60,25 @@ class MultiphysicsEuclideanMetric:
         """
         norms = {}
         variable_blocks = {
-            variable.name: self.equation_system.dofs_of([variable])
-            for variable in self.equation_system.variables
+            variable.name: self.model.equation_system.dofs_of([variable])
+            for variable in self.model.equation_system.variables
         }
         for name, indices in variable_blocks.items():
             norms[name] = self._euclidean_norm(values[indices])
 
         return norms
 
-    def equation_norm(self, values: np.ndarray) -> dict[str, float]:
+
+class EquationBasedEuclideanMetric(EuclideanMetric):
+    """Plain Euclidean norm for variables and equations, computed per variable and
+    equation block.
+
+    """
+
+    def __init__(self, model) -> None:
+        self.model = model
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:  # type: ignore[override]
         """Compute the Euclidean norm of each separate equation.
 
         Parameters:
@@ -103,23 +89,15 @@ class MultiphysicsEuclideanMetric:
 
         """
         norms = {}
-        equation_blocks = self.equation_system.assembled_equation_indices
+        equation_blocks = self.model.equation_system.assembled_equation_indices
         for name, indices in equation_blocks.items():
             norms[name] = self._euclidean_norm(values[indices])
-
         return norms
 
 
-class MultiphysicsLebesgueMetric:
-    """Lebesgue L2 norm for variables and equations, computed per variable and
-    equation block.
-
-    """
-
-    equation_system: pp.EquationSystem
-    volume_integral: Callable[
-        [pp.ad.Operator, list[pp.Grid] | list[pp.MortarGrid], int], pp.ad.Operator
-    ]
+class LebesgueMetric:
+    def __init__(self, model) -> None:
+        self.model = model
 
     def _lebesgue2_norm(
         self,
@@ -157,8 +135,8 @@ class MultiphysicsLebesgueMetric:
         l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
         return np.sqrt(
             np.sum(
-                self.equation_system.evaluate(
-                    self.volume_integral(
+                self.model.equation_system.evaluate(
+                    self.model.volume_integral(
                         l2_norm(values) * l2_norm(values),
                         _subdomains,
                         1,
@@ -167,7 +145,11 @@ class MultiphysicsLebesgueMetric:
             )
         )
 
-    def variable_norm(self, values: np.ndarray) -> dict[str, float]:
+
+class VariableBasedLebesgueMetric(LebesgueMetric):
+    """Lebesgue L2 norm for variables and equations, computed per variable block."""
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate variable.
 
         Parameters:
@@ -180,11 +162,11 @@ class MultiphysicsLebesgueMetric:
         norms = {}
         variable_blocks = {
             variable.name: (
-                self.equation_system.dofs_of([variable]),
+                self.model.equation_system.dofs_of([variable]),
                 variable.domain,
                 variable._cells + variable._faces + variable._nodes,
             )
-            for variable in self.equation_system.variables
+            for variable in self.model.equation_system.variables
         }
         for name, (indices, sd, variable_dim) in variable_blocks.items():
             variable_values = pp.ad.DenseArray(values[indices])
@@ -192,9 +174,43 @@ class MultiphysicsLebesgueMetric:
 
         return norms
 
+
+class EquationBasedLebesgueMetric(LebesgueMetric):
     # TODO: Need to decide which formula to use for equation norms.
 
-    def _equation_norm(self, values: np.ndarray) -> dict[str, float]:
+    # def alternative__call__(self, values: np.ndarray) -> dict[str, float]:
+    #    """Compute the Lebesgue L2 norm of each separate equation.
+
+    #    Parameters:
+    #        values: algebraic representation of a mixed-dimensional equation
+
+    #    Returns:
+    #        dict[str, float]: measure of values for each equation block
+
+    #    """
+    #    # NOTE: Mathematically, this does not make much sense. The equations are already
+    #    # integrated over cells. Thus a combination of np.linalg.norm(..., ord=1)
+    #    # and np.linalg.norm(..., ord=2) over the values would suffice.
+    #    norms = {}
+    #    equation_blocks = {
+    #        name: (
+    #            self.model.equation_system.assembled_equation_indices[name],
+    #            list(
+    #                self.model.equation_system._equation_image_space_composition[
+    #                    name
+    #                ].keys()
+    #            ),
+    #            self.model.equation_system._equation_image_size_info[name]["cells"],
+    #        )
+    #        for name in self.model.equation_system._equations
+    #    }
+    #    for name, (indices, sd, eq_dim) in equation_blocks.items():
+    #        equation_values = pp.ad.DenseArray(values[indices])
+    #        norms[name] = self._lebesgue2_norm(equation_values, eq_dim, sd)
+
+    #    return norms
+
+    def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate equation.
 
         Parameters:
@@ -204,46 +220,18 @@ class MultiphysicsLebesgueMetric:
             dict[str, float]: measure of values for each equation block
 
         """
-        # NOTE: Mathematically, this does not make much sense. The equations are already
-        # integrated over cells. Thus a combination of np.linalg.norm(..., ord=1)
-        # and np.linalg.norm(..., ord=2) over the values would suffice.
         norms = {}
         equation_blocks = {
             name: (
-                self.equation_system.assembled_equation_indices[name],
+                self.model.equation_system.assembled_equation_indices[name],
                 list(
-                    self.equation_system._equation_image_space_composition[name].keys()
+                    self.model.equation_system._equation_image_space_composition[
+                        name
+                    ].keys()
                 ),
-                self.equation_system._equation_image_size_info[name]["cells"],
+                self.model.equation_system._equation_image_size_info[name]["cells"],
             )
-            for name in self.equation_system._equations
-        }
-        for name, (indices, sd, eq_dim) in equation_blocks.items():
-            equation_values = pp.ad.DenseArray(values[indices])
-            norms[name] = self._lebesgue2_norm(equation_values, eq_dim, sd)
-
-        return norms
-
-    def equation_norm(self, values: np.ndarray) -> dict[str, float]:
-        """Compute the Lebesgue L2 norm of each separate equation.
-
-        Parameters:
-            values: algebraic representation of a mixed-dimensional equation
-
-        Returns:
-            dict[str, float]: measure of values for each equation block
-
-        """
-        norms = {}
-        equation_blocks = {
-            name: (
-                self.equation_system.assembled_equation_indices[name],
-                list(
-                    self.equation_system._equation_image_space_composition[name].keys()
-                ),
-                self.equation_system._equation_image_size_info[name]["cells"],
-            )
-            for name in self.equation_system._equations
+            for name in self.model.equation_system._equations
         }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
             if len(sd) == 0:
