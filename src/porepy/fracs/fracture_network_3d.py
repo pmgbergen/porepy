@@ -532,6 +532,13 @@ class FractureNetwork3d(object):
             constraints.sort()
 
         gmsh.initialize()
+        try:
+            num_procs = multiprocessing.cpu_count() or 1
+        except (NotImplementedError, AttributeError):
+            num_procs = 1
+
+        gmsh.option.setNumber("General.NumThreads", max(num_procs - 2, 1))
+
         # Use HXT algorithm for 3d meshing by default. TODO: This should be a user
         # option. Note to self: It is important to use Mesh.Algorithm3D, not
         # Mesh3D.Algorithm, which triggers all sorts of issues.
