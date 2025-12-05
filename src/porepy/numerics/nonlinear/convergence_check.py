@@ -9,13 +9,19 @@ This includes:
 
 """
 
-import sys
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import StrEnum
 from typing import Callable
 
 import numpy as np
+
+
+# TODO: Remove when removed in other files
+class ConvergenceInfo(dict): ...
+
+
+# TODO: Remove when removed in other files
+class ConvergenceTolerance: ...
 
 
 class ConvergenceStatus(StrEnum):
@@ -79,358 +85,461 @@ class ConvergenceStatus(StrEnum):
         }
 
 
-@dataclass
-class ConvergenceInfo:
-    nonlinear_increment_norm: float
-    """Global norm of the nonlinear increment."""
-    residual_norm: float
-    """Global norm of the residual."""
+class ConvergenceStatusDict(dict[str, ConvergenceStatus]):
+    """Dict of convergence statuses."""
 
+    def is_converged(self) -> bool:
+        """Check if all statuses indicate convergence."""
+        return all(status.is_converged() for status in self.values())
 
-class ReferenceValue:
-    """Reference value manager.
+    def is_not_converged(self) -> bool:
+        """Check if any status indicates not converged."""
+        return any(status.is_not_converged() for status in self.values())
 
-    It allows initializing a reference value only when a certain condition is met, and
-    provides a default value if the condition is not met. For setting reference values,
-    the object needs to be reset.
+    def is_diverged(self) -> bool:
+        """Check if any status indicates divergence."""
+        return any(status.is_diverged() for status in self.values())
 
-    """
+    def is_cycled(self) -> bool:
+        """Check if any status indicates cycling."""
+        return any(status.is_cycled() for status in self.values())
 
-    def __init__(
-        self,
-        condition: Callable[[float], bool],
-        default_reference_value: float,
-    ) -> None:
-        """Define the reference value manager.
+    def is_stagnated(self) -> bool:
+        """Check if any status indicates stagnation."""
+        return any(status.is_stagnated() for status in self.values())
 
-        Parameters:
-            condition: A callable that takes a value and returns True if it is a valid
-                reference value, False otherwise.
-            default_reference_value: The default value to return if the reference value
-                is not set or is None.
+    def is_nan(self) -> bool:
+        """Check if any status indicates NaN."""
+        return any(status.is_nan() for status in self.values())
 
-        """
-        self.condition: Callable[[float], bool] = condition
-        """Condition for setting the reference value."""
-        self.default_reference_value: float = default_reference_value
-        """Default value to return if the reference value is None."""
-        self.reference_value: dict[str, float | None] = {}
-        """Dictionary to store reference values for different keys."""
+    def is_stopped(self) -> bool:
+        """Check if any status indicates stopping."""
+        return any(status.is_stopped() for status in self.values())
 
-    def __call__(self, values: dict[str, float]) -> dict[str, float]:
-        """Update the reference value for a key if it meets the condition.
+    def is_failed(self) -> bool:
+        """Check if any status indicates failure."""
+        return any(status.is_failed() for status in self.values())
 
-        Parameters:
-            values: A dictionary of values to use for setting the reference value.
-
-        Returns:
-            dict[str, float]: A dictionary with the valid reference values, and the
-                default reference value if no reference value is set.
-
-        """
-        for key, value in values.items():
-            # Initialize reference value entry if not present.
-            if key not in self.reference_value:
-                self.reference_value[key] = None
-            # Update reference value if condition is met and not already set.
-            if self.condition(value) and self.reference_value[key] is None:
-                self.reference_value[key] = value
-        # Return reference values, replacing None with default.
-        return {
-            key: self.reference_value[key] or self.default_reference_value
-            for key in values.keys()
-        }
-
-    def reset(self) -> None:
-        """Reset the reference values to None."""
-        self.reference_value = {key: None for key in self.reference_value.keys()}
-
-
-### Standard tolerances for assessing convergence.
-
-
-@dataclass
-class ConvergenceTolerance:
-    """Collection of standard tolerance for assessing convergence and divergence."""
-
-    tol_increment: float = np.inf
-    """Tolerance for increments for convergence."""
-    tol_residual: float = np.inf
-    """Tolerance for residuals for convergence."""
-    max_increment: float = np.inf
-    """Tolerance for increments for divergence."""
-    max_residual: float = np.inf
-    """Tolerance for residuals for divergence."""
-    max_iterations: int = sys.maxsize
-    """Upper bound for number of iterations for divergence."""
+    def union(self, other: "ConvergenceStatusDict") -> "ConvergenceStatusDict":
+        """Union of two ConvergenceStatusDicts needing to be disjunct."""
+        result = ConvergenceStatusDict()
+        assert len(set(self.keys()).intersection(other.keys())) == 0
+        result.update(self)
+        result.update(other)
+        return result
 
 
 ### Base convergence criterion classes.
 
 
 class ConvergenceCriterion(ABC):
-    """Base class for convergence criteria.
-
-    Requires the implementation of the `check` method to define the convergence.
-
-    """
+    """Base class for convergence criteria."""
 
     @abstractmethod
-    def check(
-        self,
-        nonlinear_increment: float | dict[str, float],
-        residual: float | dict[str, float],
-        tol: ConvergenceTolerance,
-    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
         """Check convergence.
 
         Parameters:
-            nonlinear_increment: The increment in the solution variables from the
-                previous nonlinear iteration.
-            residual: The current residual vector of the nonlinear system.
-            tol: Collection of tolerances for assessing convergence and divergence.
+            kwargs: Quantities to check for convergence.
 
         Returns:
             ConvergenceStatus: Convergence status of the non-linear iteration.
-            ConvergenceInfo: Information about the convergence check.
+            float: Information about the convergence check.
 
         """
         pass
 
-    def _check_dicts(self, dict1: dict[str, float], dict2: dict[str, float]) -> None:
-        """Helper to check if two dictionaries have the same keys.
-
-        Parameters:
-            dict1: First dictionary to compare.
-            dict2: Second dictionary to compare.
-
-        Raises:
-            ValueError: If the dictionaries do not have the same keys.
-
-        """
-        if set(dict1.keys()) != set(dict2.keys()):
-            keys1 = set(dict1.keys())
-            keys2 = set(dict2.keys())
-            raise ValueError(
-                "Dictionaries do not have the same keys. "
-                f"Keys in first but not second: {keys1 - keys2}. "
-                f"Keys in second but not first: {keys2 - keys1}."
-            )
-
-    def _make_dict(self, value: float | dict[str, float]) -> dict[str, float]:
-        """Helper to convert input to a unified dict format.
-
-        Parameters:
-            value: A float or a dict with string keys and float values.
-
-        Returns:
-            Float converted to a dict, or the original dict.
-
-        """
-        if isinstance(value, dict):
-            return value
-        else:
-            return {"": value}
+    def reset(self) -> None:
+        """Reset any internal state of the convergence criterion."""
+        pass
 
 
-class RelativeConvergenceCriterion(ConvergenceCriterion):
-    """Relative convergence criterion based on reference values.
-
-    The convergence criterion is met if all relative norms of the nonlinear increment
-    and the residual are below the specified thresholds. A combined absolute-relative
-    norm is used to ensure that the relative norms are meaningful:
-
-        ||inc|| / (1 + ||ref_inc||) < tol_inc
-        ||res|| / (1 + ||ref_res||) < tol_res
-
-    The reference values for the nonlinear increment and residual norms are managed,
-    allowing for a flexible convergence check that adapts to the problem. This class
-    is abstract and requires the implementation of the `initialize_reference_value`
-    method, defining `reference_value`.
-
-    """
-
-    reference_value: ReferenceValue
-    """Reference value for relative convergence checks."""
-
-    def __init__(self) -> None:
-        """Initialize the relative convergence criterion."""
-        self.initialize_reference_value()
-        self.reference_nonlinear_increment_norm: dict[str, float] = {}
-        """Reference value for the nonlinear increment norm."""
-        self.reference_residual_norm: dict[str, float] = {}
-        """Reference value for the residual norm."""
-
-    ### Manager methods for setting reference values
+class DivergenceCriterion(ABC):
+    """Divergence criterion."""
 
     @abstractmethod
-    def initialize_reference_value(self) -> None:
-        """Expect to instantiate `self.reference_value`."""
-
-    def set_reference_value(
-        self,
-        reference_nonlinear_increment_norm: float | dict[str, float],
-        reference_residual_norm: float | dict[str, float],
-    ) -> None:
-        """Set the reference values for increments and residuals.
-
-        The actual setting is done by the `reference_value` manager, which
-        ensures that the reference values are only set if they meet the
-        specified conditions.
+    def check(self, *args, **kwargs) -> ConvergenceStatus:
+        """Check convergence.
 
         Parameters:
-            reference_nonlinear_increment_norm: Reference value for the nonlinear
-                increment norm.
-            reference_residual_norm: Reference value for the residual norm.
-
-        """
-        self.reference_nonlinear_increment_norm = self.reference_value(
-            self._make_dict(reference_nonlinear_increment_norm)
-        )
-        self.reference_residual_norm = self.reference_value(
-            self._make_dict(reference_residual_norm)
-        )
-
-    def reset_reference_values(self) -> None:
-        """Reset the reference values to their initial state."""
-        self.reference_value.reset()
-
-    ### Convergence check methods
-
-    def check(
-        self,
-        nonlinear_increment_norm: float | dict[str, float],
-        residual_norm: float | dict[str, float],
-        tol: ConvergenceTolerance,
-    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
-        """Check convergence using relative norms.
-
-        Parameters:
-            nonlinear_increment_norm: Norm of the nonlinear increment.
-            residual_norm: Norm of the residual.
-            ConvergenceTolerance: Tolerances for the convergence check.
+            kwargs: Quantities to check for convergence.
 
         Returns:
             ConvergenceStatus: Convergence status of the non-linear iteration.
-            ConvergenceInfo: Information about the convergence check.
+            float: Information about the convergence check.
 
         """
-        # Convert inputs to dicts for unified processing.
-        nonlinear_increment_norm = self._make_dict(nonlinear_increment_norm)
-        residual_norm = self._make_dict(residual_norm)
+        pass
 
-        # Consistency checks.
-        self._check_dicts(
-            nonlinear_increment_norm, self.reference_nonlinear_increment_norm
-        )
-        self._check_dicts(residual_norm, self.reference_residual_norm)
-
-        # Check nan.
-        is_nan = any(np.isnan(res_norm) for res_norm in residual_norm.values()) or any(
-            np.isnan(inc_norm) for inc_norm in nonlinear_increment_norm.values()
-        )
-
-        # Check divergence.
-        is_diverged = any(
-            res_norm > tol.max_residual for res_norm in residual_norm.values()
-        ) or any(
-            inc_norm > tol.max_increment
-            for inc_norm in nonlinear_increment_norm.values()
-        )
-
-        # Reduce norms to floats using l-infinity norm over combined
-        # absolute-relative values.
-        reduced_nonlinear_increment_norm = max(
-            inc_norm / (1 + self.reference_nonlinear_increment_norm[key])
-            for key, inc_norm in nonlinear_increment_norm.items()
-        )
-        reduced_residual_norm = max(
-            res_norm / (1 + self.reference_residual_norm[key])
-            for key, res_norm in residual_norm.items()
-        )
-
-        # Check convergence using relative norms.
-        converged_inc = reduced_nonlinear_increment_norm < tol.tol_increment
-        converged_res = reduced_residual_norm < tol.tol_residual
-        is_converged = converged_inc and converged_res
-
-        # Determine convergence status.
-        convergence_status = ConvergenceStatus.NOT_CONVERGED
-        if is_nan:
-            convergence_status = ConvergenceStatus.NAN
-        elif is_diverged:
-            convergence_status = ConvergenceStatus.DIVERGED
-        elif is_converged:
-            convergence_status = ConvergenceStatus.CONVERGED
-
-        # Collect information about the convergence check.
-        info = ConvergenceInfo(
-            nonlinear_increment_norm=reduced_nonlinear_increment_norm,
-            residual_norm=reduced_residual_norm,
-        )
-
-        return convergence_status, info
+    def reset(self) -> None:
+        """Reset any internal state of the divergence criterion."""
+        pass
 
 
-### Concrete convergence criteria
+class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
+    """Collection of convergence criteria."""
+
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatusDict, dict | float]:
+        """Check convergence using all criteria in the collection."""
+        status = ConvergenceStatusDict()
+        info = {}
+        for name, criterion in self.items():
+            stat, inf = criterion.check(*args, **kwargs)
+            status[name] = stat
+            info[name] = inf
+        return status, info
+
+    def reset(self) -> None:
+        """Reset all convergence criteria in the collection."""
+        for criterion in self.values():
+            criterion.reset()
 
 
-# class NanConvergenceCriterion(ConvergenceCriterion):
-#    """Convergence criterion that checks for NaN values."""
-#
-#    def check(
-#        self,
-#        nonlinear_increment: dict[str, float],
-#        residual: dict[str, float],
-#        tol: ConvergenceTolerance,
-#    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
-#        """Check for NaN values in the nonlinear increment and residual.
-#
-#        Parameters:
-#            nonlinear_increment: The increment in the solution variables from the
-#                previous nonlinear iteration.
-#            residual: The current residual vector of the nonlinear system.
-#            tol: Not used, but required for complying with super class.
-#
-#        Returns:
-#            ConvergenceStatus: Convergence status of the non-linear iteration.
-#            ConverenceInfo: Information about the convergence check.
-#
-#        """
-#        nonlinear_increment = self._make_dict(nonlinear_increment)
-#        residual = self._make_dict(residual)
-#        has_nan_increment = any(
-#            np.isnan(value) for value in nonlinear_increment.values()
-#        )
-#        has_nan_residual = any(np.isnan(value) for value in residual.values())
-#        if has_nan_increment or has_nan_residual:
-#            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
-#        else:
-#            return ConvergenceStatus.CONVERGED, ConvergenceInfo(0.0, 0.0)
+class DivergenceCriteria(dict[str, DivergenceCriterion]):
+    """Collection of divergence criteria."""
+
+    def check(self, *args, **kwargs) -> ConvergenceStatusDict:
+        """Check convergence using all criteria in the collection."""
+        status = ConvergenceStatusDict()
+        for name, criterion in self.items():
+            status[name] = criterion.check(*args, **kwargs)
+        return status
+
+    def reset(self) -> None:
+        """Reset all divergence criteria in the collection."""
+        for criterion in self.values():
+            criterion.reset()
 
 
-class AbsoluteConvergenceCriterion(RelativeConvergenceCriterion):
-    """Absolute convergence criterion for nonlinear problems."""
+class MaxIterationsCriterion(DivergenceCriterion):
+    """Convergence criterion based on maximum number of iterations."""
 
-    def initialize_reference_value(self):
-        """Initialize the reference value manager for absolute convergence."""
-        self.reference_value = ReferenceValue(
-            condition=lambda x: False,
-            default_reference_value=0.0,
-        )
+    def __init__(self, max_iterations: int) -> None:
+        self.max_iterations = max_iterations
+        """Maximum allowed iterations."""
+
+    def check(self, num_iterations: int, **kwargs) -> ConvergenceStatus:
+        """Check if the maximum number of iterations has been reached.
+
+        Parameters:
+            num_iterations: Current number of iterations.
+
+        Returns:
+            ConvergenceStatus: Convergence status of the non-linear iteration.
+
+        """
+        if num_iterations >= self.max_iterations:
+            return ConvergenceStatus.MAX_ITERATIONS_REACHED
+        else:
+            return ConvergenceStatus.CONVERGED
 
 
-class DynamicRelativeConvergenceCriterion(RelativeConvergenceCriterion):
-    """Relative convergence criterion for nonlinear problems.
+class NanConvergenceCriterion(DivergenceCriterion):
+    """Convergence criterion, that checks for NaN values."""
 
-    Reference values are set based on the current state but are not allowed to
-    be zero or nan.
+    def check(self, *args, **kwargs) -> ConvergenceStatus:
+        """Check for NaN values in the nonlinear increment and residual.
 
-    """
+        Parameters:
+            value: Quantity to check for NaN values.
 
-    def initialize_reference_value(self):
-        """Initialize the reference value manager for relative convergence."""
-        self.reference_value = ReferenceValue(
-            condition=lambda x: not np.isclose(x, 0.0) and not np.isnan(x),
-            default_reference_value=1.0,
-        )
+        Returns:
+            ConvergenceStatus: Convergence status of the non-linear iteration.
+            float: Information about the convergence check.
+
+        """
+        if np.isnan(kwargs["value"]).any():
+            return ConvergenceStatus.NAN
+        return ConvergenceStatus.CONVERGED
+
+
+class AbsoluteConvergenceCriterion(ConvergenceCriterion):
+    def __init__(
+        self,
+        tol: float,
+        metric: Callable[[np.ndarray], dict | float],
+    ) -> None:
+        self.tol = tol
+        self.metric = metric
+
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
+        metric_value = self.metric(kwargs["value"])
+        if isinstance(metric_value, dict):
+            status = (
+                ConvergenceStatus.CONVERGED
+                if all(v < self.tol for v in metric_value.values())
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        else:
+            status = (
+                ConvergenceStatus.CONVERGED
+                if metric_value < self.tol
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        return status, metric_value
+
+
+class AbsoluteDivergenceCriterion(DivergenceCriterion):
+    def __init__(
+        self,
+        tol: float,
+        metric: Callable[[np.ndarray], dict | float],
+    ) -> None:
+        self.tol = tol
+        self.metric = metric
+
+    def check(self, **kwargs) -> ConvergenceStatus:
+        metric_value = self.metric(kwargs["value"])
+        if isinstance(metric_value, dict):
+            status = (
+                ConvergenceStatus.DIVERGED
+                if any(v > self.tol for v in metric_value.values())
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        else:
+            status = (
+                ConvergenceStatus.DIVERGED
+                if metric_value > self.tol
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        return status
+
+
+class RelativeConvergenceCriterion(ConvergenceCriterion):
+    def __init__(
+        self,
+        tol: float,
+        metric: Callable[[np.ndarray], dict | float],
+        reference_value: dict | float | None = None,
+    ) -> None:
+        self.tol = tol
+        self.metric = metric
+        self.reference_value = reference_value
+
+    def reset(self) -> None:
+        self.reference_value = None
+
+    def set_reference_value(self, reference_value: dict | float) -> None:
+        if isinstance(reference_value, dict):
+            self.reference_value = self.reference_value or {}
+            assert isinstance(self.reference_value, dict)
+            non_zero_reference_value = {}
+            for key, val in reference_value.items():
+                if self.reference_value.get(key) is None and not np.isclose(val, 0.0):
+                    non_zero_reference_value[key] = val
+            self.reference_value.update(non_zero_reference_value)
+        else:
+            if self.reference_value is not None:
+                return
+            self.reference_value = reference_value
+
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
+        metric_value = self.metric(kwargs["value"])
+        if isinstance(metric_value, dict):
+            assert isinstance(self.reference_value, dict)
+            status = (
+                ConvergenceStatus.CONVERGED
+                if all(
+                    val < self.tol * (self.reference_value[key])
+                    for key, val in metric_value.items()
+                    if key in self.reference_value
+                )
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+            relative_metric_value: dict | float = {
+                key: val / self.reference_value[key]
+                for key, val in metric_value.items()
+                if key in self.reference_value
+            }
+        else:
+            assert isinstance(self.reference_value, float)
+            status = (
+                ConvergenceStatus.CONVERGED
+                if metric_value < self.tol * self.reference_value
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+            relative_metric_value = metric_value / self.reference_value
+        return status, relative_metric_value
+
+
+class RelativeDivergenceCriterion(DivergenceCriterion):
+    def __init__(
+        self,
+        tol: float,
+        metric: Callable[[np.ndarray], dict | float],
+        reference_value: dict | float | None = None,
+    ) -> None:
+        self.tol = tol
+        self.metric = metric
+        self.reference_value = reference_value
+
+    def reset(self) -> None:
+        self.reference_value = None
+
+    def set_reference_value(self, reference_value: dict | float) -> None:
+        if isinstance(reference_value, dict):
+            self.reference_value = self.reference_value or {}
+            assert isinstance(self.reference_value, dict)
+            non_zero_reference_value = {}
+            for key, val in reference_value.items():
+                if self.reference_value.get(key) is None and not np.isclose(val, 0.0):
+                    non_zero_reference_value[key] = val
+            self.reference_value.update(non_zero_reference_value)
+        else:
+            if self.reference_value is not None:
+                return
+            self.reference_value = reference_value
+
+    def check(self, *args, **kwargs) -> ConvergenceStatus:
+        metric_value = self.metric(kwargs["value"])
+        if isinstance(metric_value, dict):
+            assert isinstance(self.reference_value, dict)
+            status = (
+                ConvergenceStatus.DIVERGED
+                if any(
+                    v > self.tol * r
+                    for v, r in zip(
+                        metric_value.values(), self.reference_value.values()
+                    )
+                )
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        else:
+            status = (
+                ConvergenceStatus.DIVERGED
+                if metric_value > self.tol * self.reference_value
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        return status
+
+
+class CombinedConvergenceCriterion(ConvergenceCriterion):
+    def __init__(
+        self,
+        atol: float,
+        rtol: float,
+        metric: Callable[[np.ndarray], dict | float],
+        reference_value: dict | float | None = None,
+    ) -> None:
+        self.atol = atol
+        self.rtol = rtol
+        self.metric = metric
+        self.reference_value = reference_value
+
+    def reset(self) -> None:
+        self.reference_value = None
+
+    def set_reference_value(self, reference_value: dict | float) -> None:
+        if self.reference_value is not None:
+            return
+        self.reference_value = reference_value
+
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
+        metric_value = self.metric(kwargs["value"])
+        if isinstance(metric_value, dict):
+            assert isinstance(self.reference_value, dict)
+            status = (
+                ConvergenceStatus.CONVERGED
+                if all(
+                    v < self.atol + self.rtol * self.reference_value[key]
+                    for key, v in metric_value.items()
+                    if key in self.reference_value
+                )
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        else:
+            assert isinstance(self.reference_value, float)
+            status = (
+                ConvergenceStatus.CONVERGED
+                if metric_value < self.atol + self.rtol * self.reference_value
+                else ConvergenceStatus.NOT_CONVERGED
+            )
+        return status, metric_value
+
+
+class IncrementBasedNanCriterion(NanConvergenceCriterion):
+    def check(self, increment: np.ndarray, **kwargs) -> ConvergenceStatus:
+        return super().check(value=increment)
+
+
+class ResidualBasedNanCriterion(NanConvergenceCriterion):
+    def check(self, residual: np.ndarray, **kwargs) -> ConvergenceStatus:
+        return super().check(value=residual)
+
+
+class IncrementBasedAbsoluteDivergenceCriterion(AbsoluteDivergenceCriterion):
+    def check(self, increment: np.ndarray, **kwargs) -> ConvergenceStatus:
+        return super().check(value=increment)
+
+
+class ResidualBasedAbsoluteDivergenceCriterion(AbsoluteDivergenceCriterion):
+    def check(self, residual: np.ndarray, **kwargs) -> ConvergenceStatus:
+        return super().check(value=residual)
+
+
+class IncrementBasedRelativeDivergenceCriterion(RelativeDivergenceCriterion):
+    def check(
+        self, increment: np.ndarray, reference_increment: np.ndarray | None, **kwargs
+    ) -> ConvergenceStatus:
+        if reference_increment is not None:
+            self.set_reference_value(self.metric(reference_increment))
+        return super().check(value=increment)
+
+
+class ResidualBasedRelativeDivergenceCriterion(RelativeDivergenceCriterion):
+    def check(
+        self, residual: np.ndarray, reference_residual: np.ndarray | None, **kwargs
+    ) -> ConvergenceStatus:
+        if reference_residual is not None:
+            self.set_reference_value(self.metric(reference_residual))
+        return super().check(value=residual)
+
+
+class IncrementBasedAbsoluteCriterion(AbsoluteConvergenceCriterion):
+    def check(
+        self, increment: np.ndarray, **kwargs
+    ) -> tuple[ConvergenceStatus, dict | float]:
+        return super().check(value=increment)
+
+
+class IncrementBasedRelativeCriterion(RelativeConvergenceCriterion):
+    def check(
+        self, increment: np.ndarray, reference_increment: np.ndarray | None, **kwargs
+    ) -> tuple[ConvergenceStatus, dict | float]:
+        if reference_increment is not None:
+            self.set_reference_value(self.metric(reference_increment))
+        return super().check(value=increment)
+
+
+class ResidualBasedAbsoluteCriterion(AbsoluteConvergenceCriterion):
+    def check(
+        self, residual: np.ndarray, **kwargs
+    ) -> tuple[ConvergenceStatus, dict | float]:
+        return super().check(value=residual)
+
+
+class ResidualBasedRelativeCriterion(RelativeConvergenceCriterion):
+    def check(
+        self, residual: np.ndarray, reference_residual: np.ndarray | None, **kwargs
+    ) -> tuple[ConvergenceStatus, dict | float]:
+        if reference_residual is not None:
+            self.set_reference_value(self.metric(reference_residual))
+        return super().check(value=residual)
+
+
+class IncrementBasedCombinedCriterion(CombinedConvergenceCriterion):
+    def check(
+        self, increment: np.ndarray, reference_increment: np.ndarray | None, **kwargs
+    ) -> tuple[ConvergenceStatus, dict | float]:
+        if reference_increment is not None:
+            self.set_reference_value(self.metric(reference_increment))
+        return super().check(value=increment)
+
+
+class ResidualBasedCombinedCriterion(CombinedConvergenceCriterion):
+    def check(
+        self, residual: np.ndarray, reference_residual: np.ndarray | None, **kwargs
+    ) -> tuple[ConvergenceStatus, dict | float]:
+        if reference_residual is not None:
+            self.set_reference_value(self.metric(reference_residual))
+        return super().check(value=residual)
