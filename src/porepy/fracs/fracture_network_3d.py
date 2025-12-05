@@ -639,6 +639,7 @@ class FractureNetwork3d(object):
             num_parents_of_lines,
             constraints,
             intersection_line_parents,
+            inv_fracture_tag_map,
         ) = self.process_intersections(
             surface_tags_new,
             domain_tag,
@@ -829,10 +830,12 @@ class FractureNetwork3d(object):
         # domain (has a distance larger than tol). If all fragments of a fracture are
         # kicked out, we need to remove the fracture altogether, and update the
         # constraint indices accordingly.
+        updated_fracture_tag_map = {}
         for fi, frac in enumerate(isect_mapping):
             if frac and frac[0][0] == 3:
                 # This is the domain, keep it.
                 continue
+            frac_ind = surface_tags[fi]
             loc_keep = np.ones(len(frac), dtype=bool)
             for sfi, sub_frac in enumerate(frac):
                 bounding_lines = gmsh.model.get_boundary([sub_frac])
@@ -842,7 +845,9 @@ class FractureNetwork3d(object):
 
                 # For each bounding point, compute the minimum distance to the different
                 # parts of the domain (the domain may have been split in multiple parts
-                # during fragmentation).
+                # during fragmentation). Note to self: We cannot check the subsurface
+                # itself, since for fractures partially inside the domain, the
+                # subsurface that should be excluded will still be inside the domain.
                 distances = np.zeros(len(bounding_points))
                 for i, pt in enumerate(bounding_points):
                     distances[i] = min(
@@ -855,13 +860,20 @@ class FractureNetwork3d(object):
                     loc_keep[sfi] = False
                     # Take note that part of this fracture (mapping back to the input
                     # fracture index system) has been deleted.
-                    part_of_fracture_deleted.append(inv_fracture_tag_map[sub_frac[1]])
+                    part_of_fracture_deleted.append(inv_fracture_tag_map[frac_ind])
+                else:
+                    if frac_ind in inv_fracture_tag_map:
+                        updated_fracture_tag_map[sub_frac[1]] = inv_fracture_tag_map[
+                            frac_ind
+                        ]
             # Keep only the sub-fractures that are within the domain.
             isect_mapping[fi] = [frac[i] for i in range(len(frac)) if loc_keep[i]]
             # If any sub-fracture is kept, we keep the fracture.
             keep[fi] = np.any(loc_keep)
 
         # Remove fractures where all the sub-fractures were outside the domain.
+        # TODO: Remove from gmsh as well. Applies to both fully and partially removed
+        # fractures.
         isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
 
         # Update the constraint indices to account for fully removed fractures.
@@ -881,6 +893,7 @@ class FractureNetwork3d(object):
                 # adjusting the index accordingly.
                 updated_constraints.append(int(c) - num_frac_deleted)
         constraints = updated_constraints
+        inv_fracture_tag_map = updated_fracture_tag_map
 
         # Count the number of fracture objects, excluding the domain boundary, but
         # including possible multiple subfractures that have been split from a single
@@ -1045,6 +1058,7 @@ class FractureNetwork3d(object):
             num_parents,
             constraints,
             line_parents,
+            inv_fracture_tag_map,
         )
 
     def _set_2d_mesh_size(
