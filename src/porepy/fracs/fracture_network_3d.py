@@ -709,8 +709,8 @@ class FractureNetwork3d(object):
             # In the latter case, the fracture was split into segments when mesh size
             # control points were added to the fracture.
             all_lines = []
-            if line_group and line_group[0][1] in boundary_tags_new:
-                # Skip lines on the boundary.
+            if line_group and line_group[0][1] not in inv_fracture_tag_map:
+                # Skip fractures on the boundary.
                 continue
 
             for line in line_group:
