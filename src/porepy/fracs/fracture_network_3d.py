@@ -1343,7 +1343,7 @@ class FractureNetwork3d(object):
                     gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
                     gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_end)
                 else:
-                    gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+                    gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_end)
                     gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
 
                 # Note to self: The order is important here - the restriction must refer
@@ -1456,37 +1456,37 @@ class FractureNetwork3d(object):
 
         # TODO: Also include boundary lines here? Or are they implicitly assigned value
         # h_bound?
-        for surface in fracture_tags:
-            # Adapt the number of sampling points along the line to its length and the
-            # fracture mesh size. There should be at least two points, though.
-            # end_points = gmsh.model.getBoundary([(nd, surface)], combined=False)
-            # length = gmsh.model.occ.get_distance(
-            #     end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
-            # )[0]
-            # num_points = max(2, int(np.ceil(length / h_frac)) + 1)
-            area = gmsh.model.occ.get_mass(nd - 1, surface)
-            length = np.sqrt(area)
-            num_points = 4
+        # for surface in fracture_tags:
+        #     # Adapt the number of sampling points along the line to its length and the
+        #     # fracture mesh size. There should be at least two points, though.
+        #     # end_points = gmsh.model.getBoundary([(nd, surface)], combined=False)
+        #     # length = gmsh.model.occ.get_distance(
+        #     #     end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
+        #     # )[0]
+        #     # num_points = max(2, int(np.ceil(length / h_frac)) + 1)
+        #     area = gmsh.model.occ.get_mass(nd - 1, surface)
+        #     length = np.sqrt(area)
+        #     num_points = 4
 
-            field = gmsh.model.mesh.field.add("Distance")
-            gmsh.model.mesh.field.setNumbers(field, "SurfacesList", [surface])
-            gmsh.model.mesh.field.setNumber(field, "Sampling", num_points)
+        #     field = gmsh.model.mesh.field.add("Distance")
+        #     gmsh.model.mesh.field.setNumbers(field, "SurfacesList", [surface])
+        #     gmsh.model.mesh.field.setNumber(field, "Sampling", num_points)
 
-            restriction = gmsh.model.mesh.field.add("Restrict")
-            gmsh.model.mesh.field.setNumber(restriction, "InField", field)
-            gmsh.model.mesh.field.setNumbers(restriction, "VolumesList", domain_tags)
-            threshold = gmsh.model.mesh.field.add("Threshold")
-            gmsh.model.mesh.field.setNumber(threshold, "InField", restriction)
-            # Start coarsening immediately from zero distance.
-            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
-            # TODO: This enforces at least ALPHA elements along each fracture. Do we want
-            # this?
-            gmsh.model.mesh.field.setNumber(
-                threshold, "SizeMin", min(h_frac, length / ALPHA)
-            )
-            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
-            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
-            gmsh_fields.append(threshold)
+        #     restriction = gmsh.model.mesh.field.add("Restrict")
+        #     gmsh.model.mesh.field.setNumber(restriction, "InField", field)
+        #     gmsh.model.mesh.field.setNumbers(restriction, "VolumesList", domain_tags)
+        #     threshold = gmsh.model.mesh.field.add("Threshold")
+        #     gmsh.model.mesh.field.setNumber(threshold, "InField", restriction)
+        #     # Start coarsening immediately from zero distance.
+        #     gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+        #     # TODO: This enforces at least ALPHA elements along each fracture. Do we want
+        #     # this?
+        #     gmsh.model.mesh.field.setNumber(
+        #         threshold, "SizeMin", min(h_frac, length / ALPHA)
+        #     )
+        #     gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
+        #     gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+        #     gmsh_fields.append(threshold)
 
         # Finally, as the background mesh, we take the minimum of all the created
         # fields.
@@ -1580,7 +1580,7 @@ class FractureNetwork3d(object):
                 # No refinement between two boundary lines.
                 continue
 
-            distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
+            distance_info: Final = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
             distances = distance_info
             is_intersection = distances[0] < self.tol
 
