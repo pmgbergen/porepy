@@ -902,19 +902,9 @@ class FractureNetwork3d(object):
         constraints = updated_constraints
         inv_fracture_tag_map = updated_fracture_tag_map
 
-        # Count the number of fracture objects, excluding the domain boundary, but
-        # including possible multiple subfractures that have been split from a single
-        # fracture in the input data.
-        num_real_frac = 0
-        all_fracs = []
-        for f in fracture_tag_map.values():
-            all_fracs += f
-
-        for frac in isect_mapping:
-            if frac and frac[0][0] == 2:
-                for sub_frac in frac:
-                    if sub_frac[1] in all_fracs:
-                        num_real_frac += 1
+        # Count the number of fracture objects that survived both the fragmentation and
+        # the distance-based domain trimming.
+        num_real_frac = len(set(inv_fracture_tag_map.values()))
 
         # Partial implementation. Intersection lines are either on the boundary or
         # embedded in fractures. Make a list of both.
