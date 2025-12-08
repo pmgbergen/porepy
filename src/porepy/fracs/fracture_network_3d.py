@@ -648,7 +648,7 @@ class FractureNetwork3d(object):
             intersection_line_parents,
             inv_fracture_tag_map,
         ) = self.process_intersections(
-            surface_tags_new,
+            fracture_tags_new,
             domain_tag,
             constraints=constraints,
             fracture_tag_map=fracture_tag_map,
@@ -672,6 +672,45 @@ class FractureNetwork3d(object):
                 if old_gmsh_tag in mesh_control_dict:
                     # Update the mesh size points for the new segments.
                     new_mesh_control_dict[sub_frac[1]] = mesh_control_dict[old_gmsh_tag]
+
+        # We also need to transfer the mesh size points for the boundary surfaces.
+        # Identification of these is not straightforward since, if we had included them
+        # in the fragmentation (processing of intersections), gmsh would occasionally
+        # have failed to identify intersections between boundary surfaces and fractures.
+        # Therefore, we do an identification based on the geometry of the surfaces:
+
+        # TODO: A similar code is spread throughout the meshing functionality.
+        # Centralize.
+        phys_coord = []
+        gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
+        for gmsh_ind in gmsh_point_ind:
+            coord = gmsh.model.get_bounding_box(0, gmsh_ind)[:3]
+            phys_coord.append(np.array(coord))
+        phys_coord = np.array(phys_coord).T
+
+        domain_tag = gmsh.model.get_entities(nd)
+        bnd_tag = gmsh.model.get_boundary(gmsh.model.get_entities(nd), oriented=False)
+        new_mesh_control_dict.update({t[1]: [] for t in bnd_tag})
+        for bnd in boundary_tags_new:
+            info = mesh_control_dict.get(bnd)
+            if len(info) == 0:
+                # No points were assigned to this boundary surface, so there is nothing
+                # to transfer.
+                continue
+            points = np.array([p[0] for p in info]).T
+            gmsh_ind = []
+            for i in range(points.shape[1]):
+                pd = np.linalg.norm(phys_coord - points[:, i].reshape(3, 1), axis=0)
+                if np.all(pd > 1e-6):
+                    assert False
+                gmsh_ind.append(gmsh_point_ind[int(np.argmin(pd))])
+
+            for new_bnd in bnd_tag:
+                for i in range(points.shape[1]):
+                    if gmsh.model.is_inside(*new_bnd, points[:, i]):
+                        new_mesh_control_dict[new_bnd[1]].append(
+                            (points[:, i], info[i][1])
+                        )
 
         mesh_control_dict = new_mesh_control_dict
         ## Export physical entities to gmsh.
@@ -794,22 +833,26 @@ class FractureNetwork3d(object):
 
     def process_intersections(
         self,
-        surface_tags: list[int],
+        fracture_tags: list[int],
         domain_tag: int,
         constraints: list[int],
         fracture_tag_map,
         inv_fracture_tag_map,
     ) -> None:
         nd = 3
-        dim_surface_tags = [(nd - 1, tag) for tag in surface_tags]
+        dim_fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
+
         if domain_tag >= 0:
             _, isect_mapping = gmsh.model.occ.fragment(
-                dim_surface_tags, [(nd, domain_tag)], removeObject=True, removeTool=True
+                dim_fracture_tags,
+                [(nd, domain_tag)],
+                removeObject=True,
+                removeTool=True,
             )
         else:
             # Special handling of DFN-style meshing.
             _, isect_mapping = gmsh.model.occ.fragment(
-                dim_surface_tags, [], removeObject=True, removeTool=True
+                dim_fracture_tags, [], removeObject=True, removeTool=True
             )
 
         gmsh.model.occ.synchronize()
