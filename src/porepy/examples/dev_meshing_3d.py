@@ -3,6 +3,7 @@ import porepy as pp
 from itertools import combinations
 
 import gmsh
+from time import time
 
 if False:
     gmsh.initialize()
@@ -114,7 +115,10 @@ if False:
 
     intersections = gmsh.model.occ.intersect([(2, f1)], [(2, f2)])
 else:
-    f_0 = pp.PlaneFracture(np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]).T)
+    tic = time()
+    f_0 = pp.PlaneFracture(
+        np.array([[0.25, 0.25, 0.3], [1, 0.25, 0.3], [1, 1, 0.3], [0.25, 1, 0.3]]).T
+    )
     f_1 = pp.PlaneFracture(
         np.array([[0, 0, 0.5], [1, 0, 0.5], [1, 1, 0.5], [0, 1, 0.5]]).T
     )
@@ -122,14 +126,45 @@ else:
         np.array([[0.2, -0.3, -0.2], [0.2, 0.2, -0.2], [0.2, 0.2, 1], [0.2, -0.3, 1]]).T
     )
     f_3 = pp.EllipticFracture(
-        center=np.array([0.0, 0.0, 1.0]),
-        major_axis=0.5,
+        center=np.array([0.0, 0.0, 0.95]),
+        major_axis=0.4,
         minor_axis=0.2,
-        major_axis_angle=0.0,
+        major_axis_angle=np.pi / 3,
         strike_angle=np.pi / 2,
         dip_angle=0.0,
     )
-    fractures = [f_0, f_1, f_2, f_3]
+    f_4 = pp.PlaneFracture(
+        np.array([[0, -0.1, 0], [1, -0.1, 0], [1, -0.1, 1], [0, -0.1, 1.0]]).T
+    )
+    # Fracture close to the boundary, but parallel.
+    f_5 = pp.PlaneFracture(
+        np.array([[0, 0, 3.3], [1, 0, 3.3], [1, 1, 3.3], [0, 1, 3.3]]).T
+    )
+    # Fracture orthorgonal to boundary, and close to it.
+    f_6 = pp.PlaneFracture(
+        np.array([[3.4, 0.2, 0], [3.4, 0.7, 0], [2.9, 0.7, 0], [2.9, 0.2, 0]]).T
+    )
+
+    # Fracture orthorgonal to boundary, touching it.
+    f_7 = pp.PlaneFracture(
+        np.array([[3.6, 0.2, 2], [3.5, 0.7, 2], [2.9, 0.7, 2], [2.9, 0.2, 2]]).T
+    )
+    # Isolated fracture far from boundary.
+    f_8 = pp.PlaneFracture(
+        np.array(
+            [
+                [-1.5, -1.5, -1.5],
+                [-1.0, -1.5, -1.5],
+                [-1.0, -1.0, -1.5],
+                [-1.5, -1.0, -1.5],
+            ]
+        ).T
+    )
+
+    fractures = [f_0, f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8]
+    # fractures = [f_5]
+    # fractures = fractures[:6]
+    fractures = [f_7]
 
     domain = pp.Domain(
         {
@@ -143,7 +178,7 @@ else:
     )
     network = pp.create_fracture_network(fractures, domain)
 
-    mdg = network.mesh(mesh_args={"mesh_size_frac": 0.5, "mesh_size_bound": 1})
+    mdg = network.mesh(mesh_args={"mesh_size_frac": 0.3, "mesh_size_bound": 1.0})
 
     fn = "dev_meshing_3d"
 
@@ -163,12 +198,16 @@ else:
 
     # Delete the individual files.
     import os
+    from pathlib import Path
+
+    file_name = Path(__file__).name
 
     for name in names:
-        os.remove(name)
+        if file_name not in name:
+            os.remove(name)
 
     print(mdg)
-
+    print(f"Elapsed time: {time() - tic:.2f} seconds")
     # Package all files called fn.* into a zip file.
 
     debug = []
