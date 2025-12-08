@@ -122,7 +122,7 @@ class DataSavingMixin(pp.PorePyModel):
         variables = self.equation_system.variables
         for var in variables:
             scaled_values = self.equation_system.get_variable_values(
-                variables=[var], time_step_index=0
+                variables=[var], iterate_index=0
             )
             units = var.tags["si_units"]
             values = self.units.convert_units(scaled_values, units, to_si=True)
