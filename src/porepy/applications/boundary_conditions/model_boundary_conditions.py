@@ -300,14 +300,14 @@ class BoundaryConditionsMechanicsNeumann:
     The only exception is that internal boundaries are converted to Dirichlet and three
     points are partly fixed to avoid rigid body motions. We pick maximum z coordinate
     for all three points. The points have
-            1) mean x and min y coordinate, (fixed in x and z directions)
-            2) mean x and max y coordinate,  (fixed in x and z directions)
-            3) mean y and min x coordinate. (fixed in y and z directions)
+            1) min x and max y coordinate, (fixed in y and z directions)
+            2) max x and max y coordinate,  (fixed in y and z directions)
+            3) mean x and min y coordinate. (fixed in x and z directions)
     Seen from above, this looks like:
 
                 -------
-                |     |
-       (no y) 1 |     | 2 (no y)    ^ y
+      (no y) 1  |     | 2 (no y)
+                |     |             ^ y
                 |     |             |
                 -------             +---> x
                    3 (no x)
@@ -366,17 +366,21 @@ class BoundaryConditionsMechanicsNeumann:
         box = self.domain.bounding_box
 
         # Point 1 is on the center top of the west boundary, having min x coordinate and
-        # mean y coordinate.
+        # y coordinate slightly smaller than the max y coordinate. This is intended to
+        # avoid picking a face along the z-aligned edge.
         x_mean = 0.5 * (box["xmax"] + box["xmin"])
-        y_mean = 0.5 * (box["ymax"] + box["ymin"])
+        # Compute a cell size h to place the point slightly inside the domain along the
+        # y direction instead of at the very corner.
+        h = np.mean(np.sqrt(sd.face_areas[domain_sides.west]))
+        y_high = box["ymax"] - 0.5 * h
         z_max = box["zmax"]
-        point_1 = np.array([box["xmin"], y_mean, z_max])
+        point_1 = np.array([box["xmin"], y_high, z_max])
         pts = sd.face_centers[:, domain_sides.west]
         ind_1 = domain_sides.west.nonzero()[0][
             np.argmin(pp.distances.point_pointset(point_1, pts))
         ]
         # Point 2 is on the center top of the east boundary.
-        point_2 = np.array([box["xmax"], y_mean, z_max])
+        point_2 = np.array([box["xmax"], y_high, z_max])
         pts = sd.face_centers[:, domain_sides.east]
         ind_2 = domain_sides.east.nonzero()[0][
             np.argmin(pp.distances.point_pointset(point_2, pts))
@@ -437,9 +441,14 @@ class GravityMagnitude:
 class LithostaticBoundaryStressValues(GravityMagnitude):
     """Boundary conditions for the mechanics with lithostatic stress on all boundaries.
 
-    Neumann boundary conditions are defined on all boundaries, with stress values
-    corresponding to lithostatic stress. The principal stresses are assumed to align
-    with the coordinate axes.
+    Neumann boundary conditions are defined on all boundaries. Zero stress is assumed at
+    time zero. This corresponds to an initial stress-free state, and presumably to zero
+    initial displacement as well. For positive times, lithostatic stress is applied
+    according to the depth of the boundary faces. The principal stresses are assumed to
+    align with the coordinate axes, and the relative magnitudes can be adjusted through
+    the parameter "lithostatic_stress_multipliers", which should be an array of three
+    values. The default is an array of ones, corresponding to equal stresses in all
+    directions.
 
     """
 
