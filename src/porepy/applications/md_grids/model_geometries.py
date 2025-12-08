@@ -239,19 +239,6 @@ class SubsurfaceCuboidDomain:
         }
         self._domain = pp.Domain(box)
 
-    def depth(self, points: np.ndarray) -> np.ndarray:
-        """Calculate depth of points.
-
-        Parameters:
-            points: Array of points where depth is to be calculated.
-
-        Returns:
-            Depth values for the provided points.
-
-        """
-        key = "zmax" if self.nd == 3 else "ymax"
-        return self.domain.bounding_box[key] - points[self.nd - 1, :]
-
 
 class TwoWells3d(SubsurfaceCuboidDomain):
     """A mixin adding two wells to a 3d model.
