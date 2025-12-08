@@ -1,3 +1,18 @@
+"""Example script for simulating a geothermal reservoir with wells and fractures.
+
+This script defines a geothermal reservoir model with two wells and two fractures. The
+model includes constitutive laws, boundary conditions, initial conditions, and export
+functionality. The model is solved using a line search nonlinear solver.
+
+Some of the functionality is tailored to handle well boundary conditions, while other
+parts are fetched from PorePy mixin classes.
+
+Note that the simulations as defined herein is relatively expensive, mainly due to the
+high number of time steps. Adjust the time schedule, spatial grid or other parameters as
+needed for quicker test runs.
+
+"""
+
 import logging
 from typing import TYPE_CHECKING, Callable, cast
 
@@ -27,7 +42,8 @@ logging.basicConfig(level=logging.INFO)
 
 
 class WellBoundaryConditions(pp.PorePyModel):
-    """Class defining boundary conditions values for geothermal reservoir models with wells.
+    """Class defining boundary conditions values for geothermal reservoir models with
+    wells.
 
     We impose the well protocols as boundary conditions on the appropriate grids. For
     the boundaries of the 3d matrix grid (and any fracture grids), we impose whatever
@@ -389,7 +405,7 @@ class ConstraintLineSearchNonlinearSolver(
 
 if __name__ == "__main__":
     # Define time schedule for the simulation.
-    schedule = np.array([0, pp.HOUR, 10 * pp.HOUR, 200 * pp.DAY])
+    schedule = np.array([0, pp.HOUR, 10 * pp.HOUR, 100 * pp.DAY])
 
     # Add initialization time interval.
     dt_init = 3 * pp.YEAR
@@ -438,6 +454,7 @@ if __name__ == "__main__":
             constant_dt=False,
             dt_min_max=(0.1 * pp.HOUR, max(pp.YEAR, dt_init)),
             iter_optimal_range=(6, 10),  # Allow more iterations than default.
+            iter_relax_factors=(0.5, 1.8),  # More aggressive relaxation
         ),
         # Set physical parameters.
         "lithostatic_stress_multipliers": np.array([0.8, 1.2, 1.0]),
