@@ -350,6 +350,10 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
             - major_axis_angles: Major axis angles of the fractures (default [0.0, 0.0])
             - num_points: Number of points to define each fracture (default [10, 10])
 
+        The fracture axes are scaled by the minimum of the domain sizes. For adjusting
+        the fracture centers, the user should override the property
+        :meth:`fracture_centers`.
+
         Returns:
             A dictionary with fracture parameters.
 
@@ -362,22 +366,26 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
             "dip_angles": np.array([np.pi / 2, np.pi / 2]),
             "major_axis_angles": np.array([0.0, 0.0]),
         }
-        # Update with user-provided parameters, converting units as needed.
-        units = ["-", "-", "m", "rad", "rad", "rad"]
-        user_params = self.params.get("fracture_params", {})
-        for key, unit in zip(default_params.keys(), units):
-            if key in user_params:
-                if unit == "m":
-                    default_params[key] = self.units.convert_units(
-                        user_params[key], "m"
-                    )
-                else:
-                    default_params[key] = user_params[key]
+
         if "fracture_minor_axes" not in default_params:
             default_params["fracture_minor_axes"] = default_params[
                 "fracture_major_axes"
             ]
         return default_params
+
+    @property
+    def fracture_minor_axes(self) -> np.ndarray:
+        params = self.fracture_params()
+        # Scale minor axes by the minimum domain size.
+        size = min(self.domain_sizes())
+        return params["fracture_minor_axes"] * size
+
+    @property
+    def fracture_major_axes(self) -> np.ndarray:
+        params = self.fracture_params()
+        # Scale major axes by the minimum domain size.
+        size = min(self.domain_sizes())
+        return params["fracture_major_axes"] * size
 
     @property
     def fracture_centers(self) -> tuple[np.ndarray, np.ndarray]:
@@ -387,7 +395,8 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
         return center_1, center_2
 
     def set_fractures(self):
-        """Set the two elliptic fractures."""
+        """Set the elliptic fractures as defined in the fracture parameters and the
+        fracture centers method."""
         self._fractures = []
         params = self.fracture_params()
         for i in range(params["num_fractures"]):
@@ -395,8 +404,8 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
                 center=self.fracture_centers[i],
                 strike_angle=params["strike_angles"][i],
                 dip_angle=params["dip_angles"][i],
-                major_axis=params["fracture_major_axes"][i],
-                minor_axis=params["fracture_minor_axes"][i],
+                major_axis=self.fracture_major_axes[i],
+                minor_axis=self.fracture_minor_axes[i],
                 major_axis_angle=params["major_axis_angles"][i],
                 num_points=params["num_points"][i],
             )
