@@ -272,9 +272,11 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         """Hook called before the nonlinear solver loop.
 
         Rediscretize flow problem at the onset of second time interval, when injection
-        starts. The tailoring is done to recompute the Darcy flux discretization only at
-        this specific time, since the discretization remains constant during the rest of
-        the simulation. See also time dependency in :bc_type_darcy_flux.
+        starts and the BC type changes from Neumann to Dirichlet.
+
+        The tailoring is done to recompute the Darcy flux discretization only at this
+        specific time, since the discretization remains constant during the rest of the
+        simulation. See also time dependency in :bc_type_darcy_flux.
 
         NOTE: Strictly speaking, we could be even more conservative and ensure we don't
         rediscretize if the time step needs to be recomputed due to nonlinear solver
@@ -441,9 +443,11 @@ if __name__ == "__main__":
         }
     )
     # Define domain sizes (x, y, z) and fracture size.
-    size = 1e3  # [m]
-    fracture_size = 1.5e2  # [m]
-    domain_sizes = np.array([1.0 * size, 1.0 * size, 1.0 * size])  # [m]
+    length_scale = 1e3  # [m]
+    fracture_size = 0.15  # [-], fraction of length_scale
+    domain_sizes = np.array(
+        [1.0 * length_scale, 1.0 * length_scale, 1.0 * length_scale]
+    )  # [m]
     # Define model parameters. See file example_params.py and the mixins used to define
     # :class:`GeothermalReservoirWellBCs` for other options.
     model_params = {
@@ -474,8 +478,8 @@ if __name__ == "__main__":
         # Set geometry and meshing related parameters.
         "grid_type": "simplex",
         "meshing_arguments": {
-            "cell_size": size / 5.0,
-            "cell_size_fracture": fracture_size / 2.5,
+            "cell_size": length_scale / 5.0,
+            "cell_size_fracture": fracture_size * length_scale / 2.5,
         },
         "fracture_params": {  # Other options are available in the geometry mixin.
             "fracture_major_axes": np.array((fracture_size, fracture_size * 1.2)),
