@@ -315,3 +315,59 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
+
+
+class IterationExporting:
+    def initialize_data_saving(self):
+        """Initialize iteration exporter."""
+        super().initialize_data_saving()
+        # Having a separate exporter for iterations avoids distinguishing between
+        # iterations and time steps in the regular exporter's history.
+        self.iteration_exporter = pp.Exporter(
+            self.mdg,
+            file_name=self.params["file_name"],
+            folder_name=self.params["folder_name"] + "_iterations",
+        )
+
+    def data_to_export_iteration(self):
+        """Returns data for iteration exporting.
+
+        Override to customize data to be exported at each nonlinear iteration.
+
+        Returns:
+            Any type compatible with data argument of pp.Exporter().write_vtu().
+
+        """
+        return self.data_to_export()
+
+    def save_data_iteration(self):
+        """Export current solution to vtu files.
+
+        This method is typically called by after_nonlinear_iteration.
+        """
+        # To make sure the nonlinear iteration index does not interfere with the time
+        # part, we multiply the latter by the next power of ten above the maximum number
+        # of nonlinear iterations. Default value set to 10 in accordance with the
+        # default value used in NewtonSolver.
+        n = self.params.get("max_iterations", 10)
+        p = round(np.log10(n))
+        r = 10**p
+        if r <= n:
+            r = 10 ** (p + 1)
+        self.iteration_exporter.write_vtu(
+            self.data_to_export_iteration(),
+            time_dependent=True,
+            time_step=self.nonlinear_solver_statistics.num_iteration
+            + r * self.time_manager.time_index,
+        )
+
+    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+        """Integrate iteration export into simulation workflow.
+
+        Order of operations is important, super call distributes the solution to
+        iterate subdictionary.
+
+        """
+        super().after_nonlinear_iteration(solution_vector)
+        self.save_data_iteration()
+        self.iteration_exporter.write_pvd()
