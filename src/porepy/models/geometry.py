@@ -97,7 +97,7 @@ class ModelGeometry(pp.PorePyModel):
         """Assign well network class."""
         self.well_network = pp.WellNetwork3d(domain=self._domain)
 
-    def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+    def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
 
         Parameters:
