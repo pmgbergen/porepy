@@ -390,7 +390,7 @@ class ResidualExporting:
         return data
 
 
-class ExportFractureQuantities(pp.PorePyModel):
+class FractureDeformationExporting(pp.PorePyModel):
     """Class for exporting fracture-specific quantities.
 
     Adds the fracture-specific secondary variables
