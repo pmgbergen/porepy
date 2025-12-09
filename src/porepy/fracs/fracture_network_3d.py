@@ -61,11 +61,12 @@ class SurfacePointInserter:
 
     """
 
-    def __init__(self, threshold, nd: int) -> None:
+    def __init__(self, threshold, nd: int, mesh_args: dict) -> None:
         self._threshold = threshold
         self._nd = nd
+        self._mesh_args = mesh_args
 
-    def compute_points(self, f_0, f_1, cp_0, cp_1):
+    def compute_points(self, f_0, f_1, cp_0, cp_1, distance):
         """Compute points to be inserted on the surfaces of two fractures.
 
         Given two fractures and their corresponding control points, this method
@@ -85,15 +86,31 @@ class SurfacePointInserter:
 
         """
         # Implementation goes here
-        points_0 = self._control_points(f_0, f_1, cp_0, cp_1)
-        points_1 = self._control_points(f_1, f_0, cp_1, cp_0)
+        points_0 = self._control_points(f_0, f_1, cp_0, cp_1, distance)
+        points_1 = self._control_points(f_1, f_0, cp_1, cp_0, distance)
         return points_0, points_1
 
-    def _control_points(self, f_main, f_other, cp_0, cp_1):
+    def _control_points(self, f_main, f_other, cp_0, cp_1, init_distance):
         t_i, t_j = self._tangent_basis(f_main, cp_0, cp_1)
 
         def priority(ij):
             return abs(ij.i) + abs(ij.j)
+
+        # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # object requiring refinement.
+        ALPHA = 3
+        # Beta is a parameter controlling the size of the transition region from fine
+        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # object requiring refinement.
+        BETA = 15
+
+        h_frac = self._mesh_args["mesh_size_frac"]
+        h_bound = self._mesh_args["mesh_size_bound"]
+        # EK note to self: I am not entirely sure whether h_min should remain a user
+        # parameter, or if we can get rid of it.
+        h_min = self._mesh_args.get("mesh_size_min", h_frac / 10)
 
         q = []
         tab = {}
@@ -105,7 +122,7 @@ class SurfacePointInserter:
             Direction.SOUTH: True,
             Direction.NORTH: True,
         }
-        tab[i] = (Point(*cp_0), direction)
+        tab[i] = (Point(*cp_0), direction, init_distance)
         points_to_add = []
         discarded_ijs = set()
 
@@ -113,9 +130,10 @@ class SurfacePointInserter:
             _, i = heapq.heappop(q)
             if i in discarded_ijs:
                 continue
-            p, dirs = tab[i]
+            p, dirs, old_distance = tab[i]
 
-            if not gmsh.model.isInside(self._nd - 1, f_main, p):
+            if not gmsh.model.is_inside(self._nd - 1, f_main, p):
+                # We are outside the fracture, no need to proceed in this direction.
                 discarded_ijs.add(i)
                 tab.pop(i)
                 continue
@@ -124,12 +142,23 @@ class SurfacePointInserter:
             dist_other = gmsh.model.occ.get_distance(
                 0, gmsh_ind, self._nd - 1, f_other
             )[0]
-            if dist_other > self._threshold:
+
+            # Mesh at this point, as determined by the distance from the parent point
+            # (tab[i][0]).
+            h_from_prev = old_distance / ALPHA + (h_bound - old_distance / ALPHA) / (
+                BETA * h_frac - old_distance / ALPHA
+            )
+
+            # Check if the new point is so far away from the other surface that no more
+            # points are needed, or if the mesh size resulting from inserting a point
+            # here will be coarser than the mesh size obtained from the parent point.
+            if dist_other > self._threshold or dist_other / ALPHA >= h_from_prev:
                 # No need to add more points in this direction.
                 gmsh.model.occ.remove([(0, gmsh_ind)])
                 discarded_ijs.add(i)
                 tab.pop(i)
                 continue
+
             points_to_add.append((gmsh_ind, p, dist_other))
 
             for direction, can_proceed in dirs.items():
@@ -158,19 +187,24 @@ class SurfacePointInserter:
                     continue
 
                 p_new = Point(*(np.array(p) + delta))
+                dist_new = dist_other
 
                 if di in tab:
-                    p_new = self._closest_point(cp_0, p_new, tab[di][0])
+                    p_new, dist_new = self._closest_point(
+                        cp_0, p_new, dist_other, tab[di][0], tab[di][2]
+                    )
                     dir_new = self._direction_union(dir_new, tab[di][1])
 
-                tab[di] = (p_new, dir_new)
+                tab[di] = (p_new, dir_new, dist_new)
                 heapq.heappush(q, (priority(di), di))
             discarded_ijs.add(i)
             tab.pop(i)
 
         return points_to_add
 
-    def _closest_point(self, start: Point, cand_0: Point, cand_1: Point) -> Point:
+    def _closest_point(
+        self, start: Point, cand_0: Point, dist_0, cand_1: Point, dist_1: float
+    ) -> Point:
         vec_0 = np.array(cand_0) - np.array(start)
         vec_1 = np.array(cand_1) - np.array(start)
 
@@ -178,9 +212,13 @@ class SurfacePointInserter:
         dist_1 = np.linalg.norm(vec_1)
 
         if dist_0 < dist_1:
-            return cand_0
+            return cand_0, dist_0
         else:
-            return cand_1
+            return cand_1, dist_1
+
+    def _point_inside_other_surface(self, point: Point, f_other) -> bool:
+        proj_pts, _ = gmsh.model.get_closest_point(self._nd - 1, f_other, point)
+        return gmsh.model.is_inside(self._nd - 1, f_other, proj_pts)
 
     def _direction_union(self, dir_0: Direction, dir_1: Direction) -> Direction:
         return {
@@ -885,7 +923,11 @@ class FractureNetwork3d(object):
             if frac and frac[0][0] == 3:
                 # This is the domain, keep it.
                 continue
-            frac_ind = surface_tags[fi]
+            elif fi >= len(fracture_tags):
+                # This is not a fracture, quite likely it is part of the boundary.
+                # Skip it.
+                continue
+            frac_ind = fracture_tags[fi]
             loc_keep = np.ones(len(frac), dtype=bool)
             for sfi, sub_frac in enumerate(frac):
                 bounding_lines = gmsh.model.get_boundary([sub_frac])
@@ -1343,6 +1385,8 @@ class FractureNetwork3d(object):
             # the same line.
             dist = np.minimum(other_object_distances, min_dist_point)
 
+            sort_ind = np.argsort(dist)
+
             for i, d in enumerate(dist):
                 # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
                 # related to almost intersection points.
@@ -1597,7 +1641,7 @@ class FractureNetwork3d(object):
         insertion_surface = []
         control_point_tags = []
 
-        inserter = SurfacePointInserter(THRESHOLD_REFINEMENT, nd)
+        inserter = SurfacePointInserter(THRESHOLD_REFINEMENT, nd, mesh_args)
 
         def point_already_present(pt, li):
             if len(inserted_points) == 0:
@@ -1639,7 +1683,7 @@ class FractureNetwork3d(object):
                 continue
 
             points_0, points_1 = inserter.compute_points(
-                f_0, f_1, distance_info[1:4], distance_info[4:7]
+                f_0, f_1, distance_info[1:4], distance_info[4:7], distance_info[0]
             )
             debug = []
             for _, pt, dist in points_0:
