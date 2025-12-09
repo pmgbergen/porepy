@@ -35,6 +35,7 @@ from porepy.applications.md_grids.model_geometries import (
     TwoWells3d,
 )
 from porepy.numerics.nonlinear import line_search
+from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +328,7 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     TwoWells3d,
     TwoEllipticFractures3d,
     # Export mixins
-    pp.viz.data_saving_model_mixin.FractureDeformationExporting,
+    FractureDeformationExporting,
     # Uncomment the following line to enable iteration exporting, e.g. for debugging.
     # pp.viz.data_saving_model_mixin.IterationExporting,
     # Helper mixin for the line search solution strategy, see also solver_params below.
