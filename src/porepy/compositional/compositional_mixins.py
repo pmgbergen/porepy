@@ -2720,3 +2720,12 @@ class ReactionRatesKineticFirstOrder:
         # shift backward by ut and wrap into [0,L)
         x_shift = (x - u * t) % L
         return np.exp(-alpha * (x_shift - x0)**2)
+
+    def C_exact_pulse(self,x, t, u, a, b, C0):
+        x = np.asarray(x)
+        left = a + u * t
+        right = b + u * t
+        vals = np.zeros_like(x)
+        mask = (x >= left) & (x <= right)
+        vals[mask] = C0
+        return vals
