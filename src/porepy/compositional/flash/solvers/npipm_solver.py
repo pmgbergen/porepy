@@ -103,14 +103,8 @@ def _slack_equation_res(
     # dot = np.dot(v, w)  # numba performance warning
     dot = np.sum(v * w)
 
-    # copy because of modifications for negative and positive
-    v = v.copy()
-    w = w.copy()
-    v[v > 0.0] = 0.0
-    w[w > 0.0] = 0.0
-
     # penalization of negativity
-    res = 0.5 * u2 * (np.sum(v**2) + np.sum(w**2))
+    res = 0.5 * u2 * (np.sum(v[v < 0] ** 2) + np.sum(w[w < 0] ** 2))
 
     # penalization of violation of complementarity
     dot = 0.0 if dot < 0.0 else dot

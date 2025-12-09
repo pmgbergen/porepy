@@ -794,9 +794,15 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
     """
     nphase, ncomp = x.shape
     res = np.zeros(ncomp * (nphase - 1), dtype=np.float64)
+    eps = 1e-14
 
     for j in range(1, nphase):
-        res[(j - 1) * ncomp : j * ncomp] = x[j] * phis[j] - x[0] * phis[0]
+        res[(j - 1) * ncomp : j * ncomp] = (
+            np.log(np.maximum(np.abs(x[j]), eps))
+            + phis[j]
+            - np.log(np.maximum(np.abs(x[0]), eps))
+            - phis[0]
+        )
 
     return res
 
@@ -832,19 +838,24 @@ def isofugacity_constraints_jac(
     nip = nphase - 1  # number of independent phases
     # Allocating for pTx derivatives
     jac = np.zeros((ncomp * nip, 2 + ncomp * nphase))
+    eps = 1e-14
 
-    # Creating block of derivatives of expression x_{i0} phi_{i0}
+    # Creating block of derivatives of expression x_{i0} + phi_{i0}
     # product rule: x * dphi
-    block_0 = (dphis[0, :, :].T * x[0]).T
+    # block_0 = (dphis[0, :, :].T * x[0]).T
+    block_0 = dphis[0, :, :]
     # + phi * dx  (minding the first two columns which contain the dp dT)
-    block_0[:, 2:] += np.diag(phis[0])
+    # block_0[:, 2:] += np.diag(phis[0])
+    block_0[:, 2:] += np.diag(1.0 / np.maximum(np.abs(x[0]), eps))
 
     # Loop over row blocks associated with constraints between an independent phase
     # and the reference phase, for all components.
     for j in range(1, nphase):
         # Creating block of derivatives of expression x_{ij} phi_{ij}
-        block_j = (dphis[j, :, :].T * x[j]).T
-        block_j[:, 2:] += np.diag(phis[j])
+        # block_j = (dphis[j, :, :].T * x[j]).T
+        block_j = dphis[j, :, :]
+        # block_j[:, 2:] += np.diag(phis[j])
+        block_j[:, 2:] += np.diag(1.0 / np.maximum(np.abs(x[j]), eps))
 
         # p, T derivatives
         idx = (j - 1) * ncomp  # start of row block

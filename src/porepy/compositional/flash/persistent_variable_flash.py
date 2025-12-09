@@ -235,15 +235,6 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
         phasestates = self._phasestates
-        # phasestates = np.array(
-        #     [
-        #         # Depending on the environment, the enum value is sometimes already
-        #         # evaluated, sometimes not... (pytest)
-        #         state if isinstance(state, int) else state.value
-        #         for state in self._phasestates
-        #     ],
-        #     dtype=np.int8,
-        # )
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
@@ -300,7 +291,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(ncomp):
@@ -371,7 +362,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 dhs = np.empty((nphase, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(ncomp):
@@ -454,7 +445,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 drhos = np.empty((nphase, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(ncomp):

@@ -298,19 +298,19 @@ def fractions_from_rr(
 
                 # Correction based on negative flash
                 # value of y_ must be between innermost poles
-                # K_min = np.min(K_)
-                # K_max = np.max(K_)
-                # y_1 = 1 / (1 - K_max)
-                # y_2 = 1 / (1 - K_min)
-                # if y_1 <= y_2:
-                #     y_feasible = y_1 < _y < y_2
-                # else:
-                #     y_feasible = y_2 < _y < y_1
+                K_min = np.min(K_)
+                K_max = np.max(K_)
+                y_1 = 1 / (1 - K_max)
+                y_2 = 1 / (1 - K_min)
+                if y_1 <= y_2:
+                    y_feasible = y_1 < y_ < y_2
+                else:
+                    y_feasible = y_2 < y_ < y_1
 
-                # if y_feasible & negative:
-                #     y_ = 0.0
-                # elif y_feasible & exceeds:
-                #     y_ = 1.0
+                if y_feasible & negative:
+                    y_ = 0.0
+                elif y_feasible & exceeds:
+                    y_ = 1.0
 
                 # If all K-values are smaller than 1 and gas fraction is negative,
                 # the liquid phase is clearly saturated.
@@ -671,7 +671,7 @@ class FlashInitializer:
                 for _ in range(N2):
                     for j in range(nphase):
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
-                        pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], x_p)
+                        pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
                         hs[j] = h_c(pre_val_j, p, T, xn[j])
                         dh_dTs[j] = d_h_c(pre_val_j, pre_jac_j, p, T, xn[j])[1]
 
@@ -804,7 +804,7 @@ class FlashInitializer:
 
                     for j in range(nphase):
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
-                        pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], x_p)
+                        pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
                         rhos[j] = rho_c(pre_val_j, p, T, xn[j])
                         hs[j] = h_c(pre_jac_j, p, T, xn[j])
                         dhs[j] = d_h_c(pre_val_j, pre_jac_j, p, T, xn[j])
