@@ -148,33 +148,6 @@ class DataSavingMixin(pp.PorePyModel):
         #               )
         #           )
         #       return data
-        sds = self.mdg.subdomains()
-        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
-        apertures = self.evaluate_and_scale(sds, "aperture", "m")
-        # Can't use evaluate_and_scale here, since specific_volume's units depend on
-        # the subdomain dimension.
-        specific_volumes = cast(
-            np.ndarray, self.equation_system.evaluate(self.specific_volume(sds))
-        )
-        for id, sd in enumerate(sds):
-            data.append(
-                (
-                    sd,
-                    "aperture",
-                    apertures[cell_offsets[id] : cell_offsets[id + 1]],
-                )
-            )
-            data.append(
-                (
-                    sd,
-                    "specific_volume",
-                    self.units.convert_units(
-                        specific_volumes[cell_offsets[id] : cell_offsets[id + 1]],
-                        f"m^{self.nd - sd.dim}",
-                        to_si=True,
-                    ),
-                )
-            )
 
         # We combine grids and mortar grids. This is supported by the exporter, but not
         # by the type hints in the exporter module. Hence, we ignore the type hints.
@@ -414,4 +387,74 @@ class ResidualExporting:
                 )
                 # Update dof_start for next grid.
                 dof_start = dof_end
+        return data
+
+
+class ExportFractureQuantities(pp.PorePyModel):
+    """Class for exporting fracture-specific quantities.
+
+    Adds the fracture-specific secondary variables
+    - displacement jump,
+    - aperture,
+    - rescaled traction,
+    - slip tendency = -||shear_traction||/normal_traction
+    """
+
+    def data_to_export(self) -> list:
+        """Returns data for exporting.
+
+        Returns:
+            A list of tuples (subdomain, variable name, variable values).
+        """
+        # Start with data from super class. This includes standard variables.
+        data = super().data_to_export()  # type: ignore[misc]
+        # Add the three fracture-specific vector quantities.
+        sds = self.mdg.subdomains(dim=self.nd - 1)
+        cell_offsets_nd = np.cumsum([0] + [sd.num_cells * self.nd for sd in sds])
+        displacement_jump = self.evaluate_and_scale(sds, "displacement_jump", "m")
+        char = self.evaluate_and_scale(sds, "characteristic_contact_traction", "Pa")
+        traction = self.evaluate_and_scale(sds, "contact_traction", "-")
+        # Compute apertures, which are scalar quantities.
+        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+        apertures = self.evaluate_and_scale(sds, "aperture", "m")
+
+        # Loop over the fracture subdomains.
+        for id, sd in enumerate(sds):
+            # Export the displacement jump.
+            data.append(
+                (
+                    sd,
+                    "displacement_jump",
+                    displacement_jump[cell_offsets_nd[id] : cell_offsets_nd[id + 1]],
+                )
+            )
+            # Export the slip tendency, defined as the ratio of the shear traction to
+            # the normal traction.
+            traction_loc = traction[
+                cell_offsets_nd[id] : cell_offsets_nd[id + 1]
+            ].reshape((3, -1), order="F")
+            # Avoid division by zero. If normal traction is zero (open fractures), we
+            # set it to 1.
+            zero_inds = np.isclose(traction_loc[-1], 0)
+            traction_loc[-1, zero_inds] = 1
+            # Minus to follow convention that positive slip tendency indicates slip and
+            # compressive normal traction is negative. Summing up:
+            # - regular values are positive for fractures in contact,
+            # - negative slip tendency is non-physical, except for
+            # - zero normal traction.
+            slip_tendency = (
+                -np.linalg.norm(traction_loc[:-1], axis=0) / traction_loc[-1]
+            )
+
+            data.append((sd, "slip_tendency", slip_tendency))
+
+            data.append((sd, "contact_traction_in_Pa", traction_loc.ravel("F") * char))
+
+            data.append(
+                (
+                    sd,
+                    "aperture",
+                    apertures[cell_offsets[id] : cell_offsets[id + 1]],
+                )
+            )
         return data
