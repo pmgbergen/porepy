@@ -10,9 +10,10 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 import porepy as pp
 from porepy.viz.exporter import DataInput
@@ -317,7 +318,10 @@ class DataSavingMixin(pp.PorePyModel):
         self.exporter._time_step_counter = time_index
 
 
-class IterationExporting:
+class IterationExporting(pp.PorePyModel):
+    if TYPE_CHECKING:
+        data_to_export: Callable[[], Any]
+
     def initialize_data_saving(self):
         """Initialize iteration exporter."""
         super().initialize_data_saving()
@@ -368,6 +372,46 @@ class IterationExporting:
         iterate subdictionary.
 
         """
-        super().after_nonlinear_iteration(solution_vector)
+        super().after_nonlinear_iteration(solution_vector)  # type: ignore[misc]
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
+
+
+class ResidualExporting:
+    if TYPE_CHECKING:
+        equation_system: pp.EquationSystem
+
+    def data_to_export(self) -> list[DataInput]:
+        """Return data to be exported, including residuals.
+
+        Returns:
+            List containing all (grid, name, values) tuples.
+
+        """
+        data = super().data_to_export()  # type: ignore[misc]
+
+        # Add residuals. Loop over equations in the equation system.
+        for name, operator in self.equation_system.equations.items():
+            residuals = cast(NDArray, self.equation_system.evaluate(operator))
+
+            # Get image_info as dict[GridEntity, int], where
+            # GridEntity = Literal["cells", "faces", "nodes"]
+            image_info = self.equation_system._equation_image_size_info[name]
+            dof_start, dof_end = 0, 0
+            for g in self.equation_system._equation_image_space_composition[
+                name
+            ].keys():
+                # Add number of dofs for each entity in image_info.
+                for entity, num in image_info.items():
+                    dof_end += getattr(g, "num_" + entity) * num
+                # Append residuals for current grid.
+                data.append(
+                    (
+                        g,
+                        "residual_" + name,
+                        residuals[dof_start:dof_end],
+                    )
+                )
+                # Update dof_start for next grid.
+                dof_start = dof_end
+        return data
