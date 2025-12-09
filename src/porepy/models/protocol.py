@@ -79,7 +79,7 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
-        def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 
             Parameters:
