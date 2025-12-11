@@ -375,6 +375,38 @@ class MeshSizeComputer:
         return max(self._hmin, dist)
 
 
+class GmshPointIdentifier:
+    """Helper class to identify Gmsh point indices based on physical coordinates."""
+
+    def __init__(self, tol=1e-6):
+        self._tol = tol
+        phys_coord = []
+        self._gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
+        for gmsh_ind in self._gmsh_point_ind:
+            coord = gmsh.model.get_bounding_box(0, gmsh_ind)[:3]
+            phys_coord.append(np.array(coord))
+        self._phys_coord = np.array(phys_coord).T
+
+    def index(self, point: np.ndarray) -> int:
+        """Identify the Gmsh point index corresponding to a given physical coordinate.
+
+        Parameters:
+            point: Physical coordinate as a numpy array of shape (3,).
+
+        Raises:
+            ValueError: If the point is not found in the Gmsh model within the specified
+                tolerance.
+
+        Returns:
+            The Gmsh point index corresponding to the given physical coordinate.
+
+        """
+        pd = np.linalg.norm(self._phys_coord - point.reshape(3, 1), axis=0)
+        if np.all(pd > self._tol):
+            raise ValueError("Point not found in Gmsh model.")
+        return self._gmsh_point_ind[int(np.argmin(pd))]
+
+
 class FractureNetwork3d(object):
     """Representation of a set of plane fractures in a three-dimensional domain.
 
@@ -814,15 +846,6 @@ class FractureNetwork3d(object):
         # have failed to identify intersections between boundary surfaces and fractures.
         # Therefore, we do an identification based on the geometry of the surfaces:
 
-        # TODO: A similar code is spread throughout the meshing functionality.
-        # Centralize.
-        phys_coord = []
-        gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
-        for gmsh_ind in gmsh_point_ind:
-            coord = gmsh.model.get_bounding_box(0, gmsh_ind)[:3]
-            phys_coord.append(np.array(coord))
-        phys_coord = np.array(phys_coord).T
-
         domain_tag = gmsh.model.get_entities(nd)
         bnd_tag = gmsh.model.get_boundary(gmsh.model.get_entities(nd), oriented=False)
         new_mesh_control_dict.update({t[1]: [] for t in bnd_tag})
@@ -833,12 +856,6 @@ class FractureNetwork3d(object):
                 # to transfer.
                 continue
             points = np.array([p[0] for p in info]).T
-            gmsh_ind = []
-            for i in range(points.shape[1]):
-                pd = np.linalg.norm(phys_coord - points[:, i].reshape(3, 1), axis=0)
-                if np.all(pd > 1e-6):
-                    assert False
-                gmsh_ind.append(gmsh_point_ind[int(np.argmin(pd))])
 
             for new_bnd in bnd_tag:
                 for i in range(points.shape[1]):
@@ -1270,12 +1287,7 @@ class FractureNetwork3d(object):
         # need to set up the fields and associate them with the points by the gmsh
         # indices. To that end, create a list of all physical point coordinates.
         # TODO: Create a helper class for this operation, common for 2d and 3d.
-        phys_coord = []
-        gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
-        for pi in gmsh_point_ind:
-            coord = gmsh.model.get_bounding_box(0, pi)[:3]
-            phys_coord.append(np.array(coord))
-        phys_coord = np.array(phys_coord).T
+        gmsh_point_finder = GmshPointIdentifier()
 
         # The same point might have been inserted multiple times (e.g., if it lies at
         # the intersection of multiple fractures). We need to uniquify the point set,
@@ -1401,11 +1413,7 @@ class FractureNetwork3d(object):
             )
             control_point_distance_to_lines = []
             for cp_d in info:
-                cp = cp_d[0]
-                pd = np.linalg.norm(phys_coord - cp.reshape(3, 1), axis=0)
-                if np.all(pd > 1e-6):
-                    assert False
-                pi = gmsh_point_ind[int(np.argmin(pd))]
+                pi = gmsh_point_finder.index(cp_d[0])
                 d = dist_point_lines(surface_lines + boundary_lines, pi)
                 if d < self.tol:
                     # For intersections, we assign the background mesh size for this
@@ -1477,10 +1485,7 @@ class FractureNetwork3d(object):
                     size = h_end
 
                 field = gmsh.model.mesh.field.add("Distance")
-                pd = np.linalg.norm(phys_coord - points[:, i].reshape(3, 1), axis=0)
-                if np.all(pd > 1e-6):
-                    assert False
-                pi = gmsh_point_ind[int(np.argmin(pd))]
+                pi = gmsh_point_finder.index(points[:, i])
 
                 gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
                 if surface in boundary_tags:
