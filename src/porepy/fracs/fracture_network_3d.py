@@ -1026,6 +1026,10 @@ class FractureNetwork3d(object):
         # Keep track of which fractures have had parts deleted. If all parts of a
         # fracture have been deleted, we need to update the constraint indices.
         part_of_fracture_deleted = []
+        # Count the number of sub-fractures each fracture has been split into. Used to
+        # figure out if the full fracture has been deleted as outside the domain, or
+        # only parts of it; which again is used to update the constraint indices.
+        num_orig_subfrac = []
 
         # Double loop: First over all fractures, then over all fragments of each
         # fracture. We kick out fragments where at least one vertex is outside the
@@ -1043,6 +1047,8 @@ class FractureNetwork3d(object):
                 continue
             frac_ind = fracture_tags[fi]
             loc_keep = np.ones(len(frac), dtype=bool)
+            num_orig_subfrac.append(len(frac))
+
             for sfi, sub_frac in enumerate(frac):
                 bounding_lines = gmsh.model.get_boundary([sub_frac])
                 bounding_points = []
@@ -1088,9 +1094,8 @@ class FractureNetwork3d(object):
         # all following constraints.
         num_frac_deleted = 0
         for c in constraints:
-            num_orig_subfrac = list(inv_fracture_tag_map.values()).count(c)
             num_deleted_subfrac = part_of_fracture_deleted.count(c)
-            if num_orig_subfrac == num_deleted_subfrac:
+            if num_orig_subfrac[c] == num_deleted_subfrac:
                 # The full fracture has been removed. It is not among the new
                 # constraints, but we need to adjust the indices of the following ones.
                 num_frac_deleted += 1
