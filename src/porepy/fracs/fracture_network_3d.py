@@ -1009,6 +1009,66 @@ class FractureNetwork3d(object):
 
         gmsh.model.occ.synchronize()
 
+        def entity_on_domain_boundary(dim: int, ind: list[int]) -> bool:
+            """Helper function to determine if an entity lies on the domain boundary.
+
+            The intended use is to determine if a line or set of points lie on the
+            boundary of the domain, in which case it should not be considered an
+            intersection line or point between fractures.
+
+            The implementation could have been generalized in various ways, but is kept
+            as it is, since it concerns very specific use cases that are covered by the
+            current implementation.
+
+            Known possible issue: If the domain is fully split by a fracture, the
+            original boundary sides of the domain may have been split into multiple
+            parts (this will manifest as the variable boundary_surfaces containing more
+            surfaces than the original domain boundary, for instance more than six
+            surfaces for a box domain). In this case, a line that extends over multiple
+            of these 'sub-sides', but are really part of one side in the original
+            boundary definition, may be misidentified as an intersection line. In EK's
+            understanding, this should not happen, since that line will also have been
+            split into multiple parts during fragmentation, and each part will be on one
+            of the sub-sides. Still, Gmsh works in mysterious ways, so it was considered
+            wise to take note of this possible issue.
+
+            Parameters:
+                dim: Dimension of the entity to check (0 for points, 1 for line). ind:
+                List of Gmsh tags identifying the entity to check.
+
+            Returns:
+                bool: ``True`` if the entity lies on a single part (a single member of
+                    the boundary_surfaces, see below), ``False`` otherwise.
+
+            """
+            assert dim <= 1, "The implementation is not intended for surfaces."
+            # Get the domain boundary surfaces, accounting for the domain possibly
+            # having been split into multiple parts.
+            domain_entities = gmsh.model.get_entities(3)
+            boundary_surfaces = gmsh.model.get_boundary(
+                [(nd, tag) for _, tag in domain_entities]
+            )
+            # Get hold of the boundary points of the entity to check.
+            if dim == 0:
+                boundary_points = [(dim, i) for i in ind]
+            else:
+                assert len(ind) == 1, "Only single entity indices are supported."
+                boundary_points = gmsh.model.get_boundary([(dim, ind[0])])
+
+            # For each boundary surface of the domain, compute the distance to all
+            # boundary points of the entity to check if they are all zero. Note that the
+            # other way around (checking if each entity point is on any of the boundary
+            # surfaces) risk false positives for a line extending across the domain
+            # between two boundaries.
+            for surf in boundary_surfaces:
+                dist = [
+                    gmsh.model.occ.get_distance(*bp, *surf)[0] for bp in boundary_points
+                ]
+                if np.all(np.array(dist) < self.tol):
+                    return True
+            # Having come this far, the entity is not on the domain boundary.
+            return False
+
         # It turns out (...) that the fragmentation process may not eliminate parts of
         # fractures that lie outside the domain. To understand why this is so might
         # require a deep dive into OpenCascade. For now, we do a simple fix to eliminate
@@ -1068,7 +1128,9 @@ class FractureNetwork3d(object):
                     )
                 # If any bounding point is outside all parts of the domain, we drop this
                 # sub-fracture.
-                if np.any(distances > self.tol):
+                if np.any(distances > self.tol) or entity_on_domain_boundary(
+                    0, [bp[1] for bp in bounding_points]
+                ):
                     loc_keep[sfi] = False
                     # Take note that part of this fracture (mapping back to the input
                     # fracture index system) has been deleted.
@@ -1124,52 +1186,6 @@ class FractureNetwork3d(object):
         fi_bnd = []
         fi_embedded = []
 
-        def entity_on_domain_boundary(dim: int, ind: int) -> bool:
-            """Helper function to determine if an entity lies on the domain boundary.
-
-            The intended use is to determine if a line or point lies on the boundary of
-            the domain, in which case it should not be considered an intersection line
-            or point between fractures.
-
-            Known possible issue: If the domain is fully split by a fracture, the
-            original boundary sides of the domain may have been split into multiple
-            parts (this will manifest as the variable boundary_surfaces containing more
-            surfaces than the original domain boundary, for instance more than six
-            surfaces for a box domain). In this case, a line that extends over multiple
-            of these 'sub-sides', but are really part of one side in the original
-            boundary definition, may be misidentified as an intersection line. In EK's
-            understanding, this should not happen, since that line will also have been
-            split into multiple parts during fragmentation, and each part will be on one
-            of the sub-sides. Still, Gmsh works in mysterious ways, so it was considered
-            wise to take note of this possible issue.
-            """
-            assert dim <= 1, "The implementation is not intended for surfaces."
-            # Get the domain boundary surfaces, accounting for the domain possibly
-            # having been split into multiple parts.
-            domain_entities = gmsh.model.get_entities(3)
-            boundary_surfaces = gmsh.model.get_boundary(
-                [(nd, tag) for _, tag in domain_entities]
-            )
-            # Get hold of the boundary points of the entity to check.
-            if dim == 0:
-                boundary_points = [(dim, ind)]
-            else:
-                boundary_points = gmsh.model.get_boundary([(dim, ind)])
-
-            # For each boundary surface of the domain, compute the distance to all
-            # boundary points of the entity to check if they are all zero. Note that the
-            # other way around (checking if each entity point is on any of the boundary
-            # surfaces) risk false positives for a line extending across the domain
-            # between two boundaries.
-            for surf in boundary_surfaces:
-                dist = [
-                    gmsh.model.occ.get_distance(*bp, *surf)[0] for bp in boundary_points
-                ]
-                if np.all(np.array(dist) < self.tol):
-                    return True
-            # Having come this far, the entity is not on the domain boundary.
-            return False
-
         # Loop over all identified fragments of the fractures, find their boundary and
         # embedded lines.
         #
@@ -1193,7 +1209,7 @@ class FractureNetwork3d(object):
                 bnd = gmsh.model.get_boundary([subfrac])
                 # Loop over the boundary.
                 for line in bnd:
-                    if line[0] == 1 and not entity_on_domain_boundary(*line):
+                    if line[0] == 1 and not entity_on_domain_boundary(1, [line[1]]):
                         # This is a line, not a point (would be line[0] == 0).
                         bnd_lines.append(line[1])
                         # Keep track of the fracture index for each boundary line. Using
@@ -1207,7 +1223,7 @@ class FractureNetwork3d(object):
                 # intersection line that does not cut subfrac in two).
                 embedded = gmsh.model.mesh.get_embedded(*subfrac)
                 for line in embedded:
-                    if line[0] == 1 and not entity_on_domain_boundary(*line):
+                    if line[0] == 1 and not entity_on_domain_boundary(1, [line[1]]):
                         embedded_lines.append(line[1])
                         # Also keep track of the fracture index for each embedded line.
                         fi_embedded.append(frac_ind)
@@ -1299,7 +1315,9 @@ class FractureNetwork3d(object):
         all_intersection_points = np.where(num_point_occ > 1)[0]
         # Filter away those points that lie on the domain boundary.
         intersection_points = [
-            pt for pt in all_intersection_points if not entity_on_domain_boundary(0, pt)
+            pt
+            for pt in all_intersection_points
+            if not entity_on_domain_boundary(0, [pt])
         ]
 
         return (
