@@ -871,6 +871,7 @@ def test_domain_split_by_fractures(
     assert len(mdg.subdomains(dim=0)) >= num_0d_grids
 
 
+@pytest.mark.parametrize("num_constraints", [0, 1, 2])
 def test_fractures_intersect_at_boundary(
     num_constraints: int, unit_box: pp.Domain, mesh_args: dict
 ):
@@ -884,13 +885,13 @@ def test_fractures_intersect_at_boundary(
     """
     fractures = [
         pp.PlaneFracture(
+            np.array([[0.2, 0.8, 0.8, 0.2], [0.0, 0.0, 0.1, 0.1], [0.5, 0.5, 0.5, 0.5]])
+        ),
+        pp.PlaneFracture(
             np.array([[0.2, 0.5, 0.5, 0.2], [0.2, 0.0, 0.0, 0.2], [0.2, 0.2, 0.8, 0.8]])
         ),
         pp.PlaneFracture(
             np.array([[0.8, 0.5, 0.5, 0.8], [0.2, 0.0, 0.0, 0.2], [0.2, 0.2, 0.8, 0.8]])
-        ),
-        pp.PlaneFracture(
-            np.array([[0.2, 0.8, 0.8, 0.2], [0.0, 0.1, 0.1, 0.0], [0.5, 0.5, 0.5, 0.5]])
         ),
     ]
 
@@ -903,12 +904,12 @@ def test_fractures_intersect_at_boundary(
     # not introduce 1d and 0d grids.
     num_fracs = 3 - num_constraints
     assert len(mdg.subdomains(dim=2)) == num_fracs
-    if num_fracs == 2:
-        # There should be a single intersection line.
-        assert len(mdg.subdomains(dim=1)) >= 1
-        assert len(mdg.subdomains(dim=0)) >= 0
+    if num_fracs == 3:
+        # There should be three intersection lines and one intersection point.
+        assert len(mdg.subdomains(dim=1)) == 2
+        assert len(mdg.subdomains(dim=0)) == 0
     else:
-        # No intersection grids.
+        # There should be a single intersection line.
         assert len(mdg.subdomains(dim=1)) == 0
         assert len(mdg.subdomains(dim=0)) == 0
 
