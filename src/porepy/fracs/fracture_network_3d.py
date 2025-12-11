@@ -1124,6 +1124,52 @@ class FractureNetwork3d(object):
         fi_bnd = []
         fi_embedded = []
 
+        def entity_on_domain_boundary(dim: int, ind: int) -> bool:
+            """Helper function to determine if an entity lies on the domain boundary.
+
+            The intended use is to determine if a line or point lies on the boundary of
+            the domain, in which case it should not be considered an intersection line
+            or point between fractures.
+
+            Known possible issue: If the domain is fully split by a fracture, the
+            original boundary sides of the domain may have been split into multiple
+            parts (this will manifest as the variable boundary_surfaces containing more
+            surfaces than the original domain boundary, for instance more than six
+            surfaces for a box domain). In this case, a line that extends over multiple
+            of these 'sub-sides', but are really part of one side in the original
+            boundary definition, may be misidentified as an intersection line. In EK's
+            understanding, this should not happen, since that line will also have been
+            split into multiple parts during fragmentation, and each part will be on one
+            of the sub-sides. Still, Gmsh works in mysterious ways, so it was considered
+            wise to take note of this possible issue.
+            """
+            assert dim <= 1, "The implementation is not intended for surfaces."
+            # Get the domain boundary surfaces, accounting for the domain possibly
+            # having been split into multiple parts.
+            domain_entities = gmsh.model.get_entities(3)
+            boundary_surfaces = gmsh.model.get_boundary(
+                [(nd, tag) for _, tag in domain_entities]
+            )
+            # Get hold of the boundary points of the entity to check.
+            if dim == 0:
+                boundary_points = [(dim, ind)]
+            else:
+                boundary_points = gmsh.model.get_boundary([(dim, ind)])
+
+            # For each boundary surface of the domain, compute the distance to all
+            # boundary points of the entity to check if they are all zero. Note that the
+            # other way around (checking if each entity point is on any of the boundary
+            # surfaces) risk false positives for a line extending across the domain
+            # between two boundaries.
+            for surf in boundary_surfaces:
+                dist = [
+                    gmsh.model.occ.get_distance(*bp, *surf)[0] for bp in boundary_points
+                ]
+                if np.all(np.array(dist) < self.tol):
+                    return True
+            # Having come this far, the entity is not on the domain boundary.
+            return False
+
         # Loop over all identified fragments of the fractures, find their boundary and
         # embedded lines.
         #
@@ -1146,11 +1192,10 @@ class FractureNetwork3d(object):
                 # subfractures that were introduced because a fracture was cut in two.
                 bnd = gmsh.model.get_boundary([subfrac])
                 # Loop over the boundary.
-                for parent_map in bnd:
-                    if (
-                        parent_map[0] == 1
-                    ):  # This is a line, not a point (would be parent_map[0] == 0).
-                        bnd_lines.append(parent_map[1])
+                for line in bnd:
+                    if line[0] == 1 and not entity_on_domain_boundary(*line):
+                        # This is a line, not a point (would be line[0] == 0).
+                        bnd_lines.append(line[1])
                         # Keep track of the fracture index for each boundary line. Using
                         # fi (the enumeration counter of the outer for loop) ensures
                         # that even if a fracture was split into two sub-fractures
@@ -1162,7 +1207,7 @@ class FractureNetwork3d(object):
                 # intersection line that does not cut subfrac in two).
                 embedded = gmsh.model.mesh.get_embedded(*subfrac)
                 for line in embedded:
-                    if line[0] == 1:
+                    if line[0] == 1 and not entity_on_domain_boundary(*line):
                         embedded_lines.append(line[1])
                         # Also keep track of the fracture index for each embedded line.
                         fi_embedded.append(frac_ind)
@@ -1228,11 +1273,11 @@ class FractureNetwork3d(object):
             inds = np.where(num_parents == n)[0]
             # Find the unique number of parents and the map from all intersection lines
             # with 'n' parents to the unique set.
-            unique_parent, parent_map = np.unique(
+            unique_parent, line = np.unique(
                 [line_parents[i] for i in inds], axis=0, return_inverse=True
             )
             # Store the parent identification for this set of intersection lines.
-            parent_of_intersection_lines[inds] = parent_map + num_line_parent_counter
+            parent_of_intersection_lines[inds] = line + num_line_parent_counter
             # Increase the counter.
             num_line_parent_counter += unique_parent.shape[0]
         # Done with the intersection line processing.
@@ -1250,7 +1295,12 @@ class FractureNetwork3d(object):
                 points_of_intersection_lines.append(bp[1])
 
         num_point_occ = np.bincount(points_of_intersection_lines)
-        intersection_points = np.where(num_point_occ > 1)[0]
+        # Identify all points that occur more than once.
+        all_intersection_points = np.where(num_point_occ > 1)[0]
+        # Filter away those points that lie on the domain boundary.
+        intersection_points = [
+            pt for pt in all_intersection_points if not entity_on_domain_boundary(0, pt)
+        ]
 
         return (
             intersection_points,
