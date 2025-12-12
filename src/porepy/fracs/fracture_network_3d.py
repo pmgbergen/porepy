@@ -65,7 +65,9 @@ class SurfacePointInserter:
         self._nd = nd
         self._mesh_size_computer = mesh_size_computer
 
-    def compute_points(self, f_0, f_1, cp_0, cp_1, distance):
+    def compute_points(
+        self, f_0, f_1, cp_0, cp_1, distance, f_0_on_fracture, f_1_on_fracture
+    ) -> tuple[list, list]:
         """Compute points to be inserted on the surfaces of two fractures.
 
         Given two fractures and their corresponding control points, this method
@@ -85,14 +87,25 @@ class SurfacePointInserter:
 
         """
         # Implementation goes here
-        points_0 = self._control_points(f_0, f_1, cp_0, cp_1, distance)
-        points_1 = self._control_points(f_1, f_0, cp_1, cp_0, distance)
+        points_0 = self._control_points(f_0, f_1, cp_0, cp_1, distance, f_0_on_fracture)
+        points_1 = self._control_points(f_1, f_0, cp_1, cp_0, distance, f_1_on_fracture)
         return points_0, points_1
 
-    def _control_points(self, f_main, f_other, cp_0, cp_1, init_distance):
-        t_i, t_j = self._tangent_basis(f_main, cp_0, cp_1)
+    def _control_points(
+        self,
+        f_main,
+        f_other,
+        cp_0,
+        cp_1,
+        init_distance,
+        f_main_on_fracture,
+    ):
+        t_i, t_j = self._tangent_basis(f_main, f_other, cp_0, cp_1)
 
         def priority(ij):
+            # The priority is given by the Manhattan distance from the origin. With a
+            # min-heap as in heapq, this will give priority to points closer to the
+            # origin.
             return abs(ij.i) + abs(ij.j)
 
         q = []
@@ -1833,35 +1846,23 @@ class FractureNetwork3d(object):
                 # No refinement between two boundary lines.
                 continue
 
-            distance_info: Final = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
-            distances = distance_info
-            is_intersection = distances[0] < self.tol
+            distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
 
             if distance_info[0] > THRESHOLD_REFINEMENT:
                 continue
 
-            # For each of the endpoints of each the two lines, end_point_distance
-            # will store the distance and the closest points on the other line.
-
-            # The below loop extracts the following information regarding the two
-            # lines:
-            # - main_start_point: A closest point on one of the lines that is also
-            #   an endpoint of that line. There will be one or two such points; we
-            #   pick the first one we find.
-            # - vectors: Direction vectors along each line. For the line containing
-            #   main_start_point, the vector is oriented away from that point.
-            # - main_line_ind: Index (0 or 1) of the line containing
-            #   main_start_point.
-            #
-
-            elif is_intersection:
-                # Intersections will be handled elsewhere.
-                continue
+            f_0_is_fracture = f_0 in fracture_tags
+            f_1_is_fracture = f_1 in fracture_tags
 
             points_0, points_1 = inserter.compute_points(
-                f_0, f_1, distance_info[1:4], distance_info[4:7], distance_info[0]
+                f_0,
+                f_1,
+                distance_info[1:4],
+                distance_info[4:7],
+                distance_info[0],
+                f_0_is_fracture,
+                f_1_is_fracture,
             )
-            debug = []
             for _, pt, dist in points_0:
                 if point_already_present(pt, f_0):
                     continue
