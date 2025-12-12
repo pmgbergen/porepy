@@ -704,6 +704,34 @@ def test_three_fractures_intersecting_along_line(
         _verify_points_in_line(sd.nodes, start, end)
 
 
+def test_meshing_with_mesh_size_control_points(unit_box: pp.Domain, mesh_args: dict):
+    """Use mesh size parameters that will trigger insertion of mesh size control points.
+
+    Parameters:
+        unit_box: Unit box domain.
+
+    """
+    # Set the mesh size parameters to values that will trigger insertion of mesh size
+    # control points.
+    mesh_args["refinement_threshold"] = 0.1
+    fracture_0 = pp.PlaneFracture(
+        np.array([[0.4, 0.91, 0.91, 0.4], [0.5, 0.5, 0.5, 0.5], [0.2, 0.2, 0.8, 0.8]])
+    )
+    fracture_1 = pp.PlaneFracture(
+        np.array([[0.3, 0.8, 0.8, 0.3], [0.3, 0.3, 0.7, 0.7], [0.5, 0.5, 0.5, 0.5]])
+    )
+    fracture_2 = pp.PlaneFracture(
+        np.array([[0.5, 0.5, 0.5, 0.5], [0.3, 0.3, 0.7, 0.7], [0.2, 0.8, 0.8, 0.2]])
+    )
+
+    fractures = [fracture_0, fracture_1, fracture_2]
+    network = pp.create_fracture_network(fractures, unit_box)
+    mdg = network.mesh(mesh_args=mesh_args)
+    assert len(mdg.subdomains(dim=2)) == 3
+    assert len(mdg.subdomains(dim=1)) == 6
+    assert len(mdg.subdomains(dim=0)) == 1
+
+
 @pytest.mark.parametrize(
     "x_min, x_max, is_constraint",
     [
