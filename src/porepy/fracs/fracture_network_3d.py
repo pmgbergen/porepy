@@ -212,10 +212,19 @@ class SurfacePointInserter:
             Direction.NORTH: dir_0[Direction.NORTH] and dir_1[Direction.NORTH],
         }
 
-    def _tangent_basis(self, f, cp_0, cp_1):
-        n_0 = self._get_normal(f)
+    def _tangent_basis(self, f_main, f_other, cp_0, cp_1):
+        n_0 = self._get_normal(f_main)
         vec = np.array(cp_1) - np.array(cp_0)
-        vec = vec / np.linalg.norm(vec)
+        nrm = np.linalg.norm(vec)
+        if nrm < 1e-12:
+            # If the control points are (almost) identical, we cannot use the
+            # connecting vector to define a direction. Use the normal of the other
+            # fracture instead, and take a cross product to define a direction.
+            n_1 = self._get_normal(f_other)
+            vec = np.cross(n_0, n_1)
+            nrm = np.linalg.norm(vec)
+
+        vec = vec / nrm
 
         proj_vec_0 = vec - np.dot(vec, n_0) * n_0
         if np.linalg.norm(proj_vec_0) < 1e-12:
