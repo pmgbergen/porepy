@@ -290,7 +290,14 @@ class MeshSizeComputer:
         return self._hfrac
 
     def h_min(self) -> float:
-        """Minimum mesh size [m]."""
+        """Minimum mesh size [m]. No smaller mesh sizes will be set anywhere in the
+        domain. Gmsh may however decide to use smaller mesh sizes if the geometry
+        requires it.
+
+        Returns:
+            float: Minimum mesh size.
+
+        """
         return self._hmin
 
     def h_end(self, is_boundary: bool) -> float:
@@ -346,7 +353,7 @@ class MeshSizeComputer:
             float: Distance from the fracture.
 
         """
-        return self._min_size(dist) * self._buffer
+        return self._min_size(dist)
 
     def size_min(self, dist: float) -> float:
         """Mesh size close to a mesh size control point [m].
@@ -360,11 +367,39 @@ class MeshSizeComputer:
         """
         return self._min_size(dist) * self._buffer
 
-    def size_at_distance(self, dist: float) -> float:
-        h = self.size_min(dist) + (self._hfarfield - self.size_min(dist)) / (
-            self._farfield_transition * self._hfrac - self.dist_min(dist)
+    def size_at_distance(
+        self, dist: float, old_distance: float, is_boundary: bool, on_codim: bool
+    ) -> float:
+        # In the immediate vicinity of the old point, the mesh size is proportional to
+        # the distance to other objects at that point, though the distance is capped
+        # from below by a minimum distance. The mesh size in this region is scaled by
+        # the factor buffer.
+        end_near_old_region = self.dist_min(old_distance)
+        mesh_size_near_old = self.size_min(old_distance)
+
+        # The mesh size transits linearly from the size near the old point to a mesh
+        # size far away from the contol point. This mesh size is either the fracture
+        # mesh size, if the control point is placed on a fracture surface, and the mesh
+        # size is used for codimension meshing (i.e., we construct the mesh on the
+        # fracture surface). Otherwise, the far-field mesh size is used. The extent of
+        # the transition region is controlled by the farfield_transition parameter and
+        # the mesh size.
+        start_far_away_region = self.dist_farfield(
+            is_boundary=is_boundary, on_codim=on_codim
         )
-        return h
+        size_far_away_region = self.size_farfield(is_boundary=is_boundary)
+
+        if dist >= start_far_away_region:
+            return size_far_away_region
+        elif dist <= end_near_old_region:
+            return mesh_size_near_old
+        else:
+            # Linear transition.
+            h = mesh_size_near_old + (size_far_away_region - mesh_size_near_old) * (
+                (dist - end_near_old_region)
+                / (start_far_away_region - end_near_old_region)
+            )
+            return h
 
     def _min_size(self, dist: float) -> float:
         """Compute the minimum mesh size at a given distance from the fracture.
