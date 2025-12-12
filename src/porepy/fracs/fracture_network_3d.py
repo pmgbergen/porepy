@@ -105,7 +105,7 @@ class SurfacePointInserter:
             Direction.SOUTH: True,
             Direction.NORTH: True,
         }
-        tab[i] = (Point(*cp_0), direction, init_distance)
+        tab[i] = (Point(*cp_0), Point(*cp_0), direction, init_distance)
         points_to_add = []
         discarded_ijs = set()
 
@@ -113,29 +113,50 @@ class SurfacePointInserter:
             _, i = heapq.heappop(q)
             if i in discarded_ijs:
                 continue
-            p, dirs, old_distance = tab[i]
+            p_cand, p_prev, dirs, old_distance = tab[i]
 
-            if not gmsh.model.is_inside(self._nd - 1, f_main, p):
+            if not gmsh.model.is_inside(self._nd - 1, f_main, p_cand):
                 # We are outside the fracture, no need to proceed in this direction.
                 discarded_ijs.add(i)
                 tab.pop(i)
                 continue
 
-            gmsh_ind = gmsh.model.occ.add_point(*tab[i][0])
-            dist_other = gmsh.model.occ.get_distance(
+            # Gmsh index of the candidate point.
+            gmsh_ind = gmsh.model.occ.add_point(*p_cand)
+            # Distance from the candidate point to the other fracture.
+            dist_other_fracture = gmsh.model.occ.get_distance(
                 0, gmsh_ind, self._nd - 1, f_other
             )[0]
+            # Distance between the candidate and previous points.
+            dist_prev_point = np.linalg.norm(np.array(p_cand) - np.array(p_prev))
 
-            # Mesh at this point, as determined by the distance from the parent point
-            # (tab[i][0]).
-            h_from_prev = self._mesh_size_computer.size_at_distance(old_distance)
+            # Mesh at the candidate point, as determined by the distance from the
+            # previous point.
+            if dist_prev_point == 0:
+                # This should only happen in the first iteration, when the previous and
+                # candidate points have the same coordinates. There is no mesh size from
+                # the previous point to compare with (see below if) and a point should
+                # be added if the distance to the other fracture justifies it. Thus, we
+                # set the mesh size from previous to positive inf to make sure it is not
+                # less than the mesh size set according to the distance to the other
+                # fracture, as this could have prevented adding the point.
+                h_from_prev = np.inf
+            else:
+                # There is a previous point. Compute the mesh size at the candidate
+                # point from the mesh size field centered at this point.
+                h_from_prev = self._mesh_size_computer.size_at_distance(
+                    dist_other_fracture,
+                    dist_prev_point,
+                    f_main_on_fracture,
+                    on_codim=True,
+                )
 
             # Check if the new point is so far away from the other surface that no more
             # points are needed, or if the mesh size resulting from inserting a point
             # here will be coarser than the mesh size obtained from the parent point.
             if (
-                dist_other > self._mesh_size_computer.refinement_threshold()
-                or self._mesh_size_computer.dist_min(dist_other) >= h_from_prev
+                dist_other_fracture > self._mesh_size_computer.refinement_threshold()
+                or self._mesh_size_computer.size_min(dist_other_fracture) > h_from_prev
             ):
                 # No need to add more points in this direction.
                 gmsh.model.occ.remove([(0, gmsh_ind)])
@@ -143,7 +164,20 @@ class SurfacePointInserter:
                 tab.pop(i)
                 continue
 
-            points_to_add.append((gmsh_ind, p, dist_other))
+            # We have found a new mesh size control point. Register it.
+            points_to_add.append((gmsh_ind, p_cand, dist_other_fracture))
+
+            # Define the new candidate points that will have the newly added point as
+            # its parent / previous point. The step size is set so that, for parallel
+            # fractures, the control points are just close enough to ensure that the
+            # mesh size is constant, i.e., we do not enter the transition zone towards
+            # mesh sizes given by far-field conditions (see documentation of the
+            # MeshSizeComputer for details). This can be estimated to 2 times the
+            # distance between the two fractures at the current point (which will give
+            # the correct estimate for parallel fractures, and possibly a somewhat too
+            # long step for close to parallel fractures, but we cross our fingers this
+            # will work out nicely).
+            step_size = 2 * self._mesh_size_computer.dist_min(dist_other_fracture)
 
             for direction, can_proceed in dirs.items():
                 if not can_proceed:
@@ -152,34 +186,34 @@ class SurfacePointInserter:
                 dir_new = copy.copy(dirs)
                 if direction == Direction.WEST:
                     di = ij(i.i - 1, i.j)
-                    delta = -t_i * dist_other
+                    delta = -t_i * step_size
                     dir_new[Direction.EAST] = False
                 elif direction == Direction.EAST:
                     di = ij(i.i + 1, i.j)
-                    delta = t_i * dist_other
+                    delta = t_i * step_size
                     dir_new[Direction.WEST] = False
                 elif direction == Direction.SOUTH:
                     di = ij(i.i, i.j - 1)
-                    delta = -t_j * dist_other
+                    delta = -t_j * step_size
                     dir_new[Direction.NORTH] = False
                 elif direction == Direction.NORTH:
                     di = ij(i.i, i.j + 1)
-                    delta = t_j * dist_other
+                    delta = t_j * step_size
                     dir_new[Direction.SOUTH] = False
 
                 if di in discarded_ijs:
                     continue
 
-                p_new = Point(*(np.array(p) + delta))
-                dist_new = dist_other
+                p_new = Point(*(np.array(p_cand) + delta))
+                dist_new = dist_other_fracture
 
                 if di in tab:
                     p_new, dist_new = self._closest_point(
-                        cp_0, p_new, dist_other, tab[di][0], tab[di][2]
+                        cp_0, p_new, dist_other_fracture, tab[di][0], tab[di][3]
                     )
-                    dir_new = self._direction_union(dir_new, tab[di][1])
+                    dir_new = self._direction_union(dir_new, tab[di][2])
 
-                tab[di] = (p_new, dir_new, dist_new)
+                tab[di] = (p_new, p_cand, dir_new, dist_new)
                 heapq.heappush(q, (priority(di), di))
             discarded_ijs.add(i)
             tab.pop(i)
