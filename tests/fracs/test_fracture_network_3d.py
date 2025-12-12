@@ -504,17 +504,17 @@ def test_cross_intersection(
     if num_fractures == 2:
         if sum(fracture_constraint) == 0:
             # No constraints, the two fractures intersect in a line.
-            assert len(mdg.subdomains(dim=1)) >= 1
-            assert len(mdg.subdomains(dim=0)) >= 0
+            assert len(mdg.subdomains(dim=1)) == 1
+            assert len(mdg.subdomains(dim=0)) == 0
         else:
             # The two fractures intersect in a line, but this line will be split by the
             # third fracture (the constraint). The splitting will introduce two 1d grids
             # and a 0d grid.
-            assert len(mdg.subdomains(dim=1)) >= 2
-            assert len(mdg.subdomains(dim=0)) >= 1
+            assert len(mdg.subdomains(dim=1)) == 2
+            assert len(mdg.subdomains(dim=0)) == 1
     elif num_fractures == 3:
-        assert len(mdg.subdomains(dim=1)) >= 6
-        assert len(mdg.subdomains(dim=0)) >= 1
+        assert len(mdg.subdomains(dim=1)) == 6
+        assert len(mdg.subdomains(dim=0)) == 1
 
     for i, f in enumerate(fractures):
         # Find the corresponding 2d grid
@@ -607,8 +607,8 @@ def test_t_l_intersection(
     mdg = network.mesh(mesh_args=mesh_args, constraints=constraints)
     num_fracs = 2 - sum(is_constraint)
     assert len(mdg.subdomains(dim=2)) == num_fracs
-    assert len(mdg.subdomains(dim=1)) >= (1 if num_fracs == 2 else 0)
-    assert len(mdg.subdomains(dim=0)) >= 0
+    assert len(mdg.subdomains(dim=1)) == (1 if num_fracs == 2 else 0)
+    assert len(mdg.subdomains(dim=0)) == 0
 
     if num_fracs == 2:
         # Check the intersection line between fracture 0 and 1.
@@ -686,8 +686,8 @@ def test_three_fractures_intersecting_along_line(
     else:
         expected_1d_grids = 0
         expected_0d_grids = 0
-    assert len(mdg.subdomains(dim=1)) >= expected_1d_grids
-    assert len(mdg.subdomains(dim=0)) >= expected_0d_grids
+    assert len(mdg.subdomains(dim=1)) == expected_1d_grids
+    assert len(mdg.subdomains(dim=0)) == expected_0d_grids
 
     if num_fracs >= 2:
         # Check the intersection line between fracture 0 and 1.
@@ -891,12 +891,12 @@ def test_domain_split_by_fractures(
     if num_fracs == 2:
         expected_1d_grids = 1
     elif num_fracs == 3:
-        expected_1d_grids = 3
-    assert len(mdg.subdomains(dim=1)) >= expected_1d_grids
+        expected_1d_grids = 6
+    assert len(mdg.subdomains(dim=1)) == expected_1d_grids
 
     # There should be a single 0d grid if there are three fractures.
     num_0d_grids = 1 if num_fracs == 3 else 0
-    assert len(mdg.subdomains(dim=0)) >= num_0d_grids
+    assert len(mdg.subdomains(dim=0)) == num_0d_grids
 
 
 @pytest.mark.parametrize("num_constraints", [0, 1, 2])
