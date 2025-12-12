@@ -349,8 +349,25 @@ class IterationExporting(pp.PorePyModel):
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
 
+    def prepare_simulation(self):
+        """Prepare simulation.
+
+        This method is called before the simulation starts. It initializes the iteration
+        exporter and writes the initial state to a vtu file.
+
+        """
+        super().prepare_simulation()
+        self.save_data_iteration()
+        self.iteration_exporter.write_pvd()
+
 
 class ResidualExporting:
+    """Class for exporting residuals of the equation system.
+
+    TODO: Doesn't work at time steps with time derivatives, due to time and iteration
+    solution coinciding.
+    """
+
     if TYPE_CHECKING:
         equation_system: pp.EquationSystem
 
