@@ -41,7 +41,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.145
+    _sphere_radius: float = 0.125
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -492,12 +492,12 @@ class FlowModel(
 ):
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
-        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
+        return pp.ad.MpfaAd(self.darcy_keyword, subdomains)
 
     def fourier_flux_discretization(
         self, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.TpfaAd:
-        return pp.ad.TpfaAd(self.fourier_keyword, list(subdomains))
+        return pp.ad.MpfaAd(self.fourier_keyword, list(subdomains))
 
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
