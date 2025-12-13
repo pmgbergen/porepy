@@ -611,16 +611,20 @@ class FlashInitializer:
             p: float, T: float, x: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
             """See :func:`get_K_values_template_func`."""
+            # To avoid overflow in exp differences.
+            cap = np.log(np.finfo(np.float64).max) - 10.0
             nphase, ncomp = x.shape
             K = np.empty((nphase - 1, ncomp), dtype=np.float64)
             xn = normalize_rows(x)
             pre_0 = prearg_val_c(phasestates[0], p, T, xn[0], params)
             phi_0 = phi_c(pre_0, p, T, xn[0])
+            # NOTE phis are given as ln phis, but K-values are ratios of phis
             for j in range(1, nphase):
                 pre_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
                 phi_j = phi_c(pre_j, p, T, xn[j])
                 # Binding K-values away from zero
-                K[j - 1, :] = phi_0 / phi_j + 1e-10
+                # K[j - 1, :] = phi_0 / phi_j + 1e-10
+                K[j - 1, :] = np.exp(np.minimum(phi_0 - phi_j, cap)) + 1e-10
             return K
 
         self._initializers[FlashSpec.pT] = partial(

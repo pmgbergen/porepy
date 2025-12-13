@@ -15,6 +15,7 @@ performed here.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Optional, Sequence
 
 import numba as nb
@@ -1178,6 +1179,7 @@ class CompiledPengRobinson(CompiledEoS):
         if self.is_compiled:
             return
 
+        start = time.time()
         logger.info("Compiling ideal property functions ..")
 
         h_ids: list[IdealProperty_T] = []
@@ -1269,3 +1271,8 @@ class CompiledPengRobinson(CompiledEoS):
             "drho": self.ideal_fluids[0].funcs["drho"],
         }
         super().compile()
+
+        logger.info(
+            f"{self.nc}-component Peng-Robinson EoS compiled"
+            + " (elapsed time: %.5f (s))." % (time.time() - start)
+        )

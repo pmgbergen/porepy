@@ -28,12 +28,15 @@ from ..abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
 __all__ = [
     "GENERAL_SOLVER_PARAMS",
     "SOLVER_PARAMETERS_TYPE",
+    "FLASH_RESIDUAL_SIGNATURE",
+    "FLASH_JACOBIAN_SIGNATURE",
     "FLASH_RESIDUAL_FUNCTION_TYPE",
     "FLASH_JACOBIAN_FUNCTION_TYPE",
     "SOLVER_FUNCTION_SIGNATURE",
     "sequential_solver",
     "parallel_solver",
     "MULTI_SOLVERS",
+    "get_empty_solver_params",
 ]
 
 
@@ -53,14 +56,25 @@ a solver.
 """
 
 
-# Internal dummy for numba type inference.
-_solver_parameters: dict[str, float] = numba.typed.Dict.empty(
-    key_type=numba.types.unicode_type, value_type=numba.types.float64
-)
-# Due to unknown reasons, we have to set some key-value pair in some cases.
-_solver_parameters["a"] = 0.0
+def get_empty_solver_params() -> dict[str, float]:
+    """Returns an empty solver parameter dictionary.
 
-SOLVER_PARAMETERS_TYPE = typeof(_solver_parameters)
+    Used for type-inference in numba-compiled functions.
+
+    Returns:
+        An empty dictionary of type ``dict[str, float]``.
+
+    """
+    d = numba.typed.Dict.empty(
+        key_type=numba.types.unicode_type, value_type=numba.types.float64
+    )
+    # NOTE For unknown reasons, numba sometimes fails to infer the type of an empty
+    # dict. Hence, we set a dummy key-value pair.
+    d["__dummy_key__"] = 0.0
+    return d
+
+
+SOLVER_PARAMETERS_TYPE = typeof(get_empty_solver_params())
 """Numba-type definition of the solver parameter dictionary.
 
 A solver parameter dictionary has strings as keys and ``float64`` as values.
@@ -73,7 +87,15 @@ Note:
 """
 
 
-@cfunc(numba.f8[:](numba.f8[:]), cache=True)
+FLASH_RESIDUAL_SIGNATURE = numba.f8[:](numba.f8[:])
+"""Numba-signature for a flash residual function.
+
+Takes a 1D array of ``float64`` values and returns a 1D array of ``float64``.
+
+"""
+
+
+@cfunc(FLASH_RESIDUAL_SIGNATURE, cache=True)
 def flash_residual_template_func(x: np.ndarray) -> np.ndarray:
     """Template c-function for a flash residual function ``(f8[:]) -> f8[:]``.
 
@@ -101,7 +123,15 @@ See also:
 """
 
 
-@cfunc(numba.f8[:, :](numba.f8[:]), cache=True)
+FLASH_JACOBIAN_SIGNATURE = numba.f8[:, :](numba.f8[:])
+"""Numba-signature for a flash Jacobian function.
+
+Takes a 1D array of ``float64`` values and returns a 2D array of ``float64``.
+
+"""
+
+
+@cfunc(FLASH_JACOBIAN_SIGNATURE, cache=True)
 def flash_jacobian_template_func(x: np.ndarray) -> np.ndarray:
     """Template c-function for a flash Jacobian function ``(f8[:]) -> f8[:,:]``.
 
@@ -265,18 +295,17 @@ def sequential_solver(
         try:
             res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
         except Exception:
-            exitcodes[i] = 5
-            num_iter[i] = -1
-            result[i, :] = np.nan
-        else:
-            exitcodes[i] = e_i
-            num_iter[i] = n_i
-            result[i] = res_i
+            res_i = np.nan * np.ones(X0.shape[1])
+            e_i = 5
+            n_i = -1
+        exitcodes[i] = e_i
+        num_iter[i] = n_i
+        result[i] = res_i
 
     return result, exitcodes, num_iter
 
 
-@numba.njit(_multi_solver_signature, cache=False, parallel=NUMBA_PARALLEL, nogil=True)
+@numba.njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL, nogil=True)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -306,23 +335,11 @@ def parallel_solver(
         This makes this function fragile to exceptions thrown by the solver.
         If an exception is thrown, the whole parallel execution is aborted.
 
-    Note:
-        This method looks for a solver parameter called ``parallel_chunksize``.
-        If found, the user can provide it, otherwise it is computed based on cores and
-        size.
-
     """
     n = X0.shape[0]
     result = np.zeros_like(X0)
     num_iter = np.zeros(n, dtype=np.int_)
     exitcodes = np.ones(n, dtype=np.int_) * 5
-    if "parallel_chunksize" in solver_params:
-        cs = int(solver_params["parallel_chunksize"])
-    else:
-        # Default value for numba to compute its own chunksize.
-        cs = 0
-
-    numba.set_parallel_chunksize(cs)
 
     # try:
     for i in numba.prange(n):

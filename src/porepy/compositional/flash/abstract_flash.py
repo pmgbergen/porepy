@@ -596,6 +596,8 @@ class AbstractFlash(abc.ABC):
         - ``'flash_kwargs'``: See :meth:`flash`.
         - ``'eps'``: Used to define an absent phase numerically (i.e. values below this
           will plot a phase as absent.)
+        - ``'show_not_converged'``: If ``True``, non-converged flash points will be
+          plotted with a cross. Default is ``False``.
 
         Parameters:
             specification: The flash to be calculated.
@@ -758,6 +760,18 @@ class AbstractFlash(abc.ABC):
         if field == "phasesplit":
             cb_rr.set_ticks(cbticks)
             cb_rr.set_ticklabels(cblabels)
+
+        nonc = ~results.converged
+        if np.any(nonc) and kwargs.get("show_not_converged", False):
+            img_nc = ax.scatter(
+                xm.flatten()[nonc],
+                ym.flatten()[nonc],
+                s=5,
+                c="firebrick",
+                marker="x",
+                label="No convergence",
+            )
+            ax.legend(handles=[img_nc], loc="upper center")
 
         return fig, results
 

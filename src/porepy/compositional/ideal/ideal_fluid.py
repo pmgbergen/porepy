@@ -183,7 +183,7 @@ class IdealFluid:
         du_c: IdealProperty_T
 
         if self.funcs_raw["u"] is not None and self.funcs_raw["du"] is not None:
-            logger.info("Compiling ideal u and h(u)..")
+            logger.info(f"Compiling ideal {self.name} u and h(u)..")
 
             u_c = _IDP_T_COMPILER(self.funcs_raw["u"])
             du_c = _IDP_T_COMPILER(self.funcs_raw["du"])
@@ -197,7 +197,7 @@ class IdealFluid:
                 return du_c(T) + R_U
 
         elif self.funcs_raw["h"] is not None and self.funcs_raw["dh"] is not None:
-            logger.info("Compiling ideal h and u(h)..")
+            logger.info(f"Compiling ideal {self.name} h and u(h)..")
 
             h_c = _IDP_T_COMPILER(self.funcs_raw["h"])
             dh_c = _IDP_T_COMPILER(self.funcs_raw["dh"])

@@ -751,12 +751,12 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
     # first complementary condition is w.r.t. to reference phase
     # (1 - sum_j y_j) * (1 - sum_i x_i0)
-    jac[0, :nip] = (-1) * unities[0]
-    jac[0, nip : nip + ncomp] = y[0] * (-1)
+    jac[0, :nip] = -unities[0]
+    jac[0, nip : nip + ncomp] = -y[0]
     for j in range(1, nphase):
         # for the other phases, it's slightly easier since y_j * (1 - sum_i x_ij)
         jac[j, j - 1] = unities[j]
-        jac[j, nip + j * ncomp : nip + (j + 1) * ncomp] = y[j] * (-1)
+        jac[j, nip + j * ncomp : nip + (j + 1) * ncomp] = -y[j]
 
     return np.hstack((np.zeros((nphase, 2 + nip), dtype=np.float64), jac))
 
@@ -798,9 +798,9 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
 
     for j in range(1, nphase):
         res[(j - 1) * ncomp : j * ncomp] = (
-            np.log(np.maximum(np.abs(x[j]), eps))
+            np.log(np.maximum(x[j], eps))
             + phis[j]
-            - np.log(np.maximum(np.abs(x[0]), eps))
+            - np.log(np.maximum(x[0], eps))
             - phis[0]
         )
 
@@ -846,7 +846,7 @@ def isofugacity_constraints_jac(
     block_0 = dphis[0, :, :]
     # + phi * dx  (minding the first two columns which contain the dp dT)
     # block_0[:, 2:] += np.diag(phis[0])
-    block_0[:, 2:] += np.diag(1.0 / np.maximum(np.abs(x[0]), eps))
+    block_0[:, 2:] += np.diag(1.0 / np.maximum(x[0], eps))
 
     # Loop over row blocks associated with constraints between an independent phase
     # and the reference phase, for all components.
@@ -855,7 +855,7 @@ def isofugacity_constraints_jac(
         # block_j = (dphis[j, :, :].T * x[j]).T
         block_j = dphis[j, :, :]
         # block_j[:, 2:] += np.diag(phis[j])
-        block_j[:, 2:] += np.diag(1.0 / np.maximum(np.abs(x[j]), eps))
+        block_j[:, 2:] += np.diag(1.0 / np.maximum(x[j], eps))
 
         # p, T derivatives
         idx = (j - 1) * ncomp  # start of row block

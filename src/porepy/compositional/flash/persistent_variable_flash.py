@@ -1,20 +1,20 @@
-"""Module containing an implementation of the unified flash using (parallel) compiled
-functions created with numba.
+"""Module containing an implementation of the persistent-variable flash using (parallel)
+compiled functions created with numba.
 
-The flash system, including a non-parametric interior point method, is assembled and
-compiled using :func:`numba.njit`, to enable an efficient solution of the equilibrium
-problem.
+Equations are assembled in a modular fashion depending on the flash specification.
+They are always in the following order:
 
-The compiled functions are such that they can be used to solve multiple flash problems
-in parallel.
+1. Mass conservation equations
+2. Isofugacity equations
+3. First-order optimality conditions (w.r.t. energy/enthalpy and/or volume).
+4. Complementary conditions for phase fractions.
 
-Parallelization is achieved by applying Newton in parallel for multiple input.
-The intended use is for larg compositional flow problems, where an efficient solution
-to the local equilibrium problem is required.
+Each compiled flash is tailored to a fluid mixture with a given number of components and
+phases.
 
 References:
     [1]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
-    [2]: `Vu et al. (2021) <https://doi.org/10.1016/j.matcom.2021.07.015>`_
+    [2]: `Lipovac et al. (2024) <https://doi.org/10.1016/j.fluid.2023.113991>`_
 
 """
 
@@ -23,17 +23,14 @@ from __future__ import annotations
 import copy
 import logging
 import time
-from typing import Callable, Optional, Sequence, cast
+from typing import Callable, Optional, Sequence
 
-# NOTE: numba.typed has a spurious py.typed file which confuses mypy and
-# makes it render an endless amount of errors related to attributes of the
-# numba package. Importing numba.typed like this makes mypy ignore that file.
-import numba
-import numba.typed
+import numba as nb
 import numpy as np
 
 import porepy as pp
 
+from .._numba_interface import njit
 from ..compiled_eos import CompiledEoS
 from ..utils import _chainrule_fractional_derivatives, normalize_rows
 from .abstract_flash import AbstractFlash, FlashResults, FlashSpec, StateSpecType
@@ -53,7 +50,14 @@ from .flash_equations import (
     phase_mass_constraints_res,
 )
 from .flash_initializer import FlashInitializer
-from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
+from .solvers import (
+    DEFAULT_SOLVER_PARAMS,
+    FLASH_JACOBIAN_SIGNATURE,
+    FLASH_RESIDUAL_SIGNATURE,
+    MULTI_SOLVERS,
+    SOLVERS,
+    get_empty_solver_params,
+)
 
 __all__ = ["CompiledPersistentVariableFlash"]
 
@@ -203,10 +207,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         numba-conformal type."""
 
         if not hasattr(self, "_nb_solver_params"):
-            d = numba.typed.Dict.empty(
-                key_type=numba.types.unicode_type, value_type=numba.types.float64
-            )
-            self._nb_solver_params = cast(dict[str, float], d)
+            self._nb_solver_params = get_empty_solver_params()
 
         for k, v in solver_params.items():
             self._nb_solver_params[k] = float(v)
@@ -251,10 +252,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if FlashSpec.pT in args and FlashSpec.pT not in self.residuals:
             logger.debug("Compiling pT flash ...")
 
-            @numba.njit(numba.f8[:](numba.f8[:]))
+            @njit(FLASH_RESIDUAL_SIGNATURE)
             def F_pT(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.pT)
+                spec = FlashSpec.pT
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
 
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
                 x = gen_arg[1]
                 y = gen_arg[2]
                 z = gen_arg[3]
@@ -264,9 +269,10 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty((nphase, ncomp), dtype=np.float64)
-                for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                phis = np.empty((n_P, n_C))
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
@@ -275,10 +281,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 return np.hstack((res_1, res_2, res_3))
 
-            @numba.njit(numba.f8[:, :](numba.f8[:]))
+            @njit(FLASH_JACOBIAN_SIGNATURE)
             def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.pT)
+                spec = FlashSpec.pT
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
 
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
                 x = gen_arg[1]
                 y = gen_arg[2]
                 p = gen_arg[4]
@@ -287,14 +297,15 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty((nphase, ncomp), dtype=np.float64)
-                dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
-                for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                phis = np.empty((n_P, n_C))
+                dphis = np.empty((n_P, n_C, 2 + n_C))
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    for i in range(ncomp):
+                    for i in range(n_C):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
                         )
@@ -304,7 +315,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 jac_3 = complementary_conditions_jac(x, y)
 
                 # Stack Jacobians and return only derivatives w.r.t. y and x
-                return np.vstack((jac_1, jac_2, jac_3))[:, 2 + nphase - 1 :]
+                return np.vstack((jac_1, jac_2, jac_3))[:, 2 + n_P - 1 :]
 
             self.residuals[FlashSpec.pT] = F_pT
             self.jacobians[FlashSpec.pT] = DF_pT
@@ -312,10 +323,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if FlashSpec.ph in args and FlashSpec.ph not in self.residuals:
             logger.debug("Compiling ph flash ...")
 
-            @numba.njit(numba.f8[:](numba.f8[:]))
+            @njit(FLASH_RESIDUAL_SIGNATURE)
             def F_ph(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.ph)
+                spec = FlashSpec.ph
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
 
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
                 x = gen_arg[1]
                 y = gen_arg[2]
                 z = gen_arg[3]
@@ -326,10 +341,11 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty((nphase, ncomp), dtype=np.float64)
-                h = np.empty(nphase, dtype=np.float64)
+                phis = np.empty((n_P, n_C))
+                h = np.empty(n_P)
+
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     h[j] = h_c(pre_res_j, p, T, xn[j])
 
@@ -343,10 +359,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 return np.hstack((res_1, res_2, res_3, res_4))
 
-            @numba.njit(numba.f8[:, :](numba.f8[:]))
+            @njit(FLASH_JACOBIAN_SIGNATURE)
             def DF_ph(X_gen: np.ndarray) -> np.ndarray:
-                gen_arg = parse_generic_arg(X_gen, ncomp, nphase, FlashSpec.ph)
+                spec = FlashSpec.ph
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
 
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
                 x = gen_arg[1]
                 y = gen_arg[2]
                 p = gen_arg[4]
@@ -356,16 +376,17 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty((nphase, ncomp), dtype=np.float64)
-                dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
-                hs = np.empty(nphase, dtype=np.float64)
-                dhs = np.empty((nphase, 2 + ncomp), dtype=np.float64)
-                for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                phis = np.empty((n_P, n_C))
+                dphis = np.empty((n_P, n_C, 2 + n_C))
+                hs = np.empty(n_P)
+                dhs = np.empty((n_P, 2 + n_C))
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    for i in range(ncomp):
+                    for i in range(n_C):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
                         )
@@ -390,7 +411,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 # single column (1D array) with other columns (2D array). So we slice
                 # out only the columns belonging to saturations, and stack. Final slice
                 # which removes column belonging to p is done after stack.
-                return np.hstack((jac[:, :2], jac[:, 2 + nphase - 1 :]))[:, 1:]
+                return np.hstack((jac[:, :2], jac[:, 2 + n_P - 1 :]))[:, 1:]
 
             self.residuals[FlashSpec.ph] = F_ph
             self.jacobians[FlashSpec.ph] = DF_ph
@@ -398,19 +419,32 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if FlashSpec.vh in args and FlashSpec.vh not in self.residuals:
             logger.debug("Compiling vh flash ...")
 
-            @numba.njit(numba.f8[:](numba.f8[:]))
+            @njit(FLASH_RESIDUAL_SIGNATURE)
             def F_vh(X_gen: np.ndarray) -> np.ndarray:
-                s, x, y, z, p, T, v_target, h_target, params = parse_generic_arg(
-                    X_gen, ncomp, nphase, FlashSpec.vh
-                )
+                spec = FlashSpec.vh
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
+
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
+                s = gen_arg[0]
+                x = gen_arg[1]
+                y = gen_arg[2]
+                z = gen_arg[3]
+                p = gen_arg[4]
+                T = gen_arg[5]
+                v_target = gen_arg[6]
+                h_target = gen_arg[7]
+                params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty((nphase, ncomp), dtype=np.float64)
-                hs = np.empty(nphase, dtype=np.float64)
-                rhos = np.empty(nphase, dtype=np.float64)
-                for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                phis = np.empty((n_P, n_C))
+                hs = np.empty(n_P)
+                rhos = np.empty(n_P)
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     hs[j] = h_c(pre_res_j, p, T, xn[j])
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
@@ -429,26 +463,38 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
                 return np.hstack((res_1, res_2, res_3, res_4, res_5, res_6))
 
-            @numba.njit(numba.f8[:, :](numba.f8[:]))
+            @njit(FLASH_JACOBIAN_SIGNATURE)
             def DF_vh(X_gen: np.ndarray) -> np.ndarray:
-                s, x, y, _, p, T, v_target, h_target, params = parse_generic_arg(
-                    X_gen, ncomp, nphase, FlashSpec.vh
-                )
+                spec = FlashSpec.vh
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
+
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
+                s = gen_arg[0]
+                x = gen_arg[1]
+                y = gen_arg[2]
+                p = gen_arg[4]
+                T = gen_arg[5]
+                v_target = gen_arg[6]
+                h_target = gen_arg[7]
+                params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
-                phis = np.empty((nphase, ncomp), dtype=np.float64)
-                dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
-                hs = np.empty(nphase, dtype=np.float64)
-                dhs = np.empty((nphase, 2 + ncomp), dtype=np.float64)
-                rhos = np.empty(nphase, dtype=np.float64)
-                drhos = np.empty((nphase, 2 + ncomp), dtype=np.float64)
-                for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                phis = np.empty((n_P, n_C))
+                dphis = np.empty((n_P, n_C, 2 + n_C))
+                hs = np.empty(n_P)
+                dhs = np.empty((n_P, 2 + n_C))
+                rhos = np.empty(n_P)
+                drhos = np.empty((n_P, 2 + n_C))
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    for i in range(ncomp):
+                    for i in range(n_C):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
                         )
@@ -510,7 +556,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         - ``'solver'``: selected solver (see
           :data:`~porepy.compositional.flash.solvers.SOLVERS`)
         - ``'solver_params'``: Custom solver parameters for single run. Otherwise the
-          instance- :attr:`solver_params` are used.
+          instance- :attr:`solver_params` are used. Supports the parameter
+          ``'parallel_chunksize'`` when ``'mode'`` is set to ``'sequential'``.
         - ``'gen_arg_params'``: A sequence of arrays to be added as parameters
           to the generic flash argument. Can also contain floats, which will be
           broadcasted into the vectorized argument.
@@ -524,6 +571,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 of thermodynamic states is passed.
 
         """
+
+        global SOLVERS, MULTI_SOLVERS, DEFAULT_SOLVER_PARAMS
 
         if params is None:
             params = {"mode": "sequential", "solver": "npipm"}
@@ -579,9 +628,18 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         solver_params["f_dim"] = results.dofs
         self._convert_solver_params(solver_params)
 
+        if mode == "parallel":
+            if "parallel_chunksize" in solver_params:
+                cs = int(solver_params["parallel_chunksize"])
+            else:
+                # Default value for numba to compute its own chunksize.
+                cs = 0
+
+            nb.set_parallel_chunksize(cs)
+
         start = time.time()
         resultsarray, exitcodes, num_iter = MULTI_SOLVERS[mode](
-            X0,
+            np.ascontiguousarray(X0),
             self.residuals[results.specification],
             self.jacobians[results.specification],
             SOLVERS[solver],
@@ -592,17 +650,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         results.exitcode = exitcodes
         results.num_iter = num_iter
 
-        logger.info(
+        logger.debug(
             f"{results.size} {results.specification.name} flash solved"
             + " (elapsed time: %.5f (s))." % (time.time() - start)
-        )
-        logger.debug(
-            f"Success: {results.converged.sum()} / {results.size};"
-            + f" Max iter: {results.max_iter_reached.sum()};"
-            + f" Diverged: {results.diverged.sum()};"
-            + f" Failures: {np.sum(results.exitcode > 2)};"
-            + f" Iterations: {results.num_iter.sum()} (total) "
-            + f"{np.mean(results.num_iter):.2f} (avg);"
         )
 
         self._parse_and_complete_results(
