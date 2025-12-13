@@ -150,6 +150,21 @@ class ModelGeometry(pp.PorePyModel):
             meshing_kwargs = {}
         return meshing_kwargs
 
+    def depth(self, points: np.ndarray) -> np.ndarray:
+        """Compute depth of points.
+
+        Parameters:
+            points: Array of points where depth is to be calculated. The nd-1 coordinate
+                is assumed to be the depth coordinate, with larger values indicating
+                larger depth. Shape: (N, num_points), with N >= nd.
+
+        Returns:
+            Depth values for the provided points.
+
+        """
+        key = "zmax" if self.nd == 3 else "ymax"
+        return self.domain.bounding_box[key] - points[self.nd - 1, :]
+
     @pp.ad.cached_method
     def subdomains_to_interfaces(
         self, subdomains: list[pp.Grid], codims: list[int]
