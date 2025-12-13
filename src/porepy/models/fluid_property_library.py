@@ -482,7 +482,14 @@ class FluidBuoyancy(pp.PorePyModel):
     Mass, component mass, and energy conservation are tested in `test_buoyancy_flow.py`,
     and a benchmark against an analytical buoyancy solution is provided in
     `test_buoyancy_flow_benchmark.py`.
+
+    The class uses operator caching to reduce the size of the AD operator tree by
+    reusing phase-dependent operators across different component/enthalpy buoyancy
+    calculations.
     """
+
+    # Storage for common operators to reduce operator tree size.
+    _common_operators: dict
 
     component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
@@ -587,10 +594,148 @@ class FluidBuoyancy(pp.PorePyModel):
             An Upwind discretization for the buoyancy term between the two phases.
 
         """
-        discr = pp.ad.UpwindAd(self.buoyancy_key(gamma, delta), subdomains)
-        assert isinstance(discr._discretization, pp.Upwind)
-        discr._discretization.flux_array_key = self.buoyant_flux_array_key(gamma, delta)
-        return discr
+        storage = self._get_common_operators_storage()
+        key = f"discr_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            discr = pp.ad.UpwindAd(self.buoyancy_key(gamma, delta), subdomains)
+            assert isinstance(discr._discretization, pp.Upwind)
+            discr._discretization.flux_array_key = self.buoyant_flux_array_key(gamma, delta)
+            storage[key] = discr
+
+        return storage[key]
+
+    def _get_common_bound_transport_neu(
+        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Get common bound_transport_neu operator for the phase pair.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+
+        Returns:
+            The bound_transport_neu operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"bound_neu_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            discr = self.buoyancy_discretization(gamma, delta, domains)
+            storage[key] = discr.bound_transport_neu()
+
+        return storage[key]
+
+    def _get_common_upwind_op(
+        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Get cached upwind operator for a phase pair.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+
+        Returns:
+            The upwind operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"upwind_op_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            discr = self.buoyancy_discretization(gamma, delta, domains)
+            storage[key] = discr.upwind()
+
+        return storage[key]
+
+    def _get_common_intf_upwind_primary_chain(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached interface upwind_primary @ mortar_avg @ trace chain.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The combined upwind_primary @ mortar_avg @ trace operator chain.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"intf_up_primary_chain_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            intf_discr = self.interface_buoyancy_discretization(gamma, delta, interfaces)
+            storage[key] = intf_discr.upwind_primary() @ mortar_avg @ primary_trace
+
+        return storage[key]
+
+    def _get_common_intf_upwind_secondary_chain(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        interfaces: list[pp.MortarGrid],
+        secondary_to_mortar: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached interface upwind_secondary @ secondary_to_mortar chain.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            interfaces: The interfaces.
+            secondary_to_mortar: Projection from secondary to mortar.
+
+        Returns:
+            The combined upwind_secondary @ secondary_to_mortar operator chain.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"intf_up_secondary_chain_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            intf_discr = self.interface_buoyancy_discretization(gamma, delta, interfaces)
+            storage[key] = intf_discr.upwind_secondary() @ secondary_to_mortar
+
+        return storage[key]
+
+    def _get_common_bound_neu_mortar_chain(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        mortar_to_primary: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached bound_transport_neu @ mortar_to_primary chain.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            mortar_to_primary: Projection from mortar to primary.
+
+        Returns:
+            The combined bound_neu @ mortar_to_primary operator chain.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"bound_neu_mortar_chain_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            bound_neu = self._get_common_bound_transport_neu(gamma, delta, domains)
+            storage[key] = bound_neu @ mortar_to_primary
+
+        return storage[key]
 
     def interface_buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
@@ -606,12 +751,163 @@ class FluidBuoyancy(pp.PorePyModel):
             An Upwind discretization for the buoyancy term between the two phases.
 
         """
-        discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
-        assert isinstance(discr._discretization, pp.UpwindCoupling)
-        discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(
-            gamma, delta
-        )
-        return discr
+        storage = self._get_common_operators_storage()
+        key = f"intf_discr_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            discr = pp.ad.UpwindCouplingAd(self.buoyancy_intf_key(gamma, delta), interfaces)
+            assert isinstance(discr._discretization, pp.UpwindCoupling)
+            discr._discretization.flux_array_key = self.buoyant_intf_flux_array_key(
+                gamma, delta
+            )
+            storage[key] = discr
+
+        return storage[key]
+
+    def _get_common_operators_storage(self) -> dict:
+        """Get or initialize storage for common buoyancy operators.
+
+        Returns:
+            The dictionary for storing common operators and related objects.
+
+        """
+        if not hasattr(self, "_common_operators"):
+            self._common_operators: dict = {}
+        return self._common_operators
+
+    def _phase_pair_key(self, gamma: pp.Phase, delta: pp.Phase) -> tuple[str, str, int]:
+        """Get ordered phase pair key and sign for density difference.
+
+        Uses alphabetical ordering of phase names to ensure consistent caching.
+        Returns the ordered key and a sign (+1 or -1) to apply to get the correct
+        density difference direction (rho_gamma - rho_delta).
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+
+        Returns:
+            Tuple of (first_name, second_name, sign) where sign is +1 if gamma comes
+            first alphabetically, -1 otherwise.
+
+        """
+        if gamma.name <= delta.name:
+            return (gamma.name, delta.name, 1)
+        else:
+            return (delta.name, gamma.name, -1)
+
+    def _get_common_density_flux(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        flux_type: str,
+    ) -> pp.ad.Operator:
+        """Get common density-driven flux operator for a phase pair.
+
+        Uses reciprocity: w_flux(gamma, delta) = -w_flux(delta, gamma).
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            flux_type: Either "subdomain" or "interface".
+
+        Returns:
+            The density-driven flux operator with correct sign.
+
+        """
+        storage = self._get_common_operators_storage()
+        first, second, sign = self._phase_pair_key(gamma, delta)
+
+        # Key for the specific direction (gamma, delta)
+        key = f"w_flux_{flux_type}_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            # First check if we have the canonical (first, second) version
+            canonical_key = f"w_flux_{flux_type}_{first}_{second}"
+            negated_key = f"w_flux_{flux_type}_{second}_{first}"
+
+            if canonical_key not in storage:
+                # Compute canonical version (first - second)
+                phases_by_name = {p.name: p for p in self.fluid.phases}
+                phase_first = phases_by_name[first]
+                phase_second = phases_by_name[second]
+
+                # Use cached density operators
+                rho_first = self._get_common_density(phase_first, domains)
+                rho_second = self._get_common_density(phase_second, domains)
+                rho_diff = rho_first - rho_second
+
+                if flux_type == "subdomain":
+                    storage[canonical_key] = self.density_driven_flux(domains, rho_diff)
+                else:  # interface
+                    interfaces = self.subdomains_to_interfaces(domains, [1])
+                    storage[canonical_key] = self.interface_density_driven_flux(interfaces, rho_diff)
+
+                # Also cache the negated version to avoid creating new operator
+                storage[negated_key] = pp.ad.Scalar(-1) * storage[canonical_key]
+
+            # Now set the requested direction
+            storage[key] = storage[key] if key in storage else (
+                storage[canonical_key] if sign == 1 else storage[negated_key]
+            )
+
+        return storage[key]
+
+    def _get_common_density(
+        self, phase: pp.Phase, domains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Get cached density operator for a phase.
+
+        Parameters:
+            phase: The phase.
+            domains: The subdomains.
+
+        Returns:
+            The density operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"density_{phase.name}"
+
+        if key not in storage:
+            storage[key] = phase.density(domains)
+
+        return storage[key]
+
+    def _get_common_fractional_mobility(
+        self, phase: pp.Phase, domains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Get common fractional phase mass mobility operator.
+
+        Parameters:
+            phase: The phase.
+            domains: The subdomains.
+
+        Returns:
+            The fractional mobility operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"f_mob_{phase.name}"
+
+        if key not in storage:
+            storage[key] = self.fractional_phase_mass_mobility(phase, domains)
+
+        return storage[key]
+
+    def clear_common_operators(self) -> None:
+        """Clear the common buoyancy operators storage.
+
+        Call this when domains change or at the start of a new operator tree
+        construction if needed.
+
+        """
+        if hasattr(self, "_common_operators"):
+            self._common_operators.clear()
+        if hasattr(self, "_common_projections"):
+            self._common_projections = None
 
     def fractionally_weighted_density(
         self, domains: pp.SubdomainsOrBoundaries
@@ -628,15 +924,22 @@ class FluidBuoyancy(pp.PorePyModel):
             An operator representing the fractional-flow-weighted density.
 
         """
-        overall_rho = pp.ad.sum_operator_list(
-            [
-                self.fractional_phase_mass_mobility(phase, domains)
-                * phase.density(domains)
-                for phase in self.fluid.phases
-            ]
-        )
-        overall_rho.set_name("fractionally_weighted_density")
-        return overall_rho
+        storage = self._get_common_operators_storage()
+        key = "fractionally_weighted_density"
+
+        if key not in storage:
+            domains_list = cast(list[pp.Grid], domains)
+            overall_rho = pp.ad.sum_operator_list(
+                [
+                    self._get_common_fractional_mobility(phase, domains_list)
+                    * self._get_common_density(phase, domains_list)
+                    for phase in self.fluid.phases
+                ]
+            )
+            overall_rho.set_name("fractionally_weighted_density")
+            storage[key] = overall_rho
+
+        return storage[key]
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Return gravity magnitude.
@@ -649,11 +952,17 @@ class FluidBuoyancy(pp.PorePyModel):
             An operator representing the gravity field.
 
         """
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2")
-        gravity_field = pp.ad.Scalar(val)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
+        storage = self._get_common_operators_storage()
+        key = "gravity_field"
+
+        if key not in storage:
+            g_constant = pp.GRAVITY_ACCELERATION
+            val = self.units.convert_units(g_constant, "m*s^-2")
+            gravity_field = pp.ad.Scalar(val)
+            gravity_field.set_name("gravity_field")
+            storage[key] = gravity_field
+
+        return storage[key]
 
     def gravity_force(
         self,
@@ -693,19 +1002,83 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
             subdomains_list = cast(list[pp.Grid], list(subdomains))
 
-            fractionally_weighted_rho = self.fractionally_weighted_density(
-                subdomains_list
-            )
-            e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
-            overall_gravity_flux = (
-                pp.ad.Scalar(-1)
-                * e_n
-                @ (fractionally_weighted_rho * self.gravity_field(subdomains_list))
-            )
-            overall_gravity_flux.set_name("overall gravity flux")
-            return overall_gravity_flux
+            # Cache the overall gravity flux
+            storage = self._get_common_operators_storage()
+            key = "overall_gravity_flux"
+
+            if key not in storage:
+                fractionally_weighted_rho = self.fractionally_weighted_density(
+                    subdomains_list
+                )
+                e_n = self._get_common_e_n(subdomains_list)
+                g = self.gravity_field(subdomains_list)
+                neg_one = self._get_common_neg_one()
+                overall_gravity_flux = (
+                    neg_one
+                    * e_n
+                    @ (fractionally_weighted_rho * g)
+                )
+                overall_gravity_flux.set_name("overall gravity flux")
+                storage[key] = overall_gravity_flux
+
+            return storage[key]
         else:
             return super().gravity_force(subdomains, material)  # type:ignore
+
+    def _get_common_neg_one(self) -> pp.ad.Operator:
+        """Get cached Scalar(-1) operator.
+
+        Returns:
+            The Scalar(-1) operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = "neg_one"
+
+        if key not in storage:
+            storage[key] = pp.ad.Scalar(-1)
+
+        return storage[key]
+
+    def _get_common_e_n(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Get cached e_n unit vector operator.
+
+        Parameters:
+            subdomains: The subdomains.
+
+        Returns:
+            The e_n unit vector operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = "e_n"
+
+        if key not in storage:
+            storage[key] = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+
+        return storage[key]
+
+    def _get_common_jump_zero(self, domains: list[pp.Grid]) -> pp.ad.Operator:
+        """Get cached zero array for buoyancy jump terms.
+
+        Parameters:
+            domains: The subdomains.
+
+        Returns:
+            Zero operator for buoyancy jumps.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = "jump_zero"
+
+        if key not in storage:
+            size = sum(g.num_cells for g in domains)
+            storage[key] = pp.wrap_as_dense_ad_array(
+                np.zeros(size), name="buoyancy_jump_zero"
+            )
+
+        return storage[key]
+
 
     def density_driven_flux(
         self, subdomains: pp.SubdomainsOrBoundaries, density_metric: pp.ad.Operator
@@ -734,18 +1107,22 @@ class FluidBuoyancy(pp.PorePyModel):
             raise TypeError("density_driven_flux expects only subdomain grids.")
         subdomains_list = cast(list[pp.Grid], list(subdomains))
 
-        e_n = self.e_i(subdomains_list, i=self.nd - 1, dim=self.nd)
-        gravity_flux = (
-            pp.ad.Scalar(-1)
-            * e_n
-            @ (density_metric * self.gravity_field(subdomains_list))
-        )
+        # Use common intermediate operators.
+        storage = self._get_common_operators_storage()
+        key = "subdomain_flux_ops"
 
-        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
-            subdomains_list
-        )
+        if key not in storage:
+            e_n = self._get_common_e_n(subdomains_list)
+            g = self.gravity_field(subdomains_list)
+            discr = self.darcy_flux_discretization(subdomains_list)
+            vec_src = discr.vector_source()
+            neg_one = self._get_common_neg_one()
+            storage[key] = (e_n, g, vec_src, neg_one)
 
-        w_flux = discr.vector_source() @ gravity_flux
+        e_n, g, vec_src, neg_one = storage[key]
+
+        gravity_flux = neg_one * e_n @ (density_metric * g)
+        w_flux = vec_src @ gravity_flux
         w_flux.set_name("density_driven_flux_" + density_metric.name)
         return w_flux
 
@@ -766,234 +1143,77 @@ class FluidBuoyancy(pp.PorePyModel):
             An Ad operator representing the interface density-driven flux.
 
         """
-        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+        # Use common intermediate operators.
+        storage = self._get_common_operators_storage()
+        key = "interface_flux_ops"
 
-        subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(
-            self.mdg, subdomain_neighbors, interfaces, dim=self.nd
-        )
+        if key not in storage:
+            normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
+            subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
+            projection = pp.ad.MortarProjections(
+                self.mdg, subdomain_neighbors, interfaces, dim=self.nd
+            )
+            e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
+            g = self.gravity_field(subdomain_neighbors)
+            sec_to_mortar = projection.secondary_to_mortar_avg()
+            nd_to_scalar_sum = pp.ad.sum_projection_list(
+                [e.T for e in self.basis(interfaces, dim=self.nd)]
+            )
+            normal_perm = self.normal_permeability(interfaces)
+            neg_one = self._get_common_neg_one()
+            storage[key] = (normals, e_n, g, sec_to_mortar, nd_to_scalar_sum,
+                               normal_perm, interfaces, neg_one)
 
-        e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
-        gravity_flux = (
-            pp.ad.Scalar(-1)
-            * e_n
-            @ (density_metric * self.gravity_field(subdomain_neighbors))
-        )
+        normals, e_n, g, sec_to_mortar, nd_to_scalar_sum, normal_perm, intf, neg_one = storage[key]
 
-        intf_vector_source = projection.secondary_to_mortar_avg() @ gravity_flux
-
+        gravity_flux = neg_one * e_n @ (density_metric * g)
+        intf_vector_source = sec_to_mortar @ gravity_flux
         normals_times_source = normals * intf_vector_source
-        nd_to_scalar_sum = pp.ad.sum_projection_list(
-            [e.T for e in self.basis(interfaces, dim=self.nd)]
-        )
+
         w_flux = self.volume_integral(
-            self.normal_permeability(interfaces)
-            * (nd_to_scalar_sum @ normals_times_source),
-            interfaces,
+            normal_perm * (nd_to_scalar_sum @ normals_times_source),
+            intf,
             1,
         )
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
         return w_flux
 
-    def __entity_buoyancy_flux(
+    def _interface_upwinded_quantity(
         self,
-        advected_gamma_quantity: pp.ad.Operator,
+        quantity: pp.ad.Operator,
         gamma: pp.Phase,
         delta: pp.Phase,
-        domains: pp.SubdomainsOrBoundaries,
-    ) -> List[pp.ad.Operator]:
-        """Helper function to compute the buoyancy flux on subdomains induced by gamma
-        and delta, advecting a quantity associated to phase gamma.
+        interfaces: list[pp.MortarGrid],
+        domains: list[pp.Grid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Upwind a quantity to interfaces using both primary and secondary sides.
 
         Parameters:
-            advected_gamma_quantity: The quantity advected in phase gamma.
-            gamma: The phase gamma.
-            delta: The phase delta.
-            domains: The domains over which the flux is computed.
-
-        Raises:
-            ValueError: If the domains are not subdomains.
-
-        Returns:
-            A list of Ad operators representing the buoyancy flux is phase gamma.
-
-        """
-        b_fluxes: List[pp.ad.Operator] = []
-        rho_gamma = gamma.density(domains)
-        rho_delta = delta.density(domains)
-        w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta)
-        f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
-        f_delta = self.fractional_phase_mass_mobility(delta, domains)
-
-        # Verify that the domains are subdomains.
-        if not all(isinstance(d, pp.Grid) for d in domains):
-            raise ValueError("domains must consist entirely of subdomains.")
-        domains = cast(list[pp.Grid], domains)
-
-        # Discretization objects for the two phases.
-        discr_gamma = self.buoyancy_discretization(gamma, delta, domains)
-        discr_delta = self.buoyancy_discretization(delta, gamma, domains)
-
-        f_gamma_upwind: pp.ad.Operator = discr_gamma.upwind() @ (
-            advected_gamma_quantity * f_gamma
-        )  # well-defined fractional flow on facets.
-        f_delta_upwind: pp.ad.Operator = (
-            discr_delta.upwind() @ f_delta
-        )  # well-defined fractional flow on facets.
-
-        b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
-        b_fluxes.append(b_flux_gamma_delta)
-
-        interfaces = self.subdomains_to_interfaces(domains, [1])
-
-        if len(interfaces) != 0:
-            # Get interface flux contribution.
-            intf_w_flux_gamma_delta = self.interface_density_driven_flux(
-                interfaces, rho_gamma - rho_delta
-            )
-
-            # Setup discretizations for interface coupling.
-            intf_discr_gamma = self.interface_buoyancy_discretization(
-                gamma, delta, interfaces
-            )
-            intf_discr_delta = self.interface_buoyancy_discretization(
-                delta, gamma, interfaces
-            )
-
-            # Projections and trace operators
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, domains, interfaces, dim=1
-            )
-            trace = pp.ad.Trace(domains)
-
-            # Modified coupling that properly handles dimensional transition
-            primary_trace = trace.trace
-            mortar_avg = mortar_projection.primary_to_mortar_avg()
-            secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
-
-            # Project quantities to interface with proper upwinding for both
-            # primary and secondary sides
-            gamma_interface = (
-                intf_discr_gamma.upwind_primary()
-                @ mortar_avg
-                @ primary_trace
-                @ (advected_gamma_quantity * f_gamma)
-                + intf_discr_gamma.upwind_secondary()
-                @ secondary_to_mortar
-                @ (advected_gamma_quantity * f_gamma)
-            )
-            delta_interface = (
-                intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta
-                + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
-            )
-
-            # Compute interface contribution and project back to primary grid
-            interface_coupling_intf = (
-                gamma_interface * delta_interface
-            ) * intf_w_flux_gamma_delta
-            # discr_gamma.bound_transport_neu() and discr_delta.bound_transport_neu()
-            # are equal, discr_gamma.bound_transport_neu() is selected to operate
-            b_intf_flux_gamma_delta = (
-                discr_gamma.bound_transport_neu()
-                @ mortar_projection.mortar_to_primary_int()
-                @ interface_coupling_intf
-            )
-            b_fluxes.append(b_intf_flux_gamma_delta)
-        return b_fluxes
-
-    def __entity_buoyancy_jump(
-        self,
-        advected_gamma_quantity: pp.ad.Operator,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: pp.SubdomainsOrBoundaries,
-    ) -> List[pp.ad.Operator]:
-        """Helper function to compute the buoyancy flux jump on interfaces induced by
-        gamma and delta, advecting a quantity associated to phase gamma.
-
-        Parameters:
-            advected_gamma_quantity: The quantity advected in phase gamma.
-            gamma: The phase gamma.
-            delta: The phase delta.
-            domains: The domains over which the flux is computed.
-
-        Raises:
-            ValueError: If the domains are not subdomains.
+            quantity: The quantity to upwind (already defined on domains).
+            gamma: The phase for which the discretization is set up.
+            delta: The other phase in the pair.
+            interfaces: The interfaces where the upwinding is performed.
+            domains: The subdomains.
+            mortar_avg: Projection from primary to mortar (pre-computed).
+            secondary_to_mortar: Projection from secondary to mortar (pre-computed).
+            primary_trace: Trace operator (pre-computed).
 
         Returns:
-            A list of Ad operators representing the buoyancy flux is phase gamma.
+            Upwinded quantity on interfaces.
 
         """
-
-        # Verify that the domains are subdomains.
-        if not all(isinstance(d, pp.Grid) for d in domains):
-            raise ValueError("domains must consist entirely of subdomains.")
-        domains = cast(list[pp.Grid], domains)
-
-        b_flux_jumps: List[pp.ad.Operator] = []
-        size = sum(g.num_cells for g in domains)
-        zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero"
+        # Use cached projection chains
+        primary_chain = self._get_common_intf_upwind_primary_chain(
+            gamma, delta, interfaces, mortar_avg, primary_trace
         )
-        b_flux_jumps.append(zero)
+        secondary_chain = self._get_common_intf_upwind_secondary_chain(
+            gamma, delta, interfaces, secondary_to_mortar
+        )
+        return primary_chain @ quantity + secondary_chain @ quantity
 
-        rho_gamma = gamma.density(domains)
-        rho_delta = delta.density(domains)
-
-        f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
-        f_delta = self.fractional_phase_mass_mobility(delta, domains)
-
-        interfaces = self.subdomains_to_interfaces(domains, [1])
-        if len(interfaces) != 0:
-            # Get interface flux contribution
-            intf_w_flux_gamma_delta = self.interface_density_driven_flux(
-                interfaces, rho_gamma - rho_delta
-            )
-
-            # Setup discretizations for interface coupling
-            intf_discr_gamma = self.interface_buoyancy_discretization(
-                gamma, delta, interfaces
-            )
-            intf_discr_delta = self.interface_buoyancy_discretization(
-                delta, gamma, interfaces
-            )
-
-            # Projections and trace operators
-            mortar_projection = pp.ad.MortarProjections(
-                self.mdg, domains, interfaces, dim=1
-            )
-            trace = pp.ad.Trace(domains)
-
-            # Modified coupling that properly handles dimensional transition
-            primary_trace = trace.trace
-            mortar_avg = mortar_projection.primary_to_mortar_avg()
-            secondary_to_mortar = mortar_projection.secondary_to_mortar_avg()
-
-            # Project quantities to interface with proper upwinding for both
-            # primary and secondary sides
-            gamma_interface = (
-                intf_discr_gamma.upwind_primary()
-                @ mortar_avg
-                @ primary_trace
-                @ (advected_gamma_quantity * f_gamma)
-                + intf_discr_gamma.upwind_secondary()
-                @ secondary_to_mortar
-                @ (advected_gamma_quantity * f_gamma)
-            )
-            delta_interface = (
-                intf_discr_delta.upwind_primary() @ mortar_avg @ primary_trace @ f_delta
-                + intf_discr_delta.upwind_secondary() @ secondary_to_mortar @ f_delta
-            )
-
-            # Compute interface contribution and project back to secondary grid
-            interface_coupling_intf = (
-                gamma_interface * delta_interface
-            ) * intf_w_flux_gamma_delta
-            b_flux_jump_gamma_delta = (
-                mortar_projection.mortar_to_secondary_int() @ interface_coupling_intf
-            )
-            b_flux_jumps.append(b_flux_jump_gamma_delta)
-        return b_flux_jumps
 
     def phase_pairs_for(self, phase: pp.Phase) -> list[tuple[pp.Phase, pp.Phase]]:
         """Get all phase pairs involving a specific phase.
@@ -1022,110 +1242,776 @@ class FluidBuoyancy(pp.PorePyModel):
             selected_pairs.append((phase_gamma, phase_delta))
         return selected_pairs
 
+    def _unique_phase_pairs(self) -> list[tuple[pp.Phase, pp.Phase]]:
+        """Get unique unordered phase pairs.
+
+        Returns:
+            List of unique phase pairs (gamma, delta) where gamma.name < delta.name.
+
+        """
+        return list(combinations(self.fluid.phases, 2))
+
+    def _get_common_upwinded_mobility(
+        self,
+        phase: pp.Phase,
+        other_phase: pp.Phase,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Get common upwinded fractional mobility operator for a phase.
+
+        Parameters:
+            phase: The phase for which to get the upwinded mobility.
+            other_phase: The other phase in the pair (used for discretization key).
+            domains: The subdomains.
+
+        Returns:
+            Upwinded fractional mobility operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"f_upwind_{phase.name}_{other_phase.name}"
+
+        if key not in storage:
+            f = self._get_common_fractional_mobility(phase, domains)
+            upwind_op = self._get_common_upwind_op(phase, other_phase, domains)
+            storage[key] = upwind_op @ f
+
+        return storage[key]
+
+    def _get_common_interface_upwinded_mobility(
+        self,
+        phase: pp.Phase,
+        other_phase: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get common interface-upwinded fractional mobility operator for a phase.
+
+        Parameters:
+            phase: The phase for which to get the upwinded mobility.
+            other_phase: The other phase in the pair.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            Interface-upwinded fractional mobility operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"f_intf_upwind_{phase.name}_{other_phase.name}"
+
+        if key not in storage:
+            f = self._get_common_fractional_mobility(phase, domains)
+            storage[key] = self._interface_upwinded_quantity(
+                f, phase, other_phase, interfaces, domains,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+
+        return storage[key]
+
+    def _get_common_mobility_product(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Get common mobility product (f_gamma_up * f_delta_up) for a phase pair.
+
+        This product is the same for all component and enthalpy buoyancy calculations,
+        so caching it significantly reduces the operator tree size.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+
+        Returns:
+            The product of upwinded mobilities for the phase pair.
+
+        """
+        storage = self._get_common_operators_storage()
+        # Use ordered key to cache both (gamma, delta) and (delta, gamma) products
+        key = f"f_product_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            f_gamma_up = self._get_common_upwinded_mobility(gamma, delta, domains)
+            f_delta_up = self._get_common_upwinded_mobility(delta, gamma, domains)
+            storage[key] = f_gamma_up * f_delta_up
+
+        return storage[key]
+
+    def _get_common_interface_mobility_product(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get common interface mobility product for a phase pair.
+
+        This product is the same for all component and enthalpy buoyancy calculations,
+        so caching it significantly reduces the operator tree size.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The product of interface-upwinded mobilities for the phase pair.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"f_intf_product_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            f_gamma_intf = self._get_common_interface_upwinded_mobility(
+                gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            f_delta_intf = self._get_common_interface_upwinded_mobility(
+                delta, gamma, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            storage[key] = f_gamma_intf * f_delta_intf
+
+        return storage[key]
+
+    def _get_common_weighted_mobility_flux(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Get common (f_gamma_up * f_delta_up) * w_flux for a phase pair.
+
+        This combined operator is used in all buoyancy flux calculations.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+
+        Returns:
+            The mobility product times density-driven flux.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"weighted_flux_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            f_product = self._get_common_mobility_product(gamma, delta, domains)
+            w_flux = self._get_common_density_flux(gamma, delta, domains, "subdomain")
+            storage[key] = f_product * w_flux
+
+        return storage[key]
+
+    def _get_common_interface_weighted_mobility_flux(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get common interface (f_gamma * f_delta) * w_flux for a phase pair.
+
+        This combined operator is used in all interface buoyancy flux calculations.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The interface mobility product times density-driven flux.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"weighted_intf_flux_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            f_product = self._get_common_interface_mobility_product(
+                gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            intf_w_flux = self._get_common_density_flux(
+                gamma, delta, domains, "interface"
+            )
+            storage[key] = f_product * intf_w_flux
+
+        return storage[key]
+
+
+    def _get_common_chi_diff_interface(
+        self,
+        component: pp.Component,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached (chi_gamma_intf - chi_delta_intf) for interface buoyancy.
+
+        Parameters:
+            component: The component.
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The chi difference operator on interfaces.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"chi_diff_intf_{component.name}_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            chi_gamma_intf = self._get_common_interface_upwinded_chi(
+                component, gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            chi_delta_intf = self._get_common_interface_upwinded_chi(
+                component, delta, gamma, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            storage[key] = chi_gamma_intf - chi_delta_intf
+
+
+        return storage[key]
+
+    def _get_common_enthalpy_diff_interface(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached (h_gamma_intf - h_delta_intf) for interface buoyancy.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The enthalpy difference operator on interfaces.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"h_diff_intf_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            h_gamma_intf = self._get_common_interface_upwinded_enthalpy(
+                gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            h_delta_intf = self._get_common_interface_upwinded_enthalpy(
+                delta, gamma, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            storage[key] = h_gamma_intf - h_delta_intf
+
+        return storage[key]
+
+    def _get_common_intf_coupling_chi(
+        self,
+        component: pp.Component,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached interface coupling for component buoyancy.
+
+        This is (chi_gamma - chi_delta) * weighted_intf_flux, shared between
+        component_buoyancy and component_buoyancy_jump.
+
+        Parameters:
+            component: The component.
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The interface coupling operator for component buoyancy.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"intf_coupling_chi_{component.name}_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            chi_diff = self._get_common_chi_diff_interface(
+                component, gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            weighted_intf_flux = self._get_common_interface_weighted_mobility_flux(
+                gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            storage[key] = chi_diff * weighted_intf_flux
+
+        return storage[key]
+
+    def _get_common_intf_coupling_enthalpy(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached interface coupling for enthalpy buoyancy.
+
+        This is (h_gamma - h_delta) * weighted_intf_flux, shared between
+        enthalpy_buoyancy and enthalpy_buoyancy_jump.
+
+        Parameters:
+            gamma: The first phase.
+            delta: The second phase.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            The interface coupling operator for enthalpy buoyancy.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"intf_coupling_h_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            h_diff = self._get_common_enthalpy_diff_interface(
+                gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            weighted_intf_flux = self._get_common_interface_weighted_mobility_flux(
+                gamma, delta, domains, interfaces,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+            storage[key] = h_diff * weighted_intf_flux
+
+        return storage[key]
+
+    def _get_common_chi(
+        self,
+        component: pp.Component,
+        phase: pp.Phase,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Get cached chi (partial fraction) operator for a component/phase.
+
+        Parameters:
+            component: The component.
+            phase: The phase.
+            domains: The subdomains.
+
+        Returns:
+            Chi operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"chi_{component.name}_{phase.name}"
+
+        if key not in storage:
+            storage[key] = phase.partial_fraction_of[component](domains)
+
+        return storage[key]
+
+    def _get_common_enthalpy(
+        self,
+        phase: pp.Phase,
+        domains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Get cached enthalpy operator for a phase.
+
+        Parameters:
+            phase: The phase.
+            domains: The subdomains.
+
+        Returns:
+            Enthalpy operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"enthalpy_{phase.name}"
+
+        if key not in storage:
+            storage[key] = phase.specific_enthalpy(domains)
+
+        return storage[key]
+
+    def _get_common_interface_upwinded_chi(
+        self,
+        component: pp.Component,
+        phase: pp.Phase,
+        other_phase: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get common interface-upwinded chi operator for a component/phase.
+
+        Parameters:
+            component: The component.
+            phase: The phase for which to get the upwinded chi.
+            other_phase: The other phase in the pair.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            Interface-upwinded chi operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"chi_intf_{component.name}_{phase.name}_{other_phase.name}"
+
+        if key not in storage:
+            chi = self._get_common_chi(component, phase, domains)
+            storage[key] = self._interface_upwinded_quantity(
+                chi, phase, other_phase, interfaces, domains,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+
+        return storage[key]
+
+
+    def _get_common_interface_upwinded_enthalpy(
+        self,
+        phase: pp.Phase,
+        other_phase: pp.Phase,
+        domains: list[pp.Grid],
+        interfaces: list[pp.MortarGrid],
+        mortar_avg: pp.ad.Operator,
+        secondary_to_mortar: pp.ad.Operator,
+        primary_trace: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get common interface-upwinded enthalpy operator for a phase.
+
+        Parameters:
+            phase: The phase for which to get the upwinded enthalpy.
+            other_phase: The other phase in the pair.
+            domains: The subdomains.
+            interfaces: The interfaces.
+            mortar_avg: Projection from primary to mortar.
+            secondary_to_mortar: Projection from secondary to mortar.
+            primary_trace: Trace operator.
+
+        Returns:
+            Interface-upwinded enthalpy operator.
+
+        """
+        storage = self._get_common_operators_storage()
+        key = f"h_intf_{phase.name}_{other_phase.name}"
+
+        if key not in storage:
+            h = self._get_common_enthalpy(phase, domains)
+            storage[key] = self._interface_upwinded_quantity(
+                h, phase, other_phase, interfaces, domains,
+                mortar_avg, secondary_to_mortar, primary_trace,
+            )
+
+        return storage[key]
+
+    def _get_common_projections(
+        self, domains: list[pp.Grid], interfaces: list[pp.MortarGrid]
+    ) -> tuple:
+        """Get common projection operators for interface computations.
+
+        Parameters:
+            domains: The subdomains.
+            interfaces: The interfaces.
+
+        Returns:
+            Tuple of (mortar_avg, secondary_to_mortar, primary_trace,
+                     mortar_to_primary, mortar_to_secondary).
+
+        """
+        if not hasattr(self, "_common_projections"):
+            self._common_projections = None
+
+        if self._common_projections is None:
+            mortar_projection = pp.ad.MortarProjections(
+                self.mdg, domains, interfaces, dim=1
+            )
+            trace = pp.ad.Trace(domains)
+            self._common_projections = (
+                mortar_projection.primary_to_mortar_avg(),
+                mortar_projection.secondary_to_mortar_avg(),
+                trace.trace,
+                mortar_projection.mortar_to_primary_int(),
+                mortar_projection.mortar_to_secondary_int(),
+            )
+
+        return self._common_projections
+
+    def _compute_all_buoyancy_operators(
+        self, domains: list[pp.Grid]
+    ) -> None:
+        """Pre-compute all buoyancy operators for all components and enthalpy.
+
+        This method computes and caches all buoyancy-related operators in one pass,
+        maximizing operator reuse and minimizing the AD graph size.
+
+        Parameters:
+            domains: The subdomains.
+        """
+        storage = self._get_common_operators_storage()
+
+        # Check if already computed
+        if "all_buoyancy_computed" in storage:
+            return
+
+        # Get all components that need buoyancy computation
+        components = list(self.fluid.components)
+
+        # Pre-compute shared operators for all phase pairs
+        for gamma, delta in self._unique_phase_pairs():
+            # Compute and cache weighted mobility flux (shared across all)
+            _ = self._get_common_weighted_mobility_flux(gamma, delta, domains)
+
+        # Pre-compute chi and enthalpy base values (leaf operators)
+        for phase in self.fluid.phases:
+            _ = self._get_common_enthalpy(phase, domains)
+            for comp in components:
+                _ = self._get_common_chi(comp, phase, domains)
+
+        # Handle interfaces if present
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+        if len(interfaces) != 0:
+            mortar_avg, secondary_to_mortar, primary_trace, mortar_to_primary, _ = \
+                self._get_common_projections(domains, interfaces)
+
+            for gamma, delta in self._unique_phase_pairs():
+                # Pre-compute interface weighted flux and bound_neu chain (shared)
+                _ = self._get_common_interface_weighted_mobility_flux(
+                    gamma, delta, domains, interfaces,
+                    mortar_avg, secondary_to_mortar, primary_trace,
+                )
+                _ = self._get_common_bound_neu_mortar_chain(
+                    gamma, delta, domains, mortar_to_primary
+                )
+
+        storage["all_buoyancy_computed"] = True
+
     def component_buoyancy(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Get the buoyancy flux for a given component.
+        """Get the buoyancy flux for a given component."""
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError("domains must consist entirely of subdomains.")
+        domains = cast(list[pp.Grid], domains)
 
-        Parameters:
-            component_xi: The component for which to get the buoyancy flux.
-            domains: The domains to consider for the buoyancy flux calculation.
+        storage = self._get_common_operators_storage()
+        key = f"component_buoyancy_final_{component_xi.name}"
 
-        Returns:
-            Ad operator representing the buoyancy flux for the component.
+        if key not in storage:
+            self._compute_all_buoyancy_operators(domains)
 
-        """
-        b_fluxes: List[pp.ad.Operator] = []
-        b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
-        for phase in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase):
-                gamma, delta = pairs
-                chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
-                b_fluxes += self.__entity_buoyancy_flux(
-                    chi_xi_gamma, gamma, delta, domains
-                )
-        b_flux = pp.ad.sum_operator_list(b_fluxes)
-        b_flux.set_name("component_buoyancy_" + component_xi.name)
-        return b_flux
+            b_fluxes: List[pp.ad.Operator] = []
+
+            for gamma, delta in self._unique_phase_pairs():
+                weighted_flux = self._get_common_weighted_mobility_flux(gamma, delta, domains)
+                upwind_gamma = self._get_common_upwind_op(gamma, delta, domains)
+                upwind_delta = self._get_common_upwind_op(delta, gamma, domains)
+                chi_gamma = self._get_common_chi(component_xi, gamma, domains)
+                chi_delta = self._get_common_chi(component_xi, delta, domains)
+
+                chi_diff = upwind_gamma @ chi_gamma - upwind_delta @ chi_delta
+                b_fluxes.append(chi_diff * weighted_flux)
+
+            interfaces = self.subdomains_to_interfaces(domains, [1])
+            if len(interfaces) != 0:
+                mortar_avg, secondary_to_mortar, primary_trace, mortar_to_primary, _ = \
+                    self._get_common_projections(domains, interfaces)
+
+                for gamma, delta in self._unique_phase_pairs():
+                    intf_coupling = self._get_common_intf_coupling_chi(
+                        component_xi, gamma, delta, domains, interfaces,
+                        mortar_avg, secondary_to_mortar, primary_trace,
+                    )
+                    bound_neu_chain = self._get_common_bound_neu_mortar_chain(
+                        gamma, delta, domains, mortar_to_primary
+                    )
+                    b_fluxes.append(bound_neu_chain @ intf_coupling)
+
+            if not b_fluxes:
+                b_fluxes.append(self._get_common_jump_zero(domains))
+
+            b_flux = pp.ad.sum_operator_list(b_fluxes)
+            b_flux.set_name("component_buoyancy_" + component_xi.name)
+            storage[key] = b_flux
+
+        return storage[key]
 
     def enthalpy_buoyancy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Get the buoyancy flux for specific enthalpy.
+        """Get the buoyancy flux for specific enthalpy."""
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError("domains must consist entirely of subdomains.")
+        domains = cast(list[pp.Grid], domains)
 
-        Parameters:
-            domains: The domains to consider for the buoyancy flux calculation.
+        storage = self._get_common_operators_storage()
+        key = "enthalpy_buoyancy_final"
 
-        Returns:
-            Ad operator representing the buoyancy flux for the specific enthalpy.
+        if key not in storage:
+            self._compute_all_buoyancy_operators(domains)
 
-        """
-        b_fluxes: List[pp.ad.Operator] = []
-        b_fluxes.append(self.density_driven_flux(domains, pp.ad.Scalar(0.0)))
-        for phase in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase):
-                gamma, delta = pairs
-                h_gamma = gamma.specific_enthalpy(domains)
-                b_fluxes += self.__entity_buoyancy_flux(h_gamma, gamma, delta, domains)
-        b_flux = pp.ad.sum_operator_list(b_fluxes)
-        b_flux.set_name("enthalpy_buoyancy")
-        return b_flux
+            b_fluxes: List[pp.ad.Operator] = []
+
+            for gamma, delta in self._unique_phase_pairs():
+                weighted_flux = self._get_common_weighted_mobility_flux(gamma, delta, domains)
+                upwind_gamma = self._get_common_upwind_op(gamma, delta, domains)
+                upwind_delta = self._get_common_upwind_op(delta, gamma, domains)
+                h_gamma = self._get_common_enthalpy(gamma, domains)
+                h_delta = self._get_common_enthalpy(delta, domains)
+
+                h_diff = upwind_gamma @ h_gamma - upwind_delta @ h_delta
+                b_fluxes.append(h_diff * weighted_flux)
+
+            interfaces = self.subdomains_to_interfaces(domains, [1])
+            if len(interfaces) != 0:
+                mortar_avg, secondary_to_mortar, primary_trace, mortar_to_primary, _ = \
+                    self._get_common_projections(domains, interfaces)
+
+                for gamma, delta in self._unique_phase_pairs():
+                    intf_coupling = self._get_common_intf_coupling_enthalpy(
+                        gamma, delta, domains, interfaces,
+                        mortar_avg, secondary_to_mortar, primary_trace,
+                    )
+                    bound_neu_chain = self._get_common_bound_neu_mortar_chain(
+                        gamma, delta, domains, mortar_to_primary
+                    )
+                    b_fluxes.append(bound_neu_chain @ intf_coupling)
+
+            if not b_fluxes:
+                b_fluxes.append(self._get_common_jump_zero(domains))
+
+            b_flux = pp.ad.sum_operator_list(b_fluxes)
+            b_flux.set_name("enthalpy_buoyancy")
+            storage[key] = b_flux
+
+        return storage[key]
 
     def component_buoyancy_jump(
         self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Get the interface jump term for component buoyancy.
+        """Get the interface jump term for component buoyancy."""
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError("domains must consist entirely of subdomains.")
+        domains = cast(list[pp.Grid], domains)
 
-        Parameters:
-            component_xi: The component for which to get the interface jump term.
-            domains: The domains to consider for the interface jump term calculation.
+        storage = self._get_common_operators_storage()
+        key = f"component_buoyancy_jump_final_{component_xi.name}"
 
-        Returns:
-            Ad operator representing the interface jump term for the component.
+        if key not in storage:
+            self._compute_all_buoyancy_operators(domains)
 
-        """
-        b_fluxes: List[pp.ad.Operator] = []
+            zero = self._get_common_jump_zero(domains)
+            b_flux_jumps: List[pp.ad.Operator] = [zero]
 
-        size = sum(g.num_cells for g in domains)
-        zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="component_buoyancy_jump_zero"
-        )
-        b_fluxes.append(zero)
-        for phase in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase):
-                gamma, delta = pairs
-                chi_xi_gamma = gamma.partial_fraction_of[component_xi](domains)
-                b_fluxes += self.__entity_buoyancy_jump(
-                    chi_xi_gamma, gamma, delta, domains
-                )
-        b_flux = pp.ad.sum_operator_list(b_fluxes)
-        b_flux.set_name("component_buoyancy_jump_" + component_xi.name)
-        return b_flux
+            interfaces = self.subdomains_to_interfaces(domains, [1])
+            if len(interfaces) != 0:
+                mortar_avg, secondary_to_mortar, primary_trace, _, mortar_to_secondary = \
+                    self._get_common_projections(domains, interfaces)
+
+                for gamma, delta in self._unique_phase_pairs():
+                    # Reuse the same intf_coupling as component_buoyancy
+                    intf_coupling = self._get_common_intf_coupling_chi(
+                        component_xi, gamma, delta, domains, interfaces,
+                        mortar_avg, secondary_to_mortar, primary_trace,
+                    )
+                    b_flux_jumps.append(mortar_to_secondary @ intf_coupling)
+
+            b_flux = pp.ad.sum_operator_list(b_flux_jumps)
+            b_flux.set_name("component_buoyancy_jump_" + component_xi.name)
+            storage[key] = b_flux
+
+        return storage[key]
 
     def enthalpy_buoyancy_jump(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Get the interface jump term for enthalpy buoyancy.
+        """Get the interface jump term for enthalpy buoyancy."""
+        if not all(isinstance(d, pp.Grid) for d in domains):
+            raise ValueError("domains must consist entirely of subdomains.")
+        domains = cast(list[pp.Grid], domains)
 
-        Parameters:
-            domains: The domains to consider for the interface jump term calculation.
+        storage = self._get_common_operators_storage()
+        key = "enthalpy_buoyancy_jump_final"
 
-        Returns:
-            Ad operator representing the interface jump term for the enthalpy.
+        if key not in storage:
+            self._compute_all_buoyancy_operators(domains)
 
-        """
-        b_fluxes: List[pp.ad.Operator] = []
-        size = sum(g.num_cells for g in domains)
-        zero = pp.wrap_as_dense_ad_array(
-            np.zeros(size), name="enthalpy_buoyancy_jump_zero"
-        )
-        b_fluxes.append(zero)
-        for phase in self.fluid.phases:
-            for pairs in self.phase_pairs_for(phase):
-                gamma, delta = pairs
-                h_gamma = gamma.specific_enthalpy(domains)
-                b_fluxes += self.__entity_buoyancy_jump(h_gamma, gamma, delta, domains)
-        b_flux = pp.ad.sum_operator_list(b_fluxes)
-        b_flux.set_name("enthalpy_buoyancy_jump")
-        return b_flux
+            zero = self._get_common_jump_zero(domains)
+            b_flux_jumps: List[pp.ad.Operator] = [zero]
+
+            interfaces = self.subdomains_to_interfaces(domains, [1])
+            if len(interfaces) != 0:
+                mortar_avg, secondary_to_mortar, primary_trace, _, mortar_to_secondary = \
+                    self._get_common_projections(domains, interfaces)
+
+                for gamma, delta in self._unique_phase_pairs():
+                    # Reuse the same intf_coupling as enthalpy_buoyancy
+                    intf_coupling = self._get_common_intf_coupling_enthalpy(
+                        gamma, delta, domains, interfaces,
+                        mortar_avg, secondary_to_mortar, primary_trace,
+                    )
+                    b_flux_jumps.append(mortar_to_secondary @ intf_coupling)
+
+            b_flux = pp.ad.sum_operator_list(b_flux_jumps)
+            b_flux.set_name("enthalpy_buoyancy_jump")
+            storage[key] = b_flux
+
+        return storage[key]
 
     def set_buoyancy_discretization_parameters(self):
         """Initialize parameter containers and zero flux arrays for buoyancy."""
@@ -1201,8 +2087,9 @@ class FluidBuoyancy(pp.PorePyModel):
                 # for-loop. This is faster evaluation inside a loop over subdomains.
                 subdomains = self.mdg.subdomains()
 
-                rho_gamma_full = gamma.density(subdomains)
-                rho_delta_full = delta.density(subdomains)
+                # Use cached density operators
+                rho_gamma_full = self._get_common_density(gamma, list(subdomains))
+                rho_delta_full = self._get_common_density(delta, list(subdomains))
                 subdomain_vals = self.equation_system.evaluate(
                     self.density_driven_flux(
                         subdomains, rho_gamma_full - rho_delta_full
