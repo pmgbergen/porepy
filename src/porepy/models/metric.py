@@ -103,7 +103,7 @@ class LebesgueMetric:
         self,
         values: pp.ad.DenseArray,
         dim: int,
-        subdomains: list[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
+        grids: pp.GridLikeSequence,
     ) -> float:
         """Compute the Lebesgue L2 norm of a variable or equation.
 
@@ -111,34 +111,19 @@ class LebesgueMetric:
             values: Algebraic representation of a mixed-dimensional variable or
                 equation.
             dim: Dimension of the variable or equation.
-            subdomains: list of grids or mortar grids over which to integrate
+            grids: list of grids over which to integrate
 
         Returns:
             float: measure of values
 
         """
-        # Complicated way of making sure subdomains is actually of type
-        # list[pp.Grid] | list[pp.MortarGrid]:
-        grids: list[pp.Grid] = [sd for sd in subdomains if isinstance(sd, pp.Grid)]
-        mortar_grids: list[pp.MortarGrid] = [
-            sd for sd in subdomains if isinstance(sd, pp.MortarGrid)
-        ]
-        boundary_grids: list[pp.BoundaryGrid] = [
-            sd for sd in subdomains if isinstance(sd, pp.BoundaryGrid)
-        ]
-        assert len(boundary_grids) == 0, "Boundary grids not supported yet."
-        assert len(grids) == 0 or len(mortar_grids) == 0, (
-            "Mixing grids and mortar grids not supported yet."
-        )
-        _subdomains = grids if len(grids) > 0 else mortar_grids
-
         l2_norm = pp.ad.Function(partial(pp.ad.l2_norm, dim), "l2_norm")
         return np.sqrt(
             np.sum(
                 self.model.equation_system.evaluate(
                     self.model.volume_integral(
                         l2_norm(values) * l2_norm(values),
-                        _subdomains,
+                        grids,
                         1,
                     )
                 )
