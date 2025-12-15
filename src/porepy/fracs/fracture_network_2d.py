@@ -24,7 +24,12 @@ from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefrac
 
 from .gmsh_interface import GmshData2d, GmshWriter, PhysicalNames
 from .gmsh_interface import Tags as GmshInterfaceTags
-from .fracture_network import FractureNetwork, GmshPointIdentifier, MeshSizeComputer
+from .fracture_network import (
+    FractureNetwork,
+    GmshPointIdentifier,
+    MeshSizeComputer,
+    MeshSizeControlPointInserter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -634,6 +639,8 @@ class FractureNetwork2d(FractureNetwork):
         # Note to self: keeping track of gmsh tags of points is futile. Instead, we need
         # to identify points by their coordinates, and do a tolerance-based search.
         mesh_size_points = {}
+        for f in fracture_tags + boundary_tags:
+            mesh_size_points[f] = []
 
         def project_onto_line(pt, start_of_line, vector):
             vec_to_point = pt - start_of_line
@@ -651,6 +658,7 @@ class FractureNetwork2d(FractureNetwork):
         inserted_on_line: list[int] = []
         # Index of lines where the points were inserted. Should have the same length as
         # inserted_points.
+        inserter = MeshSizeControlPointInserter(self.nd, mesh_size_computer)
 
         def point_already_present(pt, li):
             # Check if a point is already present among the inserted points, within
@@ -674,6 +682,32 @@ class FractureNetwork2d(FractureNetwork):
 
             if distance_info[0] > mesh_size_computer.refinement_threshold():
                 continue
+
+            f_0_is_fracture = f_0 in fracture_tags
+            f_1_is_fracture = f_1 in fracture_tags
+
+            points_0, points_1 = inserter.compute_points(
+                f_0,
+                f_1,
+                distance_info[1:4],
+                distance_info[4:7],
+                distance_info[0],
+                f_0_is_fracture,
+                f_1_is_fracture,
+            )
+            for _, pt, dist in points_0:
+                if point_already_present(pt, f_0):
+                    continue
+                mesh_size_points[f_0].append((np.array(pt), dist))
+                inserted_points.append(np.array(pt))
+                inserted_on_line.append(f_0)
+            for _, pt, dist in points_1:
+                if point_already_present(pt, f_1):
+                    continue
+                mesh_size_points[f_1].append((np.array(pt), dist))
+                inserted_points.append(np.array(pt))
+                inserted_on_line.append(f_1)
+            continue
 
             # For each of the endpoints of each the two lines, end_point_distance
             # will store the distance and the closest points on the other line.

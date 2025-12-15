@@ -90,13 +90,13 @@ class Direction(Enum):
     NORTH = "north"
 
 
-class SurfacePointInserter:
+class MeshSizeControlPointInserter:
     """Helper class to insert points on fracture surfaces for mesh size control.
 
     This class is used to manage the insertion of points on fracture surfaces in a
-    3D fracture network. The points are used to control the mesh size during the
-    meshing process, ensuring that the mesh is refined in areas of interest, such as
-    near fracture intersections.
+    fracture network. The points are used to control the mesh size during the meshing
+    process, ensuring that the mesh is refined in areas of interest, such as near
+    fracture intersections.
 
     Attributes:
         fracture_tags: List of Gmsh tags corresponding to the fractures where points
@@ -160,9 +160,14 @@ class SurfacePointInserter:
         direction = {
             Direction.WEST: True,
             Direction.EAST: True,
-            Direction.SOUTH: True,
-            Direction.NORTH: True,
         }
+        if self._nd == 3:
+            direction.update(
+                {
+                    Direction.SOUTH: True,
+                    Direction.NORTH: True,
+                }
+            )
         tab[i] = (Point(*cp_0), Point(*cp_0), direction, init_distance)
         points_to_add = []
         discarded_ijs = set()
@@ -297,14 +302,35 @@ class SurfacePointInserter:
         return gmsh.model.is_inside(self._nd - 1, f_other, proj_pts)
 
     def _direction_union(self, dir_0: Direction, dir_1: Direction) -> Direction:
-        return {
-            Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
-            Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
-            Direction.SOUTH: dir_0[Direction.SOUTH] and dir_1[Direction.SOUTH],
-            Direction.NORTH: dir_0[Direction.NORTH] and dir_1[Direction.NORTH],
-        }
+        match self._nd:
+            case 1:
+                return {
+                    Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
+                    Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
+                }
+            case 2:
+                return {
+                    Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
+                    Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
+                    Direction.SOUTH: dir_0[Direction.SOUTH] and dir_1[Direction.SOUTH],
+                    Direction.NORTH: dir_0[Direction.NORTH] and dir_1[Direction.NORTH],
+                }
 
     def _tangent_basis(self, f_main, f_other, cp_0, cp_1):
+        if self._nd == 3:
+            return self._tangent_basis_2d(f_main, f_other, cp_0, cp_1)
+        else:
+            return self._tangent_basis_1d(f_main, f_other, cp_0, cp_1)
+
+    def _tangent_basis_1d(self, f_main, f_other, cp_0, cp_1):
+        bnd = gmsh.model.get_parametrization_bounds(self._nd - 1, f_main)
+        start = gmsh.model.get_value(self._nd - 1, f_main, bnd[0].tolist())
+        end = gmsh.model.get_value(self._nd - 1, f_main, bnd[1].tolist())
+        t_0 = np.array(end) - np.array(start)
+        t_0 = t_0 / np.linalg.norm(t_0)
+        return t_0, None
+
+    def _tangent_basis_2d(self, f_main, f_other, cp_0, cp_1):
         n_0 = self._get_normal(f_main)
         vec = np.array(cp_1) - np.array(cp_0)
         nrm = np.linalg.norm(vec)
@@ -338,7 +364,7 @@ class SurfacePointInserter:
         return t_0_max, t_0_min
 
     def _get_normal(self, f):
-        bnd = gmsh.model.get_parametrization_bounds(2, f)
+        bnd = gmsh.model.get_parametrization_bounds(self._nd - 1, f)
         u_mid = 0.5 * (bnd[0][0] + bnd[1][0])
         v_mid = 0.5 * (bnd[0][1] + bnd[1][1])
         n = gmsh.model.getNormal(f, [u_mid, v_mid])

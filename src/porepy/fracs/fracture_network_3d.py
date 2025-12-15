@@ -29,7 +29,7 @@ from .gmsh_interface import Tags as GmshInterfaceTags
 from .fracture_network import (
     FractureNetwork,
     MeshSizeComputer,
-    SurfacePointInserter,
+    MeshSizeControlPointInserter,
     GmshPointIdentifier,
 )
 
@@ -1353,7 +1353,7 @@ class FractureNetwork3d(FractureNetwork):
         insertion_surface = []
         control_point_tags = []
 
-        inserter = SurfacePointInserter(nd, mesh_size_computer)
+        inserter = MeshSizeControlPointInserter(nd, mesh_size_computer)
 
         def point_already_present(pt, li):
             if len(inserted_points) == 0:
