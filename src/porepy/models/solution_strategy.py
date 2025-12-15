@@ -229,8 +229,9 @@ class SolutionStrategy(pp.PorePyModel):
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
         if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
-            self.nonlinear_solver_statistics = statistics()
-
+            self.nonlinear_solver_statistics = statistics(
+                path=self.params.get("solver_statistics_file_name")
+            )  # type: ignore[arg-type]
         else:
             raise ValueError(
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
