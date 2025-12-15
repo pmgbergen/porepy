@@ -161,7 +161,7 @@ class SolverStatistics:
         return data
 
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary.
+        """Append the current statistics to the data dictionary at current counter.
 
         Parameters:
             data: Dictionary to append the statistics to.
@@ -295,9 +295,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
 
         data = super().append_global_data(data)
-        while len(self.global_num_iteration) <= self.counter:
-            self.global_num_iteration.append(0)
-        self.global_num_iteration[self.counter] = self.num_iteration
+        self.global_num_iteration.append(self.num_iteration)
         data["global"].update(
             {
                 "num_iteration": self.global_num_iteration,
@@ -306,12 +304,13 @@ class NonlinearSolverStatistics(SolverStatistics):
         return data
 
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary."""
+        """Append the current statistics to the data dictionary at current counter."""
 
         data = super().append_iterative_data(data)
         data[str(self.counter)].update(
             {
                 "num_iteration": self.num_iteration,
+                "convergence_status": str(self.convergence_status),
                 "info": self.info,
             }
         )
