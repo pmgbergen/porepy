@@ -24,7 +24,7 @@ from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefrac
 
 from .gmsh_interface import GmshData2d, GmshWriter, PhysicalNames
 from .gmsh_interface import Tags as GmshInterfaceTags
-from .fracture_network import FractureNetwork
+from .fracture_network import FractureNetwork, GmshPointIdentifier, MeshSizeComputer
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +238,7 @@ class FractureNetwork2d(FractureNetwork):
         assert isinstance(constraints, np.ndarray)
 
         gmsh.initialize()
+        mesh_size_computer = MeshSizeComputer(mesh_args)
 
         try:
             num_procs = multiprocessing.cpu_count() or 1
@@ -342,7 +343,7 @@ class FractureNetwork2d(FractureNetwork):
         line_tags = fracture_tags + boundary_tags
 
         isect_pt, mesh_size_points = self._insert_mesh_size_control_points(
-            fracture_tags, mesh_args
+            fracture_tags, mesh_size_computer
         )
 
         if len(isect_pt) == 0:
@@ -551,7 +552,7 @@ class FractureNetwork2d(FractureNetwork):
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
         self._set_background_mesh_field(
-            self._set_1d_mesh_size(mesh_args, mesh_size_points)
+            self._set_1d_mesh_size(mesh_size_computer, mesh_size_points)
         )
         gmsh.model.occ.synchronize()
 
@@ -566,7 +567,7 @@ class FractureNetwork2d(FractureNetwork):
             # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
             for field in gmsh.model.mesh.field.list():
                 gmsh.model.mesh.field.remove(field)
-            self._set_2d_mesh_size(mesh_args, mesh_size_points)
+            self._set_2d_mesh_size(mesh_size_computer, mesh_size_points)
             gmsh.model.mesh.generate(2)
 
         gmsh.write(str(file_name))
@@ -596,33 +597,28 @@ class FractureNetwork2d(FractureNetwork):
         # Assemble all subdomains in mixed-dimensional grid.
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
-    def _insert_mesh_size_control_points(self, fracture_tags: list[int], mesh_args):
+    def _insert_mesh_size_control_points(
+        self, fracture_tags: list[int], mesh_size_computer: MeshSizeComputer
+    ):
         factory = gmsh.model.occ
 
-        # Define a threshold for when to consider refining along fractures. This is a
-        # heuristic value which should be reconsidered. Scaling with mesh size on
-        # fractures is reasonable, but the factor 2 is arbitrary.
-        THRESHOLD_REFINEMENT = 2 * mesh_args["mesh_size_frac"]
+        # THRESHOLD_REFINEMENT = mesh_size_computer.refinement_threshold()
 
-        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
-        # BETA and make them user parameters, IF the concept turns out to be useful and
-        # extendable to 3d.
+        # # Alpha is a parameter controlling the mesh size in regions where refinement is
+        # # needed, e.g., if two fractures are close. In the immediate vicinity of such
+        # # regions, the mesh size is set to d/ALPHA, where d is the distance to the
+        # # object requiring refinement.
+        # ALPHA = 3
+        # # Beta is a parameter controlling the size of the transition region from fine
+        # # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
+        # # object requiring refinement.
+        # BETA = 15
 
-        # Alpha is a parameter controlling the mesh size in regions where refinement is
-        # needed, e.g., if two fractures are close. In the immediate vicinity of such
-        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
-        # object requiring refinement.
-        ALPHA = 3
-        # Beta is a parameter controlling the size of the transition region from fine
-        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
-        # object requiring refinement.
-        BETA = 15
-
-        h_frac = mesh_args["mesh_size_frac"]
-        h_bound = mesh_args["mesh_size_bound"]
-        # EK note to self: I am not entirely sure whether h_min should remain a user
-        # parameter, or if we can get rid of it.
-        h_min = mesh_args.get("mesh_size_min", h_frac / 10)
+        # h_frac = mesh_args["mesh_size_frac"]
+        # h_bound = mesh_args["mesh_size_bound"]
+        # # EK note to self: I am not entirely sure whether h_min should remain a user
+        # # parameter, or if we can get rid of it.
+        # h_min = mesh_args.get("mesh_size_min", h_frac / 10)
 
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
@@ -665,7 +661,7 @@ class FractureNetwork2d(FractureNetwork):
                 np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
             )
             i = np.argmin(dists)
-            return dists[i] < h_min and inserted_on_line[i] == li
+            return dists[i] < mesh_size_computer.h_min() and inserted_on_line[i] == li
 
         for f_0, f_1 in itertools.combinations(line_tags, 2):
             if f_0 in boundary_tags and f_1 in boundary_tags:
@@ -676,7 +672,7 @@ class FractureNetwork2d(FractureNetwork):
             distances = distance_info
             is_intersection = distances[0] < self._tol
 
-            if distance_info[0] > THRESHOLD_REFINEMENT:
+            if distance_info[0] > mesh_size_computer.refinement_threshold():
                 continue
 
             # For each of the endpoints of each the two lines, end_point_distance
@@ -821,12 +817,10 @@ class FractureNetwork2d(FractureNetwork):
 
             # Safeguarding. Should fix this, but that requires thinking about the
             # angles return from arctan2.
-            assert h_bound >= h_frac
+            assert mesh_size_computer.h_farfield() >= mesh_size_computer.h_frac()
 
             # Angle of incline of the mesh size field.
-            ANGLE_THRESHOLD = np.arctan2(
-                h_bound - distances[0] / ALPHA, BETA * h_frac - distances[0]
-            )
+            ANGLE_THRESHOLD = np.pi / 3
 
             if angle > ANGLE_THRESHOLD:
                 # The lines are diverging fast enough that no further refinement is
@@ -847,9 +841,9 @@ class FractureNetwork2d(FractureNetwork):
             # prescribe new mesh size points along the main line, and that the other
             # line will be refined accordingly.
             if distances[0] < self._tol:
-                step_size = h_frac / ALPHA
+                step_size = mesh_size_computer.h_frac()
             else:
-                step_size = max(h_min, distances[0])
+                step_size = max(mesh_size_computer.h_min(), distances[0])
             prev_point = main_start_point
             while True:
                 # Next candidate point along the main line. Use a normalized
@@ -879,7 +873,7 @@ class FractureNetwork2d(FractureNetwork):
                 pi = factory.add_point(next_point[0], next_point[1], next_point[2])
                 d = gmsh.model.occ.get_distance(0, pi, 1, other_line_gmsh_ind)[0]
                 assert d >= distances[0], "Logic error in distance computation."
-                if d > THRESHOLD_REFINEMENT:
+                if d > mesh_size_computer.refinement_threshold():
                     # Remove the point again.
                     factory.remove([(0, pi)])
                     # No further refinement needed.
@@ -902,29 +896,10 @@ class FractureNetwork2d(FractureNetwork):
 
     def _set_1d_mesh_size(
         self,
-        mesh_args: dict[str, float],
+        mesh_size_computer: MeshSizeComputer,
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         restrict_to_fractures: bool = True,
     ) -> None:
-        # Define a threshold for when to consider refining along fractures. This is a
-        # heuristic value which should be reconsidered. Scaling with mesh size on
-        # fractures is reasonable, but the factor 2 is arbitrary.
-        THRESHOLD_REFINEMENT = 2 * mesh_args["mesh_size_frac"]
-
-        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
-        # BETA and make them user parameters, IF the concept turns out to be useful and
-        # extendable to 3d.
-
-        # Alpha is a parameter controlling the mesh size in regions where refinement is
-        # needed, e.g., if two fractures are close. In the immediate vicinity of such
-        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
-        # object requiring refinement.
-        ALPHA = 3
-        # Beta is a parameter controlling the size of the transition region from fine
-        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
-        # object requiring refinement.
-        BETA = 15
-
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
         # TODO: If there is more than one domain entity (the domain is split into parts
@@ -937,20 +912,9 @@ class FractureNetwork2d(FractureNetwork):
         fracture_tags = [tag for _, tag in fractures]
         boundary_tags = [tag for _, tag in boundaries]
 
-        h_frac = mesh_args["mesh_size_frac"]
-        h_bound = mesh_args["mesh_size_bound"]
-        # EK note to self: I am not entirely sure whether h_min should remain a user
-        # parameter, or if we can get rid of it.
-        h_min = mesh_args.get("mesh_size_min", h_frac / 10)
-
         gmsh_fields = []
 
-        phys_coord = []
-        gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
-        for pi in gmsh_point_ind:
-            coord = gmsh.model.get_bounding_box(0, pi)[:3]
-            phys_coord.append(np.array(coord))
-        phys_coord = np.array(phys_coord).T
+        gmsh_point_finder = GmshPointIdentifier()
 
         if len(mesh_size_points) > 0:
             all_pts = []
@@ -995,7 +959,7 @@ class FractureNetwork2d(FractureNetwork):
                 ]
             ).T
             length = np.linalg.norm(end_points[:, 1] - end_points[:, 0])
-            tol = min(length, h_frac) / 2
+            tol = min(length, mesh_size_computer.h_frac()) / 2
             extra_points = (
                 np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
             )
@@ -1009,12 +973,17 @@ class FractureNetwork2d(FractureNetwork):
             # needed just because this is an intersection point (if it is an
             # intersection with a bad angle, this should be picked up by a close point
             # on another line).
-            h_end = h_bound if line in boundary_tags else h_frac
+            h_end = mesh_size_computer.h_end(line in boundary_tags)
 
             other_object_distances_all = np.hstack(
                 (
                     np.array([h_end, h_end]),
-                    np.array([d[1] if d[1] > 0 else h_frac for d in info]),
+                    np.array(
+                        [
+                            d[1] if d[1] > 0 else mesh_size_computer.h_frac()
+                            for d in info
+                        ]
+                    ),
                 )
             )
             # Reduce to one distance per unique point, picking the minimum distance if
@@ -1050,38 +1019,50 @@ class FractureNetwork2d(FractureNetwork):
             for i, d in enumerate(dist):
                 # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
                 # related to almost intersection points.
-                if d > THRESHOLD_REFINEMENT:
+                if d > mesh_size_computer.refinement_threshold():
                     # No refinement needed at this point.
                     continue
-                elif d == h_end:
-                    # This is likely an isolated endpoint.
-                    size = h_end
-                else:
-                    size = max(h_min, d) / ALPHA
 
                 field = gmsh.model.mesh.field.add("Distance")
-                pd = np.linalg.norm(phys_coord - points[:, i].reshape(3, 1), axis=0)
-                if np.all(pd > 1e-6):
-                    assert False
-                pi = gmsh_point_ind[int(np.argmin(pd))]
+                pi = gmsh_point_finder.index(points[:, i])
 
                 gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
-                if line in boundary_tags:
-                    debug = []
 
                 threshold = gmsh.model.mesh.field.add("Threshold")
                 gmsh.model.mesh.field.setNumber(threshold, "InField", field)
                 # NOTE: If the definition of the threshold field is changed, the
                 # computation of the critical angle for almost parallel lines must also
                 # be updated. See the definition of variable 'angle_threshold' above.
-                gmsh.model.mesh.field.setNumber(threshold, "DistMin", size)
-                gmsh.model.mesh.field.setNumber(threshold, "SizeMin", size)
+                gmsh.model.mesh.field.setNumber(
+                    threshold, "DistMin", mesh_size_computer.dist_min(d)
+                )
+                gmsh.model.mesh.field.setNumber(
+                    threshold, "SizeMin", mesh_size_computer.size_min(d)
+                )
                 if restrict_to_fractures:
-                    gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
-                    gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_end)
+                    gmsh.model.mesh.field.setNumber(
+                        threshold,
+                        "DistMax",
+                        mesh_size_computer.dist_farfield(
+                            line in boundary_tags, on_codim=True
+                        ),
+                    )
+                    gmsh.model.mesh.field.setNumber(
+                        threshold,
+                        "SizeMax",
+                        mesh_size_computer.size_farfield(line in boundary_tags),
+                    )
                 else:
-                    gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
-                    gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+                    gmsh.model.mesh.field.setNumber(
+                        threshold,
+                        "DistMax",
+                        mesh_size_computer.dist_farfield(
+                            line in boundary_tags, on_codim=False
+                        ),
+                    )
+                    gmsh.model.mesh.field.setNumber(
+                        threshold, "SizeMax", mesh_size_computer.h_farfield()
+                    )
 
                 # Note to self: The order is important here - the restriction must refer
                 # to the threshold field, not the other way around.
@@ -1102,39 +1083,14 @@ class FractureNetwork2d(FractureNetwork):
 
     def _set_2d_mesh_size(
         self,
-        mesh_args: dict[str, float],
+        mesh_size_computer: MeshSizeComputer,
         mesh_size_points: dict[tuple[int, int], float],
     ) -> None:
         factory = gmsh.model.occ
 
         gmsh_fields = self._set_1d_mesh_size(
-            mesh_args, mesh_size_points, restrict_to_fractures=False
+            mesh_size_computer, mesh_size_points, restrict_to_fractures=False
         )
-
-        # Define a threshold for when to consider refining along fractures. This is a
-        # heuristic value which should be reconsidered. Scaling with mesh size on
-        # fractures is reasonable, but the factor 2 is arbitrary.
-        # THRESHOLD_REFINEMENT = mesh_args["mesh_size_frac"]
-
-        # Now set the mesh sizes using gmsh fields. TODO: Give better names to ALPHA and
-        # BETA and make them user parameters, IF the concept turns out to be useful and
-        # extendable to 3d.
-
-        # Alpha is a parameter controlling the mesh size in regions where refinement is
-        # needed, e.g., if two fractures are close. In the immediate vicinity of such
-        # regions, the mesh size is set to d/ALPHA, where d is the distance to the
-        # object requiring refinement.
-        ALPHA = 3
-        # Beta is a parameter controlling the size of the transition region from fine
-        # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
-        # object requiring refinement.
-        BETA = 15
-
-        h_frac = mesh_args["mesh_size_frac"]
-        h_bound = mesh_args["mesh_size_bound"]
-        # EK note to self: I am not entirely sure whether h_min should remain a user
-        # parameter, or if we can get rid of it.
-        h_min = mesh_args.get("mesh_size_min", h_frac / ALPHA)
 
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
@@ -1160,7 +1116,7 @@ class FractureNetwork2d(FractureNetwork):
             length = gmsh.model.occ.get_distance(
                 end_points[0][0], end_points[0][1], end_points[1][0], end_points[1][1]
             )[0]
-            num_points = max(2, int(np.ceil(length / h_frac)) + 1)
+            num_points = max(2, int(np.ceil(length / mesh_size_computer.h_frac())) + 1)
 
             field = gmsh.model.mesh.field.add("Distance")
             gmsh.model.mesh.field.setNumbers(field, "CurvesList", [line])
@@ -1176,10 +1132,16 @@ class FractureNetwork2d(FractureNetwork):
             # TODO: This enforces at least ALPHA elements along each fracture. Do we want
             # this?
             gmsh.model.mesh.field.setNumber(
-                threshold, "SizeMin", min(h_frac, length / ALPHA)
+                threshold, "SizeMin", mesh_size_computer.h_frac()
             )
-            gmsh.model.mesh.field.setNumber(threshold, "DistMax", BETA * h_frac)
-            gmsh.model.mesh.field.setNumber(threshold, "SizeMax", h_bound)
+            gmsh.model.mesh.field.setNumber(
+                threshold,
+                "DistMax",
+                mesh_size_computer.dist_farfield(True, on_codim=False),
+            )
+            gmsh.model.mesh.field.setNumber(
+                threshold, "SizeMax", mesh_size_computer.h_farfield()
+            )
             gmsh_fields.append(threshold)
 
         # for line in boundary_tags:
