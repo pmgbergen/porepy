@@ -115,6 +115,17 @@ else:
 
             """
 
+        def depth(self, coords: np.ndarray) -> np.ndarray:
+            """Compute depth of points.
+
+            Parameters:
+                coords: Array of points where depth is to be calculated.
+
+            Returns:
+                Depth of points.
+
+            """
+
         def subdomains_to_interfaces(
             self, subdomains: list[pp.Grid], codims: list[int]
         ) -> list[pp.MortarGrid]:

@@ -1006,11 +1006,11 @@ def test_ad_discretization_class():
     discr_ad = pp.ad.Discretization()
     discr_ad.subdomains = subdomains
     discr_ad._discretization = discr
-    pp.ad._ad_utils.wrap_discretization(discr_ad, discr, subdomains)
+    pp.ad.wrap_discretization(discr_ad, discr, subdomains)
     sub_discr_ad = pp.ad.Discretization()
     sub_discr_ad.subdomains = sub_list
     sub_discr_ad._discretization = sub_discr
-    pp.ad._ad_utils.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
+    pp.ad.wrap_discretization(sub_discr_ad, sub_discr, sub_list)
 
     # values
     known_val = np.random.rand(len(subdomains))
