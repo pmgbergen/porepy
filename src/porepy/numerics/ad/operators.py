@@ -19,6 +19,7 @@ from typing import (
     Union,
     cast,
     overload,
+    TYPE_CHECKING,
 )
 from warnings import warn
 
@@ -27,10 +28,12 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from . import _ad_utils
 from .forward_mode import AdArray
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 __all__ = [
     "Operator",

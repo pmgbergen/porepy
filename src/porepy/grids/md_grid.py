@@ -5,14 +5,25 @@ intersections along with a surrounding matrix in the form of a mixed-dimensional
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Literal,
+    Optional,
+    Union,
+    overload,
+    TYPE_CHECKING,
+)
 
 import numpy as np
 from scipy import sparse as sps
 
 import porepy as pp
 from porepy.grids import mortar_grid
-from porepy.utils.porepy_types import GridLike
+
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import GridLike
 
 
 class MixedDimensionalGrid:

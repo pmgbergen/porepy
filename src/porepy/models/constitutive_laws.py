@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Literal, Optional, Sequence, TypeVar, Union, cast
+from typing import (
+    Callable,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+    TYPE_CHECKING,
+)
 
 import numpy as np
 import scipy.sparse as sps
@@ -17,10 +26,11 @@ from .fluid_property_library import (
     FluidEnthalpyFromTemperature,
 )
 
-number = pp.number
 Scalar = pp.ad.Scalar
 
-ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
+if TYPE_CHECKING:
+    number = pp.number
+    ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
 class DisplacementJump(pp.PorePyModel):

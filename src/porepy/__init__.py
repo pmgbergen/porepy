@@ -23,6 +23,7 @@ import os, sys
 from pathlib import Path
 import configparser
 import warnings
+from typing import TYPE_CHECKING
 
 
 __version__ = "1.11.0"
@@ -44,8 +45,9 @@ except:
 # decided as needed
 
 from porepy.utils.common_constants import *
-from porepy.utils.porepy_types import *
 
+if TYPE_CHECKING:
+    from porepy.utils.porepy_types import *
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
@@ -91,7 +93,7 @@ from porepy.applications.material_values import numerical_values
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
 from porepy.grids.md_grid import MixedDimensionalGrid
-from porepy.grids.mdg_generation import create_mdg
+
 from porepy.grids.structured import CartGrid, TensorGrid
 from porepy.grids.simplex import TriangleGrid, TetrahedralGrid
 from porepy.grids.simplex import StructuredTriangleGrid, StructuredTetrahedralGrid
@@ -113,6 +115,7 @@ from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.ellipse_fracture import EllipticFracture
 from porepy.fracs.fracture_network_creation import create_fracture_network
 
+from porepy.grids.mdg_generation import create_mdg
 
 # Wells
 from porepy.fracs.wells_3d import (

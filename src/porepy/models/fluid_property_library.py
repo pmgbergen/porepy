@@ -29,7 +29,7 @@ Note:
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Callable, List, Literal, Sequence, Union, cast
+from typing import Callable, List, Literal, Sequence, Union, cast, TYPE_CHECKING
 
 import numpy as np
 
@@ -47,7 +47,9 @@ __all__ = [
 ]
 
 Scalar = pp.ad.Scalar
-ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
+
+if TYPE_CHECKING:
+    ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class FluidDensityFromPressure(pp.PorePyModel):

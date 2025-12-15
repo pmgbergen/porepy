@@ -15,7 +15,7 @@ For converting values on the fly, see :meth:`~porepy.models.units.Units.convert_
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass
-from typing import Any, Callable, ClassVar, TypeVar, cast
+from typing import Any, Callable, ClassVar, TypeVar, cast, TYPE_CHECKING
 
 import porepy as pp
 
@@ -30,7 +30,8 @@ __all__ = [
     "load_fluid_constants",
 ]
 
-number = pp.number
+if TYPE_CHECKING:
+    number = pp.number
 
 
 # 1. By using keyword_only arguments for the construction of materials, the user is
