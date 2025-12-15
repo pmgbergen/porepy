@@ -176,39 +176,11 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
 
 
 class EquationBasedLebesgueMetric(LebesgueMetric):
-    # TODO: Need to decide which formula to use for equation norms.
+    """Lebesgue L2 norm for equations, computed per equation block.
 
-    # def alternative__call__(self, values: np.ndarray) -> dict[str, float]:
-    #    """Compute the Lebesgue L2 norm of each separate equation.
+    NOTE: Assumes equations are intensive quantities and defined only on cells.
 
-    #    Parameters:
-    #        values: algebraic representation of a mixed-dimensional equation
-
-    #    Returns:
-    #        dict[str, float]: measure of values for each equation block
-
-    #    """
-    #    # NOTE: Mathematically, this does not make much sense. The equations are already
-    #    # integrated over cells. Thus a combination of np.linalg.norm(..., ord=1)
-    #    # and np.linalg.norm(..., ord=2) over the values would suffice.
-    #    norms = {}
-    #    equation_blocks = {
-    #        name: (
-    #            self.model.equation_system.assembled_equation_indices[name],
-    #            list(
-    #                self.model.equation_system._equation_image_space_composition[
-    #                    name
-    #                ].keys()
-    #            ),
-    #            self.model.equation_system._equation_image_size_info[name]["cells"],
-    #        )
-    #        for name in self.model.equation_system._equations
-    #    }
-    #    for name, (indices, sd, eq_dim) in equation_blocks.items():
-    #        equation_values = pp.ad.DenseArray(values[indices])
-    #        norms[name] = self._lebesgue2_norm(equation_values, eq_dim, sd)
-
-    #    return norms
+    """
 
     def __call__(self, values: np.ndarray) -> dict[str, float]:
         """Compute the Lebesgue L2 norm of each separate equation.
