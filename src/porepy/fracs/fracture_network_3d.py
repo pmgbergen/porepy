@@ -26,6 +26,7 @@ from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, PhysicalNames
 from porepy.geometry import sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
+from .fracture_network import FractureNetwork
 import heapq
 from collections import namedtuple
 from enum import Enum
@@ -498,7 +499,7 @@ class GmshPointIdentifier:
         return self._gmsh_point_ind[int(np.argmin(pd))]
 
 
-class FractureNetwork3d(object):
+class FractureNetwork3d(FractureNetwork):
     """Representation of a set of plane fractures in a three-dimensional domain.
 
     This is a collection of fractures with geometrical information. It facilitates
@@ -533,16 +534,7 @@ class FractureNetwork3d(object):
         tol: float = 1e-8,
         run_checks: bool = False,
     ) -> None:
-        # Initialize fractures as an empty list
-        self.fractures: list[pp.PlaneFracture | pp.EllipticFracture] = []
-        """List of fractures forming the network."""
-
-        if fractures is not None:
-            for f in fractures:
-                self.fractures.append(f)
-
-        for i, f in enumerate(self.fractures):
-            f.set_index(i)
+        super().__init__(nd=3, fractures=fractures, domain=domain, tol=tol)
 
         # Store intersection information as a dictionary. Keep track of the
         # intersecting fractures, the start and end point of the intersection line,
@@ -566,17 +558,9 @@ class FractureNetwork3d(object):
 
         """
 
-        self.tol: float = tol
-        """Geometric tolerance used in computations."""
-
         self.run_checks: bool = run_checks
         """Flag whether consistency checks during the network processing are performed.
         """
-
-        # Initialize with an empty domain unless given explicitly. Can be modified
-        # later by a call to 'impose_external_boundary()'
-        self.domain: Optional[pp.Domain] = domain
-        """Domain specification."""
 
         # Initialize mesh size parameters as empty
         self.mesh_size_min: Optional[float] = None
@@ -622,7 +606,7 @@ class FractureNetwork3d(object):
 
         """
 
-    def domain_to_gmsh_3D(self) -> int:
+    def domain_to_gmsh(self) -> int:
         """Export the box domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a box corresponding to the bounding box of the
@@ -667,7 +651,7 @@ class FractureNetwork3d(object):
             # Gmsh.
             pts = np.hstack([poly for poly in polytope])
             unique_pts, _, unique_pt_map = pp.array_operations.uniquify_point_set(
-                pts, self.tol
+                pts, self._tol
             )
             # These are the tags which Gmsh assigns to the points.
             pt_tags = [gmsh.model.occ.addPoint(*pt) for pt in unique_pts.T]
@@ -723,7 +707,7 @@ class FractureNetwork3d(object):
         gmsh.model.occ.synchronize()
         return domain_tag
 
-    def fractures_to_gmsh_3D(self) -> list[int]:
+    def fractures_to_gmsh(self) -> list[int]:
         """WIP: Take the tags of all fractures in the fracture network.
 
         By using the method for exporting a single fracture tag, we here collect the
@@ -764,7 +748,7 @@ class FractureNetwork3d(object):
                 polytope = domain.polytope.copy()
                 domain = pp.Domain(polytope=polytope)
 
-        return FractureNetwork3d(fracs, domain, self.tol)  # type: ignore[arg-type]
+        return FractureNetwork3d(fracs, domain, self._tol)  # type: ignore[arg-type]
 
     def num_frac(self) -> int:
         """
@@ -828,11 +812,11 @@ class FractureNetwork3d(object):
         nd = 3
 
         if self.domain is not None:
-            domain_tag = self.domain_to_gmsh_3D()
+            domain_tag = self.domain_to_gmsh()
         else:
             domain_tag = -1
 
-        fracture_tags = self.fractures_to_gmsh_3D()
+        fracture_tags = self.fractures_to_gmsh()
         # fracture_tags = [t for _, t in fracture_tags]
         boundary_tags = [
             t for _, t in gmsh.model.get_boundary([(nd, domain_tag)], oriented=False)
@@ -1155,7 +1139,7 @@ class FractureNetwork3d(object):
                 dist = [
                     gmsh.model.occ.get_distance(*bp, *surf)[0] for bp in boundary_points
                 ]
-                if np.all(np.array(dist) < self.tol):
+                if np.all(np.array(dist) < self._tol):
                     return True
             # Having come this far, the entity is not on the domain boundary.
             return False
@@ -1219,7 +1203,7 @@ class FractureNetwork3d(object):
                     )
                 # If any bounding point is outside all parts of the domain, we drop this
                 # sub-fracture.
-                if np.any(distances > self.tol) or entity_on_domain_boundary(
+                if np.any(distances > self._tol) or entity_on_domain_boundary(
                     0, [bp[1] for bp in bounding_points]
                 ):
                     loc_keep[sfi] = False
@@ -1474,7 +1458,7 @@ class FractureNetwork3d(object):
 
             if all_pts.size > 0:
                 _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
-                    all_pts, tol=self.tol
+                    all_pts, tol=self._tol
                 )
                 min_size = np.empty(ind_map.size, dtype=float)
                 for i in range(ind_map.size):
@@ -1506,7 +1490,7 @@ class FractureNetwork3d(object):
                     for l in other_lines
                 ]
             )
-            distances = distances[distances > self.tol]
+            distances = distances[distances > self._tol]
             if len(distances) == 0:
                 return default_size
             return float(np.min(distances))
@@ -1579,7 +1563,7 @@ class FractureNetwork3d(object):
             for cp_d in info:
                 pi = gmsh_point_finder.index(cp_d[0])
                 d = dist_point_lines(surface_lines + boundary_lines, pi)
-                if d < self.tol:
+                if d < self._tol:
                     # For intersections, we assign the background mesh size for this
                     # surface.
                     control_point_distance_to_lines.append(h_end)

@@ -24,6 +24,7 @@ from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefrac
 
 from .gmsh_interface import GmshData2d, GmshWriter, PhysicalNames
 from .gmsh_interface import Tags as GmshInterfaceTags
+from .fracture_network import FractureNetwork
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 fac = gmsh.model.occ
 
 
-class FractureNetwork2d:
+class FractureNetwork2d(FractureNetwork):
     """Representation of a set of line fractures in a 2D domain.
 
     The fractures are represented by line fracture objects (see
@@ -87,22 +88,13 @@ class FractureNetwork2d:
         by the user.
 
         """
-
-        self.tol: float = tol
-        """Tolerance used in geometric computations."""
-
-        self.fractures: list[pp.LineFracture] = [] if fractures is None else fractures
-        """List of line fractures."""
-
+        super().__init__(nd=2, fractures=fractures, domain=domain, tol=tol)
         # Save points and edges as private attributes
         if fractures is not None and len(fractures) > 0:
             self._pts, self._edges = linefractures_to_pts_edges(self.fractures, tol)
         else:
             self._pts = np.zeros((2, 0))
             self._edges = np.zeros((2, 0), dtype=int)
-
-        self.domain: Optional[pp.Domain] = domain
-        """Domain specification for the fracture network."""
 
         self.tags: dict[int | str, np.ndarray] = dict()
         """Tags for the fractures."""
@@ -118,10 +110,6 @@ class FractureNetwork2d:
 
         This will include intersection points identified.
         """
-
-        # Set the index of the fractures.
-        for i, f in enumerate(self.fractures):
-            f.set_index(i)
 
         # Logging
         if self.fractures is not None:
@@ -145,7 +133,7 @@ class FractureNetwork2d:
         if domain is not None:
             logger.info(f"Domain specification : {str(domain)}")
 
-    def domain_to_gmsh_2D(self) -> int:
+    def domain_to_gmsh(self) -> int:
         """Export the rectangular domain to Gmsh using the OpenCASCADE kernel.
 
         This method creates a rectangle corresponding to the bounding box of the
@@ -198,7 +186,7 @@ class FractureNetwork2d:
 
         return domain_tag
 
-    def fractures_to_gmsh_2D(self) -> list[int]:
+    def fractures_to_gmsh(self) -> list[int]:
         """Take the tags of all fractures in the fracture network.
 
         By using the method for exporting a single fracture tag, we here collect the
@@ -275,8 +263,8 @@ class FractureNetwork2d:
         # gmsh_fractures = [(1, f) for f in self.fractures_to_gmsh_2D()]
         # Both are needed later, so not sure what is best. Having both seems
         # unnecessary.
-        domain_tag = self.domain_to_gmsh_2D()
-        fracture_tags = self.fractures_to_gmsh_2D()
+        domain_tag = self.domain_to_gmsh()
+        fracture_tags = self.fractures_to_gmsh()
         gmsh.model.occ.synchronize()
 
         # Identify fractures fully/partially outside the domain and remove/truncate
@@ -303,7 +291,7 @@ class FractureNetwork2d:
             # sensitivity to this parameter is not thoroughly tested), the fracture will
             # be removed.
             distance = fac.getDistance(nd - 1, fracture_tag, nd, domain_tag)[0]
-            if distance > self.tol:
+            if distance > self._tol:
                 # The fracture is fully outside the domain. It will be deleted.
                 removed_fractures.append(ind)
                 continue
@@ -686,7 +674,7 @@ class FractureNetwork2d:
 
             distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
             distances = distance_info
-            is_intersection = distances[0] < self.tol
+            is_intersection = distances[0] < self._tol
 
             if distance_info[0] > THRESHOLD_REFINEMENT:
                 continue
@@ -722,7 +710,7 @@ class FractureNetwork2d:
                     gmsh.model.get_bounding_box(*pt)[:3] for pt in bound_points
                 ]
                 d = np.linalg.norm(np.array(cp) - np.array(bound_coords), axis=1)
-                if any(d < self.tol):
+                if any(d < self._tol):
                     # This point is already present as an endpoint of the line. There is
                     # no need to have it represented twice, so we remove it. Still, we
                     # want to keep the distance information.
@@ -761,7 +749,7 @@ class FractureNetwork2d:
                         # Since end_point_coordinates contain endpoints of both
                         # lines, we need to index carefully.
                         d = np.linalg.norm(cp - np.array(end_point_coordinates[-2 + i]))
-                        if d < self.tol:  # This should really be a gmsh tolerance.
+                        if d < self._tol:  # This should really be a gmsh tolerance.
                             main_start_point = np.array(end_point_coordinates[-2 + i])
                             main_line_ind = ind
                             if i == 1:
@@ -858,7 +846,7 @@ class FractureNetwork2d:
             # (parts of) the main line. We *assume* here that it is sufficient to
             # prescribe new mesh size points along the main line, and that the other
             # line will be refined accordingly.
-            if distances[0] < self.tol:
+            if distances[0] < self._tol:
                 step_size = h_frac / ALPHA
             else:
                 step_size = max(h_min, distances[0])
@@ -977,7 +965,7 @@ class FractureNetwork2d:
             mesh_sizes = np.array(mesh_sizes)
 
             _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
-                all_pts, tol=self.tol
+                all_pts, tol=self._tol
             )
             min_size = np.empty(ind_map.size, dtype=float)
             for i in range(ind_map.size):
@@ -1111,16 +1099,6 @@ class FractureNetwork2d:
                 gmsh_fields.append(restriction)
 
         return gmsh_fields
-
-    def _set_background_mesh_field(self, gmsh_fields: list[int]) -> None:
-        min_field = gmsh.model.mesh.field.add("Min")
-        gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
-        gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
-        # The background mesh incorporates all mesh size specifications. We turn off
-        # other mesh size specifications.
-        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
-        gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
     def _set_2d_mesh_size(
         self,
