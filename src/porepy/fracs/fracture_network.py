@@ -5,8 +5,12 @@ import warnings
 from typing import Optional, Union, cast, TYPE_CHECKING, Literal
 import gmsh
 import porepy as pp
+from collections import namedtuple
+from enum import Enum
+import heapq
 import numpy as np
 from pathlib import Path
+import copy
 
 # Custom typings
 FractureList = Optional[
@@ -73,3 +77,467 @@ class FractureNetwork(ABC):
         gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+
+
+ij = namedtuple("Index", ["i", "j"])
+Point = namedtuple("Point", ["x", "y", "z"])
+
+
+class Direction(Enum):
+    WEST = "west"
+    EAST = "east"
+    SOUTH = "south"
+    NORTH = "north"
+
+
+class SurfacePointInserter:
+    """Helper class to insert points on fracture surfaces for mesh size control.
+
+    This class is used to manage the insertion of points on fracture surfaces in a
+    3D fracture network. The points are used to control the mesh size during the
+    meshing process, ensuring that the mesh is refined in areas of interest, such as
+    near fracture intersections.
+
+    Attributes:
+        fracture_tags: List of Gmsh tags corresponding to the fractures where points
+            will be inserted.
+        points_per_fracture: Dictionary mapping each fracture tag to a list of points
+            (as numpy arrays) to be inserted on that fracture.
+
+    """
+
+    def __init__(self, nd: int, mesh_size_computer: MeshSizeComputer) -> None:
+        self._nd = nd
+        self._mesh_size_computer = mesh_size_computer
+
+    def compute_points(
+        self, f_0, f_1, cp_0, cp_1, distance, f_0_on_fracture, f_1_on_fracture
+    ) -> tuple[list, list]:
+        """Compute points to be inserted on the surfaces of two fractures.
+
+        Given two fractures and their corresponding control points, this method
+        computes the points that need to be inserted on the surfaces of both fractures
+        to ensure proper mesh size control.
+
+        Args:
+            f_0: The first fracture object.
+            f_1: The second fracture object.
+            cp_0: Control point on the first fracture.
+            cp_1: Control point on the second fracture.
+
+        Returns:
+            A tuple containing two lists:
+                - List of points to be inserted on the first fracture.
+                - List of points to be inserted on the second fracture.
+
+        """
+        # Implementation goes here
+        points_0 = self._control_points(f_0, f_1, cp_0, cp_1, distance, f_0_on_fracture)
+        points_1 = self._control_points(f_1, f_0, cp_1, cp_0, distance, f_1_on_fracture)
+        return points_0, points_1
+
+    def _control_points(
+        self,
+        f_main,
+        f_other,
+        cp_0,
+        cp_1,
+        init_distance,
+        f_main_on_fracture,
+    ):
+        t_i, t_j = self._tangent_basis(f_main, f_other, cp_0, cp_1)
+
+        def priority(ij):
+            # The priority is given by the Manhattan distance from the origin. With a
+            # min-heap as in heapq, this will give priority to points closer to the
+            # origin.
+            return abs(ij.i) + abs(ij.j)
+
+        q = []
+        tab = {}
+        i = ij(0, 0)
+        heapq.heappush(q, (priority(i), i))
+        direction = {
+            Direction.WEST: True,
+            Direction.EAST: True,
+            Direction.SOUTH: True,
+            Direction.NORTH: True,
+        }
+        tab[i] = (Point(*cp_0), Point(*cp_0), direction, init_distance)
+        points_to_add = []
+        discarded_ijs = set()
+
+        while q:
+            _, i = heapq.heappop(q)
+            if i in discarded_ijs:
+                continue
+            p_cand, p_prev, dirs, old_distance = tab[i]
+
+            if not gmsh.model.is_inside(self._nd - 1, f_main, p_cand):
+                # We are outside the fracture, no need to proceed in this direction.
+                discarded_ijs.add(i)
+                tab.pop(i)
+                continue
+
+            # Gmsh index of the candidate point.
+            gmsh_ind = gmsh.model.occ.add_point(*p_cand)
+            # Distance from the candidate point to the other fracture.
+            dist_other_fracture = gmsh.model.occ.get_distance(
+                0, gmsh_ind, self._nd - 1, f_other
+            )[0]
+            # Distance between the candidate and previous points.
+            dist_prev_point = np.linalg.norm(np.array(p_cand) - np.array(p_prev))
+
+            # Mesh at the candidate point, as determined by the distance from the
+            # previous point.
+            if dist_prev_point == 0:
+                # This should only happen in the first iteration, when the previous and
+                # candidate points have the same coordinates. There is no mesh size from
+                # the previous point to compare with (see below if) and a point should
+                # be added if the distance to the other fracture justifies it. Thus, we
+                # set the mesh size from previous to positive inf to make sure it is not
+                # less than the mesh size set according to the distance to the other
+                # fracture, as this could have prevented adding the point.
+                h_from_prev = np.inf
+            else:
+                # There is a previous point. Compute the mesh size at the candidate
+                # point from the mesh size field centered at this point.
+                h_from_prev = self._mesh_size_computer.size_at_distance(
+                    dist_other_fracture,
+                    dist_prev_point,
+                    f_main_on_fracture,
+                    on_codim=True,
+                )
+
+            # Check if the new point is so far away from the other surface that no more
+            # points are needed, or if the mesh size resulting from inserting a point
+            # here will be coarser than the mesh size obtained from the parent point.
+            if (
+                dist_other_fracture > self._mesh_size_computer.refinement_threshold()
+                or self._mesh_size_computer.size_min(dist_other_fracture) > h_from_prev
+            ):
+                # No need to add more points in this direction.
+                gmsh.model.occ.remove([(0, gmsh_ind)])
+                discarded_ijs.add(i)
+                tab.pop(i)
+                continue
+
+            # We have found a new mesh size control point. Register it.
+            points_to_add.append((gmsh_ind, p_cand, dist_other_fracture))
+
+            # Define the new candidate points that will have the newly added point as
+            # its parent / previous point. The step size is set so that, for parallel
+            # fractures, the control points are just close enough to ensure that the
+            # mesh size is constant, i.e., we do not enter the transition zone towards
+            # mesh sizes given by far-field conditions (see documentation of the
+            # MeshSizeComputer for details). This can be estimated to 2 times the
+            # distance between the two fractures at the current point (which will give
+            # the correct estimate for parallel fractures, and possibly a somewhat too
+            # long step for close to parallel fractures, but we cross our fingers this
+            # will work out nicely).
+            step_size = 2 * self._mesh_size_computer.dist_min(dist_other_fracture)
+
+            for direction, can_proceed in dirs.items():
+                if not can_proceed:
+                    continue
+
+                dir_new = copy.copy(dirs)
+                if direction == Direction.WEST:
+                    di = ij(i.i - 1, i.j)
+                    delta = -t_i * step_size
+                    dir_new[Direction.EAST] = False
+                elif direction == Direction.EAST:
+                    di = ij(i.i + 1, i.j)
+                    delta = t_i * step_size
+                    dir_new[Direction.WEST] = False
+                elif direction == Direction.SOUTH:
+                    di = ij(i.i, i.j - 1)
+                    delta = -t_j * step_size
+                    dir_new[Direction.NORTH] = False
+                elif direction == Direction.NORTH:
+                    di = ij(i.i, i.j + 1)
+                    delta = t_j * step_size
+                    dir_new[Direction.SOUTH] = False
+
+                if di in discarded_ijs:
+                    continue
+
+                p_new = Point(*(np.array(p_cand) + delta))
+                dist_new = dist_other_fracture
+
+                if di in tab:
+                    p_new, dist_new = self._closest_point(
+                        cp_0, p_new, dist_other_fracture, tab[di][0], tab[di][3]
+                    )
+                    dir_new = self._direction_union(dir_new, tab[di][2])
+
+                tab[di] = (p_new, p_cand, dir_new, dist_new)
+                heapq.heappush(q, (priority(di), di))
+            discarded_ijs.add(i)
+            tab.pop(i)
+
+        return points_to_add
+
+    def _closest_point(
+        self, start: Point, cand_0: Point, dist_0, cand_1: Point, dist_1: float
+    ) -> Point:
+        vec_0 = np.array(cand_0) - np.array(start)
+        vec_1 = np.array(cand_1) - np.array(start)
+
+        dist_0 = np.linalg.norm(vec_0)
+        dist_1 = np.linalg.norm(vec_1)
+
+        if dist_0 < dist_1:
+            return cand_0, dist_0
+        else:
+            return cand_1, dist_1
+
+    def _point_inside_other_surface(self, point: Point, f_other) -> bool:
+        proj_pts, _ = gmsh.model.get_closest_point(self._nd - 1, f_other, point)
+        return gmsh.model.is_inside(self._nd - 1, f_other, proj_pts)
+
+    def _direction_union(self, dir_0: Direction, dir_1: Direction) -> Direction:
+        return {
+            Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
+            Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
+            Direction.SOUTH: dir_0[Direction.SOUTH] and dir_1[Direction.SOUTH],
+            Direction.NORTH: dir_0[Direction.NORTH] and dir_1[Direction.NORTH],
+        }
+
+    def _tangent_basis(self, f_main, f_other, cp_0, cp_1):
+        n_0 = self._get_normal(f_main)
+        vec = np.array(cp_1) - np.array(cp_0)
+        nrm = np.linalg.norm(vec)
+        if nrm < 1e-12:
+            # If the control points are (almost) identical, we cannot use the
+            # connecting vector to define a direction. Use the normal of the other
+            # fracture instead, and take a cross product to define a direction.
+            n_1 = self._get_normal(f_other)
+            vec = np.cross(n_0, n_1)
+            nrm = np.linalg.norm(vec)
+
+        vec = vec / nrm
+
+        proj_vec_0 = vec - np.dot(vec, n_0) * n_0
+        if np.linalg.norm(proj_vec_0) < 1e-12:
+            # The vector is (almost) aligned with the normal vector. Pick an
+            # arbitrary perpendicular direction.
+            if np.abs(n_0[0]) < 0.9:
+                arbitrary_vec = np.array([1.0, 0.0, 0.0])
+            else:
+                arbitrary_vec = np.array([0.0, 1.0, 0.0])
+            proj_vec_0 = np.cross(n_0, arbitrary_vec)
+        # Tangent vector in f_0 in the direction of maximum increase of distance to
+        # f_1.
+        t_0_max = proj_vec_0 / np.linalg.norm(proj_vec_0)
+        t_0_min = np.cross(n_0, t_0_max)
+        # Tangent vector in f_0 in the direction of minimum increase of distance to
+        # f_1.
+        t_0_min = t_0_min / np.linalg.norm(t_0_min)
+
+        return t_0_max, t_0_min
+
+    def _get_normal(self, f):
+        bnd = gmsh.model.get_parametrization_bounds(2, f)
+        u_mid = 0.5 * (bnd[0][0] + bnd[1][0])
+        v_mid = 0.5 * (bnd[0][1] + bnd[1][1])
+        n = gmsh.model.getNormal(f, [u_mid, v_mid])
+        return np.array(n)
+
+
+class MeshSizeComputer:
+    """Helper class to manage and compute mesh size parameters.
+
+    This provides a unified way to access mesh size parameters used in meshing.
+
+
+    """
+
+    def __init__(self, mesh_args: dict):
+        self._hfarfield = mesh_args.get("mesh_size_bound")
+        self._hfrac = mesh_args.get("mesh_size_frac")
+        self._hmin = mesh_args.get("mesh_size_min", self._hfrac / 10)
+        self._threshold = mesh_args.get("refinement_threshold", 1.0)
+        self._buffer = mesh_args.get("refinement_buffer", 0.5)
+        self._farfield_transition = mesh_args.get("farfield_transition", 10.0)
+
+    def refinement_threshold(self) -> float:
+        """Threshold for refinement around fractures [m].
+
+        Objects that are farther away from a fracture than this threshold will not
+        trigger mesh refinement.
+
+        """
+        return self._threshold * self._hfrac
+
+    def h_farfield(self) -> float:
+        """Far-field mesh size [m]."""
+        return self._hfarfield
+
+    def h_frac(self, is_boundary: bool = False) -> float:
+        """Fracture size on fracture or boundary [m].
+
+        Parameters:
+            is_boundary: If ``True``, return the boundary mesh size.
+
+        Returns:
+            float: Mesh size. Will be equal to the user-provided fracture mesh size
+                unless ``is_boundary = True``, in which case the far-field mesh size is
+                returned.
+
+        """
+        if is_boundary:
+            return self._hfarfield
+        return self._hfrac
+
+    def h_min(self) -> float:
+        """Minimum mesh size [m]. No smaller mesh sizes will be set anywhere in the
+        domain. Gmsh may however decide to use smaller mesh sizes if the geometry
+        requires it.
+
+        Returns:
+            float: Minimum mesh size.
+
+        """
+        return self._hmin
+
+    def h_end(self, is_boundary: bool) -> float:
+        """Mesh size at the end of the transition from refinement to 'standard'
+        conditions [m].
+
+        The 'standard' will be the fracture mesh size if ``is_boundary = False``, and
+        the far-field mesh size if ``is_boundary = True``.
+
+        """
+        return self._hfarfield if is_boundary else self._hfrac
+
+    def dist_farfield(self, is_boundary: bool, on_codim: bool) -> float:
+        """Distance from fracture where far-field mesh size is reached [m].
+
+        TODO: Need better name, farfield can here imply both h_frac and h_bound.
+
+        Parameters:
+            is_boundary: If ``True``, return the distance for boundary mesh size.
+            on_codim: If ``True``, return the distance on a lower-dimensional object.
+
+        Returns:
+            float: Distance from fracture where far-field mesh size is reached [m].
+
+        """
+        if on_codim:
+            return self.h_end(is_boundary) * self._farfield_transition
+        else:
+            return self._hfarfield * self._farfield_transition
+
+    def size_farfield(self, is_boundary: bool) -> float:
+        """Far-field mesh size [m].
+
+        Parameters:
+            is_boundary: If ``True``, return the boundary mesh size.
+
+        Returns:
+            float: Mesh size. Will be equal to the user-provided fracture mesh size
+                unless ``is_boundary = True``, in which case the far-field mesh size is
+                returned.
+
+        """
+        return self.h_end(is_boundary)
+
+    def dist_min(self, dist: float) -> float:
+        """Distance from a mesh size control point at which the transition from the
+        minimal mesh size starts [m].
+
+        Parameters:
+            dist: Distance from the fracture.
+
+        Returns:
+            float: Distance from the fracture.
+
+        """
+        return self._min_size(dist)
+
+    def size_min(self, dist: float) -> float:
+        """Mesh size close to a mesh size control point [m].
+
+        Parameters:
+            dist: Distance from the fracture.
+
+        Returns:
+            float: Mesh size close to the fracture.
+
+        """
+        return self._min_size(dist) * self._buffer
+
+    def size_at_distance(
+        self, dist: float, old_distance: float, is_boundary: bool, on_codim: bool
+    ) -> float:
+        # In the immediate vicinity of the old point, the mesh size is proportional to
+        # the distance to other objects at that point, though the distance is capped
+        # from below by a minimum distance. The mesh size in this region is scaled by
+        # the factor buffer.
+        end_near_old_region = self.dist_min(old_distance)
+        mesh_size_near_old = self.size_min(old_distance)
+
+        # The mesh size transits linearly from the size near the old point to a mesh
+        # size far away from the contol point. This mesh size is either the fracture
+        # mesh size, if the control point is placed on a fracture surface, and the mesh
+        # size is used for codimension meshing (i.e., we construct the mesh on the
+        # fracture surface). Otherwise, the far-field mesh size is used. The extent of
+        # the transition region is controlled by the farfield_transition parameter and
+        # the mesh size.
+        start_far_away_region = self.dist_farfield(
+            is_boundary=is_boundary, on_codim=on_codim
+        )
+        size_far_away_region = self.size_farfield(is_boundary=is_boundary)
+
+        if dist >= start_far_away_region:
+            return size_far_away_region
+        elif dist <= end_near_old_region:
+            return mesh_size_near_old
+        else:
+            # Linear transition.
+            h = mesh_size_near_old + (size_far_away_region - mesh_size_near_old) * (
+                (dist - end_near_old_region)
+                / (start_far_away_region - end_near_old_region)
+            )
+            return h
+
+    def _min_size(self, dist: float) -> float:
+        """Compute the minimum mesh size at a given distance from the fracture.
+
+        Parameters:
+            dist: Distance from the fracture.
+        """
+        return max(self._hmin, dist)
+
+
+class GmshPointIdentifier:
+    """Helper class to identify Gmsh point indices based on physical coordinates."""
+
+    def __init__(self, tol=1e-6):
+        self._tol = tol
+        phys_coord = []
+        self._gmsh_point_ind = [ent[1] for ent in gmsh.model.get_entities(0)]
+        for gmsh_ind in self._gmsh_point_ind:
+            coord = gmsh.model.get_bounding_box(0, gmsh_ind)[:3]
+            phys_coord.append(np.array(coord))
+        self._phys_coord = np.array(phys_coord).T
+
+    def index(self, point: np.ndarray) -> int:
+        """Identify the Gmsh point index corresponding to a given physical coordinate.
+
+        Parameters:
+            point: Physical coordinate as a numpy array of shape (3,).
+
+        Raises:
+            ValueError: If the point is not found in the Gmsh model within the specified
+                tolerance.
+
+        Returns:
+            The Gmsh point index corresponding to the given physical coordinate.
+
+        """
+        pd = np.linalg.norm(self._phys_coord - point.reshape(3, 1), axis=0)
+        if np.all(pd > self._tol):
+            raise ValueError("Point not found in Gmsh model.")
+        return self._gmsh_point_ind[int(np.argmin(pd))]
