@@ -159,8 +159,11 @@ class DamageHistoryEquation(pp.PorePyModel):
         """
         super().before_nonlinear_loop()
         fractures = self.mdg.subdomains(dim=self.nd - 1)
-        self.equation_system._equations[self.damage_history_equation_name] = (
-            self.damage_history_equation(fractures)
+        self.equation_system.update_equation(
+            equation_name=self.damage_history_equation_name,
+            new_equation=self.damage_history_equation(fractures),
+            grids=fractures,
+            equations_per_grid_entity={"cells": 1},
         )
 
     def damage_history_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -357,6 +360,7 @@ class IsotropicHistoryEquation(pp.PorePyModel):
         num_steps = self.time_manager.time_index
         # The first term in the equation, the implicit part.
         eq = self.damage_history(subdomains) - f_norm(u_t_increment)
+
         # Then add the explicit part, i.e., the sum of the inner product of m with the
         # u_t increment from all previous time steps. The sum starts at 1 since the
         # first increment is already included in the implicit part.
