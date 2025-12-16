@@ -634,7 +634,7 @@ class FluidBuoyancy(pp.PorePyModel):
             rho_delta = self._get_common_density(delta, domains)
 
             # OPTIMIZATION: Simplify the density difference immediately
-            rho_diff = (rho_gamma - rho_delta).simplify(self.mdg)
+            rho_diff = (rho_delta - rho_gamma).simplify(self.mdg)
 
             if flux_type == "subdomain":
                 op = self.density_driven_flux(domains, rho_diff)
@@ -1470,7 +1470,7 @@ class FluidBuoyancy(pp.PorePyModel):
                 # but usually caching handles the structure.
                 subdomain_vals = self.equation_system.evaluate(
                     self.density_driven_flux(
-                        subdomains, rho_gamma_full - rho_delta_full
+                        subdomains, rho_delta_full - rho_gamma_full
                     )
                 )
 
@@ -1494,7 +1494,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
                 interface_values = self.equation_system.evaluate(
                     self.interface_density_driven_flux(
-                        interfaces, rho_gamma_full - rho_delta_full
+                        interfaces, rho_delta_full - rho_gamma_full
                     )
                 )
                 interface_offsets = np.cumsum(
