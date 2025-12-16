@@ -1157,6 +1157,44 @@ class FractureNetwork2d(FractureNetwork):
 
                 gmsh_fields.append(restriction)
 
+        for surface in mesh_size:
+            # Set a background mesh size for the surface itself, away from any
+            # refinement points. This will ensure that the mesh size is reasonable also
+            # in regions where no refinement is needed.
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "CurvesList", [surface])
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+            gmsh.model.mesh.field.setNumber(
+                threshold,
+                "SizeMin",
+                mesh_size_computer.h_end(surface in boundary_tags),
+            )
+            gmsh.model.mesh.field.setNumber(
+                threshold,
+                "DistMax",
+                mesh_size_computer.dist_farfield(
+                    surface in boundary_tags, on_codim=False
+                ),
+            )
+            gmsh.model.mesh.field.setNumber(
+                threshold,
+                "SizeMax",
+                mesh_size_computer.size_farfield(surface in boundary_tags),
+            )
+            restriction = gmsh.model.mesh.field.add("Restrict")
+            gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
+            if restrict_to_fractures:
+                gmsh.model.mesh.field.setNumbers(restriction, "CurvesList", [surface])
+            else:
+                gmsh.model.mesh.field.setNumbers(
+                    restriction,
+                    "SurfacesList",
+                    [entity[1] for entity in domain_entities],
+                )
+            gmsh_fields.append(restriction)
+
         return gmsh_fields
 
     def _set_2d_mesh_size(
