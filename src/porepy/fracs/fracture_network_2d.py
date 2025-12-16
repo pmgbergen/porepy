@@ -374,7 +374,7 @@ class FractureNetwork2d(FractureNetwork):
                 removeTool=True,
             )
             gmsh.model.occ.synchronize()
-            new_mesh_size_points = {}
+            updated_mesh_size_points = {}
 
             line_map = entity_map[len(isect_pt) :]
             fracture_tags_new = []
@@ -395,9 +395,9 @@ class FractureNetwork2d(FractureNetwork):
                     # introduce additional points that are outside the segment, but we
                     # will have to deal with this later.
                     if fi in mesh_size_points:
-                        new_mesh_size_points[nt] = mesh_size_points[fi]
+                        updated_mesh_size_points[nt] = mesh_size_points[fi]
 
-            mesh_size_points = new_mesh_size_points
+            mesh_size_points = updated_mesh_size_points
 
         # Make gmsh calculate the intersections between fractures, using the domain as a
         # secondary object (the latter will by magic ensure that the fractures are
@@ -418,54 +418,60 @@ class FractureNetwork2d(FractureNetwork):
 
         # During intersection removal, gmsh will add intersection points and replace the
         # fractures with non-intersecting polylines (example: Two fractures intersecting
-        # as a cross become four fractures with a common point). We need to identify
-        # these intersecting points.
-        # Annoyingly, gmsh also reassigns tags during fragmentation. Hence we need to
-        # find intersection points on our own, as is done below.
-        intersection_points = []
+        # as a cross become four fractures with a common point). Furthermore, gmsh may
+        # have retagged fractures, boundaries and other entities. To keep track of these
+        # updates, the below for-loop takes action on three points:
+        # 1. Update the keys (gmsh tags of fracture and boundary lines) for the mesh
+        #    size control points.
+        # 2. Update the inverse mapping from gmsh fracture tags to input fractures to
+        #    work with the new gmsh fracture tags.
+        # 3. Identify the boundary points of all fracture segments, as a pair of the
+        #    gmsh indices of the points and the input fracture index. This will be used
+        #    to identify intersection points later on.
 
-        new_mesh_size_points = {}
-
-        # Loop over the mappings from old fractures to new segments. The idea is to find
-        # the boundary points of all segments, identify those that occur more than once
-        # - these will be intersections - and store the tag that gmsh has assigned them.
+        # Data structures to be filled.
+        updated_mesh_size_points = {}
+        updated_fracture_tag_map = {}
         boundary_points_fracture_indices = []
         for fi, old_fracture in enumerate(isect_mapping):
-            if len(old_fracture) > 0:
-                if old_fracture[0][0] == nd:
-                    # It is unclear if processing the domain will make any harm, but there
-                    # is no need to take any chances. Skip it.
-                    continue
-                elif old_fracture[0][1] in boundary_tags_new:
-                    # Similarly, skip processing of boundary segments.
-                    continue
+            if len(old_fracture) == 0:
+                # EK is not sure when this happens, but it does occasionally. Skip it.
+                continue
 
-            # Retrieve the original gmsh tag, and then the index of the fracture in
-            # self.fractures.
+            if old_fracture[0][0] == nd:
+                # This is the domain. Skip it.
+                continue
 
             # Get hold of the gmsh tag used to represent this fracture before
             # intersection removal.
             old_gmsh_tag = line_tags_new[fi]
-            is_fracture = old_gmsh_tag in inv_fracture_tag_map
-            if is_fracture:
-                # This may be a constraint fracture, in which case there is no need to
-                # work with intersection removal.
-                frac_ind = inv_fracture_tag_map[old_gmsh_tag]
-                if frac_ind in constraints:
-                    # Constrained fractures are not to be considered for intersection
-                    # identification.
-                    continue
+            if old_gmsh_tag in boundary_tags_new:
+                # This is part of the boundary. Skip it.
+                continue
+
+            # This may be a constraint fracture, in which case there is no need to
+            # work with intersection removal.
+            frac_ind = inv_fracture_tag_map[old_gmsh_tag]
+            if frac_ind in constraints:
+                # Constrained fractures are not to be considered for intersection
+                # identification.
+                continue
 
             for segment in old_fracture:
                 if old_gmsh_tag in mesh_size_points:
                     # Update the mesh size points for the new segments.
-                    new_mesh_size_points[segment[1]] = mesh_size_points[old_gmsh_tag]
+                    updated_mesh_size_points[segment[1]] = mesh_size_points[
+                        old_gmsh_tag
+                    ]
                 pt_index = gmsh.model.get_boundary([segment])
-                if is_fracture:
-                    for pt in pt_index:
-                        boundary_points_fracture_indices.append((pt[1], frac_ind))
+                for pt in pt_index:
+                    boundary_points_fracture_indices.append((pt[1], frac_ind))
 
-        mesh_size_points = new_mesh_size_points
+                updated_fracture_tag_map[segment[1]] = frac_ind
+
+        # The mesh size and fracture tag map can be updated by reassignment.
+        mesh_size_points = updated_mesh_size_points
+        inv_fracture_tag_map = updated_fracture_tag_map
 
         # Find the unique boundary points and obtain a mapping from the full set of
         # boundary points to the unique ones.
@@ -500,9 +506,13 @@ class FractureNetwork2d(FractureNetwork):
         # Since fractures may have been split at intersection points, we need to collect
         # all the segments (found in isect_mapping) into a single physical group.
 
+        # Count the number of fracture objects that survived both the fragmentation and
+        # the distance-based domain trimming.
+        num_real_frac = len(set(inv_fracture_tag_map.values()))
+
         fracture_to_line = {}
         tmp_frac_line = []
-        for i, line_group in enumerate(isect_mapping):
+        for i, line_group in enumerate(isect_mapping[:num_real_frac]):
             # A line_group here was formed after intersection removal. It may contain
             # either a full fracture, or be one of several segments forming a fracture.
             # In the latter case, the fracture was split into segments when mesh size
