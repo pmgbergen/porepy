@@ -513,87 +513,25 @@ class FluidBuoyancy(pp.PorePyModel):
     """See :class:`~porepy.models.constitutive_laws.ConstantPermeability`."""
 
     def buoyancy_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for subdomain buoyancy between phases gamma and delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the buoyancy term between the two phases. Can be used on
-                subdomains.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyancy_intf_key`
-
-        """
+        """Key for subdomain buoyancy between phases gamma and delta."""
         return "buoyancy_" + gamma.name + "_" + delta.name
 
     def buoyant_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for stored buoyant flux array on subdomains.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the array of buoyancy flux between the two phases on
-                subdomains.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyant_intf_flux_array_key`
-
-        """
+        """Key for stored buoyant flux array on subdomains."""
         return "buoyant_flux_" + gamma.name + "_" + delta.name
 
     def buoyancy_intf_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for interface buoyancy between phases gamma and delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the buoyancy term between the two phases. Can be used on
-                subdomains.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyancy_key`
-
-        """
+        """Key for interface buoyancy between phases gamma and delta."""
         return "buoyancy_intf_" + gamma.name + "_" + delta.name
 
     def buoyant_intf_flux_array_key(self, gamma: pp.Phase, delta: pp.Phase) -> str:
-        """Key for stored buoyant flux array on interfaces.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            A unique key for the array of buoyancy flux between the two phases on
-                interfaces.
-
-        See also:
-            :meth:`~porepy.models.fluid_property_library.FluidBuoyancy.buoyant_flux_array_key`
-
-        """
+        """Key for stored buoyant flux array on interfaces."""
         return "buoyant_intf_flux_" + gamma.name + "_" + delta.name
 
     def buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.UpwindAd:
-        """Return upwind discretization for subdomain buoyancy term gamma↔delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            subdomains: The subdomains to consider for the discretization.
-
-        Returns:
-            An Upwind discretization for the buoyancy term between the two phases.
-
-        """
+        """Return upwind discretization for subdomain buoyancy term gamma↔delta."""
         storage = self._get_common_operators_storage()
         key = f"discr_{gamma.name}_{delta.name}"
 
@@ -605,96 +543,10 @@ class FluidBuoyancy(pp.PorePyModel):
 
         return storage[key]
 
-    def _get_common_bound_transport_neu(
-        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Get common bound_transport_neu operator for the phase pair.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-
-        Returns:
-            The bound_transport_neu operator.
-
-        """
-        storage = self._get_common_operators_storage()
-        key = f"bound_neu_{gamma.name}_{delta.name}"
-
-        if key not in storage:
-            discr = self.buoyancy_discretization(gamma, delta, domains)
-            storage[key] = discr.bound_transport_neu()
-
-        return storage[key]
-
-    def _get_common_upwind_op(
-        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Get cached upwind operator for a phase pair.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-
-        Returns:
-            The upwind operator.
-
-        """
-        storage = self._get_common_operators_storage()
-        key = f"upwind_op_{gamma.name}_{delta.name}"
-
-        if key not in storage:
-            discr = self.buoyancy_discretization(gamma, delta, domains)
-            storage[key] = discr.upwind()
-
-        return storage[key]
-
-
-
-    def _get_common_bound_neu_mortar_chain(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
-        mortar_to_primary: pp.ad.Operator,
-    ) -> pp.ad.Operator:
-        """Get cached bound_transport_neu @ mortar_to_primary chain.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-            mortar_to_primary: Projection from mortar to primary.
-
-        Returns:
-            The combined bound_neu @ mortar_to_primary operator chain.
-
-        """
-        storage = self._get_common_operators_storage()
-        key = f"bound_neu_mortar_chain_{gamma.name}_{delta.name}"
-
-        if key not in storage:
-            bound_neu = self._get_common_bound_transport_neu(gamma, delta, domains)
-            storage[key] = bound_neu @ mortar_to_primary
-
-        return storage[key]
-
     def interface_buoyancy_discretization(
         self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
-        """Return upwind discretization for interface buoyancy term gamma-delta.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            interfaces: The interfaces to consider for the discretization.
-
-        Returns:
-            An Upwind discretization for the buoyancy term between the two phases.
-
-        """
+        """Return upwind discretization for interface buoyancy term gamma-delta."""
         storage = self._get_common_operators_storage()
         key = f"intf_discr_{gamma.name}_{delta.name}"
 
@@ -709,110 +561,15 @@ class FluidBuoyancy(pp.PorePyModel):
         return storage[key]
 
     def _get_common_operators_storage(self) -> dict:
-        """Get or initialize storage for common buoyancy operators.
-
-        Returns:
-            The dictionary for storing common operators and related objects.
-
-        """
+        """Get or initialize storage for common buoyancy operators."""
         if not hasattr(self, "_common_operators"):
             self._common_operators: dict = {}
         return self._common_operators
 
-    def _phase_pair_key(self, gamma: pp.Phase, delta: pp.Phase) -> tuple[str, str, int]:
-        """Get ordered phase pair key and sign for density difference.
-
-        Uses alphabetical ordering of phase names to ensure consistent caching.
-        Returns the ordered key and a sign (+1 or -1) to apply to get the correct
-        density difference direction (rho_gamma - rho_delta).
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-
-        Returns:
-            Tuple of (first_name, second_name, sign) where sign is +1 if gamma comes
-            first alphabetically, -1 otherwise.
-
-        """
-        if gamma.name <= delta.name:
-            return (gamma.name, delta.name, 1)
-        else:
-            return (delta.name, gamma.name, -1)
-
-    def _get_common_density_flux(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
-        flux_type: str,
-    ) -> pp.ad.Operator:
-        """Get common density-driven flux operator for a phase pair.
-
-        Uses reciprocity: w_flux(gamma, delta) = -w_flux(delta, gamma).
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-            flux_type: Either "subdomain" or "interface".
-
-        Returns:
-            The density-driven flux operator with correct sign.
-
-        """
-        storage = self._get_common_operators_storage()
-        first, second, sign = self._phase_pair_key(gamma, delta)
-
-        # Key for the specific direction (gamma, delta)
-        key = f"w_flux_{flux_type}_{gamma.name}_{delta.name}"
-
-        if key not in storage:
-            # First check if we have the canonical (first, second) version
-            canonical_key = f"w_flux_{flux_type}_{first}_{second}"
-            negated_key = f"w_flux_{flux_type}_{second}_{first}"
-
-            if canonical_key not in storage:
-                # Compute canonical version (first - second)
-                phases_by_name = {p.name: p for p in self.fluid.phases}
-                phase_first = phases_by_name[first]
-                phase_second = phases_by_name[second]
-
-                # Use cached density operators
-                rho_first = self._get_common_density(phase_first, domains)
-                rho_second = self._get_common_density(phase_second, domains)
-                rho_diff = rho_first - rho_second
-
-                if flux_type == "subdomain":
-                    storage[canonical_key] = self.density_driven_flux(domains, rho_diff)
-                else:  # interface
-                    interfaces = self.subdomains_to_interfaces(domains, [1])
-                    storage[canonical_key] = self.interface_density_driven_flux(interfaces, rho_diff)
-
-                # Also cache the negated version to avoid creating new operator
-                neg_one = self._get_common_neg_one()
-                storage[negated_key] = neg_one * storage[canonical_key]
-
-            # Now set the requested direction
-            storage[key] = storage[key] if key in storage else (
-                storage[canonical_key] if sign == 1 else storage[negated_key]
-            )
-
-        return storage[key]
-
     def _get_common_density(
         self, phase: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Get cached density operator for a phase.
-
-        Parameters:
-            phase: The phase.
-            domains: The subdomains.
-
-        Returns:
-            The density operator.
-
-        """
+        """Get cached density operator for a phase."""
         storage = self._get_common_operators_storage()
         key = f"density_{phase.name}"
 
@@ -824,16 +581,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def _get_common_fractional_mobility(
         self, phase: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Get common fractional phase mass mobility operator.
-
-        Parameters:
-            phase: The phase.
-            domains: The subdomains.
-
-        Returns:
-            The fractional mobility operator.
-
-        """
+        """Get common fractional phase mass mobility operator."""
         storage = self._get_common_operators_storage()
         key = f"f_mob_{phase.name}"
 
@@ -842,13 +590,81 @@ class FluidBuoyancy(pp.PorePyModel):
 
         return storage[key]
 
-    def clear_common_operators(self) -> None:
-        """Clear the common buoyancy operators storage.
+    def _get_common_upwind_op(
+        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Get cached upwind operator for a phase pair."""
+        storage = self._get_common_operators_storage()
+        key = f"upwind_op_{gamma.name}_{delta.name}"
 
-        Call this when domains change or at the start of a new operator tree
-        construction if needed.
+        if key not in storage:
+            discr = self.buoyancy_discretization(gamma, delta, domains)
+            storage[key] = discr.upwind()
 
+        return storage[key]
+
+    def _get_common_bound_transport_neu(
+        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Get common bound_transport_neu operator for the phase pair."""
+        storage = self._get_common_operators_storage()
+        key = f"bound_neu_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            discr = self.buoyancy_discretization(gamma, delta, domains)
+            storage[key] = discr.bound_transport_neu()
+
+        return storage[key]
+
+    def _get_common_bound_neu_mortar_chain(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        mortar_to_primary: pp.ad.Operator,
+    ) -> pp.ad.Operator:
+        """Get cached bound_transport_neu @ mortar_to_primary chain."""
+        storage = self._get_common_operators_storage()
+        key = f"bound_neu_mortar_chain_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            bound_neu = self._get_common_bound_transport_neu(gamma, delta, domains)
+            storage[key] = bound_neu @ mortar_to_primary
+
+        return storage[key]
+
+    def _get_common_density_flux(
+        self,
+        gamma: pp.Phase,
+        delta: pp.Phase,
+        domains: list[pp.Grid],
+        flux_type: str,
+    ) -> pp.ad.Operator:
+        """Get common density-driven flux operator for a phase pair.
+
+        Uses reciprocity: w_flux(gamma, delta) = -w_flux(delta, gamma).
         """
+        storage = self._get_common_operators_storage()
+
+        # Key for the specific direction (gamma, delta)
+        key = f"w_flux_{flux_type}_{gamma.name}_{delta.name}"
+
+        if key not in storage:
+            # Use cached density operators
+            rho_gamma = self._get_common_density(gamma, domains)
+            rho_delta = self._get_common_density(delta, domains)
+            rho_diff = rho_gamma - rho_delta
+
+            if flux_type == "subdomain":
+                storage[key] = self.density_driven_flux(domains, rho_diff)
+            else:  # interface
+                interfaces = self.subdomains_to_interfaces(domains, [1])
+                storage[key] = self.interface_density_driven_flux(interfaces, rho_diff)
+
+        return storage[key]
+
+    def clear_common_operators(self) -> None:
+        """Clear the common buoyancy operators storage."""
         if hasattr(self, "_common_operators"):
             self._common_operators.clear()
         if hasattr(self, "_common_projections"):
@@ -857,18 +673,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def fractionally_weighted_density(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Compute the fractional-flow-weighted density.
-
-        The method computes the sum_j f_j rho_j where f_j is the fractional flow
-        function for phase j.
-
-        Parameters:
-            domains: The domains to consider for the density computation.
-
-        Returns:
-            An operator representing the fractional-flow-weighted density.
-
-        """
+        """Compute the fractional-flow-weighted density sum_j f_j rho_j."""
         storage = self._get_common_operators_storage()
         key = "fractionally_weighted_density"
 
@@ -887,16 +692,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return storage[key]
 
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Return gravity magnitude.
-
-        Parameters:
-            subdomains: The subdomains to consider for the gravity field computation.
-                Not used, but included for consistency.
-
-        Returns:
-            An operator representing the gravity field.
-
-        """
+        """Return gravity magnitude."""
         storage = self._get_common_operators_storage()
         key = "gravity_field"
 
