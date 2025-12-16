@@ -41,7 +41,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0390625
+    _sphere_radius: float = 0.1953125
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -54,7 +54,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0390625, "m")
+        cell_size = self.units.convert_units(0.1953125, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -694,7 +694,7 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 50.0 * day
+tf = 100.0 * day
 dt = 1.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
