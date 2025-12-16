@@ -113,7 +113,13 @@ def unit_square() -> pp.Domain:
 @pytest.fixture(scope="module")
 def mesh_args() -> dict:
     """Create standard mesh arguments for testing purposes."""
-    return {"mesh_size_bound": 1.0, "mesh_size_frac": 1.0, "mesh_size_min": 1e-5}
+    return {
+        "mesh_size_bound": 1.0,
+        "mesh_size_frac": 1.0,
+        "mesh_size_min": 1e-1,
+        # Set a very low refinement threshold to avoid adaptive refinement.
+        "refinement_threshold": 1e-6,
+    }
 
 
 @pytest.fixture(autouse=True)
