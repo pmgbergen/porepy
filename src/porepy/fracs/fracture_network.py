@@ -68,6 +68,64 @@ class FractureNetwork(ABC):
     ) -> pp.MixedDimensionalGrid:
         pass
 
+    def _entity_on_domain_boundary(self, target_dim: int, ind: list[int]) -> bool:
+        """Helper function to determine if an entity lies on the domain boundary.
+
+        The intended use is to determine if a line or set of points lie on the
+        boundary of the domain, in which case it should not be considered an
+        intersection line or point between fractures.
+
+        The implementation could have been generalized in various ways, but is kept
+        as it is, since it concerns very specific use cases that are covered by the
+        current implementation.
+
+        Known possible issue: If the domain is fully split by a fracture, the
+        original boundary sides of the domain may have been split into multiple
+        parts (this will manifest as the variable boundary_surfaces containing more
+        surfaces than the original domain boundary, for instance more than six
+        surfaces for a box domain). In this case, a line that extends over multiple
+        of these 'sub-sides', but are really part of one side in the original
+        boundary definition, may be misidentified as an intersection line. In EK's
+        understanding, this should not happen, since that line will also have been
+        split into multiple parts during fragmentation, and each part will be on one
+        of the sub-sides. Still, Gmsh works in mysterious ways, so it was considered
+        wise to take note of this possible issue.
+
+        Parameters:
+            dim: Dimension of the entity to check (0 for points, 1 for line). ind:
+            List of Gmsh tags identifying the entity to check.
+
+        Returns:
+            bool: ``True`` if the entity lies on a single part (a single member of
+                the boundary_surfaces, see below), ``False`` otherwise.
+
+        """
+        assert target_dim <= 1, "The implementation is not intended for surfaces."
+        # Get the domain boundary surfaces, accounting for the domain possibly
+        # having been split into multiple parts.
+        domain_entities = gmsh.model.get_entities(self.nd)
+        boundary_entities = gmsh.model.get_boundary(
+            [(self.nd, tag) for _, tag in domain_entities]
+        )
+        # Get hold of the boundary points of the entity to check.
+        if target_dim == 0:
+            boundary_points = [(target_dim, i) for i in ind]
+        else:
+            assert len(ind) == 1, "Only single entity indices are supported."
+            boundary_points = gmsh.model.get_boundary([(target_dim, ind[0])])
+
+        # For each boundary surface of the domain, compute the distance to all
+        # boundary points of the entity to check if they are all zero. Note that the
+        # other way around (checking if each entity point is on any of the boundary
+        # entities) risk false positives for a line extending across the domain
+        # between two boundaries.
+        for ent in boundary_entities:
+            dist = [gmsh.model.occ.get_distance(*bp, *ent)[0] for bp in boundary_points]
+            if np.all(np.array(dist) < self._tol):
+                return True
+        # Having come this far, the entity is not on the domain boundary.
+        return False
+
     def _set_background_mesh_field(self, gmsh_fields: list[int]) -> None:
         min_field = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
