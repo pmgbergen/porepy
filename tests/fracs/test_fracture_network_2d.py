@@ -484,7 +484,7 @@ def test_domain_split_by_fractures(
     """
     fractures = [
         pp.LineFracture(np.array([[0.5, 0.5], [0.0, 1.0]])),
-        pp.LineFracture(np.array([[0.5, 0.5], [1.0, 0.0]])),
+        pp.LineFracture(np.array([[0.0, 1.0], [0.5, 0.5]])),
     ][:num_fracs]
 
     network = pp.create_fracture_network(fractures, unit_square)
