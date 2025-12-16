@@ -1312,18 +1312,11 @@ class FractureNetwork3d(FractureNetwork):
     def _insert_mesh_size_control_points(
         self, fracture_tags: list[int], mesh_size_computer: MeshSizeComputer
     ):
-        nd = self.domain.dim
+        nd = self.nd
 
-        # Define a threshold for when to consider refining along fractures. This is a
-        # heuristic value which should be reconsidered. Scaling with mesh size on
-        # fractures is reasonable, but the factor 2 is arbitrary.
-        THRESHOLD_REFINEMENT = mesh_size_computer.refinement_threshold()
-
-        ### Get hold of lines representing fractures and boundaries.
+        ### Get hold of surfaces representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(nd)
-        # TODO: If there is more than one domain entity (the domain is split into parts
-        # by fractures), we need to pick out the outer boundary, that is, the ones which
-        # only occurs once.
+
         boundaries = gmsh.model.get_boundary(
             [(nd, tag) for _, tag in domain_entities], oriented=False
         )
@@ -1338,16 +1331,7 @@ class FractureNetwork3d(FractureNetwork):
         for f in surface_tags:
             mesh_size_points[f] = []
 
-        fac = gmsh.model.occ
-
-        def project_onto_line(pt, start_of_line, vector):
-            vec_to_point = pt - start_of_line
-            # Project the vector onto the line defined by the start point and the
-            # direction vector, parametrized by t.
-            return np.dot(vec_to_point, vector) / np.dot(vector, vector)
-
         nd = self.domain.dim
-        isect_pt = []
 
         inserted_points = []
         insertion_surface = []
@@ -1369,9 +1353,9 @@ class FractureNetwork3d(FractureNetwork):
                 # No refinement between two boundary lines.
                 continue
 
-            distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
+            distance_info = gmsh.model.occ.getDistance(nd - 1, f_0, nd - 1, f_1)
 
-            if distance_info[0] > THRESHOLD_REFINEMENT:
+            if distance_info[0] > mesh_size_computer.refinement_threshold():
                 continue
 
             f_0_is_fracture = f_0 in fracture_tags
@@ -1386,6 +1370,7 @@ class FractureNetwork3d(FractureNetwork):
                 f_0_is_fracture,
                 f_1_is_fracture,
             )
+            gmsh.model.occ.synchronize()
             for _, pt, dist in points_0:
                 if point_already_present(pt, f_0):
                     continue
@@ -1398,8 +1383,6 @@ class FractureNetwork3d(FractureNetwork):
                 mesh_size_points[f_1].append((np.array(pt), dist))
                 inserted_points.append(np.array(pt))
                 insertion_surface.append(f_1)
-
-            continue
 
         return control_point_tags, mesh_size_points
 
