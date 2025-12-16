@@ -615,31 +615,10 @@ class FractureNetwork2d(FractureNetwork):
     def _insert_mesh_size_control_points(
         self, fracture_tags: list[int], mesh_size_computer: MeshSizeComputer
     ):
-        factory = gmsh.model.occ
-
-        # THRESHOLD_REFINEMENT = mesh_size_computer.refinement_threshold()
-
-        # # Alpha is a parameter controlling the mesh size in regions where refinement is
-        # # needed, e.g., if two fractures are close. In the immediate vicinity of such
-        # # regions, the mesh size is set to d/ALPHA, where d is the distance to the
-        # # object requiring refinement.
-        # ALPHA = 3
-        # # Beta is a parameter controlling the size of the transition region from fine
-        # # mesh to coarse mesh. The transition ends at a distance BETA*h_frac from the
-        # # object requiring refinement.
-        # BETA = 15
-
-        # h_frac = mesh_args["mesh_size_frac"]
-        # h_bound = mesh_args["mesh_size_bound"]
-        # # EK note to self: I am not entirely sure whether h_min should remain a user
-        # # parameter, or if we can get rid of it.
-        # h_min = mesh_args.get("mesh_size_min", h_frac / 10)
+        # TODO: This method can be unified with the 3d version.
 
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
-        # TODO: If there is more than one domain entity (the domain is split into parts
-        # by fractures), we need to pick out the outer boundary, that is, the ones which
-        # only occurs once.
         boundaries = gmsh.model.get_boundary([(2, tag) for _, tag in domain_entities])
         fractures = [f for f in gmsh.model.getEntities(1) if f not in boundaries]
         boundary_tags = [tag for _, tag in boundaries]
@@ -651,12 +630,6 @@ class FractureNetwork2d(FractureNetwork):
         mesh_size_points = {}
         for f in fracture_tags + boundary_tags:
             mesh_size_points[f] = []
-
-        def project_onto_line(pt, start_of_line, vector):
-            vec_to_point = pt - start_of_line
-            # Project the vector onto the line defined by the start point and the
-            # direction vector, parametrized by t.
-            return np.dot(vec_to_point, vector) / np.dot(vector, vector)
 
         nd = self.domain.dim
 
@@ -728,7 +701,7 @@ class FractureNetwork2d(FractureNetwork):
                 # No refinement between two boundary lines.
                 continue
 
-            distance_info = fac.getDistance(nd - 1, f_0, nd - 1, f_1)
+            distance_info = gmsh.model.occ.getDistance(nd - 1, f_0, nd - 1, f_1)
             distances = distance_info
             is_intersection = distances[0] < self._tol
 
@@ -751,7 +724,6 @@ class FractureNetwork2d(FractureNetwork):
             insert_point(f_0, points_0)
             gmsh.model.occ.synchronize()
             insert_point(f_1, points_1)
-            continue
 
         return control_points, mesh_size_points
 
@@ -788,23 +760,23 @@ class FractureNetwork2d(FractureNetwork):
                     line_item.append((line, i))
             all_pts = np.array(all_pts).T
             mesh_sizes = np.array(mesh_sizes)
-
-            _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
-                all_pts, tol=self._tol
-            )
-            min_size = np.empty(ind_map.size, dtype=float)
-            for i in range(ind_map.size):
-                inds = inv_map == i
-                min_size[i] = np.min(mesh_sizes[inds])
-
-            # Map back to lines.
-            for line_ind, pt_ind in enumerate(inv_map):
-                line = line_item[line_ind][0]
-                item = line_item[line_ind][1]
-                mesh_size_points[line][item] = (
-                    mesh_size_points[line][item][0],
-                    min_size[pt_ind],
+            if all_pts.size > 0:
+                _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
+                    all_pts, tol=self._tol
                 )
+                min_size = np.empty(ind_map.size, dtype=float)
+                for i in range(ind_map.size):
+                    inds = inv_map == i
+                    min_size[i] = np.min(mesh_sizes[inds])
+
+                # Map back to lines.
+                for line_ind, pt_ind in enumerate(inv_map):
+                    line = line_item[line_ind][0]
+                    item = line_item[line_ind][1]
+                    mesh_size_points[line][item] = (
+                        mesh_size_points[line][item][0],
+                        min_size[pt_ind],
+                    )
 
         # For lines that with no extra
         mesh_size = {tag: [] for tag in line_tags}
