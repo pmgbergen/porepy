@@ -661,25 +661,67 @@ class FractureNetwork2d(FractureNetwork):
         nd = self.domain.dim
 
         control_points: list[int] = []
+
+        # To avoid inserting the same point multiple times on the same line, and to
+        # prune doubly defined points from the gmsh specification, we keep track of
+        # which points have already been inserted where.
+
         # Gmsh index (check if correct) of the inserted mesh size control points.
         inserted_points: list[np.ndarray] = []
         # Coordinates of the mesh size control points already inserted. Used to avoid
         # duplicates.
         inserted_on_line: list[int] = []
+        # Populate the inserted points and lines with the existing end points of the
+        # lines.
+        for li in line_tags:
+            bp = gmsh.model.get_boundary([(self.nd - 1, li)])
+            for b in bp:
+                coord = gmsh.model.occ.get_bounding_box(*b)[:3]
+                inserted_points.append(np.array(coord))
+                inserted_on_line.append(li)
+
         # Index of lines where the points were inserted. Should have the same length as
         # inserted_points.
         inserter = MeshSizeControlPointInserter(self.nd, mesh_size_computer)
 
-        def point_already_present(pt, li):
-            # Check if a point is already present among the inserted points, within
-            # tolerance h_min, and on the same line.
+        def point_already_present(pt: np.ndarray, li: int) -> tuple[bool, bool]:
+            """Check if a point is already present among the inserted points.
+
+            Parameters:
+                pt: Coordinates of the point to be checked.
+                li: Gmsh tag of the line where the point is to be inserted.
+
+            Returns:
+                A tuple of three elements:
+                - A boolean indicating whether the point is already present within
+                  tolerance.
+                - A boolean indicating whether the point is already present on the
+                  specified line.
+
+            """
             if len(inserted_points) == 0:
                 return False
             dists = np.linalg.norm(
                 np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
             )
             i = np.argmin(dists)
-            return dists[i] < mesh_size_computer.h_min() and inserted_on_line[i] == li
+            return dists[i] < self._tol, inserted_on_line[i] == li
+
+        def insert_point(
+            frac: int, points: list[tuple[int, np.ndarray, float]]
+        ) -> None:
+            for pi, pt, dist in points:
+                point_present, on_line = point_already_present(pt, frac)
+                if point_present and on_line:
+                    # The point is already present, and there is a mesh size field for
+                    # it on this line. Remove the newly created point.
+                    gmsh.model.occ.remove([(0, pi)])
+                    continue
+                # The mesh size control point is to be kept.
+                mesh_size_points[frac].append((np.array(pt), dist))
+                # Keep track of the inserted point, so that we avoid duplicates.
+                inserted_points.append(np.array(pt))
+                inserted_on_line.append(frac)
 
         for f_0, f_1 in itertools.combinations(line_tags, 2):
             if f_0 in boundary_tags and f_1 in boundary_tags:
@@ -705,18 +747,10 @@ class FractureNetwork2d(FractureNetwork):
                 f_0_is_fracture,
                 f_1_is_fracture,
             )
-            for _, pt, dist in points_0:
-                if point_already_present(pt, f_0):
-                    continue
-                mesh_size_points[f_0].append((np.array(pt), dist))
-                inserted_points.append(np.array(pt))
-                inserted_on_line.append(f_0)
-            for _, pt, dist in points_1:
-                if point_already_present(pt, f_1):
-                    continue
-                mesh_size_points[f_1].append((np.array(pt), dist))
-                inserted_points.append(np.array(pt))
-                inserted_on_line.append(f_1)
+            gmsh.model.occ.synchronize()
+            insert_point(f_0, points_0)
+            gmsh.model.occ.synchronize()
+            insert_point(f_1, points_1)
             continue
 
             # For each of the endpoints of each the two lines, end_point_distance
