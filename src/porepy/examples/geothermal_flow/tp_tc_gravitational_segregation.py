@@ -729,4 +729,11 @@ model = FlowModel(params)
 
 
 model.prepare_simulation()
+
+# Print number of cells and DOFs
+total_cells = sum(sd.num_cells for sd in model.mdg.subdomains())
+total_dofs = model.equation_system.num_dofs()
+print(f"Number of cells: {total_cells}")
+print(f"Number of DOFs: {total_dofs}")
+
 pp.run_time_dependent_model(model, params)
