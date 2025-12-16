@@ -297,8 +297,11 @@ class FractureNetwork2d(FractureNetwork):
             # sensitivity to this parameter is not thoroughly tested), the fracture will
             # be removed.
             distance = fac.getDistance(nd - 1, fracture_tag, nd, domain_tag)[0]
-            if distance > self._tol:
-                # The fracture is fully outside the domain. It will be deleted.
+            if distance > self._tol or self._entity_on_domain_boundary(
+                1, [fracture_tag]
+            ):
+                # The fracture is either fully outside the domain or fully embedded on
+                # the domain boundary. It will be deleted.
                 removed_fractures.append(ind)
                 continue
 
