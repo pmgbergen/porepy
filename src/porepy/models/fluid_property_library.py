@@ -767,15 +767,14 @@ class FluidBuoyancy(pp.PorePyModel):
         key = "subdomain_flux_operator_map"
 
         # OPTIMIZATION: Fuse the linear mapping from Density -> Flux
-        # We pre-compute the static matrix M = Div @ (VectorSource) @ (-1 * e_n)
+        # We pre-compute the static matrix M = Div @ (VectorSource) @ e_n
         if key not in storage:
             e_n = self._get_common_e_n(subdomains_list)
             discr = self.darcy_flux_discretization(subdomains_list)
             vec_src = discr.vector_source()
-            neg_one = self._get_common_neg_one()
 
             # Explicit Fusion of the geometric chain
-            gravity_mapper = (vec_src @ (neg_one * e_n)).simplify(self.mdg)
+            gravity_mapper = (vec_src @ e_n).simplify(self.mdg)
             gravity_mapper.set_name("fused_gravity_divergence_map")
             storage[key] = gravity_mapper
 
@@ -809,10 +808,9 @@ class FluidBuoyancy(pp.PorePyModel):
                 [e.T for e in self.basis(interfaces, dim=self.nd)]
             )
             normal_perm = self.normal_permeability(interfaces)
-            neg_one = self._get_common_neg_one()
 
             # Pre-simplify the chain up to the elementwise normal multiplication
-            op_chain_part1 = (sec_to_mortar @ (neg_one * e_n)).simplify(self.mdg)
+            op_chain_part1 = (sec_to_mortar @ e_n).simplify(self.mdg)
 
             # Store components for reconstruction
             storage[key] = (op_chain_part1, normals, normal_perm, nd_to_scalar_sum, interfaces)
