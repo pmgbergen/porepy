@@ -465,27 +465,8 @@ class FluidBuoyancy(pp.PorePyModel):
     """
     Buoyancy terms and discretizations for multiphase, multicomponent flow.
 
-    This class is based on the fixed-dimensional hybrid upwinding scheme presented in
-    Bosma et al. (2022), "Smooth implicit hybrid upwinding for compositional multiphase
-    flow in porous media" (CMA, 388, 114288). Here, we implement an alternate version of
-    the scheme using a total mass formulation.
-
-    The main difference in this implementation is the consistent treatment of the
-    gravity term, following Starnoni et al. (2019),
-    "Consistent MPFA Discretization for Flow in the Presence of Gravity"
-    (WRR, 55(12), 10105–10118).
-
-    This implementation is novel in three main aspects: non-isothermal compositional
-    multiphase flow, mixed-dimensional formulation,
-    and the fractional flow form of the equations.
-
-    Mass, component mass, and energy conservation are tested in `test_buoyancy_flow.py`,
-    and a benchmark against an analytical buoyancy solution is provided in
-    `test_buoyancy_flow_benchmark.py`.
-
-    The class uses operator caching to reduce the size of the AD operator tree by
-    reusing phase-dependent operators across different component/enthalpy buoyancy
-    calculations.
+    Refactored for aggressive graph reduction using operator simplification
+    and linear operator fusion.
     """
 
     # Storage for common operators to reduce operator tree size.
@@ -529,7 +510,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return "buoyant_intf_flux_" + gamma.name + "_" + delta.name
 
     def buoyancy_discretization(
-        self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
+            self, gamma: pp.Phase, delta: pp.Phase, subdomains: list[pp.Grid]
     ) -> pp.ad.UpwindAd:
         """Return upwind discretization for subdomain buoyancy term gamma↔delta."""
         storage = self._get_common_operators_storage()
@@ -544,7 +525,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return storage[key]
 
     def interface_buoyancy_discretization(
-        self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
+            self, gamma: pp.Phase, delta: pp.Phase, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
         """Return upwind discretization for interface buoyancy term gamma-delta."""
         storage = self._get_common_operators_storage()
@@ -567,31 +548,33 @@ class FluidBuoyancy(pp.PorePyModel):
         return self._common_operators
 
     def _get_common_density(
-        self, phase: pp.Phase, domains: list[pp.Grid]
+            self, phase: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Get cached density operator for a phase."""
         storage = self._get_common_operators_storage()
         key = f"density_{phase.name}"
 
         if key not in storage:
+            # Note: We do NOT simplify density here because it is a state variable.
             storage[key] = phase.density(domains)
 
         return storage[key]
 
     def _get_common_fractional_mobility(
-        self, phase: pp.Phase, domains: list[pp.Grid]
+            self, phase: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Get common fractional phase mass mobility operator."""
         storage = self._get_common_operators_storage()
         key = f"f_mob_{phase.name}"
 
         if key not in storage:
-            storage[key] = self.fractional_phase_mass_mobility(phase, domains)
+            # We simplify here to catch any static components in the mobility function
+            storage[key] = self.fractional_phase_mass_mobility(phase, domains).simplify(self.mdg)
 
         return storage[key]
 
     def _get_common_upwind_op(
-        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+            self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Get cached upwind operator for a phase pair."""
         storage = self._get_common_operators_storage()
@@ -604,7 +587,7 @@ class FluidBuoyancy(pp.PorePyModel):
         return storage[key]
 
     def _get_common_bound_transport_neu(
-        self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
+            self, gamma: pp.Phase, delta: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Get common bound_transport_neu operator for the phase pair."""
         storage = self._get_common_operators_storage()
@@ -617,11 +600,11 @@ class FluidBuoyancy(pp.PorePyModel):
         return storage[key]
 
     def _get_common_bound_neu_mortar_chain(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
-        mortar_to_primary: pp.ad.Operator,
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            domains: list[pp.Grid],
+            mortar_to_primary: pp.ad.Operator,
     ) -> pp.ad.Operator:
         """Get cached bound_transport_neu @ mortar_to_primary chain."""
         storage = self._get_common_operators_storage()
@@ -634,32 +617,33 @@ class FluidBuoyancy(pp.PorePyModel):
         return storage[key]
 
     def _get_common_density_flux(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
-        flux_type: str,
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            domains: list[pp.Grid],
+            flux_type: str,
     ) -> pp.ad.Operator:
         """Get common density-driven flux operator for a phase pair.
-
         Uses reciprocity: w_flux(gamma, delta) = -w_flux(delta, gamma).
         """
         storage = self._get_common_operators_storage()
-
-        # Key for the specific direction (gamma, delta)
         key = f"w_flux_{flux_type}_{gamma.name}_{delta.name}"
 
         if key not in storage:
-            # Use cached density operators
             rho_gamma = self._get_common_density(gamma, domains)
             rho_delta = self._get_common_density(delta, domains)
-            rho_diff = rho_gamma - rho_delta
+
+            # OPTIMIZATION: Simplify the density difference immediately
+            rho_diff = (rho_gamma - rho_delta).simplify(self.mdg)
 
             if flux_type == "subdomain":
-                storage[key] = self.density_driven_flux(domains, rho_diff)
-            else:  # interface
+                op = self.density_driven_flux(domains, rho_diff)
+            else:
                 interfaces = self.subdomains_to_interfaces(domains, [1])
-                storage[key] = self.interface_density_driven_flux(interfaces, rho_diff)
+                op = self.interface_density_driven_flux(interfaces, rho_diff)
+
+            # OPTIMIZATION: Simplify the resulting flux operator (fuses geometric matrices)
+            storage[key] = op.simplify(self.mdg)
 
         return storage[key]
 
@@ -671,7 +655,7 @@ class FluidBuoyancy(pp.PorePyModel):
             self._common_projections = None
 
     def fractionally_weighted_density(
-        self, domains: pp.SubdomainsOrBoundaries
+            self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """Compute the fractional-flow-weighted density sum_j f_j rho_j."""
         storage = self._get_common_operators_storage()
@@ -679,6 +663,9 @@ class FluidBuoyancy(pp.PorePyModel):
 
         if key not in storage:
             domains_list = cast(list[pp.Grid], domains)
+
+            # OPTIMIZATION: Use sum_operator_list followed by simplify to create a balanced tree
+            # instead of a deep linear chain.
             overall_rho = pp.ad.sum_operator_list(
                 [
                     self._get_common_fractional_mobility(phase, domains_list)
@@ -687,7 +674,7 @@ class FluidBuoyancy(pp.PorePyModel):
                 ]
             )
             overall_rho.set_name("fractionally_weighted_density")
-            storage[key] = overall_rho
+            storage[key] = overall_rho.simplify(self.mdg)
 
         return storage[key]
 
@@ -699,195 +686,117 @@ class FluidBuoyancy(pp.PorePyModel):
         if key not in storage:
             g_constant = pp.GRAVITY_ACCELERATION
             val = self.units.convert_units(g_constant, "m*s^-2")
-            gravity_field = pp.ad.Scalar(val)
-            gravity_field.set_name("gravity_field")
+            gravity_field = pp.ad.Scalar(val, name="gravity_field")
             storage[key] = gravity_field
 
         return storage[key]
 
     def gravity_force(
-        self,
-        subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid", "bulk"],
+            self,
+            subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
+            material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
-        """Return gravity force term (fluid only if buoyancy enabled).
-
-        Depending on the material type, the gravity force term is computed differently.
-        If `material` is "fluid" and gravitational effects are not explicitly disabled
-        (self.params["enable_buoyancy_effects"] is set to False), the method calculates
-        the product of the fractionally weighted density with the gravity field, as a
-        vector pointing in the negative third direction. If material is "solid" or
-        "bulk", or gravitational effects are disabled, the method passes the calculation
-        to a equally named super class.
-
-        Parameters:
-            subdomains: The domains to consider for the gravity force computation.
-            material: The material for which to compute the gravity force.
-
-        Raises:
-            TypeError: If subdomains are instances of pp.MortarGrid.
-
-        Returns:
-            An Ad operator representing the gravitational force.
-
-        """
+        """Return gravity force term (fluid only if buoyancy enabled)."""
         if material == "fluid" and self.params.get("enable_buoyancy_effects", True):
-            # Narrow to list[pp.Grid] for calls needing subdomain grids, which is the
-            # intended usage of this method. The listing of list[pp.MortarGrid] in the
-            # method annotation is used for compatibility with equally named methods in
-            # other parts of the code.
             if not all(isinstance(g, pp.Grid) for g in subdomains):
-                raise TypeError(
-                    "gravity_force expects only subdomain grids for "
-                    "buoyancy computation."
-                )
+                raise TypeError("gravity_force expects only subdomain grids.")
             subdomains_list = cast(list[pp.Grid], list(subdomains))
 
-            # Cache the overall gravity flux
             storage = self._get_common_operators_storage()
             key = "overall_gravity_flux"
 
             if key not in storage:
+                # Reuse the already simplified density sum
                 fractionally_weighted_rho = self.fractionally_weighted_density(
                     subdomains_list
                 )
+
+                # Get components for fusion
                 e_n = self._get_common_e_n(subdomains_list)
                 g = self.gravity_field(subdomains_list)
                 neg_one = self._get_common_neg_one()
-                overall_gravity_flux = (
-                    neg_one
-                    * e_n
-                    @ (fractionally_weighted_rho * g)
-                )
+
+                # OPTIMIZATION: Explicit fusion of geometric terms
+                # Original: -1 * e_n @ (rho * g)
+                # Optimized: (-1 * e_n) @ (rho * g)
+                geom_op = (neg_one * e_n).simplify(self.mdg)
+
+                overall_gravity_flux = geom_op @ (fractionally_weighted_rho * g)
                 overall_gravity_flux.set_name("overall gravity flux")
-                storage[key] = overall_gravity_flux
+
+                # Final simplification to handle scalar g multiplication
+                storage[key] = overall_gravity_flux.simplify(self.mdg)
 
             return storage[key]
         else:
             return super().gravity_force(subdomains, material)  # type:ignore
 
     def _get_common_neg_one(self) -> pp.ad.Operator:
-        """Get cached Scalar(-1) operator.
-
-        Returns:
-            The Scalar(-1) operator.
-
-        """
+        """Get cached Scalar(-1) operator."""
         storage = self._get_common_operators_storage()
-        key = "neg_one"
-
-        if key not in storage:
-            storage[key] = pp.ad.Scalar(-1)
-
-        return storage[key]
+        if "neg_one" not in storage:
+            storage["neg_one"] = pp.ad.Scalar(-1)
+        return storage["neg_one"]
 
     def _get_common_e_n(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Get cached e_n unit vector operator.
-
-        Parameters:
-            subdomains: The subdomains.
-
-        Returns:
-            The e_n unit vector operator.
-
-        """
+        """Get cached e_n unit vector operator."""
         storage = self._get_common_operators_storage()
-        key = "e_n"
-
-        if key not in storage:
-            storage[key] = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
-
-        return storage[key]
+        if "e_n" not in storage:
+            storage["e_n"] = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        return storage["e_n"]
 
     def _get_common_jump_zero(self, domains: list[pp.Grid]) -> pp.ad.Operator:
-        """Get cached zero array for buoyancy jump terms.
-
-        Parameters:
-            domains: The subdomains.
-
-        Returns:
-            Zero operator for buoyancy jumps.
-
-        """
+        """Get cached zero array for buoyancy jump terms."""
         storage = self._get_common_operators_storage()
-        key = "jump_zero"
-
-        if key not in storage:
+        if "jump_zero" not in storage:
             size = sum(g.num_cells for g in domains)
-            storage[key] = pp.wrap_as_dense_ad_array(
+            storage["jump_zero"] = pp.wrap_as_dense_ad_array(
                 np.zeros(size), name="buoyancy_jump_zero"
             )
-
-        return storage[key]
-
+        return storage["jump_zero"]
 
     def density_driven_flux(
-        self, subdomains: pp.SubdomainsOrBoundaries, density_metric: pp.ad.Operator
+            self, subdomains: pp.SubdomainsOrBoundaries, density_metric: pp.ad.Operator
     ) -> pp.ad.Operator:
-        """Compute flux induced by density_metric * g along gravity direction.
-
-        The density metric will be defined elsewhere, it can for instance be a measure
-        of density difference between two phases.
-
-        The gravitational flux is discretized by the vector source scheme of the Darcy
-        flux discretization.
-
-        Parameters:
-            subdomains: The subdomains to consider for the density-driven flux
-                computation.
-            density_metric: The density metric to use in the flux computation.
-
-        Raises:
-            TypeError: If subdomains are not instances of pp.Grid.
-
-        Returns:
-            An Ad operator representing the density-driven flux.
-
-        """
+        """Compute flux induced by density_metric * g along gravity direction."""
         if not all(isinstance(g, pp.Grid) for g in subdomains):
             raise TypeError("density_driven_flux expects only subdomain grids.")
         subdomains_list = cast(list[pp.Grid], list(subdomains))
 
-        # Use common intermediate operators.
         storage = self._get_common_operators_storage()
-        key = "subdomain_flux_ops"
+        key = "subdomain_flux_operator_map"
 
+        # OPTIMIZATION: Fuse the linear mapping from Density -> Flux
+        # We pre-compute the static matrix M = Div @ (VectorSource) @ (-1 * e_n)
         if key not in storage:
             e_n = self._get_common_e_n(subdomains_list)
-            g = self.gravity_field(subdomains_list)
             discr = self.darcy_flux_discretization(subdomains_list)
             vec_src = discr.vector_source()
             neg_one = self._get_common_neg_one()
-            storage[key] = (e_n, g, vec_src, neg_one)
 
-        e_n, g, vec_src, neg_one = storage[key]
+            # Explicit Fusion of the geometric chain
+            gravity_mapper = (vec_src @ (neg_one * e_n)).simplify(self.mdg)
+            gravity_mapper.set_name("fused_gravity_divergence_map")
+            storage[key] = gravity_mapper
 
-        gravity_flux = neg_one * e_n @ (density_metric * g)
-        w_flux = vec_src @ gravity_flux
+        gravity_mapper = storage[key]
+        g = self.gravity_field(subdomains_list)
+
+        # Result = Mapper @ (rho * g)
+        w_flux = gravity_mapper @ (density_metric * g)
         w_flux.set_name("density_driven_flux_" + density_metric.name)
-        return w_flux
+
+        # Return simplified graph (handles constant g multiplication)
+        return w_flux.simplify(self.mdg)
 
     def interface_density_driven_flux(
-        self, interfaces: list[pp.MortarGrid], density_metric: pp.ad.Operator
+            self, interfaces: list[pp.MortarGrid], density_metric: pp.ad.Operator
     ) -> pp.ad.Operator:
-        """Compute interface flux induced by density_metric * g along gravity
-        direction.
-
-        The density metric is computed elsewhere and can for instance be a measure of
-        density difference between two phases.
-
-        Parameters:
-            interfaces: Interfaces where the density metric is applied.
-            density_metric: The density metric to use in the flux computation.
-
-        Returns:
-            An Ad operator representing the interface density-driven flux.
-
-        """
-        # Use common intermediate operators.
+        """Compute interface flux induced by density_metric * g."""
         storage = self._get_common_operators_storage()
-        key = "interface_flux_ops"
+        key = "interface_flux_operator_map"
 
+        # OPTIMIZATION: Fuse the linear mapping for interfaces
         if key not in storage:
             normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
             subdomain_neighbors = self.interfaces_to_subdomains(interfaces)
@@ -895,21 +804,27 @@ class FluidBuoyancy(pp.PorePyModel):
                 self.mdg, subdomain_neighbors, interfaces, dim=self.nd
             )
             e_n = self.e_i(subdomain_neighbors, i=self.nd - 1, dim=self.nd)
-            g = self.gravity_field(subdomain_neighbors)
             sec_to_mortar = projection.secondary_to_mortar_avg()
             nd_to_scalar_sum = pp.ad.sum_projection_list(
                 [e.T for e in self.basis(interfaces, dim=self.nd)]
             )
             normal_perm = self.normal_permeability(interfaces)
             neg_one = self._get_common_neg_one()
-            storage[key] = (normals, e_n, g, sec_to_mortar, nd_to_scalar_sum,
-                               normal_perm, interfaces, neg_one)
 
-        normals, e_n, g, sec_to_mortar, nd_to_scalar_sum, normal_perm, intf, neg_one = storage[key]
+            # Pre-simplify the chain up to the elementwise normal multiplication
+            op_chain_part1 = (sec_to_mortar @ (neg_one * e_n)).simplify(self.mdg)
 
-        gravity_flux = neg_one * e_n @ (density_metric * g)
-        intf_vector_source = sec_to_mortar @ gravity_flux
-        normals_times_source = normals * intf_vector_source
+            # Store components for reconstruction
+            storage[key] = (op_chain_part1, normals, normal_perm, nd_to_scalar_sum, interfaces)
+
+        op_chain_part1, normals, normal_perm, nd_to_scalar_sum, intf = storage[key]
+        g = self.gravity_field(self.interfaces_to_subdomains(interfaces))
+
+        # Reconstruct graph with optimized components
+        gravity_force_mortar = op_chain_part1 @ (density_metric * g)
+
+        # Note: normals is elementwise, cannot fuse into matmul
+        normals_times_source = normals * gravity_force_mortar
 
         w_flux = self.volume_integral(
             normal_perm * (nd_to_scalar_sum @ normals_times_source),
@@ -917,54 +832,30 @@ class FluidBuoyancy(pp.PorePyModel):
             1,
         )
         w_flux.set_name("interface_density_driven_flux_" + density_metric.name)
-        return w_flux
+
+        return w_flux.simplify(self.mdg)
 
     def _interface_upwinded_quantity(
-        self,
-        quantity: pp.ad.Operator,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        interfaces: list[pp.MortarGrid],
-        domains: list[pp.Grid],
-        mortar_avg: pp.ad.Operator,
-        secondary_to_mortar: pp.ad.Operator,
-        primary_trace: pp.ad.Operator,
+            self,
+            quantity: pp.ad.Operator,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            interfaces: list[pp.MortarGrid],
+            domains: list[pp.Grid],
+            mortar_avg: pp.ad.Operator,
+            secondary_to_mortar: pp.ad.Operator,
+            primary_trace: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """Upwind a quantity to interfaces using both primary and secondary sides.
-
-        Parameters:
-            quantity: The quantity to upwind (already defined on domains).
-            gamma: The phase for which the discretization is set up.
-            delta: The other phase in the pair.
-            interfaces: The interfaces where the upwinding is performed.
-            domains: The subdomains.
-            mortar_avg: Projection from primary to mortar (pre-computed).
-            secondary_to_mortar: Projection from secondary to mortar (pre-computed).
-            primary_trace: Trace operator (pre-computed).
-
-        Returns:
-            Upwinded quantity on interfaces.
-
-        """
+        """Upwind a quantity to interfaces using both primary and secondary sides."""
         intf_discr = self.interface_buoyancy_discretization(gamma, delta, interfaces)
         primary_chain, secondary_chain = self._get_common_interface_upwind_chains(
             gamma, delta, interfaces, mortar_avg, secondary_to_mortar, primary_trace
         )
-        return primary_chain @ quantity + secondary_chain @ quantity
-
+        # OPTIMIZATION: Simplify the sum of the two upwind chains
+        return (primary_chain @ quantity + secondary_chain @ quantity).simplify(self.mdg)
 
     def phase_pairs_for(self, phase: pp.Phase) -> list[tuple[pp.Phase, pp.Phase]]:
-        """Get all phase pairs involving a specific phase.
-
-        The pair is ordered so that the given phase is first.
-
-        Parameters:
-            phase: The phase for which to get the pairs.
-
-        Returns:
-            A list of ordered phase pairs (gamma, delta).
-
-        """
+        """Get all phase pairs involving a specific phase."""
         combination_by_pairs = [
             pair for pair in list(combinations(self.fluid.phases, 2)) if phase in pair
         ]
@@ -981,66 +872,37 @@ class FluidBuoyancy(pp.PorePyModel):
         return selected_pairs
 
     def _unique_phase_pairs(self) -> list[tuple[pp.Phase, pp.Phase]]:
-        """Get unique unordered phase pairs.
-
-        Returns:
-            List of unique phase pairs (gamma, delta) where gamma.name < delta.name.
-
-        """
+        """Get unique unordered phase pairs."""
         return list(combinations(self.fluid.phases, 2))
 
     def _get_common_upwinded_mobility(
-        self,
-        phase: pp.Phase,
-        other_phase: pp.Phase,
-        domains: list[pp.Grid],
+            self,
+            phase: pp.Phase,
+            other_phase: pp.Phase,
+            domains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Get common upwinded fractional mobility operator for a phase.
-
-        Parameters:
-            phase: The phase for which to get the upwinded mobility.
-            other_phase: The other phase in the pair (used for discretization key).
-            domains: The subdomains.
-
-        Returns:
-            Upwinded fractional mobility operator.
-
-        """
+        """Get common upwinded fractional mobility operator for a phase."""
         storage = self._get_common_operators_storage()
         key = f"f_upwind_{phase.name}_{other_phase.name}"
 
         if key not in storage:
             f = self._get_common_fractional_mobility(phase, domains)
             upwind_op = self._get_common_upwind_op(phase, other_phase, domains)
-            storage[key] = upwind_op @ f
+            storage[key] = (upwind_op @ f).simplify(self.mdg)
 
         return storage[key]
 
     def _get_common_interface_upwinded_mobility(
-        self,
-        phase: pp.Phase,
-        other_phase: pp.Phase,
-        domains: list[pp.Grid],
-        interfaces: list[pp.MortarGrid],
-        mortar_avg: pp.ad.Operator,
-        secondary_to_mortar: pp.ad.Operator,
-        primary_trace: pp.ad.Operator,
+            self,
+            phase: pp.Phase,
+            other_phase: pp.Phase,
+            domains: list[pp.Grid],
+            interfaces: list[pp.MortarGrid],
+            mortar_avg: pp.ad.Operator,
+            secondary_to_mortar: pp.ad.Operator,
+            primary_trace: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """Get common interface-upwinded fractional mobility operator for a phase.
-
-        Parameters:
-            phase: The phase for which to get the upwinded mobility.
-            other_phase: The other phase in the pair.
-            domains: The subdomains.
-            interfaces: The interfaces.
-            mortar_avg: Projection from primary to mortar.
-            secondary_to_mortar: Projection from secondary to mortar.
-            primary_trace: Trace operator.
-
-        Returns:
-            Interface-upwinded fractional mobility operator.
-
-        """
+        """Get common interface-upwinded fractional mobility operator for a phase."""
         storage = self._get_common_operators_storage()
         key = f"f_intf_upwind_{phase.name}_{other_phase.name}"
 
@@ -1049,69 +911,38 @@ class FluidBuoyancy(pp.PorePyModel):
             storage[key] = self._interface_upwinded_quantity(
                 f, phase, other_phase, interfaces, domains,
                 mortar_avg, secondary_to_mortar, primary_trace,
-            )
+            )  # Already simplified inside _interface_upwinded_quantity
 
         return storage[key]
 
     def _get_common_mobility_product(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            domains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Get common mobility product (f_gamma_up * f_delta_up) for a phase pair.
-
-        This product is the same for all component and enthalpy buoyancy calculations,
-        so caching it significantly reduces the operator tree size.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-
-        Returns:
-            The product of upwinded mobilities for the phase pair.
-
-        """
+        """Get common mobility product (f_gamma_up * f_delta_up) for a phase pair."""
         storage = self._get_common_operators_storage()
-        # Use ordered key to cache both (gamma, delta) and (delta, gamma) products
         key = f"f_product_{gamma.name}_{delta.name}"
 
         if key not in storage:
             f_gamma_up = self._get_common_upwinded_mobility(gamma, delta, domains)
             f_delta_up = self._get_common_upwinded_mobility(delta, gamma, domains)
-            storage[key] = f_gamma_up * f_delta_up
+            storage[key] = (f_gamma_up * f_delta_up).simplify(self.mdg)
 
         return storage[key]
 
     def _get_common_interface_mobility_product(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
-        interfaces: list[pp.MortarGrid],
-        mortar_avg: pp.ad.Operator,
-        secondary_to_mortar: pp.ad.Operator,
-        primary_trace: pp.ad.Operator,
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            domains: list[pp.Grid],
+            interfaces: list[pp.MortarGrid],
+            mortar_avg: pp.ad.Operator,
+            secondary_to_mortar: pp.ad.Operator,
+            primary_trace: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """Get common interface mobility product for a phase pair.
-
-        This product is the same for all component and enthalpy buoyancy calculations,
-        so caching it significantly reduces the operator tree size.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-            interfaces: The interfaces.
-            mortar_avg: Projection from primary to mortar.
-            secondary_to_mortar: Projection from secondary to mortar.
-            primary_trace: Trace operator.
-
-        Returns:
-            The product of interface-upwinded mobilities for the phase pair.
-
-        """
+        """Get common interface mobility product for a phase pair."""
         storage = self._get_common_operators_storage()
         key = f"f_intf_product_{gamma.name}_{delta.name}"
 
@@ -1124,12 +955,12 @@ class FluidBuoyancy(pp.PorePyModel):
                 delta, gamma, domains, interfaces,
                 mortar_avg, secondary_to_mortar, primary_trace,
             )
-            storage[key] = f_gamma_intf * f_delta_intf
+            storage[key] = (f_gamma_intf * f_delta_intf).simplify(self.mdg)
 
         return storage[key]
 
     def _get_common_projections(
-        self, domains: list[pp.Grid]
+            self, domains: list[pp.Grid]
     ) -> tuple[
         pp.ad.Operator,
         pp.ad.Operator,
@@ -1138,16 +969,7 @@ class FluidBuoyancy(pp.PorePyModel):
         pp.ad.Operator,
         list[pp.MortarGrid],
     ]:
-        """Get cached mortar projections and trace operators.
-
-        Parameters:
-            domains: The subdomains.
-
-        Returns:
-            Tuple of (mortar_avg, secondary_to_mortar, primary_trace,
-            mortar_to_primary, mortar_to_secondary, interfaces).
-
-        """
+        """Get cached mortar projections and trace operators."""
         if not hasattr(self, "_common_projections") or self._common_projections is None:
             interfaces = self.subdomains_to_interfaces(domains, [1])
             if len(interfaces) == 0:
@@ -1184,28 +1006,15 @@ class FluidBuoyancy(pp.PorePyModel):
         return self._common_projections
 
     def _get_common_interface_upwind_chains(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        interfaces: list[pp.MortarGrid],
-        mortar_avg: pp.ad.Operator,
-        secondary_to_mortar: pp.ad.Operator,
-        primary_trace: pp.ad.Operator,
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            interfaces: list[pp.MortarGrid],
+            mortar_avg: pp.ad.Operator,
+            secondary_to_mortar: pp.ad.Operator,
+            primary_trace: pp.ad.Operator,
     ) -> tuple[pp.ad.Operator, pp.ad.Operator]:
-        """Get cached interface upwind chains for a phase pair.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            interfaces: The interfaces.
-            mortar_avg: Projection from primary to mortar.
-            secondary_to_mortar: Projection from secondary to mortar.
-            primary_trace: Trace operator.
-
-        Returns:
-            Tuple of (primary_chain, secondary_chain).
-
-        """
+        """Get cached interface upwind chains for a phase pair."""
         storage = self._get_common_operators_storage()
         key = f"intf_upwind_chains_{gamma.name}_{delta.name}"
 
@@ -1213,64 +1022,41 @@ class FluidBuoyancy(pp.PorePyModel):
             intf_discr = self.interface_buoyancy_discretization(
                 gamma, delta, interfaces
             )
-            primary_chain = intf_discr.upwind_primary() @ mortar_avg @ primary_trace
-            secondary_chain = intf_discr.upwind_secondary() @ secondary_to_mortar
+            # Chains are mostly matrix multiplies, explicit simplification merges them
+            primary_chain = (intf_discr.upwind_primary() @ mortar_avg @ primary_trace).simplify(self.mdg)
+            secondary_chain = (intf_discr.upwind_secondary() @ secondary_to_mortar).simplify(self.mdg)
             storage[key] = (primary_chain, secondary_chain)
 
         return storage[key]
 
     def _get_common_weighted_flux(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            domains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """Get cached weighted flux (f_product * w_flux) for subdomains.
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-
-        Returns:
-            The weighted flux operator.
-
-        """
+        """Get cached weighted flux (f_product * w_flux) for subdomains."""
         storage = self._get_common_operators_storage()
         key = f"weighted_flux_{gamma.name}_{delta.name}"
 
         if key not in storage:
             f_product = self._get_common_mobility_product(gamma, delta, domains)
             w_flux = self._get_common_density_flux(gamma, delta, domains, "subdomain")
-            storage[key] = f_product * w_flux
+            storage[key] = (f_product * w_flux).simplify(self.mdg)
 
         return storage[key]
 
     def _get_common_weighted_intf_flux(
-        self,
-        gamma: pp.Phase,
-        delta: pp.Phase,
-        domains: list[pp.Grid],
-        interfaces: list[pp.MortarGrid],
-        mortar_avg: pp.ad.Operator,
-        secondary_to_mortar: pp.ad.Operator,
-        primary_trace: pp.ad.Operator,
+            self,
+            gamma: pp.Phase,
+            delta: pp.Phase,
+            domains: list[pp.Grid],
+            interfaces: list[pp.MortarGrid],
+            mortar_avg: pp.ad.Operator,
+            secondary_to_mortar: pp.ad.Operator,
+            primary_trace: pp.ad.Operator,
     ) -> pp.ad.Operator:
-        """Get cached weighted interface flux (f_product_intf * intf_w_flux).
-
-        Parameters:
-            gamma: The first phase.
-            delta: The second phase.
-            domains: The subdomains.
-            interfaces: The interfaces.
-            mortar_avg: Projection from primary to mortar.
-            secondary_to_mortar: Projection from secondary to mortar.
-            primary_trace: Trace operator.
-
-        Returns:
-            The weighted interface flux operator.
-
-        """
+        """Get cached weighted interface flux (f_product_intf * intf_w_flux)."""
         storage = self._get_common_operators_storage()
         key = f"weighted_intf_flux_{gamma.name}_{delta.name}"
 
@@ -1287,12 +1073,12 @@ class FluidBuoyancy(pp.PorePyModel):
             intf_w_flux = self._get_common_density_flux(
                 gamma, delta, domains, "interface"
             )
-            storage[key] = f_product_intf * intf_w_flux
+            storage[key] = (f_product_intf * intf_w_flux).simplify(self.mdg)
 
         return storage[key]
 
     def component_buoyancy(
-        self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
+            self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """Get the buoyancy flux for a given component."""
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -1313,7 +1099,8 @@ class FluidBuoyancy(pp.PorePyModel):
                 chi_gamma = gamma.partial_fraction_of[component_xi](domains)
                 chi_delta = delta.partial_fraction_of[component_xi](domains)
 
-                chi_diff = upwind_gamma @ chi_gamma - upwind_delta @ chi_delta
+                # OPTIMIZATION: Simplify the difference term
+                chi_diff = (upwind_gamma @ chi_gamma - upwind_delta @ chi_delta).simplify(self.mdg)
                 b_fluxes.append(chi_diff * weighted_flux)
 
             (
@@ -1360,19 +1147,20 @@ class FluidBuoyancy(pp.PorePyModel):
                         secondary_to_mortar,
                         primary_trace,
                     )
-                    chi_diff = chi_gamma_intf - chi_delta_intf
 
+                    chi_diff = (chi_gamma_intf - chi_delta_intf).simplify(self.mdg)
                     intf_coupling = chi_diff * weighted_intf_flux
 
                     bound_neu_chain = self._get_common_bound_neu_mortar_chain(
                         gamma, delta, domains, mortar_to_primary
                     )
-                    b_fluxes.append(bound_neu_chain @ intf_coupling)
+                    b_fluxes.append((bound_neu_chain @ intf_coupling).simplify(self.mdg))
 
             if not b_fluxes:
                 b_fluxes.append(self._get_common_jump_zero(domains))
 
-            b_flux = pp.ad.sum_operator_list(b_fluxes)
+            # OPTIMIZATION: Final simplify on the sum invokes balanced tree construction
+            b_flux = pp.ad.sum_operator_list(b_fluxes).simplify(self.mdg)
             b_flux.set_name("component_buoyancy_" + component_xi.name)
             storage[key] = b_flux
 
@@ -1398,7 +1186,8 @@ class FluidBuoyancy(pp.PorePyModel):
                 h_gamma = gamma.specific_enthalpy(domains)
                 h_delta = delta.specific_enthalpy(domains)
 
-                h_diff = upwind_gamma @ h_gamma - upwind_delta @ h_delta
+                # OPTIMIZATION: Simplify difference
+                h_diff = (upwind_gamma @ h_gamma - upwind_delta @ h_delta).simplify(self.mdg)
                 b_fluxes.append(h_diff * weighted_flux)
 
             (
@@ -1445,26 +1234,26 @@ class FluidBuoyancy(pp.PorePyModel):
                         secondary_to_mortar,
                         primary_trace,
                     )
-                    h_diff = h_gamma_intf - h_delta_intf
 
+                    h_diff = (h_gamma_intf - h_delta_intf).simplify(self.mdg)
                     intf_coupling = h_diff * weighted_intf_flux
 
                     bound_neu_chain = self._get_common_bound_neu_mortar_chain(
                         gamma, delta, domains, mortar_to_primary
                     )
-                    b_fluxes.append(bound_neu_chain @ intf_coupling)
+                    b_fluxes.append((bound_neu_chain @ intf_coupling).simplify(self.mdg))
 
             if not b_fluxes:
                 b_fluxes.append(self._get_common_jump_zero(domains))
 
-            b_flux = pp.ad.sum_operator_list(b_fluxes)
+            b_flux = pp.ad.sum_operator_list(b_fluxes).simplify(self.mdg)
             b_flux.set_name("enthalpy_buoyancy")
             storage[key] = b_flux
 
         return storage[key]
 
     def component_buoyancy_jump(
-        self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
+            self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """Get the interface jump term for component buoyancy."""
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -1522,20 +1311,19 @@ class FluidBuoyancy(pp.PorePyModel):
                         secondary_to_mortar,
                         primary_trace,
                     )
-                    chi_diff = chi_gamma_intf - chi_delta_intf
-
+                    chi_diff = (chi_gamma_intf - chi_delta_intf).simplify(self.mdg)
                     intf_coupling = chi_diff * weighted_intf_flux
 
-                    b_flux_jumps.append(mortar_to_secondary @ intf_coupling)
+                    b_flux_jumps.append((mortar_to_secondary @ intf_coupling).simplify(self.mdg))
 
-            b_flux = pp.ad.sum_operator_list(b_flux_jumps)
+            b_flux = pp.ad.sum_operator_list(b_flux_jumps).simplify(self.mdg)
             b_flux.set_name("component_buoyancy_jump_" + component_xi.name)
             storage[key] = b_flux
 
         return storage[key]
 
     def enthalpy_buoyancy_jump(
-        self, domains: pp.SubdomainsOrBoundaries
+            self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """Get the interface jump term for enthalpy buoyancy."""
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -1593,13 +1381,12 @@ class FluidBuoyancy(pp.PorePyModel):
                         secondary_to_mortar,
                         primary_trace,
                     )
-                    h_diff = h_gamma_intf - h_delta_intf
-
+                    h_diff = (h_gamma_intf - h_delta_intf).simplify(self.mdg)
                     intf_coupling = h_diff * weighted_intf_flux
 
-                    b_flux_jumps.append(mortar_to_secondary @ intf_coupling)
+                    b_flux_jumps.append((mortar_to_secondary @ intf_coupling).simplify(self.mdg))
 
-            b_flux = pp.ad.sum_operator_list(b_flux_jumps)
+            b_flux = pp.ad.sum_operator_list(b_flux_jumps).simplify(self.mdg)
             b_flux.set_name("enthalpy_buoyancy_jump")
             storage[key] = b_flux
 
@@ -1675,24 +1462,25 @@ class FluidBuoyancy(pp.PorePyModel):
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
 
-                # Compute the values for all subdomains jointly, then distribute in a
-                # for-loop. This is faster evaluation inside a loop over subdomains.
                 subdomains = self.mdg.subdomains()
 
                 # Use cached density operators
                 rho_gamma_full = self._get_common_density(gamma, list(subdomains))
                 rho_delta_full = self._get_common_density(delta, list(subdomains))
+
+                # NOTE: We can use simplify here too on the evaluation operator if desired,
+                # but usually caching handles the structure.
                 subdomain_vals = self.equation_system.evaluate(
                     self.density_driven_flux(
                         subdomains, rho_gamma_full - rho_delta_full
                     )
                 )
-                # Offsets for the indices of individual subdomains.
+
                 subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
 
                 for id, (sd, data) in enumerate(self.mdg.subdomains(return_data=True)):
                     sd_offset = subdomain_offsets[id]
-                    vals_loc = subdomain_vals[sd_offset : sd_offset + sd.num_faces]
+                    vals_loc = subdomain_vals[sd_offset: sd_offset + sd.num_faces]
 
                     data[pp.PARAMETERS][self.buoyancy_key(gamma, delta)].update(
                         {self.buoyant_flux_array_key(gamma, delta): +vals_loc}
@@ -1701,11 +1489,9 @@ class FluidBuoyancy(pp.PorePyModel):
                         {self.buoyant_flux_array_key(delta, gamma): -vals_loc}
                     )
 
-                # Same procedure for interfaces.
                 interfaces = self.subdomains_to_interfaces(subdomains, [1])
 
                 if len(interfaces) < 1:
-                    # Shortcut for fracture-less domains.
                     continue
 
                 interface_values = self.equation_system.evaluate(
@@ -1718,12 +1504,12 @@ class FluidBuoyancy(pp.PorePyModel):
                 )
 
                 for id, (intf, data) in enumerate(
-                    self.mdg.interfaces(return_data=True, codim=1)
+                        self.mdg.interfaces(return_data=True, codim=1)
                 ):
                     intf_offset = interface_offsets[id]
                     vals_loc = interface_values[
-                        intf_offset : intf_offset + intf.num_cells
-                    ]
+                               intf_offset: intf_offset + intf.num_cells
+                               ]
 
                     data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
                         {self.buoyant_intf_flux_array_key(gamma, delta): +vals_loc}

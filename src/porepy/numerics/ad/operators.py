@@ -919,6 +919,274 @@ class Operator:
         else:
             raise ValueError(f"Cannot parse {other} as an AD operator")
 
+    def inspect(self, verbose: bool = True) -> dict[str, Any]:
+        """
+        Analyzes the AD graph starting from this node to find optimization candidates.
+
+        Parameters:
+            verbose: If True, prints a summary of the inspection to stdout.
+
+        Returns:
+            A dictionary containing graph statistics.
+        """
+        stats = {
+            "total_nodes": 0,
+            "max_depth": 0,
+            "node_types": {},
+            "constant_subtrees": 0,
+            "variables": set(),
+        }
+
+        visited = set()
+
+        def _walk(node: Operator, depth: int) -> bool:
+            # Handle shared references (DAGs)
+            node_id = id(node)
+            if node_id in visited:
+                # If we've seen it, we assume it's constant if it was constant before.
+                # (Simplification for stats; accurate topological sort is costlier)
+                return True
+            visited.add(node_id)
+
+            # Update Stats
+            stats["total_nodes"] += 1
+            stats["max_depth"] = max(stats["max_depth"], depth)
+
+            t_name = type(node).__name__
+            stats["node_types"][t_name] = stats["node_types"].get(t_name, 0) + 1
+
+            # Check if this node is a Variable (Dynamic)
+            # We use string checks to avoid NameError if Variable isn't defined yet
+            if isinstance(node, (Variable, TimeDependentOperator)) and not isinstance(node, DenseArray):
+                if hasattr(node, "name"):
+                    stats["variables"].add(node.name)
+                return False  # Dynamic nodes are never constant
+
+            # Leaf check
+            if len(node.children) == 0:
+                return True
+
+            # Recursion
+            is_const = True
+            for child in node.children:
+                child_is_const = _walk(child, depth + 1)
+                if not child_is_const:
+                    is_const = False
+
+            if is_const:
+                stats["constant_subtrees"] += 1
+
+            return is_const
+
+        _walk(self, 0)
+
+        if verbose:
+            print("=== AD Graph Inspection ===")
+            print(f"Total Nodes: {stats['total_nodes']}")
+            print(f"Max Depth:   {stats['max_depth']}")
+            print(f"Unique Variables: {list(stats['variables'])}")
+            print(f"Optimization Candidates: {stats['constant_subtrees']}")
+            print("Node Breakdown:")
+            for k, v in stats["node_types"].items():
+                print(f"  - {k}: {v}")
+
+        return stats
+
+    def simplify(self, mdg: pp.MixedDimensionalGrid, memo=None) -> Operator:
+        """
+        Returns a fully simplified Operator tree.
+
+        Order of optimizations:
+        1. Associative Flattening (Structure)
+        2. Recursion (Children)
+        3. Constant Folding (Data)
+        4. Linear Fusion (Matrices)
+        5. Algebraic Identities (Cleanup)
+        """
+        # --- 0. Memoization ---
+        if memo is None: memo = {}
+        if id(self) in memo: return memo[id(self)]
+
+        # --- STRATEGY 1: Eager Associative Flattening (Add Only) ---
+        # We handle 'Add' nodes specially to group constants BEFORE recursion
+        if self.operation == Operations.add:
+            # 1. Flatten: Collect all terms from nested additions
+            terms = []
+            stack = [self]  # Start with self, but don't recurse blindly yet
+
+            # We need to peek if children are Adds.
+            # If self is Add, we decompose it.
+            # NOTE: We must be careful not to flatten things that shouldn't be flattened.
+            # Instead of a stack of raw nodes, let's collect terms from 'self' structure.
+
+            to_process = [self]
+
+            while to_process:
+                curr = to_process.pop()
+                if curr.operation == Operations.add:
+                    to_process.extend(curr.children)
+                else:
+                    terms.append(curr)
+
+            # 2. Simplify Terms & Separate Constants
+            # We treat the flattened list as the new children
+            simplified_terms = [t.simplify(mdg, memo) for t in terms]
+
+            constants = []
+            variables = []
+            data_types = (Scalar, DenseArray, SparseArray)
+
+            for t in simplified_terms:
+                if isinstance(t, data_types):
+                    constants.append(t)
+                else:
+                    variables.append(t)
+
+            # 3. Consolidate Constants (The "Value Change" you requested)
+            total_constant = None
+            if constants:
+                try:
+                    # Sum all constant values immediately
+                    raw_val = sum(c.parse(mdg) for c in constants)
+
+                    # Wrap result
+                    name = "folded_const"
+                    if sps.issparse(raw_val):
+                        total_constant = SparseArray(raw_val, name=name)
+                    elif isinstance(raw_val, np.ndarray):
+                        total_constant = DenseArray(raw_val, name=name)
+                    else:
+                        total_constant = Scalar(float(raw_val), name=name)
+                except:
+                    # If shapes mismatch (e.g. vector + scalar), put them back in variables
+                    variables.extend(constants)
+                    total_constant = None
+
+            # 4. Rebuild the Tree
+            # We now have a list of simplified variables and maybe one constant.
+            final_terms = variables
+            if total_constant is not None:
+                # Optimization: If constant is 0 and we have variables, drop it (Identity)
+                is_zero = False
+                try:
+                    if isinstance(total_constant, Scalar) and np.isclose(total_constant.parse(None), 0.0):
+                        is_zero = True
+                except:
+                    pass
+
+                if not is_zero or not final_terms:
+                    final_terms.append(total_constant)
+
+            # Helper: Balanced Sum Construction
+            def balanced_sum(ops):
+                if not ops: return Scalar(0.0)  # Should be covered by empty check logic
+                if len(ops) == 1: return ops[0]
+                if len(ops) == 2: return ops[0] + ops[1]
+                mid = len(ops) // 2
+                return balanced_sum(ops[:mid]) + balanced_sum(ops[mid:])
+
+            if not final_terms:
+                result = Scalar(0.0)
+            else:
+                result = balanced_sum(final_terms)
+
+            memo[id(self)] = result
+            return result
+
+        # --- STRATEGY 2: Standard Recursion ---
+        # For non-Add nodes, we simplify children first
+        try:
+            new_children = [child.simplify(mdg, memo) for child in self.children]
+        except RecursionError:
+            import sys
+            sys.setrecursionlimit(max(sys.getrecursionlimit(), 5000))
+            new_children = [child.simplify(mdg, memo) for child in self.children]
+
+        # Detect changes
+        if any(c is not self.children[i] for i, c in enumerate(new_children)):
+            curr_op = copy.copy(self)
+            curr_op.children = new_children
+            curr_op._cached_key = None
+        else:
+            curr_op = self
+
+        result = curr_op
+
+        # --- STRATEGY 3: Constant Folding ---
+        data_types = (Scalar, DenseArray, SparseArray)
+        if len(curr_op.children) > 0 and all(isinstance(c, data_types) for c in curr_op.children):
+            try:
+                raw_values = [c.parse(mdg) for c in curr_op.children]
+                res = None
+                op = curr_op.operation
+
+                if op == Operations.sub:
+                    res = raw_values[0] - raw_values[1]
+                elif op == Operations.mul:
+                    res = raw_values[0] * raw_values[1]
+                elif op == Operations.div:
+                    res = raw_values[0] / raw_values[1]
+                elif op == Operations.pow:
+                    res = raw_values[0] ** raw_values[1]
+                elif op == Operations.matmul:
+                    res = raw_values[0] @ raw_values[1]
+                # Note: Add is handled by Strategy 1, but we leave this for safety
+                elif op == Operations.add:
+                    res = raw_values[0] + raw_values[1]
+
+                if res is not None:
+                    name = f"folded_{curr_op.name}" if curr_op.name else "folded"
+                    if sps.issparse(res):
+                        result = SparseArray(res, name=name)
+                    elif isinstance(res, np.ndarray):
+                        result = DenseArray(res, name=name)
+                    elif isinstance(res, (float, int, np.number)):
+                        result = Scalar(float(res), name=name)
+            except Exception:
+                pass
+
+        # --- STRATEGY 4: Linear Operator Fusion ---
+        elif curr_op.operation == Operations.matmul:
+            left, right = curr_op.children[0], curr_op.children[1]
+            if isinstance(left, (SparseArray, DenseArray)) and right.operation == Operations.matmul:
+                r_left = right.children[0]
+                r_right = right.children[1]
+                if isinstance(r_left, (SparseArray, DenseArray)):
+                    try:
+                        C_val = left.parse(mdg) @ r_left.parse(mdg)
+                        new_name = f"fused_{left.name}_{r_left.name}"
+                        if sps.issparse(C_val):
+                            C_op = SparseArray(C_val, name=new_name)
+                        else:
+                            C_op = DenseArray(C_val, name=new_name)
+
+                        # Recurse on the new structure immediately
+                        result = (C_op @ r_right).simplify(mdg, memo)
+                    except:
+                        pass
+
+        # --- STRATEGY 5: Algebraic Identities ---
+        # (Handling Mul/Sub identities. Add identities are handled in Strategy 1 cleanup)
+        elif curr_op.operation in (Operations.mul, Operations.rmul, Operations.sub):
+            left = curr_op.children[0]
+            right = curr_op.children[1]
+
+            def is_val(node, val):
+                return isinstance(node, Scalar) and np.isclose(node.parse(None), val)
+
+            if curr_op.operation in (Operations.mul, Operations.rmul):
+                if is_val(left, 1.0):
+                    result = right
+                elif is_val(right, 1.0):
+                    result = left
+                # Optional: 0 * x -> 0 (Requires shape check, skipped for safety)
+
+            elif curr_op.operation == Operations.sub:
+                if is_val(right, 0.0): result = left
+
+        memo[id(self)] = result
+        return result
+
 
 class TimeDependentOperator(Operator):
     """Intermediate parent class for operator classes, which can have a time-dependent
