@@ -41,7 +41,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.125
+    _sphere_radius: float = 0.0390625
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -54,27 +54,27 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.125, "m")
+        cell_size = self.units.convert_units(0.0390625, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    # def set_fractures(self) -> None:
-    #     points = np.array(
-    #         [
-    #             [1.0, 2.0],
-    #             [4.0, 2.0],
-    #             [1.0, 2.0],
-    #             [1.0, 4.0],
-    #             [4.0, 2.0],
-    #             [4.0, 4.0],
-    #             [2.0, 1.0],
-    #             [2.0, 4.0],
-    #             [3.0, 1.0],
-    #             [3.0, 4.0],
-    #         ]
-    #     ).T
-    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    def set_fractures(self) -> None:
+        points = np.array(
+            [
+                [1.0, 2.0],
+                [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
+            ]
+        ).T
+        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -682,19 +682,20 @@ class FlowModel(
             # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
-        grid = self.mdg.subdomains()[0]
-        xc = grid.nodes.T
-        x1 = 0.25 * np.sin(2.0 * np.pi * xc[:, 0] / 5) * np.sin(2.0 * np.pi * xc[:, 1] / 5)
-        x2 = 0.25 * np.sin(2.0 * np.pi * xc[:, 1] / 5) * np.sin(2.0 * np.pi * xc[:, 0] / 5)
-        xc[:, 0] += x1
-        xc[:, 1] += x2
-        grid.compute_geometry()
-        aka = 0
+        apply_distortion_Q = False
+        if apply_distortion_Q:
+            for grid in self.mdg.subdomains():
+                xc = grid.nodes.T
+                x1 = 0.25 * np.sin(2.0 * np.pi * xc[:, 0] / 5) * np.sin(2.0 * np.pi * xc[:, 1] / 5)
+                x2 = 0.25 * np.sin(2.0 * np.pi * xc[:, 1] / 5) * np.sin(2.0 * np.pi * xc[:, 0] / 5)
+                xc[:, 0] += x1
+                xc[:, 1] += x2
+                grid.compute_geometry()
 
 day = 86400
 t_scale = 1.0
-tf = 250.0 * day
-dt = 0.5 * day
+tf = 50.0 * day
+dt = 1.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
