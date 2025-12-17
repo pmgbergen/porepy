@@ -707,7 +707,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 100.0 * day
-dt = 1.0 * day
+dt = 0.5 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,

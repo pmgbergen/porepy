@@ -188,6 +188,12 @@ class NewtonSolver:
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
+        import time
+
+        t_0 = time.time()
         model.assemble_linear_system()
+        assembly_time = time.time() - t_0
+        logger.info(f"Assembled linear system in {assembly_time:.2e} seconds.")
+
         nonlinear_increment = model.solve_linear_system()
         return nonlinear_increment

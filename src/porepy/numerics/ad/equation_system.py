@@ -5,6 +5,8 @@ using the AD framework.
 
 from __future__ import annotations
 
+import os
+import concurrent.futures
 from typing import Any, Callable, Literal, Optional, Sequence, Union, cast, overload
 
 import numpy as np
@@ -1653,13 +1655,34 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
-        eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
+        # eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
+        eqs: list[pp.ad.Operator] = [self._equations[name].simplify(self.mdg) for name in equ_blocks]
         rows = list(equ_blocks.values())
 
-        # The evaluation method to use depends on whether the Jacobian is requested.
+        max_workers = max(1, os.cpu_count())
+
+        # Determine if we need both evaluations (this could be based on some condition)
+        # For now, let's assume we want parallel evaluation when evaluate_jacobian is True
+        # and we also want to compare/validate results
+        need_both_evaluations = evaluate_jacobian  # Modify this condition as needed
+
+        if need_both_evaluations:
+            # Parallelize both evaluate calls using half available CPU cores
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                values_future = executor.submit(self.evaluate, eqs, False, state)
+                ad_list_future = executor.submit(self.evaluate, eqs, True, state)
+
+                values = values_future.result()
+                ad_list: list[pp.ad.AdArray] = ad_list_future.result()
+        else:
+            # Only run the evaluation we actually need
+            if not evaluate_jacobian:
+                values = self.evaluate(eqs, derivative=False, state=state)
+            else:
+                ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
+
+        # Process results based on what's requested
         if not evaluate_jacobian:
-            # Evaluate the operator to get the residual vector.
-            values = self.evaluate(eqs, derivative=False, state=state)
             for row, val in zip(rows, values):
                 # The residual of individual equations can be a scalar or an array.
                 # Forcing to array to ensure consistent handling.
@@ -1669,7 +1692,6 @@ class EquationSystem:
                 else:
                     rhs.append(val)
         else:
-            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
             for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
                 if row is not None:
                     # If restriction to grid-related row blocks was made, perform row
