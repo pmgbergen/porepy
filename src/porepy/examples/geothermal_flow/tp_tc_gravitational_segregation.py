@@ -87,23 +87,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    # def set_fractures(self) -> None:
+    #     points = np.array(
+    #         [
+    #             [1.0, 2.0],
+    #             [4.0, 2.0],
+    #             [1.0, 2.0],
+    #             [1.0, 4.0],
+    #             [4.0, 2.0],
+    #             [4.0, 4.0],
+    #             [2.0, 1.0],
+    #             [2.0, 4.0],
+    #             [3.0, 1.0],
+    #             [3.0, 4.0],
+    #         ]
+    #     ).T
+    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
