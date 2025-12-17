@@ -684,7 +684,7 @@ class FlowModel(
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "richardson")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "hypre")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_type", "boomeramg")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.7")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.25")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
@@ -720,7 +720,7 @@ class FlowModel(
                 pc.setType(PETSc.PC.Type.MAT)
 
         # 8. Finalize Options
-        ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=500)
+        ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=500)
         ksp.setFromOptions()
 
         # 9. Solve and Log
