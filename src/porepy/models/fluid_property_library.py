@@ -692,7 +692,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
         rho_gamma = gamma.density(domains)
         rho_delta = delta.density(domains)
-        w_flux_gamma_delta = self.density_driven_flux(domains, rho_gamma - rho_delta)
+        w_flux_gamma_delta = self.density_driven_flux(domains, rho_delta - rho_gamma)
 
         f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
         f_delta = self.fractional_phase_mass_mobility(delta, domains)
@@ -703,7 +703,6 @@ class FluidBuoyancy(pp.PorePyModel):
         f_gamma_upwind = discr_gamma.upwind() @ (advected_gamma_quantity * f_gamma)
         f_delta_upwind = discr_delta.upwind() @ f_delta
 
-        # EXACT OLD LOGIC: (f_gamma_up * f_delta_up) * w_flux
         b_flux_gamma_delta = (f_gamma_upwind * f_delta_upwind) * w_flux_gamma_delta
         b_fluxes.append(b_flux_gamma_delta.simplify(self.mdg))
 
@@ -718,7 +717,7 @@ class FluidBuoyancy(pp.PorePyModel):
             ) = projections
 
             intf_w_flux_gamma_delta = self.interface_density_driven_flux(
-                interfaces, rho_gamma - rho_delta
+                interfaces, rho_delta - rho_gamma
             )
 
             intf_discr_gamma = self.interface_buoyancy_discretization(gamma, delta, interfaces)
@@ -778,7 +777,7 @@ class FluidBuoyancy(pp.PorePyModel):
             rho_gamma = gamma.density(domains)
             rho_delta = delta.density(domains)
             intf_w_flux_gamma_delta = self.interface_density_driven_flux(
-                interfaces, rho_gamma - rho_delta
+                interfaces,  rho_delta - rho_gamma
             )
 
             f_gamma = self.fractional_phase_mass_mobility(gamma, domains)
@@ -979,7 +978,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
                 subdomain_vals = self.equation_system.evaluate(
                     self.density_driven_flux(
-                        subdomains, rho_gamma_full - rho_delta_full
+                        subdomains,  rho_delta_full - rho_gamma_full
                     )
                 )
                 subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
@@ -1001,7 +1000,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
                 interface_values = self.equation_system.evaluate(
                     self.interface_density_driven_flux(
-                        interfaces, rho_gamma_full - rho_delta_full
+                        interfaces,   rho_delta_full - rho_gamma_full
                     )
                 )
                 interface_offsets = np.cumsum(
