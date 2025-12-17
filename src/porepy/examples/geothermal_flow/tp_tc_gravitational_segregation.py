@@ -1175,89 +1175,84 @@ class FlowModel(
             tuple: (equation_permutation, variable_permutation) where each is an array of indices
         """
 
-        # Define the desired order for equations
-        elliptic_equations = [
-            'mass_balance_equation',
-            'interface_darcy_flux_equation',
-            'well_flux_equation'
-        ]
+        # Inputs provided
+        equation_keys = list(self.equation_system.assembled_equation_indices.keys())
+        variables_keys = list(set([v.name for v in self.equation_system.variables]))
 
-        transport_equations = [
-            'component_mass_balance_equation_CO2',
-            'energy_balance_equation',
-            'interface_fourier_flux_equation',
-            'interface_enthalpy_flux_equation',
-            'well_enthalpy_flux_equation'
-        ]
+        # Initialize the dictionary
+        variable_equation_map = {}
 
-        algebraic_equations = [
-            'elimination_of_s_gas_on_grids_[0]',
-            'elimination_of_x_CO2_liq_on_grids_[0]',
-            'elimination_of_x_CO2_gas_on_grids_[0]',
-            'elimination_of_temperature_on_grids_[0]'
-        ]
+        # Helper function to find equation in list
+        def find_eq(keyword, eq_list):
+            for eq in eq_list:
+                if keyword in eq:
+                    return eq
+            return None
 
-        # Get all equation names from the equation system
-        all_equation_names = list(self.equation_system.equations.keys())
+        # 1. Map Global Conservation Laws & Fluxes (Standard Physics Mappings)
+        # Pressure <-> Mass Balance
+        variable_equation_map['pressure'] = (
+            find_eq('mass_balance_equation', equation_keys),
+            'pressure'
+        )
 
-        # Build permutation list for equations
-        equation_permutation_names = []
+        # z_CO2 <-> Component Mass Balance
+        variable_equation_map['z_CO2'] = (
+            find_eq('component_mass_balance_equation_CO2', equation_keys),
+            'z_CO2'
+        )
 
-        # Add elliptic equations
-        for eq_name in elliptic_equations:
-            if eq_name in all_equation_names:
-                equation_permutation_names.append(eq_name)
+        # Enthalpy <-> Energy Balance
+        variable_equation_map['enthalpy'] = (
+            find_eq('energy_balance_equation', equation_keys),
+            'enthalpy'
+        )
 
-        # Add transport equations
-        for eq_name in transport_equations:
-            if eq_name in all_equation_names:
-                equation_permutation_names.append(eq_name)
+        # Fluxes (Direct name matching)
+        flux_vars = ['interface_darcy_flux', 'interface_fourier_flux', 'interface_enthalpy_flux']
+        for var in flux_vars:
+            # Matches "interface_darcy_flux" to "interface_darcy_flux_equation"
+            variable_equation_map[var] = (find_eq(var, equation_keys), var)
 
-        # Add algebraic equations
-        for eq_name in algebraic_equations:
-            if eq_name in all_equation_names:
-                equation_permutation_names.append(eq_name)
+        # 2. Map Local Elimination/Constraint Equations
+        # These look for the variable name inside the elimination string
+        # e.g., "s_gas" is found inside "elimination_of_s_gas_..."
+        elimination_vars = ['s_gas', 'x_CO2_liq', 'x_CO2_gas', 'temperature']
 
-        # Add any remaining equations not in the specified lists
-        for eq_name in all_equation_names:
-            if eq_name not in equation_permutation_names:
-                equation_permutation_names.append(eq_name)
+        for var in elimination_vars:
+            # Search for the equation string that contains "elimination_of_{var}"
+            target_str = f"elimination_of_{var}"
+            found_eq = find_eq(target_str, equation_keys)
 
-        # Convert equation names to indices
+            if found_eq:
+                variable_equation_map[var] = (found_eq, var)
+
+        def find_variable_idxs(name):
+            if 'interface' in name:
+                md_var = self.equation_system.md_variable(name, self.mdg.interfaces())
+            else:
+                md_var = self.equation_system.md_variable(name, self.mdg.subdomains())
+            var_dof = self.equation_system.dofs_of(md_var.sub_vars)
+            return var_dof
+
         equation_indices = []
-        for eq_name in equation_permutation_names:
-            if eq_name in all_equation_names:
-                # Get the DOF indices for this equation
+        variable_indices = []
+
+        # order for field split
+        elliptic_keys = ['pressure', 'interface_darcy_flux''']
+        elliptic_keys.extend(elimination_vars)
+        transport_keys = ['enthalpy','interface_fourier_flux', 'interface_enthalpy_flux','z_CO2']
+        for key in elliptic_keys+transport_keys:
+            eq_name, var_name = variable_equation_map[key]
+            if eq_name and var_name:
+                # Get equation indices
                 eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
                 equation_indices.extend(eq_idxs)
 
-        # For variables, we need to align them with the equation order
-        # Get all variables from the equation system
-        all_variables = self.equation_system.variables
-
-        # Build variable permutation based on equation ordering
-        variable_indices = []
-
-        # Get variables associated with each equation group
-        for eq_name in equation_permutation_names:
-            if eq_name in all_equation_names:
-                eq = self.equation_system.equations[eq_name]
-                # Get variables that appear in this equation
-                eq_variables = eq.variables
-                for var in eq_variables:
-                    if var in all_variables:
-                        var_dofs = self.equation_system.dofs_of([var])
-                        # Only add if not already added
-                        for dof in var_dofs:
-                            if dof not in variable_indices:
-                                variable_indices.append(dof)
-
-        # Add any remaining variable DOFs not yet included
-        for var in all_variables:
-            var_dofs = self.equation_system.dofs_of([var])
-            for dof in var_dofs:
-                if dof not in variable_indices:
-                    variable_indices.append(dof)
+                # Get variable indices
+                var_dofs = find_variable_idxs(var_name)
+                variable_indices.extend(var_dofs)
+                assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
 
         return np.array(equation_indices), np.array(variable_indices)
 
