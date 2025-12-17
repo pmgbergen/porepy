@@ -77,26 +77,57 @@ def fracture_generator(ind: int) -> list[pp.LineFracture]:
                 pp.LineFracture(np.array([[0.1, 0.25], [0.62, 0.62]])),
                 pp.LineFracture(np.array([[0.24, 0.24], [0.64, 0.75]])),
             ]
+        case 15:
+            # A Polyline fracture.
+            return [
+                pp.LineFracture(np.array([[0.7, 0.73], [0.85, 0.85]])),
+                pp.LineFracture(np.array([[0.73, 0.75], [0.85, 0.85]])),
+            ]
         case _:
             raise ValueError("Invalid fracture index")
 
 
-benchmark = False
+benchmark = True
 
 if benchmark:
     fractures = pp.fracture_sets.benchmark_2d_case_4()  # [:50]
     domain = pp.Domain({"xmin": 0, "xmax": 700, "ymin": 0, "ymax": 600})
     network = pp.create_fracture_network(fractures, domain=domain)
-    mesh_size = {"mesh_size_frac": 10.0, "mesh_size_bound": 100.0}
+    mesh_size = {"mesh_size_frac": 20.0, "mesh_size_bound": 100.0, "mesh_size_min": 5.0}
     mdg = network.mesh(mesh_args=mesh_size)
 else:
-    fractures = [f for i in range(15) for f in fracture_generator(i)]
-    # fractures = [f for i in [8, 12] for f in fracture_generator(i)]
+    fractures = [f for i in range(16) for f in fracture_generator(i)]
+    # fractures = [f for i in [8] for f in fracture_generator(i)]
     network = pp.create_fracture_network(
         fractures, domain=pp.domains.nd_cube_domain(2, 1)
     )
     mesh_size = {"mesh_size_frac": 0.05, "mesh_size_bound": 0.1}
     mdg = network.mesh(mesh_args=mesh_size)
 
-pp.plot_grid(mdg, figsize=(10, 8), linewidth=0.2, plot_2d=True)
+fn = "dev_meshing_2d"
+
+exp = pp.Exporter(mdg, fn)
+exp.write_vtu()
+
+import zipfile
+
+# Identify all files called fn.*.
+import glob
+
+names = glob.glob(f"{fn}*")
+
+with zipfile.ZipFile("export.zip", "w") as zf:
+    for name in names:
+        zf.write(name)
+
+# Delete the individual files.
+import os
+from pathlib import Path
+
+file_name = Path(__file__).name
+
+for name in names:
+    if file_name not in name:
+        os.remove(name)
+
 print(mdg)

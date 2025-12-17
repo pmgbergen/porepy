@@ -147,7 +147,7 @@ else:
 
     # Fracture orthorgonal to boundary, touching it.
     f_7 = pp.PlaneFracture(
-        np.array([[3.6, 0.2, 2], [3.5, 0.7, 2], [2.9, 0.7, 2], [2.9, 0.2, 2]]).T
+        np.array([[3.5, 0.2, 2], [3.5, 0.7, 2], [2.9, 0.7, 2], [2.9, 0.2, 2]]).T
     )
     # Isolated fracture far from boundary.
     f_8 = pp.PlaneFracture(
@@ -160,11 +160,15 @@ else:
             ]
         ).T
     )
+    # A fracture intersecting with f_0
+    f_9 = pp.PlaneFracture(
+        np.array([[0.25, 1.5, 0.0], [1, 1.5, 0.0], [1, 0.8, 0.3], [0.25, 0.8, 0.3]]).T
+    )
 
-    fractures = [f_0, f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8]
+    fractures = [f_0, f_1, f_2, f_3, f_4, f_5, f_6, f_7, f_8, f_9]
     # fractures = [f_5]
     # fractures = fractures[:6]
-    fractures = [f_7]
+    # fractures = [f_0, f_9]
 
     domain = pp.Domain(
         {
