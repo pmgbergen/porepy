@@ -547,35 +547,7 @@ class FlowModel(
 
     def solve_linear_system_petsc(self, A: sps.spmatrix, b: np.ndarray, preconditioner: str = "asm") -> np.ndarray:
         """
-        Solve linear system using PETSc with selectable preconditioners, including CPR for coupled physics.
-
-        Features:
-        - Robust support for Saddle Point problems via Direct Solver ('lu').
-        - Efficient zero-diagonal regularization using LIL format.
-        - Cuthill-McKee reordering for non-symmetric matrices.
-        - Isolation of PETSc options using prefixes.
-        - Two-stage CPR preconditioner (AMG for Pressure, ILU for Transport).
-
-        Parameters:
-        -----------
-        A : scipy.sparse matrix
-            Coefficient matrix
-        b : numpy.ndarray
-            Right-hand side vector
-        preconditioner : str, optional
-            - "cpr": Constrained Pressure Residual (Requires valid field_split from permutation)
-            - "lu": Direct solver (MUMPS/SuperLU/PETSc built-in).
-            - "bjacobi": Block Jacobi
-            - "asm": Additive Schwarz Method
-            - "jacobi": Point Jacobi
-            - "lump_colsum": Lumped column sum diagonal scaling
-            - "amg_hypre": Algebraic Multigrid (BoomerAMG)
-            - "ilu0": Incomplete LU with zero fill-in
-
-        Returns:
-        --------
-        numpy.ndarray
-            Solution vector or None if failed.
+        Solve linear system using PETSc with selectable preconditioners and detailed logging.
         """
         if not PETSC_AVAILABLE:
             raise RuntimeError("PETSc is not available")
@@ -591,29 +563,25 @@ class FlowModel(
         # 1. Convert to CSR and prepare working vector
         A_csr = A.tocsr()
         b_working = b.copy()
+
+        # Initialize permutation variables to None for safety
         perm = None
         eq_perm = None
         var_perm = None
         field_split = None
 
-        # 1.5. Apply equation permutation if available
-        # CRITICAL: This organizes the matrix into [Pressure Block | Transport Block]
+        # 1.5. Apply equation permutation
         try:
-            # self.matrix_plot(A_csr)
             A_csr, b_working, eq_perm, var_perm, field_split = self.apply_equation_permutation(A_csr, b_working)
-            self.matrix_plot(A_csr)
         except Exception as e:
             logger.warning(f"Equation permutation failed: {e}. Continuing with original ordering.")
             if preconditioner == "cpr":
                 logger.warning("CPR requires successful equation permutation. Falling back to 'asm'.")
                 preconditioner = "asm"
 
-        # 2. Apply Cuthill-McKee permutation (Optional)
-        # Skip for 'lu' (direct solvers handle this internally)
-        # Skip for 'cpr' (CPR relies on the specific [Pressure | Transport] block structure from step 1.5)
+        # 2. Apply Cuthill-McKee permutation
         if self.use_cuthill_mckee and preconditioner not in ["lu", "cpr"]:
             try:
-                # symmetric_mode=False is CRITICAL for non-symmetric advection matrices
                 perm = reverse_cuthill_mckee(A_csr, symmetric_mode=False)
                 A_csr = A_csr[perm, :][:, perm]
                 b_working = b_working[perm]
@@ -622,11 +590,9 @@ class FlowModel(
                 perm = None
 
         # 3. Regularize Diagonal
-        # Skip for 'lump_colsum' and 'lu'
         if preconditioner not in ["lump_colsum", "lu"]:
             diagonal = A_csr.diagonal()
             zero_diag_indices = np.where(np.abs(diagonal) < 1e-14)[0]
-
             if len(zero_diag_indices) > 0:
                 logger.info(f"Regularizing {len(zero_diag_indices)} zero diagonal entries")
                 A_lil = A_csr.tolil()
@@ -647,10 +613,8 @@ class FlowModel(
         petsc_b = PETSc.Vec().createWithArray(b_scaled)
         petsc_x = PETSc.Vec().createWithArray(np.zeros_like(b_scaled))
 
-        # 6. Setup KSP (Krylov Solver)
+        # 6. Setup KSP
         ksp = PETSc.KSP().create()
-
-        # ISOLATION: Use unique prefix to prevent options from leaking
         ksp_prefix = "fluid_buoyancy_"
         ksp.setOptionsPrefix(ksp_prefix)
 
@@ -659,23 +623,19 @@ class FlowModel(
         is_p = None
         is_t = None
 
-        # 7. Configure Solver based on Type
+        # 7. Configure Solver
         if preconditioner == "lu":
-            # --- DIRECT SOLVER STRATEGY ---
             ksp.setType(PETSc.KSP.Type.PREONLY)
             pc = ksp.getPC()
             pc.setType(PETSc.PC.Type.LU)
             pc.setFactorSolverType("mumps")
             ksp.setOperators(A=petsc_A, P=petsc_A)
-
         else:
-            # --- ITERATIVE SOLVER STRATEGY ---
-            ksp.setType(PETSc.KSP.Type.FGMRES)  # FGMRES is safer for split preconditioners
+            ksp.setType(PETSc.KSP.Type.FGMRES)
             ksp.setGMRESRestart(50)
 
             # Setup Operators
             if preconditioner == "lump_colsum":
-                # Create custom P matrix based on column sums
                 col_sums = np.array(np.abs(A_csr).sum(axis=0)).flatten()
                 zero_cols = np.where(col_sums < 1e-14)[0]
                 if len(zero_cols) > 0:
@@ -688,56 +648,51 @@ class FlowModel(
                     petsc_M.setValue(i, i, diag_vals[i])
                 petsc_M.assemblyBegin()
                 petsc_M.assemblyEnd()
-
                 ksp.setOperators(A=petsc_A, P=petsc_M)
             else:
                 ksp.setOperators(A=petsc_A, P=petsc_A)
 
-            # Setup PC Types
+            # Setup PC
             pc = ksp.getPC()
             opts = PETSc.Options()
 
-            # --- PRECONDITIONER IMPLEMENTATIONS ---
-
             if preconditioner == "cpr":
-                # --- CPR IMPLEMENTATION ---
                 if not field_split:
                     raise RuntimeError("CPR preconditioner requires 'field_split' data.")
 
-                # Determine sizes based on field_split dictionary
-                # Robustly check for 'pressure', 'pressure_size', or take the first value
                 try:
                     n_pressure = field_split.get('pressure',
                                                  field_split.get('pressure_size', list(field_split.values())[0]))
                 except (AttributeError, IndexError):
-                    raise RuntimeError("Could not parse 'field_split' dictionary for CPR.")
+                    raise RuntimeError("Could not parse 'field_split' dictionary.")
 
                 n_total = A_csr.shape[0]
-
-                # Create Index Sets
-                # Since matrix is already permuted [Pressure, Rest], we use contiguous strides
                 is_p = PETSc.IS().createStride(n_pressure, first=0, step=1)
                 is_t = PETSc.IS().createStride(n_total - n_pressure, first=n_pressure, step=1)
 
                 pc.setType(PETSc.PC.Type.FIELDSPLIT)
-                pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)  # Block Gauss-Seidel
+                pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
                 pc.setFieldSplitIS(('pressure', is_p), ('transport', is_t))
 
-                # Configure Sub-Solvers via Options Database
-                # 1. Pressure Block -> Hypre BoomerAMG
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "richardson")
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "hypre")
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_type", "boomeramg")
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.7")
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
-                opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
+                # --- Block 0: Pressure ---
+                # Protection: Use LU for small matrices (<10k rows) to avoid AMG setup failures
+                if n_pressure < 10000:
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "preonly")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "lu")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_factor_shift_type", "nonzero")
+                else:
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "richardson")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "hypre")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_type", "boomeramg")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.7")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
 
-                # 2. Transport Block -> ILU(0)
+                # --- Block 1: Transport ---
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_ksp_type", "richardson")
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_type", "ilu")
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_factor_levels", "0")
-                # *** PREVENT ZERO PIVOTS IN TRANSPORT BLOCK ***
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_factor_shift_type", "nonzero")
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_factor_shift_amount", "1e-10")
 
@@ -753,8 +708,6 @@ class FlowModel(
                 opts.setValue(f"-{ksp_prefix}pc_hypre_boomeramg_strong_threshold", "0.25")
                 opts.setValue(f"-{ksp_prefix}pc_hypre_boomeramg_coarsen_type", "HMIS")
                 opts.setValue(f"-{ksp_prefix}pc_hypre_boomeramg_interp_type", "ext+i")
-                opts.setValue(f"-{ksp_prefix}pc_hypre_boomeramg_agg_nl", "1")
-                opts.setValue(f"-{ksp_prefix}pc_hypre_boomeramg_relax_type_all", "symmetric-SOR/Jacobi")
 
             elif preconditioner == "bjacobi":
                 pc.setType(PETSc.PC.Type.BJACOBI)
@@ -766,31 +719,45 @@ class FlowModel(
             elif preconditioner == "lump_colsum":
                 pc.setType(PETSc.PC.Type.MAT)
 
-        # Finalize and Solve
+        # 8. Finalize Options
         ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=500)
-        # Apply all options (this pushes the prefix options into the KSP/PC)
         ksp.setFromOptions()
 
+        # 9. Solve and Log
         solution = None
         try:
-            t_start = time.time()
+            # Step A: Explicitly time the Preconditioner Setup
+            t_setup_start = time.time()
+            ksp.setUp()
+            t_setup_end = time.time()
+            setup_dur = t_setup_end - t_setup_start
+
+            # Step B: Time the Solve
+            t_solve_start = time.time()
             ksp.solve(petsc_b, petsc_x)
+            t_solve_end = time.time()
+            solve_dur = t_solve_end - t_solve_start
+
+            # Step C: Retrieve Metrics
+            iters = ksp.getIterationNumber()
+            resid = ksp.getResidualNorm()
+
+            # Step D: Log Report
+            logger.info(
+                f"PETSc {preconditioner.upper()} Report | Setup: {setup_dur:.4f}s | Solve: {solve_dur:.4f}s | Iters: {iters} | Residual: {resid:.4e}")
 
             if ksp.getConvergedReason() < 0:
                 logger.warning(f"Solver failed. Reason: {ksp.getConvergedReason()}")
             else:
-                # 8. Unscale and Reverse Permutations
+                # 10. Unscale and Reverse Permutations
                 scaled_sol = petsc_x.getArray().copy()
                 unscaled_sol = col_scaling * scaled_sol
 
-                # Reverse Cuthill-McKee
                 if perm is not None:
                     cuthill_reversed_sol = np.zeros_like(unscaled_sol)
                     cuthill_reversed_sol[perm] = unscaled_sol
                     unscaled_sol = cuthill_reversed_sol
 
-                # Reverse Equation Permutation (CRITICAL for correct physics mapping)
-                # Use var_perm to restore the column/variable order
                 if var_perm is not None:
                     solution = np.zeros_like(unscaled_sol)
                     solution[var_perm] = unscaled_sol
@@ -800,7 +767,7 @@ class FlowModel(
         except Exception as e:
             # Fallback for LU
             if preconditioner == "lu" and "mumps" in str(e).lower():
-                logger.warning("MUMPS solver failed or missing. Retrying with PETSc native LU...")
+                logger.warning("MUMPS failed. Retrying with PETSc native LU...")
                 try:
                     pc.setFactorSolverType("petsc")
                     ksp.setFromOptions()
@@ -820,10 +787,9 @@ class FlowModel(
                         else:
                             solution = unscaled_sol
                 except Exception as e2:
-                    logger.error(f"Fallback solver also failed: {e2}")
+                    logger.error(f"Fallback solver failed: {e2}")
             else:
                 logger.error(f"Solver execution error: {e}")
-
         # Cleanup
         petsc_A.destroy()
         petsc_b.destroy()
@@ -834,7 +800,6 @@ class FlowModel(
         if is_t: is_t.destroy()
 
         return solution
-
 
     def _apply_matrix_scaling(self, A_csr, b):
         """
