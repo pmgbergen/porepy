@@ -56,7 +56,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.01953125 * 2
+    _sphere_radius: float = 0.025
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -69,7 +69,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.01953125 * 2, "m")
+        cell_size = self.units.convert_units(0.025, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
