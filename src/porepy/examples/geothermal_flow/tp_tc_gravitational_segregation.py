@@ -6,6 +6,7 @@ from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
 import logging
 import time
+import csv
 import scipy.sparse as sps
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
@@ -14,6 +15,16 @@ from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
 from abc import abstractmethod
+
+# PETSc imports (only if available)
+try:
+    import petsc4py
+    petsc4py.init()
+    from petsc4py import PETSc
+    PETSC_AVAILABLE = True
+except ImportError:
+    PETSC_AVAILABLE = False
+    logging.warning("PETSc not available. Falling back to default solver.")
 
 # Configure logging to show info messages
 logging.basicConfig(
@@ -28,8 +39,8 @@ logging.getLogger('porepy').setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 # test parameters
-expected_order_loss = 3
-mesh_2d_Q = True
+expected_order_loss = 4
+mesh_2d_Q = False
 
 
 residual_tolerance = 10.0 ** (-expected_order_loss)
@@ -56,7 +67,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.025
+    _sphere_radius: float = 0.05
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -69,7 +80,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.025, "m")
+        cell_size = self.units.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -111,7 +122,7 @@ class ModelGeometry(Geometry):
 
 
 class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 0.5
+    _sphere_radius: float = 0.125
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -129,7 +140,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(0.125, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -505,6 +516,118 @@ class FlowModel(
     SecondaryEquations,
     FlowTemplate,
 ):
+    def __init__(self, params):
+        super().__init__(params)
+        self.newton_iterations_per_timestep = []
+        self.total_newton_iterations = 0
+        # Flag to use PETSc with MUMPS solver
+        self.use_petsc_mumps = params.get("use_petsc_mumps", False)
+
+        # Check if PETSc is available when requested
+        if self.use_petsc_mumps and not PETSC_AVAILABLE:
+            logger.warning("PETSc requested but not available. Falling back to default solver.")
+            self.use_petsc_mumps = False
+
+    def solve_linear_system_petsc_mumps(self, A: sps.spmatrix, b: np.ndarray) -> np.ndarray:
+        """
+        Solve linear system using PETSc with MUMPS direct solver.
+
+        Parameters:
+        -----------
+        A : scipy.sparse matrix
+            Coefficient matrix
+        b : numpy.ndarray
+            Right-hand side vector
+
+        Returns:
+        --------
+        numpy.ndarray
+            Solution vector
+        """
+        if not PETSC_AVAILABLE:
+            raise RuntimeError("PETSc is not available")
+
+        logger.info("Solving linear system with PETSc MUMPS")
+
+        # Convert scipy sparse matrix to PETSc format
+        A_csr = A.tocsr()
+
+        # Create PETSc matrix
+        petsc_A = PETSc.Mat().createAIJ(size=A_csr.shape, csr=(A_csr.indptr, A_csr.indices, A_csr.data))
+        petsc_A.assemblyBegin()
+        petsc_A.assemblyEnd()
+
+        # Create PETSc vectors
+        petsc_b = PETSc.Vec().createWithArray(b)
+        petsc_x = PETSc.Vec().createWithArray(np.zeros_like(b))
+
+        # Create KSP (Krylov Subspace) solver
+        ksp = PETSc.KSP().create()
+        ksp.setOperators(petsc_A)
+
+        # Configure MUMPS direct solver
+        ksp.setType(PETSc.KSP.Type.PREONLY)  # Direct solver
+        pc = ksp.getPC()
+        pc.setType(PETSc.PC.Type.LU)
+        pc.setFactorSolverType(PETSc.Mat.SolverType.MUMPS)
+
+        # Set MUMPS specific options for better performance
+        ksp.setFromOptions()
+
+        # Solve the system
+        t_start = time.time()
+        ksp.solve(petsc_b, petsc_x)
+        t_solve = time.time() - t_start
+
+        # Check convergence
+        converged_reason = ksp.getConvergedReason()
+        if converged_reason < 0:
+            logger.warning(f"PETSc solver did not converge. Reason: {converged_reason}")
+        else:
+            logger.info(f"PETSc MUMPS solved linear system in {t_solve:.2e} seconds")
+
+        # Extract solution
+        solution = petsc_x.getArray().copy()
+
+        # Clean up PETSc objects
+        petsc_A.destroy()
+        petsc_b.destroy()
+        petsc_x.destroy()
+        ksp.destroy()
+
+        return solution
+
+    def solve_linear_system(self) -> np.ndarray:
+        """
+        Solve the linear system using either PETSc MUMPS or default solver.
+
+        Returns:
+            np.ndarray: Solution vector (the nonlinear increment).
+        """
+        if self.use_petsc_mumps and PETSC_AVAILABLE:
+            # Use PETSc MUMPS solver
+            A, b = self.linear_system
+            solution = self.solve_linear_system_petsc_mumps(A, b)
+            return solution
+        else:
+            # Use default solver
+            return super().solve_linear_system()
+
+    def linear_solver(self) -> pp.LinearSolver:
+        """Return a custom linear solver that uses our PETSc solution when available."""
+        if self.use_petsc_mumps and PETSC_AVAILABLE and hasattr(self, '_linear_system_solution'):
+            # Return a dummy solver that just returns our precomputed solution
+            class CustomPETScSolver(pp.LinearSolver):
+                def __init__(self, solution):
+                    self.solution = solution
+
+                def __call__(self, A, b):
+                    return self.solution
+
+            return CustomPETScSolver(self._linear_system_solution)
+        else:
+            # Use default linear solver
+            return super().linear_solver()
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.TpfaAd:
         return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
@@ -531,7 +654,7 @@ class FlowModel(
         # Get current Newton iteration number
         iteration_num = self.nonlinear_solver_statistics.num_iteration
 
-        if iteration_num % 3 == 0 or iteration_num < 3:
+        if iteration_num % 2 == 0 or iteration_num < 6:
             # Update both Jacobian and residual at iterations 0, 3, 6, 9, ...
             logger.info(f"Newton iteration {iteration_num}: Updating Jacobian and residual")
             self.linear_system = self.equation_system.assemble(evaluate_jacobian=True)
@@ -572,6 +695,17 @@ class FlowModel(
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
+
+        # Track Newton iterations for this timestep
+        current_iterations = self.nonlinear_solver_statistics.num_iteration
+        self.newton_iterations_per_timestep.append(current_iterations)
+        self.total_newton_iterations += current_iterations
+
+        # Print Newton iteration info for current timestep
+        current_time = self.time_manager.time
+        timestep_number = self.time_manager.time_index
+        logger.info(f"Timestep {timestep_number} (t={current_time:.2e}): {current_iterations} Newton iterations")
+
         phases = list(self.fluid.phases)
         components = list(self.fluid.components)
         # Buoyancy reciprocity check
@@ -760,8 +894,8 @@ class FlowModel(
 
 day = 86400
 t_scale = 1.0
-tf = 100.0 * day
-dt = 0.5 * day
+tf = 300.0 * day
+dt = 10.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -789,6 +923,7 @@ params = {
     "nl_convergence_tol_res": residual_tolerance,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
+    "use_petsc_mumps": True,  # Set to True to use PETSc with MUMPS solver
 }
 
 model = FlowModel(params)
@@ -801,4 +936,40 @@ total_dofs = model.equation_system.num_dofs()
 print(f"Number of cells: {total_cells}")
 print(f"Number of DOFs: {total_dofs}")
 
+def write_newton_iterations_to_csv(model, filename="newton_iterations.csv"):
+    """Write Newton iteration data to CSV file."""
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+
+        # Write header
+        writer.writerow(['Timestep', 'Time', 'Newton_Iterations'])
+
+        # Write data for each timestep
+        for i, iterations in enumerate(model.newton_iterations_per_timestep):
+            timestep_number = i + 1
+            # Calculate time value based on time manager
+            time_value = model.time_manager.schedule[0] + (timestep_number * model.time_manager.dt_init)
+            writer.writerow([timestep_number, f"{time_value:.6e}", iterations])
+
+        # Write summary row
+        writer.writerow(['', '', ''])
+        writer.writerow(['SUMMARY', '', ''])
+        writer.writerow(['Total_Timesteps', len(model.newton_iterations_per_timestep), ''])
+        writer.writerow(['Total_Newton_Iterations', model.total_newton_iterations, ''])
+        if model.newton_iterations_per_timestep:
+            avg_iterations = model.total_newton_iterations / len(model.newton_iterations_per_timestep)
+            writer.writerow(['Average_Iterations_Per_Timestep', f"{avg_iterations:.2f}", ''])
+            writer.writerow(['Max_Iterations', max(model.newton_iterations_per_timestep), ''])
+            writer.writerow(['Min_Iterations', min(model.newton_iterations_per_timestep), ''])
+
 pp.run_time_dependent_model(model, params)
+
+# Write Newton iteration statistics to CSV
+write_newton_iterations_to_csv(model, "newton_iterations.csv")
+print(f"Newton iteration data written to newton_iterations.csv")
+print(f"Total Newton iterations: {model.total_newton_iterations}")
+print(f"Total timesteps: {len(model.newton_iterations_per_timestep)}")
+if model.newton_iterations_per_timestep:
+    avg_iterations = model.total_newton_iterations / len(model.newton_iterations_per_timestep)
+    print(f"Average iterations per timestep: {avg_iterations:.2f}")
+
