@@ -8,6 +8,7 @@ import logging
 import time
 import csv
 import scipy.sparse as sps
+from scipy.sparse.csgraph import reverse_cuthill_mckee
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
@@ -24,7 +25,9 @@ try:
     PETSC_AVAILABLE = True
 except ImportError:
     PETSC_AVAILABLE = False
-    logging.warning("PETSc not available. Falling back to default solver.")
+    logging.warning("*** ITERATIVE SOLVER NOT AVAILABLE ***")
+    logging.warning("PETSc not available. All linear systems will use direct solver (MUMPS/UMFPACK).")
+    logging.warning("For large systems, consider installing PETSc for iterative solver options.")
 
 # Configure logging to show info messages
 logging.basicConfig(
@@ -122,7 +125,7 @@ class ModelGeometry(Geometry):
 
 
 class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 0.125 * 4
+    _sphere_radius: float = 0.125 * 8
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -140,7 +143,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.125 * 4, "m")
+        cell_size = self.units.convert_units(0.125 * 8, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -530,9 +533,15 @@ class FlowModel(
             logger.warning(f"Invalid preconditioner '{self.petsc_preconditioner}'. Using 'bjacobi' as default.")
             self.petsc_preconditioner = "bjacobi"
 
+        # Flag to enable Cuthill-McKee permutation for bandwidth reduction
+        self.use_cuthill_mckee = params.get("use_cuthill_mckee", True)
+
         # Check if PETSc is available when requested
         if self.use_petsc and not PETSC_AVAILABLE:
-            logger.warning("PETSc requested but not available. Falling back to default solver.")
+            logger.warning("*** SOLVER CONFIGURATION MISMATCH ***")
+            logger.warning("PETSc iterative solver was requested (use_petsc=True) but PETSc is not available.")
+            logger.warning("All linear systems will use the default direct solver instead.")
+            logger.warning("To use iterative solvers, install PETSc with: pip install petsc petsc4py")
             self.use_petsc = False
 
     def solve_linear_system_petsc(self, A: sps.spmatrix, b: np.ndarray, preconditioner: str = "asm") -> np.ndarray:
@@ -572,8 +581,51 @@ class FlowModel(
 
         logger.info(f"Solving linear system with PETSc GMRES + {preconditioner.upper()} preconditioner")
 
-        # Convert scipy sparse matrix to CSR format for analysis
+        # MATRIX PERMUTATION AND SCALED MATRIX WORKFLOW:
+        # 0. Apply Cuthill-McKee permutation for better matrix bandwidth (optional)
+        # 1. Convert matrix to CSR format for processing
+        # 2. Apply diagonal regularization (if needed)
+        # 3. Apply row/column scaling for better conditioning
+        # 4. Create custom preconditioners from SCALED matrix (lump_colsum)
+        # 5. Create PETSc matrix from SCALED matrix
+        # 6. Apply built-in preconditioners to SCALED matrix (bjacobi, asm, jacobi)
+        # 7. Solve scaled system: (D_r * A * D_c) * (D_c^-1 * x) = D_r * b
+        # 8. Unscale solution: x = D_c * (D_c^-1 * x)
+        # 9. Apply inverse permutation to get original ordering (if permutation was used)
+
+        # Convert to CSR for processing (if not already)
         A_csr = A.tocsr()
+        b_working = b.copy()
+        perm = None  # Initialize permutation as None
+
+        # Apply Cuthill-McKee permutation to reduce bandwidth (optional)
+        if self.use_cuthill_mckee:
+            logger.info("Applying reverse Cuthill-McKee permutation to reduce matrix bandwidth")
+
+            # Compute reverse Cuthill-McKee permutation
+            # This reorders rows and columns to reduce bandwidth
+            perm = reverse_cuthill_mckee(A_csr, symmetric_mode=True)
+
+            # Apply permutation to matrix: A_perm = P * A * P^T
+            # where P is the permutation matrix
+            A_csr = A_csr[perm, :][:, perm]
+            b_working = b_working[perm]
+
+            logger.debug(f"Applied Cuthill-McKee permutation: original bandwidth vs permuted bandwidth analysis")
+
+            # Compute bandwidth reduction statistics
+            def compute_bandwidth(matrix):
+                """Compute the bandwidth of a sparse matrix"""
+                matrix_coo = matrix.tocoo()
+                return np.max(np.abs(matrix_coo.row - matrix_coo.col)) if matrix_coo.nnz > 0 else 0
+
+            orig_bandwidth = compute_bandwidth(A.tocsr())
+            perm_bandwidth = compute_bandwidth(A_csr)
+
+            logger.info(f"Matrix bandwidth: original={orig_bandwidth}, after permutation={perm_bandwidth}, "
+                       f"reduction={orig_bandwidth - perm_bandwidth}")
+        else:
+            logger.debug("Cuthill-McKee permutation disabled - using original matrix ordering")
 
         # For lump column sum preconditioner, we need to create a custom diagonal matrix
         petsc_M = None  # Will hold custom preconditioner matrix if needed
@@ -615,7 +667,7 @@ class FlowModel(
         logger.debug(f"Matrix size: {A_csr.shape}, nnz: {A_csr.nnz}, zero diagonals fixed: {len(zero_diag_indices)}")
 
         # Apply matrix scaling for better conditioning
-        row_scaling, col_scaling, A_csr, b_scaled = self._apply_matrix_scaling(A_csr, b)
+        row_scaling, col_scaling, A_csr, b_scaled = self._apply_matrix_scaling(A_csr, b_working)
 
         # Create lump column sum preconditioner AFTER matrix scaling (if needed)
         if preconditioner == "lump_colsum":
@@ -669,37 +721,42 @@ class FlowModel(
         ksp.setType(PETSc.KSP.Type.FGMRES)
 
         # Set GMRES restart parameter to prevent memory issues
-        ksp.setGMRESRestart(30)
+        ksp.setGMRESRestart(50)
 
         # Configure solver tolerances and iterations based on preconditioner
         # Use more relaxed and adaptive tolerances for better convergence
+        # Maximum 200 iterations for all solvers as reasonable limit
         if preconditioner == "jacobi":
             # Jacobi needs more relaxed tolerances and more iterations
-            ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=30000)
+            ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=500)
         elif preconditioner == "asm":
             # ASM moderate settings with better tolerances
-            ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=20000)
+            ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=500)
         elif preconditioner == "lump_colsum":
             # Lumped column sum with moderate tolerances
-            ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=25000)
+            ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=500)
         else:  # bjacobi
             # BJACOBI with improved settings
-            ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=15000)
+            ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=500)
 
-        # Set up selected preconditioner
+        # Set up selected preconditioner (ALL preconditioners now use the scaled matrix)
         pc = ksp.getPC()
 
         if preconditioner == "bjacobi":
+            logger.info("Setting up Block Jacobi preconditioner on SCALED matrix")
             pc.setType(PETSc.PC.Type.BJACOBI)
             # Configure block size for better performance
             pc.setBJacobiSubBlocks(4)  # Use 4x4 blocks
         elif preconditioner == "asm":
+            logger.info("Setting up ASM preconditioner on SCALED matrix")
             pc.setType(PETSc.PC.Type.ASM)
             # Configure overlap for better convergence
             pc.setASMOverlap(1)
         elif preconditioner == "jacobi":
+            logger.info("Setting up Jacobi preconditioner on SCALED matrix")
             pc.setType(PETSc.PC.Type.JACOBI)
         elif preconditioner == "lump_colsum":
+            logger.info("Setting up custom lump column sum preconditioner (created from SCALED matrix)")
             # Use custom matrix preconditioner with our lumped column sum matrix
             pc.setType(PETSc.PC.Type.MAT)
             if petsc_M is not None:
@@ -732,22 +789,22 @@ class FlowModel(
             if converged_reason < 0:
                 logger.warning(f"PETSc solver with {preconditioner.upper()} did not converge. "
                              f"Reason: {converged_reason}, Iterations: {iterations}, Residual: {residual_norm:.2e}")
-
-                # Try adaptive fallback if the current preconditioner failed
-                solution = self._try_adaptive_fallback(A_csr, b_scaled, petsc_A, petsc_b, petsc_x,
-                                                     preconditioner, converged_reason, col_scaling)
+                solution = None
             else:
                 logger.info(f"PETSc solver converged in {iterations} iterations, "
                            f"residual: {residual_norm:.2e}, time: {t_solve:.2e} seconds")
                 # Extract and unscale solution: x_original = D_c * x_scaled
                 scaled_solution = petsc_x.getArray().copy()
-                solution = col_scaling * scaled_solution
+                unscaled_solution = col_scaling * scaled_solution
+
+                # Apply inverse permutation to restore original variable ordering
+                solution = np.zeros_like(unscaled_solution)
+                solution[perm] = unscaled_solution
+                logger.debug("Applied inverse Cuthill-McKee permutation to restore original ordering")
 
         except Exception as e:
             logger.error(f"PETSc solver with {preconditioner.upper()} failed: {e}.")
-            # Try adaptive fallback on exception
-            solution = self._try_adaptive_fallback(A_csr, b_scaled, petsc_A, petsc_b, petsc_x,
-                                                 preconditioner, "exception", col_scaling)
+            solution = None
 
         # Clean up PETSc objects
         petsc_A.destroy()
@@ -759,125 +816,14 @@ class FlowModel(
         if petsc_M is not None:
             petsc_M.destroy()
 
-        return solution
-
-    def _try_adaptive_fallback(self, A_csr, b, petsc_A, petsc_b, petsc_x, failed_preconditioner, reason, col_scaling=None):
-        """
-        Try adaptive fallback strategies when the primary solver fails to converge.
-
-        Parameters:
-        -----------
-        A_csr : scipy sparse matrix
-            The matrix in CSR format
-        b : numpy array
-            Right-hand side vector (possibly scaled)
-        petsc_A, petsc_b, petsc_x : PETSc objects
-            PETSc matrix and vectors
-        failed_preconditioner : str
-            The preconditioner that failed
-        reason : int or str
-            Convergence failure reason
-        col_scaling : numpy array, optional
-            Column scaling factors for unscaling the solution
-
-        Returns:
-        --------
-        numpy.ndarray or None
-            Solution if successful, None if all attempts fail
-        """
-
-        logger.info(f"Attempting adaptive fallback after {failed_preconditioner} failure (reason: {reason})")
-
-        # Define fallback sequence based on what failed
-        if failed_preconditioner == "bjacobi":
-            fallback_sequence = ["asm", "jacobi", "lump_colsum"]
-        elif failed_preconditioner == "asm":
-            fallback_sequence = ["jacobi", "bjacobi", "lump_colsum"]
-        elif failed_preconditioner == "jacobi":
-            fallback_sequence = ["bjacobi", "asm", "lump_colsum"]
-        elif failed_preconditioner == "lump_colsum":
-            fallback_sequence = ["bjacobi", "jacobi", "asm"]
+        # Apply inverse permutation if solution is not None
+        if solution is not None:
+            logger.debug("Successfully applied Cuthill-McKee permutation optimization")
+            return solution
         else:
-            fallback_sequence = ["bjacobi", "jacobi", "asm"]
+            logger.warning("PETSc solver failed - no permutation to reverse")
+            return None
 
-        for i, fallback_pc in enumerate(fallback_sequence):
-            try:
-                logger.info(f"Trying fallback {i+1}/{len(fallback_sequence)}: {fallback_pc}")
-
-                # Create new KSP with fallback preconditioner
-                ksp_fallback = PETSc.KSP().create()
-                ksp_fallback.setOperators(petsc_A)
-
-                # Use more robust solver types for fallback
-                if i == 0:
-                    # First fallback: try FGMRES with more relaxed settings
-                    ksp_fallback.setType(PETSc.KSP.Type.FGMRES)
-                    ksp_fallback.setGMRESRestart(20)
-                    ksp_fallback.setTolerances(rtol=1.0e-5, atol=1.0e-10, max_it=50000)
-                elif i == 1:
-                    # Second fallback: try BiCGSTAB
-                    ksp_fallback.setType(PETSc.KSP.Type.BCGS)
-                    ksp_fallback.setTolerances(rtol=1.0e-4, atol=1.0e-10, max_it=50000)
-                else:
-                    # Last fallback: try GMRES with very relaxed settings
-                    ksp_fallback.setType(PETSc.KSP.Type.GMRES)
-                    ksp_fallback.setGMRESRestart(10)
-                    ksp_fallback.setTolerances(rtol=1.0e-3, atol=1.0e-8, max_it=100000)
-
-                # Set up fallback preconditioner
-                pc_fallback = ksp_fallback.getPC()
-
-                if fallback_pc == "bjacobi":
-                    pc_fallback.setType(PETSc.PC.Type.BJACOBI)
-                elif fallback_pc == "asm":
-                    pc_fallback.setType(PETSc.PC.Type.ASM)
-                    pc_fallback.setASMOverlap(2)  # Increase overlap for robustness
-                elif fallback_pc == "jacobi":
-                    pc_fallback.setType(PETSc.PC.Type.JACOBI)
-                elif fallback_pc == "lump_colsum":
-                    # For fallback, try a simpler diagonal preconditioner
-                    pc_fallback.setType(PETSc.PC.Type.JACOBI)  # Use Jacobi instead of custom matrix
-
-                ksp_fallback.setFromOptions()
-                ksp_fallback.setInitialGuessNonzero(True)  # Use previous solution as initial guess
-
-                # Solve with fallback
-                t_start = time.time()
-                ksp_fallback.solve(petsc_b, petsc_x)
-                t_solve = time.time() - t_start
-
-                # Check convergence
-                converged_reason = ksp_fallback.getConvergedReason()
-                iterations = ksp_fallback.getIterationNumber()
-                residual_norm = ksp_fallback.getResidualNorm()
-
-                ksp_fallback.destroy()
-
-                if converged_reason > 0:
-                    logger.info(f"Fallback {fallback_pc} succeeded! "
-                               f"Iterations: {iterations}, Residual: {residual_norm:.2e}, "
-                               f"Time: {t_solve:.2e} seconds")
-
-                    # Extract and unscale solution if scaling was applied
-                    scaled_solution = petsc_x.getArray().copy()
-                    if col_scaling is not None:
-                        solution = col_scaling * scaled_solution
-                    else:
-                        solution = scaled_solution
-                    return solution
-                else:
-                    logger.warning(f"Fallback {fallback_pc} failed. "
-                                  f"Reason: {converged_reason}, Iterations: {iterations}, "
-                                  f"Residual: {residual_norm:.2e}")
-
-            except Exception as e:
-                logger.warning(f"Fallback {fallback_pc} threw exception: {e}")
-                if 'ksp_fallback' in locals():
-                    ksp_fallback.destroy()
-                continue
-
-        logger.error("All adaptive fallback attempts failed")
-        return None
 
     def _apply_matrix_scaling(self, A_csr, b):
         """
@@ -919,7 +865,7 @@ class FlowModel(
 
         return row_scaling, col_scaling, A_scaled.tocsr(), b_scaled
 
-    # ...existing code...
+    def solve_linear_system(self) -> np.ndarray:
         """
         Solve the linear system using either PETSc GMRES with selectable preconditioner or default solver.
 
@@ -937,10 +883,15 @@ class FlowModel(
             A, b = self.linear_system
             solution = self.solve_linear_system_petsc(A, b, preconditioner=self.petsc_preconditioner)
             if solution is None:
-                logger.warning("PETSc solver returned None, falling back to default solver")
+                logger.warning(f"PETSc iterative solver with {self.petsc_preconditioner.upper()} preconditioner failed to converge.")
                 return super().solve_linear_system()
             return solution
         else:
+            # Check if PETSc was requested but not available
+            if self.use_petsc and not PETSC_AVAILABLE:
+                logger.info("*** SOLVER FALLBACK ***")
+                logger.info("PETSc was requested but not available. Using default direct solver.")
+
             # Use default solver
             solution = super().solve_linear_system()
             if solution is None:
