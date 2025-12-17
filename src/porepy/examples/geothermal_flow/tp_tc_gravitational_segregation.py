@@ -687,7 +687,7 @@ class FlowModel(
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.25")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "0")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
 
                 # --- Block 1: Transport ---
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_ksp_type", "richardson")
