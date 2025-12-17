@@ -71,7 +71,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0125 * 4
+    _sphere_radius: float = 0.0125 *
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -84,27 +84,27 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0125 * 4, "m")
+        cell_size = self.units.convert_units(0.0125 * 1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    # def set_fractures(self) -> None:
-    #     points = np.array(
-    #         [
-    #             [1.0, 2.0],
-    #             [4.0, 2.0],
-    #             [1.0, 2.0],
-    #             [1.0, 4.0],
-    #             [4.0, 2.0],
-    #             [4.0, 4.0],
-    #             [2.0, 1.0],
-    #             [2.0, 4.0],
-    #             [3.0, 1.0],
-    #             [3.0, 4.0],
-    #         ]
-    #     ).T
-    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    def set_fractures(self) -> None:
+        points = np.array(
+            [
+                [1.0, 2.0],
+                [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
+            ]
+        ).T
+        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -681,13 +681,17 @@ class FlowModel(
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "lu")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_factor_shift_type", "nonzero")
                 else:
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "richardson")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "hypre")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_type", "boomeramg")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.25")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "richardson")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "hypre")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_type", "boomeramg")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.25")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
+                    # opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
+
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_ksp_type", "preonly")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_type", "lu")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_factor_mat_solver_type", "mumps")
 
                 # --- Block 1: Transport ---
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_ksp_type", "richardson")
@@ -1245,7 +1249,7 @@ class FlowModel(
         variable_e_indices = []
 
         # order for field split
-        elliptic_keys = ['pressure', 'interface_darcy_flux','interface_fourier_flux']
+        elliptic_keys = ['pressure', 'interface_darcy_flux']
         elliptic_keys.extend(elimination_vars)
         for key in elliptic_keys:
             eq_name, var_name = variable_equation_map[key]
@@ -1261,7 +1265,7 @@ class FlowModel(
 
         equation_t_indices = []
         variable_t_indices = []
-        transport_keys = ['enthalpy', 'interface_enthalpy_flux','z_CO2']
+        transport_keys = ['enthalpy', 'interface_enthalpy_flux','interface_fourier_flux','z_CO2']
         for key in transport_keys:
             eq_name, var_name = variable_equation_map[key]
             if eq_name and var_name:
