@@ -12,16 +12,9 @@ This includes:
 from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Callable
+from copy import copy
 
 import numpy as np
-
-
-# TODO: Remove when removed in other files
-class ConvergenceInfo(dict): ...
-
-
-# TODO: Remove when removed in other files
-class ConvergenceTolerance: ...
 
 
 class ConvergenceStatus(StrEnum):
@@ -129,6 +122,43 @@ class ConvergenceStatusDict(dict[str, ConvergenceStatus]):
         return result
 
 
+class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
+    def to_str(self) -> dict:
+        """Convert the convergence statuses to strings.
+
+        Returns:
+            dict[str, list[str]]: Convergence statuses as strings.
+
+        """
+        return {k: [str(s) for s in v] for k, v in self.items()}
+
+    def append(self, status: ConvergenceStatusDict) -> None:
+        """Append another ConvergenceStatusCollection to this one."""
+        if isinstance(self, list):
+            self.append(status)
+        elif isinstance(self, dict):
+            self = self._recursive_dict_append(self, status)
+
+    def _recursive_dict_append(
+        self, d: "ConvergenceStatusCollection", v: dict
+    ) -> "ConvergenceStatusCollection":
+        """Auxiliary function to recursively append dictionaries."""
+        for key_v, value_v in v.items():
+            if key_v not in d:
+                d[key_v] = [copy(value_v)]
+            else:
+                if isinstance(d[key_v], dict):
+                    assert isinstance(value_v, dict)
+                    d[key_v] = self._recursive_dict_append(d[key_v], value_v)
+                elif isinstance(d[key_v], list):
+                    assert isinstance(value_v, (str))
+                    d[key_v].append(value_v)
+                else:
+                    raise ValueError
+
+        return d
+
+
 ### Base convergence criterion classes.
 
 
@@ -136,7 +166,7 @@ class ConvergenceCriterion(ABC):
     """Base class for convergence criteria."""
 
     @abstractmethod
-    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
+    def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, float | dict]:
         """Check convergence.
 
         Parameters:
@@ -179,8 +209,21 @@ class DivergenceCriterion(ABC):
 class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
     """Collection of convergence criteria."""
 
-    def check(self, *args, **kwargs) -> tuple[ConvergenceStatusDict, dict | float]:
-        """Check convergence using all criteria in the collection."""
+    def check(
+        self, *args, **kwargs
+    ) -> tuple[ConvergenceStatusDict, dict[str, float | dict]]:
+        """Check convergence using all criteria in the collection.
+
+        Parameters:
+            args: Positional arguments for the convergence checks.
+            kwargs: Keyword arguments for the convergence checks.
+
+        Returns:
+            tuple[ConvergenceStatusDict, dict]: Convergence statuses with the names of
+                the criteria as keys, and information about the convergence checks
+                (format of the values depends on used metrics).
+
+        """
         status = ConvergenceStatusDict()
         info = {}
         for name, criterion in self.items():
@@ -199,7 +242,17 @@ class DivergenceCriteria(dict[str, DivergenceCriterion]):
     """Collection of divergence criteria."""
 
     def check(self, *args, **kwargs) -> ConvergenceStatusDict:
-        """Check convergence using all criteria in the collection."""
+        """Check convergence using all criteria in the collection.
+
+        Parameters:
+            args: Positional arguments for the divergence checks.
+            kwargs: Keyword arguments for the divergence checks.
+
+        Returns:
+            ConvergenceStatusDict: Convergence statuses of the non-linear iteration
+                with the names of the criteria as keys.
+
+        """
         status = ConvergenceStatusDict()
         for name, criterion in self.items():
             status[name] = criterion.check(*args, **kwargs)
@@ -229,7 +282,7 @@ class MaxIterationsCriterion(DivergenceCriterion):
 
         """
         if num_iterations >= self.max_iterations:
-            return ConvergenceStatus.MAX_ITERATIONS_REACHED
+            return ConvergenceStatus.DIVERGED
         else:
             return ConvergenceStatus.CONVERGED
 
@@ -249,7 +302,7 @@ class NanConvergenceCriterion(DivergenceCriterion):
 
         """
         if np.isnan(kwargs["value"]).any():
-            return ConvergenceStatus.NAN
+            return ConvergenceStatus.DIVERGED
         return ConvergenceStatus.CONVERGED
 
 
@@ -260,7 +313,9 @@ class AbsoluteConvergenceCriterion(ConvergenceCriterion):
         metric: Callable[[np.ndarray], dict | float],
     ) -> None:
         self.tol = tol
+        """Tolerance for convergence."""
         self.metric = metric
+        """Metric to compute the convergence measure."""
 
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
         metric_value = self.metric(kwargs["value"])
@@ -286,7 +341,9 @@ class AbsoluteDivergenceCriterion(DivergenceCriterion):
         metric: Callable[[np.ndarray], dict | float],
     ) -> None:
         self.tol = tol
+        """Tolerance for divergence."""
         self.metric = metric
+        """Metric to compute the divergence measure."""
 
     def check(self, **kwargs) -> ConvergenceStatus:
         metric_value = self.metric(kwargs["value"])
