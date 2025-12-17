@@ -9,7 +9,6 @@ from typing import Literal, Optional, Sequence
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 __all__ = ["Flash"]
 
@@ -44,11 +43,9 @@ class Flash(abc.ABC):
         )
 
         self.solver_params = {
-            "nl_convergence_tol": ConvergenceTolerance(
-                tol_increment=1e-8,
-                tol_residual=1e-8,
-                max_iterations=150,
-            ),
+            "max_iterations": 150,
+            "nl_convergence_inc_atol": 1e-8,
+            "nl_convergence_res_atol": 1e-8,
             "num_phases": float(fluid.num_phases),
             "num_components": float(fluid.num_components),
         }
