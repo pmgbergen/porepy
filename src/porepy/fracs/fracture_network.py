@@ -361,18 +361,20 @@ class MeshSizeControlPointInserter:
 
     def _direction_union(self, dir_0: Direction, dir_1: Direction) -> Direction:
         match self._nd:
-            case 1:
+            case 2:
                 return {
                     Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
                     Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
                 }
-            case 2:
+            case 3:
                 return {
                     Direction.WEST: dir_0[Direction.WEST] and dir_1[Direction.WEST],
                     Direction.EAST: dir_0[Direction.EAST] and dir_1[Direction.EAST],
                     Direction.SOUTH: dir_0[Direction.SOUTH] and dir_1[Direction.SOUTH],
                     Direction.NORTH: dir_0[Direction.NORTH] and dir_1[Direction.NORTH],
                 }
+            case _:
+                raise ValueError("Invalid spatial dimension.")
 
     def _tangent_basis(self, f_main, f_other, cp_0, cp_1):
         if self._nd == 3:
