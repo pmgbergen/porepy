@@ -13,10 +13,7 @@ from typing import Optional
 import numpy as np
 
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceInfo,
-    ConvergenceStatus,
-)
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
 from porepy.viz.solver_statistics import TimeStatistics
 
 

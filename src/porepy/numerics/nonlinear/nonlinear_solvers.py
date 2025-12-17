@@ -18,11 +18,14 @@ from porepy.numerics.nonlinear.convergence_check import (
     IncrementBasedAbsoluteCriterion,
     IncrementBasedRelativeCriterion,
     IncrementBasedNanCriterion,
+    IncrementBasedAbsoluteDivergenceCriterion,
     ResidualBasedAbsoluteCriterion,
     ResidualBasedRelativeCriterion,
     ResidualBasedNanCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
     MaxIterationsCriterion,
 )
+from porepy.models.metric import EuclideanMetric
 
 # from porepy.models.metric import EuclideanMetric
 from porepy.utils.ui_and_logging import DummyProgressBar
@@ -40,41 +43,58 @@ class NewtonSolver:
     def __init__(self, params=None) -> None:
         if params is None:
             params = {}
-
-        # TODO: Enable default criteria again - currently excluded due to circular import
-        default_options = {
-            #    "nl_convergence_criteria": {
-            #        "inc_abs": IncrementBasedAbsoluteCriterion(
-            #            tol=1e-6, metric=EuclideanMetric()
-            #        ),
-            #        "inc_rel": IncrementBasedRelativeCriterion(
-            #            tol=1e-4, metric=EuclideanMetric()
-            #        ),
-            #        "res_abs": ResidualBasedAbsoluteCriterion(
-            #            tol=1e-6, metric=EuclideanMetric()
-            #        ),
-            #        "res_rel": ResidualBasedRelativeCriterion(
-            #            tol=1e-4, metric=EuclideanMetric()
-            #        ),
-            #    },
-            #    "nl_divergence_criteria": {
-            #        "max_iter": MaxIterationsCriterion(max_iterations=25),
-            #        "inc_nan": IncrementBasedNanCriterion(),
-            #        "res_nan": ResidualBasedNanCriterion(),
-            #    },
-        }
-        default_options.update(params)
-        self.params = default_options
+        self.params = params
         """Dictionary of parameters for the nonlinear solver."""
 
+        # Default parameters for convergence and divergence criteria
+        max_iterations = params.get("max_iterations", 10)
+        inc_atol = params.get("nl_convergence_inc_atol", 1e-6)
+        inc_rtol = params.get("nl_convergence_inc_rtol", 1e-6)
+        res_atol = params.get("nl_convergence_res_atol", 1e-4)
+        res_rtol = params.get("nl_convergence_res_rtol", 1e-4)
+        inc_div_tol = params.get("nl_divergence_inc_tol", np.inf)
+        res_div_tol = params.get("nl_divergence_res_tol", np.inf)
+
+        if "nl_convergence_criteria" not in params:
+            self.params["nl_convergence_criteria"] = (
+                {
+                    "inc_abs": IncrementBasedAbsoluteCriterion(
+                        tol=inc_atol, metric=EuclideanMetric()
+                    ),
+                    "inc_rel": IncrementBasedRelativeCriterion(
+                        tol=inc_rtol, metric=EuclideanMetric()
+                    ),
+                    "res_abs": ResidualBasedAbsoluteCriterion(
+                        tol=res_atol, metric=EuclideanMetric()
+                    ),
+                    "res_rel": ResidualBasedRelativeCriterion(
+                        tol=res_rtol, metric=EuclideanMetric()
+                    ),
+                },
+            )
         self.convergence_criteria = ConvergenceCriteria(
             self.params.get("nl_convergence_criteria")
         )
         """Convergence criterion used in the convergence check."""
 
+        if "nl_divergence_criteria" not in params:
+            self.params["nl_divergence_criteria"] = (
+                {
+                    "max_iter": MaxIterationsCriterion(max_iterations=max_iterations),
+                    "inc_nan": IncrementBasedNanCriterion(metric=EuclideanMetric()),
+                    "res_nan": ResidualBasedNanCriterion(metric=EuclideanMetric()),
+                    "inc_max": IncrementBasedAbsoluteDivergenceCriterion(
+                        tol=inc_div_tol, metric=EuclideanMetric()
+                    ),
+                    "res_max": ResidualBasedAbsoluteDivergenceCriterion(
+                        tol=res_div_tol, metric=EuclideanMetric()
+                    ),
+                },
+            )
         self.divergence_criteria = DivergenceCriteria(
             self.params.get("nl_divergence_criteria")
         )
+        """Divergence criterion used in the convergence check."""
 
         self.init_solver_progressbar()
 
@@ -187,7 +207,7 @@ class NewtonSolver:
         """Implements a nonlinear convergence check.
 
         The convergence check implicitly assumes relative errors and passes reference
-        norms for both increments and residuals to the managing `convergence_criterion`.
+        norms for both increments and residuals to the managing `convergence_criteria`.
         The explicit goal is to build the current state as reference for the increment,
         and the initial residual as reference for the residual. The responsibility for
         managing its reference values is given to the convergence criterion.
@@ -198,7 +218,6 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            tuple[ConvergenceStatus, float] or
             tuple[ConvergenceStatusDict, dict]: Convergence status and norms
                 of the error quantities.
 
@@ -250,12 +269,13 @@ class NewtonSolver:
 
         """
         assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
+        max_iterations = self.params.get("max_iterations", 10)
         logger.info(
             "Newton iteration number "
             + f"{model.nonlinear_solver_statistics.num_iteration}"
-            # + f" of {self.tol.max_iterations}"
+            + f" of {max_iterations}"
         )
-        # TODO: Still print or just log norms? Printing variable and equation based norms is challenging.
+        # TODO: Provide a way of logging.
         # logger.info(
         #    f"Nonlinear increment norm: {info.nonlinear_increment_norm:.2e}, "
         #    f"Nonlinear residual norm: {info.residual_norm:.2e}"
