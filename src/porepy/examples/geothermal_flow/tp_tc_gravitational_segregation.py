@@ -88,23 +88,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    # def set_fractures(self) -> None:
-    #     points = np.array(
-    #         [
-    #             [1.0, 2.0],
-    #             [4.0, 2.0],
-    #             [1.0, 2.0],
-    #             [1.0, 4.0],
-    #             [4.0, 2.0],
-    #             [4.0, 4.0],
-    #             [2.0, 1.0],
-    #             [2.0, 4.0],
-    #             [3.0, 1.0],
-    #             [3.0, 4.0],
-    #         ]
-    #     ).T
-    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    def set_fractures(self) -> None:
+        points = np.array(
+            [
+                [1.0, 2.0],
+                [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
+            ]
+        ).T
+        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -590,6 +590,16 @@ class FlowModel(
         A_csr = A.tocsr()
         b_working = b.copy()
         perm = None
+        eq_perm = None
+        var_perm = None
+
+        # 1.5. Apply equation permutation if available
+        try:
+            self.matrix_plot(A_csr)
+            A_csr, b_working, eq_perm, var_perm = self.apply_equation_permutation(A_csr, b_working)
+            self.matrix_plot(A_csr)
+        except Exception as e:
+            logger.warning(f"Equation permutation failed: {e}. Continuing with original ordering.")
 
         # 2. Apply Cuthill-McKee permutation (Optional)
         # Skip for 'lu' as direct solvers usually have internal, superior reordering (like METIS).
@@ -737,13 +747,20 @@ class FlowModel(
             if ksp.getConvergedReason() < 0:
                 logger.warning(f"Solver failed. Reason: {ksp.getConvergedReason()}")
             else:
-                # 8. Unscale and Reverse Permutation
+                # 8. Unscale and Reverse Permutations
                 scaled_sol = petsc_x.getArray().copy()
                 unscaled_sol = col_scaling * scaled_sol
 
+                # First reverse Cuthill-McKee permutation if applied
                 if perm is not None:
+                    cuthill_reversed_sol = np.zeros_like(unscaled_sol)
+                    cuthill_reversed_sol[perm] = unscaled_sol
+                    unscaled_sol = cuthill_reversed_sol
+
+                # Then reverse equation permutation if applied
+                if var_perm is not None:
                     solution = np.zeros_like(unscaled_sol)
-                    solution[perm] = unscaled_sol
+                    solution[var_perm] = unscaled_sol
                 else:
                     solution = unscaled_sol
 
@@ -756,7 +773,20 @@ class FlowModel(
                     ksp.setFromOptions()
                     ksp.solve(petsc_b, petsc_x)
                     if ksp.getConvergedReason() >= 0:
-                        solution = col_scaling * petsc_x.getArray().copy()
+                        scaled_sol = petsc_x.getArray().copy()
+                        unscaled_sol = col_scaling * scaled_sol
+
+                        # Reverse permutations in correct order
+                        if perm is not None:
+                            cuthill_reversed_sol = np.zeros_like(unscaled_sol)
+                            cuthill_reversed_sol[perm] = unscaled_sol
+                            unscaled_sol = cuthill_reversed_sol
+
+                        if var_perm is not None:
+                            solution = np.zeros_like(unscaled_sol)
+                            solution[var_perm] = unscaled_sol
+                        else:
+                            solution = unscaled_sol
                 except Exception as e2:
                     logger.error(f"Fallback solver also failed: {e2}")
             else:
@@ -926,20 +956,12 @@ class FlowModel(
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
 
-        # 2. Plot the sparsity pattern
-        J, _ = self.linear_system
+    def matrix_plot(self, J:sps.spmatrix):
         plt.figure(figsize=(6, 6))
         plt.spy(J, markersize=2)
         plt.title('Sparsity Pattern')
-
-        # 3. Save the figure as a PNG
-        # 'dpi' controls resolution (dots per inch)
-        # 'bbox_inches' removes extra whitespace around the plot
         plt.savefig('sparsity_pattern.png', dpi=300, bbox_inches='tight')
-
-        # Optional: Close the plot to free up memory if you are running this in a loop
         plt.close()
-        aka = 0
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
@@ -1140,6 +1162,133 @@ class FlowModel(
                 xc[:, 1] += x2
                 grid.compute_geometry()
 
+    def permute_equations_and_variables(self):
+        """
+        Permute equations and variables in the following order:
+        1. Elliptic equations: mass_balance_equation, interface_darcy_flux_equation, well_flux_equation
+        2. Transport equations: component_mass_balance_equation_CO2, energy_balance_equation,
+           interface_fourier_flux_equation, interface_enthalpy_flux_equation, well_enthalpy_flux_equation
+        3. Algebraic equations: elimination_of_s_gas_on_grids_[0], elimination_of_x_CO2_liq_on_grids_[0],
+           elimination_of_x_CO2_gas_on_grids_[0], elimination_of_temperature_on_grids_[0]
+
+        Returns:
+            tuple: (equation_permutation, variable_permutation) where each is an array of indices
+        """
+
+        # Define the desired order for equations
+        elliptic_equations = [
+            'mass_balance_equation',
+            'interface_darcy_flux_equation',
+            'well_flux_equation'
+        ]
+
+        transport_equations = [
+            'component_mass_balance_equation_CO2',
+            'energy_balance_equation',
+            'interface_fourier_flux_equation',
+            'interface_enthalpy_flux_equation',
+            'well_enthalpy_flux_equation'
+        ]
+
+        algebraic_equations = [
+            'elimination_of_s_gas_on_grids_[0]',
+            'elimination_of_x_CO2_liq_on_grids_[0]',
+            'elimination_of_x_CO2_gas_on_grids_[0]',
+            'elimination_of_temperature_on_grids_[0]'
+        ]
+
+        # Get all equation names from the equation system
+        all_equation_names = list(self.equation_system.equations.keys())
+
+        # Build permutation list for equations
+        equation_permutation_names = []
+
+        # Add elliptic equations
+        for eq_name in elliptic_equations:
+            if eq_name in all_equation_names:
+                equation_permutation_names.append(eq_name)
+
+        # Add transport equations
+        for eq_name in transport_equations:
+            if eq_name in all_equation_names:
+                equation_permutation_names.append(eq_name)
+
+        # Add algebraic equations
+        for eq_name in algebraic_equations:
+            if eq_name in all_equation_names:
+                equation_permutation_names.append(eq_name)
+
+        # Add any remaining equations not in the specified lists
+        for eq_name in all_equation_names:
+            if eq_name not in equation_permutation_names:
+                equation_permutation_names.append(eq_name)
+
+        # Convert equation names to indices
+        equation_indices = []
+        for eq_name in equation_permutation_names:
+            if eq_name in all_equation_names:
+                # Get the DOF indices for this equation
+                eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
+                equation_indices.extend(eq_idxs)
+
+        # For variables, we need to align them with the equation order
+        # Get all variables from the equation system
+        all_variables = self.equation_system.variables
+
+        # Build variable permutation based on equation ordering
+        variable_indices = []
+
+        # Get variables associated with each equation group
+        for eq_name in equation_permutation_names:
+            if eq_name in all_equation_names:
+                eq = self.equation_system.equations[eq_name]
+                # Get variables that appear in this equation
+                eq_variables = eq.variables
+                for var in eq_variables:
+                    if var in all_variables:
+                        var_dofs = self.equation_system.dofs_of([var])
+                        # Only add if not already added
+                        for dof in var_dofs:
+                            if dof not in variable_indices:
+                                variable_indices.append(dof)
+
+        # Add any remaining variable DOFs not yet included
+        for var in all_variables:
+            var_dofs = self.equation_system.dofs_of([var])
+            for dof in var_dofs:
+                if dof not in variable_indices:
+                    variable_indices.append(dof)
+
+        return np.array(equation_indices), np.array(variable_indices)
+
+    def apply_equation_permutation(self, A: sps.spmatrix, b: np.ndarray) -> tuple[sps.spmatrix, np.ndarray, np.ndarray | None, np.ndarray | None]:
+        """
+        Apply equation and variable permutation to the linear system.
+
+        Args:
+            A: Jacobian matrix
+            b: Right-hand side vector
+
+        Returns:
+            tuple: (permuted_A, permuted_b, equation_permutation, variable_permutation)
+        """
+        try:
+            eq_perm, var_perm = self.permute_equations_and_variables()
+
+            # Permute rows (equations) and columns (variables) of the matrix
+            A_permuted = A[eq_perm, :][:, var_perm]
+
+            # Permute the right-hand side vector
+            b_permuted = b[eq_perm]
+
+            logger.info(f"Applied equation permutation: {len(eq_perm)} equations, {len(var_perm)} variables")
+
+            return A_permuted, b_permuted, eq_perm, var_perm
+
+        except Exception as e:
+            logger.warning(f"Failed to apply equation permutation: {e}. Using original ordering.")
+            return A, b, None, None
+
 day = 86400
 t_scale = 1.0
 tf = 300.0 * day
@@ -1221,4 +1370,3 @@ print(f"Total timesteps: {len(model.newton_iterations_per_timestep)}")
 if model.newton_iterations_per_timestep:
     avg_iterations = model.total_newton_iterations / len(model.newton_iterations_per_timestep)
 print(f"Average iterations per timestep: {avg_iterations:.2f}")
-
