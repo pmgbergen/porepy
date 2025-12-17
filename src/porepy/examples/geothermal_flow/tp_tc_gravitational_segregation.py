@@ -737,6 +737,9 @@ class FlowModel(
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_ksp_type", "richardson")
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_type", "ilu")
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_factor_levels", "0")
+                # *** PREVENT ZERO PIVOTS IN TRANSPORT BLOCK ***
+                opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_factor_shift_type", "nonzero")
+                opts.setValue(f"-{ksp_prefix}fieldsplit_transport_pc_factor_shift_amount", "1e-10")
 
             elif preconditioner == "ilu0":
                 pc.setType(PETSc.PC.Type.ILU)
