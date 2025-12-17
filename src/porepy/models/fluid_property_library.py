@@ -467,6 +467,10 @@ class FluidBuoyancy(pp.PorePyModel):
 
     Refactored for aggressive graph reduction using operator simplification
     and linear operator fusion.
+
+    This class includes safeguards to avoid creating unnecessary interface
+    operators when the mesh has no fractures, improving performance and
+    reducing memory usage for single-domain problems.
     """
 
     # Storage for common operators to reduce operator tree size.
@@ -984,13 +988,22 @@ class FluidBuoyancy(pp.PorePyModel):
         if not hasattr(self, "_common_projections") or self._common_projections is None:
             interfaces = self.subdomains_to_interfaces(domains, [1])
             if len(interfaces) == 0:
-                dummy = pp.ad.Scalar(0)
+                # Create properly dimensioned dummy operators for no-fracture cases
+                # These operators should have the right dimensions to avoid matrix multiplication errors
+                total_cells = sum(g.num_cells for g in domains)
+
+                # Create zero operators with proper dimensions - all as zero arrays
+                # This avoids matrix multiplication issues when no fractures are present
+                dummy_zero = pp.wrap_as_dense_ad_array(
+                    np.zeros(total_cells), name="dummy_zero_no_fractures"
+                )
+
                 self._common_projections = (
-                    dummy,
-                    dummy,
-                    dummy,
-                    dummy,
-                    dummy,
+                    dummy_zero,  # mortar_avg
+                    dummy_zero,  # secondary_to_mortar
+                    dummy_zero,  # primary_trace
+                    dummy_zero,  # mortar_to_primary
+                    dummy_zero,  # mortar_to_secondary
                     interfaces,
                 )
                 return self._common_projections
@@ -1363,9 +1376,9 @@ class FluidBuoyancy(pp.PorePyModel):
             b_flux_jumps: List[pp.ad.Operator] = [zero]
 
             # Check for interfaces before creating interface-related operators
-            interfaces = self.subdomains_to_interfaces(domains, [1])
+            has_fractures, interfaces = self._has_fractures(domains)
 
-            if len(interfaces) != 0:
+            if has_fractures:
                 # Only create interface operators when there are actual fractures
                 (
                     mortar_avg,
