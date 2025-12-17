@@ -71,7 +71,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0125 * 4
+    _sphere_radius: float = 0.0125 * 2
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -84,7 +84,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0125 * 4, "m")
+        cell_size = self.units.convert_units(0.0125 * 2, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -687,7 +687,7 @@ class FlowModel(
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_strong_threshold", "0.25")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_coarsen_type", "HMIS")
                     opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_interp_type", "ext+i")
-                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "1")
+                    opts.setValue(f"-{ksp_prefix}fieldsplit_pressure_pc_hypre_boomeramg_agg_nl", "0")
 
                 # --- Block 1: Transport ---
                 opts.setValue(f"-{ksp_prefix}fieldsplit_transport_ksp_type", "richardson")
@@ -720,7 +720,7 @@ class FlowModel(
                 pc.setType(PETSc.PC.Type.MAT)
 
         # 8. Finalize Options
-        ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=500)
+        ksp.setTolerances(rtol=1.0e-5, atol=1.0e-8, max_it=500)
         ksp.setFromOptions()
 
         # 9. Solve and Log
