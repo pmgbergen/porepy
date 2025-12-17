@@ -402,13 +402,13 @@ class RelativeDivergenceCriterion(DivergenceCriterion):
                         metric_value.values(), self.reference_value.values()
                     )
                 )
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONVERGED
             )
         else:
             status = (
                 ConvergenceStatus.DIVERGED
                 if metric_value > self.tol * self.reference_value
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONVERGED
             )
         return status
 
