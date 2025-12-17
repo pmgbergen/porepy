@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 # test parameters
 expected_order_loss = 4
-mesh_2d_Q = True
+mesh_2d_Q = False
 
 
 residual_tolerance = 10.0 ** (-expected_order_loss)
@@ -87,23 +87,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    # def set_fractures(self) -> None:
-    #     points = np.array(
-    #         [
-    #             [1.0, 2.0],
-    #             [4.0, 2.0],
-    #             [1.0, 2.0],
-    #             [1.0, 4.0],
-    #             [4.0, 2.0],
-    #             [4.0, 4.0],
-    #             [2.0, 1.0],
-    #             [2.0, 4.0],
-    #             [3.0, 1.0],
-    #             [3.0, 4.0],
-    #         ]
-    #     ).T
-    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    def set_fractures(self) -> None:
+        points = np.array(
+            [
+                [1.0, 2.0],
+                [4.0, 2.0],
+                [1.0, 2.0],
+                [1.0, 4.0],
+                [4.0, 2.0],
+                [4.0, 4.0],
+                [2.0, 1.0],
+                [2.0, 4.0],
+                [3.0, 1.0],
+                [3.0, 4.0],
+            ]
+        ).T
+        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -1223,7 +1223,7 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "fractional_flow": True,
-    "enable_buoyancy_effects": False,
+    "enable_buoyancy_effects": True,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,
@@ -1232,7 +1232,7 @@ params = {
     "nl_convergence_tol_res": residual_tolerance,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
-    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
+    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
     "petsc_preconditioner": "amg_hypre",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre'
 }
 
