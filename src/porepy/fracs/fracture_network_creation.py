@@ -25,7 +25,6 @@ def create_fracture_network(
     fractures: Optional[FractureList] = None,
     domain: Optional[pp.Domain] = None,
     tol: float = 1e-8,
-    run_checks: bool = False,
 ) -> FractureNetwork:
     """Create a fracture network in dimensions 2 or 3.
 
@@ -62,10 +61,6 @@ def create_fracture_network(
         tol: ``default=1e-8``
 
             Geometric tolerance used in the computations.
-        run_checks: ``default=False``
-
-            Run consistency checks during the network processing. Can be considered a
-            limited debug mode. Only used for three-dimensional fracture networks.
 
     Raises:
         ValueError:
@@ -74,8 +69,6 @@ def create_fracture_network(
             If the dimensions from ``domain`` and ``fractures`` do not match.
         TypeError:
             If not all items of ``fractures`` are of the same type.
-        Warning:
-            If ``run_checks = True`` when dimension is different from 3.
 
     Returns:
         Fracture network object according to the dimensionality of the problem.
@@ -128,10 +121,6 @@ def create_fracture_network(
         else:
             dim = 3
 
-    # Warn if run_checks = True is given when dimension is different from 3
-    if run_checks and dim != 3:
-        warnings.warn("'run_checks=True' has no effect if dimension != 3.")
-
     # Finally, create and return according to dimensionality mypy complains fervently
     # since fracs can be either 2d or 3d. Since we created a robust dimensionality
     # check above, it is safe to ignore the argument type
@@ -149,6 +138,5 @@ def create_fracture_network(
             ),
             domain=domain,
             tol=tol,
-            run_checks=run_checks,
         )
         return fracture_network_3d
