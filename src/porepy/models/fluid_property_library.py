@@ -547,6 +547,19 @@ class FluidBuoyancy(pp.PorePyModel):
             self._common_operators: dict = {}
         return self._common_operators
 
+    def _has_fractures(self, domains: list[pp.Grid]) -> tuple[bool, list[pp.MortarGrid]]:
+        """
+        Check if the mesh has fractures (interfaces) and return the interfaces.
+
+        Args:
+            domains: List of subdomain grids
+
+        Returns:
+            Tuple of (has_fractures: bool, interfaces: list[pp.MortarGrid])
+        """
+        interfaces = self.subdomains_to_interfaces(domains, [1])
+        return len(interfaces) > 0, interfaces
+
     def _get_common_density(
             self, phase: pp.Phase, domains: list[pp.Grid]
     ) -> pp.ad.Operator:
@@ -1089,6 +1102,7 @@ class FluidBuoyancy(pp.PorePyModel):
         if key not in storage:
             b_fluxes: List[pp.ad.Operator] = []
 
+            # Process subdomain buoyancy fluxes
             for gamma, delta in self._unique_phase_pairs():
                 weighted_flux = self._get_common_weighted_flux(gamma, delta, domains)
 
@@ -1101,16 +1115,20 @@ class FluidBuoyancy(pp.PorePyModel):
                 chi_diff = (upwind_gamma @ chi_gamma - upwind_delta @ chi_delta).simplify(self.mdg)
                 b_fluxes.append(chi_diff * weighted_flux)
 
-            (
-                mortar_avg,
-                secondary_to_mortar,
-                primary_trace,
-                mortar_to_primary,
-                mortar_to_secondary,
-                interfaces,
-            ) = self._get_common_projections(domains)
+            # Check for interfaces before creating interface-related operators
+            has_fractures, interfaces = self._has_fractures(domains)
 
-            if len(interfaces) != 0:
+            if has_fractures:
+                # Only create interface operators when there are actual fractures
+                (
+                    mortar_avg,
+                    secondary_to_mortar,
+                    primary_trace,
+                    mortar_to_primary,
+                    mortar_to_secondary,
+                    _,  # interfaces already obtained above
+                ) = self._get_common_projections(domains)
+
                 for gamma, delta in self._unique_phase_pairs():
                     weighted_intf_flux = self._get_common_weighted_intf_flux(
                         gamma,
@@ -1176,6 +1194,7 @@ class FluidBuoyancy(pp.PorePyModel):
         if key not in storage:
             b_fluxes: List[pp.ad.Operator] = []
 
+            # Process subdomain buoyancy fluxes
             for gamma, delta in self._unique_phase_pairs():
                 weighted_flux = self._get_common_weighted_flux(gamma, delta, domains)
 
@@ -1188,16 +1207,20 @@ class FluidBuoyancy(pp.PorePyModel):
                 h_diff = (upwind_gamma @ h_gamma - upwind_delta @ h_delta).simplify(self.mdg)
                 b_fluxes.append(h_diff * weighted_flux)
 
-            (
-                mortar_avg,
-                secondary_to_mortar,
-                primary_trace,
-                mortar_to_primary,
-                mortar_to_secondary,
-                interfaces,
-            ) = self._get_common_projections(domains)
+            # Check for interfaces before creating interface-related operators
+            has_fractures, interfaces = self._has_fractures(domains)
 
-            if len(interfaces) != 0:
+            if has_fractures:
+                # Only create interface operators when there are actual fractures
+                (
+                    mortar_avg,
+                    secondary_to_mortar,
+                    primary_trace,
+                    mortar_to_primary,
+                    mortar_to_secondary,
+                    _,  # interfaces already obtained above
+                ) = self._get_common_projections(domains)
+
                 for gamma, delta in self._unique_phase_pairs():
                     weighted_intf_flux = self._get_common_weighted_intf_flux(
                         gamma,
@@ -1265,16 +1288,20 @@ class FluidBuoyancy(pp.PorePyModel):
             zero = self._get_common_jump_zero(domains)
             b_flux_jumps: List[pp.ad.Operator] = [zero]
 
-            (
-                mortar_avg,
-                secondary_to_mortar,
-                primary_trace,
-                mortar_to_primary,
-                mortar_to_secondary,
-                interfaces,
-            ) = self._get_common_projections(domains)
+            # Check for interfaces before creating interface-related operators
+            has_fractures, interfaces = self._has_fractures(domains)
 
-            if len(interfaces) != 0:
+            if has_fractures:
+                # Only create interface operators when there are actual fractures
+                (
+                    mortar_avg,
+                    secondary_to_mortar,
+                    primary_trace,
+                    mortar_to_primary,
+                    mortar_to_secondary,
+                    _,  # interfaces already obtained above
+                ) = self._get_common_projections(domains)
+
                 for gamma, delta in self._unique_phase_pairs():
                     weighted_intf_flux = self._get_common_weighted_intf_flux(
                         gamma,
@@ -1335,16 +1362,20 @@ class FluidBuoyancy(pp.PorePyModel):
             zero = self._get_common_jump_zero(domains)
             b_flux_jumps: List[pp.ad.Operator] = [zero]
 
-            (
-                mortar_avg,
-                secondary_to_mortar,
-                primary_trace,
-                mortar_to_primary,
-                mortar_to_secondary,
-                interfaces,
-            ) = self._get_common_projections(domains)
+            # Check for interfaces before creating interface-related operators
+            interfaces = self.subdomains_to_interfaces(domains, [1])
 
             if len(interfaces) != 0:
+                # Only create interface operators when there are actual fractures
+                (
+                    mortar_avg,
+                    secondary_to_mortar,
+                    primary_trace,
+                    mortar_to_primary,
+                    mortar_to_secondary,
+                    _,  # interfaces already obtained above
+                ) = self._get_common_projections(domains)
+
                 for gamma, delta in self._unique_phase_pairs():
                     weighted_intf_flux = self._get_common_weighted_intf_flux(
                         gamma,
@@ -1395,6 +1426,7 @@ class FluidBuoyancy(pp.PorePyModel):
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
+                # Setup subdomain parameters
                 for sd, data in self.mdg.subdomains(return_data=True):
                     pp.initialize_data(data, self.buoyancy_key(gamma, delta))
                     pp.initialize_data(data, self.buoyancy_key(delta, gamma))
@@ -1405,22 +1437,27 @@ class FluidBuoyancy(pp.PorePyModel):
                     data[pp.PARAMETERS][self.buoyancy_key(delta, gamma)].update(
                         {self.buoyant_flux_array_key(delta, gamma): -null_vals}
                     )
-                for intf, data in self.mdg.interfaces(return_data=True):
-                    null_vals = np.zeros(intf.num_cells)
-                    pp.initialize_data(data, self.buoyancy_intf_key(gamma, delta))
-                    pp.initialize_data(data, self.buoyancy_intf_key(delta, gamma))
-                    data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
-                        {self.buoyant_intf_flux_array_key(gamma, delta): +null_vals}
-                    )
-                    data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
-                        {self.buoyant_intf_flux_array_key(delta, gamma): -null_vals}
-                    )
+
+                # Only setup interface parameters if interfaces exist
+                interfaces = list(self.mdg.interfaces())
+                if len(interfaces) > 0:
+                    for intf, data in self.mdg.interfaces(return_data=True):
+                        null_vals = np.zeros(intf.num_cells)
+                        pp.initialize_data(data, self.buoyancy_intf_key(gamma, delta))
+                        pp.initialize_data(data, self.buoyancy_intf_key(delta, gamma))
+                        data[pp.PARAMETERS][self.buoyancy_intf_key(gamma, delta)].update(
+                            {self.buoyant_intf_flux_array_key(gamma, delta): +null_vals}
+                        )
+                        data[pp.PARAMETERS][self.buoyancy_intf_key(delta, gamma)].update(
+                            {self.buoyant_intf_flux_array_key(delta, gamma): -null_vals}
+                        )
 
     def set_nonlinear_buoyancy_discretization(self):
         """Register nonlinear upwind discretizations for buoyancy terms."""
         for phase_gamma in self.fluid.phases:
             for pairs in self.phase_pairs_for(phase_gamma):
                 gamma, delta = pairs
+                # Always register subdomain discretizations
                 self.add_nonlinear_discretization(  # type: ignore[attr-defined]
                     self.buoyancy_discretization(
                         gamma, delta, self.mdg.subdomains()
@@ -1431,28 +1468,31 @@ class FluidBuoyancy(pp.PorePyModel):
                         delta, gamma, self.mdg.subdomains()
                     ).upwind(),
                 )
-                # Coupling discretizations are separated components from the subdomain
-                # ones.
-                self.add_nonlinear_discretization(  # type: ignore[attr-defined]
-                    self.interface_buoyancy_discretization(
-                        gamma, delta, self.mdg.interfaces(codim=1)
-                    ).upwind_primary(),
-                )
-                self.add_nonlinear_discretization(  # type: ignore[attr-defined]
-                    self.interface_buoyancy_discretization(
-                        gamma, delta, self.mdg.interfaces(codim=1)
-                    ).upwind_secondary(),
-                )
-                self.add_nonlinear_discretization(  # type: ignore[attr-defined]
-                    self.interface_buoyancy_discretization(
-                        delta, gamma, self.mdg.interfaces(codim=1)
-                    ).upwind_primary(),
-                )
-                self.add_nonlinear_discretization(  # type: ignore[attr-defined]
-                    self.interface_buoyancy_discretization(
-                        delta, gamma, self.mdg.interfaces(codim=1)
-                    ).upwind_secondary(),
-                )
+
+                # Only register interface discretizations if interfaces exist
+                interfaces = list(self.mdg.interfaces(codim=1))
+                if len(interfaces) > 0:
+                    # Coupling discretizations are separated components from the subdomain ones.
+                    self.add_nonlinear_discretization(  # type: ignore[attr-defined]
+                        self.interface_buoyancy_discretization(
+                            gamma, delta, interfaces
+                        ).upwind_primary(),
+                    )
+                    self.add_nonlinear_discretization(  # type: ignore[attr-defined]
+                        self.interface_buoyancy_discretization(
+                            gamma, delta, interfaces
+                        ).upwind_secondary(),
+                    )
+                    self.add_nonlinear_discretization(  # type: ignore[attr-defined]
+                        self.interface_buoyancy_discretization(
+                            delta, gamma, interfaces
+                        ).upwind_primary(),
+                    )
+                    self.add_nonlinear_discretization(  # type: ignore[attr-defined]
+                        self.interface_buoyancy_discretization(
+                            delta, gamma, interfaces
+                        ).upwind_secondary(),
+                    )
 
     def update_buoyancy_driven_fluxes(self):
         """Update stored buoyancy flux arrays (subdomains and interfaces)."""
