@@ -26,6 +26,15 @@ always return the full Jacobian w.r.t. to **all** possible dependencies:
 
 Individual flash systems must assemble the partial Jacobians they need and slice them.
 
+The rows in every flash system are expected to be of a particular order:
+
+1. Local mass constraints (``num_components - 1``)
+2. Local energy and/or volume constraints (1+)
+3. Isofugacity equations (``num_components * (num_phases - 1)``)
+4. Complementary conditions (``num_phases``).
+
+Follow this pattern for maximum compatibility when assembling flash systems.
+
 """
 
 from __future__ import annotations
@@ -41,6 +50,7 @@ from .abstract_flash import FlashResults, FlashSpec, FlashSpecMember_NUMBA_TYPE
 __all__ = [
     "generic_arg_from_flash_results",
     "dim_gen_arg",
+    "parse_xy",
     "parse_generic_arg",
     "assemble_generic_arg",
     "parse_vectorized_generic_arg",
@@ -199,6 +209,39 @@ def dim_gen_arg(ncomp: int, nphase: int, spec: FlashSpec) -> int:
         d += 1
 
     return d
+
+
+@_COMPILER(
+    nb.types.Tuple((nb.f8[:, :], nb.f8[:]))(nb.f8[:], nb.int_, nb.int_),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
+def parse_xy(
+    X_gen: np.ndarray, ncomp: int, nphase: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Helper function to extract phase compositions and fractions from generic
+    argument.
+
+    Parameters:
+        Xgen: Generic argument, shape at least ``(nphase * ncomp + nphase,)``.
+        ncomp: Number of components.
+        nphase: Number of phases.
+
+    Returns:
+        Tuple containing:
+
+        - Phase compositions, shape ``(nphase, ncomp)``.
+        - Phase fractions, shape ``(nphase,)``.
+
+    """
+    npnc = nphase * ncomp
+    x = X_gen[-npnc:].copy().reshape((nphase, ncomp))
+    # Phase fractions
+    y = np.zeros(nphase)
+    y[1:] = X_gen[-(npnc + nphase - 1) : -npnc]
+    y[0] = 1.0 - y.sum()
+
+    return x, y
 
 
 @_COMPILER(

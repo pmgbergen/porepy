@@ -46,6 +46,7 @@ from .flash_equations import (
     mass_conservation_res,
     parse_generic_arg,
     parse_vectorized_generic_arg,
+    parse_xy,
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
 )
@@ -58,6 +59,7 @@ from .solvers import (
     SOLVERS,
     get_empty_solver_params,
 )
+from .solvers.npipm_solver import extend_and_regularize_jac, extend_and_regularize_res
 
 __all__ = ["CompiledPersistentVariableFlash"]
 
@@ -350,11 +352,13 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     h[j] = h_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
-                res_2 = isofugacity_constraints_res(x, phis)
                 # Adding additional term with T appearing in first order conditions.
-                res_3 = first_order_constraint_res(h_target, y, h) / (T * T)
+                res_2 = first_order_constraint_res(h_target, y, h)  # / T**2
                 # Non-dimensional scaling of enthalpy constraint.
-                res_3 /= h_target
+                if np.abs(h_target) > 1.0:
+                    res_2 /= h_target
+
+                res_3 = isofugacity_constraints_res(x, phis)
                 res_4 = complementary_conditions_res(x, y)
 
                 return np.hstack((res_1, res_2, res_3, res_4))
@@ -396,13 +400,16 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
 
                 jac_1 = mass_conservation_jac(x, y)
-                jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
-                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / (T * T)
-                h_res = first_order_constraint_res(h_target, y, hs)[0]
-                jac_3[0, 1] -= 2.0 / (T * T * T) * h_res
+                # TT = T**2
+                # cT = -2.0 / (TT * T)
+                jac_2 = first_order_constraint_jac(y, hs, dhs, True)  # / TT
+                # jac_2[0, 1] += cT * first_order_constraint_res(h_target, y, hs)[0]
                 # Scaling of constraint with target value.
-                jac_3 /= h_target
+                if np.abs(h_target) > 1.0:
+                    jac_2 /= h_target
+
+                jac_3 = isofugacity_constraints_jac(x, phis, dphis)
                 jac_4 = complementary_conditions_jac(x, y)
 
                 # No derivatives w.r.t. pressure and saturations.
@@ -450,15 +457,16 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
-                res_2 = isofugacity_constraints_res(x, phis)
-                res_3 = first_order_constraint_res(h_target, y, hs) / (T * T)
+                res_2 = first_order_constraint_res(h_target, y, hs) / T**2
                 # Non-dimensional scaling of first order constraints.
-                res_3 /= h_target
+                res_2 /= h_target
                 # res_4 *= v_target
                 # NOTE due to v * rho = 1, the scaling of the volume constraint is
                 # performed differently than for the enthalpy constraint.
-                res_4 = first_order_constraint_res(1.0, s, v_target * rhos)
-                res_5 = phase_mass_constraints_res(s, y, rhos)
+                res_3 = first_order_constraint_res(1.0, s, v_target * rhos)
+                res_4 = phase_mass_constraints_res(s, y, rhos)
+
+                res_5 = isofugacity_constraints_res(x, phis)
                 res_6 = complementary_conditions_res(x, y)
 
                 return np.hstack((res_1, res_2, res_3, res_4, res_5, res_6))
@@ -508,22 +516,136 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                     )
 
                 jac_1 = mass_conservation_jac(x, y)
-                jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
-                jac_3 = first_order_constraint_jac(y, hs, dhs, True) / (T * T)
+                TT = T**2
+                jac_2 = first_order_constraint_jac(y, hs, dhs, True) / TT
                 h_res = first_order_constraint_res(h_target, y, hs)[0]
-                jac_3[0, 1] -= 2.0 / (T * T * T) * h_res
-                jac_4 = first_order_constraint_jac(s, rhos, drhos, False)
+                jac_2[0, 1] -= 2.0 / (TT * T) * h_res
+                jac_3 = first_order_constraint_jac(s, rhos, drhos, False)
                 # Non-dimensional scaling of constraints.
-                jac_3 /= h_target
-                jac_4 *= v_target
-                jac_5 = phase_mass_constraints_jac(s, y, rhos, drhos)
+                jac_2 /= h_target
+                jac_3 *= v_target
+                jac_4 = phase_mass_constraints_jac(s, y, rhos, drhos)
+
+                jac_5 = isofugacity_constraints_jac(x, phis, dphis)
                 jac_6 = complementary_conditions_jac(x, y)
 
                 return np.vstack((jac_1, jac_2, jac_3, jac_4, jac_5, jac_6))
 
             self.residuals[FlashSpec.vh] = F_vh
             self.jacobians[FlashSpec.vh] = DF_vh
+
+        if FlashSpec.vu in args and FlashSpec.vu not in self.residuals:
+            logger.debug("Compiling vh flash ...")
+
+            @njit(FLASH_RESIDUAL_SIGNATURE)
+            def F_vu(X_gen: np.ndarray) -> np.ndarray:
+                spec = FlashSpec.vu
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
+
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
+                s = gen_arg[0]
+                x = gen_arg[1]
+                y = gen_arg[2]
+                z = gen_arg[3]
+                p = gen_arg[4]
+                T = gen_arg[5]
+                v_target = gen_arg[6]
+                h_target = gen_arg[7]
+                params = gen_arg[8]
+
+                # EoS specific computations
+                xn = normalize_rows(x)
+                phis = np.empty((n_P, n_C))
+                hs = np.empty(n_P)
+                rhos = np.empty(n_P)
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
+                    hs[j] = h_c(pre_res_j, p, T, xn[j])
+                    rhos[j] = rho_c(pre_res_j, p, T, xn[j])
+
+                res_1 = mass_conservation_res(x, y, z)
+                res_2 = first_order_constraint_res(h_target, y, hs) / T**2
+                # Non-dimensional scaling of first order constraints.
+                res_2 /= h_target
+                # res_4 *= v_target
+                # NOTE due to v * rho = 1, the scaling of the volume constraint is
+                # performed differently than for the enthalpy constraint.
+                res_3 = first_order_constraint_res(1.0, s, v_target * rhos)
+                res_4 = phase_mass_constraints_res(s, y, rhos)
+
+                res_5 = isofugacity_constraints_res(x, phis)
+                res_6 = complementary_conditions_res(x, y)
+
+                return np.hstack((res_1, res_2, res_3, res_4, res_5, res_6))
+
+            @njit(FLASH_JACOBIAN_SIGNATURE)
+            def DF_vu(X_gen: np.ndarray) -> np.ndarray:
+                spec = FlashSpec.vu
+                n_P = int(nphase)
+                n_C = int(ncomp)
+                states = nb.literal_unroll(phasestates)
+
+                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
+                s = gen_arg[0]
+                x = gen_arg[1]
+                y = gen_arg[2]
+                p = gen_arg[4]
+                T = gen_arg[5]
+                v_target = gen_arg[6]
+                h_target = gen_arg[7]
+                params = gen_arg[8]
+
+                # EoS specific computations
+                xn = normalize_rows(x)
+                phis = np.empty((n_P, n_C))
+                dphis = np.empty((n_P, n_C, 2 + n_C))
+                hs = np.empty(n_P)
+                dhs = np.empty((n_P, 2 + n_C))
+                rhos = np.empty(n_P)
+                drhos = np.empty((n_P, 2 + n_C))
+
+                for j in range(n_P):
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
+                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
+                    for i in range(n_C):
+                        dphis[j, i, :] = _chainrule_fractional_derivatives(
+                            d_phi_j[i], x[j]
+                        )
+                    hs[j] = h_c(pre_res_j, p, T, xn[j])
+                    dhs[j] = _chainrule_fractional_derivatives(
+                        dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                    )
+                    rhos[j] = rho_c(pre_res_j, p, T, xn[j])
+                    drhos[j] = _chainrule_fractional_derivatives(
+                        drho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                    )
+
+                jac_1 = mass_conservation_jac(x, y)
+                # Product rule for extra term 1/T**2.
+                TT = T**2
+                jac_2 = first_order_constraint_jac(y, hs, dhs, True) / TT
+                h_res = first_order_constraint_res(h_target, y, hs)[0]
+                jac_2[0, 1] -= 2.0 / (TT * T) * h_res
+                jac_3 = first_order_constraint_jac(s, rhos, drhos, False)
+                # Non-dimensional scaling of constraints.
+                jac_2 /= h_target
+                jac_3 *= v_target
+                jac_4 = phase_mass_constraints_jac(s, y, rhos, drhos)
+
+                jac_5 = isofugacity_constraints_jac(x, phis, dphis)
+                jac_6 = complementary_conditions_jac(x, y)
+
+                return np.vstack((jac_1, jac_2, jac_3, jac_4, jac_5, jac_6))
+
+            self.residuals[FlashSpec.vu] = F_vu
+            self.jacobians[FlashSpec.vu] = DF_vu
 
         logger.info(
             f"{nphase}-phase, {ncomp}-component flash compiled"
@@ -556,8 +678,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         - ``'solver'``: selected solver (see
           :data:`~porepy.compositional.flash.solvers.SOLVERS`)
         - ``'solver_params'``: Custom solver parameters for single run. Otherwise the
-          instance- :attr:`solver_params` are used. Supports the parameter
-          ``'parallel_chunksize'`` when ``'mode'`` is set to ``'sequential'``.
+          instance- :attr:`solver_params` are used.
         - ``'gen_arg_params'``: A sequence of arrays to be added as parameters
           to the generic flash argument. Can also contain floats, which will be
           broadcasted into the vectorized argument.
@@ -627,15 +748,6 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         # Convert local solver params to numba-conform type
         solver_params["f_dim"] = results.dofs
         self._convert_solver_params(solver_params)
-
-        if mode == "parallel":
-            if "parallel_chunksize" in solver_params:
-                cs = int(solver_params["parallel_chunksize"])
-            else:
-                # Default value for numba to compute its own chunksize.
-                cs = 0
-
-            nb.set_parallel_chunksize(cs)
 
         start = time.time()
         resultsarray, exitcodes, num_iter = MULTI_SOLVERS[mode](

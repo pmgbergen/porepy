@@ -12,6 +12,7 @@ import numpy as np
 
 from ..._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ..abstract_flash import FlashSpec
+from ..flash_equations import parse_xy
 from ._armijo_line_search import (  # armijo_line_search,
     _ARMIJO_LINE_SEARCH_PARAMS_KEYS,
     DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,
@@ -32,9 +33,11 @@ _NPIPM_SOLVER_PARAMS_KEYS: TypeAlias = Literal[
     "npipm_u1",
     "npipm_u2",
     "npipm_eta",
-    "npipm_heavy_ball",
-    "npipm_appleyard_chop",
-    "npipm_trustregion_tau",
+    "heavy_ball",
+    "appleyard_chop",
+    "trustregion_tau",
+    "anderson_acceleration",
+    "anderson_acceleration_regularization",
 ]
 """Keys (names) for NPIPM solver parameters."""
 
@@ -47,9 +50,11 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
         "npipm_u1": 1.0,
         "npipm_u2": 1.0,
         "npipm_eta": 0.5,
-        "npipm_heavy_ball": 0.0,
-        "npipm_appleyard_chop": 0.0,
-        "npipm_trustregion_tau": 0.995,
+        "heavy_ball": 0.0,
+        "appleyard_chop": 0.0,
+        "trustregion_tau": 0.995,
+        "anderson_acceleration": 0,
+        "anderson_acceleration_regularization": 1e-7,
     },
     **DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,  # type:ignore[arg-type,dict-item]
 )
@@ -58,12 +63,12 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
 - ``'npipm_u1': 1.`` penalty for violating complementarity
 - ``'npipm_u2': 1.`` penalty for violating negativity of fractions
 - ``'npipm_eta': 0.5`` linear decline in slack variable
-- ``'npipm_heavy_ball': 0.`` if True (non-zero), a heavy-ball momentum technique is
-  applied to the line-search, adding the update from the previous iteration with some
-  down-scaling to the current update.
-- ``'npipm_appleyard_chop': 0.0`` if non-zero, chopping the update for phase fractions
+- ``'heavy_ball': 0.`` If True (non-zero), a heavy-ball momentum technique is
+  applied, adding the update from the previous iteration multiplied with the given
+  factor to the current update. This can help convergence when iterations stall.
+- ``'appleyard_chop': 0.0`` if non-zero, chopping the update for phase fractions
   and saturations to allow maximally this value.
-- ``''npipm_trustregion_tau': 0.995`` scaling factor for the fraction-to-boundary
+- ``''trustregion_tau': 0.995`` scaling factor for the fraction-to-boundary
   rule.
 
 This solver uses also the :func:`armijo_line_search`, and respective
@@ -178,7 +183,7 @@ def _slack_equation_jac(
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def _extend_and_regularize_res(
+def extend_and_regularize_res(
     f_res: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
@@ -236,7 +241,7 @@ def _extend_and_regularize_res(
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def _extend_and_regularize_jac(
+def extend_and_regularize_jac(
     f_jac: np.ndarray,
     x: np.ndarray,
     y: np.ndarray,
@@ -289,36 +294,55 @@ def _extend_and_regularize_jac(
 
 
 @_COMPILER(
-    nb.types.Tuple((nb.f8[:, :], nb.f8[:]))(nb.f8[:], nb.int_, nb.int_),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.int_), fastmath=NUMBA_FAST_MATH, cache=True
 )
-def _parse_xy(
-    X_gen: np.ndarray, ncomp: int, nphase: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Helper function to extract phase compositions and fractions from generic
-    argument.
+def _trust_region_cap(
+    X: np.ndarray, DX: np.ndarray, tau: float, n_F: int
+) -> np.ndarray:
+    """Helper function to apply the fraction-to-boundary rule to the update
+    direction.
 
     Parameters:
-        Xgen: Generic argument, shape ``(nphase * ncomp + nphase,)``.
-        ncomp: Number of components.
-        nphase: Number of phases.
+        X: Current solution vector, shape ``(f_dim + 1,)``.
+        DX: Update direction, shape ``(f_dim + 1,)``.
+        tau: Trust-region parameter in ``(0, 1)``.
+        n_F: Number of fractional unknowns.
 
     Returns:
-        Tuple containing:
-
-        - Phase compositions, shape ``(nphase, ncomp)``.
-        - Phase fractions, shape ``(nphase,)``.
+        The scaled increment ensuring no update violates trusted region [0, 1].
 
     """
-    npnc = nphase * ncomp
-    x = X_gen[-npnc:].copy().reshape((nphase, ncomp))
-    # Phase fractions
-    y = np.zeros(nphase)
-    y[1:] = X_gen[-(npnc + nphase - 1) : -npnc]
-    y[0] = 1.0 - y.sum()
+    EPS = 1e-14
+    # Where update is negative, i.e. at risk of violating lower bound 0.
+    # Ignore small updates to already zero fractions to avoid division by zero
+    # and a step size of zero.
+    dfracs = DX[-(n_F + 1) : -1]
+    fracs = X[-(n_F + 1) : -1]
+    small = np.abs(dfracs) <= EPS
+    emfracs = 1.0 - fracs
 
-    return x, y
+    fracs_0 = np.abs(fracs) <= EPS
+    fracs_1 = np.abs(emfracs) <= EPS
+
+    neg_d = dfracs < 0.0
+    pos_d = dfracs > 0.0
+
+    # Violations of lower bound 0
+    aidx = neg_d & (~(fracs_0 | small))
+    a = min(1.0, tau * np.min(fracs[aidx] / -dfracs[aidx])) if np.any(aidx) else 1.0
+
+    # Violations of upper bound 1, same logic.
+    bidx = pos_d & (~(fracs_1 | small))
+    b = min(1.0, tau * np.min(emfracs[bidx] / dfracs[bidx])) if np.any(bidx) else 1.0
+
+    dfracs_new = dfracs * min(a, b)
+
+    # Cancel the update where fractions close to 0 and 1
+    dfracs_new[fracs_0 & neg_d] = 0.0
+    dfracs_new[fracs_1 * pos_d] = 1.0
+    DX[-(n_F + 1) : -1] = dfracs_new
+
+    return DX
 
 
 @_COMPILER(SOLVER_FUNCTION_SIGNATURE, cache=NUMBA_CACHE)
@@ -357,9 +381,14 @@ def npipm(
     u1 = float(params["npipm_u1"])
     u2 = float(params["npipm_u2"])
     eta = float(params["npipm_eta"])
-    appleyard = float(params["npipm_appleyard_chop"])
-    heavy_ball = int(params["npipm_heavy_ball"])
-    tau = float(params["npipm_trustregion_tau"])
+    appleyard = float(params["appleyard_chop"])
+    heavy_ball = float(params["heavy_ball"])
+    tau = float(params["trustregion_tau"])
+    anderson = int(params["anderson_acceleration"])
+    anderson_reg = float(params["anderson_acceleration_regularization"])
+
+    # L-scheme for stabilization when oscillating
+    L_scheme = 0.0
 
     # Number of fractional unknowns
     n_F = n_P * n_C + n_P - 1
@@ -371,51 +400,53 @@ def npipm(
 
     # Computing initial value for slack variable, as sum of violations of
     # complementarity.
-    gen = _parse_xy(X_i[:-1], n_C, n_P)
-    xf = gen[0]
-    yf = gen[1]
-    nu = np.abs(np.sum(yf * (1 - np.sum(xf, axis=1))))
+    xf, yf = parse_xy(X_i[:-1], n_C, n_P)
+    X_i[-1] = np.abs(np.sum(yf * (1 - np.sum(xf, axis=1))))
 
-    # numba does not support stacking with inhomogeneous sequence of array and float.
-
-    X_i[-1] = nu
     DX_i = np.zeros_like(X_i)
-    DX_im1 = DX_i.copy()
+    DX_i1m = np.zeros_like(X_i)
 
-    # complete system size including slack equation
+    # Complete system size including slack equation
     matrix_rank = f_dim + 1
+    # NOTE rcond is the limit to cutting off singular values.
+    # This has quite large effects on the robustness of the flash in the
+    # vh case for example, which is not yet fully understood.
+    # NOTE also, the default value in numba is machine precision, while
+    # with no-jit (pure numpy) is shape[0] * eps.
+    # The latter is chosen and set to avoid differences between jit and
+    # no-jit computations.
+    rcond = matrix_rank * EPS
 
-    def eval_F(X_local: np.ndarray) -> np.ndarray:
-        xf_local, yf_local = _parse_xy(X_local[:-1], n_C, n_P)
-        f_local = F(X_local[:-1])
-        f_npipm_local = _extend_and_regularize_res(
-            f_local, xf_local, yf_local, X_local[-1], u1, u2, eta
-        )
-        return f_npipm_local
+    def eval_F(X_l: np.ndarray) -> np.ndarray:
+        f_l = F(X_l[:-1])
+        xf_l, yf_l = parse_xy(X_l[:-1], n_C, n_P)
+        f_npipm_l = extend_and_regularize_res(f_l, xf_l, yf_l, X_l[-1], u1, u2, eta)
+        return f_npipm_l
 
-    def eval_DF(X_local: np.ndarray) -> np.ndarray:
-        xf_local, yf_local = _parse_xy(X_local[:-1], n_C, n_P)
-        df_local = DF(X_local[:-1])
-        df_npipm_local = _extend_and_regularize_jac(
-            df_local, xf_local, yf_local, X_local[-1], u1, u2, eta
-        )
-        return df_npipm_local
+    def eval_DF(X_l: np.ndarray) -> np.ndarray:
+        df_l = DF(X_l[:-1])
+        xf_l, yf_l = parse_xy(X_l[:-1], n_C, n_P)
+        df_npipm_l = extend_and_regularize_jac(df_l, xf_l, yf_l, X_l[-1], u1, u2, eta)
+        return df_npipm_l
 
     # Tracking residual history for detecting cycles.
     res_history = np.zeros(10)
+    cycling_tol = 1e-2  # relative tolerance for detecting cycling.
     was_cycling = False
     is_cycling = False
     iter_cycle_detected = 0
     detected_cycle = 0
+    res_lb = 0.0  # lower-bound for residual when cycling detected.
+    do_perturb = False
 
-    # The strategy when detecting cycling is to make the line search more aggressive.
-    rho_0 = rho
-    N_armijo = max_iter_armijo
-    kappa_0 = kappa
+    Fk = np.zeros((matrix_rank, anderson))
+    Gk = np.zeros((matrix_rank, anderson))
+    fk1m = np.zeros(matrix_rank)
+    gk1m = np.zeros(matrix_rank)
 
     try:
         f_i = eval_F(X_i)
-    except Exception:  # whatever happens, residual evaluation is faulty
+    except:  # whatever happens, residual evaluation is faulty
         return X_i, 3, num_iter
 
     res_history[-1] = np.linalg.norm(f_i)
@@ -430,58 +461,33 @@ def npipm(
                 exitcode = 2
                 break
 
-            # try:
-            df_i = eval_DF(X_i)
-            DX_im1 = DX_i.copy()
-            # except Exception:  # whatever happens, Jacobian assembly is faulty
-            #     exitcode = 4
-            #     break
+            try:
+                df_i = eval_DF(X_i)
+            except:  # whatever happens, Jacobian assembly is faulty
+                exitcode = 4
+                break
 
-            # try:
-            if np.linalg.matrix_rank(df_i) == matrix_rank:
-                DX_i[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
-            else:
-                # NOTE rcond is the limit to cutting off singular values.
-                # This has quite large effects on the robustness of the flash in the
-                # vh case for example, which is not yet fully understood.
-                # NOTE also, the default value in numba is machine precision, while
-                # with no-jit (pure numpy) is shape[0] * eps.
-                # The latter is chosen and set to avoid differences between jit and
-                # no-jit computations.
-                rcond = df_i.shape[0] * EPS
-                DX_i[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
-            # except Exception:
-            #     # This means the linear solver failed.
-            #     exitcode = 5
-            #     break
+            if L_scheme > 0.0:
+                # Stabilization via L-scheme
+                df_i += L_scheme * np.eye(df_i.shape[0])
+
+            try:
+                if np.linalg.matrix_rank(df_i) == matrix_rank:
+                    DX_i[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
+                else:
+                    DX_i[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
+            except:
+                # This means the linear solver failed.
+                exitcode = 5
+                break
 
             if np.any(np.isnan(DX_i)) or np.any(np.isinf(DX_i)):
                 exitcode = 2
                 break
 
-            # Ensure that fractions remain in [0,1] after update via
-            # fraction-to-boundary rule.
-            dfracs = DX_i[-(n_F + 1) : -1]
-            fracs = X_i[-(n_F + 1) : -1]
-            # Where update is negative, i.e. at risk of violating lower bound 0.
-            # Ignore small updates to already zero fractions to avoid division by zero
-            # and a step size of zero.
-            aidx = (dfracs < 0) & (~((np.abs(fracs) <= EPS) & (np.abs(dfracs) <= EPS)))
-            # Violations of lower bound 0
-            a = (
-                min(1, tau * np.min(fracs[aidx] / -dfracs[aidx]))
-                if np.any(aidx)
-                else 1.0
-            )
-            # Violations of upper bound 1, same logic.
-            bidx = (dfracs > 0) & (~((fracs >= 1 - EPS) & (np.abs(dfracs) <= EPS)))
-            b = (
-                min(1, tau * np.min((1 - fracs)[bidx] / dfracs[bidx]))
-                if np.any(bidx)
-                else 1.0
-            )
-
-            DX_i *= min(a, b)
+            # Trust region capping to avoid shooting out of boundaries for fractions.
+            # strictly necessary before going to Armijo (other residual evaluations).
+            DX_i = _trust_region_cap(X_i, DX_i, tau, n_F)
 
             # Appleyard chop to update.
             if appleyard > 0.0:
@@ -489,55 +495,81 @@ def npipm(
                 dys[dys > appleyard] = appleyard
                 DX_i[-(1 + n_F) : -(1 + n_C * n_P)] = dys
 
-            # Armijo line search.
+            # region Armijo line search.
             pot_i = np.sum(f_i * f_i) * 0.5
-            rho_i = rho_0
+            rho_i = rho
 
-            for j in range(0, N_armijo + 1):
-                rho_i = rho_0**j
+            for j in range(0, max_iter_armijo + 1):
+                rho_i = rho**j
                 X_i_j = X_i + rho_i * DX_i
 
-                # try:
-                f_i_j = eval_F(X_i_j)
-                # except Exception:
-                #     # NOTE Here we allow the residual evaluation to fail and skip the
-                #     # line search step, as this might happen when dealing with
-                #     # non-smooth F.
-                #     # By continuing the step size comes closer to the old iterate
-                #     # making the line search more robust, but slowing the overall
-                #     # progress
-                #     continue
+                try:
+                    f_i_j = eval_F(X_i_j)
+                except:
+                    # NOTE Here we allow the residual evaluation to fail and skip the
+                    # line search step, as this might happen when dealing with
+                    # non-smooth F.
+                    # By continuing the step size comes closer to the old iterate
+                    # making the line search more robust, but slowing the overall
+                    # progress
+                    continue
 
                 pot_i_j = np.sum(f_i_j * f_i_j) * 0.5
 
-                if pot_i_j <= (1 - 2 * kappa_0 * rho_i) * pot_i:
+                if pot_i_j <= (1 - 2 * kappa * rho_i) * pot_i:
                     break
+                # If update becomes too small, risking progress, break.
+                if rho_i * np.linalg.norm(DX_i) < 1e-5:
+                    break
+
+            # endregion
 
             DX_i *= rho_i
 
+            # region Anderson acceleration
+            mk = min(i, anderson)
+            if mk > 0:
+                col = (i - 1) % anderson
+
+                fk = DX_i[-matrix_rank:]
+                gk = (X_i + DX_i)[-matrix_rank:]
+                Fk[:, col] = fk - fk1m
+                Gk[:, col] = gk - gk1m
+                fk1m = fk.copy()
+                gk1m = gk.copy()
+
+                A = Fk[:, :mk]
+                b = fk
+
+                if anderson_reg > 0:
+                    b = A.T @ b
+                    A = A.T @ A + anderson_reg * np.eye(A.shape[1])
+
+                g = np.linalg.lstsq(A, b, rcond=rcond)[0]
+
+                DX_i[-matrix_rank:] = gk - np.dot(Gk[:, :mk], g) - X_i[-matrix_rank:]
+
+            # endregion
+
             if heavy_ball > 0:
-                # heavy ball momentum descend (for cases where Armijo is small)
-                # weight -> 1, DX -> 0 as solution is approached
-                if rho_i < rho_0 ** (N_armijo / 2):
-                    # scale with previous update to avoid large over-shooting
-                    delta_heavy = 1 / (1 + np.linalg.norm(DX_im1))
-                else:
-                    delta_heavy = 0.0  # type:ignore[assignment]
-                X_i = X_i + delta_heavy * DX_im1
-                DX_i += delta_heavy * DX_im1
+                # Cap update to avoid instability.
+                delta_heavy = min(heavy_ball, 1.0 / (1.0 + np.linalg.norm(DX_i1m)))
+                DX_i_ = DX_i.copy()
+                DX_i += delta_heavy * DX_i1m
+                DX_i1m = DX_i_
 
-            # Apply update.
-            X_i += DX_i
+            # Apply update
+            X_i += _trust_region_cap(X_i, DX_i, tau, n_F)
 
-            # try:
-            f_i = eval_F(X_i)
-            # except Exception:
-            #     exitcode = 3
-            #     break
+            try:
+                f_i = eval_F(X_i)
+            except:
+                exitcode = 3
+                break
 
-            # print(np.linalg.norm(DX_i), np.linalg.norm(f_i))
             res_history = np.roll(res_history, -1)
             res_history[-1] = np.linalg.norm(f_i)
+            # print(res_history[-4:])
             if res_history[-1] <= tol:
                 exitcode = 0
                 break
@@ -546,68 +578,91 @@ def npipm(
             if num_iter > res_history.size:
                 was_cycling = is_cycling
                 # Looky only for cycles with period 2 to 5.
-                for p in range(2, 6):
-                    check_len = 2 * p
+                for c in range(2, 6):
+                    check_len = 2 * c
 
                     recent = res_history[-check_len:]
-                    scale = np.max(np.abs(recent)) if np.max(np.abs(recent)) > 0 else 1
+                    scaled_tol = np.max(np.abs(recent)) * cycling_tol
 
                     is_cycling = True
-                    for i in range(p, check_len):
-                        # Choosing a higher relative tolerance 1e-4 because KKT systems
-                        # are often ill-conditioned.
-                        if np.abs(recent[i] - recent[i - p]) >= 1e-3 * scale:
+                    for i in range(c, check_len):
+                        if np.abs(recent[i] - recent[i - c]) >= scaled_tol:
                             is_cycling = False
                             break
 
                     if is_cycling:
-                        detected_cycle = p
+                        detected_cycle = c
+                        res_lb = np.min(recent) - scaled_tol
                         break
 
                 # Detected new cycling, make line search more aggressive.
                 if is_cycling and not was_cycling:
-                    rho_0 = max(rho_0 * rho_0, 0.5 * rho_0)
-                    N_armijo = max(80, max_iter_armijo * 3)
-                    kappa_0 = min(1.5 * kappa_0, 0.4)
+                    rho = max(0.5, 0.5 * rho)
+                    max_iter_armijo = max(80, int(params["armijo_max_iterations"]) * 3)
+                    kappa = min(1.5 * kappa, 0.5)
                     iter_cycle_detected = num_iter
 
-                # No longer cycling, reset line search parameters.
+                    # Special case when cycling detected is often around the isofugacity
+                    # constraints, in case there are absent phases. To shortcut the
+                    # routine, go immediately to perturbation, which maximizes 1-sum(x)
+                    idx = np.zeros(matrix_rank, dtype=np.bool)
+                    idx[-(n_P + 1 + n_C * (n_P - 1)) : -(n_P + 1)] = True
+                    if np.linalg.norm(f_i[~idx]) < tol:
+                        do_perturb = True
+
+                # No longer cycling.
                 elif not is_cycling and was_cycling:
                     # Check that really not cycling anymore for some iterations.
-                    if np.all(np.diff(res_history[-2 * detected_cycle :]) < 0):
-                        rho_0 = rho
-                        N_armijo = max_iter_armijo
-                        kappa_0 = kappa
+                    if (
+                        np.all(np.diff(res_history[-2 * detected_cycle :]) < 0)
+                        and res_history[-1] < res_lb
+                    ):
+                        # Gradually reset line search parameters.
+                        rho = (rho + float(params["armijo_rho"])) * 0.5
+                        kappa = (kappa + float(params["armijo_kappa"])) * 0.5
+                        max_iter_armijo = int(params["armijo_max_iterations"])
+                        anderson = int(params["anderson_acceleration"])
+                    # If residual decreases but unsure about cycling, activate
+                    # stabilization and acceleration techniques.
+                    elif res_history[-1] < res_lb:
+                        L_scheme = 0.7
                     else:
                         is_cycling = True
-                # Add random perturbation to escape cycle if still cycling
-                elif (
+
+                # If cycling continued for some time without being broken, we
+                # initiate perturbation.
+                do_perturb = (
                     is_cycling
                     and was_cycling
-                    and num_iter - iter_cycle_detected > 2 * detected_cycle
-                ):
+                    and num_iter - iter_cycle_detected > detected_cycle
+                ) | do_perturb
+
+                # Add random perturbation to escape cycle if still cycling.
+                if do_perturb:
+                    do_perturb = False
                     # Add perturbation only to extended fractions where phase absent.
-                    xf, yf = _parse_xy(X_i[:-1], n_C, n_P)
+                    xf, yf = parse_xy(X_i[:-1], n_C, n_P)
                     for j in range(n_P):
-                        if yf[j] < EPS:
-                            xj = xf[j, :]
-                            xj += np.random.rand(n_C) * 1e-4
-                            xj[xj < 0.0] = EPS
-                            xj[xj > 1.0] = 1.0 - EPS
+                        xj = xf[j, :]
+                        # Perturb extended fractions to be closer to uniform.
+                        if xj.sum() <= 1.0 - res_lb:
+                            xj = (xj + 1.0 / n_C) / 2.0
+                            yf[j] = 0.0
                             xf[j, :] = xj
 
-                    # yf += np.random.rand(n_P) * 1e-5
-                    # yf[yf < 0.0] = EPS
-                    # yf[yf > 1.0] = 1.0 - EPS
-                    # yf /= np.sum(yf)
+                    # NOTE Perturbing the phase fractions too seems to have negative
+                    # effects on convergence.
+                    # We set it to zero where the extended fractions are obviously
+                    # far from summing to one and re-normalize.
+                    yf /= np.sum(yf)
+                    X_i[-(n_P - 1 + n_C * n_P + 1) : -(n_C * n_P + 1)] = yf[1:]
 
-                    # X_i[-n_F - 1 : -n_C * n_P - 1] = yf[1:]
                     X_i[-n_C * n_P - 1 : -1] = xf.flatten()
-                    # reset cycling detection
+
+                    # Reset changes to parameters introduced by cycle-breaking.
                     is_cycling = False
-                    was_cycling = False
-                    rho_0 = rho
-                    N_armijo = max_iter_armijo
-                    kappa_0 = kappa
+                    L_scheme = 0.0
+                    rho = float(params["armijo_rho"])
+                    kappa = float(params["armijo_kappa"])
 
     return X_i[:-1], exitcode, num_iter

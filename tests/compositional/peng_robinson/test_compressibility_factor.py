@@ -315,7 +315,10 @@ def test_extended_root_derivative_function(
 
     def dfunc(x):
         dz = np.array([2 * a for a in x]).astype(float)
-        return dZe(dz)
+        if dZe == extended_factor_scg_derivatives:
+            return dZe(dz, float(x[-1]))
+        else:
+            return dZe(dz)
 
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(0, -10, 11))

@@ -578,19 +578,18 @@ def extended_factor_scg(Z: float, B: float) -> float:
         B: Dimensionless co-volume.
 
     Returns:
-        :math:`B + \\frac{1 - B - Z}{2}`
+        :math:`B(B - B_{crit}) + \\frac{1 - B - Z}{2}`
 
     """
-    # return B + extended_factor(Z, B)
-    return B + Z
+    return B * (B - B_CRIT) + extended_factor(Z, B)
 
 
 @_COMPILER(
-    nb.f8[:](nb.f8[:]),
+    nb.f8[:](nb.f8[:], nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
 )
-def extended_factor_scg_derivatives(dZ: np.ndarray) -> np.ndarray:
+def extended_factor_scg_derivatives(dZ: np.ndarray, B: float) -> np.ndarray:
     """The derivatives of :func:`extended_factor_scg` dependent on the derivatives of
     the 1 real root.
 
@@ -598,13 +597,13 @@ def extended_factor_scg_derivatives(dZ: np.ndarray) -> np.ndarray:
         d_Z: ``shape=(2,)``
 
             The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
+        B: Dimensionless co-volume.
 
     Returns:
         The derivative of :func:`extended_factor_scg` w.r.t. the cohesion and covolume.
 
     """
-    # return np.array([0.0, 1.0]) + extended_factor_derivatives(dZ)
-    return np.array([0.0, 1.0]) + dZ
+    return np.array([0.0, 2.0 * B - B_CRIT]) + extended_factor_derivatives(dZ)
 
 
 @_COMPILER(
@@ -810,28 +809,30 @@ def get_compressibility_factor(
             roots[smooth_sc_idx] = out[0]
 
         # If gas extended, smooth towards sub-critical extension value on horizontal
+        # NOTE: Disabled for now, as it creates issues close to the critical point.
         # B=Bcrit.
-        if smooth_sc_idx == -1:
-            d = B - B_CRIT
-            # Floating point operations can cause it to be slightly negative.
-            d = 0.0 if d < 0.0 else d
-            if d < min(smooth_sc, dsc):
-                c_p = c_from_AB(A, B_CRIT)
-                Z = calculate_roots(c_p, eps)
-                if Z.size > 1:
-                    raise NotImplementedError(
-                        "SC-smoothing has ambiguous target value."
-                    )
-                W = Wgsub(Z[0], B_CRIT)
-                out = np.array([roots[-1], W])
-                _smooth_supercritical_transition(0, d, smooth_sc, out)
-                # NOTE: We smooth only if the resulting root is greater or equal than
-                # before to avoid conflicts with smoothing towards the SC border line.
-                if out[0] >= roots[-1]:
-                    roots[-1] = out[0]
+        # if smooth_sc_idx == -1:
+        #     d = B - B_CRIT
+        #     # Floating point operations can cause it to be slightly negative.
+        #     d = 0.0 if d < 0.0 else d
+        #     if d < min(smooth_sc, dsc):
+        #         c_p = c_from_AB(A, B_CRIT)
+        #         Z = calculate_roots(c_p, eps)
+        #         if Z.size > 1:
+        #             raise NotImplementedError(
+        #                 "SC-smoothing has ambiguous target value."
+        #             )
+        #         W = Wgsub(Z[0], B_CRIT)
+        #         out = np.array([roots[-1], W])
+        #         _smooth_supercritical_transition(0, d, smooth_sc, out)
+        #         # NOTE: We smooth only if the resulting root is greater or equal than
+        #         # before to avoid conflicts with smoothing towards the SC border line.
+        #         if out[0] >= roots[-1]:
+        #             roots[-1] = out[0]
+
         # If liquid extended, smooth towards sub-critical extension value on critical
         # line.
-        elif smooth_sc_idx == 0:
+        if smooth_sc_idx == 0:
             # Normal projection onto line.
             AB_p = project_point_to_line(AB, SUPERCRITICAL_LINE, ABMETRIC)
             D = AB - AB_p
@@ -978,7 +979,7 @@ def get_compressibility_factor_derivatives(
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension cases 21."
             )
-            droots[-1] = dWgsc(droots[0])
+            droots[-1] = dWgsc(droots[0], B)
             smooth_sc_idx = -1
         case _:
             raise NotImplementedError(
@@ -990,8 +991,6 @@ def get_compressibility_factor_derivatives(
         AB_p = project_point_to_line(AB, _SC_BORDER_LINE, ABMETRIC)
         D = AB - AB_p
         dsc = np.sqrt(np.dot(D, ABMETRIC @ D))
-        # Keep track of Zg in case needed for smoothing towards Bcrit
-        Zg = 0.0
         if dsc < smooth_sc and AB_p[1] >= B_CRIT:
             c_p = c_from_AB(AB_p[0], AB_p[1])
             dc_dAB = dc_from_AB(AB_p[0], AB_p[1])
@@ -1002,31 +1001,29 @@ def get_compressibility_factor_derivatives(
             out[1] = dZ[-1]
             _smooth_supercritical_transition(0, dsc, smooth_sc, out)
             droots[smooth_sc_idx] = out[0]
-            Zg_ = calculate_roots(c_p, eps)
-            out_ = np.array([roots[-1], Wgsub(Zg_[0], AB_p[1])])
-            _smooth_supercritical_transition(0, dsc, smooth_sc, out_)
-            Zg = out_[0]
 
-        if smooth_sc_idx == -1:
-            d = B - B_CRIT
-            d = 0.0 if d < 0.0 else d
-            if d < min(smooth_sc, dsc) and Zg >= roots[-1]:
-                c_p = c_from_AB(A, B_CRIT)
-                dc_dAB = dc_from_AB(A, B_CRIT)
-                dZ = calculate_root_derivatives(c_p, eps)
-                dZ = np.dot(dZ, dc_dAB)
-                if dZ.shape[0] > 1:
-                    raise NotImplementedError(
-                        "SC-smoothing has ambiguous target value."
-                    )
-                dW = dWgsub(dZ[0])
-                out = np.empty((2, 2))
-                out[0] = droots[-1]
-                out[1] = dW
-                _smooth_supercritical_transition(0, d, smooth_sc, out)
-                droots[-1] = out[0]
+        # NOTE with the quadratic term in the gas extension, this smoothing is
+        # redundant.
+        # if smooth_sc_idx == -1:
+        #     d = B - B_CRIT
+        #     d = 0.0 if d < 0.0 else d
+        #     if d < min(smooth_sc, dsc) and Zg >= roots[-1]:
+        #         c_p = c_from_AB(A, B_CRIT)
+        #         dc_dAB = dc_from_AB(A, B_CRIT)
+        #         dZ = calculate_root_derivatives(c_p, eps)
+        #         dZ = np.dot(dZ, dc_dAB)
+        #         if dZ.shape[0] > 1:
+        #             raise NotImplementedError(
+        #                 "SC-smoothing has ambiguous target value."
+        #             )
+        #         dW = dWgsub(dZ[0])
+        #         out = np.empty((2, 2))
+        #         out[0] = droots[-1]
+        #         out[1] = dW
+        #         _smooth_supercritical_transition(0, d, smooth_sc, out)
+        #         droots[-1] = out[0]
 
-        elif smooth_sc_idx == 0:
+        if smooth_sc_idx == 0:
             AB_p = project_point_to_line(AB, SUPERCRITICAL_LINE, ABMETRIC)
             D = AB - AB_p
             d = np.sqrt(np.dot(D, ABMETRIC @ D))
