@@ -66,7 +66,7 @@ class ModelGeometry(Geometry):
         self._domain = pp.Domain(box)
 
     def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
+        return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(0.01953125 * 2, "m")
