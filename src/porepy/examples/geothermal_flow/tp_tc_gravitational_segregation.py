@@ -71,7 +71,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0125 * 2
+    _sphere_radius: float = 0.0125 * 4
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -84,7 +84,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0125 * 2, "m")
+        cell_size = self.units.convert_units(0.0125 * 4, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -126,7 +126,7 @@ class ModelGeometry(Geometry):
 
 
 class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 0.0625* 4
+    _sphere_radius: float = 0.0625* 1
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -144,7 +144,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0625 * 4, "m")
+        cell_size = self.units.convert_units(0.0625 * 1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -720,8 +720,15 @@ class FlowModel(
                 pc.setType(PETSc.PC.Type.MAT)
 
         # 8. Finalize Options
-        ksp.setTolerances(rtol=1.0e-5, atol=1.0e-8, max_it=500)
         ksp.setFromOptions()
+
+        # Apply tolerances AFTER setFromOptions to strictly enforce them.
+        # This overrides any command-line defaults or database presets.
+        ksp.setTolerances(rtol=1.0e-5, atol=1.0e-8, max_it=500)
+
+        # Optional: Log the actual tolerances PETSc is using to be 100% sure
+        r_tol, a_tol, div_tol, max_its = ksp.getTolerances()
+        logger.info(f"KSP Tolerances Enforced | rtol: {r_tol}, atol: {a_tol}, max_it: {max_its}")
 
         # 9. Solve and Log
         solution = None
@@ -1302,7 +1309,7 @@ class FlowModel(
 day = 86400
 t_scale = 1.0
 tf = 300.0 * day
-dt = 1.0 * day
+dt = 0.5 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
