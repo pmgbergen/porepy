@@ -485,16 +485,22 @@ class FractureNetwork2d(FractureNetwork):
         if unique_boundary_points.size > 0:
             # Count the number of occurrences of each unique boundary point. Points that
             # occur more than once will be intersections.
-            unique_intersection_points = np.where(
+            all_intersection_points = np.where(
                 np.bincount(unique_boundary_points[:, 0]) > 1
             )[0]
 
         else:
             # No intersections, simply create an empty list.
-            unique_intersection_points = np.array([], dtype=int)
+            all_intersection_points = np.array([], dtype=int)
+
+        # Filter away those points that lie on the domain boundary.
+        unique_intersection_points = [
+            pt
+            for pt in all_intersection_points
+            if not self._entity_on_domain_boundary(0, [pt])
+        ]
 
         # Collect intersection points, fractures, and domain in physical groups in gmsh.
-
         # Intersection points can be dealt with right away.
         for i, pt in enumerate(unique_intersection_points):
             gmsh.model.addPhysicalGroup(
@@ -521,9 +527,6 @@ class FractureNetwork2d(FractureNetwork):
             # In the latter case, the fracture was split into segments when mesh size
             # control points were added to the fracture.
             all_lines = []
-            if line_group and line_group[0][1] in boundary_tags_new:
-                # Skip lines on the boundary.
-                continue
 
             for line in line_group:
                 if line[0] == 1:
