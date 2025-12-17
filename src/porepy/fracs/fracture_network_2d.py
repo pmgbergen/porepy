@@ -455,10 +455,6 @@ class FractureNetwork2d(FractureNetwork):
             # This may be a constraint fracture, in which case there is no need to
             # work with intersection removal.
             frac_ind = inv_fracture_tag_map[old_gmsh_tag]
-            if frac_ind in constraints:
-                # Constrained fractures are not to be considered for intersection
-                # identification.
-                continue
 
             for segment in old_fracture:
                 if old_gmsh_tag in mesh_size_points:
@@ -467,8 +463,12 @@ class FractureNetwork2d(FractureNetwork):
                         old_gmsh_tag
                     ]
                 pt_index = gmsh.model.get_boundary([segment])
-                for pt in pt_index:
-                    boundary_points_fracture_indices.append((pt[1], frac_ind))
+
+                if fi not in constraints:
+                    # If this is not a constraint, collect the boundary points for
+                    # intersection identification.
+                    for pt in pt_index:
+                        boundary_points_fracture_indices.append((pt[1], frac_ind))
 
                 updated_fracture_tag_map[segment[1]] = frac_ind
 
