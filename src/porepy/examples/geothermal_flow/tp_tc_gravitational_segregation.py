@@ -4,6 +4,8 @@ os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
+import logging
+import time
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
@@ -11,6 +13,16 @@ from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
 from abc import abstractmethod
+
+# Configure logging to show info messages
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Ensure specific loggers are enabled for linear solver information
+logging.getLogger('porepy.models.solution_strategy').setLevel(logging.INFO)
+logging.getLogger('porepy').setLevel(logging.INFO)
 
 # test parameters
 expected_order_loss = 3
@@ -41,7 +53,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.1953125
+    _sphere_radius: float = 0.01953125
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -54,7 +66,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.1953125, "m")
+        cell_size = self.units.convert_units(0.01953125, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
