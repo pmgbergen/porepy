@@ -596,7 +596,7 @@ class FlowModel(
         # 1.5. Apply equation permutation if available
         try:
             self.matrix_plot(A_csr)
-            A_csr, b_working, eq_perm, var_perm = self.apply_equation_permutation(A_csr, b_working)
+            A_csr, b_working, eq_perm, var_perm, field_split = self.apply_equation_permutation(A_csr, b_working)
             self.matrix_plot(A_csr)
         except Exception as e:
             logger.warning(f"Equation permutation failed: {e}. Continuing with original ordering.")
@@ -1235,26 +1235,42 @@ class FlowModel(
             var_dof = self.equation_system.dofs_of(md_var.sub_vars)
             return var_dof
 
-        equation_indices = []
-        variable_indices = []
+        equation_e_indices = []
+        variable_e_indices = []
 
         # order for field split
         elliptic_keys = ['pressure', 'interface_darcy_flux''']
         elliptic_keys.extend(elimination_vars)
-        transport_keys = ['enthalpy','interface_fourier_flux', 'interface_enthalpy_flux','z_CO2']
-        for key in elliptic_keys+transport_keys:
+        for key in elliptic_keys:
             eq_name, var_name = variable_equation_map[key]
             if eq_name and var_name:
                 # Get equation indices
                 eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
-                equation_indices.extend(eq_idxs)
+                equation_e_indices.extend(eq_idxs)
 
                 # Get variable indices
                 var_dofs = find_variable_idxs(var_name)
-                variable_indices.extend(var_dofs)
+                variable_e_indices.extend(var_dofs)
                 assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
 
-        return np.array(equation_indices), np.array(variable_indices)
+        equation_t_indices = []
+        variable_t_indices = []
+        transport_keys = ['enthalpy','interface_fourier_flux', 'interface_enthalpy_flux','z_CO2']
+        for key in transport_keys:
+            eq_name, var_name = variable_equation_map[key]
+            if eq_name and var_name:
+                # Get equation indices
+                eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
+                equation_t_indices.extend(eq_idxs)
+
+                # Get variable indices
+                var_dofs = find_variable_idxs(var_name)
+                variable_t_indices.extend(var_dofs)
+                assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
+
+        equation_indices = equation_e_indices + equation_t_indices
+        variable_indices = variable_e_indices + variable_t_indices
+        return np.array(equation_indices), np.array(variable_indices), {'elliptic': len(equation_e_indices), 'transport': len(equation_t_indices)}
 
     def apply_equation_permutation(self, A: sps.spmatrix, b: np.ndarray) -> tuple[sps.spmatrix, np.ndarray, np.ndarray | None, np.ndarray | None]:
         """
@@ -1268,7 +1284,7 @@ class FlowModel(
             tuple: (permuted_A, permuted_b, equation_permutation, variable_permutation)
         """
         try:
-            eq_perm, var_perm = self.permute_equations_and_variables()
+            eq_perm, var_perm, field_split = self.permute_equations_and_variables()
 
             # Permute rows (equations) and columns (variables) of the matrix
             A_permuted = A[eq_perm, :][:, var_perm]
@@ -1278,7 +1294,7 @@ class FlowModel(
 
             logger.info(f"Applied equation permutation: {len(eq_perm)} equations, {len(var_perm)} variables")
 
-            return A_permuted, b_permuted, eq_perm, var_perm
+            return A_permuted, b_permuted, eq_perm, var_perm, field_split
 
         except Exception as e:
             logger.warning(f"Failed to apply equation permutation: {e}. Using original ordering.")
