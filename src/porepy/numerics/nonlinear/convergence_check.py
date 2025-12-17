@@ -123,6 +123,13 @@ class ConvergenceStatusDict(dict[str, ConvergenceStatus]):
 
 
 class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
+    """Collection of convergence statuses in form of nested dictionaries.
+
+    The keys are the names of the criteria, and the values are lists of convergence
+    statuses, e.g., recorded over iterations, as used in the :class:`pp.SolverStatistics`.
+
+    """
+
     def to_str(self) -> dict:
         """Convert the convergence statuses to strings.
 
@@ -133,7 +140,12 @@ class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
         return {k: [str(s) for s in v] for k, v in self.items()}
 
     def append(self, status: ConvergenceStatusDict) -> None:
-        """Append another ConvergenceStatusCollection to this one."""
+        """Append another ConvergenceStatusCollection to this one.
+
+        Parameters:
+            status: Convergence statuses to append.
+
+        """
         if isinstance(self, list):
             self.append(status)
         elif isinstance(self, dict):
@@ -142,7 +154,16 @@ class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
     def _recursive_dict_append(
         self, d: "ConvergenceStatusCollection", v: dict
     ) -> "ConvergenceStatusCollection":
-        """Auxiliary function to recursively append dictionaries."""
+        """Auxiliary function to recursively append dictionaries.
+
+        Parameters:
+            d: ConvergenceStatusCollection to append to.
+            v: Dictionary to append.
+
+        Returns:
+            ConvergenceStatusCollection: Updated ConvergenceStatusCollection.
+
+        """
         for key_v, value_v in v.items():
             if key_v not in d:
                 d[key_v] = [copy(value_v)]
