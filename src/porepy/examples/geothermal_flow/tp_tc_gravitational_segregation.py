@@ -7,6 +7,7 @@ import numpy as np
 import logging
 import time
 import csv
+import matplotlib.pyplot as plt
 import scipy.sparse as sps
 from scipy.sparse.csgraph import reverse_cuthill_mckee
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
@@ -70,7 +71,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.0125 * 1
+    _sphere_radius: float = 0.0125 * 64
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -83,7 +84,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.0125 * 1, "m")
+        cell_size = self.units.convert_units(0.0125 * 64, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -924,6 +925,21 @@ class FlowModel(
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+
+        # 2. Plot the sparsity pattern
+        J, _ = self.linear_system
+        plt.figure(figsize=(6, 6))
+        plt.spy(J, markersize=2)
+        plt.title('Sparsity Pattern')
+
+        # 3. Save the figure as a PNG
+        # 'dpi' controls resolution (dots per inch)
+        # 'bbox_inches' removes extra whitespace around the plot
+        plt.savefig('sparsity_pattern.png', dpi=300, bbox_inches='tight')
+
+        # Optional: Close the plot to free up memory if you are running this in a loop
+        plt.close()
+        aka = 0
 
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
