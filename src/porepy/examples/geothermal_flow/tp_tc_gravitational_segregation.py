@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 # test parameters
 expected_order_loss = 4
-mesh_2d_Q = False
+mesh_2d_Q = True
 
 
 residual_tolerance = 10.0 ** (-expected_order_loss)
@@ -87,23 +87,23 @@ class ModelGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def set_fractures(self) -> None:
-        points = np.array(
-            [
-                [1.0, 2.0],
-                [4.0, 2.0],
-                [1.0, 2.0],
-                [1.0, 4.0],
-                [4.0, 2.0],
-                [4.0, 4.0],
-                [2.0, 1.0],
-                [2.0, 4.0],
-                [3.0, 1.0],
-                [3.0, 4.0],
-            ]
-        ).T
-        fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
-        self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
+    # def set_fractures(self) -> None:
+    #     points = np.array(
+    #         [
+    #             [1.0, 2.0],
+    #             [4.0, 2.0],
+    #             [1.0, 2.0],
+    #             [1.0, 4.0],
+    #             [4.0, 2.0],
+    #             [4.0, 4.0],
+    #             [2.0, 1.0],
+    #             [2.0, 4.0],
+    #             [3.0, 1.0],
+    #             [3.0, 4.0],
+    #         ]
+    #     ).T
+    #     fracs = np.array([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]).T
+    #     self._fractures = pp.frac_utils.pts_edges_to_linefractures(points, fracs)
 
     def dirichlet_facets(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         if isinstance(sd, pp.Grid):
@@ -165,32 +165,32 @@ class ModelGeometry3D(Geometry):
 
         return find_facets(self._sphere_centre)
 
-    def set_fractures(self) -> None:
-
-
-        kind_1_square_u = np.array([1.0, 1.0, 4.0, 4.0])
-        kind_1_square_v = np.array([1.0, 4.0, 4.0, 1.0])
-
-        kind_2_square_u = np.array([2.0, 2.0, 4.0, 4.0])
-        kind_2_square_v = np.array([2.0, 4.0, 4.0, 2.0])
-
-        # normal along z from z = 2.0
-        f1 = np.vstack([kind_1_square_u, kind_1_square_v, np.full(4, 2.0)])
-
-        # normal along y from y = 1.0
-        f2 = np.vstack([kind_1_square_u,  np.full(4, 1.0), kind_1_square_v])
-
-        # normal along y from y = 4.0
-        f3 = np.vstack([kind_1_square_u,  np.full(4, 4.0), kind_1_square_v])
-
-        # normal along y from y = 3.0
-        f4 = np.vstack([kind_1_square_u, np.full(4, 3.0), kind_1_square_v])
-
-        # normal along x from x = 2.0
-        f5 = np.vstack([np.full(4, 2.0), kind_2_square_u, kind_2_square_v])
-
-        disjoint_set = [f1,f2,f3,f4,f5]
-        self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
+    # def set_fractures(self) -> None:
+    #
+    #
+    #     kind_1_square_u = np.array([1.0, 1.0, 4.0, 4.0])
+    #     kind_1_square_v = np.array([1.0, 4.0, 4.0, 1.0])
+    #
+    #     kind_2_square_u = np.array([2.0, 2.0, 4.0, 4.0])
+    #     kind_2_square_v = np.array([2.0, 4.0, 4.0, 2.0])
+    #
+    #     # normal along z from z = 2.0
+    #     f1 = np.vstack([kind_1_square_u, kind_1_square_v, np.full(4, 2.0)])
+    #
+    #     # normal along y from y = 1.0
+    #     f2 = np.vstack([kind_1_square_u,  np.full(4, 1.0), kind_1_square_v])
+    #
+    #     # normal along y from y = 4.0
+    #     f3 = np.vstack([kind_1_square_u,  np.full(4, 4.0), kind_1_square_v])
+    #
+    #     # normal along y from y = 3.0
+    #     f4 = np.vstack([kind_1_square_u, np.full(4, 3.0), kind_1_square_v])
+    #
+    #     # normal along x from x = 2.0
+    #     f5 = np.vstack([np.full(4, 2.0), kind_2_square_u, kind_2_square_v])
+    #
+    #     disjoint_set = [f1,f2,f3,f4,f5]
+    #     self._fractures = [pp.PlaneFracture(p) for p in disjoint_set]
 
 # constitutive description
 def gas_saturation_func(
@@ -528,7 +528,7 @@ class FlowModel(
 
         # Preconditioner selection for PETSc solver
         self.petsc_preconditioner = params.get("petsc_preconditioner", "bjacobi")
-        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum"}
+        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre"}
         if self.petsc_preconditioner not in valid_preconditioners:
             logger.warning(f"Invalid preconditioner '{self.petsc_preconditioner}'. Using 'bjacobi' as default.")
             self.petsc_preconditioner = "bjacobi"
@@ -564,6 +564,7 @@ class FlowModel(
             - "asm": Additive Schwarz Method
             - "jacobi": Point Jacobi preconditioner
             - "lump_colsum": Lumped column sum diagonal preconditioner
+            - "amg_hypre": Algebraic Multigrid with Hypre BoomerAMG
 
         Returns:
         --------
@@ -574,7 +575,7 @@ class FlowModel(
             raise RuntimeError("PETSc is not available")
 
         # Validate preconditioner option
-        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum"}
+        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre"}
         if preconditioner not in valid_preconditioners:
             logger.warning(f"Invalid preconditioner '{preconditioner}'. Using 'bjacobi' as default.")
             preconditioner = "bjacobi"
@@ -735,6 +736,9 @@ class FlowModel(
         elif preconditioner == "lump_colsum":
             # Lumped column sum with moderate tolerances
             ksp.setTolerances(rtol=1.0e-6, atol=1.0e-12, max_it=500)
+        elif preconditioner == "amg_hypre":
+            # AMG typically converges faster but may need more iterations for difficult cases
+            ksp.setTolerances(rtol=1.0e-8, atol=1.0e-12, max_it=300)
         else:  # bjacobi
             # BJACOBI with improved settings
             ksp.setTolerances(rtol=1.0e-7, atol=1.0e-12, max_it=500)
@@ -765,6 +769,25 @@ class FlowModel(
             else:
                 logger.error("Lumped column sum preconditioner matrix not created properly")
                 raise RuntimeError("Failed to create lumped column sum preconditioner")
+        elif preconditioner == "amg_hypre":
+            logger.info("Setting up Algebraic Multigrid with Hypre BoomerAMG preconditioner")
+            pc.setType(PETSc.PC.Type.HYPRE)
+            pc.setHYPREType("boomeramg")
+
+            # Configure BoomerAMG options using the correct PETSc4py API
+            # Set options through the PETSc options database
+            PETSc.Options().setValue("-pc_hypre_boomeramg_strong_threshold", "0.7")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_coarsen_type", "HMIS")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_interp_type", "ext+i")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_relax_type_all", "symmetric-SOR/Jacobi")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_grid_sweeps_all", "1")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_max_levels", "10")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_max_iter", "1")
+            PETSc.Options().setValue("-pc_hypre_boomeramg_tol", "0.0")
+
+            # Apply the options
+            pc.setFromOptions()
+            logger.info("AMG options: strong_threshold=0.7, coarsening=HMIS, interpolation=ext+i")
 
         # Set additional options for robustness
         ksp.setFromOptions()
@@ -874,6 +897,7 @@ class FlowModel(
         - 'asm': Additive Schwarz Method
         - 'jacobi': Point Jacobi preconditioner
         - 'lump_colsum': Lumped column sum diagonal preconditioner
+        - 'amg_hypre': Algebraic Multigrid with Hypre BoomerAMG
 
         Returns:
             np.ndarray: Solution vector (the nonlinear increment).
@@ -1199,7 +1223,7 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "fractional_flow": True,
-    "enable_buoyancy_effects": True,
+    "enable_buoyancy_effects": False,
     "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,
@@ -1208,8 +1232,8 @@ params = {
     "nl_convergence_tol_res": residual_tolerance,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
-    "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
-    "petsc_preconditioner": "lump_colsum",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum'
+    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
+    "petsc_preconditioner": "amg_hypre",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre'
 }
 
 model = FlowModel(params)
