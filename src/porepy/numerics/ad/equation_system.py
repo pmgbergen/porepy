@@ -1660,26 +1660,15 @@ class EquationSystem:
         rows = list(equ_blocks.values())
 
         max_workers = max(1, os.cpu_count())
-
-        # Determine if we need both evaluations (this could be based on some condition)
-        # For now, let's assume we want parallel evaluation when evaluate_jacobian is True
-        # and we also want to compare/validate results
-        need_both_evaluations = evaluate_jacobian  # Modify this condition as needed
-
-        if need_both_evaluations:
-            # Parallelize both evaluate calls using half available CPU cores
+        # Only run the evaluation we actually need
+        if not evaluate_jacobian:
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 values_future = executor.submit(self.evaluate, eqs, False, state)
-                ad_list_future = executor.submit(self.evaluate, eqs, True, state)
-
                 values = values_future.result()
-                ad_list: list[pp.ad.AdArray] = ad_list_future.result()
         else:
-            # Only run the evaluation we actually need
-            if not evaluate_jacobian:
-                values = self.evaluate(eqs, derivative=False, state=state)
-            else:
-                ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                ad_list_future = executor.submit(self.evaluate, eqs, True, state)
+                ad_list: list[pp.ad.AdArray] = ad_list_future.result()
 
         # Process results based on what's requested
         if not evaluate_jacobian:

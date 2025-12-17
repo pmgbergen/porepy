@@ -6,6 +6,7 @@ from typing import Callable, Optional, Sequence, cast, Any
 import numpy as np
 import logging
 import time
+import scipy.sparse as sps
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 import porepy as pp
 from porepy.models.abstract_equations import LocalElimination
@@ -23,6 +24,8 @@ logging.basicConfig(
 # Ensure specific loggers are enabled for linear solver information
 logging.getLogger('porepy.models.solution_strategy').setLevel(logging.INFO)
 logging.getLogger('porepy').setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 # test parameters
 expected_order_loss = 3
@@ -53,7 +56,7 @@ class Geometry(pp.PorePyModel):
 
 
 class ModelGeometry(Geometry):
-    _sphere_radius: float = 0.01953125
+    _sphere_radius: float = 0.01953125 * 2
     _sphere_centre: np.ndarray = np.array([2.5, 5.0, 0.0])
 
     def set_domain(self) -> None:
@@ -66,7 +69,7 @@ class ModelGeometry(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.01953125, "m")
+        cell_size = self.units.convert_units(0.01953125 * 2, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -516,6 +519,57 @@ class FlowModel(
     ) -> pp.ad.Operator:
         return phase.saturation(domains)**2
 
+    def assemble_linear_system(self) -> None:
+        """Custom assemble linear system that updates Jacobian every 0, 3, 6, 9... Newton iterations.
+
+        This method implements a dedicated solution strategy that:
+        - Assembles the full linear system (Jacobian + residual) at iterations 0, 3, 6, 9, etc.
+        - Updates only the residual part for other iterations (1, 2, 4, 5, 7, 8, etc.)
+        """
+        t_0 = time.time()
+
+        # Get current Newton iteration number
+        iteration_num = self.nonlinear_solver_statistics.num_iteration
+
+        if iteration_num % 3 == 0 or iteration_num < 3:
+            # Update both Jacobian and residual at iterations 0, 3, 6, 9, ...
+            logger.info(f"Newton iteration {iteration_num}: Updating Jacobian and residual")
+            self.linear_system = self.equation_system.assemble(evaluate_jacobian=True)
+        else:
+            # Update only residual at iterations 1, 2, 4, 5, 7, 8, ...
+            logger.info(f"Newton iteration {iteration_num}: Updating residual only")
+            if hasattr(self, 'linear_system') and self.linear_system is not None:
+                # Keep the existing Jacobian, update only the residual
+                new_residual = self.equation_system.assemble(evaluate_jacobian=False)
+                # Update the residual part of the linear system (tuple format: (matrix, rhs))
+                self.linear_system = (
+                    self.linear_system[0],  # Keep existing Jacobian
+                    -new_residual  # Update residual with new evaluation
+                )
+            else:
+                # Fallback: if no previous linear system exists, assemble full system
+                logger.warning("No previous linear system found, assembling full system")
+                if self._apply_schur_complement_reduction():
+                    assert self.schur_complement_primary_variables, (
+                        "Primary column block for Schur technique not found."
+                    )
+                    assert self.schur_complement_primary_equations, (
+                        "Primary row block for Schur technique not defined."
+                    )
+                    self.linear_system = self.equation_system.assemble_schur_complement_system(
+                        self.schur_complement_primary_equations,
+                        self.schur_complement_primary_variables,
+                        inverter=cast(
+                            Callable[[sps.spmatrix], sps.spmatrix],
+                            self.params.get("schur_complement_inverter", None),
+                        ),
+                    )
+                else:
+                    self.linear_system = self.equation_system.assemble()
+
+        t_1 = time.time()
+        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+
     def after_nonlinear_convergence(self) -> None:
         super().after_nonlinear_convergence()
         phases = list(self.fluid.phases)
@@ -738,7 +792,6 @@ params = {
 }
 
 model = FlowModel(params)
-
 
 model.prepare_simulation()
 
