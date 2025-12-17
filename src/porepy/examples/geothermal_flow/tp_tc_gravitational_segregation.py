@@ -125,7 +125,7 @@ class ModelGeometry(Geometry):
 
 
 class ModelGeometry3D(Geometry):
-    _sphere_radius: float = 0.125 * 8
+    _sphere_radius: float = 0.0625* 4
     _sphere_centre: np.ndarray = np.array([2.5, 2.5, 5.0])
 
     def set_domain(self) -> None:
@@ -143,7 +143,7 @@ class ModelGeometry3D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.125 * 8, "m")
+        cell_size = self.units.convert_units(0.0625 * 4, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -963,7 +963,7 @@ class FlowModel(
         # Get current Newton iteration number
         iteration_num = self.nonlinear_solver_statistics.num_iteration
 
-        if iteration_num % 2 == 0 or iteration_num < 6:
+        if iteration_num % 2 == 0 or iteration_num < 10:
             # Update both Jacobian and residual at iterations 0, 3, 6, 9, ...
             logger.info(f"Newton iteration {iteration_num}: Updating Jacobian and residual")
             self.linear_system = self.equation_system.assemble(evaluate_jacobian=True)
@@ -1233,7 +1233,7 @@ params = {
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     "use_petsc": False,  # Set to True to use PETSc with MUMPS solver
-    "petsc_preconditioner": "amg_hypre",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre'
+    "petsc_preconditioner": "jacobi",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre'
 }
 
 model = FlowModel(params)
