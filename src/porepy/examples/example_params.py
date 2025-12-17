@@ -20,14 +20,22 @@ from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
 from porepy.numerics.nonlinear.convergence_check import (
-    AbsoluteConvergenceCriterion,
-    ConvergenceTolerance,
+    IncrementBasedAbsoluteCriterion,
+    IncrementBasedRelativeCriterion,
+    IncrementBasedNanCriterion,
+    IncrementBasedAbsoluteDivergenceCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedRelativeCriterion,
+    ResidualBasedNanCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
+    MaxIterationsCriterion,
 )
 from porepy.numerics.nonlinear.line_search import (
     ConstraintLineSearch,
     LineSearchNewtonSolver,
     SplineInterpolationLineSearch,
 )
+from porepy.models.metric import EuclideanMetric
 
 
 # The most advanced nonlinear solver available (so far).
@@ -101,14 +109,31 @@ solver_params = {
     "prepare_simulation": True,
     "progressbars": True,  # make sure you installed tqdm
     "_nl_progress_bar_position": 0,  # TODO: You don't want to change it.
-    "nl_convergence_tol": ConvergenceTolerance(
-        tol_increment=1e-10,  # Increment norm tolerance for convergence
-        tol_residual=1e-10,  # Residual norm tolerance for convergence
-        max_increment=np.inf,  # Max increment norm tolerance for divergence
-        max_residual=np.inf,  # Max residual norm tolerance for divergence
-        max_iterations=10,  # Max iterations of a nonlinear solver (Newton)
-    ),
-    "nl_convergence_criterion": AbsoluteConvergenceCriterion(),
+    # Sufficient to steer control defaul convergence and divergence criteria.
+    # "max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
+    # "nl_convergence_inc_atol": 1e-6,  # Increment norm
+    # "nl_convergence_res_atol": 1e-6,  # Residual norm
+    # "nl_convergence_inc_rtol": 1e-4,  # Increment norm (relative)
+    # "nl_convergence_res_rtol": 1e-4,  # Residual norm (relative)
+    # "nl_divergence_inc_tol": np.inf,
+    # "nl_divergence_res_tol": np.inf,
+    "nl_convergence_criteria": {
+        "inc_abs": IncrementBasedAbsoluteCriterion(tol=1e-6, metric=EuclideanMetric()),
+        "inc_rel": IncrementBasedRelativeCriterion(tol=1e-4, metric=EuclideanMetric()),
+        "res_abs": ResidualBasedAbsoluteCriterion(tol=1e-6, metric=EuclideanMetric()),
+        "res_rel": ResidualBasedRelativeCriterion(tol=1e-4, metric=EuclideanMetric()),
+    },
+    "nl_divergence_criteria": {
+        "max_iter": MaxIterationsCriterion(max_iterations=10),
+        "inc_nan": IncrementBasedNanCriterion(metric=EuclideanMetric()),
+        "res_nan": ResidualBasedNanCriterion(metric=EuclideanMetric()),
+        "inc_max": IncrementBasedAbsoluteDivergenceCriterion(
+            tol=np.inf, metric=EuclideanMetric()
+        ),
+        "res_max": ResidualBasedAbsoluteDivergenceCriterion(
+            tol=np.inf, metric=EuclideanMetric()
+        ),
+    },
     # Line search / Solution Strategies. These are considered "advanced" options.
     # Delete the following lines for the default Newton's method.
     "nonlinear_solver": ConstraintLineSearchNonlinearSolver,  # Must be a class.

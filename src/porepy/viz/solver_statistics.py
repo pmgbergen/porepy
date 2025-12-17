@@ -10,32 +10,58 @@ from typing import Any, Optional, Type
 
 import numpy as np
 
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceStatusDict,
+    ConvergenceStatusCollection,
+)
 from copy import copy
 
 logger = logging.getLogger(__name__)
+
+# Auxiliary functions for appending dictionaries and exporting to json.
+
+
+def _leafs_only(d: dict) -> dict:
+    """Recursive function to extract only leafs of a dictionary."""
+    if isinstance(d, dict):
+        return {k: _leafs_only(v) for k, v in d.items()}
+    elif isinstance(d, list):
+        return d[-1]
+    else:
+        return d
+
+
+def _make_leafs_to_list(d: dict) -> dict:
+    """Auxiliary function to convert leafs of a dictionary to lists."""
+    for key, value in d.items():
+        if isinstance(value, dict):
+            d[key] = _make_leafs_to_list(value)
+        else:
+            d[key] = [value]
+    return d
 
 
 def _recursive_append(d: dict, v: dict) -> dict:
     """Auxiliary function to recursively append dictionaries."""
     for key_v, value_v in v.items():
         if key_v not in d:
-            d[key_v] = copy(value_v)
+            if isinstance(value_v, dict):
+                d[key_v] = _make_leafs_to_list(copy(value_v))
+            else:
+                d[key_v] = [copy(value_v)]
         else:
             if isinstance(d[key_v], dict):
                 assert isinstance(value_v, dict)
                 d[key_v] = _recursive_append(d[key_v], value_v)
             elif isinstance(d[key_v], list):
-                assert isinstance(value_v, (float, int))
                 d[key_v].append(value_v)
             else:
-                assert isinstance(value_v, (float, int))
-                d[key_v] = [d[key_v], value_v]
+                raise ValueError
 
     return d
 
 
-class NumpyJSONEncoder(json.JSONEncoder):
+class _NumpyJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy data types."""
 
     def default(self, obj):
@@ -60,10 +86,6 @@ class SolverStatistics:
     """Counter for the number of times the statistics object has been updated."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
-    convergence_status: ConvergenceStatus = field(
-        default=ConvergenceStatus.NOT_CONVERGED
-    )
-    """Convergence status of the solver."""
     num_cells: list[int] = field(default_factory=list)
     """Number of cells in each dimension."""
     custom_data: dict[str, Any] = field(default_factory=dict)
@@ -87,18 +109,6 @@ class SolverStatistics:
         self.num_cells = [0] * (max_dim + 1)
         for sd in subdomains:
             self.num_cells[sd.dim] += sd.num_cells
-
-    def log_convergence_status(
-        self, convergence_status: ConvergenceStatus, **kwargs
-    ) -> None:
-        """Log the convergence status of the solver.
-
-        Parameters:
-            convergence_status: Convergence status of the solver.
-            **kwargs: Additional keyword arguments, for potential extension.
-
-        """
-        self.convergence_status = convergence_status
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -124,7 +134,6 @@ class SolverStatistics:
     def reset(self) -> None:
         """Reset the statistics object, and restart counting iterations."""
         self.counter += 1
-        self.convergence_status = ConvergenceStatus.NOT_CONVERGED
         self.custom_data = dict[str, Any]()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
@@ -141,7 +150,6 @@ class SolverStatistics:
         # Store static geometry data.
         data["global"] = {
             "num_cells": self.num_cells,
-            "convergence_status": str(self.convergence_status),
             "latest_counter": self.counter,
         }
 
@@ -207,7 +215,7 @@ class SolverStatistics:
 
             # Save to file
             with self.path.open("w") as file:
-                json.dump(data, file, indent=4, cls=NumpyJSONEncoder)
+                json.dump(data, file, indent=4, cls=_NumpyJSONEncoder)
 
 
 @dataclass
@@ -238,6 +246,10 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     num_iteration: int = field(default=0)
     """Number of non-linear iterations performed for current time step."""
+    convergence_status: ConvergenceStatusCollection = field(
+        default_factory=ConvergenceStatusCollection
+    )
+    """Convergence status of the solver (type depends on )."""
     info: list[float] | dict[str, list[float]] = field(default_factory=list)
     """Convergence information containing error norms."""
     global_num_iteration: list[int] = field(default_factory=list)
@@ -250,6 +262,18 @@ class NonlinearSolverStatistics(SolverStatistics):
     def advance_iteration(self) -> None:
         """Advance the iteration count by one."""
         self.num_iteration += 1
+
+    def log_convergence_status(
+        self, convergence_status: ConvergenceStatusDict, **kwargs
+    ) -> None:
+        """Log and collect the convergence status of the solver.
+
+        Parameters:
+            convergence_status: Convergence status of the solver.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        self.convergence_status.append(convergence_status)
 
     def log_info(self, info: dict | float, **kwargs) -> None:
         """Log info produced from convergence criteria.
@@ -279,6 +303,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         """Reset the statistics object, and restart counting iterations."""
         super().reset()
         self.num_iteration = 0
+        self.convergence_status.clear()
         self.info.clear()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
@@ -293,12 +318,20 @@ class NonlinearSolverStatistics(SolverStatistics):
             dict: Updated dictionary with global data.
 
         """
-
         data = super().append_global_data(data)
+
+        # Store global number of iterations
         self.global_num_iteration.append(self.num_iteration)
+
+        # Extract final convergence status
+        final_convergence_status = _leafs_only(self.convergence_status.to_str())
+
+        # Update global data
         data["global"].update(
             {
                 "num_iteration": self.global_num_iteration,
+                "total_num_iteration": sum(self.global_num_iteration),
+                "final_convergence_status": final_convergence_status,
             }
         )
         return data
@@ -310,8 +343,8 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.counter)].update(
             {
                 "num_iteration": self.num_iteration,
-                "convergence_status": str(self.convergence_status),
-                "info": self.info,
+                "convergence_status": self.convergence_status.to_str(),
+                "convergence_info": self.info,
             }
         )
 
