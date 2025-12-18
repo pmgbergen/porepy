@@ -43,9 +43,9 @@ class LinearSolver:
         # Default parameters for convergence and divergence criteria
         if "nl_convergence_criteria" not in self.params:
             self.params["nl_convergence_criteria"] = {}
-        self.convergence_criteria = cast(
-            ConvergenceCriteria, self.params.get("nl_convergence_criteria")
-        )
+        self.convergence_criteria = ConvergenceCriteria(
+            self.params.get("nl_convergence_criteria")
+        )  # type: ignore[arg-type]
         """Convergence criterion used in the convergence check."""
 
         if "nl_divergence_criteria" not in self.params:
@@ -53,9 +53,9 @@ class LinearSolver:
                 "inc_nan": IncrementBasedNanCriterion(),
                 "res_nan": ResidualBasedNanCriterion(),
             }
-        self.divergence_criteria = cast(
-            DivergenceCriteria, self.params.get("nl_divergence_criteria")
-        )
+        self.divergence_criteria = DivergenceCriteria(
+            self.params.get("nl_divergence_criteria")
+        )  # type: ignore[arg-type]
         """Divergence criterion used in the convergence check."""
 
     def solve(self, model: SolutionStrategy) -> SimulationStatus:
