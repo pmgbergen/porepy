@@ -17,6 +17,29 @@ from copy import copy
 import numpy as np
 
 
+class SimulationStatus(StrEnum):
+    """Enumeration of potential simulation statuses."""
+
+    SUCCESSFUL = "successful"
+    FAILED = "failed"
+    STOPPED = "stopped"
+
+    def __str__(self):
+        return self.value
+
+    def is_successful(self) -> bool:
+        """Check if the status indicates a successful simulation."""
+        return self == SimulationStatus.SUCCESSFUL
+
+    def is_failed(self) -> bool:
+        """Check if the status indicates a failed simulation."""
+        return self == SimulationStatus.FAILED
+
+    def is_stopped(self) -> bool:
+        """Check if the status indicates a stopped simulation."""
+        return self == SimulationStatus.STOPPED
+
+
 class ConvergenceStatus(StrEnum):
     """Enumeration of potential convergence statuses."""
 
