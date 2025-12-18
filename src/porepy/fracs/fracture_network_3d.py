@@ -404,12 +404,13 @@ class FractureNetwork3d(FractureNetwork):
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
         self._set_background_mesh_field(
-            self._set_2d_mesh_size(
+            self._set_mesh_size_fields(
                 mesh_size_computer,
                 mesh_control_dict,
                 intersection_lines,
                 intersection_line_parents,
                 fracture_to_surface,
+                restrict_to_fractures=True,
             )
         )
         fac.synchronize()
@@ -418,12 +419,16 @@ class FractureNetwork3d(FractureNetwork):
             # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
             for field in gmsh.model.mesh.field.list():
                 gmsh.model.mesh.field.remove(field)
-            self._set_3d_mesh_size(
-                mesh_size_computer,
-                mesh_control_dict,
-                intersection_lines,
-                intersection_line_parents,
-                fracture_to_surface,
+            # Set the new mesh size fields, but this time not restricting to fractures.
+            self._set_background_mesh_field(
+                self._set_mesh_size_fields(
+                    mesh_size_computer,
+                    mesh_control_dict,
+                    intersection_lines,
+                    intersection_line_parents,
+                    fracture_to_surface,
+                    restrict_to_fractures=False,
+                )
             )
             gmsh.model.mesh.generate(3)
 
@@ -742,15 +747,15 @@ class FractureNetwork3d(FractureNetwork):
             inv_fracture_tag_map,
         )
 
-    def _set_2d_mesh_size(
+    def _set_mesh_size_fields(
         self,
         mesh_size_computer: MeshSizeComputer,
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         intersection_lines: list[int],
         intersection_line_parents: list[int],
         fracture_to_surface: dict[int, list[int]],
-        restrict_to_fractures: bool = True,
-    ) -> None:
+        restrict_to_fractures: bool,
+    ) -> list:
         nd = 3
 
         ### Get hold of lines representing fractures and boundaries.
@@ -759,9 +764,8 @@ class FractureNetwork3d(FractureNetwork):
         # by fractures), we need to pick out the outer boundary, that is, the ones which
         # only occurs once.
         boundaries = gmsh.model.get_boundary([(nd, tag) for _, tag in domain_entities])
-        fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
 
-        surface_tags = [tag for _, tag in gmsh.model.getEntities(nd - 1)]
+        surface_tags = set(tag for _, tag in gmsh.model.get_entities(nd - 1))
         boundary_tags = set(tag for _, tag in boundaries)
 
         # The list of gmsh fields created.
@@ -770,7 +774,6 @@ class FractureNetwork3d(FractureNetwork):
         # All mesh size control points should have been inserted already, so we just
         # need to set up the fields and associate them with the points by the gmsh
         # indices. To that end, create a list of all physical point coordinates.
-        # TODO: Create a helper class for this operation, common for 2d and 3d.
         gmsh_point_finder = GmshPointIdentifier()
 
         # The same point might have been inserted multiple times (e.g., if it lies at
@@ -807,9 +810,6 @@ class FractureNetwork3d(FractureNetwork):
             return np.min(distances)
 
         for surface, info in mesh_size.items():
-            # Uniquify the point set (the same point may have been identified multiple
-            # times).
-
             # Boundary of the current surface.
             boundary_lines = [
                 t
@@ -827,12 +827,7 @@ class FractureNetwork3d(FractureNetwork):
                 surface_lines = intersection_lines[surface_is_parent].tolist()
             else:
                 surface_lines = []
-            # Distance to other objects for each point, as computed previously. Assign
-            # h_frac or h_bound to the endpoints, depending on whether the line is a
-            # fracture or boundary line. We also assign h_frac, since no refinement is
-            # needed just because this is an intersection point (if it is an
-            # intersection with a bad angle, this should be picked up by a close point
-            # on another line).
+            # Distance to other objects for each point, as computed previously.
             h_end = mesh_size_computer.size_farfield(surface in boundary_tags)
 
             # Points on intersection lines. Since intersection of lines should result in
@@ -906,9 +901,6 @@ class FractureNetwork3d(FractureNetwork):
                 other_object_distances.append(min_dist)
             other_object_distances = np.array(other_object_distances)
 
-            # Mesh size information that relates to either endpoints or points close to
-            # end points (which were filtered out) must be assigned to endpoints.
-
             if points.shape[1] > 1:
                 # If there is more than one point in addition to the end points, we can
                 # compute the point-point distances in pairs along this line.
@@ -916,9 +908,9 @@ class FractureNetwork3d(FractureNetwork):
                 min_dist_point = np.min(point_point_distances, axis=0)
             else:
                 # If there is a single point, the point-point distance will return 0
-                # even with the diag exclusion. In this case, we just set the distance to
-                # a large value, so that the distance to other objects is the one that
-                # is used.
+                # even with the diag exclusion. In this case, we just set the distance
+                # to a large value, so that the distance to other objects is the one
+                # that is used.
                 min_dist_point = 2 * other_object_distances + 1
 
             # The final distance to be used for mesh size calculation is the minimum of
@@ -948,31 +940,6 @@ class FractureNetwork3d(FractureNetwork):
         )
 
         return gmsh_fields
-
-    def _set_3d_mesh_size(
-        self,
-        mesh_size_computer: MeshSizeComputer,
-        mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
-        intersection_lines: list[int],
-        intersection_line_parents: list[int],
-        fracture_to_surface,
-    ) -> None:
-        # For 3d meshing, we only set mesh sizes on the fractures, not in the domain
-        # volume. The rationale is that the volume mesh size will be controlled by the
-        # fracture mesh size and the overall mesh size in the domain.
-
-        gmsh_fields = self._set_2d_mesh_size(
-            mesh_size_computer,
-            mesh_size_points,
-            intersection_lines,
-            intersection_line_parents,
-            fracture_to_surface,
-            restrict_to_fractures=False,
-        )
-
-        # Finally, as the background mesh, we take the minimum of all the created
-        # fields.
-        self._set_background_mesh_field(gmsh_fields)
 
     def __repr__(self) -> str:
         s = (
