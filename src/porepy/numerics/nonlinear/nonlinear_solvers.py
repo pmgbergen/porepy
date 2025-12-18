@@ -294,11 +294,10 @@ class NewtonSolver:
 
         """
         assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
-        if convergence_status is not None and convergence_info is not None:
-            # Administration of solver statistics.
-            model.nonlinear_solver_statistics.advance_iteration()
 
-            # Convergence-related information.
+        # Convergence-related information.
+        if convergence_status is not None and convergence_info is not None:
+            model.nonlinear_solver_statistics.advance_iteration()
             model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
             model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
 

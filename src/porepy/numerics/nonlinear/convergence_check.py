@@ -325,7 +325,8 @@ class MaxIterationsCriterion(DivergenceCriterion):
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        if num_iterations >= self.max_iterations:
+        # Assume iteration counting starts at 0
+        if num_iterations >= self.max_iterations - 1:
             return ConvergenceStatus.DIVERGED
         else:
             return ConvergenceStatus.CONVERGED
