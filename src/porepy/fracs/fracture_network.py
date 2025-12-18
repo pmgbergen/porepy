@@ -144,9 +144,7 @@ class FractureNetwork(ABC):
                 parameters.
 
         Returns:
-            tuple: A tuple containing:
-                - A list of Gmsh tags of the inserted mesh size control points.
-                - A dictionary mapping Gmsh entity tags to lists of tuples, each
+            dict: A dictionary mapping Gmsh entity tags to lists of tuples, each
                   containing the coordinates of an inserted mesh size control point
                   and its distance to the nearest other fracture or boundary.
 
@@ -276,7 +274,7 @@ class FractureNetwork(ABC):
             insert_point(f_1, points_1)
             gmsh.model.occ.synchronize()
 
-        return control_points, mesh_size_points
+        return mesh_size_points
 
     def _assign_distance_based_mesh_size_field(
         self,

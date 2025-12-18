@@ -261,60 +261,18 @@ class FractureNetwork3d(FractureNetwork):
         surface_tags = fracture_tags + boundary_tags
         gmsh.model.occ.synchronize()
 
-        mesh_control_tag, mesh_control_dict = self._insert_mesh_size_control_points(
-            mesh_size_computer
-        )
+        mesh_control_dict = self._insert_mesh_size_control_points(mesh_size_computer)
         gmsh.model.occ.synchronize()
-        control_tag = [(0, tag) for tag in mesh_control_tag]
 
-        if len(mesh_control_tag) == 0:
-            # Map from the gmsh tags originally assigned to the fractures to the
-            # fractures after possible truncation and removal.
-            fracture_tag_map = {i: [i] for i in fracture_tags}
-            # List of new fracture tags after possible truncation and removal.
-            fracture_tags_new = copy.deepcopy(fracture_tags)
-            # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
-            inv_fracture_tag_map = {
-                i: counter for counter, i in enumerate(fracture_tags)
-            }
-            boundary_tags_new = boundary_tags
-        else:
-            # Do a fragmentation to embed the control points into the fracture and
-            # boundary lines. This will also update all tags, and we need to pursue
-            # them.
-            gmsh.model.occ.synchronize()
-            _, entity_map = gmsh.model.occ.fragment(
-                [(0, p) for p in mesh_control_tag],
-                [(nd - 1, f) for f in surface_tags],
-                removeObject=True,
-                removeTool=True,
-            )
-            gmsh.model.occ.synchronize()
-            new_mesh_control_dict = {}
-            surface_map = entity_map[len(mesh_control_tag) :]
-            fracture_tags_new = []
-            fracture_tag_map = {i: [] for i in fracture_tags}
-            boundary_tags_new = []
-            inv_fracture_tag_map = {}
-            for input_ind, (fi, info) in enumerate(zip(surface_tags, surface_map)):
-                new_tags = [i[1] for i in info if i[0] == nd - 1]
-                if fi in fracture_tags:
-                    fracture_tag_map[fi].extend(new_tags)
-                    fracture_tags_new += new_tags
-                elif fi in boundary_tags:
-                    boundary_tags_new += new_tags
-                for nt in new_tags:
-                    inv_fracture_tag_map[nt] = input_ind
-                    # Assign the mesh size points to all the new fracture segments. For
-                    # a fracture that was split into multiple segments, this will
-                    # introduce additional points that are outside the segment, but we
-                    # will have to deal with this later.
-                    if fi in mesh_control_dict:
-                        new_mesh_control_dict[nt] = mesh_control_dict[fi]
+        # Map from the gmsh tags originally assigned to the fractures to the
+        # fractures after possible truncation and removal.
+        fracture_tag_map = {i: [i] for i in fracture_tags}
+        # List of new fracture tags after possible truncation and removal.
+        fracture_tags = copy.deepcopy(fracture_tags)
+        # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
+        inv_fracture_tag_map = {i: counter for counter, i in enumerate(fracture_tags)}
 
-            mesh_control_dict = new_mesh_control_dict
-
-        surface_tags_new = fracture_tags_new + boundary_tags_new
+        surface_tags = fracture_tags + boundary_tags
 
         (
             intersection_points,
@@ -325,7 +283,7 @@ class FractureNetwork3d(FractureNetwork):
             intersection_line_parents,
             inv_fracture_tag_map,
         ) = self.process_intersections(
-            fracture_tags_new,
+            fracture_tags,
             domain_tag,
             constraints=constraints,
             fracture_tag_map=fracture_tag_map,
@@ -344,7 +302,7 @@ class FractureNetwork3d(FractureNetwork):
 
             # Get hold of the gmsh tag used to represent this fracture before
             # intersection removal.
-            old_gmsh_tag = surface_tags_new[fi]
+            old_gmsh_tag = surface_tags[fi]
             for sub_frac in old_fracture:
                 if old_gmsh_tag in mesh_control_dict:
                     # Update the mesh size points for the new segments.
@@ -359,7 +317,7 @@ class FractureNetwork3d(FractureNetwork):
         domain_tag = gmsh.model.get_entities(nd)
         bnd_tag = gmsh.model.get_boundary(gmsh.model.get_entities(nd), oriented=False)
         new_mesh_control_dict.update({t[1]: [] for t in bnd_tag})
-        for bnd in boundary_tags_new:
+        for bnd in boundary_tags:
             info = mesh_control_dict.get(bnd)
             if len(info) == 0:
                 # No points were assigned to this boundary surface, so there is nothing

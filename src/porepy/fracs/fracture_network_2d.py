@@ -283,62 +283,11 @@ class FractureNetwork2d(FractureNetwork):
         ]
         # Insert points to control mesh size for nearly intersecting lines.
         boundary_tags = [t for _, t in gmsh.model.get_boundary([(2, domain_tag)])]
-        # Note to self: By placing the fracture tags first, we associate the index in
-        # line_tags with the fracture index (hopefully, there is no logical error
-        # connected to fractures being outside the domain, thereby already removed).
-        line_tags = fracture_tags + boundary_tags
 
-        isect_pt, mesh_size_points = self._insert_mesh_size_control_points(
-            mesh_size_computer
-        )
+        mesh_size_points = self._insert_mesh_size_control_points(mesh_size_computer)
 
-        if len(isect_pt) == 0:
-            # Map from the gmsh tags originally assigned to the fractures to the
-            # fractures after possible truncation and removal.
-            fracture_tag_map = {i: [i] for i in fracture_tags}
-            # List of new fracture tags after possible truncation and removal.
-            fracture_tags_new = copy.deepcopy(fracture_tags)
-            # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
-            inv_fracture_tag_map = {
-                i: counter for counter, i in enumerate(fracture_tags)
-            }
-            boundary_tags_new = boundary_tags
-        else:
-            # Do a fragmentation to embed the control points into the fracture and
-            # boundary lines. This will also update all tags, and we need to pursue
-            # them.
-            gmsh.model.occ.synchronize()
-            _, entity_map = gmsh.model.occ.fragment(
-                [(0, p) for p in isect_pt],
-                [(nd - 1, f) for f in line_tags],
-                removeObject=True,
-                removeTool=True,
-            )
-            gmsh.model.occ.synchronize()
-            updated_mesh_size_points = {}
-
-            line_map = entity_map[len(isect_pt) :]
-            fracture_tags_new = []
-            fracture_tag_map = {i: [] for i in fracture_tags}
-            boundary_tags_new = []
-            inv_fracture_tag_map = {}
-            for input_ind, (fi, info) in enumerate(zip(line_tags, line_map)):
-                new_tags = [i[1] for i in info if i[0] == nd - 1]
-                if fi in fracture_tags:
-                    fracture_tag_map[fi].extend(new_tags)
-                    fracture_tags_new += new_tags
-                elif fi in boundary_tags:
-                    boundary_tags_new += new_tags
-                for nt in new_tags:
-                    inv_fracture_tag_map[nt] = input_ind
-                    # Assign the mesh size points to all the new fracture segments. For
-                    # a fracture that was split into multiple segments, this will
-                    # introduce additional points that are outside the segment, but we
-                    # will have to deal with this later.
-                    if fi in mesh_size_points:
-                        updated_mesh_size_points[nt] = mesh_size_points[fi]
-
-            mesh_size_points = updated_mesh_size_points
+        # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
+        inv_fracture_tag_map = {i: counter for counter, i in enumerate(fracture_tags)}
 
         # Make gmsh calculate the intersections between fractures, using the domain as a
         # secondary object (the latter will by magic ensure that the fractures are
@@ -347,7 +296,7 @@ class FractureNetwork2d(FractureNetwork):
         # with new, split lines. Similarly, the removal of the domain (removeTool)
         # avoids the domain being present twice.
 
-        line_tags_new = fracture_tags_new + boundary_tags_new
+        line_tags_new = fracture_tags + boundary_tags
         _, isect_mapping = fac.fragment(
             [(nd - 1, ft) for ft in line_tags_new],
             [(nd, domain_tag)],
@@ -386,7 +335,7 @@ class FractureNetwork2d(FractureNetwork):
             # Get hold of the gmsh tag used to represent this fracture before
             # intersection removal.
             old_gmsh_tag = line_tags_new[fi]
-            if old_gmsh_tag in boundary_tags_new:
+            if old_gmsh_tag in boundary_tags:
                 # This is part of the boundary. Skip it.
                 continue
 
