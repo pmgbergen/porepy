@@ -262,7 +262,7 @@ class FractureNetwork3d(FractureNetwork):
         gmsh.model.occ.synchronize()
 
         mesh_control_tag, mesh_control_dict = self._insert_mesh_size_control_points(
-            fracture_tags, mesh_size_computer
+            mesh_size_computer
         )
         gmsh.model.occ.synchronize()
         control_tag = [(0, tag) for tag in mesh_control_tag]
@@ -1047,83 +1047,6 @@ class FractureNetwork3d(FractureNetwork):
         # Finally, as the background mesh, we take the minimum of all the created
         # fields.
         self._set_background_mesh_field(gmsh_fields)
-
-    def _insert_mesh_size_control_points(
-        self, fracture_tags: list[int], mesh_size_computer: MeshSizeComputer
-    ):
-        nd = self.nd
-
-        ### Get hold of surfaces representing fractures and boundaries.
-        domain_entities = gmsh.model.get_entities(nd)
-
-        boundaries = gmsh.model.get_boundary(
-            [(nd, tag) for _, tag in domain_entities], oriented=False
-        )
-        fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
-        boundary_tags = [tag for _, tag in boundaries]
-        fracture_tags = [tag for _, tag in fractures]
-        surface_tags = [tag for _, tag in gmsh.model.get_entities(nd - 1)]
-
-        # Note to self: keeping track of gmsh tags of points is futile. Instead, we need
-        # to identify points by their coordinates, and do a tolerance-based search.
-        mesh_size_points = {}
-        for f in surface_tags:
-            mesh_size_points[f] = []
-
-        nd = self.domain.dim
-
-        inserted_points = []
-        insertion_surface = []
-        control_point_tags = []
-
-        inserter = MeshSizeControlPointInserter(nd, mesh_size_computer)
-
-        def point_already_present(pt, li):
-            if len(inserted_points) == 0:
-                return False
-            dists = np.linalg.norm(
-                np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
-            )
-            i = np.argmin(dists)
-            return dists[i] < mesh_size_computer.h_min() and insertion_surface[i] == li
-
-        for f_0, f_1 in combinations(surface_tags, 2):
-            if f_0 in boundary_tags and f_1 in boundary_tags:
-                # No refinement between two boundary lines.
-                continue
-
-            distance_info = gmsh.model.occ.getDistance(nd - 1, f_0, nd - 1, f_1)
-
-            if distance_info[0] > mesh_size_computer.refinement_threshold():
-                continue
-
-            f_0_is_fracture = f_0 in fracture_tags
-            f_1_is_fracture = f_1 in fracture_tags
-
-            points_0, points_1 = inserter.compute_points(
-                f_0,
-                f_1,
-                distance_info[1:4],
-                distance_info[4:7],
-                distance_info[0],
-                f_0_is_fracture,
-                f_1_is_fracture,
-            )
-            gmsh.model.occ.synchronize()
-            for _, pt, dist in points_0:
-                if point_already_present(pt, f_0):
-                    continue
-                mesh_size_points[f_0].append((np.array(pt), dist))
-                inserted_points.append(np.array(pt))
-                insertion_surface.append(f_0)
-            for _, pt, dist in points_1:
-                if point_already_present(pt, f_1):
-                    continue
-                mesh_size_points[f_1].append((np.array(pt), dist))
-                inserted_points.append(np.array(pt))
-                insertion_surface.append(f_1)
-
-        return control_point_tags, mesh_size_points
 
     def __repr__(self) -> str:
         s = (

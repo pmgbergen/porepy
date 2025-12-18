@@ -11,6 +11,7 @@ import heapq
 import numpy as np
 from pathlib import Path
 import copy
+from itertools import combinations
 
 # Custom typings
 FractureList = Optional[
@@ -125,6 +126,157 @@ class FractureNetwork(ABC):
                 return True
         # Having come this far, the entity is not on the domain boundary.
         return False
+
+    def _insert_mesh_size_control_points(
+        self, mesh_size_computer: MeshSizeComputer
+    ) -> tuple[list[int], dict[int, list[tuple[np.ndarray, float]]]]:
+        """Insert control points for mesh size specification on fractures and
+        boundaries.
+
+        The method identifies points on fracture surfaces and domain boundaries where
+        mesh size control points should be inserted. Later in the meshing process Gmsh
+        mesh size fields will be assigned based on the distances from these points to
+        surrounding objects. For a detailed description of the approach, see the
+        documentation of the MeshSizeComputer class.
+
+        Parameters:
+            mesh_size_computer: Instance of MeshSizeComputer providing the mesh size
+                parameters.
+
+        Returns:
+            tuple: A tuple containing:
+                - A list of Gmsh tags of the inserted mesh size control points.
+                - A dictionary mapping Gmsh entity tags to lists of tuples, each
+                  containing the coordinates of an inserted mesh size control point
+                  and its distance to the nearest other fracture or boundary.
+
+        """
+
+        ### Get hold of entities representing fractures and boundaries.
+        domain_entities = gmsh.model.get_entities(self.nd)
+        boundaries = gmsh.model.get_boundary(
+            [(self.nd, tag) for _, tag in domain_entities]
+        )
+        fractures = [
+            f for f in gmsh.model.get_entities(self.nd - 1) if f not in boundaries
+        ]
+        boundary_tags = set(tag for _, tag in boundaries)
+        fracture_tags = set(tag for _, tag in fractures)
+        entities = set(tag for _, tag in gmsh.model.get_entities(self.nd - 1))
+
+        # Note to self: keeping track of gmsh tags of points is futile. Instead, we need
+        # to identify points by their coordinates, and do a tolerance-based search.
+        mesh_size_points = {}
+        for f in fracture_tags | boundary_tags:
+            mesh_size_points[f] = []
+
+        control_points: list[int] = []
+
+        # To avoid inserting the same point multiple times on the same line, and to
+        # prune doubly defined points from the gmsh specification, we keep track of
+        # which points have already been inserted where.
+
+        # Coordinates of the inserted mesh size control points.
+        inserted_points: list[np.ndarray] = []
+        # Coordinates of the mesh size control points already inserted. Used to avoid
+        # duplicates.
+        inserted_on_entity: list[int] = []
+
+        # Take note of the boundary points of all entities, to avoid inserting points
+        # there (not doing so may confuse Gmsh).
+        for ent in entities:
+            bp = gmsh.model.get_boundary([(self.nd - 1, ent)], recursive=True)
+            for b in bp:
+                if b[0] != 0:
+                    continue
+                coord = gmsh.model.occ.get_bounding_box(*b)[:3]
+                inserted_points.append(np.array(coord))
+                inserted_on_entity.append(ent)
+
+        # Create helper object responsible for computing the points to be inserted.
+        inserter = MeshSizeControlPointInserter(self.nd, mesh_size_computer)
+
+        def point_already_present(pt: np.ndarray, ind: int) -> tuple[bool, bool]:
+            """Check if a point is already present among the inserted points.
+
+            Parameters:
+                pt: Coordinates of the point to be checked.
+                end: Gmsh tag of the entity where the point is to be inserted.
+
+            Returns:
+                A tuple of three elements:
+                - A boolean indicating whether the point is already present within
+                  tolerance.
+                - A boolean indicating whether the point is already present on the
+                  specified entity.
+
+            """
+            if len(inserted_points) == 0:
+                return False
+            dists = np.linalg.norm(
+                np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
+            )
+            i = np.argmin(dists)
+            return dists[i] < self._tol, inserted_on_entity[i] == ind
+
+        def insert_point(
+            frac: int, points: list[tuple[int, np.ndarray, float]]
+        ) -> None:
+            """Insert mesh size control points on a fracture or boundary.
+
+            Parameters:
+                frac: Gmsh tag of the fracture or boundary where points are to be
+                    inserted.
+                points: List of tuples, each containing:
+                    - Gmsh tag of the point to be inserted.
+                    - Coordinates of the point to be inserted.
+                    - Distance from the point to the nearest other fracture or boundary.
+
+            The method inserts the specified mesh size control points into the
+            dictionary mesh_size_points, and also keeps track of the inserted points to
+            avoid duplicates.
+
+            """
+            for pi, pt, dist in points:
+                point_present, on_entity = point_already_present(pt, frac)
+                if point_present and on_entity:
+                    # The point is already present, thus there will be a mesh size field
+                    # for it on this entity. Remove the newly created point.
+                    gmsh.model.occ.remove([(0, pi)])
+                    continue
+                # The mesh size control point is to be kept.
+                mesh_size_points[frac].append((np.array(pt), dist))
+                # Keep track of the inserted point, so that we avoid duplicates.
+                inserted_points.append(np.array(pt))
+                inserted_on_entity.append(frac)
+
+        # Loop over all pairs of entities, compute distances and insert points as
+        # needed.
+        for f_0, f_1 in combinations(entities, 2):
+            if f_0 in boundary_tags and f_1 in boundary_tags:
+                # No refinement between two boundary lines.
+                continue
+
+            distances = gmsh.model.occ.getDistance(self.nd - 1, f_0, self.nd - 1, f_1)
+
+            if distances[0] > mesh_size_computer.refinement_threshold():
+                continue
+
+            # Compute the points to be inserted on both fractures. Insert them.
+            points_0, points_1 = inserter.compute_points(
+                f_0,
+                f_1,
+                distances[1:4],
+                distances[4:7],
+                distances[0],
+                f_0 in fracture_tags,
+                f_1 in fracture_tags,
+            )
+            insert_point(f_0, points_0)
+            insert_point(f_1, points_1)
+            gmsh.model.occ.synchronize()
+
+        return control_points, mesh_size_points
 
     def _assign_distance_based_mesh_size_field(
         self,
