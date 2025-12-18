@@ -460,7 +460,9 @@ class FractureNetwork2d(FractureNetwork):
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
         self._set_background_mesh_field(
-            self._set_1d_mesh_size(mesh_size_computer, mesh_size_points)
+            self._set_mesh_size_fields(
+                mesh_size_computer, mesh_size_points, restrict_to_fractures=True
+            )
         )
         gmsh.model.occ.synchronize()
 
@@ -475,7 +477,12 @@ class FractureNetwork2d(FractureNetwork):
             # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
             for field in gmsh.model.mesh.field.list():
                 gmsh.model.mesh.field.remove(field)
-            self._set_2d_mesh_size(mesh_size_computer, mesh_size_points)
+
+            self._set_background_mesh_field(
+                self._set_mesh_size_fields(
+                    mesh_size_computer, mesh_size_points, restrict_to_fractures=False
+                )
+            )
             gmsh.model.mesh.generate(2)
 
         gmsh.write(str(file_name))
@@ -505,22 +512,22 @@ class FractureNetwork2d(FractureNetwork):
         # Assemble all subdomains in mixed-dimensional grid.
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
-    def _set_1d_mesh_size(
+    def _set_mesh_size_fields(
         self,
         mesh_size_computer: MeshSizeComputer,
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
-        restrict_to_fractures: bool = True,
+        restrict_to_fractures: bool,
     ) -> None:
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
         # TODO: If there is more than one domain entity (the domain is split into parts
         # by fractures), we need to pick out the outer boundary, that is, the ones which
         # only occurs once.
-        boundaries = gmsh.model.get_boundary([(2, tag) for _, tag in domain_entities])
-        fractures = [f for f in gmsh.model.getEntities(1) if f not in boundaries]
+        boundaries = gmsh.model.get_boundary(
+            [(self.nd, tag) for _, tag in domain_entities]
+        )
 
-        line_tags = [tag for _, tag in gmsh.model.getEntities(1)]
-        fracture_tags = [tag for _, tag in fractures]
+        line_tags = set(tag for _, tag in gmsh.model.getEntities(self.nd - 1))
         boundary_tags = set(tag for _, tag in boundaries)
 
         gmsh_fields = []
@@ -579,9 +586,6 @@ class FractureNetwork2d(FractureNetwork):
                 other_object_distances.append(min_dist)
             other_object_distances = np.array(other_object_distances)
 
-            # Mesh size information that relates to either endpoints or points close to
-            # end points (which were filtered out) must be assigned to endpoints.
-
             if points.shape[1] > 0:
                 # If there is more than one point in addition to the end points, we can
                 # compute the point-point distances in pairs along this line.
@@ -593,7 +597,6 @@ class FractureNetwork2d(FractureNetwork):
                 # may be added there. Note to self: A standard X-intersection with no
                 # other lines in the vicinity will end up here.
                 continue
-                assert False
 
             # The final distance to be used for mesh size calculation is the minimum of
             # the distance to other objects and the distance to other close points on
@@ -622,21 +625,6 @@ class FractureNetwork2d(FractureNetwork):
         )
 
         return gmsh_fields
-
-    def _set_2d_mesh_size(
-        self,
-        mesh_size_computer: MeshSizeComputer,
-        mesh_size_points: dict[tuple[int, int], float],
-    ) -> None:
-        factory = gmsh.model.occ
-
-        gmsh_fields = self._set_1d_mesh_size(
-            mesh_size_computer, mesh_size_points, restrict_to_fractures=False
-        )
-
-        # Finally, as the background mesh, we take the minimum of all the created
-        # fields.
-        self._set_background_mesh_field(gmsh_fields)
 
     def mesh_quality_metrics(self) -> None:
         """Visualize, and log elementwise mesh quality metrics using gmsh.
