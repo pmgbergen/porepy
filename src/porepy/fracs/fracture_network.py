@@ -126,6 +126,114 @@ class FractureNetwork(ABC):
         # Having come this far, the entity is not on the domain boundary.
         return False
 
+    def _set_uniform_mesh_field(
+        self,
+        entities: list[int],
+        mesh_size_computer: MeshSizeComputer,
+        boundary_tags: set[int],
+        codim: bool,
+    ) -> list:
+        """Set uniform mesh size fields on the given entities.
+
+        The mesh is either restricted to the entities themselves (if ``codim=True``), or
+        in the surrounding domain (if ``codim=False``). In the former case, the mesh
+        size is constant on the entities, while in the latter case, the mesh size
+        transitions from a fine mesh size close to the entities to the far-field mesh
+        size.
+
+        Parameters:
+            entities: Set of Gmsh tags identifying the entities where the mesh size
+                field should be applied. The entities are of dimension self.nd - 1.
+            mesh_size_computer: Instance of MeshSizeComputer providing the mesh size
+                parameters.
+            boundary_tags: Set of Gmsh tags identifying the boundary entities of the
+                domain.
+            codim: ``True`` if the mesh size is to be restricted to the entities
+                themselves (codimension 1), ``False`` if the mesh size is to be set in
+                the surrounding domain.
+
+        Returns:
+            list: Updated list of Gmsh size fields including the newly created ones.
+
+        """
+        gmsh_fields = []
+
+        if self.nd == 3:
+            entity_str = "SurfacesList"
+            domain_str = "VolumesList"
+        else:
+            entity_str = "CurvesList"
+            domain_str = "SurfacesList"
+        if codim:
+            # This will set a uniform mesh size on the entities themselves. Set the
+            # mesh size on boundary and interior entities separately.
+            for is_boundary in [True, False]:
+                uniform_field = gmsh.model.mesh.field.add("Constant")
+                loc_entities = [
+                    ent for ent in entities if (ent in boundary_tags) == is_boundary
+                ]
+                # Assign the entities to the field.
+                gmsh.model.mesh.field.setNumbers(
+                    uniform_field, entity_str, loc_entities
+                )
+                Vin = mesh_size_computer.h_end(is_boundary)
+                gmsh.model.mesh.field.setNumber(uniform_field, "VIn", Vin)
+                # Set the mesh size outside the entities to the far-field size. Since we
+                # will take the minimum over all mesh size fields later, this will in
+                # practice not affect the mesh size outside the entities, but it seems
+                # Gmsh requires that a value is set.
+                gmsh.model.mesh.field.setNumber(
+                    uniform_field, "VOut", mesh_size_computer.h_farfield()
+                )
+                gmsh_fields.append(uniform_field)
+        else:
+            # This will set a mesh size field in the surrounding domain, transitioning
+            # from a fine mesh size close to the entities to the far-field mesh size.
+
+            # Get all domain entities to be used in the restriction step.
+            domain_entities = gmsh.model.get_entities(self.nd)
+            for ent in entities:
+                # The below code sets up three nested fields, with the following logic:
+                # 1. A Distance field computing the distance from the entity.
+                # 2. A Threshold field setting the mesh size according to the distance
+                #    from the entity. The interpretation of the parameters is documented
+                #    in the MeshSizeComputer class.
+                # 3. A Restrict field restricting the Threshold field to the domain.
+                #
+                # EK is fairly confident that the fields must be composed in this way.
+                field = gmsh.model.mesh.field.add("Distance")
+                gmsh.model.mesh.field.setNumbers(field, entity_str, [ent])
+                threshold = gmsh.model.mesh.field.add("Threshold")
+                gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+                gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
+                gmsh.model.mesh.field.setNumber(
+                    threshold,
+                    "SizeMin",
+                    mesh_size_computer.h_end(ent in boundary_tags),
+                )
+                gmsh.model.mesh.field.setNumber(
+                    threshold,
+                    "DistMax",
+                    mesh_size_computer.dist_farfield(
+                        ent in boundary_tags, on_codim=False
+                    ),
+                )
+                gmsh.model.mesh.field.setNumber(
+                    threshold,
+                    "SizeMax",
+                    mesh_size_computer.size_farfield(ent in boundary_tags),
+                )
+                restriction = gmsh.model.mesh.field.add("Restrict")
+                gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
+                gmsh.model.mesh.field.setNumbers(
+                    restriction,
+                    domain_str,
+                    [entity[1] for entity in domain_entities],
+                )
+                gmsh_fields.append(restriction)
+
+        return gmsh_fields
+
     def _set_background_mesh_field(self, gmsh_fields: list[int]) -> None:
         min_field = gmsh.model.mesh.field.add("Min")
         gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)

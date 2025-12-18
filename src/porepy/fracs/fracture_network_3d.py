@@ -804,7 +804,7 @@ class FractureNetwork3d(FractureNetwork):
         fractures = [f for f in gmsh.model.getEntities(nd - 1) if f not in boundaries]
 
         surface_tags = [tag for _, tag in gmsh.model.getEntities(nd - 1)]
-        boundary_tags = [tag for _, tag in boundaries]
+        boundary_tags = set(tag for _, tag in boundaries)
 
         # The list of gmsh fields created.
         gmsh_fields = []
@@ -1072,44 +1072,15 @@ class FractureNetwork3d(FractureNetwork):
                     )
 
                 gmsh_fields.append(restriction)
-
-        for surface in mesh_size:
-            # Set a background mesh size for the surface itself, away from any
-            # refinement points. This will ensure that the mesh size is reasonable also
-            # in regions where no refinement is needed.
-            field = gmsh.model.mesh.field.add("Distance")
-            gmsh.model.mesh.field.setNumbers(field, "SurfacesList", [surface])
-            threshold = gmsh.model.mesh.field.add("Threshold")
-            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
-            gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0)
-            gmsh.model.mesh.field.setNumber(
-                threshold,
-                "SizeMin",
-                mesh_size_computer.h_end(surface in boundary_tags),
-            )
-            gmsh.model.mesh.field.setNumber(
-                threshold,
-                "DistMax",
-                mesh_size_computer.dist_farfield(
-                    surface in boundary_tags, on_codim=False
-                ),
-            )
-            gmsh.model.mesh.field.setNumber(
-                threshold,
-                "SizeMax",
-                mesh_size_computer.size_farfield(surface in boundary_tags),
-            )
-            restriction = gmsh.model.mesh.field.add("Restrict")
-            gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
-            if restrict_to_fractures:
-                gmsh.model.mesh.field.setNumbers(restriction, "SurfacesList", [surface])
-            else:
-                gmsh.model.mesh.field.setNumbers(
-                    restriction,
-                    "VolumesList",
-                    [entity[1] for entity in domain_entities],
-                )
-            gmsh_fields.append(restriction)
+        # Assign uniform mesh size fields to all fractures and boundaries. This will
+        # kick in on parts of fractures and boundaries where no close points were
+        # identified.
+        gmsh_fields += self._set_uniform_mesh_field(
+            mesh_size.keys(),
+            mesh_size_computer,
+            boundary_tags,
+            restrict_to_fractures,
+        )
 
         return gmsh_fields
 
