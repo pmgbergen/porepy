@@ -10,10 +10,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-import numpy as np
-
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from porepy.numerics.nonlinear.convergence_check import (
+    SimulationStatus,
+    ConvergenceStatusDict,
+    ConvergenceCriteria,
+    DivergenceCriteria,
+    IncrementBasedNanCriterion,
+    ResidualBasedNanCriterion,
+)
 from porepy.viz.solver_statistics import TimeStatistics
 
 
@@ -35,14 +40,32 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, model: SolutionStrategy) -> ConvergenceStatus:
+        # Default parameters for convergence and divergence criteria
+        if "nl_convergence_criteria" not in self.params:
+            self.params["nl_convergence_criteria"] = {}
+        self.convergence_criteria = ConvergenceCriteria(
+            self.params.get("nl_convergence_criteria")
+        )
+        """Convergence criterion used in the convergence check."""
+
+        if "nl_divergence_criteria" not in self.params:
+            self.params["nl_divergence_criteria"] = {
+                "inc_nan": IncrementBasedNanCriterion(),
+                "res_nan": ResidualBasedNanCriterion(),
+            }
+        self.divergence_criteria = DivergenceCriteria(
+            self.params.get("nl_divergence_criteria")
+        )
+        """Divergence criterion used in the convergence check."""
+
+    def solve(self, model: SolutionStrategy) -> SimulationStatus:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
             model: Model to be solved.
 
         Returns:
-            ConvergenceStatus: The status of the convergence.
+            SimulationStatus: The status of the simulation.
 
         """
         # Prepare model for solving.
@@ -73,58 +96,69 @@ class LinearSolver:
         # Update model status.
         model.after_nonlinear_iteration(nonlinear_increment)
 
-        # Update solver statistics.
-        self.update_solver_statistics(model, status, info)
-
         # React to convergence status.
         if status.is_converged():
+            simulation_status = SimulationStatus.SUCCESSFUL
             model.after_nonlinear_convergence()
         elif status.is_failed():
-            status = model.after_nonlinear_failure(status)
+            simulation_status = model.after_nonlinear_failure()
         else:
             raise ValueError(f"Unknown convergence status: {status}")
-        return status
+
+        # Update (global) solver statistics.
+        self.update_solver_statistics(model, simulation_status)
+
+        return simulation_status
 
     def check_convergence(
         self, model: SolutionStrategy, nonlinear_increment
-    ) -> tuple[ConvergenceStatus, ConvergenceInfo]:
-        """Simple convergence check for linear problems checking NaN values."""
+    ) -> tuple[ConvergenceStatusDict, dict[str, dict | float]]:
+        """Check convergence and divergence based on passed criteria.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+            nonlinear_increment: The current nonlinear increment.
+
+        Returns:
+            tuple[ConvergenceStatusDict, dict]: Status and info about convergence.
+
+        """
+        # Fetch the residual.
         residual = model.equation_system.assemble(evaluate_jacobian=False)
-        if np.isnan(nonlinear_increment).any() and np.isnan(residual).any():
-            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, np.nan)
-        elif np.isnan(nonlinear_increment).any():
-            residual_norm = model.equation_norm(residual)
-            return ConvergenceStatus.NAN, ConvergenceInfo(np.nan, residual_norm)
-        elif np.isnan(residual).any():
-            nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
-            return ConvergenceStatus.NAN, ConvergenceInfo(
-                nonlinear_increment_norm, np.nan
-            )
-        else:
-            nonlinear_increment_norm = model.variable_norm(nonlinear_increment)
-            residual_norm = model.equation_norm(residual)
-            return ConvergenceStatus.CONVERGED, ConvergenceInfo(
-                nonlinear_increment_norm, residual_norm
-            )
+
+        # Check convergence status based on current iteration.
+        convergence_status, convergence_info = self.convergence_criteria.check(
+            increment=nonlinear_increment,
+            residual=residual,
+        )
+
+        # Check divergence status based on current iteration.
+        divergence_status = self.divergence_criteria.check(
+            increment=nonlinear_increment,
+            residual=residual,
+        )
+
+        # Combine convergence and divergence status.
+        return (
+            convergence_status.union(divergence_status),
+            convergence_info,
+        )
 
     def update_solver_statistics(
         self,
         model: SolutionStrategy,
-        status: ConvergenceStatus,
-        info: ConvergenceInfo,
+        simulation_status: SimulationStatus,
     ) -> None:
         """Update the solver statistics in the model.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            status: Convergence status of the solver.
+            simulation_status: Simulation status of the solver.
             info: Dictionary containing norms and other information.
 
         """
-        # Convergence-related information.
-        model.nonlinear_solver_statistics.log_convergence_status(status)
-
-        # Basic discretization-related information.
+        # Basic discretization-related information and overall simulation status.
+        model.nonlinear_solver_statistics.log_simulation_status(simulation_status)
         model.nonlinear_solver_statistics.log_mesh_information(model.mdg.subdomains())
         if model._is_time_dependent():
             assert isinstance(model.nonlinear_solver_statistics, TimeStatistics)
