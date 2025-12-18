@@ -222,66 +222,6 @@ class FractureNetwork2d(FractureNetwork):
             fracture_tags, domain_tag, constraints, mesh_size_points
         )
 
-        # Collect intersection points, fractures, and domain in physical groups in gmsh.
-        # Intersection points can be dealt with right away.
-        for i, pt in enumerate(intersection_points):
-            gmsh.model.addPhysicalGroup(
-                nd - 2,
-                [pt],
-                -1,
-                f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}",
-            )
-
-        gmsh.model.occ.synchronize()
-
-        # Since fractures may have been split at intersection points, we need to collect
-        # all the segments (found in isect_mapping) into a single physical group.
-
-        # Count the number of fracture objects that survived both the fragmentation and
-        # the distance-based domain trimming.
-        num_real_frac = len(set(inv_fracture_tag_map.values()))
-
-        fracture_to_line = {}
-        tmp_frac_line = []
-        for i, line_group in enumerate(isect_mapping[:num_real_frac]):
-            # A line_group here was formed after intersection removal. It may contain
-            # either a full fracture, or be one of several segments forming a fracture.
-            # In the latter case, the fracture was split into segments when mesh size
-            # control points were added to the fracture.
-            all_lines = []
-
-            for line in line_group:
-                if line[0] == 1:
-                    all_lines.append(line[1])
-                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
-            if all_lines:
-                frac_ind = inv_fracture_tag_map[all_lines[0]]
-                fracs = fracture_to_line.get(frac_ind, [])
-                fracs.extend(all_lines)
-                fracture_to_line[frac_ind] = fracs
-
-        for fi, segments in fracture_to_line.items():
-            if fi in constraints:
-                gmsh.model.addPhysicalGroup(
-                    nd - 1,
-                    segments,
-                    -1,
-                    f"{PhysicalNames.AUXILIARY_LINE.value}{fi}",
-                )
-            else:
-                gmsh.model.addPhysicalGroup(
-                    nd - 1, segments, -1, f"{PhysicalNames.FRACTURE.value}{fi}"
-                )
-
-        # It turns out that if fractures split the domain into disjoint parts, gmsh may
-        # choose to redefine the domain as the sum of these parts. Therefore, we
-        # redefine the domain tags here, using all volumes in the model.
-        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
-
-        gmsh.model.addPhysicalGroup(
-            nd, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}"
-        )
-
         gmsh.model.occ.synchronize()
         if write_geo:
             gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
@@ -683,6 +623,73 @@ class FractureNetwork2d(FractureNetwork):
         )
 
         return gmsh_fields
+
+    def _set_physical_names(
+        self,
+        intersection_points: list[int],
+        isect_mapping: list,
+        inv_fracture_tag_map: dict,
+        constraints: set,
+    ) -> PhysicalNames:
+        # Collect intersection points, fractures, and domain in physical groups in gmsh.
+        # Intersection points can be dealt with right away.
+        for i, pt in enumerate(intersection_points):
+            gmsh.model.addPhysicalGroup(
+                self.nd - 2,
+                [pt],
+                -1,
+                f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}",
+            )
+
+        gmsh.model.occ.synchronize()
+
+        # Since fractures may have been split at intersection points, we need to collect
+        # all the segments (found in isect_mapping) into a single physical group.
+
+        # Count the number of fracture objects that survived both the fragmentation and
+        # the distance-based domain trimming.
+        num_real_frac = len(set(inv_fracture_tag_map.values()))
+
+        fracture_to_line = {}
+        tmp_frac_line = []
+        for i, line_group in enumerate(isect_mapping[:num_real_frac]):
+            # A line_group here was formed after intersection removal. It may contain
+            # either a full fracture, or be one of several segments forming a fracture.
+            # In the latter case, the fracture was split into segments when mesh size
+            # control points were added to the fracture.
+            all_lines = []
+
+            for line in line_group:
+                if line[0] == 1:
+                    all_lines.append(line[1])
+                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
+            if all_lines:
+                frac_ind = inv_fracture_tag_map[all_lines[0]]
+                fracs = fracture_to_line.get(frac_ind, [])
+                fracs.extend(all_lines)
+                fracture_to_line[frac_ind] = fracs
+
+        for fi, segments in fracture_to_line.items():
+            if fi in constraints:
+                gmsh.model.addPhysicalGroup(
+                    self.nd - 1,
+                    segments,
+                    -1,
+                    f"{PhysicalNames.AUXILIARY_LINE.value}{fi}",
+                )
+            else:
+                gmsh.model.addPhysicalGroup(
+                    self.nd - 1, segments, -1, f"{PhysicalNames.FRACTURE.value}{fi}"
+                )
+
+        # It turns out that if fractures split the domain into disjoint parts, gmsh may
+        # choose to redefine the domain as the sum of these parts. Therefore, we
+        # redefine the domain tags here, using all volumes in the model.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(self.nd)]
+
+        gmsh.model.addPhysicalGroup(
+            self.nd, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}"
+        )
 
     def mesh_quality_metrics(self) -> None:
         """Visualize, and log elementwise mesh quality metrics using gmsh.
