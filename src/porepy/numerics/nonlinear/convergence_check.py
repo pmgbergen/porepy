@@ -395,18 +395,20 @@ class AbsoluteDivergenceCriterion(DivergenceCriterion):
             status = (
                 ConvergenceStatus.DIVERGED
                 if any(v > self.tol for v in metric_value.values())
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONVERGED
             )
         else:
             status = (
                 ConvergenceStatus.DIVERGED
                 if metric_value > self.tol
-                else ConvergenceStatus.NOT_CONVERGED
+                else ConvergenceStatus.CONVERGED
             )
         return status
 
 
 class RelativeConvergenceCriterion(ConvergenceCriterion):
+    """Relative convergence criterion."""
+
     def __init__(
         self,
         tol: float,
@@ -414,13 +416,23 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
         reference_value: dict | float | None = None,
     ) -> None:
         self.tol = tol
+        """Tolerance for convergence - criterion in active if set to `np.inf`."""
         self.metric = metric
+        """Metric to compute the convergence measure."""
         self.reference_value = reference_value
+        """Reference value for relative convergence."""
 
     def reset(self) -> None:
+        """Reset the reference value."""
         self.reference_value = None
 
     def set_reference_value(self, reference_value: dict | float) -> None:
+        """Set the reference value for relative convergence.
+
+        Parameters:
+            reference_value: Reference value to set.
+
+        """
         if isinstance(reference_value, dict):
             self.reference_value = self.reference_value or {}
             assert isinstance(self.reference_value, dict)
@@ -435,6 +447,21 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
             self.reference_value = reference_value
 
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, dict | float]:
+        """Check convergence.
+
+        Parameters:
+            args: Positional arguments for the convergence check.
+            kwargs: Quantities to check for convergence.
+
+        Returns:
+            tuple[ConvergenceStatus, dict | float]: Convergence status of the non-linear
+                iteration and information about the convergence check.
+
+        """
+        # Check if tol is np.inf - do not check convergence in this case
+        if self.tol == np.inf:
+            return ConvergenceStatus.CONVERGED, 0.0
+
         metric_value = self.metric(kwargs["value"])
         if isinstance(metric_value, dict):
             assert isinstance(self.reference_value, dict)
