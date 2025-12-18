@@ -999,79 +999,18 @@ class FractureNetwork3d(FractureNetwork):
             # the distance to other objects and the distance to other close points on
             # the same line.
             dist = np.minimum(other_object_distances, min_dist_point)
+            # Create the mesh size field for this surface.
+            gmsh_fields += self._assign_distance_based_mesh_size_field(
+                surface,
+                points,
+                dist,
+                mesh_size_computer,
+                gmsh_point_finder,
+                surface in boundary_tags,
+                restrict_to_fractures,
+                surface_lines,
+            )
 
-            for i, d in enumerate(dist):
-                # Need set a lower bound on the mesh size to avoid zero distances, e.g.,
-                # related to almost intersection points.
-                if d > mesh_size_computer.refinement_threshold():
-                    # No refinement needed at this point.
-                    continue
-                elif d == h_end:
-                    # This is likely an isolated endpoint.
-                    size = h_end
-
-                field = gmsh.model.mesh.field.add("Distance")
-                pi = gmsh_point_finder.index(points[:, i])
-
-                gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
-                if surface in boundary_tags:
-                    debug = []
-
-                threshold = gmsh.model.mesh.field.add("Threshold")
-                gmsh.model.mesh.field.setNumber(threshold, "InField", field)
-                # NOTE: If the definition of the threshold field is changed, the
-                # computation of the critical angle for almost parallel lines must also
-                # be updated. See the definition of variable 'angle_threshold' above.
-                gmsh.model.mesh.field.setNumber(
-                    threshold, "DistMin", mesh_size_computer.dist_min(d)
-                )
-                gmsh.model.mesh.field.setNumber(
-                    threshold, "SizeMin", mesh_size_computer.size_min(d)
-                )
-                if restrict_to_fractures:
-                    gmsh.model.mesh.field.setNumber(
-                        threshold,
-                        "DistMax",
-                        mesh_size_computer.dist_farfield(
-                            surface in boundary_tags, on_codim=True
-                        ),
-                    )
-                    gmsh.model.mesh.field.setNumber(
-                        threshold,
-                        "SizeMax",
-                        mesh_size_computer.size_farfield(surface in boundary_tags),
-                    )
-                else:
-                    gmsh.model.mesh.field.setNumber(
-                        threshold,
-                        "DistMax",
-                        mesh_size_computer.dist_farfield(
-                            surface in boundary_tags, on_codim=False
-                        ),
-                    )
-                    gmsh.model.mesh.field.setNumber(
-                        threshold, "SizeMax", mesh_size_computer.h_farfield()
-                    )
-
-                # Note to self: The order is important here - the restriction must refer
-                # to the threshold field, not the other way around.
-                restriction = gmsh.model.mesh.field.add("Restrict")
-                gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
-                if restrict_to_fractures:
-                    gmsh.model.mesh.field.setNumbers(
-                        restriction, "CurvesList", surface_lines
-                    )
-                    gmsh.model.mesh.field.setNumbers(
-                        restriction, "SurfacesList", [surface]
-                    )
-                else:
-                    gmsh.model.mesh.field.setNumbers(
-                        restriction,
-                        "VolumesList",
-                        [entity[1] for entity in domain_entities],
-                    )
-
-                gmsh_fields.append(restriction)
         # Assign uniform mesh size fields to all fractures and boundaries. This will
         # kick in on parts of fractures and boundaries where no close points were
         # identified.

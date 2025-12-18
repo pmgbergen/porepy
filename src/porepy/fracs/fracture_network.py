@@ -126,6 +126,125 @@ class FractureNetwork(ABC):
         # Having come this far, the entity is not on the domain boundary.
         return False
 
+    def _assign_distance_based_mesh_size_field(
+        self,
+        entity: int,
+        points: np.ndarray,
+        dist: np.ndarray,
+        mesh_size_computer: MeshSizeComputer,
+        gmsh_point_finder: GmshPointIdentifier,
+        is_boundary: bool,
+        codim: bool,
+        surface_lines: Optional[list[int]] = None,
+    ) -> list:
+        """Assign mesh size field based on distances from points to fractures.
+
+        The mesh size field is either restricted to the entity itself (if
+        ``codim=True``), or set in the surrounding domain (if ``codim=False``).
+
+        Parameters:
+            entity: Gmsh tag identifying the entity where the mesh size field is to
+                be applied. The entity is of dimension self.nd - 1.
+            points: Array containing the coordinates of the N points on the entity where
+                distances have been computed.
+            dist: Array containing the distances from the points to other entities.
+            mesh_size_computer: Instance of MeshSizeComputer providing the mesh size
+                parameters.
+            gmsh_point_finder: Instance of GmshPointIdentifier for mapping points to
+                Gmsh indices.
+            is_boundary: ``True`` if the entity is on the domain boundary,
+                ``False`` otherwise.
+            codim: ``True`` if the mesh size is to be restricted to the entity itself
+                (codimension 1), ``False`` if the mesh size is to be set in the
+                surrounding domain.
+            surface_lines: (3D only) List of Gmsh tags identifying lines on the
+                surface, e.g., intersection lines with other fractures. The mesh size
+                field will also be applied on these lines.
+
+        Returns:
+            list: List of Gmsh size fields.
+
+        """
+
+        gmsh_fields = []
+        # Get all domain entities to be used in the restriction step.
+        domain_entities = gmsh.model.get_entities(self.nd)
+
+        if self.nd == 3:
+            entity_str = "SurfacesList"
+            domain_str = "VolumesList"
+        else:
+            entity_str = "CurvesList"
+            domain_str = "SurfacesList"
+
+        # Loop over all points where distances have been computed, assign a mesh size
+        # field based on the distance at that point, unless the distance is larger than
+        # the refinement threshold.
+        #
+        # Implementation note: The points must be handled one by one, since each point
+        # have a different distance to other fractures, leading to different mesh size
+        # specifications.
+        for i, d in enumerate(dist):
+            if d > mesh_size_computer.refinement_threshold():
+                # No refinement needed at this point.
+                continue
+
+            # Set distance field for the given point, then a threshold field to set the
+            # mesh size based on the distance, and finally a restriction to either the
+            # entity itself (codim=True) or the surrounding domain (codim=False).
+            pi = gmsh_point_finder.index(points[:, i])
+            field = gmsh.model.mesh.field.add("Distance")
+            gmsh.model.mesh.field.setNumbers(field, "PointsList", [pi])
+
+            threshold = gmsh.model.mesh.field.add("Threshold")
+            gmsh.model.mesh.field.setNumber(threshold, "InField", field)
+            gmsh.model.mesh.field.setNumber(
+                threshold, "DistMin", mesh_size_computer.dist_min(d)
+            )
+            gmsh.model.mesh.field.setNumber(
+                threshold, "SizeMin", mesh_size_computer.size_min(d)
+            )
+            if codim:
+                gmsh.model.mesh.field.setNumber(
+                    threshold,
+                    "DistMax",
+                    mesh_size_computer.dist_farfield(is_boundary, on_codim=True),
+                )
+                gmsh.model.mesh.field.setNumber(
+                    threshold,
+                    "SizeMax",
+                    mesh_size_computer.size_farfield(is_boundary),
+                )
+            else:
+                gmsh.model.mesh.field.setNumber(
+                    threshold,
+                    "DistMax",
+                    mesh_size_computer.dist_farfield(is_boundary, on_codim=False),
+                )
+                gmsh.model.mesh.field.setNumber(
+                    threshold, "SizeMax", mesh_size_computer.h_farfield()
+                )
+
+            # Note to self: The order is important here - the restriction must refer
+            # to the threshold field, not the other way around.
+            restriction = gmsh.model.mesh.field.add("Restrict")
+            gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
+            if codim:
+                if self.nd == 3 and surface_lines is not None:
+                    gmsh.model.mesh.field.setNumbers(
+                        restriction, "CurvesList", surface_lines
+                    )
+                gmsh.model.mesh.field.setNumbers(restriction, entity_str, [entity])
+            else:
+                gmsh.model.mesh.field.setNumbers(
+                    restriction,
+                    domain_str,
+                    [entity[1] for entity in domain_entities],
+                )
+            gmsh_fields.append(restriction)
+
+        return gmsh_fields
+
     def _set_uniform_mesh_field(
         self,
         entities: list[int],
