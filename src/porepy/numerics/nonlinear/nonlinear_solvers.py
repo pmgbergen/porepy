@@ -279,7 +279,7 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         simulation_status: SimulationStatus | None = None,
-        convergence_status: ConvergenceStatus | None = None,
+        convergence_status: ConvergenceStatusDict | None = None,
         convergence_info: dict | float | None = None,
     ) -> None:
         """Update the solver statistics in the model.
@@ -301,4 +301,6 @@ class NewtonSolver:
 
         # Basic discretization-related information and overall simulation status.
         if simulation_status is not None:
-            LinearSolver.update_solver_statistics(self, model, simulation_status)
+            LinearSolver.update_solver_statistics(
+                cast(LinearSolver, self), model, simulation_status
+            )

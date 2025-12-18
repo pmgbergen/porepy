@@ -170,10 +170,9 @@ class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
             status: Convergence statuses to append.
 
         """
-        if isinstance(self, list):
-            self.append(status)
-        elif isinstance(self, dict):
-            self = self._recursive_dict_append(self, status)
+        # Since this class inherits from dict, we should always be a dict
+        # The recursive append modifies self in-place, so no reassignment needed
+        self._recursive_dict_append(self, status)
 
     def _recursive_dict_append(
         self, d: "ConvergenceStatusCollection", v: dict
@@ -192,14 +191,13 @@ class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
             if key_v not in d:
                 d[key_v] = [copy(value_v)]
             else:
-                if isinstance(d[key_v], dict):
-                    assert isinstance(value_v, dict)
-                    d[key_v] = self._recursive_dict_append(d[key_v], value_v)
-                elif isinstance(d[key_v], list):
-                    assert isinstance(value_v, (str))
-                    d[key_v].append(value_v)
+                value = d[key_v]
+                if isinstance(value, list):
+                    value.append(value_v)
                 else:
-                    raise ValueError
+                    assert isinstance(value_v, dict)
+                    assert isinstance(d[key_v], ConvergenceStatusCollection)
+                    d[key_v] = self._recursive_dict_append(d[key_v], value_v)
 
         return d
 
@@ -391,7 +389,7 @@ class AbsoluteDivergenceCriterion(DivergenceCriterion):
         self.metric = metric
         """Metric to compute the divergence measure."""
 
-    def check(self, **kwargs) -> ConvergenceStatus:
+    def check(self, *args, **kwargs) -> ConvergenceStatus:
         metric_value = self.metric(kwargs["value"])
         if isinstance(metric_value, dict):
             status = (
@@ -535,6 +533,7 @@ class RelativeDivergenceCriterion(DivergenceCriterion):
                 else ConvergenceStatus.CONVERGED
             )
         else:
+            assert isinstance(self.reference_value, float)
             status = (
                 ConvergenceStatus.DIVERGED
                 if metric_value > self.tol * self.reference_value

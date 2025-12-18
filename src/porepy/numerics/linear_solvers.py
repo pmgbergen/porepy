@@ -8,7 +8,7 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
@@ -43,8 +43,8 @@ class LinearSolver:
         # Default parameters for convergence and divergence criteria
         if "nl_convergence_criteria" not in self.params:
             self.params["nl_convergence_criteria"] = {}
-        self.convergence_criteria = ConvergenceCriteria(
-            self.params.get("nl_convergence_criteria")
+        self.convergence_criteria = cast(
+            ConvergenceCriteria, self.params.get("nl_convergence_criteria")
         )
         """Convergence criterion used in the convergence check."""
 
@@ -53,8 +53,8 @@ class LinearSolver:
                 "inc_nan": IncrementBasedNanCriterion(),
                 "res_nan": ResidualBasedNanCriterion(),
             }
-        self.divergence_criteria = DivergenceCriteria(
-            self.params.get("nl_divergence_criteria")
+        self.divergence_criteria = cast(
+            DivergenceCriteria, self.params.get("nl_divergence_criteria")
         )
         """Divergence criterion used in the convergence check."""
 
