@@ -28,7 +28,6 @@ from porepy.models.abstract_equations import LocalElimination
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 @pytest.mark.skipped  # reason: slow
@@ -513,11 +512,9 @@ def slow_test_buoyancy_flow_benchmark(
         "time_manager": time_manager,
         "prepare_simulation": False,
         "reduce_linear_system": False,
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=np.inf,
-            tol_residual=1.0e-8,
-            max_iterations=25,
-        ),
+        "nl_max_iterations": 25,
+        "nl_convergence_inc_atol": np.inf,
+        "nl_convergence_res_atol": 1.0e-8,
     }
 
     model = FlowModel(params)

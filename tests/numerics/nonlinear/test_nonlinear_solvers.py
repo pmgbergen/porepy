@@ -1,6 +1,5 @@
 import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 def test_nonlinear_iteration_count():
@@ -15,9 +14,9 @@ def test_nonlinear_iteration_count():
     pp.run_time_dependent_model(
         model,
         {
-            "nl_convergence_tol": ConvergenceTolerance(
-                tol_increment=0, tol_residual=0, max_iterations=3
-            )
+            "nl_convergence_inc_atol": 0,
+            "nl_convergence_res_atol": 0,
+            "nl_max_iterations": 3,
         },
     )
 

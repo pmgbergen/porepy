@@ -20,7 +20,6 @@ from porepy.applications.test_utils.models import (
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 from .test_poromechanics import NonzeroFractureGapPoromechanics
 from .test_poromechanics import get_variables as get_variables_poromechanics
@@ -77,9 +76,8 @@ def create_fractured_model(
     default = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=1e-6, max_iterations=20
-        ),
+        "nl_max_iterations": 20,
+        "nl_convergence_inc_atol": 1e-6,
     }
     default.update(params)
     model = model_class(default)

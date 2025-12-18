@@ -43,7 +43,6 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 class NonzeroFractureGapPoromechanics(pp.PorePyModel):
@@ -215,9 +214,8 @@ def create_model_with_fracture(
         "material_constants": {"solid": solid, "fluid": fluid},
         "reference_variable_values": reference_values,
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=1e-6, max_iterations=20
-        ),
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": 20,
     }
     model = model_class(model_params)
     return model

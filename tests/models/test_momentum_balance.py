@@ -17,7 +17,6 @@ from porepy.applications.test_utils.models import (
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 class LinearModel(
@@ -678,9 +677,8 @@ def test_time_dependent_bc():
         "material_constants": {"solid": solid, "numerical": numerical},
         "fracture_indices": [1],
         "time_manager": pp.TimeManager([0.0, 1.0], 1.0, True),
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=1e-6, max_iterations=30
-        ),
+        "nl_convergence_inc_atol": 1e-6,
+        "nl_max_iterations": 30,
     }
 
     # Create model and run simulation. The north displacement is [1, -0.5, 1].
