@@ -289,112 +289,20 @@ class FractureNetwork3d(FractureNetwork):
             fracture_tag_map=fracture_tag_map,
             inv_fracture_tag_map=inv_fracture_tag_map,
         )
+        # Update mesh size control points after intersection processing.
+        mesh_control_dict = self._update_mesh_size_control_point(
+            mesh_control_dict, isect_mapping, surface_tags, boundary_tags
+        )
 
-        # Transfer mesh size points to the new segments after intersection removal.
-        # This is common for 2d and 3d meshing.
-        new_mesh_control_dict = {}
-        for fi, old_fracture in enumerate(isect_mapping):
-            if len(old_fracture) > 0:
-                if old_fracture[0][0] == nd:
-                    # It is unclear if processing the domain will make any harm, but
-                    # there is no need to take any chances. Skip it.
-                    continue
-
-            # Get hold of the gmsh tag used to represent this fracture before
-            # intersection removal.
-            old_gmsh_tag = surface_tags[fi]
-            for sub_frac in old_fracture:
-                if old_gmsh_tag in mesh_control_dict:
-                    # Update the mesh size points for the new segments.
-                    new_mesh_control_dict[sub_frac[1]] = mesh_control_dict[old_gmsh_tag]
-
-        # We also need to transfer the mesh size points for the boundary surfaces.
-        # Identification of these is not straightforward since, if we had included them
-        # in the fragmentation (processing of intersections), gmsh would occasionally
-        # have failed to identify intersections between boundary surfaces and fractures.
-        # Therefore, we do an identification based on the geometry of the surfaces:
-
-        domain_tag = gmsh.model.get_entities(nd)
-        bnd_tag = gmsh.model.get_boundary(gmsh.model.get_entities(nd), oriented=False)
-        new_mesh_control_dict.update({t[1]: [] for t in bnd_tag})
-        for bnd in boundary_tags:
-            info = mesh_control_dict.get(bnd)
-            if len(info) == 0:
-                # No points were assigned to this boundary surface, so there is nothing
-                # to transfer.
-                continue
-            points = np.array([p[0] for p in info]).T
-
-            for new_bnd in bnd_tag:
-                for i in range(points.shape[1]):
-                    if gmsh.model.is_inside(*new_bnd, points[:, i]):
-                        new_mesh_control_dict[new_bnd[1]].append(
-                            (points[:, i], info[i][1])
-                        )
-
-        mesh_control_dict = new_mesh_control_dict
         ## Export physical entities to gmsh.
-
-        # Intersection points.
-        for i in intersection_points:
-            gmsh.model.addPhysicalGroup(
-                0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
-            )
-
-        # Intersection lines.
-        # TODO: Should filter away lines that are between boundary surfaces only.
-        for li, line in enumerate(intersection_lines):
-            if num_parents_of_lines[li] < 2:
-                continue
-
-            gmsh.model.addPhysicalGroup(
-                1,
-                [int(line)],
-                -1,
-                f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
-            )
-
-        # It turns out that if fractures split the domain into disjoint parts, gmsh may
-        # choose to redefine the domain as the sum of these parts. Therefore, we
-        # redefine the domain tags here, using all volumes in the model.
-        domain_tags = [entity[1] for entity in gmsh.model.get_entities(nd)]
-
-        # Fractures. TODO: This is the same code as in 1d.
-        fracture_to_surface = {}
-        tmp_frac_line = []
-        for i, line_group in enumerate(isect_mapping):
-            # A line_group here was formed after intersection removal. It may contain
-            # either a full fracture, or be one of several segments forming a fracture.
-            # In the latter case, the fracture was split into segments when mesh size
-            # control points were added to the fracture.
-            all_lines = []
-            if line_group and line_group[0][1] not in inv_fracture_tag_map:
-                # Skip fractures on the boundary.
-                continue
-
-            for line in line_group:
-                if line[0] == nd - 1:
-                    all_lines.append(line[1])
-                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
-            if all_lines:
-                frac_ind = inv_fracture_tag_map[all_lines[0]]
-                fracs = fracture_to_surface.get(frac_ind, [])
-                fracs.extend(all_lines)
-                fracture_to_surface[frac_ind] = fracs
-
-        for i, frac in fracture_to_surface.items():
-            if i in constraints:
-                gmsh.model.addPhysicalGroup(
-                    2, frac, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
-                )
-
-            else:
-                gmsh.model.addPhysicalGroup(
-                    2, frac, -1, f"{PhysicalNames.FRACTURE.value}{i}"
-                )
-
-        # The domain.
-        gmsh.model.addPhysicalGroup(3, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}")
+        fracture_to_surface = self._set_physical_names(
+            intersection_points,
+            intersection_lines,
+            num_parents_of_lines,
+            isect_mapping,
+            inv_fracture_tag_map,
+            constraints,
+        )
 
         fac.synchronize()
 
@@ -747,6 +655,72 @@ class FractureNetwork3d(FractureNetwork):
             inv_fracture_tag_map,
         )
 
+    def _update_mesh_size_control_point(
+        self,
+        mesh_control_dict: dict[int, list[tuple[np.ndarray, float]]],
+        isect_mapping: list,
+        surface_tags: list[int],
+        boundary_tags: list[int],
+    ) -> dict[int, list[tuple[np.ndarray, float]]]:
+        """Update the mesh size control points after intersection.
+
+        Parameters:
+            mesh_control_dict: Mapping from gmsh tags of surfaces to mesh size control
+                points before intersection removal.
+            isect_mapping: Mapping from original fractures to new surfaces after
+                intersection removal.
+            surface_tags: List of gmsh tags of all surfaces (fractures and boundaries)
+                after intersection removal.
+            boundary_tags: List of gmsh tags of all boundary surfaces after
+                intersection removal.
+
+        """
+        # Transfer mesh size points to the new segments after intersection removal.
+        # This is common for 2d and 3d meshing.
+        new_mesh_control_dict = {}
+        for fi, old_fracture in enumerate(isect_mapping):
+            if len(old_fracture) > 0:
+                if old_fracture[0][0] == self.nd:
+                    # It is unclear if processing the domain will make any harm, but
+                    # there is no need to take any chances. Skip it.
+                    continue
+
+            # Get hold of the gmsh tag used to represent this fracture before
+            # intersection removal.
+            old_gmsh_tag = surface_tags[fi]
+            for sub_frac in old_fracture:
+                if old_gmsh_tag in mesh_control_dict:
+                    # Update the mesh size points for the new segments.
+                    new_mesh_control_dict[sub_frac[1]] = mesh_control_dict[old_gmsh_tag]
+
+        # We also need to transfer the mesh size points for the boundary surfaces.
+        # Identification of these is not straightforward since, if we had included them
+        # in the fragmentation (processing of intersections), gmsh would occasionally
+        # have failed to identify intersections between boundary surfaces and fractures.
+        # Therefore, we do an identification based on the geometry of the surfaces:
+
+        domain_tag = gmsh.model.get_entities(self.nd)
+        bnd_tag = gmsh.model.get_boundary(
+            gmsh.model.get_entities(self.nd), oriented=False
+        )
+        new_mesh_control_dict.update({t[1]: [] for t in bnd_tag})
+        for bnd in boundary_tags:
+            info = mesh_control_dict.get(bnd)
+            if len(info) == 0:
+                # No points were assigned to this boundary surface, so there is nothing
+                # to transfer.
+                continue
+            points = np.array([p[0] for p in info]).T
+
+            for new_bnd in bnd_tag:
+                for i in range(points.shape[1]):
+                    if gmsh.model.is_inside(*new_bnd, points[:, i]):
+                        new_mesh_control_dict[new_bnd[1]].append(
+                            (points[:, i], info[i][1])
+                        )
+
+        return new_mesh_control_dict
+
     def _set_mesh_size_fields(
         self,
         mesh_size_computer: MeshSizeComputer,
@@ -940,6 +914,94 @@ class FractureNetwork3d(FractureNetwork):
         )
 
         return gmsh_fields
+
+    def _set_physical_names(
+        self,
+        intersection_points: list[int],
+        intersection_lines: list[int],
+        num_parents_of_lines: list[int],
+        isect_mapping: list,
+        inv_fracture_tag_map: dict[int, int],
+        constraints: list[int],
+    ) -> dict[int, list[int]]:
+        """Set physical names in gmsh for fractures and intersections.
+
+        Parameters:
+            intersection_points: Gmsh tags of intersection points.
+            intersection_lines: Gmsh tags of intersection lines.
+            num_parents_of_lines: Number of parent fractures for each intersection line.
+            isect_mapping: Mapping from original fractures to new surfaces after
+                intersection removal.
+            inv_fracture_tag_map: Mapping from gmsh fracture tags to input fracture
+                indices.
+            constraints: List of fracture indices that are constraints.
+
+        Returns:
+            Mapping from input fracture indices to lists of gmsh surface tags
+            representing the fractures.
+
+        """
+
+        # Intersection points.
+        for i in intersection_points:
+            gmsh.model.addPhysicalGroup(
+                0, [i], -1, f"{PhysicalNames.FRACTURE_INTERSECTION_POINT.value}{i}"
+            )
+
+        # Intersection lines.
+        for li, line in enumerate(intersection_lines):
+            if num_parents_of_lines[li] < 2:
+                continue
+
+            gmsh.model.addPhysicalGroup(
+                1,
+                [int(line)],
+                -1,
+                f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
+            )
+
+        # It turns out that if fractures split the domain into disjoint parts, gmsh may
+        # choose to redefine the domain as the sum of these parts. Therefore, we
+        # redefine the domain tags here, using all volumes in the model.
+        domain_tags = [entity[1] for entity in gmsh.model.get_entities(self.nd)]
+
+        # Fractures. TODO: This is the same code as in 1d.
+        fracture_to_surface = {}
+        tmp_frac_line = []
+        for i, line_group in enumerate(isect_mapping):
+            # A line_group here was formed after intersection removal. It may contain
+            # either a full fracture, or be one of several segments forming a fracture.
+            # In the latter case, the fracture was split into segments when mesh size
+            # control points were added to the fracture.
+            all_lines = []
+            if line_group and line_group[0][1] not in inv_fracture_tag_map:
+                # Skip fractures on the boundary.
+                continue
+
+            for line in line_group:
+                if line[0] == self.nd - 1:
+                    all_lines.append(line[1])
+                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
+            if all_lines:
+                frac_ind = inv_fracture_tag_map[all_lines[0]]
+                fracs = fracture_to_surface.get(frac_ind, [])
+                fracs.extend(all_lines)
+                fracture_to_surface[frac_ind] = fracs
+
+        for i, frac in fracture_to_surface.items():
+            if i in constraints:
+                gmsh.model.addPhysicalGroup(
+                    self.nd - 1, frac, -1, f"{PhysicalNames.AUXILIARY_PLANE.value}{i}"
+                )
+
+            else:
+                gmsh.model.addPhysicalGroup(
+                    self.nd - 1, frac, -1, f"{PhysicalNames.FRACTURE.value}{i}"
+                )
+        gmsh.model.addPhysicalGroup(
+            self.nd, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}"
+        )
+        return fracture_to_surface
 
     def __repr__(self) -> str:
         s = (
