@@ -527,34 +527,7 @@ class FractureNetwork2d(FractureNetwork):
 
         gmsh_point_finder = GmshPointIdentifier()
 
-        if len(mesh_size_points) > 0:
-            all_pts = []
-            mesh_sizes = []
-            line_item = []
-            for line, info in mesh_size_points.items():
-                for i, d in enumerate(info):
-                    all_pts.append(d[0])
-                    mesh_sizes.append(d[1])
-                    line_item.append((line, i))
-            all_pts = np.array(all_pts).T
-            mesh_sizes = np.array(mesh_sizes)
-            if all_pts.size > 0:
-                _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
-                    all_pts, tol=self._tol
-                )
-                min_size = np.empty(ind_map.size, dtype=float)
-                for i in range(ind_map.size):
-                    inds = inv_map == i
-                    min_size[i] = np.min(mesh_sizes[inds])
-
-                # Map back to lines.
-                for line_ind, pt_ind in enumerate(inv_map):
-                    line = line_item[line_ind][0]
-                    item = line_item[line_ind][1]
-                    mesh_size_points[line][item] = (
-                        mesh_size_points[line][item][0],
-                        min_size[pt_ind],
-                    )
+        self._uniquify_mesh_size_dictionary(mesh_size_points)
 
         # For lines that with no extra
         mesh_size = {tag: [] for tag in line_tags}

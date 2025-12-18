@@ -775,40 +775,8 @@ class FractureNetwork3d(FractureNetwork):
 
         # The same point might have been inserted multiple times (e.g., if it lies at
         # the intersection of multiple fractures). We need to uniquify the point set,
-        # and assign the minimum mesh size among all occurrences of the point. This will
-        # be helpful, e.g., to set the right size for an X-intersection which is almost
-        # a T-intersection. TODO: This can be a helper function, common in 2d and 3d.
-        # Also, we can do this after the control points have been inserted, so that it
-        # is done only once.
-        if len(mesh_size_points) > 0:
-            all_pts = []
-            mesh_sizes = []
-            line_item = []
-            for surface, info in mesh_size_points.items():
-                for i, d in enumerate(info):
-                    all_pts.append(d[0])
-                    mesh_sizes.append(d[1])
-                    line_item.append((surface, i))
-            all_pts = np.array(all_pts).T
-            mesh_sizes = np.array(mesh_sizes)
-
-            if all_pts.size > 0:
-                _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
-                    all_pts, tol=self._tol
-                )
-                min_size = np.empty(ind_map.size, dtype=float)
-                for i in range(ind_map.size):
-                    inds = inv_map == i
-                    min_size[i] = np.min(mesh_sizes[inds])
-
-                # Map back to lines.
-                for line_ind, pt_ind in enumerate(inv_map):
-                    surface = line_item[line_ind][0]
-                    item = line_item[line_ind][1]
-                    mesh_size_points[surface][item] = (
-                        mesh_size_points[surface][item][0],
-                        min_size[pt_ind],
-                    )
+        # and assign the minimum mesh size among all occurrences of the point.
+        self._uniquify_mesh_size_dictionary(mesh_size_points)
 
         # For lines that with no extra mesh size control points, assign an empty list.
         mesh_size = {tag: [] for tag in surface_tags}

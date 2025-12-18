@@ -513,6 +513,57 @@ class FractureNetwork(ABC):
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
+    def _uniquify_mesh_size_dictionary(
+        self, mesh_size_points: dict[int, list[tuple[np.ndarray, float]]]
+    ) -> None:
+        """Helper function to uniquify mesh size control points.
+
+        This will remove duplicate points from the mesh size control point dictionary,
+        added during the insertion process (presumably for different fractures or
+        boundaries that are close to each other). The minimum mesh size among the
+        duplicates is kept.
+
+        Parameters:
+            mesh_size_points: Dictionary mapping Gmsh entity tags to lists of tuples,
+                each containing the coordinates of an inserted mesh size control point
+                and its distance to the nearest other fracture or boundary.
+
+        The dictionary is modified in place.
+        """
+        if len(mesh_size_points) > 0:
+            all_pts = []
+            mesh_sizes = []
+            entity_item_comb = []
+            # Loop over all entities and their points, collect all points and mesh
+            # sizes.
+            for entity, info in mesh_size_points.items():
+                for i, d in enumerate(info):
+                    all_pts.append(d[0])
+                    mesh_sizes.append(d[1])
+                    entity_item_comb.append((entity, i))
+            if len(all_pts) > 0:
+                # Uniquify points, then map back to the entities. The mesh size is set
+                # to the minimum among duplicates.
+                mesh_sizes = np.array(mesh_sizes)
+                _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
+                    np.array(all_pts).T, tol=self._tol
+                )
+                min_size = np.empty(ind_map.size, dtype=float)
+
+                # Loop over unique points, find minimum mesh size among duplicates.
+                for i in range(ind_map.size):
+                    inds = inv_map == i
+                    min_size[i] = np.min(mesh_sizes[inds])
+
+                # Map back to entities.
+                for line_ind, pt_ind in enumerate(inv_map):
+                    entity = entity_item_comb[line_ind][0]
+                    item = entity_item_comb[line_ind][1]
+                    mesh_size_points[entity][item] = (
+                        mesh_size_points[entity][item][0],
+                        min_size[pt_ind],
+                    )
+
 
 ij = namedtuple("Index", ["i", "j"])
 Point = namedtuple("Point", ["x", "y", "z"])
