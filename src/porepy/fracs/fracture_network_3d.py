@@ -247,8 +247,6 @@ class FractureNetwork3d(FractureNetwork):
         # Helper class to keep track of mesh size computations.
         mesh_size_computer = MeshSizeComputer(mesh_args)
 
-        nd = 3
-
         if self.domain is not None:
             domain_tag = self.domain_to_gmsh()
         else:
@@ -256,24 +254,22 @@ class FractureNetwork3d(FractureNetwork):
 
         fracture_tags = self.fractures_to_gmsh()
         boundary_tags = [
-            t for _, t in gmsh.model.get_boundary([(nd, domain_tag)], oriented=False)
+            t
+            for _, t in gmsh.model.get_boundary([(self.nd, domain_tag)], oriented=False)
         ]
         surface_tags = fracture_tags + boundary_tags
         gmsh.model.occ.synchronize()
 
+        # STEP 1: Insert mesh size control points on fractures and boundaries.
         mesh_control_dict = self._insert_mesh_size_control_points(mesh_size_computer)
         gmsh.model.occ.synchronize()
 
-        # Map from the gmsh tags originally assigned to the fractures to the
-        # fractures after possible truncation and removal.
-        fracture_tag_map = {i: [i] for i in fracture_tags}
-        # List of new fracture tags after possible truncation and removal.
-        fracture_tags = copy.deepcopy(fracture_tags)
-        # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
+        # Mapping from the gmsh fracture tags to the input fractures.
         inv_fracture_tag_map = {i: counter for counter, i in enumerate(fracture_tags)}
 
         surface_tags = fracture_tags + boundary_tags
 
+        # STEP 2: Impose external boundary and process intersections.
         (
             intersection_points,
             intersection_lines,
@@ -286,7 +282,6 @@ class FractureNetwork3d(FractureNetwork):
             fracture_tags,
             domain_tag,
             constraints=constraints,
-            fracture_tag_map=fracture_tag_map,
             inv_fracture_tag_map=inv_fracture_tag_map,
         )
         # Update mesh size control points after intersection processing.
@@ -322,7 +317,7 @@ class FractureNetwork3d(FractureNetwork):
             )
         )
         fac.synchronize()
-        gmsh.model.mesh.generate(nd - 1)
+        gmsh.model.mesh.generate(self.nd - 1)
         if not dfn:
             # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
             for field in gmsh.model.mesh.field.list():
@@ -338,7 +333,7 @@ class FractureNetwork3d(FractureNetwork):
                     restrict_to_fractures=False,
                 )
             )
-            gmsh.model.mesh.generate(3)
+            gmsh.model.mesh.generate(self.nd)
 
         gmsh.write(str(file_name))
         if clear_gmsh:
@@ -369,7 +364,6 @@ class FractureNetwork3d(FractureNetwork):
         fracture_tags: list[int],
         domain_tag: int,
         constraints: list[int],
-        fracture_tag_map,
         inv_fracture_tag_map,
     ) -> None:
         nd = 3
