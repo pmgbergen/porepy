@@ -8,7 +8,7 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from porepy.numerics.nonlinear.convergence_check import SimulationStatus
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -90,7 +90,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
 
     # Define a function that does all the work during one time step, except
     # for everything ``tqdm`` related.
-    def time_step() -> ConvergenceStatus:
+    def time_step() -> SimulationStatus:
         model.time_manager.increase_time()
         model.time_manager.increase_time_index()
         logger.info(
@@ -139,13 +139,14 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
                 f"Time step {model.time_manager.time_index + 1}"
             )
             status = time_step()
-            # Update progressbar length.
-            if status.is_converged():
+            if status.is_successful():
+                # Update progressbar length.
                 time_progressbar.update(n=model.time_manager.dt / initial_time_step)
             elif status.is_failed():
                 # Retry if not explicitly stopped.
                 pass
             elif status.is_stopped():
+                # Stop simulation.
                 logging.info("Aborting simulation due to convergence issues.")
                 break
 
