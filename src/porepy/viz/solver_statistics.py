@@ -11,6 +11,7 @@ from typing import Any, Optional, Type
 import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (
+    SimulationStatus,
     ConvergenceStatusDict,
     ConvergenceStatusCollection,
 )
@@ -88,6 +89,8 @@ class SolverStatistics:
     """Path to save the statistics object to."""
     num_cells: list[int] = field(default_factory=list)
     """Number of cells in each dimension."""
+    simulation_status: SimulationStatus = field(default=SimulationStatus.SUCCESSFUL)
+    """Overall simulation status."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
@@ -109,6 +112,18 @@ class SolverStatistics:
         self.num_cells = [0] * (max_dim + 1)
         for sd in subdomains:
             self.num_cells[sd.dim] += sd.num_cells
+
+    def log_simulation_status(
+        self, simulation_status: SimulationStatus, **kwargs
+    ) -> None:
+        """Log overall simulation status.
+
+        Parameters:
+            simulation_status: Overall simulation status.
+            **kwargs: Additional keyword arguments, for potential extension.
+
+        """
+        self.simulation_status = simulation_status
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -150,6 +165,7 @@ class SolverStatistics:
         # Store static geometry data.
         data["global"] = {
             "num_cells": self.num_cells,
+            "final_simulation_status": str(self.simulation_status),
             "latest_counter": self.counter,
         }
 
@@ -250,7 +266,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         default_factory=ConvergenceStatusCollection
     )
     """Convergence status of the solver (type depends on )."""
-    info: list[float] | dict[str, list[float]] = field(default_factory=list)
+    convergence_info: list[float] | dict[str, list[float]] = field(default_factory=list)
     """Convergence information containing error norms."""
     global_num_iteration: list[int] = field(default_factory=list)
     """List of number of iterations for entire run."""
@@ -275,7 +291,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
         self.convergence_status.append(convergence_status)
 
-    def log_info(self, info: dict | float, **kwargs) -> None:
+    def log_convergence_info(self, info: dict | float, **kwargs) -> None:
         """Log info produced from convergence criteria.
 
         Parameters:
@@ -284,15 +300,15 @@ class NonlinearSolverStatistics(SolverStatistics):
 
         """
         if isinstance(info, dict):
-            if not isinstance(self.info, dict):
-                assert len(self.info) == 0
-                self.info = {}
-            self.info = _recursive_append(self.info, info)
+            if not isinstance(self.convergence_info, dict):
+                assert len(self.convergence_info) == 0
+                self.convergence_info = {}
+            self.convergence_info = _recursive_append(self.convergence_info, info)
         elif isinstance(info, float):
-            if not isinstance(self.info, list):
-                assert len(self.info) == 0
-                self.info = []
-            self.info.append(info)
+            if not isinstance(self.convergence_info, list):
+                assert len(self.convergence_info) == 0
+                self.convergence_info = []
+            self.convergence_info.append(info)
         else:
             raise TypeError(
                 """Info must be either a float or a dictionary, """
@@ -304,7 +320,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         super().reset()
         self.num_iteration = 0
         self.convergence_status.clear()
-        self.info.clear()
+        self.convergence_info.clear()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary.
@@ -343,8 +359,9 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.counter)].update(
             {
                 "num_iteration": self.num_iteration,
+                "simulation_status": str(self.simulation_status),
                 "convergence_status": self.convergence_status.to_str(),
-                "convergence_info": self.info,
+                "convergence_info": self.convergence_info,
             }
         )
 
