@@ -21,7 +21,6 @@ from porepy.models.compositional_flow import (
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
 )
-from porepy.numerics.nonlinear.convergence_check import ConvergenceTolerance
 
 
 class TracerFluid:
@@ -156,11 +155,9 @@ if __name__ == "__main__":
         "eliminate_reference_phase": True,
         "eliminate_reference_component": True,
         "time_manager": time_manager,
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=newton_tol_increment,
-            tol_residual=newton_tol,
-            max_iterations=max_iterations,
-        ),
+        "nl_max_iterations": max_iterations,
+        "nl_convergence_inc_atol": newton_tol_increment,
+        "nl_convergence_res_atol": newton_tol,
         "meshing_arguments": {"cell_size": 0.05},
         "grid_type": "simplex",
     }

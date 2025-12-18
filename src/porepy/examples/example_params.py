@@ -110,13 +110,15 @@ solver_params = {
     "progressbars": True,  # make sure you installed tqdm
     "_nl_progress_bar_position": 0,  # TODO: You don't want to change it.
     # Sufficient to steer control defaul convergence and divergence criteria.
-    # "max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
-    # "nl_convergence_inc_atol": 1e-6,  # Increment norm
-    # "nl_convergence_res_atol": 1e-6,  # Residual norm
-    # "nl_convergence_inc_rtol": 1e-4,  # Increment norm (relative)
-    # "nl_convergence_res_rtol": 1e-4,  # Residual norm (relative)
-    # "nl_divergence_inc_tol": np.inf,
-    # "nl_divergence_res_tol": np.inf,
+    "nl_max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
+    "nl_convergence_inc_atol": 1e-6,  # Increment norm
+    "nl_convergence_res_atol": 1e-6,  # Residual norm
+    "nl_convergence_inc_rtol": 1e-4,  # Increment norm (relative)
+    "nl_convergence_res_rtol": 1e-4,  # Residual norm (relative)
+    "nl_divergence_inc_tol": np.inf,
+    "nl_divergence_res_tol": np.inf,
+    "nl_metric": EuclideanMetric(),  # Metric for norms.
+    # Detailed convergence and divergence criteria - overwrite the defaults.
     "nl_convergence_criteria": {
         "inc_abs": IncrementBasedAbsoluteCriterion(tol=1e-6, metric=EuclideanMetric()),
         "inc_rel": IncrementBasedRelativeCriterion(tol=1e-4, metric=EuclideanMetric()),
@@ -125,13 +127,13 @@ solver_params = {
     },
     "nl_divergence_criteria": {
         "max_iter": MaxIterationsCriterion(max_iterations=10),
-        "inc_nan": IncrementBasedNanCriterion(metric=EuclideanMetric()),
-        "res_nan": ResidualBasedNanCriterion(metric=EuclideanMetric()),
+        "inc_nan": IncrementBasedNanCriterion(),
+        "res_nan": ResidualBasedNanCriterion(),
         "inc_max": IncrementBasedAbsoluteDivergenceCriterion(
-            tol=np.inf, metric=EuclideanMetric()
+            tol=1e20, metric=EuclideanMetric()
         ),
         "res_max": ResidualBasedAbsoluteDivergenceCriterion(
-            tol=np.inf, metric=EuclideanMetric()
+            tol=1e20, metric=EuclideanMetric()
         ),
     },
     # Line search / Solution Strategies. These are considered "advanced" options.

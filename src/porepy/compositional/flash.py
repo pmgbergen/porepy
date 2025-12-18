@@ -43,7 +43,7 @@ class Flash(abc.ABC):
         )
 
         self.solver_params = {
-            "max_iterations": 150,
+            "nl_max_iterations": 150,
             "nl_convergence_inc_atol": 1e-8,
             "nl_convergence_res_atol": 1e-8,
             "num_phases": float(fluid.num_phases),
