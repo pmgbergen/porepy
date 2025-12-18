@@ -9,33 +9,31 @@ from typing import cast
 
 import numpy as np
 
+from porepy.models.metric import EuclideanMetric
 from porepy.models.solution_strategy import SolutionStrategy
+from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
+    ConvergenceCriteria,
     ConvergenceStatus,
     ConvergenceStatusDict,
-    ConvergenceCriteria,
     DivergenceCriteria,
     IncrementBasedAbsoluteCriterion,
-    IncrementBasedRelativeCriterion,
-    IncrementBasedNanCriterion,
     IncrementBasedAbsoluteDivergenceCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedRelativeCriterion,
-    ResidualBasedNanCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
+    IncrementBasedNanCriterion,
+    IncrementBasedRelativeCriterion,
     MaxIterationsCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
+    ResidualBasedNanCriterion,
+    ResidualBasedRelativeCriterion,
+    SimulationStatus,
 )
-from porepy.models.metric import EuclideanMetric
-
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
 from porepy.viz.solver_statistics import NonlinearSolverStatistics
-from porepy.numerics.linear_solvers import LinearSolver
-
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -265,7 +263,7 @@ class NewtonSolver:
             + f"{model.nonlinear_solver_statistics.num_iteration}"
             + f" of {max_iterations}"
         )
-        # TODO: Provide a way of logging which is agnostic to the chosen criteria and metric.
+        # TODO: Provide logging which is agnostic to the chosen criteria and metric.
         # logger.info(
         #    f"Nonlinear increment norm: {info.nonlinear_increment_norm:.2e}, "
         #    f"Nonlinear residual norm: {info.residual_norm:.2e}"

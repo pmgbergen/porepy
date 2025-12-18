@@ -12,12 +12,12 @@ from typing import Optional
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
-    ConvergenceStatusDict,
     ConvergenceCriteria,
+    ConvergenceStatusDict,
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
+    SimulationStatus,
 )
 from porepy.viz.solver_statistics import TimeStatistics
 

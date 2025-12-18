@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from copy import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Type
@@ -11,11 +12,10 @@ from typing import Any, Optional, Type
 import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
-    ConvergenceStatusDict,
     ConvergenceStatusCollection,
+    ConvergenceStatusDict,
+    SimulationStatus,
 )
-from copy import copy
 
 logger = logging.getLogger(__name__)
 

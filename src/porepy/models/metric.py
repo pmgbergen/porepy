@@ -7,8 +7,9 @@ From plain Euclidean norms to model-specific L2 norms of states and equations.
 from functools import partial
 
 import numpy as np
-from porepy.numerics.ad.operators import DenseArray
+
 import porepy as pp
+from porepy.numerics.ad.operators import DenseArray
 
 
 class EuclideanMetric:

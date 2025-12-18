@@ -19,23 +19,23 @@ from porepy.applications.material_values.reference_values import (
 from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
+from porepy.models.metric import EuclideanMetric
 from porepy.numerics.nonlinear.convergence_check import (
     IncrementBasedAbsoluteCriterion,
-    IncrementBasedRelativeCriterion,
-    IncrementBasedNanCriterion,
     IncrementBasedAbsoluteDivergenceCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedRelativeCriterion,
-    ResidualBasedNanCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
+    IncrementBasedNanCriterion,
+    IncrementBasedRelativeCriterion,
     MaxIterationsCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
+    ResidualBasedNanCriterion,
+    ResidualBasedRelativeCriterion,
 )
 from porepy.numerics.nonlinear.line_search import (
     ConstraintLineSearch,
     LineSearchNewtonSolver,
     SplineInterpolationLineSearch,
 )
-from porepy.models.metric import EuclideanMetric
 
 
 # The most advanced nonlinear solver available (so far).

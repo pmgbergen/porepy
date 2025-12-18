@@ -10,9 +10,9 @@ This includes:
 """
 
 from abc import ABC, abstractmethod
+from copy import copy
 from enum import StrEnum
 from typing import Callable
-from copy import copy
 
 import numpy as np
 
@@ -149,7 +149,8 @@ class ConvergenceStatusCollection(dict[str, list[ConvergenceStatus]]):
     """Collection of convergence statuses in form of nested dictionaries.
 
     The keys are the names of the criteria, and the values are lists of convergence
-    statuses, e.g., recorded over iterations, as used in the :class:`pp.SolverStatistics`.
+    statuses, e.g., recorded over iterations, as used in the
+    :class:`pp.SolverStatistics`.
 
     """
 
