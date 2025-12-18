@@ -24,7 +24,7 @@ import copy
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Callable, Optional, cast
+from typing import Callable, Optional, cast
 
 import numpy as np
 import pytest
@@ -40,10 +40,15 @@ from porepy.applications.test_utils import models
 from porepy.applications.test_utils.models import add_mixin
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 from porepy.numerics.nonlinear.convergence_check import (
-    AbsoluteConvergenceCriterion,
     ConvergenceStatus,
-    ConvergenceTolerance,
+    ConvergenceCriteria,
+    DivergenceCriteria,
+    IncrementBasedAbsoluteCriterion,
+    IncrementBasedNanCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
 )
+from porepy.models.metric import EuclideanMetric
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
 from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
@@ -274,11 +279,9 @@ def test_targeted_rediscretization(model_class):
         "times_to_export": [],
     }
     solver_params = {
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=0,
-            tol_residual=0,
-            max_iterations=2,
-        ),
+        "nl_convergence_inc_atol": 0,
+        "nl_convergence_res_atol": 0,
+        "nl_max_iterations": 2,
     }
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
@@ -429,7 +432,7 @@ def check_convergence_test_model() -> CheckConvergenceTest:
         # Case 3: Residual is above tolerance.
         (np.array([1e-6, 1e-6]), np.array([1]), ConvergenceStatus.NOT_CONVERGED),
         # Case 4: Increment is nan.
-        (np.array([np.nan, 0.1]), np.array([1e-6]), ConvergenceStatus.NAN),
+        (np.array([np.nan, 0.1]), np.array([1e-6]), ConvergenceStatus.DIVERGED),
         # Case 5: Residual is above divergence tolerance.
         (np.array([1e-6, 1e-6]), np.array([2e4]), ConvergenceStatus.DIVERGED),
     ],
@@ -444,28 +447,36 @@ def test_check_convergence(
     diverged/converged values.
 
     """
-    # ``reference_residual`` is not used by ``check_convergence``. We pass a zero
-    # arrray.
-    nl_params: dict[str, Any] = {
-        "nl_convergence_tol": ConvergenceTolerance(
-            tol_increment=1e-5,
-            tol_residual=1e-5,
-            max_increment=1e4,
-            max_residual=1e4,
-        )
-    }
     # Standard setup of a convergence absolute convergence criterion - typically
     # orchestrated by a nonlinear solver.
-    convergence_criterion = AbsoluteConvergenceCriterion()
-    convergence_criterion.set_reference_value(0.0, 0.0)
-    # Compute norms - typically done inside the nonlinear solver.
-    increment_norm = check_convergence_test_model.variable_norm(nonlinear_increment)
-    residual_norm = check_convergence_test_model.equation_norm(residual)
-    # Check convergence.
-    status, _ = convergence_criterion.check(
-        increment_norm, residual_norm, nl_params["nl_convergence_tol"]
+    metric = EuclideanMetric()
+    convergence_criteria = ConvergenceCriteria(
+        {
+            "inc_abs": IncrementBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+            "res_abs": ResidualBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+        }
     )
-    assert status == expected
+    divergence_criteria = DivergenceCriteria(
+        {
+            "inc_nan": IncrementBasedNanCriterion(),
+            "res_max": ResidualBasedAbsoluteDivergenceCriterion(tol=1e4, metric=metric),
+        }
+    )
+    # Check convergence.
+    convergence_status, _ = convergence_criteria.check(
+        increment=nonlinear_increment, residual=residual
+    )
+    divergence_status = divergence_criteria.check(
+        increment=nonlinear_increment, residual=residual
+    )
+    # Condense the two statuses into one.
+    status = convergence_status.union(divergence_status)
+    if expected == ConvergenceStatus.CONVERGED:
+        assert status.is_converged()
+    elif expected == ConvergenceStatus.NOT_CONVERGED:
+        assert status.is_not_converged()
+    elif expected == ConvergenceStatus.DIVERGED:
+        assert status.is_diverged()
 
 
 @pytest.mark.parametrize(
