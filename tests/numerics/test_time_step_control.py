@@ -23,7 +23,8 @@ import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
-    ConvergenceStatusDict,
+    ConvergenceStatusSummary,
+    ConvergenceInfoSummary,
 )
 
 
@@ -896,22 +897,22 @@ def test_model_time_step_control(params: dict):
     class DynamicNewtonSolver(pp.NewtonSolver):
         def check_convergence(
             self, model, nonlinear_increment
-        ) -> tuple[ConvergenceStatusDict, dict]:
+        ) -> tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]:
             if (
                 model.nonlinear_solver_statistics.num_iteration
                 < model.num_nonlinear_iterations[model.time_step_idx] - 1
             ):
-                return ConvergenceStatusDict(
+                return ConvergenceStatusSummary(
                     {"crit": ConvergenceStatus.NOT_CONVERGED}
-                ), {"crit": 1.0}
+                ), ConvergenceInfoSummary({"crit": 1.0})
             if model.time_step_converged[model.time_step_idx] is True:
-                return ConvergenceStatusDict({"crit": ConvergenceStatus.CONVERGED}), {
-                    "crit": 0.0
-                }
+                return ConvergenceStatusSummary(
+                    {"crit": ConvergenceStatus.CONVERGED}
+                ), ConvergenceInfoSummary({"crit": 0.0})
             else:
-                return ConvergenceStatusDict({"crit": ConvergenceStatus.DIVERGED}), {
-                    "crit": np.nan
-                }
+                return ConvergenceStatusSummary(
+                    {"crit": ConvergenceStatus.DIVERGED}
+                ), ConvergenceInfoSummary({"crit": np.nan})
 
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,

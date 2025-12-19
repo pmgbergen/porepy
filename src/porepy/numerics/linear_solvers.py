@@ -8,12 +8,13 @@ case, see numerics.nonlinear.nonlinear_solvers.
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import Optional
 
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceStatusDict,
+    ConvergenceStatusSummary,
+    ConvergenceInfoSummary,
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
@@ -112,7 +113,7 @@ class LinearSolver:
 
     def check_convergence(
         self, model: SolutionStrategy, nonlinear_increment
-    ) -> tuple[ConvergenceStatusDict, dict[str, dict | float]]:
+    ) -> tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]:
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
@@ -120,7 +121,8 @@ class LinearSolver:
             nonlinear_increment: The current nonlinear increment.
 
         Returns:
-            tuple[ConvergenceStatusDict, dict]: Status and info about convergence.
+            tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]: Status and info
+                about convergence.
 
         """
         # Fetch the residual.

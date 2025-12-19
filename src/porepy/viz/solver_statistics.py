@@ -12,8 +12,10 @@ from typing import Any, Optional, Type
 import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceStatusCollection,
-    ConvergenceStatusDict,
+    ConvergenceStatusSummary,
+    ConvergenceInfoSummary,
+    ConvergenceStatusHistory,
+    ConvergenceInfoHistory,
     SimulationStatus,
 )
 
@@ -262,12 +264,14 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     num_iteration: int = field(default=0)
     """Number of non-linear iterations performed for current time step."""
-    convergence_status: ConvergenceStatusCollection = field(
-        default_factory=ConvergenceStatusCollection
+    convergence_status: ConvergenceStatusHistory = field(
+        default_factory=ConvergenceStatusHistory
     )
-    """Convergence status of the solver (type depends on )."""
-    convergence_info: list[float] | dict[str, list[float]] = field(default_factory=list)
-    """Convergence information containing error norms."""
+    """History of convergence status over nonlinear iterations."""
+    convergence_info: ConvergenceInfoHistory = field(
+        default_factory=ConvergenceInfoHistory
+    )
+    """History of convergence information over nonlinear iterations."""
     global_num_iteration: list[int] = field(default_factory=list)
     """List of number of iterations for entire run."""
 
@@ -280,7 +284,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iteration += 1
 
     def log_convergence_status(
-        self, convergence_status: ConvergenceStatusDict, **kwargs
+        self, convergence_status: ConvergenceStatusSummary, **kwargs
     ) -> None:
         """Log and collect the convergence status of the solver.
 
@@ -291,29 +295,17 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
         self.convergence_status.append(convergence_status)
 
-    def log_convergence_info(self, info: dict | float, **kwargs) -> None:
+    def log_convergence_info(
+        self, convergence_info: ConvergenceInfoSummary, **kwargs
+    ) -> None:
         """Log info produced from convergence criteria.
 
         Parameters:
-            info: Convergence information containing error norms.
+            convergence_info: Convergence information containing error norms.
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
-        if isinstance(info, dict):
-            if not isinstance(self.convergence_info, dict):
-                assert len(self.convergence_info) == 0
-                self.convergence_info = {}
-            self.convergence_info = _recursive_append(self.convergence_info, info)
-        elif isinstance(info, float):
-            if not isinstance(self.convergence_info, list):
-                assert len(self.convergence_info) == 0
-                self.convergence_info = []
-            self.convergence_info.append(info)
-        else:
-            raise TypeError(
-                """Info must be either a float or a dictionary, """
-                f"""got {type(info)}"""
-            )
+        self.convergence_info.append(convergence_info)
 
     def reset(self) -> None:
         """Reset the statistics object, and restart counting iterations."""

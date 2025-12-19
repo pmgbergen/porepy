@@ -14,8 +14,8 @@ from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceStatus,
-    ConvergenceStatusDict,
+    ConvergenceStatusSummary,
+    ConvergenceInfoSummary,
     DivergenceCriteria,
     IncrementBasedAbsoluteCriterion,
     IncrementBasedAbsoluteDivergenceCriterion,
@@ -142,31 +142,35 @@ class NewtonSolver:
                 nonlinear_increment = self.nonlinear_iteration(model)
 
                 # Monitor convergence.
-                status, info = self.check_convergence(model, nonlinear_increment)
+                convergence_status, convergence_info = self.check_convergence(
+                    model, nonlinear_increment
+                )
 
                 # Logging and progress bar update.
-                self.logging(model, info)
+                self.logging(model, convergence_info)
 
                 # Update model status.
                 model.after_nonlinear_iteration(nonlinear_increment)
 
                 # Update (iteration-based) solver statistics.
                 self.update_solver_statistics(
-                    model, convergence_status=status, convergence_info=info
+                    model,
+                    convergence_status=convergence_status,
+                    convergence_info=convergence_info,
                 )
 
                 # Exit the Newton loop.
-                if status.is_converged() or status.is_failed():
+                if convergence_status.is_converged() or convergence_status.is_failed():
                     break
 
         # React to convergence status.
-        if status.is_converged():
+        if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
             model.after_nonlinear_convergence()
-        elif status.is_failed():
+        elif convergence_status.is_failed():
             simulation_status = model.after_nonlinear_failure()
         else:
-            raise ValueError(f"Unknown convergence status: {status}")
+            raise ValueError(f"Unknown convergence status: {convergence_status}")
 
         # Update (global) solver statistics.
         self.update_solver_statistics(model, simulation_status=simulation_status)
@@ -197,7 +201,7 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         nonlinear_increment: np.ndarray,
-    ) -> tuple[ConvergenceStatusDict, dict[str, dict | float]]:
+    ) -> tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]:
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
@@ -206,7 +210,8 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            tuple[ConvergenceStatusDict, dict]: Status and info about convergence.
+            tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]: Status and info
+                about convergence.
 
         """
         # Fetch the residual and current iterate.
@@ -244,7 +249,7 @@ class NewtonSolver:
     def logging(
         self,
         model: SolutionStrategy,
-        info: dict | float,
+        convergence_info: dict[str, dict | float],
     ) -> None:
         """Log the current state of the nonlinear solver.
 
@@ -253,7 +258,7 @@ class NewtonSolver:
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            info: Convergence information containing norms and other details.
+            convergence_info: Convergence information containing norms and other details.
 
         """
         assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
@@ -279,8 +284,8 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         simulation_status: SimulationStatus | None = None,
-        convergence_status: ConvergenceStatusDict | None = None,
-        convergence_info: dict | float | None = None,
+        convergence_status: ConvergenceStatusSummary | None = None,
+        convergence_info: ConvergenceInfoSummary | None = None,
     ) -> None:
         """Update the solver statistics in the model.
 
