@@ -93,12 +93,12 @@ class _FlowConfiguration(pp.PorePyModel):
     # Initial values.
     _p_INIT: float = 20e6
     _T_INIT: float = 450.0
-    _z_INIT: dict[str, float] = {"H2O": 0.995, "H2S": 0.005}
+    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     # In- and outflow values.
     _T_HEATED: float = 640.0
     _T_IN: float = 300.0
-    _z_IN: dict[str, float] = {"H2O": 0.9, "H2S": 0.1}
+    _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
 
     _p_OUT: float = _p_INIT - 1e6
 
@@ -114,7 +114,7 @@ class _FlowConfiguration(pp.PorePyModel):
 
     _INJECTED_MASS: dict[str, dict[int, float]] = {
         "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
-        "H2S": {0: _TOTAL_INJECTED_MASS * _z_IN["H2S"]},
+        "CO2": {0: _TOTAL_INJECTED_MASS * _z_IN["CO2"]},
     }
 
     # Coordinates of injection and production wells in meters
@@ -129,7 +129,7 @@ class FluidMixture(pp.PorePyModel):
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(["H2O", "H2S"], "chemicals")
+        return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
 
     def get_phase_configuration(
         self, components: Sequence[pp.FluidComponent]
@@ -179,13 +179,13 @@ class FluidMixture(pp.PorePyModel):
         if self.params.get("_lbc_viscosity", False):
             eos = PRLBC(
                 components,
-                [pr.h_ideal_H2O, pr.h_ideal_H2S],
+                [pr.h_ideal_H2O, pr.h_ideal_CO2],
                 pr.get_bip_matrix(components),
             )
         else:
             eos = PRCT(
                 components,
-                [pr.h_ideal_H2O, pr.h_ideal_H2S],
+                [pr.h_ideal_H2O, pr.h_ideal_CO2],
                 pr.get_bip_matrix(components),
             )
         return [
@@ -461,7 +461,7 @@ class RandomFracturedMatrixWithPointWells2D(PointWells):
         domain_width = x_max - x_min
         domain_height = y_max - y_min
         min_length = domain_height
-        max_length = domain_width * 0.7
+        max_length = domain_width * 0.8
 
         num_fracs = int(self.params.get("_num_fractures", 0))
         fractures = []
@@ -476,7 +476,7 @@ class RandomFracturedMatrixWithPointWells2D(PointWells):
             )
 
             # Random angle and length
-            theta = np.random.uniform(-np.pi/4, np.pi/4)
+            theta = np.random.uniform(-np.pi/3, np.pi/3)
             length = np.random.uniform(min_length, max_length)
 
             dx = 0.5 * length * np.cos(theta)
@@ -939,15 +939,15 @@ class Permeability(pp.PorePyModel):
         K_low = float(self.params.get("impermeable_fracture_permeability", 1.0))
         K_high = float(self.params.get("fracture_permeability", 1.0))
 
-        _set_random_seed(int(self.params.get("_num_fractures", 0)))
+        is_impermable = False
 
         for sd in subdomains:
             k = np.ones(sd.num_cells)
-            is_impermable = np.random.choice([True, False])
             if is_impermable:
                 k *= K_low
             else:
                 k *= K_high
+            is_impermable = not is_impermable
             self.exporter.add_constant_data([(sd, "absolute_permeability", k)])
             K_vals.append(k)
 

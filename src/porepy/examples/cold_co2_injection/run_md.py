@@ -25,21 +25,21 @@ from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
-BUOYANCY_ON = True
+BUOYANCY_ON = False
 VERBOSE = True
 
 # max_iterations = 40 if BUOYANCY_ON else 30
 max_iterations = 30
 iter_range = (21, 28) if BUOYANCY_ON else (15, 25)
-newton_tol = 1e-3
-newton_tol_increment = 1e-3
-T_end_months = 100
+newton_tol = 5e-3
+newton_tol_increment = 1e-2
+T_end_months = 30
 
 time_schedule = [i * pp.DAY for i in range(121)]
 assert T_end_months > 5
 time_schedule += [i * 30 * pp.DAY for i in range(5, T_end_months + 1)]
-dt_init = 20 * pp.MINUTE
-dt_min = pp.SECOND / 1e4
+dt_init = 1 * pp.HOUR
+dt_min = pp.MINUTE
 dt_max = pp.DAY
 
 time_manager = pp.TimeManager(
@@ -61,7 +61,7 @@ phase_property_params = {
 
 basalt_ = basalt.copy()
 basalt_["permeability"] = 1e-14
-well_surrounding_permeability = 1e-14
+well_surrounding_permeability = 1e-13
 material_params = {"solid": pp.SolidConstants(**basalt_)}
 
 flash_params: dict[Any, Any] = {
@@ -73,8 +73,8 @@ flash_params: dict[Any, Any] = {
         "armijo_rho": 0.99,
         "armijo_kappa": 0.4,
         "armijo_max_iterations": 30,
-        "npipm_u1": 10,
-        "npipm_u2": 10,
+        "npipm_u1": 1,
+        "npipm_u2": 1,
         "npipm_eta": 0.5,
     },
     "global_iteration_stride": 3,
@@ -96,7 +96,7 @@ solver_params = {
     "armijo_line_search_max_iterations": 10,
     "armijo_start_after_residual_reaches": np.inf,
     "armijo_stop_after_residual_reaches": 1e-5,
-    "appplyard_chop": 0.2,
+    "appplyard_chop": 0.3,
     "anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
     "anderson_acceleration_constrained": True,
@@ -129,9 +129,9 @@ model_params: dict[str, Any] = {
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
     "_lbc_viscosity": False,
-    "fracture_permeability": 1e-11,
-    "impermeable_fracture_permeability": 1e-11,
-    "_num_fractures": 7,
+    "fracture_permeability": 1e-10,
+    "impermeable_fracture_permeability": 1e-15,
+    "_num_fractures": 8,
     "_well_surrounding_permeability": well_surrounding_permeability,
     "folder_name": f"visualization/md_case/",
     "progressbars": not VERBOSE,
@@ -147,21 +147,21 @@ class ModelSetup(
     ColdInjectionModelFF if BUOYANCY_ON else ColdInjectionModel,
 ):
     """Model setup for cold CO2 injection."""
-    _domain_x_length = 50
-    _domain_y_length = 15
-    _INJECTION_POINTS = [np.array([5., 3])]
-    _PRODUCTION_POINTS= [np.array([45.0, 10])]
-    _T_HEATED = 630.0
-    _p_INIT = 20e6
-    _T_INIT = 400.
-    _p_OUT = 18e6
-    _TOTAL_INJECTED_MASS: float = 10 * 27430.998956110157 / (60 * 60)
+    # _domain_x_length = 50
+    # _domain_y_length = 15
+    # _INJECTION_POINTS = [np.array([5., 3])]
+    # _PRODUCTION_POINTS= [np.array([45.0, 10])]
+    # _T_HEATED = 630.0
+    # _p_INIT = 20e6
+    # _T_INIT = 400.
+    # _p_OUT = 18e6
+    # _TOTAL_INJECTED_MASS: float = 10 * 27430.998956110157 / (60 * 60)
 
-    # _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
-    _z_INIT: dict[str, float] = {"H2O": 0.9, "H2S": 0.1}
+    # # _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+    # _z_INIT: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
 
-    # _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
-    _z_IN: dict[str, float] = {"H2O": 0.995, "H2S": 0.005}
+    # # _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
+    # _z_IN: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
 
 if __name__ == "__main__":
