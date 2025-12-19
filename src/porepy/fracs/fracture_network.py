@@ -187,7 +187,12 @@ class FractureNetwork(ABC):
         # between two boundaries.
         for ent in boundary_entities:
             dist = [gmsh.model.occ.get_distance(*bp, *ent)[0] for bp in boundary_points]
-            if np.all(np.array(dist) < self._tol):
+            # EK: It is not 100% clear what an empty list of boundary points (i.e.,
+            # len(dist) == 0) implies - the case arose while working with disc
+            # fractures. However, it seems safest that the lack of boundary points does
+            # not automatically leads to the fracture being classified as being on the
+            # boundary, hence we rule out this case.
+            if len(dist) > 0 and np.all(np.array(dist) < self._tol):
                 return True
         # Having come this far, the entity is not on the domain boundary.
         return False
