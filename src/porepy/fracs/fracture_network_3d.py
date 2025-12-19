@@ -433,7 +433,7 @@ class FractureNetwork3d(FractureNetwork):
         updated_fracture_tag_map = {}
         for fi, frac in enumerate(isect_mapping):
             if frac and frac[0][0] == 3:
-                # This is the domain, keep it.
+                # This is the domain. Skip it.
                 continue
             elif fi >= len(fracture_tags):
                 # This is not a fracture, quite likely it is part of the boundary.
@@ -448,6 +448,28 @@ class FractureNetwork3d(FractureNetwork):
                 bounding_points = []
                 for line in bounding_lines:
                     bounding_points += gmsh.model.get_boundary([line])
+
+                if len(bounding_points) == 0:
+                    # This is most likely a disc fracture, which has no bounding
+                    # lines/points. Simply do a distance check between the fracture and
+                    # the domain.
+                    #
+                    # EK: If this assertion fails, this indicates that we have produced
+                    # a non-disc domain without boundary lines/points. This case must be
+                    # handled if it ever arises.
+                    assert len(frac) == 1
+                    distances = [
+                        gmsh.model.occ.get_distance(*sub_frac, self.nd, dtag)[0]
+                        for dtag in domain_tags
+                    ]
+                    if np.all(np.array(distances) > self._tol):
+                        loc_keep[sfi] = False
+                        part_of_fracture_deleted.append(inv_fracture_tag_map[frac_ind])
+                    else:
+                        updated_fracture_tag_map[sub_frac[1]] = inv_fracture_tag_map[
+                            frac_ind
+                        ]
+                    continue
 
                 # For each bounding point, compute the minimum distance to the different
                 # parts of the domain (the domain may have been split in multiple parts
