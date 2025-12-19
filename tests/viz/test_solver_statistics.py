@@ -18,13 +18,13 @@ def test_solver_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "counter")
     assert hasattr(model.nonlinear_solver_statistics, "path")
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
-    assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
+    assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
     # Specific attributes of pp.NonlinearSolverStatistics
     assert hasattr(model.nonlinear_solver_statistics, "num_iteration")
+    assert hasattr(model.nonlinear_solver_statistics, "num_iteration_history")
     assert hasattr(model.nonlinear_solver_statistics, "convergence_status")
     assert hasattr(model.nonlinear_solver_statistics, "convergence_info")
-    assert hasattr(model.nonlinear_solver_statistics, "num_iteration_history")
 
     assert model.nonlinear_solver_statistics.path is None
 

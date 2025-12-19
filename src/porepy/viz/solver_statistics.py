@@ -91,7 +91,7 @@ class SolverStatistics:
     """Path to save the statistics object to."""
     num_cells: list[int] = field(default_factory=list)
     """Number of cells in each dimension."""
-    simulation_status: SimulationStatus = field(default=SimulationStatus.SUCCESSFUL)
+    simulation_status_history: list[SimulationStatus] = field(default_factory=list)
     """Overall simulation status."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
@@ -125,7 +125,7 @@ class SolverStatistics:
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
-        self.simulation_status = simulation_status
+        self.simulation_status_history.append(simulation_status)
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -167,7 +167,14 @@ class SolverStatistics:
         # Store static geometry data.
         data["global"] = {
             "num_cells": self.num_cells,
-            "final_simulation_status": str(self.simulation_status),
+            "simulation_status_history": [
+                str(s) for s in self.simulation_status_history
+            ],
+            "final_simulation_status": str(
+                None
+                if len(self.simulation_status_history) == 0
+                else self.simulation_status_history[-1]
+            ),
             "latest_counter": self.counter,
         }
 
@@ -264,6 +271,8 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     num_iteration: int = field(default=0)
     """Number of non-linear iterations performed for current time step."""
+    num_iteration_history: list[int] = field(default_factory=list)
+    """History of number of iterations for entire run."""
     convergence_status: ConvergenceStatusHistory = field(
         default_factory=ConvergenceStatusHistory
     )
@@ -272,8 +281,6 @@ class NonlinearSolverStatistics(SolverStatistics):
         default_factory=ConvergenceInfoHistory
     )
     """History of convergence information over nonlinear iterations."""
-    num_iteration_history: list[int] = field(default_factory=list)
-    """History of number of iterations for entire run."""
 
     def __replace__(self, **kwargs) -> "NonlinearSolverStatistics":
         """Create a new instance with updated fields."""
@@ -334,11 +341,20 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Extract final convergence status
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
+        # Determine number of waisted iterations
+        total_num_waisted_iterations = 0
+        for simulation_status, num_iterations in zip(
+            self.simulation_status_history, self.num_iteration_history
+        ):
+            if simulation_status != SimulationStatus.SUCCESSFUL:
+                total_num_waisted_iterations += num_iterations
+
         # Update global data
         data["global"].update(
             {
                 "num_iteration_history": self.num_iteration_history,
                 "total_num_iteration": sum(self.num_iteration_history),
+                "total_num_waisted_iterations": total_num_waisted_iterations,
                 "final_convergence_status": final_convergence_status,
             }
         )
@@ -351,7 +367,11 @@ class NonlinearSolverStatistics(SolverStatistics):
         data[str(self.counter)].update(
             {
                 "num_iteration": self.num_iteration,
-                "simulation_status": str(self.simulation_status),
+                "simulation_status": str(
+                    None
+                    if len(self.simulation_status_history) == 0
+                    else self.simulation_status_history[-1]
+                ),
                 "convergence_status": self.convergence_status.to_str(),
                 "convergence_info": self.convergence_info,
             }
