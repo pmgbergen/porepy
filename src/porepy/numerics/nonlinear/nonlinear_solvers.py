@@ -157,6 +157,7 @@ class NewtonSolver:
                     model,
                     convergence_status=convergence_status,
                     convergence_info=convergence_info,
+                    simulation_status=SimulationStatus.IN_PROGRESS,
                 )
 
                 # Exit the Newton loop.
@@ -166,14 +167,17 @@ class NewtonSolver:
         # React to convergence status.
         if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
+            self.update_solver_statistics(model, simulation_status=simulation_status)
             model.after_nonlinear_convergence()
         elif convergence_status.is_failed():
+            simulation_status = SimulationStatus.FAILED
+            self.update_solver_statistics(model, simulation_status=simulation_status)
+            # TODO: Get back to this when reimplementing time stepping.
+            # NOTE: Currently, if a simulation fully stopps, this is not logged in solver
+            # statistics. For this, better coordination between solver and time stepping is needed.
             simulation_status = model.after_nonlinear_failure()
         else:
             raise ValueError(f"Unknown convergence status: {convergence_status}")
-
-        # Update (global) solver statistics.
-        self.update_solver_statistics(model, simulation_status=simulation_status)
 
         # Close the progress bar.
         self.solver_progressbar.close()
