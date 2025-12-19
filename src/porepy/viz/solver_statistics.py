@@ -13,9 +13,9 @@ import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceInfoHistory,
-    ConvergenceInfoSummary,
+    ConvergenceInfoCollection,
     ConvergenceStatusHistory,
-    ConvergenceStatusSummary,
+    ConvergenceStatusCollection,
     SimulationStatus,
 )
 
@@ -291,7 +291,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.num_iteration += 1
 
     def log_convergence_status(
-        self, convergence_status: ConvergenceStatusSummary, **kwargs
+        self, convergence_status: ConvergenceStatusCollection, **kwargs
     ) -> None:
         """Log and collect the convergence status of the solver.
 
@@ -303,7 +303,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         self.convergence_status.append(convergence_status)
 
     def log_convergence_info(
-        self, convergence_info: ConvergenceInfoSummary, **kwargs
+        self, convergence_info: ConvergenceInfoCollection, **kwargs
     ) -> None:
         """Log info produced from convergence criteria.
 

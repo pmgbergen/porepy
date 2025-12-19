@@ -14,8 +14,8 @@ from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceInfoSummary,
-    ConvergenceStatusSummary,
+    ConvergenceInfoCollection,
+    ConvergenceStatusCollection,
     DivergenceCriteria,
     IncrementBasedAbsoluteCriterion,
     IncrementBasedAbsoluteDivergenceCriterion,
@@ -201,7 +201,7 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         nonlinear_increment: np.ndarray,
-    ) -> tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]:
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
@@ -210,8 +210,8 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]: Status and info
-                about convergence.
+            tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]: Status and
+                info about convergence.
 
         """
         # Fetch the residual and current iterate.
@@ -284,8 +284,8 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         simulation_status: SimulationStatus | None = None,
-        convergence_status: ConvergenceStatusSummary | None = None,
-        convergence_info: ConvergenceInfoSummary | None = None,
+        convergence_status: ConvergenceStatusCollection | None = None,
+        convergence_info: ConvergenceInfoCollection | None = None,
     ) -> None:
         """Update the solver statistics in the model.
 

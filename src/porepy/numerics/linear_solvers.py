@@ -13,8 +13,8 @@ from typing import Optional
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceInfoSummary,
-    ConvergenceStatusSummary,
+    ConvergenceInfoCollection,
+    ConvergenceStatusCollection,
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,
@@ -113,7 +113,7 @@ class LinearSolver:
 
     def check_convergence(
         self, model: SolutionStrategy, nonlinear_increment
-    ) -> tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]:
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
@@ -121,8 +121,8 @@ class LinearSolver:
             nonlinear_increment: The current nonlinear increment.
 
         Returns:
-            tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]: Status and info
-                about convergence.
+            tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]: Status
+                and info about convergence.
 
         """
         # Fetch the residual.

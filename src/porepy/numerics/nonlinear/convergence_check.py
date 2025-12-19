@@ -1,20 +1,22 @@
 """Collection of objects and functions related to convergence checking.
 
 This includes:
-- Convergence status enumeration.
-- Reference value management for defining reference norms.
+- Status classes for simulation and convergence.
+- Information classes for convergence.
 - Base convergence criterion classes.
 - Absolute and relative convergence criteria for nonlinear problems.
-- A NaN convergence criterion for detecting divergence due to NaN values.
+- Divergence criteria for detecting divergence.
 
 """
 
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
-from typing import Callable
+from typing import Callable, cast
 
 import numpy as np
+
+# Status and info classes
 
 
 class SimulationStatus(StrEnum):
@@ -101,8 +103,8 @@ class ConvergenceStatus(StrEnum):
         }
 
 
-class ConvergenceStatusSummary(dict[str, ConvergenceStatus]):
-    """Summary of convergence statuses for a collection of criteria."""
+class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
+    """Collection of convergence statuses for a collection of criteria."""
 
     def is_converged(self) -> bool:
         """Check if all statuses indicate convergence."""
@@ -136,60 +138,42 @@ class ConvergenceStatusSummary(dict[str, ConvergenceStatus]):
         """Check if any status indicates failure."""
         return any(status.is_failed() for status in self.values())
 
-    def union(self, other: "ConvergenceStatusSummary") -> "ConvergenceStatusSummary":
-        """Union of two ConvergenceStatusSummary needing to be disjunct."""
-        result = ConvergenceStatusSummary()
+    def union(
+        self, other: "ConvergenceStatusCollection"
+    ) -> "ConvergenceStatusCollection":
+        """Union of two ConvergenceStatusCollection needing to be disjunct."""
+        result = ConvergenceStatusCollection()
         assert len(set(self.keys()).intersection(other.keys())) == 0
         result.update(self)
         result.update(other)
         return result
 
 
-ConvergenceInfo = float | dict[str, float]
-"""Expected type for convergence information."""
+def _recursive_dict_append(d: dict, v: dict) -> dict:
+    """Auxiliary function to recursively append dictionaries on leaf-level.
 
-ConvergenceInfoSummary = dict[str, ConvergenceInfo]
-"""Summary of convergence information for a collection of criteria."""
+    Parameters:
+        d: ConvergenceStatusHistory to append to.
+        v: Dictionary to append.
 
+    Returns:
+        dict: Updated dictionary.
 
-class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
-    """Collection of convergence information with list at the leafs."""
-
-    def append(self, convergence_info: ConvergenceInfoSummary) -> None:
-        """Append another ConvergenceInfoSummary to this one.
-
-        Parameters:
-            convergence_info: Convergence information to append.
-
-        """
-        self._recursive_dict_append(self, convergence_info)
-
-    def _recursive_dict_append(
-        self, d: "ConvergenceInfoHistory", v: dict
-    ) -> "ConvergenceInfoHistory":
-        """Auxiliary function to recursively append dictionaries.
-
-        Parameters:
-            d: ConvergenceInfoHistory to append to.
-            v: Dictionary to append.
-
-        Returns:
-            ConvergenceInfoHistory: Updated ConvergenceInfoHistory.
-
-        """
-        for key_v, value_v in v.items():
-            if key_v not in d:
-                d[key_v] = [copy(value_v)]
+    """
+    for key_v, value_v in v.items():
+        if key_v not in d:
+            d[key_v] = [copy(value_v)]
+        else:
+            value = d[key_v]
+            if isinstance(value, list):
+                value.append(value_v)
+                d[key_v] = value
             else:
-                value = d[key_v]
-                if isinstance(value, list):
-                    value.append(value_v)
-                else:
-                    assert isinstance(value_v, dict)
-                    assert isinstance(d[key_v], ConvergenceInfoHistory)
-                    d[key_v] = self._recursive_dict_append(d[key_v], value_v)
+                assert isinstance(value_v, dict)
+                assert isinstance(d[key_v], dict)
+                d[key_v] = _recursive_dict_append(d[key_v], value_v)
 
-        return d
+    return d
 
 
 class ConvergenceStatusHistory(dict[str, list[ConvergenceStatus]]):
@@ -210,8 +194,8 @@ class ConvergenceStatusHistory(dict[str, list[ConvergenceStatus]]):
         """
         return {k: [str(s) for s in v] for k, v in self.items()}
 
-    def append(self, status: ConvergenceStatusSummary) -> None:
-        """Append another ConvergenceStatusSummary to this one.
+    def append(self, status: ConvergenceStatusCollection) -> None:
+        """Append another ConvergenceStatusCollection to this one.
 
         Parameters:
             status: Convergence statuses to append.
@@ -219,34 +203,27 @@ class ConvergenceStatusHistory(dict[str, list[ConvergenceStatus]]):
         """
         # Since this class inherits from dict, we should always be a dict
         # The recursive append modifies self in-place, so no reassignment needed
-        self._recursive_dict_append(self, status)
+        _recursive_dict_append(self, status)
 
-    def _recursive_dict_append(
-        self, d: "ConvergenceStatusHistory", v: dict
-    ) -> "ConvergenceStatusHistory":
-        """Auxiliary function to recursively append dictionaries.
+
+ConvergenceInfo = float | dict[str, float]
+"""Expected type for convergence information."""
+
+ConvergenceInfoCollection = dict[str, ConvergenceInfo]
+"""Collection of convergence information for a collection of criteria."""
+
+
+class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
+    """Collection of convergence information with list at the leafs."""
+
+    def append(self, convergence_info: ConvergenceInfoCollection) -> None:
+        """Append another ConvergenceInfoCollection to this one.
 
         Parameters:
-            d: ConvergenceStatusHistory to append to.
-            v: Dictionary to append.
-
-        Returns:
-            ConvergenceStatusHistory: Updated ConvergenceStatusHistory.
+            convergence_info: Convergence information to append.
 
         """
-        for key_v, value_v in v.items():
-            if key_v not in d:
-                d[key_v] = [copy(value_v)]
-            else:
-                value = d[key_v]
-                if isinstance(value, list):
-                    value.append(value_v)
-                else:
-                    assert isinstance(value_v, dict)
-                    assert isinstance(d[key_v], ConvergenceStatusHistory)
-                    d[key_v] = self._recursive_dict_append(d[key_v], value_v)
-
-        return d
+        _recursive_dict_append(self, convergence_info)
 
 
 # Base convergence criterion classes.
@@ -301,7 +278,7 @@ class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
 
     def check(
         self, *args, **kwargs
-    ) -> tuple[ConvergenceStatusSummary, ConvergenceInfoSummary]:
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
         """Check convergence using all criteria in the collection.
 
         Parameters:
@@ -309,13 +286,13 @@ class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
             kwargs: Keyword arguments for the convergence checks.
 
         Returns:
-            tuple[ConvergenceStatusSummary, dict]: Convergence statuses with the names of
-                the criteria as keys, and information about the convergence checks
+            tuple[ConvergenceStatusCollection, dict]: Convergence statuses with the names
+                of the criteria as keys, and information about the convergence checks
                 (format of the values depends on used metrics).
 
         """
-        status = ConvergenceStatusSummary()
-        info = ConvergenceInfoSummary()
+        status = ConvergenceStatusCollection()
+        info = ConvergenceInfoCollection()
         for name, criterion in self.items():
             stat, inf = criterion.check(*args, **kwargs)
             status[name] = stat
@@ -331,7 +308,7 @@ class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
 class DivergenceCriteria(dict[str, DivergenceCriterion]):
     """Collection of divergence criteria."""
 
-    def check(self, *args, **kwargs) -> ConvergenceStatusSummary:
+    def check(self, *args, **kwargs) -> ConvergenceStatusCollection:
         """Check convergence using all criteria in the collection.
 
         Parameters:
@@ -339,11 +316,11 @@ class DivergenceCriteria(dict[str, DivergenceCriterion]):
             kwargs: Keyword arguments for the divergence checks.
 
         Returns:
-            ConvergenceStatusSummary: Divergence statuses of the non-linear iteration
+            ConvergenceStatusCollection: Divergence statuses of the non-linear iteration
                 with the names of the criteria as keys.
 
         """
-        status = ConvergenceStatusSummary()
+        status = ConvergenceStatusCollection()
         for name, criterion in self.items():
             status[name] = criterion.check(*args, **kwargs)
         return status
@@ -396,8 +373,8 @@ class AbsoluteConvergenceCriterion(ConvergenceCriterion):
                 - value: The value to check for convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration and information about the convergence check.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of
+                the non-linear iteration and information about the convergence check.
 
         """
         metric_value = self.metric(kwargs["value"])
@@ -503,8 +480,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
             kwargs: Quantities to check for convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration and information about the convergence check.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+                non-linear iteration and information about the convergence check.
 
         """
         # Check if tol is np.inf - do not check convergence in this case
@@ -652,8 +629,8 @@ class CombinedConvergenceCriterion(ConvergenceCriterion):
                 - value: The value to check for convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration and information about the convergence check.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+                non-linear iteration and information about the convergence check.
 
         """
         metric_value = self.metric(kwargs["value"])
@@ -824,7 +801,9 @@ class IncrementBasedAbsoluteCriterion(AbsoluteConvergenceCriterion):
             increment: Nonlinear increment to check for convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+            non-linear iteration and information about the convergence check.
+
         """
         return super().check(value=increment)
 
@@ -842,7 +821,8 @@ class IncrementBasedRelativeCriterion(RelativeConvergenceCriterion):
             reference_increment: Reference increment for relative convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+            non-linear iteration and information about the convergence check.
 
         """
         if reference_increment is not None:
@@ -862,8 +842,8 @@ class ResidualBasedAbsoluteCriterion(AbsoluteConvergenceCriterion):
             residual: Residual to check for convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+                non-linear iteration.
 
         """
         return super().check(value=residual)
@@ -882,8 +862,8 @@ class ResidualBasedRelativeCriterion(RelativeConvergenceCriterion):
             reference_residual: Reference residual for relative convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+                non-linear iteration and information about the convergence check.
 
         """
         if reference_residual is not None:
@@ -904,8 +884,8 @@ class IncrementBasedCombinedCriterion(CombinedConvergenceCriterion):
             reference_increment: Reference increment for relative convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+                non-linear iteration and information about the convergence check.
 
         """
         if reference_increment is not None:
@@ -926,8 +906,8 @@ class ResidualBasedCombinedCriterion(CombinedConvergenceCriterion):
             reference_residual: Reference residual for relative convergence.
 
         Returns:
-            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the non-linear
-                iteration.
+            tuple[ConvergenceStatus, ConvergenceInfo]: Convergence status of the
+                iteration and information about the convergence check.
 
         """
         if reference_residual is not None:
