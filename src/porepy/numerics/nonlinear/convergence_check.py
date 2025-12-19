@@ -286,9 +286,9 @@ class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
             kwargs: Keyword arguments for the convergence checks.
 
         Returns:
-            tuple[ConvergenceStatusCollection, dict]: Convergence statuses with the names
-                of the criteria as keys, and information about the convergence checks
-                (format of the values depends on used metrics).
+            tuple[ConvergenceStatusCollection, dict]: Convergence statuses with the
+                names of the criteria as keys, and information about the
+                convergence checks (format of the values depends on used metrics).
 
         """
         status = ConvergenceStatusCollection()

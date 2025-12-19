@@ -258,7 +258,7 @@ class NewtonSolver:
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-            convergence_info: Convergence information containing norms and other details.
+            convergence_info: Convergence information containing norms.
 
         """
         assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
