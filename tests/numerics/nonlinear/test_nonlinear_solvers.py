@@ -24,11 +24,9 @@ def test_nonlinear_iteration_count():
         model.nonlinear_solver_statistics.num_iteration
         == model.expected_number_of_iterations
     )
-    assert (
-        len(model.nonlinear_solver_statistics.nonlinear_increment_norms)
-        == model.expected_number_of_iterations
-    )
-    assert (
-        len(model.nonlinear_solver_statistics.residual_norms)
-        == model.expected_number_of_iterations
-    )
+    assert len(model.nonlinear_solver_statistics.convergence_info) > 0
+    for key in model.nonlinear_solver_statistics.convergence_info:
+        assert (
+            len(model.nonlinear_solver_statistics.convergence_info[key])
+            == model.expected_number_of_iterations
+        )
