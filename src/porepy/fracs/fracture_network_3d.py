@@ -278,7 +278,7 @@ class FractureNetwork3d(FractureNetwork):
             constraints,
             intersection_line_parents,
             inv_fracture_tag_map,
-        ) = self.process_intersections(
+        ) = self._impose_boundary_process_intersections(
             fracture_tags,
             domain_tag,
             constraints=constraints,
@@ -359,16 +359,44 @@ class FractureNetwork3d(FractureNetwork):
         mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
         return mdg
 
-    def process_intersections(
+    def _impose_boundary_process_intersections(
         self,
         fracture_tags: list[int],
         domain_tag: int,
         constraints: list[int],
         inv_fracture_tag_map,
-    ) -> None:
-        nd = 3
+    ) -> tuple[np.ndarray, np.ndarray, list, np.ndarray, list, list, dict]:
+        """Impose the external boundary and process fracture intersections.
+
+        This is the method where all the geometry processing happens. The method relies
+        heavily on the OpenCASCADE kernel in Gmsh to perform the actual computations.
+
+        Parameters:
+            fracture_tags: List of gmsh tags representing the fractures in the network.
+            domain_tag: Gmsh tag representing the domain.
+            constraints: List of fracture indices (referring to input fracture
+                numbering) that are to be treated as constraints.
+            inv_fracture_tag_map: Mapping from gmsh fracture tags to input fracture
+                indices.
+
+        Returns:
+            A tuple with the following elements:
+            -   Numpy array with gmsh tags of intersection points.
+            -   Numpy array with gmsh tags of intersection lines.
+            -   Mapping from input fracture indices to new surfaces after intersection
+                processing.
+            -   Numpy array with number of parent fractures for each intersection line.
+            -   Updated list of constraint fracture indices (still referring to the
+                input fracture numbering).
+            -   List of parent fracture indices for each intersection line.
+            -   Updated mapping from gmsh fracture tags to input fracture indices.
+
+        """
+        nd = self.nd
         dim_fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
 
+        # Note: The method is called prior to the splitting fractures (which may also
+        # split the domain), hence there will be a single domain object to fragment.
         if domain_tag >= 0:
             _, isect_mapping = gmsh.model.occ.fragment(
                 dim_fracture_tags,
@@ -385,8 +413,8 @@ class FractureNetwork3d(FractureNetwork):
         gmsh.model.occ.synchronize()
 
         # It turns out (...) that the fragmentation process may not eliminate parts of
-        # fractures that lie outside the domain. To understand why this is so might
-        # require a deep dive into OpenCascade. For now, we do a simple fix to eliminate
+        # fractures that lie outside the domain (this is contrary to EK's reading of the
+        # Gmsh documentation, but so it goes). For now, we do a simple fix to eliminate
         # (parts of) fractures that are outside the domain: Identify the vertexes of
         # each fracture part, compute their distance to the domain. If any of these
         # distances is larger than the tolerance, we drop the fracture from further
@@ -460,9 +488,8 @@ class FractureNetwork3d(FractureNetwork):
             # If any sub-fracture is kept, we keep the fracture.
             keep[fi] = np.any(loc_keep)
 
-        # Remove fractures where all the sub-fractures were outside the domain.
-        # TODO: Remove from gmsh as well. Applies to both fully and partially removed
-        # fractures.
+        # Remove from the bookkeeping system fractures where all the sub-fractures were
+        # outside the domain.
         isect_mapping = [isect_mapping[i] for i in range(len(keep)) if keep[i]]
 
         # Update the constraint indices to account for fully removed fractures.
@@ -473,49 +500,43 @@ class FractureNetwork3d(FractureNetwork):
         for c in constraints:
             num_deleted_subfrac = part_of_fracture_deleted.count(c)
             if num_orig_subfrac[c] == num_deleted_subfrac:
-                # The full fracture has been removed. It is not among the new
+                # The full fracture has been removed. It is not among the surviving
                 # constraints, but we need to adjust the indices of the following ones.
                 num_frac_deleted += 1
             else:
                 # The fracture is still present, add it to the new constraints,
-                # adjusting the index accordingly.
+                # adjusting the index accordingly. Constraints are known to be sorted.
                 updated_constraints.append(int(c) - num_frac_deleted)
         constraints = updated_constraints
         inv_fracture_tag_map = updated_fracture_tag_map
 
         # Count the number of fracture objects that survived both the fragmentation and
         # the distance-based domain trimming.
-        num_real_frac = len(set(inv_fracture_tag_map.values()))
+        num_fracs = len(set(inv_fracture_tag_map.values()))
 
-        # Partial implementation. Intersection lines are either on the boundary or
-        # embedded in fractures. Make a list of both.
+        # Now, identify intersection lines. Intersection lines are either on the
+        # boundary or embedded in fractures. Make a list of each.
         bnd_lines = []
         embedded_lines = []
-
-        # Challenge: Since the mdg graph only accepts single edges between node pairs
-        # (subdomains), if two intersection lines cross (think a Rubik's cube geometry),
-        # the split part of the intersection line must be assigned the same physical
-        # tag, thus generate a single subdomain grid. Achieving this will take some
-        # work; for starters, keep track of the fracture indices that gave rise to each
-        # line.
+        # Keep track of which fracture each line stems from.
         fi_bnd = []
         fi_embedded = []
 
         # Loop over all identified fragments of the fractures, find their boundary and
         # embedded lines.
-        #
-        # TODO: What if two fractures intersect in a point? This is likely not covered
-        # here, and not considered in the current implementation of md dynamics in
-        # general.
-        for fi, new_frac in enumerate(isect_mapping[:num_real_frac]):
-            frac_ind = inv_fracture_tag_map[new_frac[0][1]]
-            # Constraints do not contribute to intersection lines.
+        for fi, gmsh_frac_ind in enumerate(isect_mapping[:num_fracs]):
+            frac_ind = inv_fracture_tag_map[gmsh_frac_ind[0][1]]
+
+            # NOTE: Constraints do not contribute to intersection lines. This implies
+            # that all the counting of parent lines (for intersection points) below is
+            # done without including constraints, hence we need not worry about
+            # adjusting for constraints there.
             if frac_ind in constraints:
                 continue
 
             # A fracture can be split into multiple sub-fractures if they are fully cut
             # by other fractures.
-            for subfrac in new_frac:
+            for subfrac in gmsh_frac_ind:
                 if subfrac[0] == 3:  # This is the domain.
                     continue
                 # Get the boundary of the sub-fracture. It can contain both lines on the
@@ -529,11 +550,7 @@ class FractureNetwork3d(FractureNetwork):
                     ):
                         # This is a line, not a point (would be line[0] == 0).
                         bnd_lines.append(line[1])
-                        # Keep track of the fracture index for each boundary line. Using
-                        # fi (the enumeration counter of the outer for loop) ensures
-                        # that even if a fracture was split into two sub-fractures
-                        # during fragmentation, they will still be associated with the
-                        # original fracture index.
+                        # Keep track of the fracture index for each boundary line.
                         fi_bnd.append(frac_ind)
 
                 # Also find lines that are embedded in this subfracture (this will be an
@@ -548,12 +565,9 @@ class FractureNetwork3d(FractureNetwork):
                         fi_embedded.append(frac_ind)
 
         # For a boundary line to be an intersection, it must be shared by at least two
-        # fractures. TODO: What if it is on the boundary of one, but not the other, in a
-        # T-style intersection? Should be embedded in the other then? EK thinks this
-        # should be the case. Similarly, L-style intersection (boundary on both) should
-        # be picked up here.
+        # fractures.
         num_lines_occ = np.bincount(np.abs(bnd_lines).astype(int))
-        # Find the 'interesting' boundary lines, i.e. those occuring more than once.
+        # Find the boundary lines occuring more than once.
         boundary_lines = np.where(num_lines_occ > 1)[0]
         all_lines = np.hstack((embedded_lines, boundary_lines))
         # Fracture intersection lines, to be added as physical lines.
@@ -670,7 +684,6 @@ class FractureNetwork3d(FractureNetwork):
 
         """
         # Transfer mesh size points to the new segments after intersection removal.
-        # This is common for 2d and 3d meshing.
         new_mesh_control_dict = {}
         for fi, old_fracture in enumerate(isect_mapping):
             if len(old_fracture) > 0:
@@ -692,8 +705,6 @@ class FractureNetwork3d(FractureNetwork):
         # in the fragmentation (processing of intersections), gmsh would occasionally
         # have failed to identify intersections between boundary surfaces and fractures.
         # Therefore, we do an identification based on the geometry of the surfaces:
-
-        domain_tag = gmsh.model.get_entities(self.nd)
         bnd_tag = gmsh.model.get_boundary(
             gmsh.model.get_entities(self.nd), oriented=False
         )
