@@ -463,6 +463,9 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
     def set_reference_value(self, reference_value: ConvergenceInfo) -> None:
         """Set the reference value for relative convergence.
 
+        The reference value is only set for entries of self.reference_value that are not
+        already set and are non-zero in the provided reference value.
+
         Parameters:
             reference_value: Reference value to set.
 
@@ -475,13 +478,17 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
                 if self.reference_value.get(key) is None and not np.isclose(val, 0.0):
                     non_zero_reference_value[key] = val
             self.reference_value.update(non_zero_reference_value)
-        else:
+        else:  # float
             if self.reference_value is not None:
                 return
             self.reference_value = reference_value
 
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
+
+        If self.reference_value is a dictionary, the criterion is checked for each entry
+        in this dictionary separately, and the convergence is declared only if all
+        entries satisfy the criterion.
 
         Parameters:
             args: Positional arguments for the convergence check.
@@ -492,7 +499,7 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
                 non-linear iteration and information about the convergence check.
 
         """
-        # Check if tol is np.inf - do not check convergence in this case
+        # Check if tol is np.inf - do not check convergence in this case.
         if self.tol == np.inf:
             return ConvergenceStatus.CONVERGED, 0.0
 
@@ -567,6 +574,10 @@ class RelativeDivergenceCriterion(DivergenceCriterion):
     def check(self, *args, **kwargs) -> ConvergenceStatus:
         """Check divergence.
 
+        If self.reference_value is a dictionary, the criterion is checked for each entry
+        in this dictionary separately, and divergence is declared if any entry satisfy
+        the criterion.
+
         Parameters:
             args: Positional arguments for the divergence check.
             kwargs: Quantities to check for divergence.
@@ -600,7 +611,12 @@ class RelativeDivergenceCriterion(DivergenceCriterion):
 
 
 class CombinedConvergenceCriterion(ConvergenceCriterion):
-    """Combined convergence criterion using both absolute and relative criteria."""
+    """Combined convergence criterion using both absolute and relative criteria.
+
+    The criteria is on the form 'metric_value < atol + rtol * reference_value', where
+    `atol` and `rtol` are absolute and relative tolerances, respectively.
+
+    """
 
     def __init__(
         self,
@@ -630,6 +646,10 @@ class CombinedConvergenceCriterion(ConvergenceCriterion):
 
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
+
+        If self.reference_value is a dictionary, the criterion is checked for each entry
+        in this dictionary separately, and the convergence is declared only if all
+        entries satisfy the criterion.
 
         Parameters:
             args: Positional arguments for the convergence check.
@@ -683,7 +703,7 @@ class MaxIterationsCriterion(DivergenceCriterion):
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        # Assume iteration counting starts at 0
+        # Assume iteration counting starts at 0.
         if num_iterations >= self.max_iterations - 1:
             return ConvergenceStatus.DIVERGED
         else:

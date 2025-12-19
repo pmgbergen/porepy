@@ -46,7 +46,7 @@ class NewtonSolver:
         self.params = params
         """Dictionary of parameters for the nonlinear solver."""
 
-        # Default parameters for convergence and divergence criteria
+        # Default parameters for convergence and divergence criteria.
         max_iterations = params.get("nl_max_iterations", 10)
         inc_atol = params.get("nl_convergence_inc_atol", 1e-6)
         inc_rtol = params.get("nl_convergence_inc_rtol", np.inf)
