@@ -21,8 +21,7 @@ import porepy.fracs.simplex
 from porepy.fracs import tools
 from porepy.fracs.utils import linefractures_to_pts_edges, pts_edges_to_linefractures
 
-from .gmsh_interface import GmshData2d, GmshWriter, PhysicalNames
-from .gmsh_interface import Tags as GmshInterfaceTags
+from .gmsh_interface import PhysicalNames
 from .fracture_network import (
     FractureNetwork,
     GmshPointIdentifier,

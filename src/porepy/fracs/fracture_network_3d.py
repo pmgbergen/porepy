@@ -22,10 +22,9 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 import porepy as pp
-from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter, PhysicalNames
+from porepy.fracs.gmsh_interface import PhysicalNames
 from porepy.geometry import sort_points
 
-from .gmsh_interface import Tags as GmshInterfaceTags
 from .fracture_network import (
     FractureNetwork,
     MeshSizeComputer,
