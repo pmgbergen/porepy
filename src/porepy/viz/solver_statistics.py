@@ -272,8 +272,8 @@ class NonlinearSolverStatistics(SolverStatistics):
         default_factory=ConvergenceInfoHistory
     )
     """History of convergence information over nonlinear iterations."""
-    global_num_iteration: list[int] = field(default_factory=list)
-    """List of number of iterations for entire run."""
+    num_iteration_history: list[int] = field(default_factory=list)
+    """History of number of iterations for entire run."""
 
     def __replace__(self, **kwargs) -> "NonlinearSolverStatistics":
         """Create a new instance with updated fields."""
@@ -329,7 +329,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         data = super().append_global_data(data)
 
         # Store global number of iterations
-        self.global_num_iteration.append(self.num_iteration)
+        self.num_iteration_history.append(self.num_iteration)
 
         # Extract final convergence status
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
@@ -337,8 +337,8 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Update global data
         data["global"].update(
             {
-                "num_iteration": self.global_num_iteration,
-                "total_num_iteration": sum(self.global_num_iteration),
+                "num_iteration_history": self.num_iteration_history,
+                "total_num_iteration": sum(self.num_iteration_history),
                 "final_convergence_status": final_convergence_status,
             }
         )
