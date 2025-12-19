@@ -61,10 +61,6 @@ class FractureNetwork(ABC):
         file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         dfn: bool = False,
-        tags_to_transfer: Optional[list[str]] = None,
-        write_geo: bool = True,
-        finalize_gmsh: bool = True,
-        clear_gmsh: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
         pass

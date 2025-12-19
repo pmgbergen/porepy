@@ -155,9 +155,6 @@ class FractureNetwork2d(FractureNetwork):
         file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         dfn: bool = False,
-        write_geo: bool = True,
-        finalize_gmsh: bool = True,
-        clear_gmsh: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
         """Mesh the fracture network and generate a mixed-dimensional grid.
@@ -222,8 +219,9 @@ class FractureNetwork2d(FractureNetwork):
         )
 
         gmsh.model.occ.synchronize()
-        if write_geo:
-            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
+
+        # Write the .geo_unrolled file.
+        gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
 
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
@@ -271,12 +269,7 @@ class FractureNetwork2d(FractureNetwork):
             subdomains = porepy.fracs.simplex.triangle_grid_from_gmsh(
                 file_name, constraints=constraints
             )
-
-        if clear_gmsh:
-            gmsh.clear()
-        if finalize_gmsh:
-            gmsh.finalize()
-
+        gmsh.finalize()
         # Assemble all subdomains in mixed-dimensional grid.
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 

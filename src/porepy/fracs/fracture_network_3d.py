@@ -211,12 +211,9 @@ class FractureNetwork3d(FractureNetwork):
     def mesh(
         self,
         mesh_args: dict[str, float],
-        dfn: bool = False,
         file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
-        write_geo: bool = True,
-        finalize_gmsh: bool = True,
-        clear_gmsh: bool = False,
+        dfn: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
         if file_name is None:
@@ -300,8 +297,7 @@ class FractureNetwork3d(FractureNetwork):
 
         fac.synchronize()
 
-        if write_geo:
-            gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
+        gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
 
         # Set the mesh sizes after all geometry processing is done so that the
         # identification of objects is not disturbed by retagging of objects.
@@ -335,10 +331,6 @@ class FractureNetwork3d(FractureNetwork):
             gmsh.model.mesh.generate(self.nd)
 
         gmsh.write(str(file_name))
-        if clear_gmsh:
-            gmsh.clear()
-        if finalize_gmsh:
-            gmsh.finalize()
 
         if dfn:
             subdomains = pp.fracs.simplex.triangle_grid_embedded(file_name)
@@ -348,6 +340,7 @@ class FractureNetwork3d(FractureNetwork):
                 file_name, constraints
             )
 
+        gmsh.finalize()
         # Merge the grids into a mixed-dimensional grid.
         mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
         return mdg
