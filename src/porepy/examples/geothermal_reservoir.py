@@ -125,17 +125,6 @@ class WellBoundaryConditions(pp.PorePyModel):
             )
         return values
 
-    def is_well_grid(self, sd: pp.Grid) -> bool:
-        """Check if a given subdomain grid is a well grid.
-
-        Parameters:
-            sd: The subdomain grid to check.
-
-        Returns:
-            True if the subdomain grid is a well grid, False otherwise.
-        """
-        return "parent_well_index" in sd.tags
-
     def get_well_value(
         self,
         values: np.ndarray,
@@ -208,7 +197,6 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
     """Class defining Neumann BCs on well grids during the first time interval."""
 
     if TYPE_CHECKING:
-        is_well_grid: Callable[[pp.Grid], bool]
         darcy_flux_discretization: Callable[
             [list[pp.Grid]], pp.ad.MpfaAd | pp.ad.TpfaAd
         ]
