@@ -12,44 +12,6 @@ import porepy as pp
 from porepy import frac_utils
 
 
-def arrays_equal(a, b, tol=1e-5):
-    # Utility function
-    def nrm(x, y):
-        if x.ndim == 1:
-            x = np.reshape(x, (-1, 1))
-        return np.sqrt(np.sum(np.power(x - y, 2), axis=0))
-
-    is_true = True
-    for i in range(a.shape[1]):
-        is_true *= np.min(nrm(a[:, i], b)) < tol
-
-    for i in range(b.shape[1]):
-        is_true *= np.min(nrm(b[:, i], a)) < tol
-    return is_true
-
-
-@pytest.mark.parametrize(
-    "points_edges_expected",
-    [
-        # Single fracture
-        ([[0, 1], [0, 0]], [[0], [1]], 1),
-        # Single fracture not aligned
-        ([[0, 1], [0, 1]], [[0], [1]], np.sqrt(2)),
-        # Two fractures separate points
-        ([[0, 1, 0, 0], [0, 1, 0, 1]], [[0, 2], [1, 3]], [np.sqrt(2), 1]),
-        # Common points reverse order
-        ([[0, 1, 0], [0, 1, 1]], [[1, 0], [0, 2]], [np.sqrt(2), 1]),
-    ],
-)
-def test_fracture_length_2d(points_edges_expected):
-    points = np.array(points_edges_expected[0])
-    edges = np.array(points_edges_expected[1])
-    expected = np.array(points_edges_expected[2])
-    fl = frac_utils.fracture_length_2d(points, edges)
-
-    assert np.allclose(fl, expected)
-
-
 class Test_pts_edges_to_linefractures:
     """This class is a collection of tests of the function
     pts_edges_to_linefractures."""

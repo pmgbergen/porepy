@@ -3,39 +3,10 @@ meshing."""
 
 from __future__ import annotations
 
-import logging
 
 import numpy as np
 
 import porepy as pp
-
-# Module level logger
-logger = logging.getLogger(__name__)
-
-
-def fracture_length_2d(pts: np.ndarray, edges: np.ndarray) -> np.ndarray:
-    """Find the length of 2D fracture traces.
-
-    Parameters:
-        pts: ``shape=(2, np)``
-
-            Coordinates of 2D points (column-wise),
-            where ``np`` is the number of points.
-        edges: ``shape=(2, nf)``
-
-            For ``nf`` (line) fractures, contains the (column) indices of start and
-            end points in ``pts`` of respective fracture .
-
-    Returns:
-        An array of length ``nf``, containing the length of each fracture based on
-        the Euclidean distance between start and end points.
-
-    """
-    start = pts[:, edges[0]]
-    end = pts[:, edges[1]]
-
-    length = np.sqrt(np.sum(np.power(end - start, 2), axis=0))
-    return length
 
 
 def pts_edges_to_linefractures(
