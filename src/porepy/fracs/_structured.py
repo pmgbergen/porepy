@@ -304,14 +304,15 @@ def _create_lower_dim_grids_3d(
 
     gmsh.initialize()
 
-    domain_tag = network.domain_to_gmsh_3D()
-    nd = 3
-    fracture_tags = network.fractures_to_gmsh_3D()
-    fracture_tags = [(nd - 1, tag) for tag in fracture_tags]
+    domain_tag = network.domain_to_gmsh()
+    fracture_tags = network.fractures_to_gmsh()
     gmsh.model.occ.synchronize()
+    gmsh_2_input_fractures = {frac_tag: i for i, frac_tag in enumerate(fracture_tags)}
 
-    (intersection_points, intersection_lines, isect_mapping, _) = (
-        network.process_intersections(fracture_tags, domain_tag, np.array([]))
+    (intersection_points, intersection_lines, *_) = (
+        network._impose_boundary_process_intersections(
+            fracture_tags, domain_tag, np.array([]), gmsh_2_input_fractures
+        )
     )
     # Create 1D grids.
     for line in intersection_lines:
