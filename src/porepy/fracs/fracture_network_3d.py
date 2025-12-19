@@ -215,7 +215,6 @@ class FractureNetwork3d(FractureNetwork):
         file_name: Optional[Path] = None,
         constraints: Optional[np.ndarray] = None,
         write_geo: bool = True,
-        tags_to_transfer: Optional[list[str]] = None,
         finalize_gmsh: bool = True,
         clear_gmsh: bool = False,
         **kwargs,
@@ -348,12 +347,6 @@ class FractureNetwork3d(FractureNetwork):
             subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
                 file_name, constraints
             )
-
-        if tags_to_transfer:
-            for id_g, g in enumerate(subdomains[1 - int(dfn)]):
-                for key in tags_to_transfer:
-                    if key not in g.tags:
-                        g.tags[key] = self.tags[key][id_g]
 
         # Merge the grids into a mixed-dimensional grid.
         mdg = pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
