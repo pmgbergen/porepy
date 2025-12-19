@@ -2,6 +2,7 @@
 
 import porepy as pp
 from porepy.applications.test_utils.models import Poromechanics
+from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 
 def test_solver_statistic_attributes():
@@ -12,11 +13,19 @@ def test_solver_statistic_attributes():
 
     # Unit tests
     assert hasattr(model, "nonlinear_solver_statistics")
-    assert isinstance(model.nonlinear_solver_statistics, pp.SolverStatistics)
-    assert hasattr(model.nonlinear_solver_statistics, "num_iteration")
-    assert hasattr(model.nonlinear_solver_statistics, "nonlinear_increment_norms")
-    assert hasattr(model.nonlinear_solver_statistics, "residual_norms")
+    assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
+    # Basic attributes of pp.SolverStatistics
+    assert hasattr(model.nonlinear_solver_statistics, "counter")
     assert hasattr(model.nonlinear_solver_statistics, "path")
+    assert hasattr(model.nonlinear_solver_statistics, "num_cells")
+    assert hasattr(model.nonlinear_solver_statistics, "simulation_status")
+    assert hasattr(model.nonlinear_solver_statistics, "custom_data")
+    # Specific attributes of pp.NonlinearSolverStatistics
+    assert hasattr(model.nonlinear_solver_statistics, "num_iteration")
+    assert hasattr(model.nonlinear_solver_statistics, "convergence_status")
+    assert hasattr(model.nonlinear_solver_statistics, "convergence_info")
+    assert hasattr(model.nonlinear_solver_statistics, "num_iteration_history")
+
     assert model.nonlinear_solver_statistics.path is None
 
 
