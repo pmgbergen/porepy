@@ -95,7 +95,9 @@ class SolverStatistics:
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
-        self.simulation_status_history.append(simulation_status)
+        while len(self.simulation_status_history) <= self.counter:
+            self.simulation_status_history.append(SimulationStatus.IN_PROGRESS)
+        self.simulation_status_history[self.counter] = simulation_status
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -134,17 +136,17 @@ class SolverStatistics:
 
         """
 
-        # Store static geometry data.
+        str_simulation_status_history = [str(s) for s in self.simulation_status_history]
+        final_str_simulation_status = (
+            None
+            if len(self.simulation_status_history) == 0
+            else str_simulation_status_history[-1]
+        )
+
         data["global"] = {
             "num_cells": self.num_cells,
-            "simulation_status_history": [
-                str(s) for s in self.simulation_status_history
-            ],
-            "final_simulation_status": str(
-                None
-                if len(self.simulation_status_history) == 0
-                else self.simulation_status_history[-1]
-            ),
+            "simulation_status_history": str_simulation_status_history,
+            "final_simulation_status": final_str_simulation_status,
             "latest_counter": self.counter,
         }
 
@@ -241,7 +243,7 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     num_iteration: int = field(default=0)
     """Number of non-linear iterations performed for current time step."""
-    num_iteration_history: list[int] = field(default_factory=list)
+    num_iterations_history: list[int] = field(default_factory=list)
     """History of number of iterations for entire run."""
     convergence_status: ConvergenceStatusHistory = field(
         default_factory=ConvergenceStatusHistory
@@ -305,8 +307,10 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
         data = super().append_global_data(data)
 
-        # Store global number of iterations
-        self.num_iteration_history.append(self.num_iteration)
+        # Store global number of iterations - need to allocate space for current iteration
+        while len(self.num_iterations_history) <= self.counter:
+            self.num_iterations_history.append(0)
+        self.num_iterations_history[self.counter] = self.num_iteration
 
         # Extract final convergence status
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
@@ -314,7 +318,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Determine number of waisted iterations
         total_num_waisted_iterations = 0
         for simulation_status, num_iterations in zip(
-            self.simulation_status_history, self.num_iteration_history
+            self.simulation_status_history, self.num_iterations_history
         ):
             if simulation_status != SimulationStatus.SUCCESSFUL:
                 total_num_waisted_iterations += num_iterations
@@ -322,8 +326,8 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Update global data
         data["global"].update(
             {
-                "num_iteration_history": self.num_iteration_history,
-                "total_num_iteration": sum(self.num_iteration_history),
+                "num_iterations_history": self.num_iterations_history,
+                "total_num_iterations": sum(self.num_iterations_history),
                 "total_num_waisted_iterations": total_num_waisted_iterations,
                 "final_convergence_status": final_convergence_status,
             }
