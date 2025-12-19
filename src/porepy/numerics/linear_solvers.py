@@ -13,8 +13,8 @@ from typing import Optional
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceStatusSummary,
     ConvergenceInfoSummary,
+    ConvergenceStatusSummary,
     DivergenceCriteria,
     IncrementBasedNanCriterion,
     ResidualBasedNanCriterion,

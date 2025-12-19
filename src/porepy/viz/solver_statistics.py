@@ -12,10 +12,10 @@ from typing import Any, Optional, Type
 import numpy as np
 
 from porepy.numerics.nonlinear.convergence_check import (
-    ConvergenceStatusSummary,
+    ConvergenceInfoHistory,
     ConvergenceInfoSummary,
     ConvergenceStatusHistory,
-    ConvergenceInfoHistory,
+    ConvergenceStatusSummary,
     SimulationStatus,
 )
 

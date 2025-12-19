@@ -14,8 +14,8 @@ from porepy.models.solution_strategy import SolutionStrategy
 from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
-    ConvergenceStatusSummary,
     ConvergenceInfoSummary,
+    ConvergenceStatusSummary,
     DivergenceCriteria,
     IncrementBasedAbsoluteCriterion,
     IncrementBasedAbsoluteDivergenceCriterion,
