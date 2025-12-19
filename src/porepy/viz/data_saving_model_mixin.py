@@ -364,8 +364,9 @@ class IterationExporting(pp.PorePyModel):
 class ResidualExporting:
     """Class for exporting residuals of the equation system.
 
-    TODO: Doesn't work at time steps with time derivatives, due to time and iteration
-    solution coinciding.
+    Note: This class is primarily intended for debugging purposes in combination with
+    the IterationExporting mixin. At the end of a time step, the residuals of
+    accumulation terms may be non-zero due to time and iteration solution coinciding.
     """
 
     if TYPE_CHECKING:
