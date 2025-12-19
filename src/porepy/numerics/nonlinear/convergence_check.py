@@ -12,7 +12,7 @@ This includes:
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
-from typing import Callable, cast
+from typing import Callable
 
 import numpy as np
 
@@ -154,29 +154,32 @@ class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
         return result
 
 
-def _recursive_dict_append(d: dict, v: dict) -> dict:
-    """Auxiliary function to recursively append dictionaries on leaf-level.
+def _make_leafs_to_list(d: dict) -> dict:
+    """Auxiliary function to convert leafs of a dictionary to lists."""
+    for key, value in d.items():
+        if isinstance(value, dict):
+            d[key] = _make_leafs_to_list(value)
+        else:
+            d[key] = [value]
+    return d
 
-    Parameters:
-        d: ConvergenceStatusHistory to append to.
-        v: Dictionary to append.
 
-    Returns:
-        dict: Updated dictionary.
-
-    """
+def _recursive_append(d: dict, v: dict) -> dict:
+    """Auxiliary function to recursively append dictionaries."""
     for key_v, value_v in v.items():
         if key_v not in d:
-            d[key_v] = [copy(value_v)]
-        else:
-            value = d[key_v]
-            if isinstance(value, list):
-                value.append(value_v)
-                d[key_v] = value
+            if isinstance(value_v, dict):
+                d[key_v] = _make_leafs_to_list(copy(value_v))
             else:
+                d[key_v] = [copy(value_v)]
+        else:
+            if isinstance(d[key_v], dict):
                 assert isinstance(value_v, dict)
-                assert isinstance(d[key_v], dict)
-                d[key_v] = _recursive_dict_append(d[key_v], value_v)
+                d[key_v] = _recursive_append(d[key_v], value_v)
+            elif isinstance(d[key_v], list):
+                d[key_v].append(value_v)
+            else:
+                raise ValueError
 
     return d
 
@@ -208,7 +211,7 @@ class ConvergenceStatusHistory(dict[str, list[ConvergenceStatus]]):
         """
         # Since this class inherits from dict, we should always be a dict
         # The recursive append modifies self in-place, so no reassignment needed
-        _recursive_dict_append(self, status)
+        _recursive_append(self, status)
 
 
 ConvergenceInfo = float | dict[str, float]
@@ -228,7 +231,7 @@ class ConvergenceInfoHistory(dict[str, list[float] | dict[str, list[float]]]):
             convergence_info: Convergence information to append.
 
         """
-        _recursive_dict_append(self, convergence_info)
+        _recursive_append(self, convergence_info)
 
 
 # Base convergence criterion classes.
