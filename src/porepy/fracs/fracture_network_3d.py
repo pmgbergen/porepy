@@ -245,8 +245,6 @@ class FractureNetwork3d(FractureNetwork):
             file_name, constraints, **kwargs
         )
 
-        fac = gmsh.model.occ
-
         # Helper class to keep track of mesh size computations.
         mesh_size_computer = MeshSizeComputer(mesh_args)
 
@@ -292,7 +290,7 @@ class FractureNetwork3d(FractureNetwork):
             mesh_control_dict, isect_mapping, surface_tags, boundary_tags
         )
 
-        ## Export physical entities to gmsh.
+        # STEP 3: Export physical entities to gmsh.
         fracture_to_surface = self._set_physical_names(
             intersection_points,
             intersection_lines,
@@ -302,12 +300,11 @@ class FractureNetwork3d(FractureNetwork):
             constraints,
         )
 
-        fac.synchronize()
+        gmsh.model.occ.synchronize()
 
         gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
 
-        # Set the mesh sizes after all geometry processing is done so that the
-        # identification of objects is not disturbed by retagging of objects.
+        # STEP 4: Set the mesh sizes.
         self._set_background_mesh_field(
             self._set_mesh_size_fields(
                 mesh_size_computer,
@@ -318,7 +315,9 @@ class FractureNetwork3d(FractureNetwork):
                 restrict_to_fractures=True,
             )
         )
-        fac.synchronize()
+        gmsh.model.occ.synchronize()
+
+        # STEP 5: Generate the mesh.
         gmsh.model.mesh.generate(self.nd - 1)
         if not dfn:
             # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
@@ -338,11 +337,11 @@ class FractureNetwork3d(FractureNetwork):
             gmsh.model.mesh.generate(self.nd)
 
         gmsh.write(str(file_name))
-
+        # STEP 6: Process the gmsh .msh output file, to make first a list of grids, then
+        # a MixedDimensionalGrid.
         if dfn:
             subdomains = pp.fracs.simplex.triangle_grid_embedded(file_name)
         else:
-            # Process the gmsh .msh output file, to make a list of grids.
             subdomains = pp.fracs.simplex.tetrahedral_grid_from_gmsh(
                 file_name, constraints
             )

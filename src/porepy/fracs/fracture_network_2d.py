@@ -185,27 +185,17 @@ class FractureNetwork2d(FractureNetwork):
             file_name, constraints, **kwargs
         )
 
-        # For the sake of a better overview, I use VSCode's regions to identify roughly
-        # which method the new code corresponds to. This should make it easier to create
-        # a logical split into methods later. Currently, the method is too long for my
-        # taste.
+        # Helper class to keep track of mesh size computations.
+        mesh_size_computer = MeshSizeComputer(mesh_args)
 
-        # TODO:
-        # 1. Unified treatment of distance notions in mesh size control.
-
-        # region prepare_for_gmsh
-
-        # Get gmsh tags of domain and fractures.
-        # TODO Here, the question arises whether we should already enrich the tags with
-        # dimensionality, e.g.,
-        # gmsh_fractures = [(1, f) for f in self.fractures_to_gmsh_2D()]
-        # Both are needed later, so not sure what is best. Having both seems
-        # unnecessary.
         domain_tag = self.domain_to_gmsh()
         fracture_tags = self.fractures_to_gmsh()
         gmsh.model.occ.synchronize()
-
+        # STEP 1: Insert mesh size control points on fractures and boundaries.
         mesh_size_points = self._insert_mesh_size_control_points(mesh_size_computer)
+        gmsh.model.occ.synchronize()
+
+        # STEP 2: Impose the domain boundary and process fracture intersections.
         (
             intersection_points,
             isect_mapping,
@@ -215,14 +205,12 @@ class FractureNetwork2d(FractureNetwork):
         ) = self._impose_boundary_process_intersections(
             fracture_tags, domain_tag, constraints, mesh_size_points
         )
-
         gmsh.model.occ.synchronize()
 
         # Write the .geo_unrolled file.
         gmsh.write(str(file_name.with_suffix(".geo_unrolled")))
 
-        # Set the mesh sizes after all geometry processing is done so that the
-        # identification of objects is not disturbed by retagging of objects.
+        # STEP 3: Set the mesh sizes.
         self._set_background_mesh_field(
             self._set_mesh_size_fields(
                 mesh_size_computer, mesh_size_points, restrict_to_fractures=True
@@ -230,12 +218,12 @@ class FractureNetwork2d(FractureNetwork):
         )
         gmsh.model.occ.synchronize()
 
-        # region GmshWriter.generate
+        # STEP 4: Set physical names.
+        self._set_physical_names(
+            intersection_points, isect_mapping, inv_fracture_tag_map, set(constraints)
+        )
 
-        # Consider the dimension of the problem. Normally 2D, but if ``dfn`` is True 1D.
-        ndim = nd - int(dfn)
-
-        # Create a gmsh mesh.
+        # STEP 5: Create a gmsh mesh.
         gmsh.model.mesh.generate(1)
         if not dfn:
             # Remove the 1d mesh fields, set new ones, then generate the 2d mesh.
@@ -255,7 +243,7 @@ class FractureNetwork2d(FractureNetwork):
         if False:
             self.mesh_quality_metrics()
 
-        # Create list of grids.
+        # STEP 6: Create list of grids and assemble mixed-dimensional grid.
         if dfn:
             # FIXME The constraint weren't considered until here, so this will probably
             # not work when constraints is not None.
