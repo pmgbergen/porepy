@@ -83,7 +83,7 @@ class EllipticFracture(Fracture):
         self.dip_angle = dip_angle
         self.index = index
 
-    def fracture_to_gmsh_3D(self) -> int:
+    def fracture_to_gmsh(self) -> int:
         """
         Create the elliptic fracture as an OpenCASCADE entity in Gmsh and return the
         corresponding 2D surface tag.

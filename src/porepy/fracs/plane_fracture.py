@@ -45,7 +45,7 @@ class PlaneFracture(PointBasedFracture):
         if check_convexity:
             assert self.is_convex(), "Points form non-convex polygon"
 
-    def fracture_to_gmsh_3D(self):
+    def fracture_to_gmsh(self):
         """Creates a gmsh representation of the fracture and exports its tag.
 
         Returns:

@@ -176,7 +176,7 @@ class FractureNetwork3d(FractureNetwork):
             network.
 
         """
-        fracture_tags = [fracture.fracture_to_gmsh_3D() for fracture in self.fractures]
+        fracture_tags = [fracture.fracture_to_gmsh() for fracture in self.fractures]
 
         return fracture_tags
 

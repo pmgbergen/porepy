@@ -139,12 +139,8 @@ class FractureNetwork2d(FractureNetwork):
             A list of integers which represent all fracture tags in the fracture
             network.
 
-        NOTE:
-            The method fracture_to_gmsh_2D() does not exist yet, nor is its name
-            decided.
-
         """
-        fracture_tags = [fracture.fracture_to_gmsh_2D() for fracture in self.fractures]
+        fracture_tags = [fracture.fracture_to_gmsh() for fracture in self.fractures]
 
         return fracture_tags
 
