@@ -327,10 +327,7 @@ class IterationExporting(pp.PorePyModel):
         # of nonlinear iterations. Default value set to 10 in accordance with the
         # default value used in NewtonSolver.
         n = self.params.get("max_iterations", 10)
-        p = round(np.log10(n))
-        r = 10**p
-        if r <= n:
-            r = 10 ** (p + 1)
+        r = np.ceil(np.log10(n + 1))
         self.iteration_exporter.write_vtu(
             self.data_to_export_iteration(),
             time_dependent=True,
