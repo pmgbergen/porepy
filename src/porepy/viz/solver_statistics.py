@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from copy import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Type
@@ -17,6 +16,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
     SimulationStatus,
+    _recursive_append,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,36 +32,6 @@ def _leafs_only(d: dict) -> dict:
         return d[-1]
     else:
         return d
-
-
-def _make_leafs_to_list(d: dict) -> dict:
-    """Auxiliary function to convert leafs of a dictionary to lists."""
-    for key, value in d.items():
-        if isinstance(value, dict):
-            d[key] = _make_leafs_to_list(value)
-        else:
-            d[key] = [value]
-    return d
-
-
-def _recursive_append(d: dict, v: dict) -> dict:
-    """Auxiliary function to recursively append dictionaries."""
-    for key_v, value_v in v.items():
-        if key_v not in d:
-            if isinstance(value_v, dict):
-                d[key_v] = _make_leafs_to_list(copy(value_v))
-            else:
-                d[key_v] = [copy(value_v)]
-        else:
-            if isinstance(d[key_v], dict):
-                assert isinstance(value_v, dict)
-                d[key_v] = _recursive_append(d[key_v], value_v)
-            elif isinstance(d[key_v], list):
-                d[key_v].append(value_v)
-            else:
-                raise ValueError
-
-    return d
 
 
 class _NumpyJSONEncoder(json.JSONEncoder):
