@@ -216,27 +216,34 @@ class FractureNetwork3d(FractureNetwork):
         dfn: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
-        if file_name is None:
-            file_name = Path("gmsh_frac_file.msh")
+        """Generate a mixed-dimensional grid by meshing the fracture network.
 
-        if constraints is None:
-            constraints = np.array([], dtype=int)
-        else:
-            constraints = np.atleast_1d(constraints)
-            constraints.sort()
+        Parameters:
+            mesh_args: Dictionary with mesh size parameters. See
+                :class:`~porepy.fracs.fracture_network.MeshSizeComputer` for details.
+            file_name: Path to the output Gmsh .msh file. If ``None``, the default name
+                ``gmsh_frac_file.msh`` is used.
+            constraints: Numpy array with indices of fractures to be treated as
+                constraints during meshing. The indices refer to the ordering of
+                fractures in the fracture network. If ``None``, no constraints are
+                applied.
+            dfn: If ``True``, a discrete fracture network (DFN) style meshing is
+                performed, where only the fractures are meshed (no volume mesh is
+                created).
+            **kwargs: Additional keyword arguments passed to Gmsh.
 
+        Returns:
+            A :class:`~porepy.meshing.mixed_dimensional_grid.MixedDimensionalGrid`
+            representing the meshed fracture network.
+
+        """
         gmsh.initialize()
-        try:
-            num_procs = multiprocessing.cpu_count() or 1
-        except (NotImplementedError, AttributeError):
-            num_procs = 1
 
-        gmsh.option.setNumber("General.NumThreads", max(num_procs - 2, 1))
-
-        # Use HXT algorithm for 3d meshing by default. TODO: This should be a user
-        # option. Note to self: It is important to use Mesh.Algorithm3D, not
-        # Mesh3D.Algorithm, which triggers all sorts of issues.
-        gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+        # Prepare the mesh inputs. Also set some Gmsh options, see the method for
+        # details.
+        file_name, constraints = self._prepare_mesh_inputs(
+            file_name, constraints, **kwargs
+        )
 
         fac = gmsh.model.occ
 

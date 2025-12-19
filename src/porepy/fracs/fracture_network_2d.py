@@ -157,35 +157,33 @@ class FractureNetwork2d(FractureNetwork):
         dfn: bool = False,
         **kwargs,
     ) -> pp.MixedDimensionalGrid:
-        """Mesh the fracture network and generate a mixed-dimensional grid.
+        """Generate a mixed-dimensional grid by meshing the fracture network.
 
-        Note that the mesh generation process is outsourced to gmsh.
+        Parameters:
+            mesh_args: Dictionary with mesh size parameters. See
+                :class:`~porepy.fracs.fracture_network.MeshSizeComputer` for details.
+            file_name: Path to the output Gmsh .msh file. If ``None``, the default name
+                ``gmsh_frac_file.msh`` is used.
+            constraints: Numpy array with indices of fractures to be treated as
+                constraints during meshing. The indices refer to the ordering of
+                fractures in the fracture network. If ``None``, no constraints are
+                applied.
+            dfn: If ``True``, a discrete fracture network (DFN) style meshing is
+                performed, where only the fractures are meshed (no volume mesh is
+                created).
+            **kwargs: Additional keyword arguments passed to Gmsh.
 
         Returns:
-            Mixed-dimensional grid for this fracture network.
+            A :class:`~porepy.meshing.mixed_dimensional_grid.MixedDimensionalGrid`
+            representing the meshed fracture network.
 
         """
-        if file_name is None:
-            file_name = Path("gmsh_frac_file.msh")
-
-        # No constraints if not available.
-        if constraints is None:
-            constraints = np.empty(0, dtype=int)
-        else:
-            constraints = np.atleast_1d(constraints)
-            constraints.sort()
-        assert isinstance(constraints, np.ndarray)
-
         gmsh.initialize()
-        mesh_size_computer = MeshSizeComputer(mesh_args)
-
-        try:
-            num_procs = multiprocessing.cpu_count() or 1
-        except (NotImplementedError, AttributeError):
-            num_procs = 1
-
-        gmsh.option.setNumber("General.NumThreads", max(num_procs - 2, 1))
-        nd = self.domain.dim
+        # Prepare the mesh inputs. Also set some Gmsh options, see the method for
+        # details.
+        file_name, constraints = self._prepare_mesh_inputs(
+            file_name, constraints, **kwargs
+        )
 
         # For the sake of a better overview, I use VSCode's regions to identify roughly
         # which method the new code corresponds to. This should make it easier to create
