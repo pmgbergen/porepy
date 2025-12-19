@@ -426,8 +426,28 @@ class FractureDeformationExporting(pp.PorePyModel):
         # Add the three fracture-specific vector quantities.
         sds = self.mdg.subdomains(dim=self.nd - 1)
         cell_offsets_nd = np.cumsum([0] + [sd.num_cells * self.nd for sd in sds])
+        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
         displacement_jump = self.evaluate_and_scale(sds, "displacement_jump", "m")
         char = self.evaluate_and_scale(sds, "characteristic_contact_traction", "Pa")
+        friction_coefficient = self.evaluate_and_scale(sds, "friction_coefficient", "")
+
+        # Both characteristic traction and friction coefficients are frequently floats.
+        # Ensure they are arrays to allow element-wise operations below, thus covering
+        # the case of spatially homogeneous quantities. Heterogeneous quantities are
+        # at least possible for the friction coefficient.
+        size = sum([sd.num_cells for sd in sds])
+
+        def ensure_array(
+            quantity: NDArray | float,
+        ) -> NDArray:
+            if isinstance(quantity, float):
+                # Cast to cell-wise array.
+                return quantity * np.ones(size)
+            else:
+                return quantity
+
+        char = ensure_array(char)
+        friction_coefficient = ensure_array(friction_coefficient)
         traction = self.evaluate_and_scale(sds, "contact_traction", "-")
         # Compute apertures, which are scalar quantities.
         cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
@@ -457,13 +477,15 @@ class FractureDeformationExporting(pp.PorePyModel):
             # - regular values are positive for fractures in contact,
             # - negative slip tendency is non-physical, except for
             # - zero normal traction.
-            slip_tendency = (
-                -np.linalg.norm(traction_loc[:-1], axis=0) / traction_loc[-1]
+            slip_tendency = -np.linalg.norm(traction_loc[:-1], axis=0) / (
+                traction_loc[-1]
+                * friction_coefficient[cell_offsets[id] : cell_offsets[id + 1]]
             )
 
             data.append((sd, "slip_tendency", slip_tendency))
-
-            data.append((sd, "contact_traction_in_Pa", traction_loc.ravel("F") * char))
+            # Rescale traction by characteristic contact traction.
+            traction_loc *= char[cell_offsets[id] : cell_offsets[id + 1]]
+            data.append((sd, "contact_traction_in_Pa", traction_loc.ravel("F")))
 
             data.append(
                 (
