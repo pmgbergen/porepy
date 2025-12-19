@@ -258,7 +258,7 @@ def extend_and_regularize_jac(
     """
 
     n_P, n_C = x.shape
-    npnc = n_P * n_C
+    n_PC = n_P * n_C
 
     # NPIPM matrix has one row and one column more
     df_npipm = np.zeros((f_jac.shape[0] + 1, f_jac.shape[1] + 1))
@@ -274,7 +274,7 @@ def extend_and_regularize_jac(
     # last derivative is w.r.t. nu
     d_slack_expanded[-1] = d_slack[-1]
     # derivatives w.r.t y_j, y_0 = 1 - sum_{j>0} y_j
-    d_slack_expanded[-(npnc + n_P) : -(1 + npnc)] = d_slack[1:n_P] - d_slack[0]
+    d_slack_expanded[-(n_PC + n_P) : -(1 + n_PC)] = d_slack[1:n_P] - d_slack[0]
 
     for j in range(n_P):
         # derivatives w.r.t. x_ij,
@@ -294,10 +294,12 @@ def extend_and_regularize_jac(
 
 
 @_COMPILER(
-    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.int_), fastmath=NUMBA_FAST_MATH, cache=True
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.int_, nb.int_, nb.int_),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
 )
 def _trust_region_cap(
-    X: np.ndarray, DX: np.ndarray, tau: float, n_F: int
+    X: np.ndarray, DX: np.ndarray, tau: float, n_F: int, n_C: int, n_P: int
 ) -> np.ndarray:
     """Helper function to apply the fraction-to-boundary rule to the update
     direction.
@@ -306,13 +308,16 @@ def _trust_region_cap(
         X: Current solution vector, shape ``(f_dim + 1,)``.
         DX: Update direction, shape ``(f_dim + 1,)``.
         tau: Trust-region parameter in ``(0, 1)``.
-        n_F: Number of fractional unknowns.
+        n_F: Number of fractional unknowns
+        n_C: Number of components.
+        n_P: Number of phases.
 
     Returns:
         The scaled increment ensuring no update violates trusted region [0, 1].
 
     """
     EPS = 1e-14
+    n_PC = n_P * n_C
     # Where update is negative, i.e. at risk of violating lower bound 0.
     # Ignore small updates to already zero fractions to avoid division by zero
     # and a step size of zero.
@@ -335,11 +340,20 @@ def _trust_region_cap(
     bidx = pos_d & (~(fracs_1 | small))
     b = min(1.0, tau * np.min(emfracs[bidx] / dfracs[bidx])) if np.any(bidx) else 1.0
 
-    dfracs_new = dfracs * min(a, b)
+    c = min(a, b)
+
+    dfracs_new = dfracs * c
 
     # Cancel the update where fractions close to 0 and 1
     dfracs_new[fracs_0 & neg_d] = 0.0
     dfracs_new[fracs_1 * pos_d] = 1.0
+
+    # Scale update further down if violations of unity constraints would occur.
+    fracs_new = fracs + dfracs_new
+    xf = fracs_new[-n_PC:]
+
+    # In case DX contains also updates to non-fractional variables.
+    DX *= c
     DX[-(n_F + 1) : -1] = dfracs_new
 
     return DX
@@ -429,7 +443,7 @@ def npipm(
         df_npipm_l = extend_and_regularize_jac(df_l, xf_l, yf_l, X_l[-1], u1, u2, eta)
         return df_npipm_l
 
-    # Tracking residual history for detecting cycles.
+    # Tracking residual history for detecting cycles. We expect cycles of 2 to 5.
     res_history = np.zeros(10)
     cycling_tol = 1e-2  # relative tolerance for detecting cycling.
     was_cycling = False
@@ -438,9 +452,17 @@ def npipm(
     detected_cycle = 0
     res_lb = 0.0  # lower-bound for residual when cycling detected.
     do_perturb = False
+    LM_mode = False  # Levenberg-Marquardt normalization
+    steepest_descent = False  # Last resort method
 
-    Fk = np.zeros((matrix_rank, anderson))
-    Gk = np.zeros((matrix_rank, anderson))
+    # Adding default value to keep track of residuals for dynamic acceleration switch.
+    default_anderson = 3
+    if anderson > 0:
+        Fk = np.zeros((matrix_rank, anderson))
+        Gk = np.zeros((matrix_rank, anderson))
+    else:
+        Fk = np.zeros((matrix_rank, default_anderson))
+        Gk = np.zeros((matrix_rank, default_anderson))
     fk1m = np.zeros(matrix_rank)
     gk1m = np.zeros(matrix_rank)
 
@@ -467,19 +489,28 @@ def npipm(
                 exitcode = 4
                 break
 
-            if L_scheme > 0.0:
-                # Stabilization via L-scheme
-                df_i += L_scheme * np.eye(df_i.shape[0])
+            A = df_i
+            b = -f_i
 
-            try:
-                if np.linalg.matrix_rank(df_i) == matrix_rank:
-                    DX_i[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
-                else:
-                    DX_i[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
-            except:
-                # This means the linear solver failed.
-                exitcode = 5
-                break
+            if LM_mode:
+                b = A.T @ b
+                A = A.T @ A
+
+            if L_scheme > 0.0:
+                A += L_scheme * np.eye(A.shape[0])
+
+            if steepest_descent:
+                DX_i[-matrix_rank:] += b
+            else:
+                try:
+                    DX_i[-matrix_rank:] = np.linalg.solve(A, b)
+                except:
+                    try:
+                        DX_i[-matrix_rank:] = np.linalg.lstsq(A, b, rcond=rcond)[0]
+                    except:
+                        # This means the linear solver failed.
+                        exitcode = 5
+                        break
 
             if np.any(np.isnan(DX_i)) or np.any(np.isinf(DX_i)):
                 exitcode = 2
@@ -487,7 +518,7 @@ def npipm(
 
             # Trust region capping to avoid shooting out of boundaries for fractions.
             # strictly necessary before going to Armijo (other residual evaluations).
-            DX_i = _trust_region_cap(X_i, DX_i, tau, n_F)
+            DX_i = _trust_region_cap(X_i, DX_i, tau, n_F, n_C, n_P)
 
             # Appleyard chop to update.
             if appleyard > 0.0:
@@ -527,10 +558,8 @@ def npipm(
             DX_i *= rho_i
 
             # region Anderson acceleration
-            mk = min(i, anderson)
-            if mk > 0:
-                col = (i - 1) % anderson
-
+            if i > 0:
+                col = (i - 1) % Fk.shape[1]
                 fk = DX_i[-matrix_rank:]
                 gk = (X_i + DX_i)[-matrix_rank:]
                 Fk[:, col] = fk - fk1m
@@ -538,6 +567,8 @@ def npipm(
                 fk1m = fk.copy()
                 gk1m = gk.copy()
 
+            mk = min(i, anderson)
+            if mk > 0:
                 A = Fk[:, :mk]
                 b = fk
 
@@ -559,7 +590,7 @@ def npipm(
                 DX_i1m = DX_i_
 
             # Apply update
-            X_i += _trust_region_cap(X_i, DX_i, tau, n_F)
+            X_i += _trust_region_cap(X_i, DX_i, tau, n_F, n_C, n_P)
 
             try:
                 f_i = eval_F(X_i)
@@ -624,10 +655,26 @@ def npipm(
                         anderson = int(params["anderson_acceleration"])
                     # If residual decreases but unsure about cycling, activate
                     # stabilization and acceleration techniques.
-                    elif res_history[-1] < res_lb:
-                        L_scheme = 0.7
+                    elif not LM_mode:
+                        if res_history[-1] < res_lb:
+                            L_scheme = 0.7
+                        else:
+                            is_cycling = True
+
+                if LM_mode:
+                    if res_history[-1] < res_history[-2]:
+                        L_scheme = max(1e-5, L_scheme * 0.5)
                     else:
-                        is_cycling = True
+                        L_scheme = min(1e12, 10.0 * L_scheme)
+
+                    if L_scheme > 1e3:
+                        max_iter_armijo = 10
+                        kappa = 0.1
+                        # Last resort, if everything fails, likely due to a numerically
+                        # flat minimized functional, we switch to steepest descent to
+                        # stabilize the results until iterations run out.
+                        if res_history[-1] < 1e-2:
+                            steepest_descent = True
 
                 # If cycling continued for some time without being broken, we
                 # initiate perturbation.
@@ -640,29 +687,41 @@ def npipm(
                 # Add random perturbation to escape cycle if still cycling.
                 if do_perturb:
                     do_perturb = False
+                    is_perturbed = False
                     # Add perturbation only to extended fractions where phase absent.
                     xf, yf = parse_xy(X_i[:-1], n_C, n_P)
                     for j in range(n_P):
                         xj = xf[j, :]
                         # Perturb extended fractions to be closer to uniform.
-                        if xj.sum() <= 1.0 - res_lb:
+                        if xj.sum() <= 1.0 - 1e-3:
                             xj = (xj + 1.0 / n_C) / 2.0
                             yf[j] = 0.0
                             xf[j, :] = xj
+                            is_perturbed = True
+
+                    cond = np.linalg.cond(df_i)
 
                     # NOTE Perturbing the phase fractions too seems to have negative
                     # effects on convergence.
                     # We set it to zero where the extended fractions are obviously
                     # far from summing to one and re-normalize.
-                    yf /= np.sum(yf)
-                    X_i[-(n_P - 1 + n_C * n_P + 1) : -(n_C * n_P + 1)] = yf[1:]
+                    if is_perturbed:
+                        yf /= np.sum(yf)
+                        X_i[-(n_P - 1 + n_C * n_P + 1) : -(n_C * n_P + 1)] = yf[1:]
 
-                    X_i[-n_C * n_P - 1 : -1] = xf.flatten()
+                        X_i[-n_C * n_P - 1 : -1] = xf.flatten()
 
-                    # Reset changes to parameters introduced by cycle-breaking.
-                    is_cycling = False
-                    L_scheme = 0.0
-                    rho = float(params["armijo_rho"])
-                    kappa = float(params["armijo_kappa"])
+                        # Reset changes to parameters introduced by cycle-breaking.
+                        is_cycling = False
+                        L_scheme = 0.0
+                        rho = float(params["armijo_rho"])
+                        kappa = float(params["armijo_kappa"])
+                        LM_mode = False
+                        # anderson = int(params["anderson_acceleration"])
+                    elif cond > 1e5 and not LM_mode:
+                        L_scheme = 10.0 if cond > 1e6 else 1.0
+                        LM_mode = True
+                        if anderson == 0:
+                            anderson = default_anderson
 
     return X_i[:-1], exitcode, num_iter

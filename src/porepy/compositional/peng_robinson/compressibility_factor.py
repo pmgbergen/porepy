@@ -839,7 +839,7 @@ def get_compressibility_factor(
             d = np.sqrt(np.dot(D, ABMETRIC @ D))
             # d = np.linalg.norm(AB - AB_p)
             # Avoid conflicts with the SC border line smoothing by demanding B <= B_crit
-            if d < smooth_sc and AB_p[1] <= B_CRIT:
+            if d < smooth_sc and AB_p[1] < B_CRIT:
                 c_p = c_from_AB(AB_p[0], AB_p[1])
                 # Near A=B=0, it can lead to more than 1 real root. In any case it is
                 # the gas root which is real and which is used for the extension.
@@ -1027,7 +1027,7 @@ def get_compressibility_factor_derivatives(
             AB_p = project_point_to_line(AB, SUPERCRITICAL_LINE, ABMETRIC)
             D = AB - AB_p
             d = np.sqrt(np.dot(D, ABMETRIC @ D))
-            if d < smooth_sc and AB_p[1] <= B_CRIT:
+            if d < smooth_sc and AB_p[1] < B_CRIT:
                 c_p = c_from_AB(AB_p[0], AB_p[1])
                 dZ = calculate_root_derivatives(c_p, eps)
                 dZ = np.dot(dZ, dc_dAB)

@@ -466,7 +466,7 @@ class FlashInitializer:
 
         assert nphase == 2, "Supports only 2-phase mixtures."
 
-        self._npnc: tuple[int, int] = (nphase, ncomp)
+        self._n_PC: tuple[int, int] = (nphase, ncomp)
         """Tuple containing the number of phases and components in the fluid."""
 
         # data used in initializers
@@ -552,14 +552,14 @@ class FlashInitializer:
                 key_type=numba.types.unicode_type, value_type=numba.types.float64
             )
             self._nb_params = cast(dict[str, float], d)
-            self._nb_params["num_phases"] = float(self._npnc[0])
-            self._nb_params["num_components"] = float(self._npnc[1])
+            self._nb_params["num_phases"] = float(self._n_PC[0])
+            self._nb_params["num_components"] = float(self._n_PC[1])
             self._nb_params["gas_phase_index"] = float(
                 -1 if self._gas_phase_index is None else self._gas_phase_index
             )
 
             # Adding also some component parameters which are required
-            for i in range(self._npnc[1]):
+            for i in range(self._n_PC[1]):
                 self._nb_params[f"_T_crit_{i}"] = float(self._Tcrits[i])
                 self._nb_params[f"_p_crit_{i}"] = float(self._pcrits[i])
                 self._nb_params[f"_v_crit_{i}"] = float(self._vcrits[i])
@@ -592,7 +592,7 @@ class FlashInitializer:
             self._eos.compile()
 
         # Setting outer scope variables to avoid referencing self in JIT functions.
-        nphase, ncomp = self._npnc
+        nphase, ncomp = self._n_PC
         phasestates = self._phasestates
 
         prearg_val_c = self._eos.funcs["prearg_val"]

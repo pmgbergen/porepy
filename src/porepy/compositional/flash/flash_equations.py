@@ -234,11 +234,11 @@ def parse_xy(
         - Phase fractions, shape ``(nphase,)``.
 
     """
-    npnc = nphase * ncomp
-    x = X_gen[-npnc:].copy().reshape((nphase, ncomp))
+    n_PC = nphase * ncomp
+    x = X_gen[-n_PC:].copy().reshape((nphase, ncomp))
     # Phase fractions
     y = np.zeros(nphase)
-    y[1:] = X_gen[-(npnc + nphase - 1) : -npnc]
+    y[1:] = X_gen[-(n_PC + nphase - 1) : -n_PC]
     y[0] = 1.0 - y.sum()
 
     return x, y
