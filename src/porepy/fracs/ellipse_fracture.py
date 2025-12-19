@@ -122,11 +122,20 @@ class EllipticFracture(Fracture):
         return surface_tag
 
     def __str__(self) -> str:
-        """The str-representation displays the number of points, normal and centroid."""
+        """Represent principal axes, normal and centroid."""
         s = f"Elliptic fracture with major axis {self.r1} and minor axis {self.r2}\n"
         s += "Center: \n" + str(self.center) + "\n"
         s += "Normal: \n" + str(self.normal)
         return s
+
+    def __repr__(self) -> str:
+        """Representation of the fracture."""
+        return (
+            f"EllipticFracture(center={self.center}, major_axis={self.r1}, "
+            f"minor_axis={self.r2}, major_axis_angle={self.major_axis_angle}, "
+            f"strike_angle={self.strike_angle}, dip_angle={self.dip_angle}, "
+            f"index={self.index})"
+        )
 
     def copy(self) -> Fracture:
         """Return a copy of the fracture with the current vertices.
