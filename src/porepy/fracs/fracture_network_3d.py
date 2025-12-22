@@ -873,15 +873,8 @@ class FractureNetwork3d(FractureNetwork):
 
             other_object_distances_all = np.hstack(
                 (
-                    np.array(
-                        [d if d > 0 else mesh_size_computer.h_frac() for d in line_dist]
-                    ),
-                    np.array(
-                        [
-                            d if d > 0 else mesh_size_computer.h_frac()
-                            for d in control_point_distance
-                        ]
-                    ),
+                    np.array([d if d > 0 else h_end for d in line_dist]),
+                    np.array([d if d > 0 else h_end for d in control_point_distance]),
                 )
             )
             # Reduce to one distance per unique point, picking the minimum distance if
