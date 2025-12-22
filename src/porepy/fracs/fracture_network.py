@@ -45,6 +45,10 @@ class FractureNetwork(ABC):
         self._tol = tol
         """Tolerance for geometric computations."""
 
+    def num_frac(self) -> int:
+        """Return the number of fractures in the network."""
+        return len(self.fractures)
+
     @abstractmethod
     def domain_to_gmsh(self) -> None:
         """Define the domain in gmsh."""
