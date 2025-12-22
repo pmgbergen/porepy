@@ -35,9 +35,11 @@ class FractureNetwork(ABC):
 
         self.fractures = []
         """List of fractures forming the network."""
+        # Populate fracture list and assign indices.
         if fractures is not None:
-            for f in fractures:
+            for index, f in enumerate(fractures):
                 self.fractures.append(f)
+                f.index = index
 
         self.domain: Optional[pp.Domain] = domain
         """Domain specification for the fracture network."""
