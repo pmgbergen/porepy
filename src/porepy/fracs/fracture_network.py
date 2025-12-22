@@ -952,6 +952,9 @@ class MeshSizeComputer:
         self._hmin = mesh_args.get("mesh_size_min", self._hfrac / 10)
         self._threshold = mesh_args.get("refinement_threshold", 1.0)
         self._buffer = mesh_args.get("refinement_buffer", 0.5)
+        # By default, we let the minimum mesh size scale with the buffer and the
+        # fracture mesh size.
+        self._hmin = mesh_args.get("mesh_size_min", self._hfrac * self._buffer)
         self._farfield_transition = mesh_args.get("farfield_transition", 10.0)
 
     def refinement_threshold(self) -> float:
@@ -1100,8 +1103,20 @@ class MeshSizeComputer:
 
         Parameters:
             dist: Distance from the fracture.
+
+        Returns:
+            float: Minimum mesh size at the given distance.
+
         """
-        return max(self._hmin, dist)
+        if dist == 0:
+            # For intersecting fractures, we set the mesh size to the fracture mesh
+            # size. This avoids execessive refinement at intersection lines in cases
+            # where the intersection angle is large. For small angles, we should refine,
+            # but experience indicates that the mesh size will be small anyway, partly
+            # due to nearby mesh control points.
+            return self._hfrac
+        else:
+            return max(self._hmin, dist)
 
 
 class GmshPointIdentifier:
