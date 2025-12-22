@@ -291,21 +291,21 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             1,
         ),
         (
-            # Tets permeability for the matrix domain. Should give the matrix
+            # Test permeability for the matrix domain. Should give the matrix
             # permeability. 9 * (nc = 32) entries of isotropic permeability.
             models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
+            5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 16],
             2,
         ),
         (
             # Test the permeability for a fracture domain. This should be computed by
             # the cubic law (i.e., aperture squared by 12, an aditional aperture scaling
-            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6)
+            # to get the transmissivity is taken care of elsewhere). 9 * (nc = 10)
             # entries of isotropic permeability.
             models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
-            0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
+            0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 10],
             1,
         ),
         (
@@ -322,14 +322,14 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
-            * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
+            * reference_arrays["isotropic_second_order_tensor"][: 9 * 16],
             2,
         ),
         (
             models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
-            * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
+            * reference_arrays["isotropic_second_order_tensor"][: 9 * 10],
             1,
         ),
         (
@@ -382,6 +382,7 @@ def test_evaluated_values(
         "fracture_indices": [0, 1],
         "times_to_export": [],
         "fractional_flow": True,  # For testing MassWeightedPermeability
+        "cartesian": True,
     }
 
     model = model_class(params)
