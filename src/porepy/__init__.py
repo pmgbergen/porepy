@@ -23,7 +23,6 @@ import os, sys
 from pathlib import Path
 import configparser
 import warnings
-from typing import TYPE_CHECKING
 
 
 __version__ = "1.11.0"
@@ -46,8 +45,7 @@ except:
 
 from porepy.utils.common_constants import *
 
-if TYPE_CHECKING:
-    from porepy.utils.porepy_types import *
+from porepy.utils.porepy_types import *
 
 from porepy.utils import permutations
 from porepy.utils.interpolation_tables import (
