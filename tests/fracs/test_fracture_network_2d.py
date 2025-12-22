@@ -155,8 +155,13 @@ def test_meshing_no_intersections(
 @pytest.mark.parametrize(
     "is_constraint", [[False, False], [True, False], [False, True], [True, True]]
 )
+@pytest.mark.parametrize("dfn", [False, True])
 def test_meshing_two_intersecting_fractures(
-    x_coord: float, is_constraint: list[bool], unit_square: pp.Domain, mesh_args: dict
+    x_coord: float,
+    is_constraint: list[bool],
+    dfn: bool,
+    unit_square: pp.Domain,
+    mesh_args: dict,
 ):
     """Test meshing of two intersecting fractures.
 
@@ -165,6 +170,7 @@ def test_meshing_two_intersecting_fractures(
     Parameters:
         x_coord: x-coordinate of the vertical fracture.
         is_constraint: Whether each fracture is a constraint.
+        dfn: Whether to use DFN meshing or not.
         unit_square: Unit square domain.
         mesh_args: Meshing arguments.
 
@@ -177,7 +183,7 @@ def test_meshing_two_intersecting_fractures(
     network = pp.create_fracture_network(fractures, unit_square)
     constraints = np.where(is_constraint)[0]
     # Generate a mixed-dimensional grid with a grid as coarse as possible.
-    mdg = network.mesh(mesh_args, constraints=constraints)
+    mdg = network.mesh(mesh_args, constraints=constraints, dfn=dfn)
 
     assert len(mdg.subdomains(dim=1)) == 2 - sum(is_constraint)
     num_0d_grids = 0 if any(is_constraint) else 1
@@ -302,3 +308,34 @@ def test_fractures_intersect_at_boundary(
     assert len(mdg.subdomains(dim=1)) == 2 - num_constraints
     # There should be a single 0d grid.
     assert len(mdg.subdomains(dim=0)) == 0
+
+
+def test_meshing_with_mesh_size_control_points(unit_square: pp.Domain, mesh_args: dict):
+    """Test meshing of a fracture network with mesh size control points.
+
+    We test that the mesh generation process is successful when the insertion of mesh
+    size control points is triggered.
+
+    Parameters:
+        unit_square: Unit square domain fixture.
+        mesh_args: Meshing arguments.
+
+    """
+    fractures = [
+        pp.LineFracture(np.array([[0.2, 0.8], [0.5, 0.5]])),
+        pp.LineFracture(np.array([[0.5, 0.5], [0.52, 0.6]])),
+        pp.LineFracture(np.array([[0.3, 0.3], [0.8, 0.2]])),
+    ]
+
+    network = pp.create_fracture_network(fractures, unit_square)
+    # Increase the refinement threshold to trigger the insertion of mesh size control
+    # points.
+    mesh_args["refinement_threshold"] = 0.1
+
+    # Generate a mixed-dimensional grid with a grid as coarse as possible.
+    mdg = network.mesh(mesh_args)
+
+    # There should be two 1d grids.
+    assert len(mdg.subdomains(dim=1)) == 3
+    # There should be a single 0d grid.
+    assert len(mdg.subdomains(dim=0)) == 1
