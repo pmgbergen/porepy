@@ -312,6 +312,13 @@ class FractureNetwork2d(FractureNetwork):
         removed_fractures = []
 
         for ind, fracture_tag in enumerate(fracture_tags):
+            if domain_tag < 0:
+                # No domain is defined, so no fracture can be outside the domain. We
+                # could have done this check outside the loop, but the performance
+                # impact is negligible, so it is preferrable to avoid a new if-statement
+                # with indentation.
+                continue
+
             # According to gmsh documentation (v4.14), the function intersect should be
             # able to identify fractures that do not intersect with the domain. The
             # expected result is that the map from the old fracture to the new one, that
@@ -378,7 +385,12 @@ class FractureNetwork2d(FractureNetwork):
             ft for i, ft in enumerate(fracture_tags) if i not in removed_fractures
         ]
         # Get tags of the domain boundaries.
-        boundary_tags = [t for _, t in gmsh.model.get_boundary([(2, domain_tag)])]
+        if domain_tag < 0:
+            boundary_tags = []
+        else:
+            boundary_tags = [
+                t for _, t in gmsh.model.get_boundary([(self.nd, domain_tag)])
+            ]
 
         # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
         inv_fracture_tag_map = {i: counter for counter, i in enumerate(fracture_tags)}
@@ -388,12 +400,27 @@ class FractureNetwork2d(FractureNetwork):
         # fractures are embedded in the domain, hence the mesh will conform to the
         # fractures).
         line_tags_new = fracture_tags + boundary_tags
-        _, isect_mapping = gmsh.model.occ.fragment(
-            [(self.nd - 1, ft) for ft in line_tags_new],
-            [(self.nd, domain_tag)],
-            removeObject=True,
-            removeTool=True,
-        )
+
+        if domain_tag >= 0:
+            _, isect_mapping = gmsh.model.occ.fragment(
+                [(self.nd - 1, ft) for ft in line_tags_new],
+                [(self.nd, domain_tag)],
+                removeObject=True,
+                removeTool=True,
+            )
+        else:
+            # No intersections possible with only one fracture and no domain.
+            if len(fracture_tags) == 1:
+                # Gmsh did not seem to like fragmenting a single object without a
+                # secondary object. Hence, we handle this case separately.
+                isect_mapping = [[(self.nd - 1, fracture_tags[0])]]
+            else:
+                _, isect_mapping = gmsh.model.occ.fragment(
+                    [(self.nd - 1, ft) for ft in fracture_tags],
+                    [],
+                    removeObject=True,
+                    removeTool=True,
+                )
         gmsh.model.occ.synchronize()
 
         # During intersection removal, gmsh will add intersection points and replace the
@@ -655,14 +682,15 @@ class FractureNetwork2d(FractureNetwork):
                     self.nd - 1, segments, -1, f"{PhysicalNames.FRACTURE.value}{fi}"
                 )
 
-        # It turns out that if fractures split the domain into disjoint parts, gmsh may
-        # choose to redefine the domain as the sum of these parts. Therefore, we
-        # redefine the domain tags here, using all volumes in the model.
-        domain_tags = [entity[1] for entity in gmsh.model.get_entities(self.nd)]
+        if self.domain is not None:
+            # It turns out that if fractures split the domain into disjoint parts, gmsh
+            # may choose to redefine the domain as the sum of these parts. Therefore, we
+            # redefine the domain tags here, using all volumes in the model.
+            domain_tags = [entity[1] for entity in gmsh.model.get_entities(self.nd)]
 
-        gmsh.model.addPhysicalGroup(
-            self.nd, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}"
-        )
+            gmsh.model.addPhysicalGroup(
+                self.nd, domain_tags, -1, f"{PhysicalNames.DOMAIN.value}"
+            )
 
     def mesh_quality_metrics(self) -> None:
         """Visualize, and log elementwise mesh quality metrics using gmsh.
