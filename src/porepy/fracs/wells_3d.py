@@ -776,6 +776,9 @@ def _intersection_segment_fracture(
             Updated tags.
 
     """
+    # Canary check, need to fix this. Likely, we need to go back to a gmsh-based
+    # intersection computation for general fractures.
+    assert not isinstance(fracture, pp.EllipticFracture)
     distance, isec_pt = pp.geometry.distances.segments_polygon(
         segment_points[:, 0], segment_points[:, 1], fracture.pts
     )
