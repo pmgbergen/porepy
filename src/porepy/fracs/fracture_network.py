@@ -530,7 +530,10 @@ class FractureNetwork(ABC):
                 gmsh.model.mesh.field.setNumber(
                     uniform_field, "VOut", mesh_size_computer.h_farfield()
                 )
-                gmsh_fields.append(uniform_field)
+                restriction = gmsh.model.mesh.field.add("Restrict")
+                gmsh.model.mesh.field.setNumber(restriction, "InField", uniform_field)
+                gmsh.model.mesh.field.setNumbers(restriction, entity_str, loc_entities)
+                gmsh_fields.append(restriction)
         else:
             # This will set a mesh size field in the surrounding domain, transitioning
             # from a fine mesh size close to the entities to the far-field mesh size.
