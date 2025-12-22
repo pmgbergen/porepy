@@ -402,24 +402,6 @@ def _validate_args(
             " simplex meshes, not for %r" % grid_type
         )
     elif grid_type != "simplex":
-        dim: int = _infer_dimension_from_network(fracture_network)
-        domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
-        if dim == 2:
-            assert isinstance(fracture_network, FractureNetwork2d)
-            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
-        elif dim == 3:
-            assert isinstance(fracture_network, FractureNetwork3d)
-            _, fractures_deleted = fracture_network.impose_external_boundary(domain)
-        # Take note of deleted fractures
-        if (sz := fractures_deleted.size) > 0:
-            # It seems most likely that this is an undesired effect (for a
-            # Cartesian geomtetry it should be possible to make sure the
-            # fractures are within the domain), but we cannot rule out that the
-            # user on purpose use the domain to get rid of some fractures.
-            # Giving a warning seems like a fair compromise between raising an
-            # error and doing nothing.
-            warn(f"Found {sz} fractures outside the domain boundary")
-
         if any(
             [
                 isinstance(frac, pp.EllipticFracture)
@@ -844,5 +826,20 @@ def create_mdg(
                 domain, meshing_args, kwargs
             )
             mdg = pp.meshing.tensor_grid(fracs=fractures, x=xs, y=ys, z=zs, **kwargs)
+
+    constraints = kwargs.get("constraints", np.array([]))
+    if (len(mdg.subdomains(dim=dim - 1)) + constraints.size) < len(
+        fracture_network.fractures
+    ):
+        # It seems most likely that this is an undesired effect (for a
+        # Cartesian geomtetry it should be possible to make sure the
+        # fractures are within the domain), but we cannot rule out that the
+        # user on purpose use the domain to get rid of some fractures.
+        # Giving a warning seems like a fair compromise between raising an
+        # error and doing nothing.
+        num_missing = len(fracture_network.fractures) - (
+            len(mdg.subdomains(dim=dim - 1)) + constraints.size
+        )
+        warn(f"Found {num_missing} fractures outside the domain boundary")
 
     return mdg
