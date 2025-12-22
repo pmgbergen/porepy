@@ -107,10 +107,11 @@ def create_gmsh_file(dims: tuple) -> str:
     fracture_network.mesh(
         mesh_args=lower_level_args,
         file_name=msh_file,
-        finalize_gmsh=False,
-        clear_gmsh=False,
     )
 
+    # Re-initialize gmsh to work further with it (it is being closed at the end of
+    # fracture_network.mesh).
+    gmsh.initialize()
     # Step 2: Add an inclusion to the gmsh geometry. Need to open the .geo file created
     # (which we generate by deault when calling fracture_network.mesh above). If we
     # instead had opened the .msh file, we would not be able to add new geometry in a
