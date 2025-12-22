@@ -30,8 +30,7 @@ __all__ = [
     "load_fluid_constants",
 ]
 
-if TYPE_CHECKING:
-    number = pp.number
+number = pp.number
 
 
 # 1. By using keyword_only arguments for the construction of materials, the user is

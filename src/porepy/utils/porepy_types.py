@@ -2,6 +2,7 @@
 Defines types commonly used in PorePy.
 """
 
+from __future__ import annotations
 from typing import Callable, Sequence, Union, TYPE_CHECKING
 
 
@@ -11,53 +12,50 @@ __all__ = [
     "GridLikeSequence",
     "SubdomainsOrBoundaries",
     "discretization_type",
-    "fracture_network",
+    "FractureNetworkType",
     "DomainFunctionType",
     "ExtendedDomainFunctionType",
 ]
 
-if TYPE_CHECKING:
-    import porepy as pp
-    from porepy.fracs.fracture_network_2d import FractureNetwork2d
-    from porepy.fracs.fracture_network_3d import FractureNetwork3d
+import porepy as pp
 
-    GridLike = Union["pp.Grid", "pp.MortarGrid", "pp.BoundaryGrid"]
-    """Type for grids and mortar grids."""
-    SubdomainsOrBoundaries = Sequence["pp.Grid"] | Sequence["pp.BoundaryGrid"]
-    """Type for sequence of subdomains or sequence of boundary grids."""
+GridLike = Union["pp.Grid", "pp.MortarGrid", "pp.BoundaryGrid"]
+"""Type for grids and mortar grids."""
+SubdomainsOrBoundaries = Sequence["pp.Grid"] | Sequence["pp.BoundaryGrid"]
+"""Type for sequence of subdomains or sequence of boundary grids."""
 
-    GridLikeSequence = SubdomainsOrBoundaries | Sequence["pp.MortarGrid"]
-    """Type for sequence of any kind of grids, but not a mixture of them."""
+GridLikeSequence = SubdomainsOrBoundaries | Sequence["pp.MortarGrid"]
+"""Type for sequence of any kind of grids, but not a mixture of them."""
 
-    number = Union[float, int]
-    """Type for numbers."""
+number = Union[float, int]
+"""Type for numbers."""
 
-    discretization_type = Union[
-        "pp.numerics.discretization.Discretization",
-        "pp.numerics.discretization.InterfaceDiscretization",
-    ]
+discretization_type = Union[
+    "pp.numerics.discretization.Discretization",
+    "pp.numerics.discretization.InterfaceDiscretization",
+]
 
-    fracture_network = Union[
-        "FractureNetwork2d",
-        "FractureNetwork3d",
-    ]
+FractureNetworkType = Union[
+    "pp.fracs.fracture_network_2d.FractureNetwork2d",
+    "pp.fracs.fracture_network_3d.FractureNetwork3d",
+]
 
-    DomainFunctionType = Callable[[SubdomainsOrBoundaries], "pp.ad.Operator"]
-    """Type alias to denote thermodynamic properties and variables which are defined on
-    subdomains or boundaries and return an AD-compatible representation.
+DomainFunctionType = Callable[[SubdomainsOrBoundaries], "pp.ad.Operator"]
+"""Type alias to denote thermodynamic properties and variables which are defined on
+subdomains or boundaries and return an AD-compatible representation.
 
-    Motivated by PorePy's modelling framework, terms appearing in model equations are
-    defined on some domain and represented as an AD operator.
+Motivated by PorePy's modelling framework, terms appearing in model equations are
+defined on some domain and represented as an AD operator.
 
-    Notes:
-        1. Boundaries are included because the various terms can indeed be called with
-        boundary grids in the advective part.
-        2. Interfaces (mortar grids) are explicitly excluded, since this is part of the
-        constitutive modelling in mD and requires separate solutions.
+Notes:
+    1. Boundaries are included because the various terms can indeed be called with
+    boundary grids in the advective part.
+    2. Interfaces (mortar grids) are explicitly excluded, since this is part of the
+    constitutive modelling in mD and requires separate solutions.
 
-    """
+"""
 
-    ExtendedDomainFunctionType = Union[DomainFunctionType, "pp.ad.SurrogateFactory"]
-    """Extending :data:`DomainFunctionType` to include primarely phase properties, which
-    can be given by :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
-    accomodate externalized computations."""
+ExtendedDomainFunctionType = Union[DomainFunctionType, "pp.ad.SurrogateFactory"]
+"""Extending :data:`DomainFunctionType` to include primarely phase properties, which
+can be given by :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
+accomodate externalized computations."""

@@ -15,14 +15,14 @@ import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
-if TYPE_CHECKING:
-    FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
+
+FractureNetworkType = Union[FractureNetwork2d, FractureNetwork3d]
 
 
 def _validate_args_types(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
 ):
     """Validates argument types.
 
@@ -49,7 +49,7 @@ def _validate_args_types(
         raise TypeError("meshing_args must be dict, not %r" % type(meshing_args))
 
     valid_fracture_network: bool = isinstance(
-        fracture_network, get_args(FractureNetwork)
+        fracture_network, get_args(FractureNetworkType)
     )
     if not valid_fracture_network:
         raise TypeError(
@@ -326,7 +326,7 @@ def _validate_tensor_grid_meshing_args_values(domain: pp.Domain, meshing_args: d
 
 
 def _retrieve_domain_instance(
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
 ) -> Optional[pp.Domain]:
     """Retrieve from fracture_network.
 
@@ -354,7 +354,7 @@ def _retrieve_domain_instance(
         return None
 
 
-def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
+def _infer_dimension_from_network(fracture_network: FractureNetworkType) -> int:
     """Infer dimension from fracture_network type.
 
     Parameters:
@@ -375,7 +375,7 @@ def _infer_dimension_from_network(fracture_network: FractureNetwork) -> int:
 def _validate_args(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
 ):
     """Validates grid_type, meshing_args and fracture_network types and values.
 
@@ -660,7 +660,7 @@ def _preprocess_tensor_grid_args(
 def create_mdg(
     grid_type: Literal["simplex", "cartesian", "tensor_grid"],
     meshing_args: dict,
-    fracture_network: FractureNetwork,
+    fracture_network: FractureNetworkType,
     **kwargs,
 ) -> pp.MixedDimensionalGrid:
     """Creates a mixed-dimensional grid.
