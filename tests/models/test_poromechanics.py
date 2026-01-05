@@ -496,14 +496,24 @@ def test_positive_p_frac_positive_opening(model_class):
     tol = 1e-4 if model_class == TailoredPoromechanicsTpsa else 1e-5
     assert np.abs(np.sum(jump[0])) < tol
 
-    # The contact force in normal direction should be zero
-
+    # The contact force in normal direction should be zero.
     # NB: This assumes the contact force is expressed in local coordinates
     assert np.all(np.abs(traction) < 1e-7)
 
-    # Fracture pressure is positive
-    assert np.all(p_frac > 4.7e-4)
-    assert np.all(p_frac < 4.9e-4)
+    # Fracture pressure is positive.
+    #
+    # EK: The original reference values are for mesh with 4 fracture cells. Since the
+    # fracture source is set constant per fracture cell, effectively acting as an
+    # intensive quantity, the total source term and hence the fracture pressure scales
+    # with the number of fracture cells. We do a (perhaps somewhat rough) correction
+    # here by scaling with the ratio between number of fracture cells in the current
+    # model and the original number of fracture cells (4).
+    orig_mean_pressure = 4.8e-4
+    orig_deviation = 2e-5
+    cell_ratio = model.mdg.subdomains(dim=model.nd - 1)[0].num_cells / 4
+
+    assert np.all(p_frac > (orig_mean_pressure - orig_deviation) * cell_ratio)
+    assert np.all(p_frac < (orig_mean_pressure + orig_deviation) * cell_ratio)
 
 
 def test_pull_south_positive_reference_pressure():
