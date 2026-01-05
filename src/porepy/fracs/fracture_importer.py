@@ -46,32 +46,15 @@ def network_3d_from_csv(
         Three-dimensional fracture network object.
 
     """
+    # To please mypy, we need to formally let the fracture list contain both plane and
+    # elliptic fractures, even if we only create plane fractures here.
+    frac_list: list[pp.PlaneFracture | pp.EllipticFracture] = []
 
-    # The first line of the csv file defines the bounding box for the domain.
-    frac_list = []
     # Extract the data from the csv file.
     with open(file_name, "r") as csv_file:
         spam_reader = csv.reader(csv_file, delimiter=",")
-        # Read the domain first.
-        if has_domain:
-            read_domain = False
 
-            while not read_domain:
-                line = next(spam_reader)
-                if line[0][0] == "#":
-                    continue
-                else:
-                    data = np.asarray(line, dtype=float)
-                    bbox = {
-                        "xmin": data[0],
-                        "xmax": data[3],
-                        "ymin": data[1],
-                        "ymax": data[4],
-                        "zmin": data[2],
-                        "zmax": data[5],
-                    }
-                    domain = pp.Domain(bbox)
-                    read_domain = True
+        domain = _read_3d_domain(spam_reader, has_domain)
 
         for row in spam_reader:
             # If the line starts with a '#', we consider this a comment.
@@ -95,20 +78,15 @@ def network_3d_from_csv(
                 )
             )
 
-    # Create the network
-    if has_domain:
-        fn = pp.create_fracture_network(frac_list, domain, tol=tol)
-        assert isinstance(fn, FractureNetwork3d)  # needed to please mypy
-        return fn
-    else:
-        fn = pp.create_fracture_network(frac_list, tol=tol)
-        assert isinstance(fn, FractureNetwork3d)  # needed to please mypy
-        return fn
+    # Create the network.
+    fn = pp.create_fracture_network(frac_list, domain, tol=tol)
+    assert isinstance(fn, FractureNetwork3d)  # needed to please mypy
+    return fn
 
 
 def elliptic_network_3d_from_csv(
     file_name: Path, has_domain: bool = True, tol: float = 1e-4, degrees: bool = False
-) -> pp.fracture_network:
+) -> FractureNetwork3d:
     """Create fracture network from a set of elliptic fractures stored in a CSV file.
 
     In the CSV file, we assume the following structure:
@@ -143,23 +121,12 @@ def elliptic_network_3d_from_csv(
     """
 
     # The first line of the csv file defines the bounding box for the domain.
-    frac_list = []
+    frac_list: list[pp.PlaneFracture | pp.EllipticFracture] = []
     # Extract the data from the csv file.
     with open(file_name, "r") as csv_file:
         spam_reader = csv.reader(csv_file, delimiter=",")
 
-        # Read the domain first.
-        if has_domain:
-            bbox_as_array = np.asarray(next(spam_reader), dtype=float)
-            bbox = {
-                "xmin": bbox_as_array[0],
-                "xmax": bbox_as_array[3],
-                "ymin": bbox_as_array[1],
-                "ymax": bbox_as_array[4],
-                "zmin": bbox_as_array[2],
-                "zmax": bbox_as_array[5],
-            }
-            domain = pp.Domain(bbox)
+        domain = _read_3d_domain(spam_reader, has_domain)
 
         for row in spam_reader:
             # If the line starts with a '#', we consider this a comment.
@@ -188,10 +155,43 @@ def elliptic_network_3d_from_csv(
                 )
             )
     # Create the network.
+    network = pp.create_fracture_network(frac_list, domain, tol=tol)
+    assert isinstance(network, FractureNetwork3d)  # needed to please mypy
+    return network
+
+
+def _read_3d_domain(spam_reader, has_domain: bool) -> pp.Domain | None:
+    """Read the 3d domain from the csv reader.
+
+    Parameters:
+        spam_reader: csv reader object.
+        has_domain: Whether the first line in the csv file specifies the domain.
+
+    Returns:
+        The domain if specified, else None.
+    """
     if has_domain:
-        return pp.create_fracture_network(frac_list, domain, tol=tol)
+        read_domain = False
+
+        while not read_domain:
+            line = next(spam_reader)
+            if line[0][0] == "#":
+                continue
+            else:
+                data = np.asarray(line, dtype=float)
+                bbox = {
+                    "xmin": data[0],
+                    "xmax": data[3],
+                    "ymin": data[1],
+                    "ymax": data[4],
+                    "zmin": data[2],
+                    "zmax": data[5],
+                }
+                domain = pp.Domain(bbox)
+                read_domain = True
     else:
-        return pp.create_fracture_network(frac_list, tol=tol)
+        domain = None
+    return domain
 
 
 def network_2d_from_csv(

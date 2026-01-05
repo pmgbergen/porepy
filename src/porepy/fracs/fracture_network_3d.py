@@ -354,9 +354,9 @@ class FractureNetwork3d(FractureNetwork):
         self,
         fracture_tags: list[int],
         domain_tag: int,
-        constraints: list[int],
-        inv_fracture_tag_map,
-    ) -> tuple[np.ndarray, np.ndarray, list, np.ndarray, list, list, dict]:
+        constraints: np.ndarray,
+        inv_fracture_tag_map: dict[int, int],
+    ) -> tuple[list, list, list, list, np.ndarray, list, dict]:
         """Impose the external boundary and process fracture intersections.
 
         This is the method where all the geometry processing happens. The method relies
@@ -372,13 +372,13 @@ class FractureNetwork3d(FractureNetwork):
 
         Returns:
             A tuple with the following elements:
-            -   Numpy array with gmsh tags of intersection points.
-            -   Numpy array with gmsh tags of intersection lines.
-            -   Mapping from input fracture indices to new surfaces after intersection
+            -   List with gmsh tags of intersection points.
+            -   List with gmsh tags of intersection lines.
+            -   List that maps input fracture indices to new surfaces after intersection
                 processing.
             -   Numpy array with number of parent fractures for each intersection line.
-            -   Updated list of constraint fracture indices (still referring to the
-                input fracture numbering).
+            -   Updated numpy array of constraint fracture indices (still referring to
+                the input fracture numbering).
             -   List of parent fracture indices for each intersection line.
             -   Updated mapping from gmsh fracture tags to input fracture indices.
 
@@ -430,7 +430,7 @@ class FractureNetwork3d(FractureNetwork):
         # domain (has a distance larger than tol). If all fragments of a fracture are
         # kicked out, we need to remove the fracture altogether, and update the
         # constraint indices accordingly.
-        updated_fracture_tag_map = {}
+        updated_fracture_tag_map: dict[int, int] = {}
         for fi, frac in enumerate(isect_mapping):
             if frac and frac[0][0] == 3:
                 # This is the domain. Skip it.
@@ -458,11 +458,13 @@ class FractureNetwork3d(FractureNetwork):
                     # a non-disc domain without boundary lines/points. This case must be
                     # handled if it ever arises.
                     assert len(frac) == 1
-                    distances = [
-                        gmsh.model.occ.get_distance(*sub_frac, self.nd, dtag)[0]
-                        for dtag in domain_tags
-                    ]
-                    if np.all(np.array(distances) > self._tol):
+                    distances = np.array(
+                        [
+                            gmsh.model.occ.get_distance(*sub_frac, self.nd, dtag)[0]
+                            for dtag in domain_tags
+                        ]
+                    )
+                    if np.all(distances > self._tol):
                         loc_keep[sfi] = False
                         part_of_fracture_deleted.append(inv_fracture_tag_map[frac_ind])
                     else:
@@ -520,7 +522,7 @@ class FractureNetwork3d(FractureNetwork):
                 # The fracture is still present, add it to the new constraints,
                 # adjusting the index accordingly. Constraints are known to be sorted.
                 updated_constraints.append(int(c) - num_frac_deleted)
-        constraints = updated_constraints
+        constraints = np.asarray(updated_constraints)
         inv_fracture_tag_map = updated_fracture_tag_map
 
         # Count the number of fracture objects that survived both the fragmentation and
@@ -590,9 +592,6 @@ class FractureNetwork3d(FractureNetwork):
         # intersecting fractures (this can be two or more fractures). This requires some
         # juggling of indices.
 
-        # Turn the fracture indices into numpy arrays.
-        fi_bnd = np.array(fi_bnd)
-        fi_embedded = np.array(fi_embedded)
         # For each intersection line, this will be a list of its parent fractures.
         line_parents = []
         for line in intersection_lines:
@@ -600,8 +599,10 @@ class FractureNetwork3d(FractureNetwork):
             # intersection can be on the boundary of fracture, but not the other).
             parent = np.hstack(
                 (
-                    fi_bnd[np.where(np.abs(bnd_lines) == line)[0]],
-                    fi_embedded[np.where(np.abs(embedded_lines) == line)[0]],
+                    np.asarray(fi_bnd)[np.where(np.abs(bnd_lines) == line)[0]],
+                    np.asarray(fi_embedded)[
+                        np.where(np.abs(embedded_lines) == line)[0]
+                    ],
                 )
             ).astype(int)
             # Uniquify (thereby also sort) and turn to list.
@@ -668,9 +669,9 @@ class FractureNetwork3d(FractureNetwork):
 
         return (
             intersection_points,
-            intersection_lines,
+            intersection_lines.tolist(),
             isect_mapping,
-            num_parents,
+            num_parents.tolist(),
             constraints,
             line_parents,
             inv_fracture_tag_map,
@@ -697,7 +698,7 @@ class FractureNetwork3d(FractureNetwork):
 
         """
         # Transfer mesh size points to the new segments after intersection removal.
-        new_mesh_control_dict = {}
+        new_mesh_control_dict: dict[int, list[tuple[np.ndarray, float]]] = {}
         for fi, old_fracture in enumerate(isect_mapping):
             if len(old_fracture) > 0:
                 if old_fracture[0][0] == self.nd:
@@ -724,7 +725,7 @@ class FractureNetwork3d(FractureNetwork):
         new_mesh_control_dict.update({t[1]: [] for t in bnd_tag})
         for bnd in boundary_tags:
             info = mesh_control_dict.get(bnd)
-            if len(info) == 0:
+            if info is None or len(info) == 0:  # Check for None to please mypy.
                 # No points were assigned to this boundary surface, so there is nothing
                 # to transfer.
                 continue
@@ -744,7 +745,7 @@ class FractureNetwork3d(FractureNetwork):
         mesh_size_computer: MeshSizeComputer,
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         intersection_lines: list[int],
-        intersection_line_parents: list[int],
+        intersection_line_parents: list[list[int]],
         fracture_to_surface: dict[int, list[int]],
         restrict_to_fractures: bool,
     ) -> list:
@@ -774,7 +775,9 @@ class FractureNetwork3d(FractureNetwork):
         self._uniquify_mesh_size_dictionary(mesh_size_points)
 
         # For lines that with no extra mesh size control points, assign an empty list.
-        mesh_size = {tag: [] for tag in surface_tags}
+        mesh_size: dict[int, list[tuple[np.ndarray, float]]] = {
+            tag: [] for tag in surface_tags
+        }
         mesh_size.update(mesh_size_points)
 
         def dist_other_lines(lines, this_line, default_size):
@@ -816,7 +819,9 @@ class FractureNetwork3d(FractureNetwork):
                         break
 
             if surface_is_parent.size > 0:
-                surface_lines = intersection_lines[surface_is_parent].tolist()
+                surface_lines = np.asarray(intersection_lines)[
+                    surface_is_parent
+                ].tolist()
             else:
                 surface_lines = []
             # Distance to other objects for each point, as computed previously.
@@ -827,7 +832,7 @@ class FractureNetwork3d(FractureNetwork):
             # intersection points. Moreover, both lines and points should be embedded in
             # the surface during the fragmentation process, hence the mesh size set here
             # will be enforced during suface meshing.
-            line_points = []
+            line_point_list = []
             line_dist = []
             for line in surface_lines:
                 d = dist_other_lines(surface_lines + boundary_lines, line, h_end)
@@ -835,9 +840,9 @@ class FractureNetwork3d(FractureNetwork):
                 bnd_pts = gmsh.model.get_boundary([(1, line)], oriented=False)
 
                 for p in bnd_pts:
-                    line_points.append(gmsh.model.occ.get_bounding_box(0, p[1])[:3])
+                    line_point_list.append(gmsh.model.occ.get_bounding_box(0, p[1])[:3])
 
-            line_points = np.array(line_points).T
+            line_points = np.array(line_point_list).T
             if line_points.size == 0:
                 line_points = np.empty((3, 0))
                 line_dist = []
@@ -861,9 +866,9 @@ class FractureNetwork3d(FractureNetwork):
                 else:
                     control_point_distance_to_lines.append(d)
 
-            control_point_distance_to_lines = np.array(control_point_distance_to_lines)
             control_point_distance = np.minimum(
-                control_point_internal_distances, control_point_distance_to_lines
+                control_point_internal_distances,
+                np.asarray(control_point_distance_to_lines),
             )
 
             points, _, ind_map = pp.array_operations.uniquify_point_set(
@@ -884,7 +889,6 @@ class FractureNetwork3d(FractureNetwork):
                 inds = ind_map == i
                 min_dist = np.min(other_object_distances_all[inds])
                 other_object_distances.append(min_dist)
-            other_object_distances = np.array(other_object_distances)
 
             if points.shape[1] > 1:
                 # If there is more than one point in addition to the end points, we can
@@ -896,12 +900,12 @@ class FractureNetwork3d(FractureNetwork):
                 # even with the diag exclusion. In this case, we just set the distance
                 # to a large value, so that the distance to other objects is the one
                 # that is used.
-                min_dist_point = 2 * other_object_distances + 1
+                min_dist_point = 2 * np.asarray(other_object_distances) + 1
 
             # The final distance to be used for mesh size calculation is the minimum of
             # the distance to other objects and the distance to other close points on
             # the same line.
-            dist = np.minimum(other_object_distances, min_dist_point)
+            dist = np.minimum(np.asarray(other_object_distances), min_dist_point)
             # Create the mesh size field for this surface.
             gmsh_fields += self._assign_distance_based_mesh_size_field(
                 surface,
@@ -918,7 +922,7 @@ class FractureNetwork3d(FractureNetwork):
         # kick in on parts of fractures and boundaries where no close points were
         # identified.
         gmsh_fields += self._set_uniform_mesh_field(
-            mesh_size.keys(),
+            list(mesh_size.keys()),
             mesh_size_computer,
             boundary_tags,
             restrict_to_fractures,
@@ -933,7 +937,7 @@ class FractureNetwork3d(FractureNetwork):
         num_parents_of_lines: list[int],
         isect_mapping: list,
         inv_fracture_tag_map: dict[int, int],
-        constraints: list[int],
+        constraints: np.ndarray,
     ) -> dict[int, list[int]]:
         """Set physical names in gmsh for fractures and intersections.
 
@@ -971,28 +975,10 @@ class FractureNetwork3d(FractureNetwork):
                 f"{PhysicalNames.FRACTURE_INTERSECTION_LINE.value}{li}",
             )
 
-        # Fractures. TODO: This is the same code as in 1d.
-        fracture_to_surface = {}
-        tmp_frac_line = []
-        for i, line_group in enumerate(isect_mapping):
-            # A line_group here was formed after intersection removal. It may contain
-            # either a full fracture, or be one of several segments forming a fracture.
-            # In the latter case, the fracture was split into segments when mesh size
-            # control points were added to the fracture.
-            all_lines = []
-            if line_group and line_group[0][1] not in inv_fracture_tag_map:
-                # Skip fractures on the boundary.
-                continue
-
-            for line in line_group:
-                if line[0] == self.nd - 1:
-                    all_lines.append(line[1])
-                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
-            if all_lines:
-                frac_ind = inv_fracture_tag_map[all_lines[0]]
-                fracs = fracture_to_surface.get(frac_ind, [])
-                fracs.extend(all_lines)
-                fracture_to_surface[frac_ind] = fracs
+        # Mapping from (sub) fractures to surfaces.
+        fracture_to_surface = self._subfracture_to_fracture_mapping(
+            isect_mapping, inv_fracture_tag_map
+        )
 
         for i, frac in fracture_to_surface.items():
             if i in constraints:
@@ -1065,6 +1051,9 @@ class FractureNetwork3d(FractureNetwork):
 
                   File extension.
 
+        Raises:
+            NotImplementedError: If one of the fractures is elliptic.
+
         """
         if data is None:
             data = {}
@@ -1090,7 +1079,12 @@ class FractureNetwork3d(FractureNetwork):
         # Data structure for cells in meshio format.
         meshio_cells = []
         # we operate fracture by fracture
-        for fid, frac in enumerate(self.fractures):
+        for frac in self.fractures:
+            if isinstance(frac, pp.EllipticFracture):
+                raise NotImplementedError(
+                    "Exporting elliptic fractures to file is not implemented."
+                )
+
             # In old meshio, polygonal cells are distinguished based on the number of
             # vertexes. save the points of the fracture
             meshio_pts = np.vstack((meshio_pts, frac.pts.T))
@@ -1144,6 +1138,9 @@ class FractureNetwork3d(FractureNetwork):
 
                 Domain specification.
 
+        Raises:
+            NotImplementedError: If one of the fractures is elliptic.
+
         """
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
@@ -1155,4 +1152,8 @@ class FractureNetwork3d(FractureNetwork):
 
             # write all the fractures
             for f in self.fractures:
+                if isinstance(f, pp.EllipticFracture):
+                    raise NotImplementedError(
+                        "CSV export not implemented for elliptic fractures."
+                    )
                 csv_writer.writerow(f.pts.ravel(order="F"))

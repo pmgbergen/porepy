@@ -52,12 +52,12 @@ class FractureNetwork(ABC):
         return len(self.fractures)
 
     @abstractmethod
-    def domain_to_gmsh(self) -> None:
+    def domain_to_gmsh(self) -> int:
         """Define the domain in gmsh."""
         pass
 
     @abstractmethod
-    def fractures_to_gmsh(self) -> None:
+    def fractures_to_gmsh(self) -> list[int]:
         """Define the fractures in gmsh."""
         pass
 
@@ -205,7 +205,7 @@ class FractureNetwork(ABC):
 
     def _insert_mesh_size_control_points(
         self, mesh_size_computer: MeshSizeComputer
-    ) -> tuple[list[int], dict[int, list[tuple[np.ndarray, float]]]]:
+    ) -> dict[int, list[tuple[np.ndarray, float]]]:
         """Insert control points for mesh size specification on fractures and
         boundaries.
 
@@ -240,11 +240,9 @@ class FractureNetwork(ABC):
 
         # Note to self: keeping track of gmsh tags of points is futile. Instead, we need
         # to identify points by their coordinates, and do a tolerance-based search.
-        mesh_size_points = {}
+        mesh_size_points: dict[int, list[tuple[np.ndarray, float]]] = {}
         for f in fracture_tags | boundary_tags:
             mesh_size_points[f] = []
-
-        control_points: list[int] = []
 
         # To avoid inserting the same point multiple times on the same line, and to
         # prune doubly defined points from the gmsh specification, we keep track of
@@ -286,7 +284,7 @@ class FractureNetwork(ABC):
 
             """
             if len(inserted_points) == 0:
-                return False
+                return False, False
             dists = np.linalg.norm(
                 np.array(inserted_points) - np.array(pt).reshape((1, 3)), axis=1
             )
@@ -623,7 +621,7 @@ class FractureNetwork(ABC):
             if len(all_pts) > 0:
                 # Uniquify points, then map back to the entities. The mesh size is set
                 # to the minimum among duplicates.
-                mesh_sizes = np.array(mesh_sizes)
+                mesh_size_array = np.array(mesh_sizes)
                 _, ind_map, inv_map = pp.array_operations.uniquify_point_set(
                     np.array(all_pts).T, tol=self._tol
                 )
@@ -632,7 +630,7 @@ class FractureNetwork(ABC):
                 # Loop over unique points, find minimum mesh size among duplicates.
                 for i in range(ind_map.size):
                     inds = inv_map == i
-                    min_size[i] = np.min(mesh_sizes[inds])
+                    min_size[i] = np.min(mesh_size_array[inds])
 
                 # Map back to entities.
                 for line_ind, pt_ind in enumerate(inv_map):
@@ -643,8 +641,37 @@ class FractureNetwork(ABC):
                         min_size[pt_ind],
                     )
 
+    def _subfracture_to_fracture_mapping(
+        self,
+        isect_mapping: list[list[tuple[int, int]]],
+        inv_fracture_tag_map: dict[int, int],
+    ) -> dict[int, list[int]]:
+        fracture_to_surface: dict[int, list[int]] = {}
+        # Count the number of fracture objects that survived both the fragmentation and
+        # the distance-based domain trimming.
+        num_real_frac = len(set(inv_fracture_tag_map.values()))
+        for fracture_group in isect_mapping[:num_real_frac]:
+            # A fracture_group here was formed after intersection removal. It may
+            # contain either a full fracture, or be one of several subfractures forming
+            # a fracture.
+            all_fracs = []
+            if fracture_group and fracture_group[0][1] not in inv_fracture_tag_map:
+                # Skip fractures on the boundary.
+                continue
 
-ij = namedtuple("Index", ["i", "j"])
+            for fracture in fracture_group:
+                if fracture[0] == self.nd - 1:
+                    all_fracs.append(fracture[1])
+            if all_fracs:
+                frac_ind = inv_fracture_tag_map[all_fracs[0]]
+                fracs = fracture_to_surface.get(frac_ind, [])
+                fracs.extend(all_fracs)
+                fracture_to_surface[frac_ind] = fracs
+
+        return fracture_to_surface
+
+
+ij = namedtuple("ij", ["i", "j"])
 Point = namedtuple("Point", ["x", "y", "z"])
 
 
@@ -744,7 +771,7 @@ class MeshSizeControlPointInserter:
 
         """
 
-        t_i, t_j = self._tangent_basis(f_main, f_other, cp_0, cp_1)
+        t_i, t_j = self._tangent_basis(f_main, f_other, Point(*cp_0), Point(*cp_1))
 
         def priority(ij):
             # The priority is given by the Manhattan distance from the origin. With a
@@ -753,7 +780,7 @@ class MeshSizeControlPointInserter:
             return abs(ij.i) + abs(ij.j)
 
         # Initialize the priority queue with the first candidate point.
-        q = []
+        q: list[tuple[int, ij]] = []
         i = ij(0, 0)
         heapq.heappush(q, (priority(i), i))
         # Table mapping indices to candidate points, previous points, available
@@ -802,7 +829,7 @@ class MeshSizeControlPointInserter:
                 0, gmsh_ind, self._nd - 1, f_other
             )[0]
             # Distance between the candidate and previous points.
-            dist_cand_prev = np.linalg.norm(np.array(p_cand) - np.array(p_prev))
+            dist_cand_prev = float(np.linalg.norm(np.array(p_cand) - np.array(p_prev)))
 
             # Mesh at the candidate point, as determined by the distance from the
             # previous point.
@@ -854,12 +881,12 @@ class MeshSizeControlPointInserter:
             step_size = 2 * self._mesh_size_computer.dist_min(dist_other_fracture)
 
             # Loop over all directions, create new candidate points as needed.
-            for direction, can_proceed in dirs.items():
+            for direct, can_proceed in dirs.items():
                 if not can_proceed:
                     continue
 
                 dir_new = copy.copy(dirs)
-                if direction == Direction.WEST:
+                if direct == Direction.WEST:
                     # New index.
                     di = ij(i.i - 1, i.j)
                     # Step in the negative tangent direction.
@@ -869,16 +896,16 @@ class MeshSizeControlPointInserter:
                     # should not proceed to the east of that point, since that would
                     # lead back to the current point.
                     dir_new[Direction.EAST] = False
-                elif direction == Direction.EAST:
+                elif direct == Direction.EAST:
                     di = ij(i.i + 1, i.j)
                     delta = t_i * step_size
                     dir_new[Direction.WEST] = False
-                elif direction == Direction.SOUTH:
+                elif direct == Direction.SOUTH:
                     assert t_j is not None
                     di = ij(i.i, i.j - 1)
                     delta = -t_j * step_size
                     dir_new[Direction.NORTH] = False
-                elif direction == Direction.NORTH:
+                elif direct == Direction.NORTH:
                     assert t_j is not None
                     di = ij(i.i, i.j + 1)
                     delta = t_j * step_size
@@ -909,7 +936,9 @@ class MeshSizeControlPointInserter:
 
         return points_to_add
 
-    def _closest_point(self, start: Point, cand_0: Point, cand_1: Point) -> Point:
+    def _closest_point(
+        self, start: Point | list[float], cand_0: Point, cand_1: Point
+    ) -> tuple[Point, float]:
         """Among two candidate points, return the one closest to a given start point.
 
         Parameters:
@@ -925,8 +954,8 @@ class MeshSizeControlPointInserter:
         vec_0 = np.array(cand_0) - np.array(start)
         vec_1 = np.array(cand_1) - np.array(start)
 
-        dist_0 = np.linalg.norm(vec_0)
-        dist_1 = np.linalg.norm(vec_1)
+        dist_0 = float(np.linalg.norm(vec_0))
+        dist_1 = float(np.linalg.norm(vec_1))
 
         if dist_0 < dist_1:
             return cand_0, dist_0
@@ -947,11 +976,21 @@ class MeshSizeControlPointInserter:
         proj_pts, _ = gmsh.model.get_closest_point(self._nd - 1, f_other, point)
         return gmsh.model.is_inside(self._nd - 1, f_other, proj_pts)
 
-    def _direction_union(self, dir_0: Direction, dir_1: Direction) -> Direction:
+    def _direction_union(
+        self, dir_0: dict[Direction, bool], dir_1: dict[Direction, bool]
+    ) -> dict[Direction, bool]:
         """Combine two direction dictionaries.
 
         For each direction, the combined dictionary will have True if both input
         dictionaries have True for that direction, and False otherwise.
+
+        Parameters:
+            dir_0: First direction dictionary.
+            dir_1: Second direction dictionary.
+
+        Returns:
+            Combined direction dictionary.
+
         """
         match self._nd:
             case 2:
@@ -1070,14 +1109,17 @@ class MeshSizeComputer:
                   Default is 10.0.
 
         """
-        self._hfrac = mesh_args.get("mesh_size_frac")
-        self._hfarfield = mesh_args.get("mesh_size_bound", self._hfrac)
-        self._threshold = mesh_args.get("refinement_threshold", 1.0)
-        self._buffer = mesh_args.get("refinement_buffer", 0.5)
+        assert "mesh_size_frac" in mesh_args, (
+            "Fracture mesh size ('mesh_size_frac') must be provided in mesh arguments."
+        )
+        self._hfrac: float = mesh_args.get("mesh_size_frac")  # type: ignore
+        self._hfarfield: float = mesh_args.get("mesh_size_bound", self._hfrac)
+        self._threshold: float = mesh_args.get("refinement_threshold", 1.0)
+        self._buffer: float = mesh_args.get("refinement_buffer", 0.5)
         # By default, we let the minimum mesh size scale with the buffer and the
         # fracture mesh size.
-        self._hmin = mesh_args.get("mesh_size_min", self._hfrac * self._buffer)
-        self._farfield_transition = mesh_args.get("farfield_transition", 10.0)
+        self._hmin: float = mesh_args.get("mesh_size_min", self._hfrac * self._buffer)
+        self._farfield_transition: float = mesh_args.get("farfield_transition", 10.0)
 
     def refinement_threshold(self) -> float:
         """Threshold for refinement around fractures [m].

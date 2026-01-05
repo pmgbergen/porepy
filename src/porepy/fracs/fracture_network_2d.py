@@ -9,7 +9,7 @@ import logging
 import multiprocessing
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import gmsh
 import meshio
@@ -96,8 +96,9 @@ class FractureNetwork2d(FractureNetwork):
         domain = self.domain
         if domain is None:
             return -1
+
         if domain.is_boxed:
-            bb = self.domain.bounding_box
+            bb = domain.bounding_box
             xmin, xmax = bb["xmin"], bb["xmax"]
             ymin, ymax = bb["ymin"], bb["ymax"]
 
@@ -514,7 +515,7 @@ class FractureNetwork2d(FractureNetwork):
         mesh_size_computer: MeshSizeComputer,
         mesh_size_points: dict[int, list[tuple[np.ndarray, float]]],
         restrict_to_fractures: bool,
-    ) -> None:
+    ) -> list:
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
         # TODO: If there is more than one domain entity (the domain is split into parts
@@ -534,7 +535,9 @@ class FractureNetwork2d(FractureNetwork):
         self._uniquify_mesh_size_dictionary(mesh_size_points)
 
         # For lines that with no extra
-        mesh_size = {tag: [] for tag in line_tags}
+        mesh_size: dict[int, list[tuple[np.ndarray, float]]] = {
+            tag: [] for tag in line_tags
+        }
         mesh_size.update(mesh_size_points)
 
         for line, info in mesh_size.items():
@@ -547,7 +550,7 @@ class FractureNetwork2d(FractureNetwork):
                 ]
             ).T
             length = np.linalg.norm(end_points[:, 1] - end_points[:, 0])
-            tol = min(length, mesh_size_computer.h_frac()) / 2
+            tol = np.minimum(length, mesh_size_computer.h_frac()) / 2
             extra_points = (
                 np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
             )
@@ -581,7 +584,6 @@ class FractureNetwork2d(FractureNetwork):
                 inds = ind_map == i
                 min_dist = np.min(other_object_distances_all[inds])
                 other_object_distances.append(min_dist)
-            other_object_distances = np.array(other_object_distances)
 
             if points.shape[1] > 0:
                 # If there is more than one point in addition to the end points, we can
@@ -598,7 +600,7 @@ class FractureNetwork2d(FractureNetwork):
             # The final distance to be used for mesh size calculation is the minimum of
             # the distance to other objects and the distance to other close points on
             # the same line.
-            dist = np.minimum(other_object_distances, min_dist_point)
+            dist = np.minimum(np.asarray(other_object_distances), min_dist_point)
 
             # Assign mesh sizes based on the distances.
             gmsh_fields += self._assign_distance_based_mesh_size_field(
@@ -615,7 +617,7 @@ class FractureNetwork2d(FractureNetwork):
         # kick in on parts of fractures and boundaries where no close points were
         # identified.
         gmsh_fields += self._set_uniform_mesh_field(
-            mesh_size.keys(),
+            list(mesh_size.keys()),
             mesh_size_computer,
             boundary_tags,
             restrict_to_fractures,
@@ -629,7 +631,7 @@ class FractureNetwork2d(FractureNetwork):
         isect_mapping: list,
         inv_fracture_tag_map: dict,
         constraints: set,
-    ) -> PhysicalNames:
+    ):
         # Collect intersection points, fractures, and domain in physical groups in gmsh.
         # Intersection points can be dealt with right away.
         for i, pt in enumerate(intersection_points):
@@ -645,28 +647,10 @@ class FractureNetwork2d(FractureNetwork):
         # Since fractures may have been split at intersection points, we need to collect
         # all the segments (found in isect_mapping) into a single physical group.
 
-        # Count the number of fracture objects that survived both the fragmentation and
-        # the distance-based domain trimming.
-        num_real_frac = len(set(inv_fracture_tag_map.values()))
-
-        fracture_to_line = {}
-        tmp_frac_line = []
-        for i, line_group in enumerate(isect_mapping[:num_real_frac]):
-            # A line_group here was formed after intersection removal. It may contain
-            # either a full fracture, or be one of several segments forming a fracture.
-            # In the latter case, the fracture was split into segments when mesh size
-            # control points were added to the fracture.
-            all_lines = []
-
-            for line in line_group:
-                if line[0] == 1:
-                    all_lines.append(line[1])
-                    tmp_frac_line.append(inv_fracture_tag_map[line[1]])
-            if all_lines:
-                frac_ind = inv_fracture_tag_map[all_lines[0]]
-                fracs = fracture_to_line.get(frac_ind, [])
-                fracs.extend(all_lines)
-                fracture_to_line[frac_ind] = fracs
+        # Mapping from (sub) fractures to lines.
+        fracture_to_line = self._subfracture_to_fracture_mapping(
+            isect_mapping, inv_fracture_tag_map
+        )
 
         for fi, segments in fracture_to_line.items():
             if fi in constraints:
@@ -793,9 +777,11 @@ class FractureNetwork2d(FractureNetwork):
 
         """
         if len(self.fractures) == 0:
-            fractures_new = None
+            fractures_new = []
         else:
             fractures_new = copy.deepcopy(self.fractures)
+
+        fracs = [cast(pp.LineFracture, frac) for frac in fractures_new]
 
         domain = self.domain
         if domain is not None:
@@ -806,7 +792,7 @@ class FractureNetwork2d(FractureNetwork):
                 polytope = domain.polytope.copy()
                 domain = pp.Domain(polytope=polytope)
 
-        fn = FractureNetwork2d(fractures_new, domain, self._tol)
+        fn = FractureNetwork2d(fracs, domain, self._tol)
 
         return fn
 
@@ -823,7 +809,10 @@ class FractureNetwork2d(FractureNetwork):
                 :obj:`~matplotlib.pyplot.plot`.
 
         """
-        pp.plot_fractures(self._pts, self._edges, domain=self.domain, **kwargs)
+        fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
+        pp.plot_fractures(
+            *_linefractures_to_pts_edges(fracs), domain=self.domain, **kwargs
+        )
 
     def to_csv(self, file_name: Path, with_header: bool = True) -> None:
         """Save the 2D network on a CSV file with comma as separator.
@@ -842,6 +831,8 @@ class FractureNetwork2d(FractureNetwork):
                 Flag for writing headers for the five columns in the first row.
 
         """
+        fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
+        pts, edges = _linefractures_to_pts_edges(fracs)
 
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
@@ -849,10 +840,10 @@ class FractureNetwork2d(FractureNetwork):
                 header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
                 csv_writer.writerow(header)
             # write all the fractures
-            for edge_id, edge in enumerate(self._edges.T):
+            for edge_id, edge in enumerate(edges.T):
                 data = [edge_id]
-                data.extend(self._pts[:, edge[0]])
-                data.extend(self._pts[:, edge[1]])
+                data.extend(pts[:, edge[0]])
+                data.extend(pts[:, edge[1]])
                 csv_writer.writerow(data)
 
     def to_file(
@@ -914,12 +905,14 @@ class FractureNetwork2d(FractureNetwork):
         # in 1d we have only one cell type
         cell_type = "line"
 
+        fracs = [cast(pp.LineFracture, frac) for frac in self.fractures]
+        pts, edges = _linefractures_to_pts_edges(fracs)
+
         # cell connectivity information
         meshio_cells = np.empty(1, dtype=object)
-        meshio_cells[0] = meshio.CellBlock(cell_type, self._edges.T)
-
+        meshio_cells[0] = meshio.CellBlock(cell_type, edges.T)
         # prepare the points
-        meshio_pts = self._pts.T
+        meshio_pts = pts.T
         # make points 3d
         if meshio_pts.shape[1] == 2:
             meshio_pts = np.hstack((meshio_pts, np.zeros((meshio_pts.shape[0], 1))))
@@ -927,7 +920,7 @@ class FractureNetwork2d(FractureNetwork):
         # Cell-data to be exported is at least the fracture numbers
         meshio_cell_data = {}
         meshio_cell_data["fracture_number"] = [
-            fracture_offset + np.arange(self._edges.shape[1])
+            fracture_offset + np.arange(edges.shape[1])
         ]
 
         # process the
@@ -954,3 +947,88 @@ class FractureNetwork2d(FractureNetwork):
 
     def __repr__(self):
         return self.__str__()
+
+
+def _linefractures_to_pts_edges(
+    fractures: list[pp.LineFracture], tol: float = 1e-8
+) -> tuple[np.ndarray, np.ndarray]:
+    """Convert a list of line fractures into arrays of the corresponding points and
+    edges.
+
+    The function loops over the points of the individual fractures and checks if the
+    point is the start/end point (up to the given tolerance) of a previously checked
+    fracture. If yes, the edge index links to the existing point. If no, the point is
+    added to the points array.
+
+    Parameters:
+        fractures: List of line fractures.
+        tol: ``default=1e-8``
+
+            Absolute tolerance to decide if start-/endpoints of two different fractures
+            are equal. The comparison is done element-wise.
+
+    Returns:
+        A 2-tuple containing
+
+        :obj:`~numpy.ndarray`: ``(shape=(2, num_points))``
+
+            Coordinates of the start- and endpoints of the fractures.
+        :obj:`~numpy.ndarray`: ``shape=(2 + num_tags, len(fractures)), dtype=int``
+
+            An array containing column-wise (per fracture) the indices for the start-
+            and endpoint in the first two rows.
+
+            Note that one point in ``pts`` may be the start- and/or endpoint of multiple
+            fractures.
+
+            Additional rows are optional tags of the fractures. In the standard form,
+            the third row (first row of tags) identifies the type of edges, referring
+            to the numbering system in ``GmshInterfaceTags``. The second row of tags
+            keeps track of the numbering of the edges (referring to the original
+            order of the edges) in geometry processing like intersection removal.
+            Additional tags can be assigned by the user.
+
+        When an empty list of fractures is passed, both arrays have shape ``(2, 0)``.
+
+    """
+    pts_list: list[np.ndarray] = []
+    edges_list: list[np.ndarray] = []
+
+    # Iterate through the fractures and list all start-/endpoints and the corresponding
+    # edge indices.
+    for frac in fractures:
+        pt_indices: list[int] = []
+        for point in frac.points():
+            # Check if the point is already start-/endpoint of another fracture.
+            compare_points = [
+                np.allclose(point.squeeze(), x, atol=tol) for x in pts_list
+            ]
+            if not any(compare_points):
+                pts_list.append(point.squeeze())
+                pt_indices.append(len(pts_list) - 1)
+            else:
+                pt_indices.append(compare_points.index(True))
+        # Sanity check that two points indices were added.
+        assert len(pt_indices) == 2
+        # Combine with tags of the fracture and store the full edge in a list.
+        edges_list.append(np.concatenate([np.array(pt_indices), frac.tags]))
+
+    # Transform the lists to two ``np.ndarrays`` (``pts`` and ``edges``).
+    if pts_list:
+        # ``np.stack`` requires a nonempty list.
+        pts = np.stack(pts_list, axis=-1)
+    else:
+        pts = np.zeros([2, 0])
+    # Before creating the ``edges`` array, determine the maximum number of tags.
+    # -> This determines the shape of the ``edges`` array.
+    max_edge_dim = max((np.shape(edge)[0] for edge in edges_list), default=2)
+    # Initialize the ``edges`` array with ``-1``. This value indicates that each edge
+    # has no tags. Fill in the first two rows with the fracture start-/endpoints and
+    # the rest of the rows with tags where they exist. All other tags keep their
+    # initial value of ``-1``, which is equal to the tag not existing. This seemingly
+    # complicated procedure is done to ensure that the ``edges`` array is not ragged.
+    edges = np.full((max_edge_dim, len(fractures)), -1, dtype=np.int32)
+    for row_index, edge in enumerate(edges_list):
+        edges[: edge.shape[0], row_index] = edge
+
+    return pts, edges
