@@ -79,6 +79,10 @@ def create_fractured_model(
         "max_iterations": 20,
     }
     default.update(params)
+    if issubclass(model_class, TailoredThermoporomechanicsTpsa):
+        # Tpsa is only consistent with Cartesian grids.
+        default["cartesian"] = True
+
     model = model_class(default)
     return model
 
