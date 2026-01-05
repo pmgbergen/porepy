@@ -97,7 +97,7 @@ class ModelGeometry(pp.PorePyModel):
         """Assign well network class."""
         self.well_network = pp.WellNetwork3d(domain=self._domain)
 
-    def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+    def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
 
         Parameters:
@@ -149,6 +149,21 @@ class ModelGeometry(pp.PorePyModel):
         if meshing_kwargs is None:
             meshing_kwargs = {}
         return meshing_kwargs
+
+    def depth(self, points: np.ndarray) -> np.ndarray:
+        """Compute depth of points.
+
+        Parameters:
+            points: Array of points where depth is to be calculated. The nd-1 coordinate
+                is assumed to be the depth coordinate, with larger values indicating
+                larger depth. Shape: (N, num_points), with N >= nd.
+
+        Returns:
+            Depth values for the provided points.
+
+        """
+        key = "zmax" if self.nd == 3 else "ymax"
+        return self.domain.bounding_box[key] - points[self.nd - 1, :]
 
     @pp.ad.cached_method
     def subdomains_to_interfaces(

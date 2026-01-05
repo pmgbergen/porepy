@@ -53,15 +53,16 @@ model_params = {
     "grid_type": "cartesian",
     # Depending on the grid type, some subset of the meshing arguments below are used.
     "meshing_arguments": {
-        # Use this one for the basic grid.
+        # Use this one for the basic grid. Used as default if no more specific cell size
+        # is given.
         "cell_size": units.convert_units(0.5, "m"),
         # Or the more refined parameters.
-        "cell_size_x": units.convert_units(0.5, "m"),
-        "cell_size_y": units.convert_units(0.5, "m"),
-        "cell_size_z": units.convert_units(0.5, "m"),
-        "cell_size_fracture": units.convert_units(0.25, "m"),
-        "cell_size_boundary": units.convert_units(0.5, "m"),
-        "cell_size_min": units.convert_units(0.51, "m"),
+        "cell_size_x": units.convert_units(0.5, "m"),  # For TensorGrid
+        "cell_size_y": units.convert_units(0.5, "m"),  # For TensorGrid
+        "cell_size_z": units.convert_units(0.5, "m"),  # For TensorGrid
+        "cell_size_fracture": units.convert_units(0.25, "m"),  # For unstructured grids
+        "cell_size_boundary": units.convert_units(0.5, "m"),  # For unstructured grids
+        "cell_size_min": units.convert_units(0.51, "m"),  # For unstructured grids
     },
     "meshing_kwargs": {},
     # Exporting and restarting

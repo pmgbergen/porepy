@@ -625,8 +625,13 @@ class XpfaBoundaryPressureTests:
     def make_dictionary(self, g, bc, bc_values=None):
         if bc_values is None:
             bc_values = np.zeros(g.num_faces)
-        d = {"bc": bc, "bc_values": bc_values, "mpfa_inverter": "python"}
-        return pp.initialize_default_data(g, {}, "flow", d)
+        d = {
+            "bc": bc,
+            "bc_values": bc_values,
+            "mpfa_inverter": "python",
+            "second_order_tensor": pp.SecondOrderTensor(np.ones(g.num_cells)),
+        }
+        return pp.initialize_data({}, "flow", d)
 
     def boundary_pressure(self, p, bc_vals, data: dict):
         matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]["flow"]

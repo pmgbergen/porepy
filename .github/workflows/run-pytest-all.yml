@@ -6,6 +6,10 @@ name: Pytest (all tests)
 on:
   workflow_dispatch:
     # run jobs manually
+  pull_request:
+    branches:
+      - main
+
   schedule:
     # Do a weekly run of the tests (repeats every Sunday at 00:01)
     - cron: '1 0 * * 0'
@@ -21,7 +25,7 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  ["3.13"]  # run only the last python version
+        python-version:  ["3.14"]  # run only the last python version
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
