@@ -29,14 +29,15 @@ if TYPE_CHECKING:
 
     """
     SubmatrixHandlerType: TypeAlias = Callable[[spmatrix, str, str], float]
-    """A type representing the diagnostics handler function to be applied to the submatrix.
+    """A type representing the diagnostics handler function to be applied to the
+    submatrix.
 
     """
     DiagnosticsData: TypeAlias = "dict[tuple[int, int], dict[str, Any]]"
     """A type representing the diagnostics data for each submatrix in the Jacobian.
 
-    The key represents the pair (row, column) of the block. The value is a dictionary of all
-    diagnostical values collected for this submatrix -- names and values.
+    The key represents the pair (row, column) of the block. The value is a dictionary of
+    all diagnostical values collected for this submatrix -- names and values.
 
     """
 
