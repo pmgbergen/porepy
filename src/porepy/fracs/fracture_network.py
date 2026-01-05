@@ -949,7 +949,6 @@ class MeshSizeComputer:
     def __init__(self, mesh_args: dict):
         self._hfrac = mesh_args.get("mesh_size_frac")
         self._hfarfield = mesh_args.get("mesh_size_bound", self._hfrac)
-        self._hmin = mesh_args.get("mesh_size_min", self._hfrac / 10)
         self._threshold = mesh_args.get("refinement_threshold", 1.0)
         self._buffer = mesh_args.get("refinement_buffer", 0.5)
         # By default, we let the minimum mesh size scale with the buffer and the
