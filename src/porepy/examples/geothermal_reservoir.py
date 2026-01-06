@@ -195,7 +195,12 @@ class WellBoundaryConditions(pp.PorePyModel):
 
 
 class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
-    """Class defining Neumann BCs on well grids during the first time interval."""
+    """Class defining Neumann BCs on well grids during the first time interval.
+
+    Rediscretization happens when calling rediscretize_fluxes in the solution strategy
+    class. By default, both diffusive fluxes in lower-dimensional subdomains are tagged
+    for rediscretization for a Thermoporomechanics model.
+    """
 
     if TYPE_CHECKING:
         darcy_flux_discretization: Callable[
@@ -257,46 +262,6 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
             return pp.BoundaryCondition(sd, inds, "neu")
         else:
             return super().bc_type_fourier_flux(sd)  # type: ignore[misc]
-
-    def before_nonlinear_loop(self) -> None:
-        """Hook called before the nonlinear solver loop.
-
-        Rediscretize flow problem at the onset of second time interval, when injection
-        starts and the BC type changes from Neumann to Dirichlet.
-
-        The tailoring is done to recompute the Darcy flux discretization only at this
-        specific time, since the discretization remains constant during the rest of the
-        simulation. See also time dependency in :bc_type_darcy_flux.
-
-        NOTE: Strictly speaking, we could be even more conservative and ensure we don't
-        rediscretize if the time step needs to be recomputed due to nonlinear solver
-        failure. However, this would require more bookkeeping, and the current approach
-        is simpler and should work well in practice, especially since rediscretization
-        is very cheap for 1d well grids.
-
-        """
-        # Determine if we are at the start of the second time interval.
-        t_prev = self.time_manager.time - self.time_manager.dt
-        rediscretize_flow = np.isclose(t_prev, self.time_manager.schedule[1])
-
-        if rediscretize_flow:
-            # Add Darcy flux discretization on well grids.
-            discr = self.darcy_flux_discretization(
-                [sd for sd in self.mdg.subdomains() if self.is_well_grid(sd)]
-            ).flux()
-            self.add_nonlinear_diffusive_flux_discretization(discr)
-            # Call super method, which includes rediscretization of all nonlinear
-            # flow problems.
-            super().before_nonlinear_loop()  # type: ignore[misc]
-            # Remove Darcy flux discretization on well grids.
-            did_remove = self.remove_nonlinear_diffusive_flux_discretization(discr)
-            if not did_remove:
-                raise RuntimeError(
-                    "Failed to remove well grid Darcy flux discretization after "
-                    "rediscretization."
-                )
-        else:
-            return super().before_nonlinear_loop()  # type: ignore[misc]
 
 
 class GeothermalReservoirWellBCs(  # type: ignore[misc]
