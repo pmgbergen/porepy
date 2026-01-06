@@ -807,11 +807,13 @@ def create_mdg(
     # Structured cases
     domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
     if domain is not None and grid_type in ["cartesian", "tensor_grid"]:
-        fractures = [f.pts for f in fracture_network.fractures]
-        if dim == 3:
-            # In 3d the bounding polygons for the fractures are added to the set of
-            # fractures in the network.
-            fractures = [f.pts for (fi, f) in enumerate(fracture_network.fractures)]
+        # Elliptic fractures are already ruled out in the validation step, but we need
+        # to explicitly rule them out here for mypy type checking.
+        fractures = [
+            f.pts
+            for f in fracture_network.fractures
+            if not isinstance(f, pp.EllipticFracture)
+        ]
 
         if grid_type == "cartesian":
             (nx_cells, phys_dims, kwargs) = _preprocess_cartesian_args(

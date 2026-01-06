@@ -66,7 +66,9 @@ class ModelGeometry(pp.PorePyModel):
         self._domain = nd_cube_domain(2, self.units.convert_units(1.0, "m"))
 
     @property
-    def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
+    def fractures(
+        self,
+    ) -> Union[list[pp.LineFracture], list[pp.PlaneFracture | pp.EllipticFracture]]:
         """Fractures of the problem."""
         return self._fractures
 

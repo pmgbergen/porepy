@@ -63,7 +63,14 @@ class FractureNetwork3d(FractureNetwork):
         domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
     ) -> None:
-        super().__init__(nd=3, fractures=fractures, domain=domain, tol=tol)
+        super().__init__(nd=3, domain=domain, tol=tol)
+        self.fractures: list[pp.PlaneFracture | pp.EllipticFracture] = []
+        """List of fractures forming the network."""
+        # Populate fracture list and assign indices.
+        if fractures is not None:
+            for index, f in enumerate(fractures):
+                self.fractures.append(f)
+                f.index = index
 
     def domain_to_gmsh(self) -> int:
         """Export the box domain to Gmsh using the OpenCASCADE kernel.

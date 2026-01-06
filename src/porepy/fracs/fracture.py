@@ -27,7 +27,7 @@ class Fracture(abc.ABC):
             index: Index.
 
         """
-        self.index = index
+        self.index: Optional[int] = index
 
     def __eq__(self, other: object) -> bool:
         """Equality is defined as two fractures having the same index.

@@ -91,7 +91,7 @@ def create_fracture_network(
         is_homo_2d = all([isinstance(frac, pp.LineFracture) for frac in fracs])
         is_homo_3d = all(
             [
-                isinstance(frac, Optional[pp.PlaneFracture | pp.EllipticFracture])
+                isinstance(frac, (pp.PlaneFracture, pp.EllipticFracture))
                 for frac in fracs
             ]
         )

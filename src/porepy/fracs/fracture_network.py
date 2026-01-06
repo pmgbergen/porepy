@@ -14,11 +14,6 @@ import copy
 from itertools import combinations
 import multiprocessing
 
-# Custom typings
-FractureList = Optional[
-    list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]
-]
-
 
 class FractureNetwork(ABC):
     """Abstract base class for fracture networks."""
@@ -26,26 +21,22 @@ class FractureNetwork(ABC):
     def __init__(
         self,
         nd: Literal[2, 3],
-        fractures: Optional[FractureList] = None,
         domain: Optional[pp.Domain] = None,
         tol: float = 1e-8,
     ) -> None:
         self.nd = nd
         """Number of spatial dimensions (2 or 3)."""
 
-        self.fractures = []
-        """List of fractures forming the network."""
-        # Populate fracture list and assign indices.
-        if fractures is not None:
-            for index, f in enumerate(fractures):
-                self.fractures.append(f)
-                f.index = index
-
         self.domain: Optional[pp.Domain] = domain
         """Domain specification for the fracture network."""
 
         self._tol = tol
         """Tolerance for geometric computations."""
+
+        self.fractures: (
+            list[pp.LineFracture] | list[pp.PlaneFracture | pp.EllipticFracture]
+        ) = []
+        """List of fractures in the network. Will be populated in derived classes."""
 
     def num_frac(self) -> int:
         """Return the number of fractures in the network."""

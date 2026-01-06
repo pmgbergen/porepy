@@ -81,7 +81,7 @@ class EllipticFracture(Fracture):
         self.major_axis_angle = major_axis_angle
         self.strike_angle = strike_angle
         self.dip_angle = dip_angle
-        self.index = index
+        self.index: Optional[int] = index
 
     def fracture_to_gmsh(self) -> int:
         """
@@ -125,7 +125,6 @@ class EllipticFracture(Fracture):
         """Represent principal axes, normal and centroid."""
         s = f"Elliptic fracture with major axis {self.r1} and minor axis {self.r2}\n"
         s += "Center: \n" + str(self.center) + "\n"
-        s += "Normal: \n" + str(self.normal)
         return s
 
     def __repr__(self) -> str:

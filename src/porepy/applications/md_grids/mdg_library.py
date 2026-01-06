@@ -201,7 +201,11 @@ def cube_with_orthogonal_fractures(
 
     """
     all_fractures = fracture_sets.orthogonal_fractures_3d(size)
-    fractures = [all_fractures[i] for i in fracture_indices]
+    # To please Mypy, we formally set the type to PlaneFracture or EllipticFracture,
+    # even though we know they are all PlaneFractures.
+    fractures: list[pp.PlaneFracture | pp.EllipticFracture] = [
+        all_fractures[i] for i in fracture_indices
+    ]
     domain = domains.nd_cube_domain(3, size)
 
     # Cast to FractureNetwork3d to avoid ambiguity leading to mypy errors

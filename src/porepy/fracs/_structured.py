@@ -275,8 +275,9 @@ def _create_lower_dim_grids_3d(
     # Make use of the network class to find the intersection of fracture planes.
     #
     # We need to use the snapped fractures to be sure the identified intersections are
-    # resolved in the grid.
-    frac_list = []
+    # resolved in the grid. To please Mypy, we formally set the type to PlaneFracture or
+    # EllipticFracture, even though we know they are all PlaneFractures.
+    frac_list: list[pp.PlaneFracture | pp.EllipticFracture] = []
     for f in snapped_fractures:
         frac_list.append(pp.PlaneFracture(f))
 
