@@ -35,6 +35,7 @@ from porepy.applications.md_grids.model_geometries import (
     TwoWells3d,
 )
 from porepy.numerics.nonlinear import line_search
+from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 logger = logging.getLogger(__name__)
 
@@ -124,17 +125,6 @@ class WellBoundaryConditions(pp.PorePyModel):
             )
         return values
 
-    def is_well_grid(self, sd: pp.Grid) -> bool:
-        """Check if a given subdomain grid is a well grid.
-
-        Parameters:
-            sd: The subdomain grid to check.
-
-        Returns:
-            True if the subdomain grid is a well grid, False otherwise.
-        """
-        return "parent_well_index" in sd.tags
-
     def get_well_value(
         self,
         values: np.ndarray,
@@ -207,7 +197,6 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
     """Class defining Neumann BCs on well grids during the first time interval."""
 
     if TYPE_CHECKING:
-        is_well_grid: Callable[[pp.Grid], bool]
         darcy_flux_discretization: Callable[
             [list[pp.Grid]], pp.ad.MpfaAd | pp.ad.TpfaAd
         ]
@@ -309,63 +298,6 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
             return super().before_nonlinear_loop()  # type: ignore[misc]
 
 
-class ExportFractureQuantities(pp.PorePyModel):
-    """Class for exporting fracture-specific quantities.
-
-    Also specifies the data to export at each nonlinear iteration, namely the same data
-    as in the main export, to monitor fracture quantities during the nonlinear solve.
-    """
-
-    def data_to_export(self) -> list:
-        """Returns data for exporting.
-
-        Returns:
-            A list of tuples (subdomain, variable name, variable values).
-        """
-        # Start with data from super class. This includes standard variables.
-        data = super().data_to_export()  # type: ignore[misc]
-        # Add the fracture-specific variables displacement jump, rescaled traction and
-        # slip tendency.
-        sds = self.mdg.subdomains(dim=self.nd - 1)
-        cell_offsets = np.cumsum([0] + [sd.num_cells * self.nd for sd in sds])
-        displacement_jump = self.evaluate_and_scale(sds, "displacement_jump", "m")
-        char = self.evaluate_and_scale(sds, "characteristic_contact_traction", "Pa")
-        traction = self.evaluate_and_scale(sds, "contact_traction", "-")
-        # Loop over the fracture subdomains.
-        for id, sd in enumerate(sds):
-            # Export the displacement jump.
-            data.append(
-                (
-                    sd,
-                    "displacement_jump",
-                    displacement_jump[cell_offsets[id] : cell_offsets[id + 1]],
-                )
-            )
-            # Export the slip tendency, defined as the ratio of the shear traction to
-            # the normal traction.
-            traction_loc = traction[cell_offsets[id] : cell_offsets[id + 1]].reshape(
-                (3, -1), order="F"
-            )
-            zero_inds = np.isclose(traction_loc[-1], 0)
-            traction_loc[-1, zero_inds] = -1
-            traction_loc[0, zero_inds] = 1
-            slip_tendency = np.linalg.norm(traction_loc[:-1], axis=0) / np.abs(
-                traction_loc[-1]
-            )
-            data.append((sd, "slip_tendency", slip_tendency))
-
-            data.append((sd, "traction", traction_loc.ravel("F") * char))
-        return data
-
-    def data_to_export_iteration(self) -> list:
-        """Returns data for exporting at each iteration.
-
-        Returns:
-            A list of tuples (subdomain, variable name, variable values).
-        """
-        return self.data_to_export()
-
-
 class GeothermalReservoirWellBCs(  # type: ignore[misc]
     # Constituive laws
     pp.constitutive_laws.GravityForce,
@@ -384,9 +316,9 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     TwoWells3d,
     TwoEllipticFractures3d,
     # Export mixins
-    ExportFractureQuantities,
+    FractureDeformationExporting,
     # Uncomment the following line to enable iteration exporting, e.g. for debugging.
-    # TODO: wait for refactoring of pp.viz.data_saving_model_mixin.IterationExporting,
+    # pp.viz.data_saving_model_mixin.IterationExporting,
     # Helper mixin for the line search solution strategy, see also solver_params below.
     pp.models.solution_strategy.ContactIndicators,
     # Base class

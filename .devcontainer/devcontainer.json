@@ -1,7 +1,7 @@
 {
   "name": "porepy-stable",
   "build": {
-    "dockerfile": "../dockerfiles/stable/Dockerfile"
+    "dockerfile": "../dockerfiles/codespace/Dockerfile"
   },
   "remoteUser": "root",
   "workspaceFolder": "/workdir/porepy",

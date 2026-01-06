@@ -146,7 +146,7 @@ class DimensionReduction(pp.PorePyModel):
         # aperture^nd-dim and should be 1 for dim=nd.
         aperture = np.ones(grid.num_cells)
         if grid.dim < self.nd:
-            if self.is_well(grid):
+            if self.is_well_grid(grid):
                 # This is a well. The aperture is the well radius.
                 aperture *= self.solid.well_radius
             else:
@@ -376,7 +376,7 @@ class DisplacementJumpAperture(DimensionReduction):
             else:
                 if dim == self.nd - 2:
                     well_subdomains = [
-                        sd for sd in subdomains_of_dim if self.is_well(sd)
+                        sd for sd in subdomains_of_dim if self.is_well_grid(sd)
                     ]
                     if len(well_subdomains) > 0:
                         # Wells. Aperture is given by well radius.
