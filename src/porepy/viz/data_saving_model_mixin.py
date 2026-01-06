@@ -470,7 +470,7 @@ class FractureDeformationExporting(pp.PorePyModel):
             # the normal traction.
             traction_loc = traction[
                 cell_offsets_nd[id] : cell_offsets_nd[id + 1]
-            ].reshape((3, -1), order="F")
+            ].reshape((self.nd, -1), order="F")
             # Avoid division by zero. If normal traction is zero (open fractures), we
             # set it to 1.
             zero_inds = np.isclose(traction_loc[-1], 0)
