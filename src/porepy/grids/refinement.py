@@ -676,7 +676,7 @@ class GridSequenceFactory(abc.ABC):
 
     """
 
-    def __init__(self, network: pp.fracture_network, params: dict) -> None:
+    def __init__(self, network: pp.FractureNetworkType, params: dict) -> None:
         self._network = network.copy()
         self._counter: int = 0
         self._set_parameters(params)
@@ -715,9 +715,7 @@ class GridSequenceFactory(abc.ABC):
 
         """
         if hasattr(self, "_gmsh"):
-            self._gmsh.finalize()  # type: ignore
-            # Also inform the GmshWriter class that gmsh is no longer initialized.
-            pp.fracs.gmsh_interface.GmshWriter.gmsh_initialized = False
+            gmsh.finalize()  # type: ignore
 
     def _generate(self, counter: int) -> pp.MixedDimensionalGrid:
         """Which kind of grid refinement that is to be used is selected by this method.
@@ -757,22 +755,16 @@ class GridSequenceFactory(abc.ABC):
         """
         # Operate on a deep copy of the network to avoid that fractures etc. are
         # unintentionally modified during operations.
-        net = self._network.copy()
+        network = self._network.copy()
 
-        file_name = Path("gmsh_convergence")
-        # Generate data in a format suitable for defining a model in gmsh
-        gmsh_data = net.prepare_for_gmsh(
-            self._mesh_parameters,
-            **self._grid_parameters,
+        file_name = Path("gmsh_convergence.msh")
+        # Generate the grid to be refined later on. This step entails some extra work,
+        # such as importing the grid from gmsh format to porepy format, but since this
+        # is done only once, on the coarsest grid, this should not be a big issue.
+        network.mesh(
+            self._mesh_parameters, file_name=file_name, **self._grid_parameters
         )
-        # Initialize gmsh model with the relevant data. The data will be accessible in
-        # gmsh.model.mesh (that is the way the Gmsh Python API works)
-        writer = pp.fracs.gmsh_interface.GmshWriter(gmsh_data)
-        # Generate the first grid.
-        # Do not finalize gmsh; this should be done by a call to self.close()
-        writer.generate(file_name=file_name, finalize=False, clear_gmsh=False)
         self._out_file = file_name
-        self._gmsh = gmsh
 
     def _generate_nested(self, counter: int) -> pp.MixedDimensionalGrid:
         """Generates nested refinement.
@@ -789,15 +781,19 @@ class GridSequenceFactory(abc.ABC):
 
         """
         out_file = self._out_file
-        out_file = out_file.parent / (out_file.stem + f"_{counter}.msh")
+        new_out_file = out_file.parent / (out_file.stem + f"_{counter}.msh")
+        # Read the existing mesh from file, refine it, and write the result to a new
+        gmsh.initialize()
+        gmsh.open(str(out_file))
+        gmsh.model.mesh.refine()  # Refine the mesh
+        gmsh.write(str(new_out_file))  # Write the result to '.msh' file
 
-        # The first mesh is already done. Start refining all subsequent meshes.
-        self._gmsh.model.mesh.refine()  # Refine the mesh
-
-        self._gmsh.write(str(out_file))  # Write the result to '.msh' file
-
-        mdg = pp.fracture_importer.dfm_from_gmsh(out_file, self.dim)
+        mdg = pp.fracture_importer.dfm_from_gmsh(new_out_file, self.dim)
+        # Move the output file pointer to the new file. This way, the next refinement
+        # will be based on the most recently refined grid.
+        self._out_file = new_out_file
         pp.set_local_coordinate_projections(mdg)
+        gmsh.finalize()
         return mdg
 
     def _generate_unstructured(self, counter: int) -> pp.MixedDimensionalGrid:
