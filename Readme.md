@@ -27,7 +27,7 @@ In the simulation, cold fluid is injected through an injection well in the top r
 The best place to start is the [tutorials]( https://github.com/pmgbergen/porepy/tree/develop/tutorials); we suggest looking at the Readme file for guidance on how to approach the tutorials. 
 The tutorials show how to use the code for various common cases and explain key PorePy functionality.
 The code can be accessed in several ways:
-*	The most immediate access is running PorePy in your web browser. If you have a GitHub account, use a GitHub codespace for PorePy following [these instructions]( https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository). Note that some building time must be expected.
+*	The most immediate access is running PorePy in your web browser. If you have a GitHub account, use a GitHub codespace for PorePy following [these instructions]( https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository#creating-a-codespace-for-a-repository). Note that the building time will be a few minutes.
 *	If you want to run the code on your own machine, you have two options:
     *	If you have Docker installed, we recommend pulling the PorePy Docker image through ‘docker pull porepy/stable’.
     *	To install PorePy manually, follow the [install instructions]( https://github.com/pmgbergen/porepy/blob/develop/Install.md).
