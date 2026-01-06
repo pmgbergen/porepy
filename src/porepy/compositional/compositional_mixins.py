@@ -2729,3 +2729,13 @@ class ReactionRatesKineticFirstOrder:
         mask = (x >= left) & (x <= right)
         vals[mask] = C0
         return vals
+
+    def pulse_cell_average(self,x_faces, t, u, a, b, C0):
+        # x_faces: array of length nx+1
+        left = a + u*t
+        right = b + u*t
+
+        xL = x_faces[:-1]
+        xR = x_faces[1:]
+        overlap = np.maximum(0.0, np.minimum(xR, right) - np.maximum(xL, left))
+        return C0 * overlap / (xR - xL)
