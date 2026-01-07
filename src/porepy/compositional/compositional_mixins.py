@@ -2690,7 +2690,7 @@ class ReactionRatesKineticFirstOrder:
         return reactions
 
     def reaction_constant(self):
-        return 0.0
+        return 1.0
     
     def C_exact(self,x, t, C_in, u, k):
         """Analytical CO2 solution for the constant-inflow benchmark."""
@@ -2710,7 +2710,7 @@ class ReactionRatesKineticFirstOrder:
         D[mask] = C_in * (1.0 - np.exp(-k * x[mask] / u))
         return D
 
-    def C_exact_gaussian(self,x, t, u, L, alpha, x0):
+    def C_exact_gaussian(self,x, t, u, L, alpha, x0,k):
         """
         Exact solution of C_t + u C_x = 0 with periodic BC and Gaussian IC.
         x: array of cell centers
@@ -2719,7 +2719,7 @@ class ReactionRatesKineticFirstOrder:
         x = np.asarray(x)
         # shift backward by ut and wrap into [0,L)
         x_shift = (x - u * t) % L
-        return np.exp(-alpha * (x_shift - x0)**2)
+        return np.exp(-alpha * (x_shift - x0)**2) * np.exp(-k*t)
 
     def C_exact_pulse(self,x, t, u, a, b, C0):
         x = np.asarray(x)
