@@ -23,8 +23,11 @@ from pathlib import Path
 from typing import Optional
 
 # Import model configurations
-from porepy.examples.geothermal_flow.model_configuration.flow_model_configuration import (
-    SinglePhaseFlowModelConfigurationLiquid as LiquidPhaseModel
+# from porepy.examples.geothermal_flow.model_configuration.flow_model_configuration_iso import (
+#     SinglePhaseFlowModelConfigurationLiquid as LiquidPhaseModel
+# )
+from porepy.examples.geothermal_flow.model_configuration.flow_model_configuration_iso import (
+    TwoPhaseFlowModelConfiguration as TwoPhasePhaseModel
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
@@ -51,8 +54,8 @@ SIMULATION_CASES = {
     "single_phase_HP": {    # High-pressure single-phase (Figure 2, Case 1)
         "BC": BCSinglePhaseHighPressure,
         "IC": ICSinglePhaseHighPressure,
-        "FlowModel": LiquidPhaseModel,
-        "tf": 250 * 365 * 86400,
+        "FlowModel": TwoPhasePhaseModel,
+        "tf": 200 * 365 * 86400,
         "dt": 365 * 86400
     }
 }
@@ -171,6 +174,7 @@ def run_simulation(
     brine_vtk_sampler_phz = VTKSampler(correl_vtk_phz)
     brine_vtk_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5) # (z,h,p)
     model.vtk_sampler = brine_vtk_sampler_phz
+
     brine_vtk_sampler_ptz = VTKSampler(correl_vtk_ptz)
     brine_vtk_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
     brine_vtk_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
@@ -207,9 +211,8 @@ def run_simulation(
 # Run Simulations for All Configured Cases
 # ------------------------------------------------------
 
-
 # Define file paths for VTK files used for thermodynamic property sampling
-correl_vtk_phz_2 = VTK_DIR / "XHP_l2_original_all.vtk"
+correl_vtk_phz_2 = VTK_DIR / "XHP_l2_original.vtk"
 
 for case_name, config in SIMULATION_CASES.items():
     run_simulation(case_name, config, correl_vtk_phz=correl_vtk_phz_2)
