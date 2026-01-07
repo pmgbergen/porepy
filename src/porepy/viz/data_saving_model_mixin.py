@@ -297,10 +297,13 @@ class IterationExporting(pp.PorePyModel):
         super().initialize_data_saving()
         # Having a separate exporter for iterations avoids distinguishing between
         # iterations and time steps in the regular exporter's history.
+        folder = Path(self.params["folder_name"])
+        folder_iterations = folder.parent / (folder.name + "_iterations")
         self.iteration_exporter = pp.Exporter(
             self.mdg,
             file_name=self.params["file_name"],
-            folder_name=self.params["folder_name"] + "_iterations",
+            folder_name=folder_iterations,
+            length_scale=self.units.m,
         )
 
     def data_to_export_iteration(self):
@@ -329,7 +332,7 @@ class IterationExporting(pp.PorePyModel):
             self.data_to_export_iteration(),
             time_dependent=True,
             time_step=self.nonlinear_solver_statistics.num_iteration
-            + r * self.time_manager.time_index,
+            + 10**r * self.time_manager.time_index,
         )
 
     def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
@@ -464,7 +467,7 @@ class FractureDeformationExporting(pp.PorePyModel):
             # the normal traction.
             traction_loc = traction[
                 cell_offsets_nd[id] : cell_offsets_nd[id + 1]
-            ].reshape((3, -1), order="F")
+            ].reshape((self.nd, -1), order="F")
             # Avoid division by zero. If normal traction is zero (open fractures), we
             # set it to 1.
             zero_inds = np.isclose(traction_loc[-1], 0)
