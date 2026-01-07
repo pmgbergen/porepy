@@ -18,17 +18,29 @@ Testing covers:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
+import porepy.models.geometry
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
-from pathlib import Path
+from porepy.examples.flow_benchmark_2d_case_1 import (
+    Geometry as Benchmark2dCase1Fractures,
+)
+from porepy.examples.flow_benchmark_3d_case_2 import (
+    Geometry as Benchmark3dCase2Geometry,
+)
 
-import porepy.models.geometry
+
+# :class:`~porepy.examples.flow_benchmark_2d_case_1.Geometry`` provides only
+# :meth:`set_fractures`. We combine it with :class:`pp.ModelGeometry` to get a Mixin
+# with working :set_geometry` method.
+class Benchmark2dCase1Geometry(Benchmark2dCase1Fractures, pp.ModelGeometry): ...
 
 
 # List of geometry classes to test.
@@ -668,47 +680,41 @@ class TestGeometry:
         val = pp.EquationSystem(geometry_model.mdg).evaluate(global_to_local).todense()
         assert np.allclose(val @ val.T, np.eye(val.shape[0]))
 
-    def test_load_geometry_mixin(
-        self,
-        geometry_class: type[pp.ModelGeometry],
-    ) -> None:
-        folder_path = (
-            Path(__file__).parent.parent.parent
-            / "src"
-            / "porepy"
-            / "applications"
-            / "md_grids"
-            / "gmsh_file_library"
-            / "benchmark_3d_case_2"
-        )
-        geo_path =  "mesh500.geo"
-        fracture_network_path =  "fracture_network.csv"
-        num_fracs = 9
 
-        geometry_class=models.add_mixin(
-            porepy.models.geometry.LoadGeometryMixin,
-            pp.ModelGeometry,
-        )
+@pytest.mark.parametrize(
+    "benchmark_geometry_class", [Benchmark2dCase1Geometry, Benchmark3dCase2Geometry]
+)
+def test_load_geometry_mixin(benchmark_geometry_class, tmp_path) -> None:
+    """Test the LoadGeometryMixin class.
 
-        # List of number of fractures to test.
-        # Dictionary to store the geometry information.
-        self.geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry] = {}
+    Parameters:
+        benchmark: 2D or 3D case.
+        tmp_path: Temporary path for storing files.
 
-        # Create an instance of the geometry class.
-        geometry_model = geometry_class()
-        geometry_model.params = {
-            "geometry_folder": folder_path,
-            "geo_file": geo_path,
-            "csv_file": fracture_network_path,
+    """
+    folder_path = tmp_path
+    gmsh_file_name = "mdg.msh"
+    csv_file_name = "fracture_network.csv"
+
+    model_class = models.add_mixin(
+        porepy.models.geometry.LoadGeometryMixin,
+        models.NoPhysics,
+    )
+    params = {
+        "meshing_kwargs": {
+            "file_name": str(folder_path / gmsh_file_name),
+            "csv_file_name": csv_file_name,
         }
-        geometry_model.nd=3#TODO remove this later
-        # Assign units to the geometry.
-        geometry_model.units = pp.Units()
-        # Set the geometry configuration.
-        geometry_model.set_geometry()
+    }
+    model_1 = model_class(params)
+    model_2 = model_class(params)
 
-        # The operator_cache is usually set by the SolutionStrategy, but since
-        # this class is used standalone, we need to set it here.
-        geometry_model._operator_cache = {}
+    model_1.create_and_export_geometry(
+        set_geometry_class=benchmark_geometry_class,
+    )
+    model_2.set_geometry()
 
-        self.geometries[(geometry_class, num_fracs)] = geometry_model
+    # Check that the geometry got loaded correctly.
+    assert model_1.fracture_network == model_2.fracture_network
+    assert model_1.domain == model_2.domain
+    assert model_1.mdg == model_2.mdg

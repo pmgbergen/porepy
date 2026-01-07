@@ -15,6 +15,62 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.utils import pts_edges_to_linefractures
 
 
+def infer_network_dimension(file_name: Path) -> int:
+    """Infer the dimension of the fracture network stored in a CSV file.
+
+    The CSV file is assumed to contain a line describing the domain, as detailed in
+    :meth:`~porepy.fracs.fracture_importer.network_3d_from_csv` and
+    :meth:`~porepy.fracs.fracture_importer.network_2d_from_csv`.
+
+    Parameters:
+        file_name: Path to the CSV file.
+
+    Returns:
+        Dimension of the fracture network, either 2 or 3.
+
+    Raises:
+        ValueError: If all lines in the file are comments, or if a non-comment line has
+            an invalid number of columns.
+
+    """
+    sniffer = csv.Sniffer()
+    with open(file_name, "r") as csv_file:
+        dialect = sniffer.sniff(csv_file.read(20))
+        has_header = sniffer.has_header(csv_file.read(20))
+
+        spam_reader = csv.reader(csv_file, dialect)
+
+        if has_header:
+            next(spam_reader)
+
+        # Skip any comment lines.
+        while True:
+            line = next(spam_reader)
+            if len(line) > 0 and line[0][0] != "#":
+                break
+
+        if len(line) == 0 or line[0][0] == "#":
+            raise ValueError(
+                "Could not find a non-comment line to infer dimension from."
+            )
+
+        # Number of columns to determine dimension. 5 (or 4 for the domain line) columns
+        # for a 2D network and 7 (or 6) columns for a 3D network.
+        # Check with
+        # :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2D.to_csv``
+        # and :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3D.to_csv`
+        # for the exact structure of the csv files.
+        if len(line) in (4, 5):
+            return 2
+        elif len(line) in (6, 7):
+            return 3
+        else:
+            raise ValueError(
+                "Could not infer dimension from the CSV file. Expected 4 or 6 columns,"
+                + f" but got {len(line)}."
+            )
+
+
 def network_3d_from_csv(
     file_name: Path, has_domain: bool = True, tol: float = 1e-4, **kwargs
 ) -> FractureNetwork3d:
@@ -46,19 +102,26 @@ def network_3d_from_csv(
         Three-dimensional fracture network object.
 
     """
+    check_convexity = kwargs.get("check_convexity", True)
 
     # The first line of the csv file defines the bounding box for the domain.
     frac_list = []
+
     # Extract the data from the csv file.
+    sniffer = csv.Sniffer()
     with open(file_name, "r") as csv_file:
-        spam_reader = csv.reader(csv_file, delimiter=",")
+        dialect = sniffer.sniff(csv_file.read(20))
+        skip_header = int(sniffer.has_header(csv_file.read(20)))
+
+        spam_reader = csv.reader(csv_file, dialect)
+
         # Read the domain first.
         if has_domain:
             read_domain = False
 
             while not read_domain:
                 line = next(spam_reader)
-                if line[0][0] == "#":
+                if len(line) == 0 or line[0][0] != "#":
                     continue
                 else:
                     data = np.asarray(line, dtype=float)
@@ -73,21 +136,19 @@ def network_3d_from_csv(
                     domain = pp.Domain(bbox)
                     read_domain = True
 
-        for row in spam_reader:
+        for line in spam_reader:
             # If the line starts with a '#', we consider this a comment.
-            if len(row) == 0 or row[0][0] == "#":
+            if len(line) == 0 or line[0][0] == "#":
                 continue
 
             # Read the points
-            pts = np.asarray(row, dtype=float)
+            pts = np.asarray(line, dtype=float)
             if not pts.size % 3 == 0:
                 raise ValueError("Points are always 3d")
 
             # Skip empty lines. Useful if the file ends with a blank line.
             if pts.size == 0:
                 continue
-
-            check_convexity = kwargs.get("check_convexity", True)
 
             frac_list.append(
                 pp.PlaneFracture(
@@ -161,13 +222,13 @@ def elliptic_network_3d_from_csv(
             }
             domain = pp.Domain(bbox)
 
-        for row in spam_reader:
+        for line in spam_reader:
             # If the line starts with a '#', we consider this a comment.
-            if row[0][0] == "#":
+            if line[0][0] == "#":
                 continue
 
             # Read the data.
-            data = np.asarray(row, dtype=float)
+            data = np.asarray(line, dtype=float)
             if not data.size % 9 == 0:
                 raise ValueError("Data has to have size 9")
 
@@ -217,15 +278,11 @@ def network_2d_from_csv(
     the starting point, and ``END_X`` and ``END_Y`` are the abscissa and coordinate
     of the ending point.
 
-    Format 2 can be used to describe polyline fractures, where each row in the file
+    Format 2 can be used to describe polyline fractures, where each line in the file
     represents separate points, points with the same ``FID`` will be assigned to the
     same fracture *in the order specified in the file*.
 
-    To change the delimiter from the default comma, use kwargs passed to
-    :obj:`numpy.genfromtxt`.
-
-    The CSV file is assumed to have a header of 1 line. To change this number,
-    use kwargs ``skip_header``.
+    Delimiter and header are inferred from the file.
 
     Parameters:
         f_name: Path to the CSV file.
@@ -262,18 +319,19 @@ def network_2d_from_csv(
 
     """
     npargs = {}
-    # EK: Should these really be explicit keyword arguments?
-    # PvS: I question that too!
-    npargs["delimiter"] = kwargs.get("delimiter", ",")
-    npargs["skip_header"] = kwargs.get("skip_header", 1)
-    if has_domain:
-        npargs["skip_header"] += 1
 
-    # Check for a header.
-    #
-    if has_domain:
-        with open(file_name, "r") as csv_file:
-            spam_reader = csv.reader(csv_file, delimiter=kwargs.get("delimiter", ","))
+    sniffer = csv.Sniffer()
+    with open(file_name, "r") as csv_file:
+        # Infer delimiter and header from the file.
+        dialect = sniffer.sniff(csv_file.read(20))
+        npargs["delimiter"] = dialect.delimiter
+        npargs["skip_header"] = int(sniffer.has_header(csv_file.read(20)))
+
+        spam_reader = csv.reader(csv_file, dialect)
+
+        if has_domain:
+            # Skip over the domain line if present.
+            npargs["skip_header"] += 1
 
             bbox_as_array = np.asarray(next(spam_reader), dtype=float)
             bbox = {

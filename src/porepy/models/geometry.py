@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 from pathlib import Path
 from typing import Literal, Optional, Sequence, Union, cast
 
@@ -13,99 +14,7 @@ import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
-
-class LoadGeometryMixin(pp.PorePyModel):
-    def set_geometry(self) -> None:
-        """Load and set model geometry from ``msh``, ``geo``, and ``csv`` files that
-        contain a mesh and information about fractures.
-
-        Assumes self.nd is set to the correct dimension before calling this method.
-
-        The following attributes are set after running this method:
-        - ``self.mdg: pp.MixedDimensionalGrid``
-        - ``self._domain: pp.Domain``
-        - ``self.fracture_network: pp.FractureNetwork2D`` (or 3D) if a ``csv`` file is
-        provided. Otherwise an empty network?
-
-
-        TODO
-        - Differentiate between cases where all three files are provided and only one or
-        two are provided.
-        - Think about modularization! Does it make sense to write submethods
-        ``set_domain``, ``create_fracture_network`` etc?
-        - Implement functionality to differentiate between FractureNetwork2d,
-        FractureNetwork3d with plane fractures and FractureNetwork3d with elliptic
-        fractures.
-
-        """
-        geo_path = self.params.get("geo_file", None)
-        msh_path = self.params.get("msh_file", None)
-        csv_path = self.params.get("csv_file", None)
-        folder_path = Path(self.params.get("geometry_folder", "."))
-        if geo_path is None:
-            assert msh_path is not None, "Either geo_file or msh_file must be provided."
-            gmsh_path = Path(folder_path / msh_path)
-        else:
-            assert msh_path is None, "Only one of geo_file and msh_file should be provided."
-            gmsh_path = Path(folder_path / geo_path)
-
-        gmsh_path.chmod(777)
-
-        # Create mixed-dimensional grid.
-        mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
-
-        # Also import fracture network.
-        fracture_network_path = Path(folder_path / csv_path)
-
-        # Set file permissions. This turned out to be important for GH actions.
-        fracture_network_path.chmod(777)
-
-        # FIXME Here, we need some functionality to determine the dimension from the
-        # given fracture network and mesh file.
-        network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
-
-        # Create mixed-dimensional grid and fracture network.
-        self.mdg, self.fracture_network = mdg, network
-        self.nd: int = self.mdg.dim_max()
-
-        # Obtain domain and fracture list directly from the fracture network.
-        self._domain = cast(pp.Domain, self.fracture_network.domain)
-        self._fractures = self.fracture_network.fractures
-
-        # Create projection between local and global coordinates fracture grids.
-        pp.set_local_coordinate_projections(self.mdg)
-
-        # Create well network.
-        self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            # Compute intersections.
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fractures + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures
-            self.well_network.mesh(self.mdg)
-
-    def create_and_export_geometry(self, folder_path: Path) -> None:
-        """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
-
-        Parameters:
-            folder_path: Path to folder where files are to be stored.
-
-        """
-        # Create the geometry through domain amd fracture set.
-        self.set_domain()
-        self.set_fractures()
-        # Create a fracture network and a mixed-dimensional grid.
-        self.create_fracture_network()
-        # Create mixed-dimensional grid. Includes writing of mesh and geo files.
-        self.create_mdg()
-        self.nd: int = self.mdg.dim_max()
-        # The domain is exported as part of the fracture network.
-        self.fracture_network.to_csv(
-            folder_path / "fracture_network.csv", domain=self.domain
-        )
+logger = logging.getLogger(__name__)
 
 
 class ModelGeometry(pp.PorePyModel):
@@ -136,15 +45,7 @@ class ModelGeometry(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            # Compute intersections
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
+        self.add_wells_to_mdg()
 
     @property
     def domain(self) -> pp.Domain:
@@ -831,3 +732,160 @@ class ModelGeometry(pp.PorePyModel):
             outwards_normals.set_name("unitary_outwards_internal_boundary_normals")
 
         return outwards_normals
+
+
+class LoadGeometryMixin(pp.PorePyModel):
+    """Provide functionality to store and load the full model geometry from files.
+
+
+    The intended workflow is as follows:
+
+    Example:
+        class NewModelClass(LoadGeometryMixin, YourBaseModelClass):
+            ...
+
+        model = NewModelClass(params)
+        # Mesh and save msh and fracture network files once.
+        model.create_and_export_geometry()
+
+        # Geometry is loaded from msh and fracture network files in subsequent runs.
+        for i in range(num_runs):
+            pp.run_time_dependent_model(model)
+
+
+    """
+
+    def set_geometry(self) -> None:
+        """Load and set model geometry from ``msh``, ``geo``, and ``csv`` files that
+        contain a mesh and information about fractures.
+
+        The following attributes are set after running this method:
+        - ``self.mdg: pp.MixedDimensionalGrid``
+        - ``self._domain: pp.Domain``
+        - ``self.fracture_network: pp.FractureNetwork2D`` (or 3D) if a ``csv`` file is
+            provided. Otherwise an empty network.
+
+        Warning:
+            Elliptic fracture networks are not yet supported.
+
+        """
+        # Paths to geometry files. The structure is how `self.fracture_network.mesh` and
+        # `self.create_and_export_geometry` create them.
+        file_name = Path(self.meshing_kwargs()["file_name"])
+        folder_path = Path(self.meshing_kwargs()["file_name"]).parent
+        msh_path = (folder_path / file_name.stem).with_suffix(".msh")
+        geo_path = (folder_path / file_name.stem).with_suffix(".geo")
+        fracture_network_path = folder_path / self.meshing_kwargs()["csv_file_name"]
+
+        # Check whether the msh or geo file exists. If used as in the docstring example,
+        # both exist and the msh file is used to avoid remeshing unnecessarily.
+        if not msh_path.exists():
+            if not geo_path.exists():
+                raise ValueError(
+                    "Either 'folder_path` / `file_name.msh` or 'folder_path` /"
+                    + " `file_name.geo` must exist."
+                )
+            else:
+                logger.info(f"msh file not found, remeshing from {geo_path}.")
+                gmsh_path = geo_path
+        else:
+            logger.info(
+                f"msh file found, loading mixed-dimensional grid from {msh_path}."
+            )
+            if geo_path.exists():
+                logger.info(f"Both msh and geo files found. Ignoring {geo_path}.")
+            gmsh_path = msh_path
+
+        # Set file permissions. This turned out to be important for GH actions.
+        msh_path.chmod(777)
+        fracture_network_path.chmod(777)
+
+        # Load mixed-dimensional grid from geo or msh file.
+        self.nd = pp.fracture_importer.infer_network_dimension(fracture_network_path)
+        self.mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
+
+        # PvS: Not sure if this check is necessary or if this would anyway raise an
+        # error in ``dfm_from_gmsh``.
+        if self.nd != self.mdg.dim_max():
+            raise ValueError("Dimension mismatch between fracture network and mesh.")
+
+        # Load fracture network from csv file.
+        if self.nd == 2:
+            # Type is guaranteed because ``return_frac_id=False``.
+            self.fracture_network = pp.fracture_importer.network_2d_from_csv(  # type: ignore[assignment]
+                fracture_network_path, has_domain=True
+            )
+        else:
+            self.fracture_network = pp.fracture_importer.network_3d_from_csv(
+                fracture_network_path, has_domain=True
+            )
+
+        # Obtain domain and fracture list directly from the fracture network.
+        self._domain = cast(pp.Domain, self.fracture_network.domain)
+        self._fractures = self.fracture_network.fractures
+
+        # Create projection between local and global coordinates fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
+
+        # Create well network and mesh.
+        self.set_well_network()
+        self.add_wells_to_mdg()
+
+    def create_and_export_geometry(self, set_geometry_class=ModelGeometry) -> None:
+        """Export mesh and fracture network to ``msh``, ``geo``, and ``csv`` files.
+
+        Parameters:
+            folder_path: Path to folder where files are to be stored.
+            set_geometry_class: Class whose ``set_geometry`` method is to be used for
+                meshing and storing the ``msh`` and ``geo`` files. To be overridden,
+                e.g., if (parts of) the geometry is (are) loaded from a gmsh file
+                instead of created within PorePy. Default is
+                :class:`~porepy.models.geometry.ModelGeometry`.
+
+        """
+        # Explicitely call the ``set_geometry`` method of the provided class. msh and
+        # geo files are saved after meshing, since
+        # ``self.meshing_kwargs["write_geo"]`` is True and
+        # ``self.meshing_kwargs["clear_gmsh"]`` is False.
+        set_geometry_class.set_geometry(self)  # type: ignore[attr-defined]
+
+        # In addition, save the fracture network.
+        folder_path = Path(self.meshing_kwargs()["file_name"]).parent
+        csv_file_name = self.meshing_kwargs()["csv_file_name"]
+        fracture_network_path = folder_path / csv_file_name
+        self.fracture_network.to_csv(fracture_network_path, domain=self.domain)
+
+    def meshing_kwargs(self) -> dict:
+        """Provide default meshing kwargs for storing and loading `mdg` and the fracture
+        network.
+
+        The following keyword arguments are added if not already provided by
+        :meth:`~porepy.models.geometry.ModelGeometry.meshing_kwargs`:
+        - ``file_name: str``: Name of the mesh and geo file (without extension). Default
+            is "gmsh_frac_file.msh".
+        TODO PvS: Consider including a default folder (same as default folder for
+        exporting).
+        - ``write_geo: bool``: Whether to keep the geo file after meshing. Default is
+            True.
+        - ``clear_gmsh: bool``: Whether to remove the msh file after meshing. Default is
+            False.
+        - ``csv_file_name: str``: Name of the fracture network csv file. Default is
+            "fracture_network.csv".
+        Returns:
+            Keyword arguments compatible with :meth:`~porepy.create_mdg()`.
+
+        """
+        # Add kwargs related to storing the geometry files to the meshing kwargs of
+        # ``ModelGeometry``.
+        default_meshing_kwargs = {
+            # The first three kwargs are passed to ``fracture_network.mesh``.
+            "file_name": "gmsh_frac_file.msh",  # Name of the output mesh and geo files.
+            "write_geo": True,  # Keep the geo file after meshing.
+            "clear_gmsh": False,  # Keep the msh file after meshing.
+            # The latter two are used by `LoadGeometryMixin.set_geometry`.
+            "csv_file_name": "fracture_network.csv",
+        }
+        meshing_kwargs = ModelGeometry.meshing_kwargs(self)  # type: ignore[attr-defined]
+        default_meshing_kwargs.update(meshing_kwargs)
+
+        return default_meshing_kwargs
