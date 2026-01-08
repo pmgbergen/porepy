@@ -60,19 +60,19 @@ DesiredError = namedtuple(
 desired_errors: list[DesiredError] = [
     # t = 25 [s]
     DesiredError(
-        error_pressure=0.02468899282842615,
-        error_flux=0.362852,
-        error_displacement=0.0007426275934204356,
-        error_force=0.006999,
-        error_consolidation_degree=(0.005794353839056594, 2.983724378680108e-16),
+        error_pressure=0.02406386077682351,
+        error_flux=0.3224291624135289,
+        error_displacement=0.000766722820984413,
+        error_force=0.004285963252369634,
+        error_consolidation_degree=(0.0055731233778906625, 2.983724378680108e-16),
     ),
     # t = 50 [s]
     DesiredError(
-        error_pressure=0.01604388082216944,
-        error_flux=0.163626,
-        error_displacement=0.000710048736369786,
-        error_force=0.004621,
-        error_consolidation_degree=(0.004196023265526011, 2.983724378680108e-16),
+        error_pressure=0.015761257499844965,
+        error_flux=0.15940543422366427,
+        error_displacement=0.0007265165747287417,
+        error_force=0.0030578472498517376,
+        error_consolidation_degree=(0.0041020728517407595, 2.983724378680108e-16),
     ),
 ]
 
