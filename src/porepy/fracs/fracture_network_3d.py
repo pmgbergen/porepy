@@ -256,14 +256,17 @@ class FractureNetwork3d(FractureNetwork):
 
         if self.domain is not None:
             domain_tag = self.domain_to_gmsh()
+            boundary_tags = [
+                t
+                for _, t in gmsh.model.get_boundary(
+                    [(self.nd, domain_tag)], oriented=False
+                )
+            ]
         else:
             domain_tag = -1
+            boundary_tags = []
 
         fracture_tags = self.fractures_to_gmsh()
-        boundary_tags = [
-            t
-            for _, t in gmsh.model.get_boundary([(self.nd, domain_tag)], oriented=False)
-        ]
         surface_tags = fracture_tags + boundary_tags
         gmsh.model.occ.synchronize()
 
@@ -404,9 +407,15 @@ class FractureNetwork3d(FractureNetwork):
             )
         else:
             # Special handling of DFN-style meshing.
-            _, isect_mapping = gmsh.model.occ.fragment(
-                dim_fracture_tags, [], removeObject=True, removeTool=True
-            )
+            # No intersections possible with only one fracture and no domain.
+            if len(fracture_tags) == 1:
+                # Gmsh did not seem to like fragmenting a single object without a
+                # secondary object. Hence, we handle this case separately.
+                isect_mapping = [[(self.nd - 1, fracture_tags[0])]]
+            else:
+                _, isect_mapping = gmsh.model.occ.fragment(
+                    dim_fracture_tags, [], removeObject=True, removeTool=True
+                )
 
         gmsh.model.occ.synchronize()
 
@@ -486,11 +495,14 @@ class FractureNetwork3d(FractureNetwork):
                 # itself, since for fractures partially inside the domain, the
                 # subsurface that should be excluded will still be inside the domain.
                 distances = np.zeros(len(bounding_points))
-                for i, pt in enumerate(bounding_points):
-                    distances[i] = min(
-                        gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
-                        for domain_tag in domain_tags
-                    )
+                if domain_tag > 0:
+                    # Only do this if we have a domain. If not, all distances are zero,
+                    # and the above if statement will not trigger.
+                    for i, pt in enumerate(bounding_points):
+                        distances[i] = min(
+                            gmsh.model.occ.get_distance(*pt, nd, domain_tag)[0]
+                            for domain_tag in domain_tags
+                        )
                 # If any bounding point is outside all parts of the domain, we drop this
                 # sub-fracture.
                 if np.any(distances > self._tol) or self._entity_on_domain_boundary(
