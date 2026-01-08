@@ -413,6 +413,38 @@ def _validate_args(
                 " grids."
             )
 
+        domain: Union[pp.Domain, None] = _retrieve_domain_instance(fracture_network)
+
+        if domain is not None:
+            # Delete fractures that are completely outside the domain.
+            fractures_deleted = []
+            for f in fracture_network.fractures:
+                # This should have been validated in the above check, but keep it here
+                # to make mypy happy.
+                assert isinstance(f, (pp.fracs.fracture.PointBasedFracture))
+                is_inside = False
+                for p in f.pts.T:
+                    if p in domain:
+                        is_inside = True
+                        break
+                if not is_inside:
+                    fractures_deleted.append(f)
+
+            # Mypy thinks that this risks mixing LineFracture and
+            # PlaneFracture/EllipticFractures. Ignore this warning.
+            fracture_network.fractures = [  # type: ignore
+                f for f in fracture_network.fractures if f not in fractures_deleted
+            ]
+
+            # Take note of deleted fractures
+            if (sz := len(fractures_deleted)) > 0:
+                # It seems most likely that this is an undesired effect (for a Cartesian
+                # geomtetry it should be possible to make sure the fractures are within
+                # the domain), but we cannot rule out that the user on purpose use the
+                # domain to get rid of some fractures. Giving a warning seems like a
+                # fair compromise between raising an error and doing nothing.
+                warn(f"Found {sz} fractures outside the domain boundary")
+
     if grid_type == "simplex":
         _validate_simplex_meshing_args_values(meshing_args)
     elif grid_type == "cartesian":
