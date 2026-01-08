@@ -844,51 +844,59 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
         # For both Darcy and Fourier flux, check that the Jacobian matrix is zero on
         # Neumann faces.
         bc_darcy = data[pp.PARAMETERS][model.darcy_keyword]["bc"]
-        darcy_flux = model.darcy_flux([sd]).value_and_jacobian(model.equation_system)
+        darcy_flux = model.equation_system.evaluate(
+            model.darcy_flux([sd]), derivative=True
+        )
         assert np.allclose(darcy_flux.jac[bc_darcy.is_neu].data, 0)
 
         bc_fourier = data[pp.PARAMETERS][model.fourier_keyword]["bc"]
-        fourier_flux = model.fourier_flux([sd]).value_and_jacobian(
-            model.equation_system
+        fourier_flux = model.equation_system.evaluate(
+            model.fourier_flux([sd]), derivative=True
         )
         assert np.allclose(fourier_flux.jac[bc_fourier.is_neu].data, 0)
 
-        # Since homogeneous Neumann conditions are assigned on immersed fracture tips,
-        # the potential trace on fracture tip faces (that are not on the external
-        # boundary) should be equal to the potential in the adjacent cell. This is not
-        # true for internal nor external boundaries, where boundary conditions may
-        # change the boundary value).
+        if base_discr == "tpfa":
+            # On immersed fracture tips, we know that the flux is zero (homogeneous
+            # Neumann condition). For TPFA, we can thus verify that the reconstructed
+            # potential trace is equal to the pressure in the adjacent cell, since this
+            # is the only way to get zero flux with that scheme. We cannot do a similar
+            # test for MPFA, since the potential trace reconstruction involves other
+            # cells and boundary conditions on other faces - meaning that the potential
+            # trace on the tip face is not necessarily equal to the pressure in the
+            # adjacent cell.
 
-        # Get the indices of the fracture tip faces and that of the adjacent cell.
-        tip_faces = np.where(
-            np.logical_and(
-                sd.tags["tip_faces"], np.logical_not(sd.tags["domain_boundary_faces"])
-            )
-        )[0]
-        _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
+            # Get the indices of the fracture tip faces and that of the adjacent cell.
+            tip_faces = np.where(
+                np.logical_and(
+                    sd.tags["tip_faces"],
+                    np.logical_not(sd.tags["domain_boundary_faces"]),
+                )
+            )[0]
+            _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
 
-        # Check that the pressure trace is equal to the pressure in the adjacent cell.
-        pressure_trace = model.equation_system.evaluate(
-            model.potential_trace(
-                [sd],
-                model.pressure,
-                model.permeability,
-                model.combine_boundary_operators_darcy_flux,
-                "darcy_flux",
+            # Check that the pressure trace is equal to the pressure in the adjacent
+            # cell.
+            pressure_trace = model.equation_system.evaluate(
+                model.potential_trace(
+                    [sd],
+                    model.pressure,
+                    model.permeability,
+                    model.combine_boundary_operators_darcy_flux,
+                    "darcy_flux",
+                )
             )
-        )
-        p = model.equation_system.evaluate(model.pressure([sd]))
-        assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
-        # Check that the temperature trace is equal to the temperature in the adjacent
-        # cell.
-        temperature_trace = model.equation_system.evaluate(
-            model.potential_trace(
-                [sd],
-                model.temperature,
-                model.thermal_conductivity,
-                model.combine_boundary_operators_fourier_flux,
-                "fourier_flux",
+            p = model.equation_system.evaluate(model.pressure([sd]))
+            assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
+            # Check that the temperature trace is equal to the temperature in the
+            # adjacent cell.
+            temperature_trace = model.equation_system.evaluate(
+                model.potential_trace(
+                    [sd],
+                    model.temperature,
+                    model.thermal_conductivity,
+                    model.combine_boundary_operators_fourier_flux,
+                    "fourier_flux",
+                )
             )
-        )
-        T = model.equation_system.evaluate(model.temperature([sd]))
-        assert np.allclose(temperature_trace[tip_faces], T[tip_cells])
+            T = model.equation_system.evaluate(model.temperature([sd]))
+            assert np.allclose(temperature_trace[tip_faces], T[tip_cells])
