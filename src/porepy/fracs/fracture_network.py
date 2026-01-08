@@ -112,12 +112,9 @@ class FractureNetwork(ABC):
             constraints = np.atleast_1d(constraints)
             constraints.sort()
 
-        try:
-            num_procs_available = multiprocessing.cpu_count() or 1
-        except (NotImplementedError, AttributeError):
-            num_procs_available = 1
-
-        num_procs = kwargs.get("num_processors", max(num_procs_available - 2, 1))
+        # Set the number of processors for Gmsh. By default, use a single processor. Be
+        # aware that using multiple processors may lead to non-deterministic meshes.
+        num_procs = kwargs.get("num_processors", 1)
         gmsh.option.setNumber("General.NumThreads", num_procs)
 
         if self.nd == 3:
