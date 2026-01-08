@@ -611,7 +611,6 @@ class TestMDGridGenerationWithoutDomains:
 
         """
         fn = pp.create_fracture_network(fractures=plane_fractures[fracs_idx])
-        fn.impose_external_boundary()
         mdg = pp.create_mdg(
             grid_type="simplex",
             meshing_args={"cell_size": 2.0},
