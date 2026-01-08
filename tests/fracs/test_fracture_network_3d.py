@@ -781,7 +781,7 @@ class TestDFMMeshGeneration:
             )
         for sd in _find_intersection_line(mdg, 0, 3):
             _verify_points_in_line(
-                sd.nodes, np.array([0.5, 0.5, 0.5]), np.array([0.5, 1, 0.75])
+                sd.nodes, np.array([0.5, 0.5, 0.75]), np.array([0.5, 1, 0.75])
             )
         for sd in _find_intersection_line(mdg, 1, 3):
             _verify_points_in_line(
