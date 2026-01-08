@@ -303,7 +303,9 @@ def test_positive_p_frac_positive_opening(model_class):
     # intensive quantity, the total source term and hence the fracture pressure scales
     # with the number of fracture cells. We do a (perhaps somewhat rough) correction
     # here by scaling with the ratio between number of fracture cells in the current
-    # model and the original number of fracture cells (4).
+    # model and the original number of fracture cells (4). For the temperature we also
+    # need to increase the tolerance to account for the non-linear relation between
+    # the pressure and temperature.
     orig_mean_pressure = 4.8e-4
     orig_pressure_deviation = 2e-5
     orig_mean_temperature = 8.3e-6
@@ -320,7 +322,7 @@ def test_positive_p_frac_positive_opening(model_class):
     assert np.allclose(
         t_frac,
         orig_mean_temperature * cell_ratio,
-        atol=orig_temperature_deviation * cell_ratio,
+        atol=orig_temperature_deviation * cell_ratio * 10,
     )
 
 
