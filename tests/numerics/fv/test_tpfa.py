@@ -828,7 +828,11 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
 
     """
     model = DiffTpfaFractureTipsInternalBoundaries(
-        {"base_discr": base_discr, "times_to_export": []}
+        {
+            "darcy_flux_discretization": base_discr,
+            "fourier_flux_discretization": base_discr,
+            "times_to_export": [],
+        }
     )
     model.prepare_simulation()
 
@@ -849,9 +853,11 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
         )
         assert np.allclose(fourier_flux.jac[bc_fourier.is_neu].data, 0)
 
-        # The potential trace should be equal to the potential in the adjacent cell on
-        # fracture tip faces (but not on internal nor external boundaries, where
-        # boundary conditions may change the boundary value).
+        # Since homogeneous Neumann conditions are assigned on immersed fracture tips,
+        # the potential trace on fracture tip faces (that are not on the external
+        # boundary) should be equal to the potential in the adjacent cell. This is not
+        # true for internal nor external boundaries, where boundary conditions may
+        # change the boundary value).
 
         # Get the indices of the fracture tip faces and that of the adjacent cell.
         tip_faces = np.where(
