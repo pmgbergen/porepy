@@ -36,13 +36,19 @@ def get_mdg():
 
         """
 
-        # Three horizontal fractures
-        fracture_coords = [
-            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5]]),
-            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.2, 0.2, 0.2, 0.2]]),
-            np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]]),
+        # Three horizontal fractures. The middle one is elliptic, just for the sake of
+        # it.
+        all_fractures = [
+            pp.PlaneFracture(
+                np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.5, 0.5, 0.5, 0.5]])
+            ),
+            pp.EllipticFracture(np.array([[0.5], [0.5], [0.2]]), 0.5, 0.5, 0, 0, 0),
+            pp.PlaneFracture(
+                np.array([[0, 1, 1, 0], [1, 1, 0, 0], [0.1, 0.1, 0.1, 0.1]])
+            ),
         ]
-        fractures = [pp.PlaneFracture(fracture_coords[i]) for i in fracture_indices]
+        # Use these fractures.
+        fractures = [all_fractures[i] for i in fracture_indices]
         fracture_network = pp.create_fracture_network(fractures, unit_domain(3))
 
         # Vertical well extending from 0.1 (frac 2) to upper boundary and
