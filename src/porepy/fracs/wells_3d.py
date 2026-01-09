@@ -20,6 +20,7 @@ from typing import Iterator, Optional
 
 import numpy as np
 import scipy.sparse as sps
+import gmsh
 
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
@@ -529,6 +530,10 @@ def compute_well_fracture_intersections(
         fracture_network: Three-dimensional fracture network.
 
     """
+    gmsh.initialize()
+    fracture_tags = [f.fracture_to_gmsh() for f in fracture_network.fractures]
+
+    nd = fracture_network.nd
 
     for well in well_network.wells:
         well_pts = np.empty((3, 0))
@@ -540,24 +545,82 @@ def compute_well_fracture_intersections(
             ignore_endpoint_tag = seg_ind[1] < well.num_segments()
             # Keep track of information for this segment
             pts_seg = segment.copy()
-            # Initiate tags for this segment, with empty elements for the endpoints
-            tags_seg = [np.empty(0), np.empty(0)]
-            for fracture in fracture_network.fractures:
-                pts_seg, tags_seg = _intersection_segment_fracture(
-                    pts_seg, fracture, tags_seg, ignore_endpoint_tag
+
+            assert pts_seg.shape == (3, 2)
+            pi = [gmsh.model.occ.addPoint(*segment[:, i], 0) for i in range(2)]
+            l = gmsh.model.occ.addLine(pi[0], pi[1])
+            gmsh.model.occ.synchronize()
+
+            # Do a fragmentation to compute intersections.
+            if len(fracture_tags) > 0:
+                _, out_dim_tag_map = gmsh.model.occ.fragment(
+                    [(nd - 2, l)],
+                    [(nd - 1, t) for t in fracture_tags],
+                    removeObject=False,
+                    removeTool=False,
                 )
-            # Sort points of this segment
-            sort_inds, sorted_pts = _argsort_points_along_line_segment(pts_seg)
+            else:
+                # No fractures in the network. Gmsh in this case returns empty output so
+                # we manually set the output to be the input segment.
+                out_dim_tag_map = [[(nd - 2, l)]]
+
+            # The output dimension-tag map contains all output entities, with the first
+            # entry representing the line segment (possibly fragmented into
+            # sub-segments). The other entries represent the fractures, which we do not
+            # need here.
+            gmsh.model.occ.synchronize()
+
+            # EK: This should not happen, but make the assertion to cover any unexpected
+            # (to me) behavior from Gmsh's side.
+            assert len(out_dim_tag_map[0]) > 0, (
+                "Is both the fracture and well list empty?"
+            )
+            # If the first intersected object is not a segment, something is wrong,
+            # likely on a technical (EK's assumptions on Gmsh?) level. Continuing makes
+            # no sense.
+            assert out_dim_tag_map[0][0][0] == nd - 2
+
+            # To get the boundary points of the sub-segments, we extract the boundary of
+            # each sub-segment. Some work is needed to actually extract the point tags.
+            segment_points_dims = [
+                gmsh.model.get_boundary([split_segment], oriented=False)
+                for split_segment in out_dim_tag_map[0]
+            ]
+            segment_points = []
+            for sub_segment in segment_points_dims:
+                for p in sub_segment:
+                    if p[0] == 0:  # point
+                        segment_points.append(p[1])
+            # Uniquify the points of this segment.
+            unique_points = np.asarray(list(set(segment_points)))
+            point_coordinates = []
+            for p_tag in unique_points:
+                x, y, z = gmsh.model.get_bounding_box(0, p_tag)[:3]
+                point_coordinates.append(np.array([[x], [y], [z]]))
+            sort_inds, sorted_pts = _argsort_points_along_line_segment(
+                np.hstack(point_coordinates)
+            )
+            # For all points, find which fractures they are close to and take note.
+            tags_seg = []
+            for p_tag in unique_points[sort_inds]:
+                frac_tag_log = []
+                for fi, f_tag in enumerate(fracture_tags):
+                    dist = gmsh.model.occ.get_distance(0, p_tag, nd - 1, f_tag)[0]
+                    if dist < well_network.tol:
+                        frac_tag_log.append(fracture_network.fractures[fi].index)
+                tags_seg.append(np.array(frac_tag_log, dtype=int))
 
             stop_ind = sort_inds.size - ignore_endpoint_tag
             well_pts = np.hstack((well_pts, sorted_pts[:, :stop_ind]))
             # The last tag might change when it is used for the start point of the
-            # next segment. Store remaining tags in correct order
-            for i in sort_inds[:stop_ind]:
-                well_tags.append(tags_seg[i])
+            # next segment. Store remaining tags.
+            for tag in tags_seg[:stop_ind]:
+                well_tags.append(tag)
         # Overwrite old points and tags for this well
         well.pts = well_pts
         well.tags["intersecting_fractures"] = well_tags
+
+    gmsh.finalize()
 
 
 def compute_well_rock_matrix_intersections(
