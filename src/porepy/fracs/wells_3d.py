@@ -373,6 +373,9 @@ class WellNetwork3d:
             mdg: Mixed-dimensional grid.
 
         """
+        # Bounding planes for the domain, used to identify boundary faces of the well.
+        bounding_planes = self.domain.polytope_from_bounding_box()
+
         # Will be added as g.well_num for the well grids.
         well_num = 0
         for w in self.wells:
@@ -408,12 +411,27 @@ class WellNetwork3d:
                 points_loc = np.linspace(seg[:, 0], seg[:, 1], num_pts).T
                 points_subline = np.hstack((points_subline, points_loc))
 
+                # Flag to tell if this segment ends on the global boundary. This is
+                # needed to identify whether the end point is a tip or on the boundary.
+                segment_ends_on_boundary = False
+
                 # Check if the second end point is a fracture intersection. If not,
                 # proceed to next segment unless we're at the well's second endpoint.
                 if tags_seg[1].size == 0:
                     if inds_seg[1] == w.num_points() - 1:
-                        # We're at the well end, and it corresponds to an internal tip.
-                        endp_tip_tags[1] = True
+                        # We're at an end at the well. Depending on which direction the
+                        # well was traversed, this is either a tip or on the global
+                        # boundary.
+                        for plane in bounding_planes:
+                            dist, _, _ = pp.geometry.distances.points_polygon(
+                                seg[:, -1].reshape(3, 1), plane
+                            )
+                            segment_ends_on_boundary = np.logical_or(
+                                segment_ends_on_boundary, np.isclose(dist, 0)[0]
+                            )
+
+                        endp_tip_tags[1] = not segment_ends_on_boundary
+                        # This is definitely not a fracture intersection.
                         endp_frac_tags[1] = False
                     else:
                         # Remove last point, since it is included in next iteration.
@@ -435,8 +453,8 @@ class WellNetwork3d:
                 well_num += 1
 
                 # Add intersection grid and interfaces if the second segment point is
-                # not a tip.
-                if not endp_tip_tags[1]:
+                # not a tip and not on the global boundary.
+                if not endp_tip_tags[1] and not segment_ends_on_boundary:
                     endp_frac_tags[1] = True
                     sd_isec = _intersection_subdomain(seg[:, 1], mdg)
                     sd_isec.tags["parent_well_index"] = w.index
@@ -462,14 +480,17 @@ class WellNetwork3d:
                     _add_well_2_intersection_interface(sd_w, previous_g_isec, mdg)
 
                 # Finally, update tags for the well's faces (boundary, tip, fracture).
-                bounding_planes = self.domain.polytope_from_bounding_box()
-                boundary = np.zeros(2, dtype=bool)
                 endp_inds = [0, -1]
                 endpts = sd_w.face_centers[:, endp_inds]
+                # Strictly speaking, we already know if the segment ends (index [1]) on
+                # the boundary. However, for code simplicity, we recompute this here.
+                boundary = np.zeros(2, dtype=bool)
                 for plane in bounding_planes:
                     dist, _, _ = pp.geometry.distances.points_polygon(endpts, plane)
                     boundary = np.logical_or(boundary, np.isclose(dist, 0))
 
+                # It was determined earlier whether the second endpoint (index [1]) is a
+                # tip. Set the value for the first endpoint [0] here.
                 endp_tip_tags[0] = np.logical_not(
                     np.logical_or(boundary[0], endp_frac_tags[0])
                 )
