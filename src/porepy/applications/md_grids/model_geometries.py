@@ -366,7 +366,8 @@ class TwoEllipticFractures3d(SubsurfaceCuboidDomain):
             "dip_angles": np.array([np.pi / 2, np.pi / 2]),
             "major_axis_angles": np.array([0.0, 0.0]),
         }
-
+        user_params = self.params.get("fracture_params", {})
+        default_params.update(user_params)
         if "fracture_minor_axes" not in default_params:
             default_params["fracture_minor_axes"] = default_params[
                 "fracture_major_axes"
