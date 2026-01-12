@@ -156,7 +156,11 @@ class PermeabilitySpecification(Permeability):
 
 
 class BoundaryConditions(pp.PorePyModel):
+<<<<<<< HEAD
     r"""Define inlet and outlet boundary conditions as specified by the benchmark.
+=======
+    r"""Define inlet and oulet boundary conditions as specified by the benchmark.
+>>>>>>> composite-flow
 
     The inlet boundary is defined as:
 

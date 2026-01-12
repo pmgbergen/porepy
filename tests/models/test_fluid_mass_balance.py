@@ -946,13 +946,22 @@ class TestMixedDimGravity:
         )
         assert np.allclose(np.abs(flux), u_known, rtol=1e-3, atol=1e-3)
 
-    def verify_hydrostatic(self, angle=0, a=1e-1):
+    def verify_hydrostatic(self, angle: float = 0.0, a: float = 1e-1) -> None:
         """Check that the pressure profile is hydrostatic, with the adjustment
         for the fracture.
+
         Without the fracture, the profile is expected to be linear within each
         subdomain, with a small additional jump of aperture at the fracture.
-        The full range is
-        0 (bottom) to -1- aperture (top).
+        The full range is [0 (bottom), -1-aperture (top)].
+
+        Parameters:
+            angle: Angle of gravity with respect to vertical.
+            a: Fracture aperture.
+
+        Asserts:
+            That the pressure profile is as expected within a tolerance for both
+            the matrix and fracture subdomains.
+            That the flux in the fracture is zero.
         """
         mdg = self.model.mdg
         sd_primary = mdg.subdomains(dim=mdg.dim_max())[0]
@@ -961,7 +970,7 @@ class TestMixedDimGravity:
             name="pressure", data=data_primary, time_step_index=0
         )
 
-        # The cells above the fracture
+        # The cells above the fracture.
         vertical_dim = self.model.nd - 1
         h = sd_primary.cell_centers[vertical_dim]
         ind = h > 0.5
@@ -973,7 +982,7 @@ class TestMixedDimGravity:
             name="pressure", data=data_secondary, time_step_index=0
         )
 
-        # Half the additional jump is added to the fracture pressure
+        # Half the additional jump is added to the fracture pressure.
         h = sd_secondary.cell_centers[vertical_dim]
         p_known = -(a / 2 + h) * np.cos(angle)
 
@@ -988,12 +997,21 @@ class TestMixedDimGravity:
         gravity_parameter_combinations,
     )
     def test_no_flow_neumann(
-        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        grid_type: Literal["cartesian", "simplex"],
+        num_nodes_mortar: int,
+        num_nodes_1d: int,
     ):
-        """Use homogeneous Neumann boundary conditions on top Dirichlet
-        on bottom.
+        """Use homogeneous Neumann boundary conditions on top and Dirichlet on bottom.
 
         The pressure distribution should be hydrostatic.
+
+        Parameters:
+            discretization: Discretization method.
+            grid_type: Type of grid (cartesian or simplex).
+            num_nodes_mortar: Number of nodes in the mortar grid.
+            num_nodes_1d: Number of nodes in the 1d fracture grid.
 
         """
 
@@ -1012,7 +1030,7 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize(
         "discretization,num_nodes_mortar",
@@ -1026,13 +1044,23 @@ class TestMixedDimGravity:
         "angle",
         [0, np.pi / 2, np.pi],
     )
-    def test_no_flow_rotate_gravity(self, discretization, num_nodes_mortar, angle):
+    def test_no_flow_rotate_gravity(
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        num_nodes_mortar: int,
+        angle: float,
+    ) -> None:
         """Rotate the angle of gravity. Neumann boundaries except Dirichlet on bottom.
 
         There should be no flow.
 
         This test is only run for cartesian grids, as the simplex grids violate
         assumptions on number of cells in the 2d grid.
+
+        Parameters:
+            discretization: Discretization method.
+            num_nodes_mortar: Number of nodes in the mortar grid.
+            angle: Angle of gravity with respect to vertical.
 
         """
         # The angle pi/2 requires nx = 1 for there not to be flow
@@ -1056,7 +1084,7 @@ class TestMixedDimGravity:
             self.verify_pressure()
         else:
             self.verify_hydrostatic(angle)
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize(
         "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
@@ -1087,14 +1115,18 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize(
         "discretization,grid_type,num_nodes_mortar,num_nodes_1d",
         gravity_parameter_combinations,
     )
     def test_inflow_top(
-        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        grid_type: Literal["cartesian", "simplex"],
+        num_nodes_mortar: int,
+        num_nodes_1d: int,
     ):
         """
         Prescribed inflow at the top. Strength of the flow counteracts gravity, so that
@@ -1124,7 +1156,11 @@ class TestMixedDimGravity:
         gravity_parameter_combinations,
     )
     def test_uniform_pressure(
-        self, discretization, grid_type, num_nodes_mortar, num_nodes_1d
+        self,
+        discretization: Literal["mpfa", "tpfa"],
+        grid_type: Literal["cartesian", "simplex"],
+        num_nodes_mortar: int,
+        num_nodes_1d: int,
     ):
         """
         Prescribed pressure at the top. Strength of the flow counteracts gravity, so
@@ -1159,10 +1195,12 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
 
     @pytest.mark.parametrize("discretization", discretizations)
-    def test_one_fracture_3d_no_flow_dirichlet(self, discretization):
+    def test_one_fracture_3d_no_flow_dirichlet(
+        self, discretization: Literal["mpfa", "tpfa"]
+    ):
         self.model = model_setup_gravity(
             3,
             {"grid_type": "cartesian"},
@@ -1171,4 +1209,4 @@ class TestMixedDimGravity:
         )
         self.solve()
         self.verify_hydrostatic()
-        self.verify_mortar_flux(0)
+        self.verify_mortar_flux(0.0)
