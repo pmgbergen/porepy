@@ -46,7 +46,6 @@ from .flash_equations import (
     mass_conservation_res,
     parse_generic_arg,
     parse_vectorized_generic_arg,
-    parse_xy,
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
 )
@@ -59,7 +58,6 @@ from .solvers import (
     SOLVERS,
     get_empty_solver_params,
 )
-from .solvers.npipm_solver import extend_and_regularize_jac, extend_and_regularize_res
 
 __all__ = ["CompiledPersistentVariableFlash"]
 
@@ -107,6 +105,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         FlashSpec.pT,
         FlashSpec.ph,
         FlashSpec.vh,
+        FlashSpec.vu,
     )
     """Supported flash specifications. Used for checking flash input."""
 
@@ -247,6 +246,8 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         dh_c = self._eos.funcs["dh"]
         rho_c = self._eos.funcs["rho"]
         drho_c = self._eos.funcs["drho"]
+        u_c = self._eos.funcs["u"]
+        du_c = self._eos.funcs["du"]
 
         logger.info(f"Compiling {args} flash systems ...")
         start = time.time()
@@ -536,7 +537,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
             self.jacobians[FlashSpec.vh] = DF_vh
 
         if FlashSpec.vu in args and FlashSpec.vu not in self.residuals:
-            logger.debug("Compiling vh flash ...")
+            logger.debug("Compiling vu flash ...")
 
             @njit(FLASH_RESIDUAL_SIGNATURE)
             def F_vu(X_gen: np.ndarray) -> np.ndarray:
@@ -553,25 +554,26 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 p = gen_arg[4]
                 T = gen_arg[5]
                 v_target = gen_arg[6]
-                h_target = gen_arg[7]
+                u_target = gen_arg[7]
                 params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty((n_P, n_C))
-                hs = np.empty(n_P)
+                us = np.empty(n_P)
                 rhos = np.empty(n_P)
 
                 for j in range(n_P):
                     pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    hs[j] = h_c(pre_res_j, p, T, xn[j])
+                    us[j] = u_c(pre_res_j, p, T, xn[j])
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
-                res_2 = first_order_constraint_res(h_target, y, hs) / T**2
+                res_2 = first_order_constraint_res(u_target, y, us) / T**2
                 # Non-dimensional scaling of first order constraints.
-                res_2 /= h_target
+                if np.abs(u_target) > 1.0:
+                    res_2 /= u_target
                 # res_4 *= v_target
                 # NOTE due to v * rho = 1, the scaling of the volume constraint is
                 # performed differently than for the enthalpy constraint.
@@ -597,15 +599,15 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 p = gen_arg[4]
                 T = gen_arg[5]
                 v_target = gen_arg[6]
-                h_target = gen_arg[7]
+                u_target = gen_arg[7]
                 params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty((n_P, n_C))
                 dphis = np.empty((n_P, n_C, 2 + n_C))
-                hs = np.empty(n_P)
-                dhs = np.empty((n_P, 2 + n_C))
+                us = np.empty(n_P)
+                dus = np.empty((n_P, 2 + n_C))
                 rhos = np.empty(n_P)
                 drhos = np.empty((n_P, 2 + n_C))
 
@@ -618,9 +620,9 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
                         )
-                    hs[j] = h_c(pre_res_j, p, T, xn[j])
-                    dhs[j] = _chainrule_fractional_derivatives(
-                        dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                    us[j] = u_c(pre_res_j, p, T, xn[j])
+                    dus[j] = _chainrule_fractional_derivatives(
+                        du_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                     )
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
                     drhos[j] = _chainrule_fractional_derivatives(
@@ -630,12 +632,13 @@ class CompiledPersistentVariableFlash(AbstractFlash):
                 jac_1 = mass_conservation_jac(x, y)
                 # Product rule for extra term 1/T**2.
                 TT = T**2
-                jac_2 = first_order_constraint_jac(y, hs, dhs, True) / TT
-                h_res = first_order_constraint_res(h_target, y, hs)[0]
-                jac_2[0, 1] -= 2.0 / (TT * T) * h_res
+                jac_2 = first_order_constraint_jac(y, us, dus, True) / TT
+                u_res = first_order_constraint_res(u_target, y, us)[0]
+                jac_2[0, 1] -= 2.0 / (TT * T) * u_res
                 jac_3 = first_order_constraint_jac(s, rhos, drhos, False)
                 # Non-dimensional scaling of constraints.
-                jac_2 /= h_target
+                if np.abs(u_target) > 1.0:
+                    jac_2 /= u_target
                 jac_3 *= v_target
                 jac_4 = phase_mass_constraints_jac(s, y, rhos, drhos)
 

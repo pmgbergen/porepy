@@ -453,6 +453,7 @@ class FlashInitializer:
         FlashSpec.pT,
         FlashSpec.ph,
         FlashSpec.vh,
+        FlashSpec.vu,
     )
     """Supported flash types. Used for checking flash input."""
 
@@ -586,7 +587,7 @@ class FlashInitializer:
 
         # If not specified, compile all.
         if not args:
-            args = (FlashSpec.pT, FlashSpec.ph, FlashSpec.vh)
+            args = self.SUPPORTED_SPECIFICATIONS
 
         if not self._eos.is_compiled:
             self._eos.compile()
@@ -599,9 +600,9 @@ class FlashInitializer:
         prearg_jac_c = self._eos.funcs["prearg_jac"]
         phi_c = self._eos.funcs["phis"]
         h_c = self._eos.funcs["h"]
-        d_h_c = self._eos.funcs["dh"]
+        dh_c = self._eos.funcs["dh"]
         rho_c = self._eos.funcs["rho"]
-        d_rho_c = self._eos.funcs["drho"]
+        drho_c = self._eos.funcs["drho"]
 
         logger.info(f"Compiling {args} flash initialization routines ..")
         start = time.time()
@@ -631,7 +632,7 @@ class FlashInitializer:
             rachford_rice_initializer, get_K_values
         )
 
-        if FlashSpec.ph in args:
+        if FlashSpec.ph in args and FlashSpec.ph not in self._initializers:
             logger.debug("Compiling ph flash initialization ..")
 
             @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
@@ -677,7 +678,7 @@ class FlashInitializer:
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
                         pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
                         hs[j] = h_c(pre_val_j, p, T, xn[j])
-                        dh_dTs[j] = d_h_c(pre_val_j, pre_jac_j, p, T, xn[j])[1]
+                        dh_dTs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])[1]
 
                     h_mix = (hs * y).sum()
                     h_constr_res = 1 - h_mix / s2
@@ -704,7 +705,7 @@ class FlashInitializer:
                 nested_initializer, get_K_values, update_T_guess, FlashSpec.ph
             )
 
-        if FlashSpec.vh in args:
+        if FlashSpec.vh in args and FlashSpec.vh not in self._initializers:
             logger.debug("Compiling vh flash initialization ..")
 
             @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
@@ -757,7 +758,7 @@ class FlashInitializer:
                             )
 
                     R = v_pc / s1
-                    if R > 1:  # liquid-like gas
+                    if R > 1:  # liquid-like
                         Z = 0.2
                         # T correction for liquid-like guess
                         T = T / np.sqrt(R)
@@ -810,9 +811,9 @@ class FlashInitializer:
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
                         pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
                         rhos[j] = rho_c(pre_val_j, p, T, xn[j])
-                        hs[j] = h_c(pre_jac_j, p, T, xn[j])
-                        dhs[j] = d_h_c(pre_val_j, pre_jac_j, p, T, xn[j])
-                        drhos[j] = d_rho_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                        drhos[j] = drho_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                        hs[j] = h_c(pre_val_j, p, T, xn[j])
+                        dhs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
                     # Saturations are only used locally, hence we refer to sat, not s
                     # which is in the generic arg.
@@ -901,6 +902,162 @@ class FlashInitializer:
                 )
 
             self._initializers[FlashSpec.vh] = vh_init
+
+        if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
+            logger.debug("Compiling vh flash initialization ..")
+
+            @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
+            def update_pT_guess_saha(
+                X_gen: np.ndarray, params: dict[str, float]
+            ) -> np.ndarray:
+                """Helper function to update pT guess for vh flash by solving
+                respective equations using Newton and some corrections."""
+
+                # Parsing parameters
+                # N2 = int(params["N2"])
+                N2 = 2
+                tol = params["tolerance"]
+                gas_phase_idx = int(params["gas_phase_index"])
+
+                # Local system size.
+                M = 2 + nphase - 1
+                res = np.zeros(M)
+                jac = np.zeros((M, M))
+
+                # s1 and s2 are target volume and enthalpy respectively
+                s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                    X_gen, ncomp, nphase, FlashSpec.vu
+                )
+
+                # Assume no gas, fetch later if otherwise.
+                y_g = 0.0
+
+                # If no p or T value are provided at all, create initial guess using
+                # pseudo-critical values
+                if p == 0.0 or T == 0.0:
+                    T_crits = np.empty(ncomp)
+                    v_crits = np.empty(ncomp)
+                    for i in range(ncomp):
+                        T_crits[i] = params[f"_T_crit_{i}"]
+                        v_crits[i] = params[f"_v_crit_{i}"]
+                    # pseudo_critical T_guess
+                    T = (z * T_crits).sum()
+
+                    # pseudo-critical pressure guess
+                    v_pc = 0.0
+                    for i in range(ncomp):
+                        v_pc += v_crits[i] * z[i] ** 2
+                        for k in range(i + 1, ncomp):
+                            v_pc += (
+                                z[i]
+                                * z[k]
+                                / 8
+                                * (np.cbrt(v_crits[i]) + np.cbrt(v_crits[k])) ** 3
+                            )
+
+                    R = v_pc / s1
+                    # Initial Z guess base on volume ratio and refinement of T guess.
+                    if R > 1:  # liquid-like
+                        Z = 0.2
+                        T = T / np.sqrt(R)
+                    else:  # gas-like
+                        Z = 0.7
+                        T = T * (1.0 + R**2)
+
+                    p = Z * T * R_U / s1
+
+                    # Make first fraction guess based on pseudo-critical values.
+                    xf = assemble_generic_arg(
+                        s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                    )
+                    xf = fractions_from_rr(get_K_values, xf, params, FlashSpec.vu, True)
+                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                        xf, ncomp, nphase, FlashSpec.vu
+                    )
+
+                    # Correct pressure if no gas phase
+                    if gas_phase_idx >= 0:
+                        y_g = y[gas_phase_idx]
+
+                    if y_g < 1e-3:
+                        p *= 0.7
+                        T *= 1.1
+                        # Refine fraction guess.
+                        xf = assemble_generic_arg(
+                            s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                        )
+                        xf = fractions_from_rr(
+                            get_K_values, xf, params, FlashSpec.vu, False
+                        )
+                        s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
+                            xf, ncomp, nphase, FlashSpec.vu
+                        )
+
+                xn = normalize_rows(x)
+                if gas_phase_idx >= 0:
+                    y_g = y[gas_phase_idx]
+
+                hs = np.empty(nphase)
+                dhs = np.empty((nphase, 2 + ncomp))
+                rhos = np.empty(nphase)
+                drhos = np.empty((nphase, 2 + ncomp))
+
+                for j in range(nphase):
+                    pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
+                    pre_jac_j = prearg_jac_c(pre_val_j, p, T, xn[j], x_p)
+                    hs[j] = h_c(pre_val_j, p, T, xn[j])
+                    dhs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])
+                    rhos[j] = rho_c(pre_val_j, p, T, xn[j])
+                    drhos[j] = drho_c(pre_val_j, pre_jac_j, p, T, xn[j])
+
+                rho_mix = np.dot(s, rhos)
+                outer = -1.0 / rho_mix**2
+                v_new = 1.0 / rho_mix
+                dv_new_dp = outer * np.dot(s, drhos[:, 0])
+                dv_new_dT = outer * np.dot(s, drhos[:, 1])
+
+                u_new = np.dot(y, hs) - p * v_new
+                du_new_dT = np.dot(y, dhs[:, 1]) - p * dv_new_dT
+
+                dT = (s2 - u_new) / du_new_dT
+                fc = 1 - np.abs(dT) / T
+
+                if y_g > 1e-3:
+                    if y_g > 1.0 - 1e-8:
+                        fc = 1.0
+                    p += fc * dT * dv_new_dT / np.abs(dv_new_dp)
+                else:
+                    p *= 2.0 - fc
+
+                T += fc * dT
+
+                return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu)
+
+            def vu_init(X_gen: np.ndarray, params: dict[str, float]):
+                X_gen = nested_initializer(
+                    get_K_values, update_pT_guess_saha, FlashSpec.vu, X_gen, params
+                )
+                # Performing final saturation update, after guessing fractions and p,T
+                s, x, y, z, p, T, s1, s2, x_p = parse_vectorized_generic_arg(
+                    X_gen, ncomp, nphase, FlashSpec.vu
+                )
+                rhos = np.empty(y.shape)
+                for j in range(nphase):
+                    x_j = x[j, :, :]
+                    # NOTE accessing the gufuncs directly require the fractions
+                    # column-wise.
+                    xn = normalize_rows(x_j.T)
+                    pre = self._eos.gufuncs["prearg_val"](
+                        phasestates[j], p, T, xn, x_p.T
+                    )
+                    rhos[j] = self._eos.gufuncs["rho"](pre, p, T, xn)
+                s = compute_saturations(y, rhos)
+
+                return assemble_vectorized_generic_arg(
+                    s, x, y, z, p, T, s1, s2, x_p, FlashSpec.vu
+                )
+
+            self._initializers[FlashSpec.vu] = vu_init
 
         logger.info(
             "Flash initialization routines compiled"

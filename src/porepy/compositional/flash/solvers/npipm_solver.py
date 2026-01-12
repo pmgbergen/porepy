@@ -346,11 +346,7 @@ def _trust_region_cap(
 
     # Cancel the update where fractions close to 0 and 1
     dfracs_new[fracs_0 & neg_d] = 0.0
-    dfracs_new[fracs_1 * pos_d] = 1.0
-
-    # Scale update further down if violations of unity constraints would occur.
-    fracs_new = fracs + dfracs_new
-    xf = fracs_new[-n_PC:]
+    dfracs_new[fracs_1 & pos_d] = 0.0
 
     # In case DX contains also updates to non-fractional variables.
     DX *= c

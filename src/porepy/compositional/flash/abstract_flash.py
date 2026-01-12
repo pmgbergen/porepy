@@ -362,6 +362,11 @@ class AbstractFlash(abc.ABC):
                 f"Unsupported flash specifications {list(specification.keys())}."
             )
 
+        # Isochoric specifications also have saturations as independent variables.
+        # NOTE: for vT this might change, as pressure is not necessarily a DOF.
+        if isochoric_spec:
+            dofs += nphase - 1
+
         # Simple way to determine system size and check if input is broadcastable.
         try:
             t = z_sum + state1 + state2
