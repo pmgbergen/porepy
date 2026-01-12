@@ -30,9 +30,6 @@ from .fracture_network import (
 
 logger = logging.getLogger(__name__)
 
-# Shortcut for the OpenCaste CAD kernel in gmsh.
-fac = gmsh.model.occ
-
 
 class FractureNetwork2d(FractureNetwork):
     """Representation of a set of line fractures in a 2D domain.
@@ -203,7 +200,7 @@ class FractureNetwork2d(FractureNetwork):
             intersection_points,
             isect_mapping,
             constraints,
-            inv_fracture_tag_map,
+            gmsh_to_porepy_fracture_ind_map,
             mesh_size_points,
         ) = self._impose_boundary_process_intersections(
             fracture_tags, domain_tag, constraints, mesh_size_points
@@ -223,7 +220,10 @@ class FractureNetwork2d(FractureNetwork):
 
         # STEP 4: Set physical names.
         self._set_physical_names(
-            intersection_points, isect_mapping, inv_fracture_tag_map, set(constraints)
+            intersection_points,
+            isect_mapping,
+            gmsh_to_porepy_fracture_ind_map,
+            set(constraints),
         )
 
         # STEP 5: Create a gmsh mesh.
@@ -401,7 +401,9 @@ class FractureNetwork2d(FractureNetwork):
             ]
 
         # Mapping from the new fracture tags (gmsh assigned) to the input fractures.
-        inv_fracture_tag_map = {i: counter for counter, i in enumerate(fracture_tags)}
+        gmsh_to_porepy_fracture_ind_map = {
+            i: counter for counter, i in enumerate(fracture_tags)
+        }
 
         # STEP 2: Make gmsh calculate the intersections between fractures, using the
         # domain as a secondary object (the latter will by magic ensure that the
@@ -465,7 +467,7 @@ class FractureNetwork2d(FractureNetwork):
 
             # This may be a constraint fracture, in which case there is no need to
             # work with intersection removal.
-            frac_ind = inv_fracture_tag_map[old_gmsh_tag]
+            frac_ind = gmsh_to_porepy_fracture_ind_map[old_gmsh_tag]
 
             for segment in old_fracture:
                 if old_gmsh_tag in mesh_size_points:
@@ -485,7 +487,7 @@ class FractureNetwork2d(FractureNetwork):
 
         # The mesh size and fracture tag map can be updated by reassignment.
         mesh_size_points = updated_mesh_size_points
-        inv_fracture_tag_map = updated_fracture_tag_map
+        gmsh_to_porepy_fracture_ind_map = updated_fracture_tag_map
 
         # STEP 3: Find the unique boundary points and obtain a mapping from the full set
         # of boundary points to the unique ones.
@@ -514,7 +516,7 @@ class FractureNetwork2d(FractureNetwork):
             unique_intersection_points,
             isect_mapping,
             constraints,
-            inv_fracture_tag_map,
+            gmsh_to_porepy_fracture_ind_map,
             mesh_size_points,
         )
 
@@ -637,7 +639,7 @@ class FractureNetwork2d(FractureNetwork):
         self,
         intersection_points: list[int],
         isect_mapping: list,
-        inv_fracture_tag_map: dict,
+        gmsh_to_porepy_fracture_ind_map: dict,
         constraints: set,
     ):
         # Collect intersection points, fractures, and domain in physical groups in gmsh.
@@ -654,10 +656,8 @@ class FractureNetwork2d(FractureNetwork):
 
         # Since fractures may have been split at intersection points, we need to collect
         # all the segments (found in isect_mapping) into a single physical group.
-
-        # Mapping from (sub) fractures to lines.
         fracture_to_line = self._subfracture_to_fracture_mapping(
-            isect_mapping, inv_fracture_tag_map
+            isect_mapping, gmsh_to_porepy_fracture_ind_map
         )
 
         for fi, segments in fracture_to_line.items():

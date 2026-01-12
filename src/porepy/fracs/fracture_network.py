@@ -1,3 +1,10 @@
+"""This module define the abstract base class for fracture networks. Concrete
+implementations are found in derived classes in the same subpackage.
+
+Additionally, the module contains helper classes for mesh size control point insertion
+and identification of Gmsh point indices.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -202,6 +209,10 @@ class FractureNetwork(ABC):
         mesh size fields will be assigned based on the distances from these points to
         surrounding objects. For a detailed description of the approach, see the
         documentation of the MeshSizeComputer class.
+
+        NOTE: The mesh size control points are identified in terms of their coordinates,
+        not their Gmsh tags. This is a pragmatic choice to avoid keeping track of point
+        tags during the various operations in Gmsh, which seems futile to EK.
 
         Parameters:
             mesh_size_computer: Instance of MeshSizeComputer providing the mesh size
@@ -632,18 +643,21 @@ class FractureNetwork(ABC):
     def _subfracture_to_fracture_mapping(
         self,
         isect_mapping: list[list[tuple[int, int]]],
-        inv_fracture_tag_map: dict[int, int],
+        gmsh_to_porepy_fracture_ind_map: dict[int, int],
     ) -> dict[int, list[int]]:
         fracture_to_surface: dict[int, list[int]] = {}
         # Count the number of fracture objects that survived both the fragmentation and
         # the distance-based domain trimming.
-        num_real_frac = len(set(inv_fracture_tag_map.values()))
+        num_real_frac = len(set(gmsh_to_porepy_fracture_ind_map.values()))
         for fracture_group in isect_mapping[:num_real_frac]:
             # A fracture_group here was formed after intersection removal. It may
             # contain either a full fracture, or be one of several subfractures forming
             # a fracture.
             all_fracs = []
-            if fracture_group and fracture_group[0][1] not in inv_fracture_tag_map:
+            if (
+                fracture_group
+                and fracture_group[0][1] not in gmsh_to_porepy_fracture_ind_map
+            ):
                 # Skip fractures on the boundary.
                 continue
 
@@ -651,7 +665,7 @@ class FractureNetwork(ABC):
                 if fracture[0] == self.nd - 1:
                     all_fracs.append(fracture[1])
             if all_fracs:
-                frac_ind = inv_fracture_tag_map[all_fracs[0]]
+                frac_ind = gmsh_to_porepy_fracture_ind_map[all_fracs[0]]
                 fracs = fracture_to_surface.get(frac_ind, [])
                 fracs.extend(all_fracs)
                 fracture_to_surface[frac_ind] = fracs

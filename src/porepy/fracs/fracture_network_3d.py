@@ -1,34 +1,22 @@
-"""A module for representation and manipulation of 3D fracture networks.
-
-The model relies heavily on functions in the computational geometry library.
-
-"""
+"""A module for representation and manipulation of 3D fracture networks."""
 
 from __future__ import annotations
 
-from itertools import combinations
 import gmsh
 import copy
 import csv
-import logging
-import time
-import warnings
 from pathlib import Path
-from typing import Optional, Union, Final
-import multiprocessing
+from typing import Optional, Union
 
 import meshio
 import numpy as np
-from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.fracs.gmsh_interface import PhysicalNames
-from porepy.geometry import sort_points
 
 from .fracture_network import (
     FractureNetwork,
     MeshSizeComputer,
-    MeshSizeControlPointInserter,
     GmshPointIdentifier,
 )
 
@@ -275,7 +263,9 @@ class FractureNetwork3d(FractureNetwork):
         gmsh.model.occ.synchronize()
 
         # Mapping from the gmsh fracture tags to the input fractures.
-        inv_fracture_tag_map = {i: counter for counter, i in enumerate(fracture_tags)}
+        gmsh_to_porepy_fracture_ind_map = {
+            i: counter for counter, i in enumerate(fracture_tags)
+        }
 
         surface_tags = fracture_tags + boundary_tags
 
@@ -287,12 +277,12 @@ class FractureNetwork3d(FractureNetwork):
             num_parents_of_lines,
             constraints,
             intersection_line_parents,
-            inv_fracture_tag_map,
+            gmsh_to_porepy_fracture_ind_map,
         ) = self._impose_boundary_process_intersections(
             fracture_tags,
             domain_tag,
             constraints=constraints,
-            inv_fracture_tag_map=inv_fracture_tag_map,
+            gmsh_to_porepy_fracture_ind_map=gmsh_to_porepy_fracture_ind_map,
         )
         # Update mesh size control points after intersection processing.
         mesh_control_dict = self._update_mesh_size_control_point(
@@ -305,7 +295,7 @@ class FractureNetwork3d(FractureNetwork):
             intersection_lines,
             num_parents_of_lines,
             isect_mapping,
-            inv_fracture_tag_map,
+            gmsh_to_porepy_fracture_ind_map,
             constraints,
         )
 
@@ -365,7 +355,7 @@ class FractureNetwork3d(FractureNetwork):
         fracture_tags: list[int],
         domain_tag: int,
         constraints: np.ndarray,
-        inv_fracture_tag_map: dict[int, int],
+        gmsh_to_porepy_fracture_ind_map: dict[int, int],
     ) -> tuple[list, list, list, list, np.ndarray, list, dict]:
         """Impose the external boundary and process fracture intersections.
 
@@ -377,7 +367,7 @@ class FractureNetwork3d(FractureNetwork):
             domain_tag: Gmsh tag representing the domain.
             constraints: List of fracture indices (referring to input fracture
                 numbering) that are to be treated as constraints.
-            inv_fracture_tag_map: Mapping from gmsh fracture tags to input fracture
+            gmsh_to_porepy_fracture_ind_map: Mapping from gmsh fracture tags to input fracture
                 indices.
 
         Returns:
@@ -482,11 +472,13 @@ class FractureNetwork3d(FractureNetwork):
                     )
                     if np.all(distances > self._tol):
                         loc_keep[sfi] = False
-                        part_of_fracture_deleted.append(inv_fracture_tag_map[frac_ind])
+                        part_of_fracture_deleted.append(
+                            gmsh_to_porepy_fracture_ind_map[frac_ind]
+                        )
                     else:
-                        updated_fracture_tag_map[sub_frac[1]] = inv_fracture_tag_map[
-                            frac_ind
-                        ]
+                        updated_fracture_tag_map[sub_frac[1]] = (
+                            gmsh_to_porepy_fracture_ind_map[frac_ind]
+                        )
                     continue
 
                 # For each bounding point, compute the minimum distance to the different
@@ -511,12 +503,14 @@ class FractureNetwork3d(FractureNetwork):
                     loc_keep[sfi] = False
                     # Take note that part of this fracture (mapping back to the input
                     # fracture index system) has been deleted.
-                    part_of_fracture_deleted.append(inv_fracture_tag_map[frac_ind])
+                    part_of_fracture_deleted.append(
+                        gmsh_to_porepy_fracture_ind_map[frac_ind]
+                    )
                 else:
-                    if frac_ind in inv_fracture_tag_map:
-                        updated_fracture_tag_map[sub_frac[1]] = inv_fracture_tag_map[
-                            frac_ind
-                        ]
+                    if frac_ind in gmsh_to_porepy_fracture_ind_map:
+                        updated_fracture_tag_map[sub_frac[1]] = (
+                            gmsh_to_porepy_fracture_ind_map[frac_ind]
+                        )
             # Keep only the sub-fractures that are within the domain.
             isect_mapping[fi] = [frac[i] for i in range(len(frac)) if loc_keep[i]]
             # If any sub-fracture is kept, we keep the fracture.
@@ -542,11 +536,11 @@ class FractureNetwork3d(FractureNetwork):
                 # adjusting the index accordingly. Constraints are known to be sorted.
                 updated_constraints.append(int(c) - num_frac_deleted)
         constraints = np.asarray(updated_constraints)
-        inv_fracture_tag_map = updated_fracture_tag_map
+        gmsh_to_porepy_fracture_ind_map = updated_fracture_tag_map
 
         # Count the number of fracture objects that survived both the fragmentation and
         # the distance-based domain trimming.
-        num_fracs = len(set(inv_fracture_tag_map.values()))
+        num_fracs = len(set(gmsh_to_porepy_fracture_ind_map.values()))
 
         # Now, identify intersection lines. Intersection lines are either on the
         # boundary or embedded in fractures. Make a list of each.
@@ -559,7 +553,7 @@ class FractureNetwork3d(FractureNetwork):
         # Loop over all identified fragments of the fractures, find their boundary and
         # embedded lines.
         for fi, gmsh_frac_ind in enumerate(isect_mapping[:num_fracs]):
-            frac_ind = inv_fracture_tag_map[gmsh_frac_ind[0][1]]
+            frac_ind = gmsh_to_porepy_fracture_ind_map[gmsh_frac_ind[0][1]]
 
             # NOTE: Constraints do not contribute to intersection lines. This implies
             # that all the counting of parent lines (for intersection points) below is
@@ -693,7 +687,7 @@ class FractureNetwork3d(FractureNetwork):
             num_parents.tolist(),
             constraints,
             line_parents,
-            inv_fracture_tag_map,
+            gmsh_to_porepy_fracture_ind_map,
         )
 
     def _update_mesh_size_control_point(
@@ -955,7 +949,7 @@ class FractureNetwork3d(FractureNetwork):
         intersection_lines: list[int],
         num_parents_of_lines: list[int],
         isect_mapping: list,
-        inv_fracture_tag_map: dict[int, int],
+        gmsh_to_porepy_fracture_ind_map: dict[int, int],
         constraints: np.ndarray,
     ) -> dict[int, list[int]]:
         """Set physical names in gmsh for fractures and intersections.
@@ -966,7 +960,7 @@ class FractureNetwork3d(FractureNetwork):
             num_parents_of_lines: Number of parent fractures for each intersection line.
             isect_mapping: Mapping from original fractures to new surfaces after
                 intersection removal.
-            inv_fracture_tag_map: Mapping from gmsh fracture tags to input fracture
+            gmsh_to_porepy_fracture_ind_map: Mapping from gmsh fracture tags to input fracture
                 indices.
             constraints: List of fracture indices that are constraints.
 
@@ -996,7 +990,7 @@ class FractureNetwork3d(FractureNetwork):
 
         # Mapping from (sub) fractures to surfaces.
         fracture_to_surface = self._subfracture_to_fracture_mapping(
-            isect_mapping, inv_fracture_tag_map
+            isect_mapping, gmsh_to_porepy_fracture_ind_map
         )
 
         for i, frac in fracture_to_surface.items():
