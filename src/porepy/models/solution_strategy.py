@@ -502,6 +502,23 @@ class SolutionStrategy(pp.PorePyModel):
         if discretization not in self._nonlinear_discretizations:
             self._nonlinear_discretizations.append(discretization)
 
+    def remove_nonlinear_discretization(
+        self, discretization: pp.ad.MergedOperator
+    ) -> bool:
+        """Remove an entry from the list of :meth:`nonlinear_discretizations`.
+
+        Parameters:
+            discretization: The nonlinear discretization to be removed.
+
+        Returns:
+            True if the discretization was found and removed, False otherwise.
+        """
+        if discretization in self._nonlinear_discretizations:
+            self._nonlinear_discretizations.remove(discretization)
+            return True
+        else:
+            return False
+
     def add_nonlinear_diffusive_flux_discretization(
         self, discretization: pp.ad.MergedOperator
     ) -> None:
@@ -522,6 +539,24 @@ class SolutionStrategy(pp.PorePyModel):
         # before discretization, so it should not be a problem.
         if discretization not in self._nonlinear_diffusive_flux_discretizations:
             self._nonlinear_diffusive_flux_discretizations.append(discretization)
+
+    def remove_nonlinear_diffusive_flux_discretization(
+        self, discretization: pp.ad.MergedOperator
+    ) -> bool:
+        """Remove an entry from the list of
+        :meth:`nonlinear_diffusive_flux_discretizations`.
+
+        Parameters:
+            discretization: The nonlinear flux discretization to be removed.
+
+        Returns:
+            True if the discretization was found and removed, False otherwise.
+        """
+        if discretization in self._nonlinear_diffusive_flux_discretizations:
+            self._nonlinear_diffusive_flux_discretizations.remove(discretization)
+            return True
+        else:
+            return False
 
     def set_nonlinear_discretizations(self) -> None:
         """Set the list of all nonlinear discretizations.

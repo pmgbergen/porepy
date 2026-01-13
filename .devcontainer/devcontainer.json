@@ -1,0 +1,31 @@
+{
+  "name": "porepy-stable",
+  "build": {
+    "dockerfile": "../dockerfiles/codespace/Dockerfile"
+  },
+  "remoteUser": "root",
+  "workspaceFolder": "/workdir/porepy",
+  "runArgs": ["-it"],
+  "waitFor": "updateContentCommand",
+  "updateContentCommand": "python -m pip install jupyter ipykernel notebook",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.mypy-type-checker",
+        "ms-toolsai.jupyter",
+        "eamodio.gitlens",
+        "davidanson.vscode-markdownlint",
+        "charliermarsh.ruff"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "jupyter.kernels.excludePythonEnvironments": [
+          "/bin/python3",
+          "/usr/bin/python3"
+        ]
+      }
+    }
+  }
+}

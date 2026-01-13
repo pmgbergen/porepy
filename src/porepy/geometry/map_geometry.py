@@ -395,11 +395,11 @@ def normal_matrix(
         raise ValueError(
             "Need either points or normal vector to compute normal matrix."
         )
-    # Appease mypy
+    # Appease mypy.
     assert isinstance(normal, np.ndarray)
 
-    # Ravel normal vector for the calculation to work
-    return np.tensordot(normal, normal.ravel(), axes=0)
+    # Ravel normal vector for the calculation to work.
+    return np.tensordot(normal, normal.ravel(), axes=0).astype(np.float64)
 
 
 def tangent_matrix(
@@ -439,7 +439,7 @@ def tangent_matrix(
 
 def compute_normal(
     pts: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-5
-) -> np.ndarray:
+) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Compute the normal of a set of points.
 
     The sign of the normal is arbitrary The algorithm assumes that the points lie on a

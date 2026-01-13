@@ -79,7 +79,7 @@ else:
         def set_well_network(self) -> None:
             """Assign well network class :attr:`well_network`."""
 
-        def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+        def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 
             Parameters:
@@ -112,6 +112,17 @@ else:
 
             Returns:
                 Keyword arguments compatible with pp.create_mdg() method.
+
+            """
+
+        def depth(self, coords: np.ndarray) -> np.ndarray:
+            """Compute depth of points.
+
+            Parameters:
+                coords: Array of points where depth is to be calculated.
+
+            Returns:
+                Depth of points.
 
             """
 

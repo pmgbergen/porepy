@@ -1,7 +1,5 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+# This workflow builds a Docker image for the develop branch and pushes it to Docker
+# Hub.
 name: Publish Docker image for develop branch
 
 on:
