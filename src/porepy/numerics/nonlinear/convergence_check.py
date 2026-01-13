@@ -479,9 +479,8 @@ class RelativeConvergenceCriterion(ConvergenceCriterion):
                     non_zero_reference_value[key] = val
             self.reference_value.update(non_zero_reference_value)
         else:  # float
-            if self.reference_value is not None:
-                return
-            self.reference_value = reference_value
+            if self.reference_value is None and not np.isclose(reference_value, 0.0):
+                self.reference_value = reference_value
 
     def check(self, *args, **kwargs) -> tuple[ConvergenceStatus, ConvergenceInfo]:
         """Check convergence.
