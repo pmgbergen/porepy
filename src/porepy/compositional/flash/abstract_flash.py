@@ -715,7 +715,7 @@ class AbstractFlash(abc.ABC):
         )
 
         # Parse field and format values to be plotted.
-        vals: np.ndarray = self._parse_field(results, field, kwargs.get("eps", 1e-10))
+        vals: np.ndarray = self._parse_field(results, field, kwargs.get("eps", 1e-7))
         vals = vals.reshape(xm.shape)
         xlabel = specification.name[1]
         ylabel = specification.name[0]

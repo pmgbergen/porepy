@@ -162,6 +162,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         """Numba typed dict which can be passed to compiled functions. Created during
         first call to :meth:`_convert_solver_params`."""
 
+        # Setting default solver parameters.
+        self.params["rpc_T_default"] = np.array(
+            [c.critical_temperature for c in fluid.components]
+        ).max()
+        self.params["rpc_p_default"] = np.array(
+            [c.critical_pressure for c in fluid.components]
+        ).max()
+
     def _parse_and_complete_results(
         self,
         resultsarray: np.ndarray,
@@ -706,13 +714,6 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}."
 
-        # Get default solver params.
-        solver_params = copy.deepcopy(DEFAULT_SOLVER_PARAMS[solver])
-        # Update params with params from instance.
-        solver_params.update(self.solver_params)
-        # Updating solver params for local run, if provided.
-        solver_params.update(params.get("solver_params", {}))
-
         results = self.parse_flash_arguments(
             specification, z, initial_state=initial_state
         )
@@ -723,6 +724,18 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         assert results.specification in self.SUPPORTED_SPECIFICATIONS, (
             f"Unsupported flash type {results.specification.name}."
         )
+
+        # Get default solver params.
+        solver_params = copy.deepcopy(DEFAULT_SOLVER_PARAMS[solver])
+        # Update params with params from instance.
+        solver_params.update(self.solver_params)
+        # Update right-preconditioning defaults for non-isothermal specs.
+        if results.specification not in [FlashSpec.pT, FlashSpec.vT]:
+            solver_params["rpc_T"] = self.params["rpc_T_default"]
+        if results.specification >= FlashSpec.vT:
+            solver_params["rpc_p"] = self.params["rpc_p_default"]
+        # Updating solver params for local run, if provided.
+        solver_params.update(params.get("solver_params", {}))
 
         # Compile if not already compiled.
         if results.specification not in self.residuals:

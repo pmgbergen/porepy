@@ -914,15 +914,7 @@ class FlashInitializer:
                 respective equations using Newton and some corrections."""
 
                 # Parsing parameters
-                # N2 = int(params["N2"])
-                N2 = 2
-                tol = params["tolerance"]
                 gas_phase_idx = int(params["gas_phase_index"])
-
-                # Local system size.
-                M = 2 + nphase - 1
-                res = np.zeros(M)
-                jac = np.zeros((M, M))
 
                 # s1 and s2 are target volume and enthalpy respectively
                 s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
@@ -1010,6 +1002,7 @@ class FlashInitializer:
                     rhos[j] = rho_c(pre_val_j, p, T, xn[j])
                     drhos[j] = drho_c(pre_val_j, pre_jac_j, p, T, xn[j])
 
+                s = _compute_saturations(y, rhos, 1e-10)
                 rho_mix = np.dot(s, rhos)
                 outer = -1.0 / rho_mix**2
                 v_new = 1.0 / rho_mix
