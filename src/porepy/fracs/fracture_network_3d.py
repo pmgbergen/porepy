@@ -2764,6 +2764,10 @@ class FractureNetwork3d(object):
                     # Fill up with empty entries
                     + [""] * (max_pts - num_pts) * 3
                 )
+                assert np.allclose(
+                    fracture.pts.ravel(order="F").reshape((3, -1), order="F"),
+                    fracture.pts,
+                )
                 csv_writer.writerow(data)
 
     def to_fab(self, file_name: Path) -> None:
