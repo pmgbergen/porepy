@@ -39,6 +39,13 @@ Uses :func:`~porepy.compositional._numba_interface.njit`.
 """
 
 
+def _set_random_seed(*args):
+    s = 2025
+    for a in args:
+        s += int(a)
+    np.random.seed(s)
+
+
 class ConstantTransportProperties(CompiledEoS):
     """Constant viscosity and thermal conductivity for all phases.
 
@@ -153,10 +160,11 @@ class FluidMixture(pp.PorePyModel):
                 def kappa_c(
                     prearg: np.ndarray, p: float, T: float, xn: np.ndarray
                 ) -> float:
-                    if prearg[3] > 0:
-                        return 0.06
-                    else:
-                        return 0.6
+                    return 1.0
+                    # if prearg[3] > 0:
+                    #     return 0.06
+                    # else:
+                    #     return 0.6
 
                 return kappa_c
 
@@ -282,7 +290,8 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 False,
             )
             if status[0]:
-                print("\nConverged with relaxed CFLE criteria.\n")
+                # print("\nConverged with relaxed CFLE criteria.\n")
+                ...
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -312,7 +321,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 and tol_inc != np.inf
             )
             if residual_stationary and increment_stationary and not status[0]:
-                print("Detected stationary point. Flagging as diverged.")
+                # print("Detected stationary point. Flagging as diverged.")
                 status = (False, True)
 
         return status
@@ -364,22 +373,8 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
     #     pass
 
 
-class PointWells2D(_FlowConfiguration):
-    """2D matrix with point grids as injection and production points.
-
-    Alternative for the ``WellNetwork3d`` in 2d.
-
-    """
-
-    def set_domain(self) -> None:
-        self._domain = pp.Domain(
-            {
-                "xmin": 0.0,
-                "xmax": self.units.convert_units(100.0, "m"),
-                "ymin": 0.0,
-                "ymax": self.units.convert_units(20.0, "m"),
-            }
-        )
+class PointWells(_FlowConfiguration):
+    """Geometry adding point grids as wells after super-call in set_geometry."""
 
     def set_geometry(self):
         super().set_geometry()
@@ -438,7 +433,66 @@ class PointWells2D(_FlowConfiguration):
         _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
 
 
-class AdjustedWellModel2D(_FlowConfiguration):
+class RandomFracturedMatrixWithPointWells2D(PointWells):
+    """2D matrix with point grids as injection and production points.
+
+    Alternative for the ``WellNetwork3d`` in 2d.
+
+    """
+
+    _domain_x_length: float = 100.0
+    """Length of domain in x-direction in meters."""
+    _domain_y_length: float = 20.0
+    """Length of domain in x-direction in meters."""
+
+    def set_domain(self) -> None:
+        self._domain = pp.Domain(
+            {
+                "xmin": 0.0,
+                "xmax": self.units.convert_units(self._domain_x_length, "m"),
+                "ymin": 0.0,
+                "ymax": self.units.convert_units(self._domain_y_length, "m"),
+            }
+        )
+
+    def set_fractures(self) -> None:
+        x_min, y_min = 0.0, 0.0
+        x_max = self._domain_x_length
+        y_max = self._domain_y_length
+        domain_width = x_max - x_min
+        domain_height = y_max - y_min
+        min_length = domain_height
+        max_length = domain_width * 0.8
+
+        num_fracs = int(self.params.get("_num_fractures", 0))
+        fractures = []
+        _set_random_seed(num_fracs)
+        for _ in range(num_fracs):
+            # Random center within bounds
+            x_center = np.random.uniform(
+                x_min + 0.1 * domain_width, x_max - 0.1 * domain_width
+            )
+            y_center = np.random.uniform(
+                y_min + 0.1 * domain_height, y_max - 0.1 * domain_height
+            )
+
+            # Random angle and length
+            theta = np.random.uniform(-np.pi / 3, np.pi / 3)
+            length = np.random.uniform(min_length, max_length)
+
+            dx = 0.5 * length * np.cos(theta)
+            dy = 0.5 * length * np.sin(theta)
+
+            x0, x1 = x_center - dx, x_center + dx
+            y0, y1 = y_center - dy, y_center + dy
+
+            coords = np.array([[x0, x1], [y0, y1]])
+            fractures.append(pp.LineFracture(coords))
+
+        self._fractures = fractures
+
+
+class AdjustedPointWellModel(_FlowConfiguration):
     """Adjustment of a 2D model which has wells modelled as point grids.
 
     Two types of point grids are expected: ``'injection_well'`` and
@@ -770,7 +824,7 @@ class BoundaryConditions(_FlowConfiguration):
         return heated
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             heated = self._heated_boundary_faces(sd)
             return pp.BoundaryCondition(sd, heated, "dir")
         # In fractures we set trivial NBC
@@ -787,16 +841,19 @@ class BoundaryConditions(_FlowConfiguration):
         return self.bc_type_darcy_flux(sd)
 
     def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        if cf.is_fractional_flow(self):
-            return self.bc_type_fourier_flux(sd)
+        if sd.dim < self.nd:
+            return pp.BoundaryCondition(sd)
         else:
-            return self.bc_type_darcy_flux(sd)
+            if cf.is_fractional_flow(self):
+                return self.bc_type_fourier_flux(sd)
+            else:
+                return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._p_INIT
@@ -807,7 +864,7 @@ class BoundaryConditions(_FlowConfiguration):
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._T_HEATED
@@ -820,7 +877,7 @@ class BoundaryConditions(_FlowConfiguration):
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
-        if sd.dim == 2:
+        if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
             vals[heated_faces] = self._z_INIT[component.name]
@@ -845,17 +902,18 @@ class Permeability(pp.PorePyModel):
         wells in the matrix."""
 
         assert len(subdomains) <= 1, "Expecting at most 1 grid as matrix."
+        if len(subdomains) == 1:
+            assert subdomains[0].dim == self.nd, "Expecting matrix grid."
 
         K_vals: list[np.ndarray] = [np.zeros((0,))]
         K_w = float(self.params["_well_surrounding_permeability"])
 
         for sd in subdomains:
-            k = np.ones(sd.num_cells)
-            if sd.dim == self.nd:
-                k *= self.solid.permeability
-                l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
-                k[sd.cell_centers[0] < l] = K_w
-                k[sd.cell_centers[0] > r] = K_w
+            k = np.ones(sd.num_cells) * self.solid.permeability
+            l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
+            k[sd.cell_centers[0] < l] = K_w
+            k[sd.cell_centers[0] > r] = K_w
+            self.exporter.add_constant_data([(sd, "absolute_permeability", k)])
             K_vals.append(k)
 
         K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
@@ -870,13 +928,52 @@ class Permeability(pp.PorePyModel):
         return K
 
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        return self.intersection_permeability(subdomains)
+        """Set with model parameter 'fracture_permeability'."""
+        N = sum([sd.num_cells for sd in subdomains])
+        K_val = self.params.get("fracture_permeability", 1.0)
+        K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
+            float(K_val), size=N, name="base_fracture_permeability"
+        )
+
+        K_vals: list[np.ndarray] = [np.zeros((0,))]
+
+        K_low = float(self.params.get("impermeable_fracture_permeability", 1.0))
+        K_high = float(self.params.get("fracture_permeability", 1.0))
+
+        is_impermable = False
+
+        for sd in subdomains:
+            k = np.ones(sd.num_cells)
+            if is_impermable:
+                k *= K_low
+            else:
+                k *= K_high
+            is_impermable = not is_impermable
+            self.exporter.add_constant_data([(sd, "absolute_permeability", k)])
+            K_vals.append(k)
+
+        K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
+            np.concatenate(K_vals), name="base_matrix_permeability"
+        )
+
+        if cf.is_fractional_flow(self):
+            K_ *= self.total_mass_mobility(subdomains)
+
+        K = self.isotropic_second_order_tensor(subdomains, K_)
+        K.set_name("fracture_permeability")
+        return K
 
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Base permeability of wells is 1."""
-        N = sum([sd.num_cells for sd in subdomains])
+        K_vals: list[np.ndarray] = [np.zeros((0,))]
+
+        for sd in subdomains:
+            k = np.ones(sd.num_cells)
+            self.exporter.add_constant_data([(sd, "absolute_permeability", k)])
+            K_vals.append(k)
+
         K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
-            1.0, size=N, name="base_well_permeability"
+            np.concatenate(K_vals), name="base_well_permeability"
         )
 
         if cf.is_fractional_flow(self):
@@ -889,8 +986,8 @@ class Permeability(pp.PorePyModel):
 
 class _ModelMixins(
     Permeability,
-    PointWells2D,
-    AdjustedWellModel2D,
+    RandomFracturedMatrixWithPointWells2D,
+    AdjustedPointWellModel,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
@@ -899,11 +996,62 @@ class _ModelMixins(
     """Collection of used mixins, including a quadratic relative permeability law."""
 
 
-class ColdCO2InjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
+class BuoyancyModel(pp.PorePyModel):
+    def initial_condition(self):
+        super().initial_condition()
+        self.set_buoyancy_discretization_parameters()
+
+    def update_flux_values(self):
+        super().update_flux_values()
+        self.update_buoyancy_driven_fluxes()
+
+    def set_nonlinear_discretizations(self):
+        super().set_nonlinear_discretizations()
+        self.set_nonlinear_buoyancy_discretization()
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        # g_constant = pp.GRAVITY_ACCELERATION
+        # val = self.units.convert_units(g_constant, "m*s^-2")
+        # size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        # gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        # gravity_field.set_name("gravity_field")
+        # return gravity_field
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.units.convert_units(g_constant, "m*s^-2")
+        gravity_field = pp.ad.Scalar(val)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+
+class NoFluxRediscretization(pp.PorePyModel):
+    def add_nonlinear_darcy_flux_discretization(self) -> None:
+        """If the fractional flow formulation is used, the nonlinear Darcy flux
+        discretization is added by default for all subdomains to the update routine."""
+        return
+        # if cfle.cf.is_fractional_flow(self):
+        #     self.add_nonlinear_diffusive_flux_discretization(
+        #         self.darcy_flux_discretization(self.mdg.subdomains()).flux(),
+        #     )
+
+    def add_nonlinear_fourier_flux_discretization(self) -> None:
+        """Compositional flow models relay on re-discretization of the
+        Fourier flux, since the thermal conductivity is presumably a nonlinear fluid
+        property.
+
+        The discretization is added by default for all subdomains to the update routine.
+
+        """
+        return
+        # self.add_nonlinear_diffusive_flux_discretization(
+        #     self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
+        # )
+
+
+class ColdInjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
     """2-phase 2-component model simulating the injection of a cold water-co2 mixture
     into an initially hot and water saturated domain."""
 
 
-class ColdCO2InjectionModelFF(_ModelMixins, cfle.EnthalpyBasedCFFLETemplate):  # type:ignore
+class ColdInjectionModelFF(_ModelMixins, cfle.EnthalpyBasedCFFLETemplate):  # type:ignore
     """Analogous to class:`ColdCO2InjectionModel` but based on the fractional flow
     template."""

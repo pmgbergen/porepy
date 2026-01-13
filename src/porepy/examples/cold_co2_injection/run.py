@@ -1,4 +1,30 @@
-""" "Run script for the CO2 injection model."""
+"""Run script for the cold CO2 injection model.
+
+Script is executable from command line. For a list of possible flags and
+model configurations run
+
+Windows:
+
+> python.exe ./run.py --help
+
+Linux:
+
+> python run.py --help
+
+
+Note:
+    The code within the docker image from Zenodo should be static and unchanging for
+    all time.
+    There is also a repository on Github containing a snapshot of the code, which is
+    perhaps easier accessible. But the continuous availability of that repo is not
+    guaranteed.
+
+Note:
+    For some reason, the flag ``-p`` must be given a value, otherwise the parsing won't
+    work when executing from bash script. Any integer must be given, value is
+    meaningless. Just a work-around.
+
+"""
 
 from __future__ import annotations
 
@@ -11,7 +37,7 @@ FLASH_TOL_CASE: int = 2
 """Define the flash tolerance used in the solution procedure."""
 LOCAL_SOLVER_STRIDE: int = 3
 """Ïnteger determining every which global iteration to start the local solver."""
-NUM_MONTHS: int = 24
+NUM_MONTHS: int = 20
 """"Number of months (30 days) for which to run the simulation."""
 REL_PERM: Literal["quadratic", "linear"] = "linear"
 """Chocie between quadratic and linear relative permeabilities."""
@@ -31,6 +57,9 @@ BUOYANCY_ON: bool = False
 """Turn on buoyancy. NOTE: This is still under development."""
 FRACTIONAL_FLOW: bool = False
 """Use the fractional flow formulation without upwinding in the diffusive fluxes."""
+LBC_VISCOSITY: bool = False
+"""Uses the LBC model for viscosity. Otherwise it uses constant transport properties,
+equal for all phases."""
 
 MESH_SIZES: dict[int, float] = {
     0: 4.0,  # 308 cells
@@ -79,8 +108,9 @@ import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_co2_injection.model import (
-    ColdCO2InjectionModel,
-    ColdCO2InjectionModelFF,
+    BuoyancyModel,
+    ColdInjectionModel,
+    ColdInjectionModelFF,
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 
@@ -264,28 +294,6 @@ class DataCollectionMixin(pp.PorePyModel):
             return None
 
 
-class BuoyancyModel(pp.PorePyModel):
-    def initial_condition(self):
-        super().initial_condition()
-        self.set_buoyancy_discretization_parameters()
-
-    def update_flux_values(self):
-        super().update_flux_values()
-        self.update_buoyancy_driven_fluxes()
-
-    def set_nonlinear_discretizations(self):
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2")
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
-
 class QuadraticRelPerm(pp.PorePyModel):
     """ "Contains the quadratic relative permeability law."""
 
@@ -349,7 +357,13 @@ if __name__ == "__main__":
         "-p",
         "--plot",
         action="store_true",
-        help="Run simulation with settings for 2D plot, including quadratic rel-perms.",
+        # nargs=1,
+        # default=0,
+        # type=int,
+        help=(
+            "Run simulation with settings for 2D plot, including a time schedule every "
+            "30 days in the time stepping."
+        ),
     )
 
     args = parser.parse_args()
@@ -414,7 +428,7 @@ if __name__ == "__main__":
         REFINEMENT_LEVEL = 3
         FLASH_TOL_CASE = 2
         LOCAL_SOLVER_STRIDE = 3
-        NUM_MONTHS = 24
+        NUM_MONTHS = 20
         REL_PERM = "linear"
         RUN_WITH_SCHEDULE = True
         data_path = "ph_scheduled"
@@ -454,8 +468,12 @@ if __name__ == "__main__":
         max_iterations = 50
         iter_range = (36, 45)
 
-    newton_tol = 1e-7
-    newton_tol_increment = 5e-6
+    if LBC_VISCOSITY:
+        newton_tol = 1e-5
+        newton_tol_increment = 1e-5
+    else:
+        newton_tol = 1e-7
+        newton_tol_increment = 5e-6
     dt_init = pp.DAY / 2.0
 
     if RUN_WITH_SCHEDULE:
@@ -468,7 +486,7 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(10 * pp.MINUTE, dt_max),
+        dt_min_max=(1 * pp.HOUR, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
@@ -483,7 +501,7 @@ if __name__ == "__main__":
     }
 
     basalt_ = basalt.copy()
-    basalt_["permeability"] = 1e-15
+    basalt_["permeability"] = 1e-14
     well_surrounding_permeability = 1e-13
     material_params = {"solid": pp.SolidConstants(**basalt_)}
 
@@ -566,11 +584,12 @@ if __name__ == "__main__":
     model_params["_well_surrounding_permeability"] = well_surrounding_permeability
     # Storing simulation results in individual folder.
     model_params["folder_name"] = data_path
+    model_params["_lbc_viscosity"] = LBC_VISCOSITY
 
     if FRACTIONAL_FLOW:
-        model_class = ColdCO2InjectionModelFF
+        model_class = ColdInjectionModelFF
     else:
-        model_class = ColdCO2InjectionModel
+        model_class = ColdInjectionModel
 
     model_class = add_mixin(DataCollectionMixin, model_class)
 
@@ -588,8 +607,6 @@ if __name__ == "__main__":
     model.prepare_simulation()
     prep_sim_time = time.time() - t_0
     logging.getLogger("porepy").setLevel(logging.INFO)
-
-    model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
     # Defining sub system for Schur complement reduction.
     primary_equations = cfle.cf.get_primary_equations_cf(model)
