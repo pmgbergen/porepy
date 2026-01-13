@@ -9,23 +9,15 @@ from typing import cast
 
 import numpy as np
 
-from porepy.models.metric import EuclideanMetric
+import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-from porepy.numerics.linear_solvers import LinearSolver
+
+# from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceInfoCollection,
     ConvergenceStatusCollection,
     DivergenceCriteria,
-    IncrementBasedAbsoluteCriterion,
-    IncrementBasedAbsoluteDivergenceCriterion,
-    IncrementBasedNanCriterion,
-    IncrementBasedRelativeCriterion,
-    MaxIterationsCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
-    ResidualBasedNanCriterion,
-    ResidualBasedRelativeCriterion,
     SimulationStatus,
 )
 from porepy.utils.ui_and_logging import DummyProgressBar
@@ -33,7 +25,6 @@ from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
 from porepy.utils.ui_and_logging import progressbar_class
-from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -54,14 +45,22 @@ class NewtonSolver:
         res_rtol = params.get("nl_convergence_res_rtol", np.inf)
         inc_div_tol = params.get("nl_divergence_inc_tol", np.inf)
         res_div_tol = params.get("nl_divergence_res_tol", np.inf)
-        metric = params.get("nl_metric", EuclideanMetric())
+        metric = params.get("nl_metric", pp.EuclideanMetric())
 
         if "nl_convergence_criteria" not in self.params:
             self.params["nl_convergence_criteria"] = {
-                "inc_abs": IncrementBasedAbsoluteCriterion(tol=inc_atol, metric=metric),
-                "inc_rel": IncrementBasedRelativeCriterion(tol=inc_rtol, metric=metric),
-                "res_abs": ResidualBasedAbsoluteCriterion(tol=res_atol, metric=metric),
-                "res_rel": ResidualBasedRelativeCriterion(tol=res_rtol, metric=metric),
+                "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+                    tol=inc_atol, metric=metric
+                ),
+                "inc_rel": pp.IncrementBasedRelativeCriterion(
+                    tol=inc_rtol, metric=metric
+                ),
+                "res_abs": pp.ResidualBasedAbsoluteCriterion(
+                    tol=res_atol, metric=metric
+                ),
+                "res_rel": pp.ResidualBasedRelativeCriterion(
+                    tol=res_rtol, metric=metric
+                ),
             }
         self.convergence_criteria = ConvergenceCriteria(
             self.params.get("nl_convergence_criteria")
@@ -70,13 +69,13 @@ class NewtonSolver:
 
         if "nl_divergence_criteria" not in self.params:
             self.params["nl_divergence_criteria"] = {
-                "max_iter": MaxIterationsCriterion(max_iterations=max_iterations),
-                "inc_nan": IncrementBasedNanCriterion(),
-                "res_nan": ResidualBasedNanCriterion(),
-                "inc_max": IncrementBasedAbsoluteDivergenceCriterion(
+                "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
+                "inc_nan": pp.IncrementBasedNanCriterion(),
+                "res_nan": pp.ResidualBasedNanCriterion(),
+                "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
                     tol=inc_div_tol, metric=metric
                 ),
-                "res_max": ResidualBasedAbsoluteDivergenceCriterion(
+                "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
                     tol=res_div_tol, metric=metric
                 ),
             }
@@ -224,7 +223,9 @@ class NewtonSolver:
         iterate = model.equation_system.get_variable_values(iterate_index=0)
 
         # Each iteration requires a new reference value for the convergence criterion.
-        assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
+        assert isinstance(
+            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+        )
         if model.nonlinear_solver_statistics.num_iteration == 0:
             self.convergence_criteria.reset()
 
@@ -266,7 +267,9 @@ class NewtonSolver:
             convergence_info: Convergence information containing norms.
 
         """
-        assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
+        assert isinstance(
+            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+        )
         max_iterations = self.params.get("nl_max_iterations", 10)
         logger.info(
             "Newton iteration number "
@@ -301,7 +304,9 @@ class NewtonSolver:
             convergence_info: Dictionary containing norms and other information.
 
         """
-        assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
+        assert isinstance(
+            model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
+        )
 
         # Convergence-related information.
         if convergence_status is not None and convergence_info is not None:
@@ -311,6 +316,6 @@ class NewtonSolver:
 
         # Basic discretization-related information and overall simulation status.
         if simulation_status is not None:
-            LinearSolver.update_solver_statistics(
-                cast(LinearSolver, self), model, simulation_status
+            pp.LinearSolver.update_solver_statistics(
+                cast(pp.LinearSolver, self), model, simulation_status
             )

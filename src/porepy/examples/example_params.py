@@ -19,18 +19,6 @@ from porepy.applications.material_values.reference_values import (
 from porepy.applications.material_values.solid_values import (
     extended_granite_values_for_testing as granite,
 )
-from porepy.models.metric import EuclideanMetric
-from porepy.numerics.nonlinear.convergence_check import (
-    IncrementBasedAbsoluteCriterion,
-    IncrementBasedAbsoluteDivergenceCriterion,
-    IncrementBasedNanCriterion,
-    IncrementBasedRelativeCriterion,
-    MaxIterationsCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
-    ResidualBasedNanCriterion,
-    ResidualBasedRelativeCriterion,
-)
 from porepy.numerics.nonlinear.line_search import (
     ConstraintLineSearch,
     LineSearchNewtonSolver,
@@ -117,23 +105,31 @@ solver_params = {
     "nl_convergence_res_rtol": 1e-4,  # Residual norm (relative)
     "nl_divergence_inc_tol": np.inf,
     "nl_divergence_res_tol": np.inf,
-    "nl_metric": EuclideanMetric(),  # Metric for norms.
+    "nl_metric": pp.EuclideanMetric(),  # Metric for norms.
     # Detailed convergence and divergence criteria - overwrite the defaults.
     "nl_convergence_criteria": {
-        "inc_abs": IncrementBasedAbsoluteCriterion(tol=1e-6, metric=EuclideanMetric()),
-        "inc_rel": IncrementBasedRelativeCriterion(tol=1e-4, metric=EuclideanMetric()),
-        "res_abs": ResidualBasedAbsoluteCriterion(tol=1e-6, metric=EuclideanMetric()),
-        "res_rel": ResidualBasedRelativeCriterion(tol=1e-4, metric=EuclideanMetric()),
+        "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+            tol=1e-6, metric=pp.EuclideanMetric()
+        ),
+        "inc_rel": pp.IncrementBasedRelativeCriterion(
+            tol=1e-4, metric=pp.EuclideanMetric()
+        ),
+        "res_abs": pp.ResidualBasedAbsoluteCriterion(
+            tol=1e-6, metric=pp.EuclideanMetric()
+        ),
+        "res_rel": pp.ResidualBasedRelativeCriterion(
+            tol=1e-4, metric=pp.EuclideanMetric()
+        ),
     },
     "nl_divergence_criteria": {
-        "max_iter": MaxIterationsCriterion(max_iterations=10),
-        "inc_nan": IncrementBasedNanCriterion(),
-        "res_nan": ResidualBasedNanCriterion(),
-        "inc_max": IncrementBasedAbsoluteDivergenceCriterion(
-            tol=1e20, metric=EuclideanMetric()
+        "max_iter": pp.MaxIterationsCriterion(max_iterations=10),
+        "inc_nan": pp.IncrementBasedNanCriterion(),
+        "res_nan": pp.ResidualBasedNanCriterion(),
+        "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+            tol=1e20, metric=pp.EuclideanMetric()
         ),
-        "res_max": ResidualBasedAbsoluteDivergenceCriterion(
-            tol=1e20, metric=EuclideanMetric()
+        "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+            tol=1e20, metric=pp.EuclideanMetric()
         ),
     },
     # Line search / Solution Strategies. These are considered "advanced" options.

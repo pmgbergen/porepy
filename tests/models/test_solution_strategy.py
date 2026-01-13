@@ -44,10 +44,6 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceCriteria,
     ConvergenceStatus,
     DivergenceCriteria,
-    IncrementBasedAbsoluteCriterion,
-    IncrementBasedNanCriterion,
-    ResidualBasedAbsoluteCriterion,
-    ResidualBasedAbsoluteDivergenceCriterion,
 )
 
 from ..functional.setups.linear_tracer import TracerFlowModel_3p
@@ -452,14 +448,16 @@ def test_check_convergence(
     metric = EuclideanMetric()
     convergence_criteria = ConvergenceCriteria(
         {
-            "inc_abs": IncrementBasedAbsoluteCriterion(tol=1e-5, metric=metric),
-            "res_abs": ResidualBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+            "inc_abs": pp.IncrementBasedAbsoluteCriterion(tol=1e-5, metric=metric),
+            "res_abs": pp.ResidualBasedAbsoluteCriterion(tol=1e-5, metric=metric),
         }
     )
     divergence_criteria = DivergenceCriteria(
         {
-            "inc_nan": IncrementBasedNanCriterion(),
-            "res_max": ResidualBasedAbsoluteDivergenceCriterion(tol=1e4, metric=metric),
+            "inc_nan": pp.IncrementBasedNanCriterion(),
+            "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+                tol=1e4, metric=metric
+            ),
         }
     )
     # Check convergence.

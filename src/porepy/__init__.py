@@ -229,7 +229,12 @@ from porepy.models.compositional_flow import (
 from porepy.viz.exporter import Exporter
 from porepy.viz.plot_grid import plot_grid, save_img
 from porepy.viz.fracture_visualization import plot_fractures, plot_wells
-from porepy.viz.solver_statistics import SolverStatistics
+from porepy.viz.solver_statistics import (
+    SolverStatistics,
+    NonlinearSolverStatistics,
+    NonlinearSolverAndTimeStatistics,
+    TimeStatistics,
+)
 
 # Modules
 from porepy.fracs import utils as frac_utils
@@ -247,3 +252,33 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
+
+# Metrics for assessing convergence
+from porepy.models.metric import (
+    EuclideanMetric,
+    VariableBasedEuclideanMetric,
+    EquationBasedEuclideanMetric,
+    VariableBasedLebesgueMetric,
+    EquationBasedLebesgueMetric,
+)
+
+# Divergence criteria
+from porepy.numerics.nonlinear.convergence_check import (
+    MaxIterationsCriterion,
+    IncrementBasedNanCriterion,
+    ResidualBasedNanCriterion,
+    IncrementBasedAbsoluteDivergenceCriterion,
+    IncrementBasedRelativeDivergenceCriterion,
+    ResidualBasedAbsoluteDivergenceCriterion,
+    ResidualBasedRelativeDivergenceCriterion,
+)
+
+# Convergence criteria
+from porepy.numerics.nonlinear.convergence_check import (
+    IncrementBasedAbsoluteCriterion,
+    IncrementBasedRelativeCriterion,
+    IncrementBasedCombinedCriterion,
+    ResidualBasedAbsoluteCriterion,
+    ResidualBasedRelativeCriterion,
+    ResidualBasedCombinedCriterion,
+)

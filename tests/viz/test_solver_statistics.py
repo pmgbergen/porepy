@@ -2,7 +2,6 @@
 
 import porepy as pp
 from porepy.applications.test_utils.models import Poromechanics
-from porepy.viz.solver_statistics import NonlinearSolverStatistics
 
 
 def test_solver_statistic_attributes():
@@ -13,7 +12,7 @@ def test_solver_statistic_attributes():
 
     # Unit tests
     assert hasattr(model, "nonlinear_solver_statistics")
-    assert isinstance(model.nonlinear_solver_statistics, NonlinearSolverStatistics)
+    assert isinstance(model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics)
     # Basic attributes of pp.SolverStatistics
     assert hasattr(model.nonlinear_solver_statistics, "counter")
     assert hasattr(model.nonlinear_solver_statistics, "path")
