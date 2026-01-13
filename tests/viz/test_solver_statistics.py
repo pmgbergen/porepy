@@ -22,7 +22,7 @@ def test_solver_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
     # Specific attributes of pp.NonlinearSolverStatistics
     assert hasattr(model.nonlinear_solver_statistics, "num_iteration")
-    assert hasattr(model.nonlinear_solver_statistics, "num_iteration_history")
+    assert hasattr(model.nonlinear_solver_statistics, "num_iterations_history")
     assert hasattr(model.nonlinear_solver_statistics, "convergence_status")
     assert hasattr(model.nonlinear_solver_statistics, "convergence_info")
 
