@@ -755,10 +755,25 @@ def test_load_geometry_mixin(
     model_2.set_geometry()
 
     # Check that loaded geometry is identical.
+    assert model_1.domain == model_2.domain
     for frac1, frac2 in zip(
         model_1.fracture_network.fractures,
         model_2.fracture_network.fractures,
     ):
-        assert np.allclose(frac1.pts, frac2.pts)
-    assert model_1.domain == model_2.domain
-    # assert model_1.mdg == model_2.mdg
+        assert frac_pts_equal(frac1.pts, frac2.pts)
+
+    for sd1, sd2 in zip(
+        model_1.mdg.subdomains(),
+        model_2.mdg.subdomains(),
+    ):
+        assert sd1.num_cells == sd2.num_cells
+        assert sd1.num_faces == sd2.num_faces
+        assert np.allclose(sd1.cell_centers, sd2.cell_centers)
+        assert np.allclose(sd1.face_centers, sd2.face_centers)
+
+
+def frac_pts_equal(a: np.ndarray, b: np.ndarray) -> bool:
+    """Check if two arrays of fracture points are equal, disregarding order of points."""
+    if a.shape != b.shape:
+        return False
+    return np.array_equal(np.sort(a), np.sort(b))
