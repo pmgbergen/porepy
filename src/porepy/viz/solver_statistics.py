@@ -307,15 +307,16 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
         data = super().append_global_data(data)
 
-        # Store global number of iterations - need to allocate space for current iteration
+        # Store global number of iterations. Need to allocate space for current
+        # iteration.
         while len(self.num_iterations_history) <= self.counter:
             self.num_iterations_history.append(0)
         self.num_iterations_history[self.counter] = self.num_iteration
 
-        # Extract final convergence status
+        # Extract final convergence status.
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
 
-        # Determine number of waisted iterations
+        # Determine number of waisted iterations.
         total_num_waisted_iterations = 0
         for simulation_status, num_iterations in zip(
             self.simulation_status_history, self.num_iterations_history
@@ -323,7 +324,7 @@ class NonlinearSolverStatistics(SolverStatistics):
             if simulation_status != SimulationStatus.SUCCESSFUL:
                 total_num_waisted_iterations += num_iterations
 
-        # Update global data
+        # Update global data.
         data["global"].update(
             {
                 "num_iterations_history": self.num_iterations_history,
