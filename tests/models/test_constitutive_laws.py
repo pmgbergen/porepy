@@ -479,10 +479,13 @@ def test_perturbation_from_reference(
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
     [
-        (models.OrthogonalFractures3d, 1, [0.02, 0.02**2, 0.02]),
-        (models.OrthogonalFractures3d, 0, [0.02, 0.02**3, 0.02**2]),
-        (models.RectangularDomainThreeFractures, 0, [0.02, 0.02**2, 0.02]),
-        (models.RectangularDomainThreeFractures, 2, [1, 1, 42]),
+        (models.OrthogonalFractures3d, 3, [1, 1, 42, 1]),
+        (models.OrthogonalFractures3d, 2, [0.02, 0.02, 1, 1]),
+        (models.OrthogonalFractures3d, 1, [0.02, 0.02**2, 0.02, 1]),
+        (models.OrthogonalFractures3d, 0, [0.02, 0.02**3, 0.02**2, 1]),
+        (models.RectangularDomainThreeFractures, 2, [1, 1, 42, 1]),
+        (models.RectangularDomainThreeFractures, 1, [0.02, 0.02, 1, 1]),
+        (models.RectangularDomainThreeFractures, 0, [0.02, 0.02**2, 0.02, 1]),
     ],
 )
 def test_dimension_reduction_values(
@@ -523,10 +526,13 @@ def test_dimension_reduction_values(
 
     subdomains = model.mdg.subdomains(dim=domain_dimension)
     interfaces = model.mdg.interfaces(dim=domain_dimension)
+    boundaries = model.subdomains_to_boundary_grids(subdomains)
     # Check aperture and specific volume values
     aperture = model.equation_system.evaluate(model.aperture(subdomains))
     assert np.allclose(aperture.data, expected[0])
-    for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
+    for grids, expected_value in zip(
+        [subdomains, interfaces, boundaries], expected[1:]
+    ):
         specific_volume = model.equation_system.evaluate(model.specific_volume(grids))
         assert np.allclose(specific_volume.data, expected_value)
 
