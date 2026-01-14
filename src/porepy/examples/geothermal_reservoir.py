@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Callable, cast
 
 import numpy as np
 from numpy.typing import NDArray
+from warnings import warning
 
 import porepy as pp
 from porepy.applications.boundary_conditions.model_boundary_conditions import (
@@ -36,6 +37,25 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.numerics.nonlinear import line_search
 from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
+
+
+use_iterative_solver = False
+"""Set this to True to  use iterative solvers if pp_solvers is available."""
+
+if use_iterative_solver:
+    try:
+        import pp_solvers
+    except ImportError as e:
+        # The iterative solvers are located in the separate reposiotry
+        # https://github.com/pmgbergen/porepy-iterative-solvers. These solvers also
+        # require that PETSc and petsc4py are installed. The simplest way to install
+        # everything is to use the Docker image with extensions of PorePy:
+        #   docker pull porepy/extended:latest
+        warning.warn(
+            "Could not import iterative solvers. Falling back to direct solvers."
+        )
+        use_iterative_solver = False
+
 
 logger = logging.getLogger(__name__)
 
@@ -391,7 +411,37 @@ if __name__ == "__main__":
         # Set folder name for results.
         "folder_name": "geothermal_reservoir",
     }
-    model = GeothermalReservoirWellBCs(model_params)
+    model_class = GeothermalReservoirWellBCs
+    if use_iterative_solver:
+        # Augment the model class to use iterative linear solvers from pp_solvers if
+        # requested.
+        model_class = pp.applications.test_utils.models.add_mixin(
+            pp_solvers.IterativeSolverMixin, model_class
+        )
+        model_params["linear_solver"] = {
+            "preconditioner_factory": pp_solvers.thm_factory
+        }
+        # Set the number of GMRES iterations.
+        linear_solver_options = {"ksp_maxit": 300}
+        # Further solver options can be set as needed. A full documentation is not yet
+        # available, and it is likely that some trial-and-error is needed to find good
+        # options for a given problem. Here, we set some options that have proven
+        # useful, partly also to illustrate how to set options.
+        solver_options = {
+            # Set some parameters for the mechanics preconditioner.
+            "mechanics": {
+                "pc_hypre_boomeramg_strong_threshold": 0.9,
+                "pc_hypre_boomeramg_smooth_type": "ilu",
+                "pc_hypre_boomeramg_ilu_drop_tol": 1e-4,
+            },
+            # ... and for the flow preconditioner.
+            "mass_balance": {
+                "pc_hypre_boomeramg_strong_threshold": 0.7,
+            },
+        }
+        model_params["linear_solver"]["options"] = solver_options
+
+    model = model_class(model_params)
     solver_params = {
         "prepare_simulation": True,
         "max_iterations": 25,  # Max iterations of a nonlinear solver (Newton)
