@@ -7,8 +7,6 @@ import os
 import time
 from typing import Any, Callable, Literal
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import numpy as np
 import scipy.sparse as sps
 
@@ -16,6 +14,7 @@ import porepy as pp
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
+from porepy.applications.test_utils.models import add_mixin
 from porepy.examples.cold_co2_injection.model import (
     AdjustedPointWellModel,
     BoundaryConditions,
@@ -27,8 +26,10 @@ from porepy.examples.cold_co2_injection.model import (
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
 from porepy.examples.flow_benchmark_3d_case_4 import Geometry
-from porepy.applications.test_utils.models import add_mixin
 from porepy.fracs.wells_3d import _add_interface
+
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 
 BUOYANCY_ON = False
 
@@ -346,7 +347,10 @@ solver_params = {
 }
 
 model_params: dict[str, Any] = {
-    "equilibrium_condition": "unified-p-h",
+    "equilibrium_specification": (
+        pp.compositional.FlashSpec.ph,
+        "persistent-variables",
+    ),
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "flash_params": flash_params,

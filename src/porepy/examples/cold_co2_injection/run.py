@@ -30,7 +30,7 @@ from __future__ import annotations
 
 REFINEMENT_LEVEL: int = 3
 """Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
-EQUILIBRIUM_CONDITION: Literal["unified-p-T", "unified-p-h"] = "unified-p-h"
+EQUILIBRIUM_CONDITION: tuple = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
 procedure."""
 FLASH_TOL_CASE: int = 2
@@ -96,7 +96,7 @@ import os
 import pathlib
 import time
 import warnings
-from typing import Any, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
 import numpy as np
 
@@ -113,6 +113,9 @@ from porepy.examples.cold_co2_injection.model import (
     ColdInjectionModelFF,
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
+
+if TYPE_CHECKING:
+    import porepy.compositional.flash as pf
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -268,30 +271,28 @@ class DataCollectionMixin(pp.PorePyModel):
         self,
         sd: pp.Grid,
         state: Optional[np.ndarray] = None,
-        equilibrium_specs: Optional[cfle.IsobaricEquilibriumSpecs] = None,
+        equilibrium_specs: Optional[cfle.StateSpecDict] = None,
         initial_guess_from_current_state: bool = True,
         update_secondary_variables: bool = True,
-        return_num_iter: bool = False,
+        return_state: bool = False,
     ) -> None | np.ndarray:
-        nfi = super().local_equilibrium(
+        state: pf.FlashResults = super().local_equilibrium(
             sd=sd,
             state=state,
             equilibrium_specs=equilibrium_specs,
             initial_guess_from_current_state=initial_guess_from_current_state,
             update_secondary_variables=update_secondary_variables,
-            return_num_iter=True,
+            return_state=True,
         )
 
-        self._flash_iter_for_cell_mean.append(nfi)
+        self._flash_iter_for_cell_mean.append(state.num_iter)
 
         if sd not in self._cum_flash_iter_per_grid:
             self._cum_flash_iter_per_grid[sd] = []
-        self._cum_flash_iter_per_grid[sd].append(nfi)
+        self._cum_flash_iter_per_grid[sd].append(state.num_iter)
 
-        if return_num_iter:
-            return nfi
-        else:
-            return None
+        if return_state:
+            return state
 
 
 class QuadraticRelPerm(pp.PorePyModel):
@@ -564,7 +565,7 @@ if __name__ == "__main__":
     }
 
     model_params: dict[str, Any] = {
-        "equilibrium_condition": EQUILIBRIUM_CONDITION,
+        "equilibrium_specification": EQUILIBRIUM_CONDITION,
         "eliminate_reference_phase": True,
         "eliminate_reference_component": True,
         "flash_params": flash_params,
@@ -647,7 +648,7 @@ if __name__ == "__main__":
     data = {
         "simulation_success": SIMULATION_SUCCESS,
         "refinement_level": int(REFINEMENT_LEVEL),
-        "equilibrium_condition": str(EQUILIBRIUM_CONDITION),
+        "equilibrium_specification": str(EQUILIBRIUM_CONDITION),
         "tol_flash_case": int(FLASH_TOL_CASE),
         "num_cells": int(model.mdg.num_subdomain_cells()),
         "local_stride": int(-1 if LOCAL_SOLVER_STRIDE is None else LOCAL_SOLVER_STRIDE),

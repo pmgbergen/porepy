@@ -22,8 +22,13 @@ import numba
 import numba.typed
 import numpy as np
 
-from ..._numba_interface import NUMBA_PARALLEL, cfunc, typeof
-from ..abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
+from ..._numba_interface import (
+    NUMBA_PARALLEL,
+    FlashSpecMember_NUMBA_TYPE,
+    cfunc,
+    typeof,
+)
+from ...utils import FlashSpec
 
 __all__ = [
     "GENERAL_SOLVER_PARAMS",

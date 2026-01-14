@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
 
-import numba as nb
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import BoundaryNorm, LinearSegmentedColormap, ListedColormap
@@ -17,14 +16,13 @@ from numpy.typing import NDArray
 
 import porepy as pp
 
-from ..utils import safe_sum
+from ..utils import FlashSpec
 
 __all__ = [
     "IsobaricSpecifications",
     "IsochoricSpecifications",
-    "StateSpecType",
+    "StateSpecDict",
     "FlashSpec",
-    "FlashSpecMember_NUMBA_TYPE",
     "FlashResults",
     "AbstractFlash",
 ]
@@ -52,7 +50,7 @@ class IsobaricSpecifications(TypedDict):
 class IsochoricSpecifications(TypedDict):
     """Typed dictionary for isochoric equilibrium specifications.
 
-    The specific volume values are obligatory and one energy-rlated variable is
+    The specific volume values are obligatory and one energy-related variable is
     required.
 
     """
@@ -70,46 +68,13 @@ class IsochoricSpecifications(TypedDict):
     """Specific fluid enthalpy at equilibrium."""
 
 
-StateSpecType: TypeAlias = IsobaricSpecifications | IsochoricSpecifications
+StateSpecDict: TypeAlias = IsobaricSpecifications | IsochoricSpecifications
 """Alias for typed dictionaries for state specifications for equilibrium calculations.
 
 Supported are specifications with either pressure or specific volume defined.
 One additional energy-related state value is required.
 
 """
-
-
-class FlashSpec(IntEnum):
-    """Flash specifications in terms of state functions, represented by integer
-    codes.
-
-    -  Zero is reserved for no flash specifications.
-    - 1 - 9 are reserved for isobaric specifications, with 1 being the isobaric-
-      isothermal specification. Anything above is non-isothermal.
-    - 10 - 19 are reserved for isochoric specifications, with 10 being the isochoric-
-      isothermal specification. Anything above is non-isothermal.
-
-    """
-
-    none = 0
-    """No Equilibrium defined."""
-
-    pT = 1
-    """Equilibrium at fixed pressure and temperature."""
-    ph = 2
-    """Equilibrium at fixed pressure and enthalpy."""
-
-    vT = 10
-    """Equilibrium at fixed volume and temperature."""
-    vh = 11
-    """Equilibrium at fixed volume and enthalpy."""
-    vu = 12
-    """Equilibrium at fixed volume and internal energy."""
-
-
-FlashSpecMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
-"""Numba type for function signatures which take members of :class:`FlashSpec`
-as arguments or as a return value."""
 
 
 @dataclass
@@ -241,7 +206,7 @@ class AbstractFlash(abc.ABC):
 
     def parse_flash_arguments(
         self,
-        specification: StateSpecType,
+        specification: StateSpecDict,
         z: Optional[Sequence[np.ndarray | pp.number]] = None,
         /,
         *,
@@ -487,7 +452,7 @@ class AbstractFlash(abc.ABC):
     @abc.abstractmethod
     def flash(
         self,
-        specification: StateSpecType,
+        specification: StateSpecDict,
         z: Optional[Sequence[np.ndarray | pp.number]] = None,
         /,
         *,

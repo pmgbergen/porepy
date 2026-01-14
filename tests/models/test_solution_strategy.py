@@ -562,7 +562,7 @@ def test_schur_complement_inverter_on_model(
 
     model_params = {
         "apply_schur_complement_reduction": True,
-        "equilibrium_condition": "dummy",
+        "equilibrium_specification": "dummy",
         "meshing_arguments": {
             "cell_size": 0.1,
         },

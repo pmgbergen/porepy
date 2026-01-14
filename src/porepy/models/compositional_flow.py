@@ -106,10 +106,9 @@ from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
-import porepy.compositional as compositional
+import porepy.compositional as pc
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +116,7 @@ logger = logging.getLogger(__name__)
 def update_phase_properties(
     sd: pp.Grid,
     phase: pp.Phase,
-    props: compositional.PhaseProperties,
+    props: pc.PhaseProperties,
     depth: int,
     update_derivatives: bool = True,
     use_extended_derivatives: bool = False,
@@ -212,7 +211,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = compositional.get_local_equilibrium_condition(model)
+    et = pc.get_equilibrium_specifications(model)
     schur = model.params.get("apply_schur_complement_reduction", False)
     var_names = set([v.name for v in model.equation_system.variables])
     dofs = model.equation_system.num_dofs()
@@ -221,7 +220,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
 
     logger.info(
         f"Configuration of model {model}:\n"
-        + f"\tEquilibrium condition: {et}\n"
+        + f"\tEquilibrium specification: {et}\n"
         + f"\tFractional flow: {is_ff}"
         + f"\tEliminating secondary block via Schur complement: {schur}"
         + f"\tNumber of phases: {model.fluid.num_phases}\n"
@@ -964,7 +963,7 @@ class PrimaryEquationsCFF(
 
 
 class VariablesCF(
-    compositional.CompositionalVariables,
+    pc.CompositionalVariables,
     pp.energy_balance.EnthalpyVariable,
     pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
 ):
@@ -1005,7 +1004,7 @@ class ConstitutiveLawsSolidSkeletonCF(
 
 class ConstitutiveLawsCF(
     # NOTE must be on top to overwrite phase properties as general surrogate factories
-    compositional.FluidMixin,
+    pc.FluidMixin,
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
@@ -1075,7 +1074,7 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
 
     _overall_fraction_variable: Callable[[pp.Component], str]
     """Provided by mixin for compositional variables."""
-    _tracer_fraction_variable: Callable[[pp.Component, compositional.Compound], str]
+    _tracer_fraction_variable: Callable[[pp.Component, pc.Compound], str]
     """Provided by mixin for compositional variables."""
     has_independent_fraction: Callable[[pp.Component], bool]
     """Provided by mixin for compositional variables."""
@@ -1111,7 +1110,7 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
 
         for component in self.fluid.components:
             # Update of tracer fractions on Dirichlet boundary.
-            if isinstance(component, compositional.Compound):
+            if isinstance(component, pc.Compound):
                 for tracer in component.active_tracers:
                     bc_vals = cast(
                         Callable[[pp.BoundaryGrid], np.ndarray],
@@ -1168,7 +1167,7 @@ class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
     def bc_values_tracer_fraction(
         self,
         tracer: pp.Component,
-        compound: compositional.Compound,
+        compound: pc.Compound,
         bg: pp.BoundaryGrid,
     ) -> np.ndarray:
         """BC values for active tracer fractions (primary variable).
@@ -1452,9 +1451,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
 
     """
 
-    has_independent_tracer_fraction: Callable[
-        [pp.Component, compositional.Compound], bool
-    ]
+    has_independent_tracer_fraction: Callable[[pp.Component, pc.Compound], bool]
     """Provided by mixin for compositional variables."""
     has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """Provided by mixin for compositional variables."""
@@ -1482,7 +1479,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
                     )
 
                 # All tracer fractions must have an initial value.
-                if isinstance(component, compositional.Compound):
+                if isinstance(component, pc.Compound):
                     for tracer in component.active_tracers:
                         if self.has_independent_tracer_fraction(tracer, component):
                             self.equation_system.set_variable_values(
@@ -1513,7 +1510,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
         return np.zeros(sd.num_cells)
 
     def ic_values_tracer_fraction(
-        self, tracer: pp.Component, compound: compositional.Compound, sd: pp.Grid
+        self, tracer: pp.Component, compound: pc.Compound, sd: pp.Grid
     ) -> np.ndarray:
         """
         Parameters:
@@ -1554,9 +1551,6 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
         Derivative values are only stored for the current iterate.
 
         """
-        equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
-        )
 
         # Set the initial values on individual grids for the iterate indices.
         for sd in self.mdg.subdomains():
@@ -1573,7 +1567,11 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
                 # Set values and derivative values for current current index.
                 update_phase_properties(
-                    sd, phase, phase_props, 0, update_fugacities=equilibrium_defined
+                    sd,
+                    phase,
+                    phase_props,
+                    0,
+                    update_fugacities=pc.has_equilibrium_specified(self),
                 )
 
 
@@ -1639,9 +1637,6 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         sense, on all subdomains."""
 
         subdomains = self.mdg.subdomains()
-        equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
-        )
 
         for grid in subdomains:
             for phase in self.fluid.phases:
@@ -1665,7 +1660,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                     phase,
                     phase_state,
                     0,
-                    update_fugacities=equilibrium_defined,
+                    update_fugacities=pc.has_equilibrium_specified(self),
                 )
 
     def after_nonlinear_convergence(self) -> None:
@@ -1709,9 +1704,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
         ni = self.iterate_indices.size
         nt = self.time_step_indices.size
-        equilibrium_defined = (
-            compositional.get_local_equilibrium_condition(self) is not None
-        )
+        equilibrium_defined = pc.has_equilibrium_specified(self)
 
         for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
@@ -1746,7 +1739,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                         )
 
                     if equilibrium_defined:
-                        for k, comp in enumerate(phase.components):
+                        for _, comp in enumerate(phase.components):
                             phi = phase.fugacity_coefficient_of[comp]
                             if isinstance(phi, pp.ad.SurrogateFactory):
                                 vals = phi.get_values_on_grid(sd, iterate_index=0)

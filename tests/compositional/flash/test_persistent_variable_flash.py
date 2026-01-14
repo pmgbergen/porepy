@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+import porepy.compositional as pc
 import porepy.compositional.flash as pf
 import porepy.compositional.peng_robinson as pr
 from porepy.applications.test_utils.derivative_testing import (
@@ -84,7 +85,7 @@ def test_error_when_flashing_with_one_phase(
 
 
 def _dh_from_cp(
-    cp: tuple[int, str], spec: pf.FlashSpec
+    cp: tuple[int, str], spec: pc.FlashSpec
 ) -> list[tuple[np.ndarray, np.ndarray]]:
     ncomp = cp[0]
     nphase = len(cp[1])
@@ -100,11 +101,11 @@ def _dh_from_cp(
 
     h_all: list[np.ndarray]
     match spec:
-        case pf.FlashSpec.pT | pf.FlashSpec.vT:
+        case pc.FlashSpec.pT | pc.FlashSpec.vT:
             h_all = [h_fractions] * base_dim
-        case pf.FlashSpec.ph:
+        case pc.FlashSpec.ph:
             h_all = [h_T] + [h_fractions] * (base_dim - 1)
-        case pf.FlashSpec.vh | pf.FlashSpec.vu:
+        case pc.FlashSpec.vh | pc.FlashSpec.vu:
             h_all = [h_p, h_T] + [h_fractions] * (base_dim - 2)
         case _:
             assert False, "Uncovered flash specification in test."
@@ -127,7 +128,7 @@ def _dh_from_cp(
                 (3, "LL"),
                 (3, "LLL"),
             ],
-            [pf.FlashSpec.pT, pf.FlashSpec.ph, pf.FlashSpec.vh],
+            [pc.FlashSpec.pT, pc.FlashSpec.ph, pc.FlashSpec.vh],
         )
         for d, h in _dh_from_cp(cp, spec)
     ],
@@ -139,7 +140,7 @@ def test_assembly_of_flash_systems(
     comps_and_phases: tuple[int, str],
     d: np.ndarray,
     h: np.ndarray,
-    flash_spec: pf.FlashSpec,
+    flash_spec: pc.FlashSpec,
 ) -> None:
     """Tests the assembly of flash systems:
 
@@ -157,11 +158,11 @@ def test_assembly_of_flash_systems(
     base_dim = ncomp * nphase + nphase - 1
 
     match flash_spec:
-        case pf.FlashSpec.pT | pf.FlashSpec.vT:
+        case pc.FlashSpec.pT | pc.FlashSpec.vT:
             pass
-        case pf.FlashSpec.ph:
+        case pc.FlashSpec.ph:
             base_dim += 1
-        case pf.FlashSpec.vh | pf.FlashSpec.vu:
+        case pc.FlashSpec.vh | pc.FlashSpec.vu:
             base_dim += 2 + nphase - 1
         case _:
             assert False, "Uncovered flash specification in test."
@@ -183,7 +184,7 @@ def test_assembly_of_flash_systems(
     p = 1e7
     T = 400.0
     # Isochoric of isobaric.
-    if flash_spec >= pf.FlashSpec.vT:
+    if flash_spec >= pc.FlashSpec.vT:
         state1 = 1e-5
     else:
         state1 = p

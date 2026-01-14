@@ -1,4 +1,4 @@
-"""Module containing an implementation of the persistent-variable flash using (parallel)
+"""Module containing an implementation of the persistent-variables flash using parallel
 compiled functions created with numba.
 
 Equations are assembled in a modular fashion depending on the flash specification.
@@ -32,8 +32,8 @@ import porepy as pp
 
 from .._numba_interface import njit
 from ..compiled_eos import CompiledEoS
-from ..utils import _chainrule_fractional_derivatives, normalize_rows
-from .abstract_flash import AbstractFlash, FlashResults, FlashSpec, StateSpecType
+from ..utils import FlashSpec, _chainrule_fractional_derivatives, normalize_rows
+from .abstract_flash import AbstractFlash, FlashResults, StateSpecDict
 from .flash_equations import (
     complementary_conditions_jac,
     complementary_conditions_res,
@@ -130,7 +130,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         ):
             raise ValueError(
                 "All phases must have a defined physical state in the "
-                "persistent-variable flash."
+                "persistent-variables flash."
             )
         self._phasestates: tuple[pp.compositional.PhysicalState, ...] = states
         """A sequence containing the physical phase state per phase."""
@@ -665,7 +665,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
 
     def flash(
         self,
-        specification: StateSpecType,
+        specification: StateSpecDict,
         z: Optional[Sequence[np.ndarray | pp.number]] = None,
         /,
         *,

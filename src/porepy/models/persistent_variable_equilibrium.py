@@ -1,13 +1,13 @@
-"""Module containing equation classes for introducing the local, unified equilibrium
-problem into a PorePy model.
+"""Module containing equation classes for introducing the local, persistent-variable
+equilibrium problem (PVE) into a PorePy model.
 
 Local equilibrium equations are single, cell-wise algebraic equations, introducing
 the thermodynamically consistent approach to modelling secondary expressions like
 phase densities and closing a CF model.
 
-Instances of :class:`UnifiedEquilibriumMixin` require the ``'equilibrium_condition'``
-model parameter to be *not* ``None``. This is to inform the remaining framework
-that local equilibrium assumptions (instead of some constitutive laws) were introduced.
+Instances of :class:`UnifiedEquilibriumMixin` require the
+``'equilibrium_specification'`` model parameter to be *not* none. This is to inform the
+remaining framework that local equilibrium assumptions were introduced.
 
 """
 
@@ -22,10 +22,10 @@ from porepy.models.abstract_equations import EquationMixin
 
 __all__ = [
     "EnthalpyTemperatureRelation",
-    "UnifiedPhaseEquilibriumEquations",
-    "Unified_pT_Equilibrium",
-    "Unified_ph_Equilibrium",
-    "Unified_vh_Equilibrium",
+    "PVEEquations",
+    "PT_PVEEquations",
+    "PH_PVEEquations",
+    "VH_PVEEquations",
 ]
 
 
@@ -80,7 +80,7 @@ class EnthalpyTemperatureRelation(EquationMixin):
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
 
-class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
+class PVEEquations(pp.PorePyModel):
     """Base class for introducing local phase equilibrium equations into a model using
     the unified formulation.
 
@@ -91,7 +91,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
     if any of the following assumptions is violated:
 
     1. At least 2 components and 2 phases are modelled.
-    2. The model's ``params['equilibrium_condition']`` is not None and contains the
+    2. The model's ``params['equilibrium_specification']`` is not None and contains the
        keyword ``'unified'``.
     3. All phases have all components set in them (all extended partial fractions are
        defined and introduced).
@@ -115,10 +115,10 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         ncomp = self.fluid.num_components
         nphase = self.fluid.num_phases
 
-        if not pp.compositional.has_unified_equilibrium(self):
+        if not pp.compositional.is_persistent_variable_form(self):
             raise CompositionalModellingError(
-                "Must define a `equilibrium_condition` model parameter containing the"
-                + " keyword `unified` when using the Unified Equilibrium Mixin."
+                "Must define a `equilibrium_specification` model parameter containing"
+                + " the keyword `persistent-variables`."
             )
 
         if nphase < 2:
@@ -379,7 +379,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         return equ
 
 
-class Unified_pT_Equilibrium(UnifiedPhaseEquilibriumEquations):
+class PT_PVEEquations(PVEEquations):
     """Mixin class modelling the unified p-T flash.
 
     The unified p-T flash consists of
@@ -425,7 +425,7 @@ class Unified_pT_Equilibrium(UnifiedPhaseEquilibriumEquations):
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
 
-class Unified_ph_Equilibrium(Unified_pT_Equilibrium):
+class PH_PVEEquations(PT_PVEEquations):
     """Unified equilibrium equations where temperature is treated as an unknown.
 
     To close the system, this class introduces a local enthalpy constraint atop the
@@ -440,7 +440,7 @@ class Unified_ph_Equilibrium(Unified_pT_Equilibrium):
 
     def set_equations(self) -> None:
         """Introduces the local  enthalpy constraint, atop the equations introduced
-        by :class:`Unified_pT_Equilibrium`, on all subdomains."""
+        by :class:`PT_PVEEquations`, on all subdomains."""
         assert isinstance(self, EquationMixin)
         super().set_equations()  # type:ignore[safe-super]
         subdomains = self.mdg.subdomains()
@@ -448,7 +448,7 @@ class Unified_ph_Equilibrium(Unified_pT_Equilibrium):
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
 
-class Unified_vh_Equilibrium(Unified_ph_Equilibrium):
+class VH_PVEEquations(PH_PVEEquations):
     """Unified equilibrium model if pressure and temperature are unknown at equilibrium.
 
     It extends the unified p-h equilibrium formulation by introducing a local

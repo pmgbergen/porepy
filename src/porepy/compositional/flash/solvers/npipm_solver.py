@@ -11,7 +11,7 @@ import numba as nb
 import numpy as np
 
 from ..._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
-from ..abstract_flash import FlashSpec
+from ...utils import FlashSpec
 from ..flash_equations import parse_xy
 from ._armijo_line_search import (  # armijo_line_search,
     _ARMIJO_LINE_SEARCH_PARAMS_KEYS,

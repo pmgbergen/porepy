@@ -1,6 +1,6 @@
 """This module contains compiled versions of the Peng-Robinson equation of state.
 
-It is designed for the persistent-variable formulation, i.e. it provides extended
+It is designed for the persistent-variables formulation, i.e. it provides extended
 fluid properties using extended compressibility factors where a phase is physically
 absent.
 

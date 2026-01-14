@@ -127,7 +127,7 @@ def load_data(
     return SimulationData(
         simulation_success=bool(data["simulation_success"]),
         refinement_level=int(data["refinement_level"]),
-        equilibrium_condtion=str(data["equilibrium_condition"]),
+        equilibrium_condtion=str(data["equilibrium_specification"]),
         tol_flash_case=int(data["tol_flash_case"]),
         local_stride=int(data["local_stride"]),
         num_cells=int(data["num_cells"]),

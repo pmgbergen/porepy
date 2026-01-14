@@ -625,7 +625,10 @@ if __name__ == "__main__":
     }
 
     model_params = {
-        "equilibrium_condition": "unified-p-h",
+        "equilibrium_specification": (
+            pp.compositional.FlashSpec.ph,
+            "persistent-variables",
+        ),
         "flash_params": flash_params,
         "fractional_flow": True,
         "material_constants": material_params,

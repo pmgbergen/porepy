@@ -14,7 +14,7 @@ Note:
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Callable, Literal, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence, cast
 
 import numba as nb
 import numpy as np
@@ -30,6 +30,9 @@ from porepy.compositional.compiled_eos import (
     VectorFunction,
 )
 from porepy.fracs.wells_3d import _add_interface
+
+if TYPE_CHECKING:
+    import porepy.compositional.flash as pf
 
 _COMPILER = njit
 """Decorator for compiling functions in this module.
@@ -355,14 +358,14 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                         self.temperature([sd]), state=state
                     ),
                 }
-                nfi = self.local_equilibrium(
+
+                self.local_equilibrium(
                     sd,
                     state=state,
-                    equilibrium_specs=equ_spec,
-                    return_num_iter=True,
-                )  # type:ignore
+                    specification=cast(pf.StateSpecDict, equ_spec),
+                )
             elif do_flash:
-                nfi = self.local_equilibrium(sd, state=state, return_num_iter=True)  # type:ignore
+                self.local_equilibrium(sd, state=state)
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
                     self,
@@ -931,7 +934,9 @@ class Permeability(pp.PorePyModel):
         """Set with model parameter 'fracture_permeability'."""
         N = sum([sd.num_cells for sd in subdomains])
         K_val = self.params.get("fracture_permeability", 1.0)
-        K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
+        K_: pp.ad.Operator
+
+        K_ = pp.wrap_as_dense_ad_array(
             float(K_val), size=N, name="base_fracture_permeability"
         )
 
@@ -952,8 +957,8 @@ class Permeability(pp.PorePyModel):
             self.exporter.add_constant_data([(sd, "absolute_permeability", k)])
             K_vals.append(k)
 
-        K_: pp.ad.Operator = pp.wrap_as_dense_ad_array(
-            np.concatenate(K_vals), name="base_matrix_permeability"
+        K_ = pp.wrap_as_dense_ad_array(
+            np.concatenate(K_vals), name="base_fracture_permeability"
         )
 
         if cf.is_fractional_flow(self):

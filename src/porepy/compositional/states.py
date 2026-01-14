@@ -348,6 +348,7 @@ def initialize_fluid_properties(
     state.p = np.zeros(n)
     state.T = np.zeros(n)
     state.h = np.zeros(n)
+    state.u = np.zeros(n)
     state.rho = np.zeros(n)
     state.y = np.zeros((nphase, n))
     state.sat = np.zeros((nphase, n))

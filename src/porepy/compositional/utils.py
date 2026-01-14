@@ -3,6 +3,7 @@ exception class :class:`CompositionalModellingError`."""
 
 from __future__ import annotations
 
+from enum import IntEnum
 from typing import Sequence, TypeVar, cast
 
 import numba as nb
@@ -16,6 +17,7 @@ __all__ = [
     "chainrule_fractional_derivatives",
     "compute_saturations",
     "CompositionalModellingError",
+    "FlashSpec",
 ]
 
 
@@ -299,3 +301,31 @@ class CompositionalModellingError(Exception):
     - violations of unified assumptions in equilibrium problems.
 
     """
+
+
+class FlashSpec(IntEnum):
+    """Flash specifications in terms of state functions, represented by integer
+    codes.
+
+    - Zero is reserved for no flash specifications.
+    - 1 - 9 are reserved for isobaric specifications, with 1 being the isobaric-
+      isothermal specification. Anything above is non-isothermal.
+    - 10 - 19 are reserved for isochoric specifications, with 10 being the isochoric-
+      isothermal specification. Anything above is non-isothermal.
+
+    """
+
+    none = 0
+    """No Equilibrium defined."""
+
+    pT = 1
+    """Equilibrium at fixed pressure and temperature."""
+    ph = 2
+    """Equilibrium at fixed pressure and enthalpy."""
+
+    vT = 10
+    """Equilibrium at fixed volume and temperature."""
+    vh = 11
+    """Equilibrium at fixed volume and enthalpy."""
+    vu = 12
+    """Equilibrium at fixed volume and internal energy."""

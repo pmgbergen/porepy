@@ -19,13 +19,13 @@ from .._numba_interface import (
     NUMBA_CACHE,
     NUMBA_FAST_MATH,
     NUMBA_PARALLEL,
+    FlashSpecMember_NUMBA_TYPE,
     cfunc,
     njit,
     typeof,
 )
 from ..compiled_eos import CompiledEoS
-from ..utils import _compute_saturations, compute_saturations, normalize_rows
-from .abstract_flash import FlashSpec, FlashSpecMember_NUMBA_TYPE
+from ..utils import FlashSpec, _compute_saturations, compute_saturations, normalize_rows
 from .flash_equations import (
     assemble_generic_arg,
     assemble_vectorized_generic_arg,

@@ -6,22 +6,22 @@ import logging
 import os
 import time
 import warnings
-
 from typing import Any
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import numpy as np
+
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.examples.cold_co2_injection.model import (
-    ColdInjectionModelFF,
     BuoyancyModel,
     ColdInjectionModel,
+    ColdInjectionModelFF,
     NoFluxRediscretization,
 )
 from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
+
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -117,7 +117,7 @@ meshing_params = {
 }
 
 model_params: dict[str, Any] = {
-    "equilibrium_condition": "unified-p-h",
+    "equilibrium_specification": "unified-p-h",
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "flash_params": flash_params,

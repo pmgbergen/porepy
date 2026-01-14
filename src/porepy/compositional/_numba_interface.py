@@ -18,6 +18,8 @@ from typing import Callable, TypeAlias
 import numba as nb
 from numba.core import sigutils
 
+from .utils import FlashSpec
+
 _IS_JIT_DISABLED: bool = False
 """Environment flag checking whether numba JIT is enabled or not.
 
@@ -122,3 +124,8 @@ Affected numba functionality includes:
    <https://numba.readthedocs.io/en/stable/user/vectorize.html>`_
 
 """
+
+
+FlashSpecMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
+"""Numba type for function signatures which take members of :class:`FlashSpec`
+as arguments or as a return value."""

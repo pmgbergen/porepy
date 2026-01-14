@@ -26,12 +26,13 @@ from typing import Callable, Sequence, cast
 import porepy as pp
 
 from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
-from .utils import CompositionalModellingError
+from .utils import CompositionalModellingError, FlashSpec
 
 __all__ = [
     "VAR_SYMBOLS",
-    "get_local_equilibrium_condition",
-    "has_unified_equilibrium",
+    "get_equilibrium_specifications",
+    "has_equilibrium_specified",
+    "is_persistent_variable_form",
     "CompositionalVariables",
     "FluidMixin",
 ]
@@ -74,39 +75,64 @@ def _get_surrogate_factory_as_property(
 
 
 # TODO move below two inquires once flash and CFLE are merged.
-def get_local_equilibrium_condition(model: pp.PorePyModel) -> str | None:
+def get_equilibrium_specifications(
+    model: pp.PorePyModel,
+) -> tuple[FlashSpec | str, ...]:
+    """
+    Parameters:
+        model: A PorePy model.
+
+    Raises:
+        ValueError: If the equilibrium specification contains more than one
+            ``FlashSpec`` member.
+
+    Returns:
+        The local equilibrium condition specifications stored in
+        ``model.params['equilibrium_specification']`. Defaults to tuple containing the
+        non-specification.
+
+        Expected equilibrium conditions contain ``FlashSpec`` members, and possibly
+        other qualifiers like strings providing additional information
+        (e.g., ``'persistent-variables'``).
+
+    """
+    et = model.params.get("equilibrium_specification", (FlashSpec.none,))
+    specs = set([s for s in et if isinstance(s, FlashSpec)])
+    if len(specs) != 1:
+        raise ValueError(
+            "Equilibrium condition must contain exactly one FlashSpec member."
+        )
+    return et
+
+
+def has_equilibrium_specified(model: pp.PorePyModel) -> bool:
     """
     Parameters:
         model: A PorePy model.
 
     Returns:
-        The local equilibrium condition stored in
-        ``model.params['equilibrium_condition']`. Defaults to None.
-
-        Expected equilibrium conditions are any combination of to state functions fixed
-        at equilibrium, e.g. ``'pressure-temperature'``, ``'pressure-enthalpy'``.
-
-        Additional qualifiers also also allowed, e.g. ``'unified-pressure-enthalpy'``.
+        True, if the flash specification in
+        ``model.params['equilibrium_specification']`` is not
+        ``FlashSpec.none``.
 
     """
-    et = model.params.get("equilibrium_condition", None)
-    if et is not None:
-        return str(et)
+    if FlashSpec.none in get_equilibrium_specifications(model):
+        return False
     else:
-        return None
+        return True
 
 
-def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
+def is_persistent_variable_form(model: pp.PorePyModel) -> bool:
     """
     Parameters:
         model: A PorePy model.
 
     Returns:
-        True, if the keyword ``'unified'`` is in
-        ``model.params['equilibrium_condition']``, if given at all. Defaults to False.
+        True, if the keyword ``'persistent-variable'`` is in
+        ``model.params['equilibrium_specification']``.
 
     """
-    if "unified" in str(get_local_equilibrium_condition(model)).lower():
+    if "persistent-variables" in get_equilibrium_specifications(model):
         return True
     else:
         return False
@@ -175,7 +201,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         It is also guided by the flags ``'eliminate_reference_component'`` and
         ``'eliminate_reference_phase'``, which can be set in the model's :attr:`params`.
 
-        Finally, the ``'equilibrium_condition'`` set in the model's :attr:`params` is
+        Finally, the ``'equilibrium_specification'`` set in the model parameters is
         used to determine the independency of partial and extended fractions of
         components in phases.
 
@@ -314,7 +340,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         See also:
 
-            :func:`get_local_equilibrium_condition`
+            :func:`get_equilibrium_specifications`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -334,7 +360,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if has_unified_equilibrium(self):
+        if is_persistent_variable_form(self):
             return False
         else:
             if component not in phase:
@@ -375,7 +401,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         See also:
 
-            :func:`get_local_equilibrium_condition`
+            :func:`is_persistent_variable_form`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -396,7 +422,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if has_unified_equilibrium(self):
+        if is_persistent_variable_form(self):
             if component not in phase:
                 raise CompositionalModellingError(
                     f"Component {component} not in phase {phase}."
@@ -498,7 +524,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         """Names of independent phase :attr:`~porepy.compositional.base.Phase.fraction`
         variables created for this model."""
         names: list[str] = []
-        if get_local_equilibrium_condition(self) is not None:
+        if has_equilibrium_specified(self):
             for phase in self.fluid.phases:
                 if self.has_independent_fraction(phase):
                     names.append(self._phase_fraction_variable(phase))
@@ -532,7 +558,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         for phase in self.fluid.phases:
             for comp in phase:
                 append = False
-                if has_unified_equilibrium(self):
+                if is_persistent_variable_form(self):
                     if self.has_independent_extended_fraction(comp, phase):
                         append = True
                 elif self.has_independent_partial_fraction(comp, phase):
@@ -787,7 +813,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
 
-        elif get_local_equilibrium_condition(self) is None:
+        elif not has_equilibrium_specified(self):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(
@@ -861,7 +887,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 )
 
         # If no unified equilibrium, calling the extended fractions will raise an error.
-        elif not has_unified_equilibrium(self):
+        elif not is_persistent_variable_form(self):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(
@@ -942,7 +968,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 return x_r
 
         # Case of unified equilibrium: Partial fractions are obtained by normalization.
-        elif has_unified_equilibrium(self):
+        elif is_persistent_variable_form(self):
             # NOTE the fraction of the phase's reference component is covered above.
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 xn = phase.extended_fraction_of[component](
@@ -1245,24 +1271,12 @@ class FluidMixin(pp.PorePyModel):
                     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
 
                         dependencies = [self.pressure]
-                        if 'unified' in pp.get_local_equilibrium_condition(
-                            self
-                        ).lower():
+                        if is_persistent_variable_form(self):
 
                             dependencies +=  [self.temperature] + [
                                 phase.extended_fraction_of[component]
                                 for component in phase
                                 if self.has_independent_extended_fraction(
-                                    component, phase
-                                )
-                            ]
-
-                        elif pp.get_local_equilibrium_condition(self):
-
-                            dependencies += [self.temperature] + [
-                                phase.partial_fraction_of[component]
-                                for component in phase
-                                if self.has_independent_partial_fraction(
                                     component, phase
                                 )
                             ]

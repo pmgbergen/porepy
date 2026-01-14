@@ -12,7 +12,7 @@ This can be found in :mod:`~porepy.compositional.peng_robinson.cubic_polynomial`
 
 Based on that, the computation of the compressibility factor is implemented with
 dependencies on dimensionless cohesion and covolume. This package supports a
-persistent-variable formulation of the phase equilibrium problem, which means it
+persistent-variables formulation of the phase equilibrium problem, which means it
 provides functionalities to compute surrogates for compressibility factors, where a
 phase is not physically present.
 This is implemented in

@@ -2,7 +2,7 @@
 
 import pytest
 
-from porepy.compositional.flash import FlashSpec
+from porepy.compositional.utils import FlashSpec
 
 
 @pytest.mark.parametrize(

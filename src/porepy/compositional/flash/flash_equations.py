@@ -44,8 +44,15 @@ from typing import Optional, Sequence
 import numba as nb
 import numpy as np
 
-from .._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, njit
-from .abstract_flash import FlashResults, FlashSpec, FlashSpecMember_NUMBA_TYPE
+from .._numba_interface import (
+    NUMBA_CACHE,
+    NUMBA_FAST_MATH,
+    NUMBA_PARALLEL,
+    FlashSpecMember_NUMBA_TYPE,
+    njit,
+)
+from ..utils import FlashSpec
+from .abstract_flash import FlashResults
 
 __all__ = [
     "generic_arg_from_flash_results",
