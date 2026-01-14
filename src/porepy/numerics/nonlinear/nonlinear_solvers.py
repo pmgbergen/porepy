@@ -173,7 +173,7 @@ class NewtonSolver:
             self.update_solver_statistics(model, simulation_status=simulation_status)
             # TODO: Get back to this when reimplementing time stepping.
             # NOTE: Currently, if a simulation fully stopps, this is not logged in
-            # solverstatistics. For this, better coordination between solver and time
+            # SolverStatistics. For this, better coordination between solver and time
             # stepping is needed.
             simulation_status = model.after_nonlinear_failure()
         else:
