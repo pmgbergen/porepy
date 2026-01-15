@@ -45,7 +45,15 @@ class ModelGeometry(pp.PorePyModel):
         pp.set_local_coordinate_projections(self.mdg)
 
         self.set_well_network()
-        self.add_wells_to_mdg()
+        if len(self.well_network.wells) > 0:
+            # Compute intersections
+            assert isinstance(self.fracture_network, FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
 
     @property
     def domain(self) -> pp.Domain:
