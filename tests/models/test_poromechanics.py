@@ -152,7 +152,8 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
                 val = self.units.convert_units(
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
-                vals.append(val * np.ones(sd.num_cells))
+                # Distribute source term over cells based on cell volumes.
+                vals.append(val * sd.cell_volumes / np.sum(sd.cell_volumes))
         fracture_source = pp.wrap_as_dense_ad_array(
             np.hstack(vals), name="fracture_fluid_source"
         )
@@ -483,7 +484,7 @@ def test_push_north_zero_opening():
 )
 def test_positive_p_frac_positive_opening(model_class):
     model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
-    model.params["fracture_source_value"] = 0.001
+    model.params["fracture_source_value"] = 0.004
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction = get_variables(model)
 
@@ -501,19 +502,9 @@ def test_positive_p_frac_positive_opening(model_class):
     assert np.all(np.abs(traction) < 1e-7)
 
     # Fracture pressure is positive.
-    #
-    # EK: The original reference values are for mesh with 4 fracture cells. Since the
-    # fracture source is set constant per fracture cell, effectively acting as an
-    # intensive quantity, the total source term and hence the fracture pressure scales
-    # with the number of fracture cells. We do a (perhaps somewhat rough) correction
-    # here by scaling with the ratio between number of fracture cells in the current
-    # model and the original number of fracture cells (4).
-    orig_mean_pressure = 4.8e-4
-    orig_deviation = 2e-5
-    cell_ratio = model.mdg.subdomains(dim=model.nd - 1)[0].num_cells / 4
-
-    assert np.all(p_frac > (orig_mean_pressure - orig_deviation) * cell_ratio)
-    assert np.all(p_frac < (orig_mean_pressure + orig_deviation) * cell_ratio)
+    mean_pressure = 4.8e-4
+    deviation = 2e-5
+    assert np.allclose(p_frac, mean_pressure, atol=deviation)
 
 
 def test_pull_south_positive_reference_pressure():
