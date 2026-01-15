@@ -2714,7 +2714,8 @@ class FractureNetwork3d(object):
             - If :attr:`domain` is given ,the first line describes the domain as a
               cuboid ``-1, X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX``.
             - The other lines describe the ``N`` fractures as a list of points
-              ``FID, P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``.
+              ``FID, P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``,
+              with FID being the fracture id.
 
         Warning:
             If ``file_name`` is already present, it will be overwritten without
@@ -2749,7 +2750,8 @@ class FractureNetwork3d(object):
                     # -1 instead of fracture id.
                     ["-1"]
                     + [domain.bounding_box[o] for o in order]
-                    # Fill up with empty entries
+                    # Fill up with empty entries. The domain itself uses 2 points in 3D
+                    # space, hence (max_pts - 2) points are not specified.
                     + [""] * (max_pts - 2) * 3
                 )
 

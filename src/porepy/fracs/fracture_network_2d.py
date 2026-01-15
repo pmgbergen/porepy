@@ -1245,7 +1245,7 @@ class FractureNetwork2d:
                 csv_writer.writerow(header)
             if domain is not None:
                 order = ["xmin", "ymin", "xmax", "ymax"]
-                # Write the domain bounding box. -1 as fracture id.
+                # Write the domain bounding box. -1 as entity id.
                 csv_writer.writerow(["-1"] + [domain.bounding_box[o] for o in order])
             # Write all the fractures.
             for edge_id, edge in enumerate(self._edges.T):
