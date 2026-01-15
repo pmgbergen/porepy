@@ -210,6 +210,56 @@ def compute_circumcenter_2d(
     cc[0, replace] = xc[replace]
     cc[1, replace] = yc[replace]
 
+    # EK: The code below adjusts the circumcenters for triangles where the circumcenter
+    #     is outside the triangle. This is done by placing the new center on the line
+    #     between the circumcenter and the cell center, such that it is still inside
+    #     the triangle.
+    not_replaced = np.logical_not(replace)
+
+    # Vector from cell center to circumcenter. The z-component is just zeros to make
+    # the array 3D - the code should more or less work unchanged in 3d.
+    vec = np.array([xc - cc[0], yc - cc[1], np.zeros(sd.num_cells)])
+
+    # For the cells that did not have their centers replaced, find the node with the
+    # largest angle.
+    angle_num = np.argmax(np.vstack((angle_0, angle_1, angle_2)), axis=0)[not_replaced]
+    # The node opposite this angle:
+    target_node = ni[angle_num, not_replaced]
+    # Find the face opposite the target node.
+    fi = sd.cell_faces.tocsc().indices.reshape((sd.dim + 1, sd.num_cells), order="F")
+    fn = sd.face_nodes.tocsc().indices.reshape((sd.dim, sd.num_faces), order="F")
+    target_face = []
+
+    for i, c in enumerate(np.where(not_replaced)[0]):
+        # Find the face opposite the target node.
+        faces_c = fi[:, c]
+        for f in faces_c:
+            nodes_f = fn[:, f]
+            if target_node[i] not in nodes_f:
+                target_face.append(int(f))
+                break
+
+    fc_target = sd.face_centers[:, target_face]
+    # Vector from cell center to target face center.
+    fc_cc = fc_target - cc[:, not_replaced]
+    # Move along the direction from the (old) cell center to the circumcenter until we
+    # hit the target face (the vector from old to the new cell center is orthogonal to
+    # vector from the face center to the new cell center).
+    n_target = sd.face_normals[:, target_face] / sd.face_areas[target_face]
+    t = np.sum(n_target * fc_cc, axis=0) / (
+        np.sum(n_target * vec[:, not_replaced] + 1e-15, axis=0)
+    )
+    assert np.all(t >= 0), "Logic error in circumcenter replacement."
+    # Reminder: If the threshold angle is exactly pi/2, t can be at most 1.0. For
+    # smaller angles, t can be larger than 1.0.
+
+    # Place the new cell center slightly (5%) closer to the cell center than the
+    # intersection with the face, to ensure it is inside the triangle. EK: There seems
+    # (to me) to be no easy way of relating this thresholding on the distance parameter
+    # to the angle threshold. The path of least resistance may be to switch to a
+    # parameter-based threshold, but I have no strong opinion on this.
+    cc[:, not_replaced] += vec[:, not_replaced] * 0.95 * t
+
     return cc, replace
 
 
