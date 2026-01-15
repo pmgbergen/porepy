@@ -15,6 +15,31 @@ from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.utils import pts_edges_to_linefractures
 
 
+def decomment_csv_file(csv_file):
+    """Return the content of a csv_file without comments and empty lines."""
+    for line in csv_file:
+        stripped_line = line.strip()
+        if len(stripped_line) == 0 or stripped_line[0] == "#":
+            continue
+        yield stripped_line
+
+
+def setup_csv_reader(file_name):
+    with open(file_name, "r") as csv_file:
+        # Sample first 1024 (arbitrary; not too small) bytes and reset file pointer.
+        sample = csv_file.read(1024)
+        csv_file.seek(0)
+
+        # Infer delimiter and header from the file.
+        sniffer = csv.Sniffer()
+        dialect = sniffer.sniff(sample)
+        has_header = sniffer.has_header(sample)
+
+        spam_reader = csv.reader(decomment_csv_file(csv_file), dialect)
+
+        return spam_reader, has_header
+
+
 def infer_network_dimension(file_name: Path) -> int:
     """Infer the dimension of the fracture network stored in a CSV file.
 
@@ -33,47 +58,27 @@ def infer_network_dimension(file_name: Path) -> int:
             an invalid number of columns.
 
     """
-    sniffer = csv.Sniffer()
-    with open(file_name, "r") as csv_file:
-        # Sample first 1024 bytes and reset file pointer.
-        sample = csv_file.read(1024)
-        csv_file.seek(0)
+    spam_reader, has_header = setup_csv_reader(file_name)
 
-        # Infer delimiter and header from the file.
-        dialect = sniffer.sniff(sample)
-        has_header = sniffer.has_header(sample)
+    if has_header:
+        next(spam_reader)
 
-        spam_reader = csv.reader(csv_file, dialect)
-
-        if has_header:
-            next(spam_reader)
-
-        # Skip any comment lines.
-        while True:
-            line = next(spam_reader)
-            if len(line) > 0 and line[0][0] != "#":
-                break
-
-        if len(line) == 0 or line[0][0] == "#":
-            raise ValueError(
-                "Could not find a non-comment line to infer dimension from."
-            )
-
-        # Number of columns to determine dimension. 5 (fracture id + 4 coordinates)
-        # columns for a 2D network and >= 7 (fracture id + at least 6 coordinates)
-        # columns for a 3D network. Check
-        # :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2D.to_csv``
-        # and :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3D.to_csv`
-        # for the exact structure of the csv files.
-        if len(line) == 5:
-            return 2
-        elif len(line) >= 7:
-            return 3
-        else:
-            raise ValueError(
-                "Could not infer dimension from the CSV file. Expected 4 or 6 columns,"
-                + f" but got {len(line)}."
-            )
+    # Number of columns to determine dimension. 5 (fracture id + 4 coordinates)
+    # columns for a 2D network and >= 7 (fracture id + at least 6 coordinates)
+    # columns for a 3D network. Check
+    # :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2D.to_csv``
+    # and :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3D.to_csv`
+    # for the exact structure of the csv files.
+    first_line = next(spam_reader)
+    if len(first_line) == 5:
+        return 2
+    elif len(first_line) >= 7:
+        return 3
+    else:
+        raise ValueError(
+            "Could not infer dimension from the CSV file. Expected 5 or >6 columns,"
+            + f" but got {len(first_line)}."
+        )
 
 
 def network_3d_from_csv(
@@ -107,14 +112,12 @@ def network_3d_from_csv(
         Three-dimensional fracture network object.
 
     """
-    check_convexity = kwargs.get("check_convexity", True)
-
     # The first line of the csv file defines the bounding box for the domain.
     frac_list = []
 
     # Extract the data from the csv file.
     with open(file_name, "r") as csv_file:
-        # Sample first 1024 bytes and reset file pointer.
+        # Sample first 1024 (arbitrary; not too small) bytes and reset file pointer.
         sample = csv_file.read(1024)
         csv_file.seek(0)
 
@@ -335,7 +338,7 @@ def network_2d_from_csv(
 
     sniffer = csv.Sniffer()
     with open(file_name, "r") as csv_file:
-        # Sample first 1024 bytes and reset file pointer.
+        # Sample first 1024 (arbitrary; not too small) bytes and reset file pointer.
         sample = csv_file.read(1024)
         csv_file.seek(0)
 
