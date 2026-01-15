@@ -1182,10 +1182,10 @@ class CompiledPengRobinson(CompiledEoS):
         start = time.time()
         logger.info("Compiling ideal property functions ..")
 
-        h_ids: list[IdealProperty_T] = []
-        dh_ids: list[IdealProperty_T] = []
-        u_ids: list[IdealProperty_T] = []
-        du_ids: list[IdealProperty_T] = []
+        h_ids = []
+        dh_ids = []
+        u_ids = []
+        du_ids = []
 
         for f in self.ideal_fluids:
             f.compile()
@@ -1194,7 +1194,7 @@ class CompiledPengRobinson(CompiledEoS):
             u_ids.append(f.funcs["u"])
             du_ids.append(f.funcs["du"])
 
-        NC: int = self.nc
+        NC = self.nc
 
         compiler_Tx = njit(nb.f8(nb.f8, nb.f8[:]))
         compiler_gradTx = njit(nb.f8[:](nb.f8, nb.f8[:]))

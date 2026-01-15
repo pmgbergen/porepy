@@ -13,23 +13,21 @@ Note:
 
 from __future__ import annotations
 
+import time
 from collections import deque
 from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence, cast
 
 import numba as nb
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
+import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.compositional._numba_interface import njit
-from porepy.compositional.compiled_eos import (
-    CompiledEoS,
-    ScalarFunction,
-    VectorFunction,
-)
-from porepy.fracs.wells_3d import _add_interface
+from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
+
+from .config import ModelConfig
 
 if TYPE_CHECKING:
     import porepy.compositional.flash as pf
@@ -42,14 +40,7 @@ Uses :func:`~porepy.compositional._numba_interface.njit`.
 """
 
 
-def _set_random_seed(*args):
-    s = 2025
-    for a in args:
-        s += int(a)
-    np.random.seed(s)
-
-
-class ConstantTransportProperties(CompiledEoS):
+class FluidEoS(pr.CompiledPengRobinson):
     """Constant viscosity and thermal conductivity for all phases.
 
     Viscosity is set to 1e-3, thermal conductivity to 1.
@@ -97,99 +88,23 @@ class ConstantTransportProperties(CompiledEoS):
         return dkappa_c
 
 
-class _FlowConfiguration(pp.PorePyModel):
-    """Helper class to bundle the configuration of pressure, temperature and mass
-    for in- and outflow."""
-
-    # Initial values.
-    _p_INIT: float = 20e6
-    _T_INIT: float = 450.0
-    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
-
-    # In- and outflow values.
-    _T_HEATED: float = 640.0
-    _T_IN: float = 300.0
-    _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
-
-    _p_OUT: float = _p_INIT - 1e6
-
-    # Value obtained from a p-T flash with values defined above.
-    # Divide by 3600 to obtain an injection of unit per hour
-    # Multiplied by some number for how many units per hour
-    _TOTAL_INJECTED_MASS: float = 10 * 27430.998956110157 / (60 * 60)  # mol / m^3
-    # _TOTAL_INJECTED_MASS: float = 10 * 21202.860945350567 / (60 * 60)  # mol / m^3
-
-    # Injection model configuration
-    _T_INJECTION: dict[int, float] = {0: _T_IN}
-    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
-
-    _INJECTED_MASS: dict[str, dict[int, float]] = {
-        "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
-        "CO2": {0: _TOTAL_INJECTED_MASS * _z_IN["CO2"]},
-    }
-
-    # Coordinates of injection and production wells in meters
-    _INJECTION_POINTS: list[np.ndarray] = [np.array([15.0, 10.0])]
-    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([85.0, 10.0])]
-
-
-class FluidMixture(pp.PorePyModel):
+class FluidMixture(ModelConfig):
     """2-component, 2-phase fluid with H2O and CO2, and a liquid and gas phase."""
 
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
-        return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
+        return pp.compositional.load_fluid_constants(self._COMPONENT_NAMES, "chemicals")
 
     def get_phase_configuration(
         self, components: Sequence[pp.FluidComponent]
     ) -> Sequence[
         tuple[pp.compositional.PhysicalState, str, pp.compositional.EquationOfState]
     ]:
-        # Import here to avoid triggering computation before model setup.
-        import numba as nb
-
-        import porepy.compositional.peng_robinson as pr
-        import porepy.compositional.peng_robinson.lbc_viscosity as lbc
-
-        class PRLBC(lbc.LBCViscosity, pr.CompiledPengRobinson):
-            """Peng-Robinson with LBC model for viscosity and constant thermal
-            conductivity with reference values for water in liquid (0.6) and vapor form
-            (0.06)."""
-
-            def get_kappa_function(self):
-                @_COMPILER(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-                def kappa_c(
-                    prearg: np.ndarray, p: float, T: float, xn: np.ndarray
-                ) -> float:
-                    return 1.0
-                    # if prearg[3] > 0:
-                    #     return 0.06
-                    # else:
-                    #     return 0.6
-
-                return kappa_c
-
-            def get_grad_kappa_function(self):
-                @_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
-                def dkappa_c(
-                    prearg_val: np.ndarray,
-                    prearg_jac: np.ndarray,
-                    p: float,
-                    T: float,
-                    xn: np.ndarray,
-                ) -> np.ndarray:
-                    return np.zeros(2 + xn.shape[0], dtype=np.float64)
-
-                return dkappa_c
-
-        class PRCT(ConstantTransportProperties, pr.CompiledPengRobinson):
-            """Peng-Robinson with Constant Transport properties."""
-
-        eos = PRCT(
+        eos = FluidEoS(
             components,
-            [pp.compositional.ideal.IdealH2O, pp.compositional.ideal.IdealCO2],
+            self._IDEAL_COMPONENTS,
             pr.get_bip_matrix(components),
         )
         return [
@@ -376,126 +291,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
     #     pass
 
 
-class PointWells(_FlowConfiguration):
-    """Geometry adding point grids as wells after super-call in set_geometry."""
-
-    def set_geometry(self):
-        super().set_geometry()
-
-        for i, injection_point in enumerate(self._INJECTION_POINTS):
-            self._add_well(injection_point, i, "injection")
-
-        for i, production_point in enumerate(self._PRODUCTION_POINTS):
-            self._add_well(production_point, i, "production")
-
-    def _add_well(
-        self,
-        point: np.ndarray,
-        well_index: int,
-        well_type: Literal["injection", "production"],
-    ) -> None:
-        """Helper method to construct a well in 2D as a PointGrid and add respective
-        interface.
-
-        Parameters:
-            point: Point in space representing well.
-            well_index: Assigned number for well of type ``well_type``.
-            well_type: Label to add a tag to the point grid labelng as injector or
-            producer.
-
-        """
-        matrix = self.mdg.subdomains(dim=self.nd)[0]
-        assert isinstance(point, np.ndarray)
-        p: np.ndarray
-        if point.shape == (2,):
-            p = np.zeros(3)
-            p[:2] = point
-        elif point.shape == (3,):
-            p = point
-        else:
-            raise ValueError(
-                f"Point for well {(well_type, well_index)} must be 1D array of length "
-                + "2 or 3."
-            )
-
-        sd_0d = pp.PointGrid(self.units.convert_units(p, "m"))
-        # Tag for processing of equations.
-        sd_0d.tags[f"{well_type}_well"] = well_index
-        sd_0d.compute_geometry()
-
-        self.mdg.add_subdomains(sd_0d)
-
-        # Motivated by wells_3d.py#L828
-        cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
-        cell_well = np.array([0], dtype=int)
-        cell_cell_map = sps.coo_matrix(
-            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
-            shape=(sd_0d.num_cells, matrix.num_cells),
-        )
-
-        _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
-
-
-class RandomFracturedMatrixWithPointWells2D(PointWells):
-    """2D matrix with point grids as injection and production points.
-
-    Alternative for the ``WellNetwork3d`` in 2d.
-
-    """
-
-    _domain_x_length: float = 100.0
-    """Length of domain in x-direction in meters."""
-    _domain_y_length: float = 20.0
-    """Length of domain in x-direction in meters."""
-
-    def set_domain(self) -> None:
-        self._domain = pp.Domain(
-            {
-                "xmin": 0.0,
-                "xmax": self.units.convert_units(self._domain_x_length, "m"),
-                "ymin": 0.0,
-                "ymax": self.units.convert_units(self._domain_y_length, "m"),
-            }
-        )
-
-    def set_fractures(self) -> None:
-        x_min, y_min = 0.0, 0.0
-        x_max = self._domain_x_length
-        y_max = self._domain_y_length
-        domain_width = x_max - x_min
-        domain_height = y_max - y_min
-        min_length = domain_height
-        max_length = domain_width * 0.8
-
-        num_fracs = int(self.params.get("_num_fractures", 0))
-        fractures = []
-        _set_random_seed(num_fracs)
-        for _ in range(num_fracs):
-            # Random center within bounds
-            x_center = np.random.uniform(
-                x_min + 0.1 * domain_width, x_max - 0.1 * domain_width
-            )
-            y_center = np.random.uniform(
-                y_min + 0.1 * domain_height, y_max - 0.1 * domain_height
-            )
-
-            # Random angle and length
-            theta = np.random.uniform(-np.pi / 3, np.pi / 3)
-            length = np.random.uniform(min_length, max_length)
-
-            dx = 0.5 * length * np.cos(theta)
-            dy = 0.5 * length * np.sin(theta)
-
-            x0, x1 = x_center - dx, x_center + dx
-            y0, y1 = y_center - dy, y_center + dy
-
-            coords = np.array([[x0, x1], [y0, y1]])
-            fractures.append(pp.LineFracture(coords))
-
-        self._fractures = fractures
-
-
-class AdjustedPointWellModel(_FlowConfiguration):
+class AdjustedPointWellModel(ModelConfig):
     """Adjustment of a 2D model which has wells modelled as point grids.
 
     Two types of point grids are expected: ``'injection_well'`` and
@@ -572,28 +368,29 @@ class AdjustedPointWellModel(_FlowConfiguration):
         are not production wells."""
         _, no_production_wells = self._filter_wells(subdomains, "production")
         eq: pp.ad.Operator = super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
-        name = eq.name
         return eq
 
-        volume_stabilization = self.fluid.density(
-            no_production_wells
-        ) * pp.ad.sum_operator_list(
-            [
-                phase.fraction(no_production_wells) / phase.density(no_production_wells)
-                for phase in self.fluid.phases
-            ],
-            "fluid_specific_volume",
-        ) - self.porosity(no_production_wells)
+        # name = eq.name
+        # volume_stabilization = self.fluid.density(
+        #     no_production_wells
+        # ) * pp.ad.sum_operator_list(
+        #     [
+        #         phase.fraction(no_production_wells)
+        #         / phase.density(no_production_wells)
+        #         for phase in self.fluid.phases
+        #     ],
+        #     "fluid_specific_volume",
+        # ) - self.porosity(no_production_wells)
 
-        volume_stabilization = self.volume_integral(
-            volume_stabilization, no_production_wells, dim=1
-        )
-        volume_stabilization = pp.ad.time_derivatives.dt(
-            volume_stabilization, self.ad_time_step
-        )
-        eq = eq + volume_stabilization
-        eq.set_name(name)
-        return eq
+        # volume_stabilization = self.volume_integral(
+        #     volume_stabilization, no_production_wells, dim=1
+        # )
+        # volume_stabilization = pp.ad.time_derivatives.dt(
+        #     volume_stabilization, self.ad_time_step
+        # )
+        # eq = eq + volume_stabilization
+        # eq.set_name(name)
+        # return eq
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
@@ -767,7 +564,7 @@ class AdjustedPointWellModel(_FlowConfiguration):
         return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
 
 
-class InitialConditions(_FlowConfiguration):
+class InitialConditions(ModelConfig):
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
         # vals = np.array(list(map(f, sd.cell_centers[0])))
@@ -794,7 +591,7 @@ class InitialConditions(_FlowConfiguration):
         return np.zeros(sd.num_cells)
 
 
-class BoundaryConditions(_FlowConfiguration):
+class BoundaryConditions(ModelConfig):
     """No flow BC, with the exception of a stripe on the bottom boundary where
     temperature Dirichlet-BC are given."""
 
@@ -853,6 +650,8 @@ class BoundaryConditions(_FlowConfiguration):
                 return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Sets pressure on the heated boundary in order for the boundary flash to
+        work."""
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
@@ -870,13 +669,15 @@ class BoundaryConditions(_FlowConfiguration):
         if sd.dim == self.nd:
             sides = self.domain_boundary_sides(sd)
             heated_faces = self._heated_boundary_faces(sd)[sides.all_bf]
-            vals[heated_faces] = self._T_HEATED
+            vals[heated_faces] = self._T_BC
 
         return vals
 
     def bc_values_overall_fraction(
         self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
+        """Sets BC for fractions on the heated boundary in order for the boundary flash
+        to work."""
         vals = np.zeros(boundary_grid.num_cells)
         sd = boundary_grid.parent
 
@@ -888,9 +689,15 @@ class BoundaryConditions(_FlowConfiguration):
         return vals
 
 
-class Permeability(pp.PorePyModel):
+class Permeability(ModelConfig):
     """Custom permeability with a higher absolute permability around the wells and a
-    constant permeability of 1 in the wells."""
+    constant permeability of 1 in the wells.
+
+    It is also possible to define the permeability in fractures via the model parameters
+    where ``'impermeable_fracture_permeability'`` and ``'fracture_permeability'`` define
+    a low and high permeability alternatingly in fractures and are used alternatingly.
+
+    """
 
     total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
@@ -909,10 +716,11 @@ class Permeability(pp.PorePyModel):
             assert subdomains[0].dim == self.nd, "Expecting matrix grid."
 
         K_vals: list[np.ndarray] = [np.zeros((0,))]
-        K_w = float(self.params["_well_surrounding_permeability"])
+        K_base = self.solid.permeability
+        K_w = float(self.params.get("_well_surrounding_permeability", K_base))
 
         for sd in subdomains:
-            k = np.ones(sd.num_cells) * self.solid.permeability
+            k = np.ones(sd.num_cells) * K_base
             l, r = BoundaryConditions._central_stripe(self, sd)  # type:ignore[arg-type]
             k[sd.cell_centers[0] < l] = K_w
             k[sd.cell_centers[0] > r] = K_w
@@ -933,17 +741,18 @@ class Permeability(pp.PorePyModel):
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Set with model parameter 'fracture_permeability'."""
         N = sum([sd.num_cells for sd in subdomains])
-        K_val = self.params.get("fracture_permeability", 1.0)
+        K_val = self.solid.permeability
         K_: pp.ad.Operator
 
+        # Declare K_ first in case fracture set is empty.
         K_ = pp.wrap_as_dense_ad_array(
             float(K_val), size=N, name="base_fracture_permeability"
         )
 
         K_vals: list[np.ndarray] = [np.zeros((0,))]
 
-        K_low = float(self.params.get("impermeable_fracture_permeability", 1.0))
-        K_high = float(self.params.get("fracture_permeability", 1.0))
+        K_low = float(self.params.get("_impermeable_fracture_permeability", K_val))
+        K_high = float(self.params.get("_fracture_permeability", K_val))
 
         is_impermable = False
 
@@ -989,16 +798,15 @@ class Permeability(pp.PorePyModel):
         return K
 
 
-class _ModelMixins(
+class ColdInjectionMixins(
     Permeability,
-    RandomFracturedMatrixWithPointWells2D,
     AdjustedPointWellModel,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
     SolutionStrategy,
 ):
-    """Collection of used mixins, including a quadratic relative permeability law."""
+    """Collection of used mixins in this example."""
 
 
 class BuoyancyModel(pp.PorePyModel):
@@ -1028,7 +836,28 @@ class BuoyancyModel(pp.PorePyModel):
         return gravity_field
 
 
-class NoFluxRediscretization(pp.PorePyModel):
+def set_schur_complement(model: ColdInjectionMixins) -> None:
+    """Sets primary and secondary variables for the eliminating the local equilibrium
+    DOFs."""
+
+    primary_equations = cf.get_primary_equations_cf(model)
+    primary_equations += [
+        eq for eq in model.equation_system.equations.keys() if "flux" in eq
+    ]
+    primary_equations += [
+        "production_pressure_constraint",
+        "injection_temperature_constraint",
+    ]
+    primary_variables = cf.get_primary_variables_cf(model)
+    primary_variables += list(
+        set([v.name for v in model.equation_system.variables if "flux" in v.name])
+    )
+
+    model.schur_complement_primary_equations = primary_equations
+    model.schur_complement_primary_variables = primary_variables
+
+
+class NoFluxRediscretization:
     def add_nonlinear_darcy_flux_discretization(self) -> None:
         """If the fractional flow formulation is used, the nonlinear Darcy flux
         discretization is added by default for all subdomains to the update routine."""
@@ -1052,11 +881,150 @@ class NoFluxRediscretization(pp.PorePyModel):
         # )
 
 
-class ColdInjectionModel(_ModelMixins, cfle.EnthalpyBasedCFLETemplate):  # type:ignore
-    """2-phase 2-component model simulating the injection of a cold water-co2 mixture
-    into an initially hot and water saturated domain."""
+class QuadraticRelPerm(pp.PorePyModel):
+    """ "Contains the quadratic relative permeability law."""
+
+    def relative_permeability(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Quadratic relative permeability model."""
+        return phase.saturation(domains) ** pp.ad.Scalar(2)
 
 
-class ColdInjectionModelFF(_ModelMixins, cfle.EnthalpyBasedCFFLETemplate):  # type:ignore
-    """Analogous to class:`ColdCO2InjectionModel` but based on the fractional flow
-    template."""
+# mypy: ignore-errors
+class DataCollectionMixin(pp.PorePyModel):
+    """Collects data required for running the plot script."""
+
+    def __init__(self, params: dict | None = None):
+        super().__init__(params)
+
+        # Data saving for plotting for paper.
+        self._time_steps: list[float] = []
+        self._time_step_sizes: list[float] = []
+        self._time_tracker: dict[
+            Literal["flash", "assembly", "linsolve"], list[float]
+        ] = {
+            "flash": [],
+            "assembly": [],
+            "linsolve": [],
+        }
+        self._recomputations: list[int] = []
+        """Number of recomputations of dt at a time due to convergence failure."""
+        self._num_global_iter: list[int] = []
+        """Number of global iterations per successful time step."""
+        self._num_cell_averaged_flash_iter: list[float | int] = []
+        """Number of cell-averaged flash iterations per successful time step."""
+        self._num_linesearch_iter: list[int] = []
+        """Number of linesearch iterations per successful time step."""
+
+        self._flash_iter_counter: int = 0
+        """Counter for cell-averaged flash iterations per time step."""
+
+        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
+        self._flash_iter_for_cell_mean: list[np.ndarray] = []
+
+        self._total_num_time_steps: int = 0
+        self._total_num_global_iter: int = 0
+        self._total_num_flash_iter: int = 0
+        self.nonlinear_solver_statistics.num_iteration_armijo = 0
+
+    def data_to_export(self):
+        data: list = super().data_to_export()
+
+        for sd in self.mdg.subdomains():
+            if sd in self._cum_flash_iter_per_grid:
+                ni = self._cum_flash_iter_per_grid[sd]
+                n = np.array(sum(ni), dtype=int)
+            else:
+                n = np.zeros(sd.num_cells, dtype=int)
+
+            data.append((sd, "cumulative flash iterations", n))
+
+        return data
+
+    def assemble_linear_system(self) -> None:
+        start = time.time()
+        super().assemble_linear_system()
+        self._time_tracker["assembly"].append(time.time() - start)
+
+    def solve_linear_system(self) -> np.ndarray:
+        start = time.time()
+        sol = super().solve_linear_system()
+        self._time_tracker["linsolve"].append(time.time() - start)
+        return sol
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()
+        self._cum_flash_iter_per_grid.clear()
+        self._flash_iter_counter = 0
+        self.nonlinear_solver_statistics.num_iteration_armijo = 0
+
+    def after_nonlinear_convergence(self):
+        # Get data before reset and recomputation in super-call.
+        self._num_global_iter.append(self.nonlinear_solver_statistics.num_iteration)
+        self._num_cell_averaged_flash_iter.append(self._flash_iter_counter)
+        self._num_linesearch_iter.append(
+            self.nonlinear_solver_statistics.num_iteration_armijo
+        )
+
+        self._recomputations.append(self.time_manager._recomp_num)
+        self._time_step_sizes.append(self.time_manager.dt)
+        # NOTE the time manager always returns the time at the end of the time step,
+        # The one for which we solve.
+        self._time_steps.append(self.time_manager.time - self.time_manager.dt)
+
+        self._total_num_time_steps += 1
+        self._total_num_global_iter += self.nonlinear_solver_statistics.num_iteration
+        self._total_num_flash_iter += sum(
+            [sum(vals).sum() for vals in self._cum_flash_iter_per_grid.values()]
+        )
+
+        return super().after_nonlinear_convergence()
+
+    def after_nonlinear_failure(self):
+        # Do not include clock times of failed attempts.
+        n = self.nonlinear_solver_statistics.num_iteration
+        self._time_tracker["linsolve"] = self._time_tracker["linsolve"][:-n]
+        self._time_tracker["assembly"] = self._time_tracker["assembly"][:-n]
+        self._time_tracker["flash"] = self._time_tracker["flash"][:-n]
+        self._total_num_time_steps += 1
+        self._total_num_global_iter += n
+        self._total_num_flash_iter += sum(
+            [sum(vals).sum() for vals in self._cum_flash_iter_per_grid.values()]
+        )
+        return super().after_nonlinear_failure()
+
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
+        start = time.time()
+        super().update_thermodynamic_properties_of_phases(state=state)
+        self._time_tracker["flash"].append(time.time() - start)
+        if self._flash_iter_for_cell_mean:
+            ni = np.concatenate(self._flash_iter_for_cell_mean)
+            self._flash_iter_counter += float(ni.mean())
+        self._flash_iter_for_cell_mean.clear()
+
+    def local_equilibrium(
+        self,
+        sd: pp.Grid,
+        state: Optional[np.ndarray] = None,
+        specification: Optional[cfle.StateSpecDict] = None,
+        initial_guess_from_current_state: bool = True,
+        update_secondary_variables: bool = True,
+    ) -> pf.FlashResults:
+        state: pf.FlashResults = super().local_equilibrium(
+            sd=sd,
+            state=state,
+            specification=specification,
+            initial_guess_from_current_state=initial_guess_from_current_state,
+            update_secondary_variables=update_secondary_variables,
+        )
+
+        self._flash_iter_for_cell_mean.append(state.num_iter)
+
+        if sd not in self._cum_flash_iter_per_grid:
+            self._cum_flash_iter_per_grid[sd] = []
+        self._cum_flash_iter_per_grid[sd].append(state.num_iter)
+
+        return state

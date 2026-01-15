@@ -132,7 +132,7 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         dx = self.appleyard_chop(model, dx)
 
         res = model.equation_system.assemble(evaluate_jacobian=False)
-        self._last_res_norm = model.compute_residual_norm(res, res)
+        self._last_res_norm = model.compute_residual_norm(res, res)  # type:ignore[attr-defined]
 
         if self.params.get("anderson_acceleration", False):
             iteration = model.nonlinear_solver_statistics.num_iteration
@@ -222,8 +222,8 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
                     ds[chop] = m * np.sign(ds[chop])
                     dx[dofs] = ds
 
-                if model.phase_fraction_variables:
-                    dofs = model.equation_system.dofs_of(model.phase_fraction_variables)
+                if model.phase_fraction_variables:  # type:ignore[attr-defined]
+                    dofs = model.equation_system.dofs_of(model.phase_fraction_variables)  # type:ignore[attr-defined]
                     dy = dx[dofs]
                     chop = np.abs(dy) > m
                     if np.any(chop):

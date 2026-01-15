@@ -38,7 +38,7 @@ import porepy.compositional.compiled_eos as ceos
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.compositional._numba_interface import njit
-from porepy.examples.cold_co2_injection.solver import NewtonArmijoAndersonSolver
+from porepy.examples.cold_injection.solver import NewtonArmijoAndersonSolver
 
 # Select the case to run.
 CASE: Literal["horizontal", "vertical"] = "horizontal"
