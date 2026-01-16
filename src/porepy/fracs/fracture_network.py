@@ -1108,27 +1108,27 @@ class MeshSizeComputer:
                 - "mesh_size_bound": Far-field mesh size [m]. If not provided, it is
                   set equal to the fracture mesh size.
                 - "refinement_threshold": Threshold for triggering refinement around
-                  fractures (in units of fracture mesh size). Default is 1.0.
+                  fractures (in units of fracture mesh size).
                 - "refinement_buffer": Buffer factor for mesh size around fractures (in
-                  units of fracture mesh size). Default is 0.5.
+                  units of fracture mesh size).
                 - "mesh_size_min": Minimum mesh size [m]. If not provided, it is set
                   equal to the fracture mesh size times the buffer factor.
                 - "farfield_transition": Factor controlling the distance from fractures
-                  where far-field mesh size is reached (in units of far-field mesh size).
-                  Default is 10.0.
+                  where far-field mesh size is reached (in units of far-field mesh
+                  size).
 
         """
-        assert "mesh_size_frac" in mesh_args, (
+        assert "mesh_size_frac" in mesh_args, (  # For mypy.
             "Fracture mesh size ('mesh_size_frac') must be provided in mesh arguments."
         )
         self._hfrac: float = mesh_args.get("mesh_size_frac")  # type: ignore
-        self._hfarfield: float = mesh_args.get("mesh_size_bound", self._hfrac)
-        self._threshold: float = mesh_args.get("refinement_threshold", 1.0)
-        self._buffer: float = mesh_args.get("refinement_buffer", 0.5)
+        self._hfarfield: float = mesh_args.get("mesh_size_bound")
+        self._threshold: float = mesh_args.get("refinement_threshold")
+        self._buffer: float = mesh_args.get("refinement_buffer")
         # By default, we let the minimum mesh size scale with the buffer and the
         # fracture mesh size.
         self._hmin: float = mesh_args.get("mesh_size_min", self._hfrac * self._buffer)
-        self._farfield_transition: float = mesh_args.get("farfield_transition", 10.0)
+        self._farfield_transition: float = mesh_args.get("farfield_transition")
 
     def refinement_threshold(self) -> float:
         """Threshold for refinement around fractures [m].

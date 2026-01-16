@@ -185,8 +185,16 @@ class FractureNetwork2d(FractureNetwork):
             file_name, constraints, **kwargs
         )
 
+        # Default mesh arguments that can be overridden by user inputs through kwargs.
+        default_mesh_args = {
+            "refinement_threshold": 1.0,
+            "refinement_buffer": 0.5,
+            "farfield_transition": 5.0,
+        }
+        extra_mesh_args = default_mesh_args | kwargs
+
         # Helper class to keep track of mesh size computations.
-        mesh_size_computer = MeshSizeComputer(mesh_args)
+        mesh_size_computer = MeshSizeComputer(mesh_args | extra_mesh_args)
 
         domain_tag = self.domain_to_gmsh()
         fracture_tags = self.fractures_to_gmsh()
