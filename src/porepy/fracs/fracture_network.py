@@ -1194,7 +1194,7 @@ class MeshSizeComputer:
         if on_codim:
             return self.h_end(is_boundary) * self._farfield_transition
         else:
-            return self._hfarfield * self._farfield_transition
+            return self._hfrac * self._farfield_transition
 
     def size_farfield(self, is_boundary: bool) -> float:
         """Far-field mesh size [m].
