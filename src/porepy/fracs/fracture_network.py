@@ -129,9 +129,16 @@ class FractureNetwork(ABC):
             # to use Mesh.Algorithm3D, not Mesh3D.Algorithm, which triggers all sorts of
             # issues.
             meshing_algorithm = kwargs.get("meshing_algorithm_3d", 10)
+            gmsh.option.setNumber("Mesh.Algorithm3D", meshing_algorithm)
         else:
+            # By default, use the standard Delaunay algorithm for 2d meshing as this,
+            # according to the Gmsh documentation, handles large gradients in mesh sizes
+            # better. The documentation also generally recommends using the
+            # Frontal-Delaunay algorithm, so this may be a preferred choice for problems
+            # without such large gradients. See the Gmsh documentation for an overview
+            # of the available algorithms.
             meshing_algorithm = kwargs.get("meshing_algorithm_2d", 5)
-        gmsh.option.setNumber("Mesh.Algorithm3D", meshing_algorithm)
+            gmsh.option.setNumber("Mesh.Algorithm", meshing_algorithm)
 
         return file_name, constraints
 
