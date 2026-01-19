@@ -279,7 +279,7 @@ def test_push_north_zero_opening(model_class: type):
 )
 def test_positive_p_frac_positive_opening(model_class):
     model = create_fractured_model(
-        {}, {}, {"fracture_source_value": 0.001}, model_class
+        {}, {}, {"fracture_source_value": 0.004}, model_class
     )
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
@@ -306,24 +306,14 @@ def test_positive_p_frac_positive_opening(model_class):
     # model and the original number of fracture cells (4). For the temperature we also
     # need to increase the tolerance to account for the non-linear relation between
     # the pressure and temperature.
-    orig_mean_pressure = 4.8e-4
-    orig_pressure_deviation = 2e-5
-    orig_mean_temperature = 8.3e-6
-    orig_temperature_deviation = 1e-7
-
-    cell_ratio = model.mdg.subdomains(dim=model.nd - 1)[0].num_cells / 4
+    mean_pressure = 4.8e-4
+    pressure_deviation = 2e-5
+    mean_temperature = 8.3e-6
+    temperature_deviation = 1e-6
 
     # Fracture pressure and temperature are both positive.
-    assert np.allclose(
-        p_frac,
-        orig_mean_pressure * cell_ratio,
-        atol=orig_pressure_deviation * cell_ratio,
-    )
-    assert np.allclose(
-        t_frac,
-        orig_mean_temperature * cell_ratio,
-        atol=orig_temperature_deviation * cell_ratio * 10,
-    )
+    assert np.allclose(p_frac, mean_pressure, atol=pressure_deviation)
+    assert np.allclose(t_frac, mean_temperature, atol=temperature_deviation)
 
 
 def test_robin_boundary_flux():

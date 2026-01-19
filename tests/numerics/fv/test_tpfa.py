@@ -814,7 +814,8 @@ class DiffTpfaFractureTipsInternalBoundaries(
         self.equation_system.set_variable_values(values, iterate_index=0)
 
     def meshing_arguments(self) -> dict:
-        """Override parent class mesh size arguments to reduce the computational time."""
+        """Override parent class mesh size arguments to reduce the computational
+        time."""
         ls = self.units.convert_units(1, "m")
 
         mesh_sizes = {
