@@ -21,7 +21,7 @@ class OneVerticalWell(pp.PorePyModel):
     def meshing_arguments(self) -> dict:
         # Length scale:
         ls = self.units.convert_units(1, "m")
-        h = 0.4 * ls
+        h = 1.5 * ls
         mesh_sizes = {
             "cell_size_fracture": h,
             "cell_size_boundary": h,

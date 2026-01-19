@@ -612,7 +612,7 @@ class PoromechanicsWell(
     def meshing_arguments(self) -> dict:
         # Length scale:
         ls = self.units.convert_units(1, "m")
-        h = 0.5 * ls
+        h = 1 * ls
         mesh_sizes = {
             "cell_size": h,
         }
