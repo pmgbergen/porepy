@@ -1118,17 +1118,19 @@ class MeshSizeComputer:
                   size).
 
         """
-        assert "mesh_size_frac" in mesh_args, (  # For mypy.
-            "Fracture mesh size ('mesh_size_frac') must be provided in mesh arguments."
-        )
+        # Use typing ignore here, since this class is only accessed through the mesh
+        # methods of the fracture network classes, where all relevant parameters are
+        # given dimension-dependent default values.
         self._hfrac: float = mesh_args.get("mesh_size_frac")  # type: ignore
-        self._hfarfield: float = mesh_args.get("mesh_size_bound")
-        self._threshold: float = mesh_args.get("refinement_threshold")
-        self._buffer: float = mesh_args.get("refinement_buffer")
+        self._hfarfield: float = mesh_args.get("mesh_size_bound")  # type: ignore
+        self._threshold: float = mesh_args.get("refinement_threshold")  # type: ignore
+        self._buffer: float = mesh_args.get("refinement_buffer")  # type: ignore
         # By default, we let the minimum mesh size scale with the buffer and the
         # fracture mesh size.
         self._hmin: float = mesh_args.get("mesh_size_min", self._hfrac * self._buffer)
-        self._farfield_transition: float = mesh_args.get("farfield_transition")
+        self._farfield_transition: float = mesh_args.get(  # type: ignore
+            "farfield_transition"
+        )
 
     def refinement_threshold(self) -> float:
         """Threshold for refinement around fractures [m].

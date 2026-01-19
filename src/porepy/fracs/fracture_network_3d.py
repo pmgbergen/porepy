@@ -375,8 +375,8 @@ class FractureNetwork3d(FractureNetwork):
             domain_tag: Gmsh tag representing the domain.
             constraints: List of fracture indices (referring to input fracture
                 numbering) that are to be treated as constraints.
-            gmsh_to_porepy_fracture_ind_map: Mapping from gmsh fracture tags to input fracture
-                indices.
+            gmsh_to_porepy_fracture_ind_map: Mapping from gmsh fracture tags to input
+                fracture indices.
 
         Returns:
             A tuple with the following elements:
@@ -968,8 +968,8 @@ class FractureNetwork3d(FractureNetwork):
             num_parents_of_lines: Number of parent fractures for each intersection line.
             isect_mapping: Mapping from original fractures to new surfaces after
                 intersection removal.
-            gmsh_to_porepy_fracture_ind_map: Mapping from gmsh fracture tags to input fracture
-                indices.
+            gmsh_to_porepy_fracture_ind_map: Mapping from gmsh fracture tags to input
+                fracture indices.
             constraints: List of fracture indices that are constraints.
 
         Returns:
