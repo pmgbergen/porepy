@@ -10,6 +10,7 @@ from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Literal,
@@ -19,7 +20,6 @@ from typing import (
     Union,
     cast,
     overload,
-    TYPE_CHECKING,
 )
 from warnings import warn
 

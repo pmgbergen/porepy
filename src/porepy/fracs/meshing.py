@@ -15,7 +15,7 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.fracs import split_grid, _structured
+from porepy.fracs import _structured, split_grid
 from porepy.grids import mortar_grid
 from porepy.grids.md_grid import MixedDimensionalGrid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data

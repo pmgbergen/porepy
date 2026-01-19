@@ -29,7 +29,7 @@ Note:
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Callable, List, Literal, Sequence, Union, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, List, Literal, Sequence, Union, cast
 
 import numpy as np
 

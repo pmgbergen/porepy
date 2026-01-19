@@ -20,13 +20,13 @@ import porepy as pp
 import porepy.fracs.simplex
 from porepy.fracs import tools
 
-from .gmsh_interface import PhysicalNames
 from .fracture_network import (
     FractureNetwork,
     GmshPointIdentifier,
     MeshSizeComputer,
     MeshSizeControlPointInserter,
 )
+from .gmsh_interface import PhysicalNames
 
 logger = logging.getLogger(__name__)
 

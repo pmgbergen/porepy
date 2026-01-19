@@ -7,19 +7,21 @@ and identification of Gmsh point indices.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+import copy
+import heapq
+import multiprocessing
 import warnings
-from typing import Optional, Union, cast, TYPE_CHECKING, Literal
-import gmsh
-import porepy as pp
+from abc import ABC, abstractmethod
 from collections import namedtuple
 from enum import Enum
-import heapq
-import numpy as np
-from pathlib import Path
-import copy
 from itertools import combinations
-import multiprocessing
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal, Optional, Union, cast
+
+import gmsh
+import numpy as np
+
+import porepy as pp
 
 
 class FractureNetwork(ABC):

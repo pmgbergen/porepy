@@ -6,6 +6,7 @@ intersections along with a surrounding matrix in the form of a mixed-dimensional
 from __future__ import annotations
 
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Iterable,
@@ -13,7 +14,6 @@ from typing import (
     Optional,
     Union,
     overload,
-    TYPE_CHECKING,
 )
 
 import numpy as np

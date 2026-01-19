@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 
+import gmsh  # Needed to finalize gmsh in fixture.
 import numpy as np
 import pytest
 
@@ -9,7 +10,6 @@ import porepy as pp
 from porepy.applications.md_grids.domains import unit_cube_domain as unit_domain
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.plane_fracture import PlaneFracture
-import gmsh  # Needed to finalize gmsh in fixture.
 
 
 @pytest.fixture(scope="module")

@@ -48,7 +48,7 @@ Important:
 
 from __future__ import annotations
 
-from typing import Generator, Generic, Optional, Sequence, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator, Generic, Optional, Sequence, TypeVar
 
 import numpy as np
 

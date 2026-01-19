@@ -1,8 +1,9 @@
 """Test functionality related to ellipse_fracture module."""
 
+import gmsh
 import numpy as np
 import pytest
-import gmsh
+
 import porepy as pp
 from porepy.fracs import ellipse_fracture
 

@@ -7,7 +7,7 @@ import logging
 import time
 from pathlib import Path
 from typing import Any, Optional
-from pathlib import Path
+
 import meshio
 import numpy as np
 

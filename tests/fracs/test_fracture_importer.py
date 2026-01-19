@@ -18,7 +18,7 @@ import porepy as pp
 from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs import fracture_importer
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from pathlib import Path
+
 # ---------- Testing network_2d_from_csv ----------
 
 

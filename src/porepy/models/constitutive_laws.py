@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Literal,
     Optional,
@@ -11,7 +12,6 @@ from typing import (
     TypeVar,
     Union,
     cast,
-    TYPE_CHECKING,
 )
 
 import numpy as np

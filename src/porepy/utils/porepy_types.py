@@ -3,8 +3,8 @@ Defines types commonly used in PorePy.
 """
 
 from __future__ import annotations
-from typing import Callable, Sequence, Union, TYPE_CHECKING
 
+from typing import TYPE_CHECKING, Callable, Sequence, Union
 
 __all__ = [
     "number",

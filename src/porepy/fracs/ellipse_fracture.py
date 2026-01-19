@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Optional, Union
 
 import gmsh
@@ -11,11 +12,6 @@ from numpy.typing import ArrayLike
 import porepy as pp
 
 from .fracture import Fracture
-
-
-import math
-import numpy as np
-import gmsh
 
 
 class EllipticFracture(Fracture):

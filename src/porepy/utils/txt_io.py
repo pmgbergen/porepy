@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Type
-from pathlib import Path
+
 import numpy as np
 
 

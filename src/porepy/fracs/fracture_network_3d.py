@@ -2,23 +2,19 @@
 
 from __future__ import annotations
 
-import gmsh
 import copy
 import csv
 from pathlib import Path
 from typing import Optional, Union
 
+import gmsh
 import meshio
 import numpy as np
 
 import porepy as pp
 from porepy.fracs.gmsh_interface import PhysicalNames
 
-from .fracture_network import (
-    FractureNetwork,
-    MeshSizeComputer,
-    GmshPointIdentifier,
-)
+from .fracture_network import FractureNetwork, GmshPointIdentifier, MeshSizeComputer
 
 
 class FractureNetwork3d(FractureNetwork):

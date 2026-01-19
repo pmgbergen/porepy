@@ -6,7 +6,7 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
-from typing import Callable, Literal, Optional, Union, get_args, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Literal, Optional, Union, get_args
 from warnings import warn
 
 import numpy as np
@@ -14,7 +14,6 @@ import numpy as np
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-
 
 FractureNetworkType = Union[FractureNetwork2d, FractureNetwork3d]
 

@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterable
 from itertools import product
-from typing import Any, Callable, Literal, Optional, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Sequence
 
 import matplotlib
 import numpy as np

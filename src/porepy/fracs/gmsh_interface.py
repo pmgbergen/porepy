@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
-from pathlib import Path
+
 import gmsh
 import numpy as np
 

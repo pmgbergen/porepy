@@ -15,7 +15,7 @@ For converting values on the fly, see :meth:`~porepy.models.units.Units.convert_
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass
-from typing import Any, Callable, ClassVar, TypeVar, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, TypeVar, cast
 
 import porepy as pp
 

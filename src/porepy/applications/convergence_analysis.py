@@ -11,7 +11,7 @@ from typing import Literal, Optional, Union
 import numpy as np
 from scipy import sparse as sps
 from scipy import stats
-from pathlib import Path
+
 import porepy as pp
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 

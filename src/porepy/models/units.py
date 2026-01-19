@@ -6,7 +6,7 @@ This is part of a system for setting the units of measurement of a problem.
 
 from __future__ import annotations
 
-from typing import Optional, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, TypeVar
 
 import numpy as np
 

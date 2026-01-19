@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import gmsh
 import numpy as np
 import pytest
 
@@ -12,8 +13,6 @@ from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.line_fracture import LineFracture
 from porepy.fracs.utils import pts_edges_to_linefractures
 from porepy.geometry.domain import Domain
-from pathlib import Path
-import gmsh
 
 
 @pytest.fixture(scope="module")

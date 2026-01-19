@@ -13,6 +13,7 @@ References:
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable, ClassVar, Union
 

@@ -18,9 +18,9 @@ from __future__ import annotations
 import logging
 from typing import Iterator, Optional
 
+import gmsh
 import numpy as np
 import scipy.sparse as sps
-import gmsh
 
 import porepy as pp
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
