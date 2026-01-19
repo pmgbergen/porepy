@@ -1117,12 +1117,20 @@ class MeshSizeComputer:
                   where far-field mesh size is reached (in units of far-field mesh
                   size).
 
+        Raises:
+            ValueError: If required mesh size parameters are missing.
+
         """
         # Use typing ignore here, since this class is only accessed through the mesh
-        # methods of the fracture network classes, where all relevant parameters are
+        # methods of the fracture network classes, where most relevant parameters are
         # given dimension-dependent default values.
+        if "mesh_size_frac" not in mesh_args:
+            raise ValueError("mesh_size_frac must be provided in mesh_args.")
+
         self._hfrac: float = mesh_args.get("mesh_size_frac")  # type: ignore
-        self._hfarfield: float = mesh_args.get("mesh_size_bound")  # type: ignore
+        self._hfarfield: float = mesh_args.get(  # type: ignore
+            "mesh_size_bound", self._hfrac
+        )
         self._threshold: float = mesh_args.get("refinement_threshold")  # type: ignore
         self._buffer: float = mesh_args.get("refinement_buffer")  # type: ignore
         # By default, we let the minimum mesh size scale with the buffer and the
