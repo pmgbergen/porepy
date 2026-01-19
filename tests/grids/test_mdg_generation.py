@@ -78,8 +78,8 @@ class TestMDGridGeneration:
         """Admissible keys in pp.create_mdg for 2d cases"""
         simplex_extra_args: dict = {
             "cell_size_min": 0.5,
-            "cell_size_boundary": 1.0,
-            "cell_size_fracture": 0.5,
+            "cell_size_boundary": 2 * self.cell_size(),
+            "cell_size_fracture": self.cell_size(),
         }
         cartesian_extra_args: dict = {"cell_size_x": 0.5, "cell_size_y": 0.5}
         tensor_grid_extra_args: dict = {
@@ -92,8 +92,8 @@ class TestMDGridGeneration:
         """Admissible keys for 2d cases"""
         simplex_extra_args: dict = {
             "mesh_size_min": 0.5,
-            "mesh_size_bound": 1.0,
-            "mesh_size_frac": 0.5,
+            "mesh_size_bound": 2 * self.cell_size(),
+            "mesh_size_frac": self.cell_size(),
         }
         cartesian_extra_args: dict = {"nx": [10, 10], "physdims": [5, 5]}
         tensor_grid_extra_args: dict = {
@@ -106,8 +106,8 @@ class TestMDGridGeneration:
         """Admissible keys in pp.create_mdg for 3d cases"""
         simplex_extra_args: dict = {
             "cell_size_min": 0.5,
-            "cell_size_boundary": 1.0,
-            "cell_size_fracture": 0.5,
+            "cell_size_boundary": 2 * self.cell_size(),
+            "cell_size_fracture": self.cell_size(),
         }
         cartesian_extra_args: dict = {
             "cell_size_x": 0.5,
