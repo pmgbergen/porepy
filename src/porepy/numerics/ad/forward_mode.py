@@ -80,12 +80,17 @@ class AdArray:
     # arise if this is not done.
     __array_ufunc__ = None
 
-    def __init__(self, val: np.ndarray, jac: sps.spmatrix) -> None:
+    def __init__(self, val: np.ndarray, jac: sps.spmatrix | np.ndarray) -> None:
         # Consistency checks, to limit the possibilities for errors when combining this
         # array with other objects.
         if val.ndim != 1:
             raise ValueError("The Ad array value should be one dimensional")
-        if jac.shape[0] != val.size:
+
+        self._is_diagonal = isinstance(jac, np.ndarray)
+
+        num_derivatives = jac.size if self._is_diagonal else jac.shape[0]
+
+        if num_derivatives != val.size:
             raise ValueError(
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
@@ -97,14 +102,14 @@ class AdArray:
             self.val = self.val.astype(float)
         """The value of the AdArray, stored as a 1d numpy array."""
 
-        self.jac: sps.spmatrix = jac
+        self.jac: sps.spmatrix | np.ndarray = jac
         if self.jac.data.dtype != float:
             self.jac.data = self.jac.data.astype(float)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
     def __str__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
-        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
+        s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size if not self._is_diagonal else self.jac.size}"
         s += " elements."
         return s
 
@@ -164,6 +169,10 @@ class AdArray:
         else:
             raise NotImplementedError("Setting")
 
+    def _same_format(self, other: AdArray) -> bool:
+        """Check if two arrays have the same format."""
+        return self._is_diagonal == other._is_diagonal
+
     def __add__(self, other: AdType) -> AdArray:
         """Add the AdArray to another object.
 
@@ -196,7 +205,12 @@ class AdArray:
         elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for AdArray addition")
-            return AdArray(self.val + other.val, self.jac + other.jac)
+            if self._same_format(other):
+                return AdArray(self.val + other.val, self.jac + other.jac)
+            elif self._is_diagonal:
+                return AdArray(self.val + other.val, sps.diags(self.jac) + other.jac)
+            else:
+                return AdArray(self.val + other.val, self.jac + sps.diags(other.jac))
 
         else:
             raise ValueError(f"Unknown type {type(other)} for AdArray addition")
@@ -597,7 +611,10 @@ class AdArray:
                     matrix multiplication."""
                 )
             new_val = other @ self.val
-            new_jac = other @ self.jac
+            if self._is_diagonal:
+                new_jac = other @ sps.diags(self.jac)
+            else:
+                new_jac = other @ self.jac
             return AdArray(new_val, new_jac)
 
         else:
@@ -620,14 +637,10 @@ class AdArray:
         return b
 
     def _diagvec_mul_jac(self, a: np.ndarray) -> sps.spmatrix:
-        A = sps.diags(a)
-
-        return A * self.jac
-
-    def _jac_mul_diagvec(self, a: np.ndarray) -> sps.spmatrix:
-        A = sps.diags(a)
-
-        return self.jac * A
+        if self._is_diagonal:
+            return sps.diags(a * self.jac)
+        else:
+            return sps.diags(a) * self.jac
 
     def __lt__(self, other: AdType) -> bool | np.ndarray:
         """Overload of operation ``self < other``.
