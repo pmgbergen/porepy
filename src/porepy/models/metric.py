@@ -145,18 +145,21 @@ class VariableBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each variable block.
 
         """
-        norms = {}
+        norms = {v.name: 0.0 for v in self.model.equation_system.variables}
         variable_blocks = {
-            variable.name: (
+            (variable.name, variable.domain): (
                 self.model.equation_system.dofs_of([variable]),
-                variable.domain,
                 variable._cells + variable._faces + variable._nodes,
             )
             for variable in self.model.equation_system.variables
         }
-        for name, (indices, sd, variable_dim) in variable_blocks.items():
+        for (name, sd), (indices, variable_dim) in variable_blocks.items():
             variable_values = pp.ad.DenseArray(values[indices])
-            norms[name] = self._lebesgue2_norm(variable_values, variable_dim, [sd])
+            norms[name] += (
+                self._lebesgue2_norm(variable_values, variable_dim, [sd]) ** 2
+            )
+        for name in norms:
+            norms[name] = np.sqrt(norms[name])
 
         return norms
 
@@ -178,7 +181,7 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
             dict[str, float]: measure of values for each equation block
 
         """
-        norms = {}
+        norms = {name: 0.0 for name in self.model.equation_system._equations}
         equation_blocks = {
             name: (
                 self.model.equation_system.assembled_equation_indices[name],
@@ -193,12 +196,13 @@ class EquationBasedLebesgueMetric(LebesgueMetric):
         }
         for name, (indices, sd, eq_dim) in equation_blocks.items():
             if len(sd) == 0:
-                continue
-            equation_values = values[indices].reshape((eq_dim, -1), order="F")
-            cell_weights = np.hstack([_sd.cell_volumes for _sd in sd])
-            intensive_equation_values = pp.ad.DenseArray(
-                np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
-            )
-            norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, sd)
+                norms[name] = 0.0
+            else:
+                equation_values = values[indices].reshape((eq_dim, -1), order="F")
+                cell_weights = np.hstack([_sd.cell_volumes for _sd in sd])
+                intensive_equation_values = pp.ad.DenseArray(
+                    np.linalg.norm(equation_values, ord=2, axis=0) / cell_weights
+                )
+                norms[name] = self._lebesgue2_norm(intensive_equation_values, 1, sd)
 
         return norms
