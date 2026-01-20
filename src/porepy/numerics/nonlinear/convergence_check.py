@@ -15,6 +15,9 @@ from enum import StrEnum
 from typing import Callable
 
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Status and info classes
 
@@ -280,6 +283,10 @@ class DivergenceCriterion(ABC):
         """Reset any internal state of the divergence criterion."""
         pass
 
+    def divergence_msg(self) -> str:
+        """Return a message describing the divergence criterion."""
+        return f"\033[91m{self.__class__.__name__} triggered divergence.\033[0m"
+
 
 class ConvergenceCriteria(dict[str, ConvergenceCriterion]):
     """Collection of convergence criteria."""
@@ -355,6 +362,7 @@ class NanDivergenceCriterion(DivergenceCriterion):
 
         """
         if np.isnan(kwargs["value"]).any():
+            logger.info(self.divergence_msg())
             return ConvergenceStatus.DIVERGED
         return ConvergenceStatus.CONVERGED
 
@@ -437,6 +445,8 @@ class AbsoluteDivergenceCriterion(DivergenceCriterion):
                 if metric_value > self.tol
                 else ConvergenceStatus.CONVERGED
             )
+        if status.is_failed():
+            logger.info(self.divergence_msg())
         return status
 
 
@@ -606,6 +616,8 @@ class RelativeDivergenceCriterion(DivergenceCriterion):
                 if metric_value > self.tol * self.reference_value
                 else ConvergenceStatus.CONVERGED
             )
+        if status.is_failed():
+            logger.info(self.divergence_msg())
         return status
 
 
@@ -704,6 +716,7 @@ class MaxIterationsCriterion(DivergenceCriterion):
         """
         # Assume iteration counting starts at 0.
         if num_iterations >= self.max_iterations - 1:
+            logger.info(self.divergence_msg())
             return ConvergenceStatus.DIVERGED
         else:
             return ConvergenceStatus.CONVERGED
