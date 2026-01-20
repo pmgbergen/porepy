@@ -97,7 +97,7 @@ solver_params = {
     "prepare_simulation": True,
     "progressbars": True,  # make sure you installed tqdm
     "_nl_progress_bar_position": 0,  # TODO: You don't want to change it.
-    # Sufficient to steer control defaul convergence and divergence criteria.
+    # Sufficient to steer control default convergence and divergence criteria.
     "nl_max_iterations": 10,  # Max iterations of a nonlinear solver (Newton)
     "nl_convergence_inc_atol": 1e-6,  # Increment norm
     "nl_convergence_res_atol": 1e-6,  # Residual norm
