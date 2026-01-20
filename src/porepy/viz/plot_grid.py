@@ -145,7 +145,7 @@ def plot_sd(
             color_map: Color map as str or matplotlib color map. Defaults to jet.
             color_map_limits: Limits of the cell value color axis.
             if_plot: Boolean flag determining whether the plot is shown or not.
-            plot_2d: Boolean flag determining wheter the plit is showed in 2d or 3d.
+            plot_2d: Boolean flag determining whether the plot is shown in 2d or 3d.
             pointsize: Size of points marking 0d grids.
             linewidth: Width of faces in 2d and edges in 3d.
             rgb: Color map weights. Defaults to [1, 0, 0].
