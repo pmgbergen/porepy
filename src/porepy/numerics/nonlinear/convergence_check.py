@@ -9,13 +9,13 @@ This includes:
 
 """
 
+import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
 from typing import Callable
 
 import numpy as np
-import logging
 
 logger = logging.getLogger(__name__)
 
