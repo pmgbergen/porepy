@@ -266,8 +266,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
 
         # Post-processing solution overshoots
         self.postprocessing_overshoots(solution)
-        # solution *= scaling_factor
-        # print(f"Newton correction scale factor: {scaling_factor:.4f}")
 
         # Identify indices where the residual for primary variables exceeds a tolerance
         residual_tolerance = 1.0
@@ -295,32 +293,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             solution *= scaling_factor
             print(f"Newton correction scale factor: {scaling_factor:.4f}")
 
-
-            # scaling_factor = self.armijo_line_search(solution)
-            # solution *= scaling_factor
-            # print(f"Newton correction scale factor: {scaling_factor:.4f}")
-
-
-
-
-            # res_norm_km1 = self.nonlinear_solver_statistics.residual_norms[-1]
-            # accepted_solution = self.equation_system.get_variable_values(iterate_index=0)
-            # print("Scaling Newton correction with current residual norm: ", res_norm_km1)
-            # for k_search in range(10):
-            #     scaling_factor = max(0.001, 0.9 ** (k_search))
-            #     self.equation_system.set_variable_values(
-            #         values=accepted_solution + scaling_factor * solution, additive=False, iterate_index=0
-            #     )
-            #     self.update_derived_quantities()
-            #     search_res_norm = np.linalg.norm(self.equation_system.assemble(evaluate_jacobian=False))
-            #     if res_norm_km1 > search_res_norm:
-            #         self.equation_system.set_variable_values(
-            #             values=accepted_solution, additive=False, iterate_index=0
-            #         )
-            #         break
-            #     print(f"Newton correction scale factor: {scaling_factor:.4f}")
-            #     print(f"Search residual norm: {search_res_norm:.4f}")
-            # solution *= scaling_factor
 
         return solution
 
