@@ -406,6 +406,36 @@ class FlowModelBase(FlowTemplate):
         gravity_field.set_name("gravity_field")
         return gravity_field
 
+    def _get_non_reference_component(self) -> str | None:
+        """
+        Return the non-reference component name for binary mixtures.
+
+        Convention: self.fluid.components is expected to be an indexable sequence
+        where the reference component is at index 0 and the other (active)
+        component is at index 1. If there are at least two components, return
+        the second one. Otherwise return None.
+        """
+        # Defensive access: fluid may not be present or components may not be a list
+        fluid = getattr(self, "fluid", None)
+        if fluid is None:
+            return None
+        comps = getattr(fluid, "components", None)
+        if comps is None:
+            return None
+        # If components are bytes (some code paths), decode to str
+        try:
+            if len(comps) >= 2:
+                comp = comps[1]
+                if isinstance(comp, bytes):
+                    try:
+                        return comp.decode()
+                    except Exception:
+                        return str(comp)
+                return str(comp)
+        except Exception:
+            return None
+        return None
+
     def check_convergence(
         self,
         nonlinear_increment: np.ndarray,
@@ -449,10 +479,10 @@ class FlowModelBase(FlowTemplate):
         """
         Permute equations and variables in the following order:
         1. Elliptic equations: mass_balance_equation, interface_darcy_flux_equation, well_flux_equation
-        2. Transport equations: component_mass_balance_equation_CO2, energy_balance_equation,
+        2. Transport equations: component mass balance for the non-reference component, energy_balance_equation,
            interface_fourier_flux_equation, interface_enthalpy_flux_equation, well_enthalpy_flux_equation
-        3. Algebraic equations: elimination_of_s_gas_on_grids_[0], elimination_of_x_CO2_liq_on_grids_[0],
-           elimination_of_x_CO2_gas_on_grids_[0], elimination_of_temperature_on_grids_[0]
+        3. Algebraic equations: elimination_of_s_gas_on_grids_[0], elimination_of_x_<comp>_liq_on_grids_[0],
+           elimination_of_x_<comp>_gas_on_grids_[0], elimination_of_temperature_on_grids_[0]
 
         Returns:
             tuple: (equation_permutation, variable_permutation) where each is an array of indices
@@ -479,10 +509,17 @@ class FlowModelBase(FlowTemplate):
             'pressure'
         )
 
-        # z_CO2 <-> Component Mass Balance
-        variable_equation_map['z_CO2'] = (
-            find_eq('component_mass_balance_equation_CO2', equation_keys),
-            'z_CO2'
+        # Determine active (non-reference) component for binary mixtures
+        active_comp = self._get_non_reference_component()
+        # Fallback: use 'CO2' if component cannot be determined to preserve prior behaviour
+        if not active_comp:
+            active_comp = 'CO2'
+
+        # z_<comp> <-> Component Mass Balance
+        z_key = f"z_{active_comp}"
+        variable_equation_map[z_key] = (
+            find_eq(f'component_mass_balance_equation_{active_comp}', equation_keys),
+            z_key
         )
 
         # Enthalpy <-> Energy Balance
@@ -494,13 +531,13 @@ class FlowModelBase(FlowTemplate):
         # Fluxes (Direct name matching)
         flux_vars = ['interface_darcy_flux', 'interface_fourier_flux', 'interface_enthalpy_flux']
         for var in flux_vars:
-            # Matches "interface_darcy_flux" to "interface_darcy_flux_equation"
+            # Matches e.g. "interface_darcy_flux" to "interface_darcy_flux_equation"
             variable_equation_map[var] = (find_eq(var, equation_keys), var)
 
         # 2. Map Local Elimination/Constraint Equations
         # These look for the variable name inside the elimination string
         # e.g., "s_gas" is found inside "elimination_of_s_gas_..."
-        elimination_vars = ['s_gas', 'x_CO2_liq', 'x_CO2_gas', 'temperature']
+        elimination_vars = ['s_gas', f'x_{active_comp}_liq', f'x_{active_comp}_gas', 'temperature']
 
         for var in elimination_vars:
             # Search for the equation string that contains "elimination_of_{var}"
@@ -525,7 +562,7 @@ class FlowModelBase(FlowTemplate):
         elliptic_keys = ['pressure', 'interface_darcy_flux']
         elliptic_keys.extend(elimination_vars)
         for key in elliptic_keys:
-            eq_name, var_name = variable_equation_map[key]
+            eq_name, var_name = variable_equation_map.get(key, (None, None))
             if eq_name and var_name:
                 # Get equation indices
                 eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
@@ -538,9 +575,9 @@ class FlowModelBase(FlowTemplate):
 
         equation_t_indices = []
         variable_t_indices = []
-        transport_keys = ['enthalpy', 'interface_enthalpy_flux','interface_fourier_flux','z_CO2']
+        transport_keys = ['enthalpy', 'interface_enthalpy_flux','interface_fourier_flux', z_key]
         for key in transport_keys:
-            eq_name, var_name = variable_equation_map[key]
+            eq_name, var_name = variable_equation_map.get(key, (None, None))
             if eq_name and var_name:
                 # Get equation indices
                 eq_idxs = self.equation_system.assembled_equation_indices[eq_name]
