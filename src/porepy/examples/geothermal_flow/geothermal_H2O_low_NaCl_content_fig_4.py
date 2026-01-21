@@ -104,15 +104,20 @@ solid_constants = pp.SolidConstants(
 )
 material_constants = {"solid": solid_constants}
 params = {
-    "material_constants": material_constants,
     "fractional_flow": True,
+    "enable_buoyancy_effects": True,
+    "material_constants": material_constants,
     "time_manager": time_manager,
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-4,
+    "nl_convergence_tol_res": 1.0e-5,
+    "flag_failure_as_diverged": False,
     "max_iterations": 100,
+    "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
+    "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'cpr'
 }
+
 
 
 class GeothermalWaterFlowModel(
