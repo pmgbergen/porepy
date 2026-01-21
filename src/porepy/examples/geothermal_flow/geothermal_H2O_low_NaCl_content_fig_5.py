@@ -48,7 +48,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.5 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.015625 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -64,25 +64,25 @@ dt = cast(float, simulation_cases[case_name]["dt"])
 BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
 InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, geometry_cases[geometry_case])
-#
-# time_manager = pp.TimeManager(
-#     schedule=[0.0, tf],
-#     dt_init=dt,
-#     constant_dt=True,
-#     iter_max=50,
-#     print_info=True,
-# )
 
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
-    constant_dt=False,
-    dt_min_max=(dt * 0.05, 1.0 * dt),
-    iter_relax_factors=(0.5, 1.5),
-    iter_optimal_range=(3, 8),
-    recomp_factor=0.3,
+    constant_dt=True,
+    iter_max=50,
     print_info=True,
 )
+
+# time_manager = pp.TimeManager(
+#     schedule=[0.0, tf],
+#     dt_init=dt,
+#     constant_dt=False,
+#     dt_min_max=(dt * 0.05, 1.0 * dt),
+#     iter_relax_factors=(0.5, 1.5),
+#     iter_optimal_range=(3, 8),
+#     recomp_factor=0.3,
+#     print_info=True,
+# )
 
 solid_constants = pp.SolidConstants(
     permeability=1e-15,
@@ -129,14 +129,6 @@ class GeothermalWaterFlowModel(
         print("Time value (year): ", self.time_manager.time * second_to_year)
         print("Time index: ", self.time_manager.time_index)
         print("")
-
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
 
 
 # Instance of the computational model
