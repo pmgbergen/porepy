@@ -35,7 +35,7 @@ from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_lP"
-geometry_case = "vertical"
+geometry_case = "horizontal"
 
 final_times = {
     "horizontal": [73000.0],  # final time [200 years]
@@ -64,25 +64,25 @@ dt = cast(float, simulation_cases[case_name]["dt"])
 BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
 InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
 ModelGeometry: type = cast(type, geometry_cases[geometry_case])
+#
+# time_manager = pp.TimeManager(
+#     schedule=[0.0, tf],
+#     dt_init=dt,
+#     constant_dt=True,
+#     iter_max=50,
+#     print_info=True,
+# )
 
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
-    constant_dt=True,
-    iter_max=50,
+    constant_dt=False,
+    dt_min_max=(dt * 0.05, 1.0 * dt),
+    iter_relax_factors=(0.5, 1.5),
+    iter_optimal_range=(3, 8),
+    recomp_factor=0.3,
     print_info=True,
 )
-
-# time_manager = pp.TimeManager(
-#     schedule=[0.0, tf],
-#     dt_init=dt,
-#     constant_dt=False,
-#     dt_min_max=(dt * 0.05, 2.0 * dt),
-#     iter_relax_factors=(0.5, 1.5),
-#     iter_optimal_range=(3, 8),
-#     recomp_factor=0.3,
-#     print_info=True,
-# )
 
 solid_constants = pp.SolidConstants(
     permeability=1e-15,
@@ -100,7 +100,7 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-4,
+    "nl_convergence_tol_res": 1.0e-5,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
