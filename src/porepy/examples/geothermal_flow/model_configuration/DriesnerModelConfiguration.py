@@ -286,12 +286,12 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         if thermal_indices.size != 0 and self.nonlinear_solver_statistics.num_iteration < n_iter:
             self.postprocessing_thermal_overshoots(solution)
 
-        # Scale down the Newton correction if the non-linear solver is struggling
-        if self.nonlinear_solver_statistics.num_iteration > n_iter:
-
-            scaling_factor = max(0.01, 0.98 ** (self.nonlinear_solver_statistics.num_iteration))
-            solution *= scaling_factor
-            print(f"Newton correction scale factor: {scaling_factor:.4f}")
+        # # Scale down the Newton correction if the non-linear solver is struggling
+        # if self.nonlinear_solver_statistics.num_iteration > n_iter:
+        #
+        #     scaling_factor = max(0.01, 0.98 ** (self.nonlinear_solver_statistics.num_iteration))
+        #     solution *= scaling_factor
+        #     print(f"Newton correction scale factor: {scaling_factor:.4f}")
 
 
         return solution
