@@ -9,6 +9,7 @@ import porepy.compositional as ppc
 from porepy.models.compositional_flow import (
     CompositionalFractionalFlowTemplate as FlowTemplate,
 )
+from porepy.examples.geothermal_flow.flow_model_base import FlowModelBase
 
 from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
@@ -121,7 +122,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     InitialConditions,
     BoundaryConditions,
     SecondaryEquations,
-    FlowTemplate,
+    FlowModelBase,
 ):
     def relative_permeability(
         self, phase: pp.ad.Operator, domains: pp.SubdomainsOrBoundaries
@@ -160,10 +161,6 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     def update_flux_values(self):
         super().update_flux_values()
         self.update_buoyancy_driven_fluxes()
-
-    def set_nonlinear_discretizations(self):
-        super().set_nonlinear_discretizations()
-        self.set_nonlinear_buoyancy_discretization()
 
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
@@ -459,3 +456,4 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         te = time.time()
         print("Elapsed time for postprocessing thermal overshoots: ", te - tb)
         return
+
