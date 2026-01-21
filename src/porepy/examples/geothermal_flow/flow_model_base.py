@@ -20,6 +20,19 @@ try:
     PETSC_AVAILABLE = True
 except ImportError:
     PETSC_AVAILABLE = False
+    logging.warning("*** ITERATIVE SOLVER NOT AVAILABLE ***")
+    logging.warning("PETSc not available. All linear systems will use direct solver (MUMPS/UMFPACK).")
+    logging.warning("For large systems, consider installing PETSc for iterative solver options.")
+
+# Configure logging to show info messages
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Ensure specific loggers are enabled for linear solver information
+logging.getLogger('porepy.models.solution_strategy').setLevel(logging.INFO)
+logging.getLogger('porepy').setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +48,7 @@ class FlowModelBase(FlowTemplate):
 
         # Preconditioner selection for PETSc solver
         self.petsc_preconditioner = params.get("petsc_preconditioner", "bjacobi")
-        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre","ilu0", "cpr"}
+        valid_preconditioners = {"bjacobi", "asm", "jacobi", "lump_colsum", "amg_hypre","ilu0","lu", "cpr"}
         if self.petsc_preconditioner not in valid_preconditioners:
             logger.warning(f"Invalid preconditioner '{self.petsc_preconditioner}'. Using 'bjacobi' as default.")
             self.petsc_preconditioner = "bjacobi"
@@ -413,26 +426,7 @@ class FlowModelBase(FlowTemplate):
         component is at index 1. If there are at least two components, return
         the second one. Otherwise return None.
         """
-        # Defensive access: fluid may not be present or components may not be a list
-        fluid = getattr(self, "fluid", None)
-        if fluid is None:
-            return None
-        comps = getattr(fluid, "components", None)
-        if comps is None:
-            return None
-        # If components are bytes (some code paths), decode to str
-        try:
-            if len(comps) >= 2:
-                comp = comps[1]
-                if isinstance(comp, bytes):
-                    try:
-                        return comp.decode()
-                    except Exception:
-                        return str(comp)
-                return str(comp)
-        except Exception:
-            return None
-        return None
+        return self.get_components()[1].name
 
     def check_convergence(
         self,
@@ -585,24 +579,6 @@ class FlowModelBase(FlowTemplate):
                 var_dofs = find_variable_idxs(var_name)
                 variable_t_indices.extend(var_dofs)
                 assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
-
-        # Safe-guard: Identify any unmapped equations and variables and append them to the transport block.
-        # This ensures the linear system size is preserved even if some variables were not explicitly mapped.
-        num_dofs = self.equation_system.num_dofs()
-
-        mapped_eq_indices = set(equation_e_indices + equation_t_indices)
-        unmapped_eq_indices = sorted([i for i in range(num_dofs) if i not in mapped_eq_indices])
-
-        if unmapped_eq_indices:
-            logger.info(f"Permutation: Found {len(unmapped_eq_indices)} unmapped equations. Appending to transport block.")
-            equation_t_indices.extend(unmapped_eq_indices)
-
-        mapped_var_indices = set(variable_e_indices + variable_t_indices)
-        unmapped_var_indices = sorted([i for i in range(num_dofs) if i not in mapped_var_indices])
-
-        if unmapped_var_indices:
-            logger.info(f"Permutation: Found {len(unmapped_var_indices)} unmapped variables. Appending to transport block.")
-            variable_t_indices.extend(unmapped_var_indices)
 
         equation_indices = equation_e_indices + equation_t_indices
         variable_indices = variable_e_indices + variable_t_indices
