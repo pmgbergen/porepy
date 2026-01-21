@@ -7,7 +7,6 @@ import numpy as np
 
 import porepy as pp
 
-
 # geometry description horizontal case
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
     SimpleGeometryHorizontal as ModelGeometryH,
@@ -111,11 +110,11 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-5,
+    "nl_convergence_tol_res": 1.0e-4,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
-    "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'cpr'
+    "petsc_preconditioner": "lu",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
 }
 
 
