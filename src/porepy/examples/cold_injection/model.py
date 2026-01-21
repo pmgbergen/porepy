@@ -129,13 +129,13 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
     fraction_in_phase_variables: list[str]
 
     def __init__(self, params: dict | None = None):
-        super().__init__(params)  # type:ignore[safe-super]
+        super().__init__(params)
 
         self._residual_norm_history: deque[float] = deque(maxlen=4)
         self._increment_norm_history: deque[float] = deque(maxlen=3)
 
     def before_nonlinear_loop(self) -> None:
-        super().before_nonlinear_loop()  # type:ignore[misc]
+        super().before_nonlinear_loop()
         self._residual_norm_history.clear()
         self._increment_norm_history.clear()
 
@@ -207,9 +207,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 all(residuals_converged) and all(increments_converged),
                 False,
             )
-            if status[0]:
-                # print("\nConverged with relaxed CFLE criteria.\n")
-                ...
 
         # Keeping residual/ increment norm history and checking for stationary points.
         self._residual_norm_history.append(
@@ -256,12 +253,13 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
         self, state: Optional[np.ndarray] = None
     ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
-        stride = self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
+        stride = int(
+            self.params.get("flash_params", {}).get("global_iteration_stride", 1)  # type:ignore
+        )
         do_flash = False
-        if isinstance(stride, int):
-            assert stride > 0, "Global iteration stride must be positive."
-            n = self.nonlinear_solver_statistics.num_iteration
-            do_flash = (n + 1) % stride == 0 or n == 0
+        assert stride > 0, "Global iteration stride must be positive."
+        n = self.nonlinear_solver_statistics.num_iteration
+        do_flash = (n + 1) % stride == 0 or n == 0
 
         for sd in self.mdg.subdomains():
             if "injection_well" in sd.tags:  # and stride is not None:
@@ -286,9 +284,6 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                     self,
                     state,
                 )
-
-    # def add_nonlinear_fourier_flux_discretization(self) -> None:
-    #     pass
 
 
 class AdjustedPointWellModel(ModelConfig):
