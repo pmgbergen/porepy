@@ -586,6 +586,24 @@ class FlowModelBase(FlowTemplate):
                 variable_t_indices.extend(var_dofs)
                 assert len(eq_idxs) == len(var_dofs), f"Mismatch in lengths for {key}: {len(eq_idxs)} equations vs {len(var_dofs)} variables"
 
+        # Safe-guard: Identify any unmapped equations and variables and append them to the transport block.
+        # This ensures the linear system size is preserved even if some variables were not explicitly mapped.
+        num_dofs = self.equation_system.num_dofs()
+
+        mapped_eq_indices = set(equation_e_indices + equation_t_indices)
+        unmapped_eq_indices = sorted([i for i in range(num_dofs) if i not in mapped_eq_indices])
+
+        if unmapped_eq_indices:
+            logger.info(f"Permutation: Found {len(unmapped_eq_indices)} unmapped equations. Appending to transport block.")
+            equation_t_indices.extend(unmapped_eq_indices)
+
+        mapped_var_indices = set(variable_e_indices + variable_t_indices)
+        unmapped_var_indices = sorted([i for i in range(num_dofs) if i not in mapped_var_indices])
+
+        if unmapped_var_indices:
+            logger.info(f"Permutation: Found {len(unmapped_var_indices)} unmapped variables. Appending to transport block.")
+            variable_t_indices.extend(unmapped_var_indices)
+
         equation_indices = equation_e_indices + equation_t_indices
         variable_indices = variable_e_indices + variable_t_indices
         return np.array(equation_indices), np.array(variable_indices), {'elliptic': len(equation_e_indices), 'transport': len(equation_t_indices)}
