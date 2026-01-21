@@ -126,14 +126,6 @@ class GeothermalWaterFlowModel(
         print("Time index: ", self.time_manager.time_index)
         print("")
 
-    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        g_constant = pp.GRAVITY_ACCELERATION
-        val = self.units.convert_units(g_constant, "m*s^-2") * to_Mega
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
-        gravity_field.set_name("gravity_field")
-        return gravity_field
-
 
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
