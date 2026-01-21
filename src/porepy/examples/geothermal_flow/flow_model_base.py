@@ -1,13 +1,11 @@
 from __future__ import annotations
-import os
 import logging
 import time
 import csv
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sps
 from scipy.sparse.csgraph import reverse_cuthill_mckee
-from typing import Callable, Optional, Sequence, cast, Any
+from typing import Callable, Optional, cast, Any
 
 import porepy as pp
 from porepy.models.compositional_flow import (
@@ -592,7 +590,7 @@ class FlowModelBase(FlowTemplate):
         variable_indices = variable_e_indices + variable_t_indices
         return np.array(equation_indices), np.array(variable_indices), {'elliptic': len(equation_e_indices), 'transport': len(equation_t_indices)}
 
-    def apply_equation_permutation(self, A: sps.spmatrix, b: np.ndarray) -> tuple[sps.spmatrix, np.ndarray, np.ndarray | None, np.ndarray | None]:
+    def apply_equation_permutation(self, A: sps.spmatrix, b: np.ndarray) -> tuple[sps.spmatrix, np.ndarray, np.ndarray | None, np.ndarray | None, dict | None]:
         """
         Apply equation and variable permutation to the linear system.
 
@@ -618,7 +616,7 @@ class FlowModelBase(FlowTemplate):
 
         except Exception as e:
             logger.warning(f"Failed to apply equation permutation: {e}. Using original ordering.")
-            return A, b, None, None
+            return A, b, None, None, None
 
     def assemble_linear_system(self) -> None:
         """Custom assemble linear system that updates Jacobian every 0, 3, 6, 9... Newton iterations.
@@ -713,6 +711,7 @@ class FlowModelBase(FlowTemplate):
         print(f"Newton iteration data written to {filename}")
         print(f"Total Newton iterations: {self.total_newton_iterations}")
         print(f"Total timesteps: {len(self.newton_iterations_per_timestep)}")
+        avg_iterations = 0.0
         if self.newton_iterations_per_timestep:
             avg_iterations = self.total_newton_iterations / len(self.newton_iterations_per_timestep)
         print(f"Average iterations per timestep: {avg_iterations:.2f}")
