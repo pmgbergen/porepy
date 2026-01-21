@@ -35,6 +35,7 @@ from porepy.applications.md_grids.model_geometries import (
     TwoWells3d,
 )
 from porepy.numerics.nonlinear import line_search
+from porepy.viz.data_saving_model_mixin import FractureDeformationExporting
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,8 @@ class WellBoundaryConditions(pp.PorePyModel):
         # mixin class.
         values = super().bc_values_pressure(bg)  # type: ignore[misc]
         if self.is_well_grid(sd):
-            well_tag = self.well_names[sd.tags["parent_well_index"]]
+            well = self.well_network.wells[sd.tags["parent_well_index"]]
+            well_tag = well.tags["well_name"]
             protocol = self.well_protocols()[well_tag]
             # Find indices of the well boundary sides.
             domain_sides = self.domain_boundary_sides(bg)
@@ -123,17 +125,6 @@ class WellBoundaryConditions(pp.PorePyModel):
                 "K",
             )
         return values
-
-    def is_well_grid(self, sd: pp.Grid) -> bool:
-        """Check if a given subdomain grid is a well grid.
-
-        Parameters:
-            sd: The subdomain grid to check.
-
-        Returns:
-            True if the subdomain grid is a well grid, False otherwise.
-        """
-        return "parent_well_index" in sd.tags
 
     def get_well_value(
         self,
@@ -204,10 +195,14 @@ class WellBoundaryConditions(pp.PorePyModel):
 
 
 class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
-    """Class defining Neumann BCs on well grids during the first time interval."""
+    """Class defining Neumann BCs on well grids during the first time interval.
+
+    Rediscretization happens when calling rediscretize_fluxes in the solution strategy
+    class. By default, both diffusive fluxes in lower-dimensional subdomains are tagged
+    for rediscretization for a Thermoporomechanics model.
+    """
 
     if TYPE_CHECKING:
-        is_well_grid: Callable[[pp.Grid], bool]
         darcy_flux_discretization: Callable[
             [list[pp.Grid]], pp.ad.MpfaAd | pp.ad.TpfaAd
         ]
@@ -268,103 +263,6 @@ class NeumannWellBCsFirstTimeInterval(pp.PorePyModel):
         else:
             return super().bc_type_fourier_flux(sd)  # type: ignore[misc]
 
-    def before_nonlinear_loop(self) -> None:
-        """Hook called before the nonlinear solver loop.
-
-        Rediscretize flow problem at the onset of second time interval, when injection
-        starts and the BC type changes from Neumann to Dirichlet.
-
-        The tailoring is done to recompute the Darcy flux discretization only at this
-        specific time, since the discretization remains constant during the rest of the
-        simulation. See also time dependency in :bc_type_darcy_flux.
-
-        NOTE: Strictly speaking, we could be even more conservative and ensure we don't
-        rediscretize if the time step needs to be recomputed due to nonlinear solver
-        failure. However, this would require more bookkeeping, and the current approach
-        is simpler and should work well in practice, especially since rediscretization
-        is very cheap for 1d well grids.
-
-        """
-        # Determine if we are at the start of the second time interval.
-        t_prev = self.time_manager.time - self.time_manager.dt
-        rediscretize_flow = np.isclose(t_prev, self.time_manager.schedule[1])
-
-        if rediscretize_flow:
-            # Add Darcy flux discretization on well grids.
-            discr = self.darcy_flux_discretization(
-                [sd for sd in self.mdg.subdomains() if self.is_well_grid(sd)]
-            ).flux()
-            self.add_nonlinear_diffusive_flux_discretization(discr)
-            # Call super method, which includes rediscretization of all nonlinear
-            # flow problems.
-            super().before_nonlinear_loop()  # type: ignore[misc]
-            # Remove Darcy flux discretization on well grids.
-            did_remove = self.remove_nonlinear_diffusive_flux_discretization(discr)
-            if not did_remove:
-                raise RuntimeError(
-                    "Failed to remove well grid Darcy flux discretization after "
-                    "rediscretization."
-                )
-        else:
-            return super().before_nonlinear_loop()  # type: ignore[misc]
-
-
-class ExportFractureQuantities(pp.PorePyModel):
-    """Class for exporting fracture-specific quantities.
-
-    Also specifies the data to export at each nonlinear iteration, namely the same data
-    as in the main export, to monitor fracture quantities during the nonlinear solve.
-    """
-
-    def data_to_export(self) -> list:
-        """Returns data for exporting.
-
-        Returns:
-            A list of tuples (subdomain, variable name, variable values).
-        """
-        # Start with data from super class. This includes standard variables.
-        data = super().data_to_export()  # type: ignore[misc]
-        # Add the fracture-specific variables displacement jump, rescaled traction and
-        # slip tendency.
-        sds = self.mdg.subdomains(dim=self.nd - 1)
-        cell_offsets = np.cumsum([0] + [sd.num_cells * self.nd for sd in sds])
-        displacement_jump = self.evaluate_and_scale(sds, "displacement_jump", "m")
-        char = self.evaluate_and_scale(sds, "characteristic_contact_traction", "Pa")
-        traction = self.evaluate_and_scale(sds, "contact_traction", "-")
-        # Loop over the fracture subdomains.
-        for id, sd in enumerate(sds):
-            # Export the displacement jump.
-            data.append(
-                (
-                    sd,
-                    "displacement_jump",
-                    displacement_jump[cell_offsets[id] : cell_offsets[id + 1]],
-                )
-            )
-            # Export the slip tendency, defined as the ratio of the shear traction to
-            # the normal traction.
-            traction_loc = traction[cell_offsets[id] : cell_offsets[id + 1]].reshape(
-                (3, -1), order="F"
-            )
-            zero_inds = np.isclose(traction_loc[-1], 0)
-            traction_loc[-1, zero_inds] = -1
-            traction_loc[0, zero_inds] = 1
-            slip_tendency = np.linalg.norm(traction_loc[:-1], axis=0) / np.abs(
-                traction_loc[-1]
-            )
-            data.append((sd, "slip_tendency", slip_tendency))
-
-            data.append((sd, "traction", traction_loc.ravel("F") * char))
-        return data
-
-    def data_to_export_iteration(self) -> list:
-        """Returns data for exporting at each iteration.
-
-        Returns:
-            A list of tuples (subdomain, variable name, variable values).
-        """
-        return self.data_to_export()
-
 
 class GeothermalReservoirWellBCs(  # type: ignore[misc]
     # Constituive laws
@@ -384,9 +282,9 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     TwoWells3d,
     TwoEllipticFractures3d,
     # Export mixins
-    ExportFractureQuantities,
+    FractureDeformationExporting,
     # Uncomment the following line to enable iteration exporting, e.g. for debugging.
-    # TODO: wait for refactoring of pp.viz.data_saving_model_mixin.IterationExporting,
+    # pp.viz.data_saving_model_mixin.IterationExporting,
     # Helper mixin for the line search solution strategy, see also solver_params below.
     pp.models.solution_strategy.ContactIndicators,
     # Base class

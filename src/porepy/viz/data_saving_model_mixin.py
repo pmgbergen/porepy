@@ -10,9 +10,10 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, Sequence, Union, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
 import porepy as pp
 from porepy.viz.exporter import DataInput
@@ -147,33 +148,6 @@ class DataSavingMixin(pp.PorePyModel):
         #               )
         #           )
         #       return data
-        sds = self.mdg.subdomains()
-        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
-        apertures = self.evaluate_and_scale(sds, "aperture", "m")
-        # Can't use evaluate_and_scale here, since specific_volume's units depend on
-        # the subdomain dimension.
-        specific_volumes = cast(
-            np.ndarray, self.equation_system.evaluate(self.specific_volume(sds))
-        )
-        for id, sd in enumerate(sds):
-            data.append(
-                (
-                    sd,
-                    "aperture",
-                    apertures[cell_offsets[id] : cell_offsets[id + 1]],
-                )
-            )
-            data.append(
-                (
-                    sd,
-                    "specific_volume",
-                    self.units.convert_units(
-                        specific_volumes[cell_offsets[id] : cell_offsets[id + 1]],
-                        f"m^{self.nd - sd.dim}",
-                        to_si=True,
-                    ),
-                )
-            )
 
         # We combine grids and mortar grids. This is supported by the exporter, but not
         # by the type hints in the exporter module. Hence, we ignore the type hints.
@@ -315,3 +289,212 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
+
+
+class IterationExporting(pp.PorePyModel):
+    if TYPE_CHECKING:
+        data_to_export: Callable[[], Any]
+
+    def initialize_data_saving(self):
+        """Initialize iteration exporter."""
+        super().initialize_data_saving()
+        # Having a separate exporter for iterations avoids distinguishing between
+        # iterations and time steps in the regular exporter's history.
+        folder = Path(self.params["folder_name"])
+        folder_iterations = folder.parent / (folder.name + "_iterations")
+        self.iteration_exporter = pp.Exporter(
+            self.mdg,
+            file_name=self.params["file_name"],
+            folder_name=folder_iterations,
+            length_scale=self.units.m,
+        )
+
+    def data_to_export_iteration(self):
+        """Returns data for iteration exporting.
+
+        Override to customize data to be exported at each nonlinear iteration.
+
+        Returns:
+            Any type compatible with data argument of pp.Exporter().write_vtu().
+
+        """
+        return self.data_to_export()
+
+    def save_data_iteration(self):
+        """Export current solution to vtu files.
+
+        This method is typically called by after_nonlinear_iteration.
+        """
+        # To make sure the nonlinear iteration index does not interfere with the time
+        # part, we multiply the latter by the next power of ten above the maximum number
+        # of nonlinear iterations. Default value set to 10 in accordance with the
+        # default value used in NewtonSolver.
+        n = self.params.get("max_iterations", 10)
+        r = np.ceil(np.log10(n + 1))
+        self.iteration_exporter.write_vtu(
+            self.data_to_export_iteration(),
+            time_dependent=True,
+            time_step=self.nonlinear_solver_statistics.num_iteration
+            + 10**r * self.time_manager.time_index,
+        )
+
+    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+        """Integrate iteration export into simulation workflow.
+
+        Order of operations is important, super call distributes the solution to
+        iterate subdictionary.
+
+        """
+        super().after_nonlinear_iteration(solution_vector)  # type: ignore[misc]
+        self.save_data_iteration()
+        self.iteration_exporter.write_pvd()
+
+    def prepare_simulation(self):
+        """Prepare simulation.
+
+        This method is called before the simulation starts. It initializes the iteration
+        exporter and writes the initial state to a vtu file.
+
+        """
+        super().prepare_simulation()
+        self.save_data_iteration()
+        self.iteration_exporter.write_pvd()
+
+
+class ResidualExporting:
+    """Class for exporting residuals of the equation system.
+
+    Note: This class is primarily intended for debugging purposes in combination with
+    the IterationExporting mixin. At the end of a time step, the residuals of
+    accumulation terms may be non-zero due to time and iteration solution coinciding.
+    """
+
+    if TYPE_CHECKING:
+        equation_system: pp.EquationSystem
+
+    def data_to_export(self) -> list[DataInput]:
+        """Return data to be exported, including residuals.
+
+        Returns:
+            List containing all (grid, name, values) tuples.
+
+        """
+        data = super().data_to_export()  # type: ignore[misc]
+
+        # Add residuals. Loop over equations in the equation system.
+        for name, operator in self.equation_system.equations.items():
+            residuals = cast(NDArray, self.equation_system.evaluate(operator))
+
+            # Get image_info as dict[GridEntity, int], where
+            # GridEntity = Literal["cells", "faces", "nodes"]
+            image_info = self.equation_system._equation_image_size_info[name]
+            dof_start, dof_end = 0, 0
+            for g in self.equation_system._equation_image_space_composition[
+                name
+            ].keys():
+                # Add number of dofs for each entity in image_info.
+                for entity, num in image_info.items():
+                    dof_end += getattr(g, "num_" + entity) * num
+                # Append residuals for current grid.
+                data.append(
+                    (
+                        g,
+                        "residual_" + name,
+                        residuals[dof_start:dof_end],
+                    )
+                )
+                # Update dof_start for next grid.
+                dof_start = dof_end
+        return data
+
+
+class FractureDeformationExporting(pp.PorePyModel):
+    """Class for exporting fracture-specific quantities.
+
+    Adds the fracture-specific secondary variables
+    - displacement jump,
+    - aperture,
+    - rescaled traction,
+    - slip tendency = -||shear_traction||/normal_traction
+    """
+
+    def data_to_export(self) -> list:
+        """Returns data for exporting.
+
+        Returns:
+            A list of tuples (subdomain, variable name, variable values).
+        """
+        # Start with data from super class. This includes standard variables.
+        data = super().data_to_export()  # type: ignore[misc]
+        # Add the three fracture-specific vector quantities.
+        sds = self.mdg.subdomains(dim=self.nd - 1)
+        cell_offsets_nd = np.cumsum([0] + [sd.num_cells * self.nd for sd in sds])
+        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+        displacement_jump = self.evaluate_and_scale(sds, "displacement_jump", "m")
+        char = self.evaluate_and_scale(sds, "characteristic_contact_traction", "Pa")
+        friction_coefficient = self.evaluate_and_scale(sds, "friction_coefficient", "")
+
+        # Both characteristic traction and friction coefficients are frequently floats.
+        # Ensure they are arrays to allow element-wise operations below, thus covering
+        # the case of spatially homogeneous quantities. Heterogeneous quantities are
+        # at least possible for the friction coefficient.
+        size = sum([sd.num_cells for sd in sds])
+
+        def ensure_array(
+            quantity: NDArray | float,
+        ) -> NDArray:
+            if isinstance(quantity, float):
+                # Cast to cell-wise array.
+                return quantity * np.ones(size)
+            else:
+                return quantity
+
+        char = ensure_array(char)
+        friction_coefficient = ensure_array(friction_coefficient)
+        traction = self.evaluate_and_scale(sds, "contact_traction", "-")
+        # Compute apertures, which are scalar quantities.
+        cell_offsets = np.cumsum([0] + [sd.num_cells for sd in sds])
+        apertures = self.evaluate_and_scale(sds, "aperture", "m")
+
+        # Loop over the fracture subdomains.
+        for id, sd in enumerate(sds):
+            # Export the displacement jump.
+            data.append(
+                (
+                    sd,
+                    "displacement_jump",
+                    displacement_jump[cell_offsets_nd[id] : cell_offsets_nd[id + 1]],
+                )
+            )
+            # Export the slip tendency, defined as the ratio of the shear traction to
+            # the normal traction.
+            traction_loc = traction[
+                cell_offsets_nd[id] : cell_offsets_nd[id + 1]
+            ].reshape((self.nd, -1), order="F")
+            # Avoid division by zero. If normal traction is zero (open fractures), we
+            # set it to 1.
+            zero_inds = np.isclose(traction_loc[-1], 0)
+            traction_loc[-1, zero_inds] = 1
+            # Minus to follow convention that positive slip tendency indicates slip and
+            # compressive normal traction is negative. Summing up:
+            # - regular values are positive for fractures in contact,
+            # - negative slip tendency is non-physical, except for
+            # - zero normal traction.
+            slip_tendency = -np.linalg.norm(traction_loc[:-1], axis=0) / (
+                traction_loc[-1]
+                * friction_coefficient[cell_offsets[id] : cell_offsets[id + 1]]
+            )
+
+            data.append((sd, "slip_tendency", slip_tendency))
+            # Rescale traction by characteristic contact traction.
+            traction_loc *= char[cell_offsets[id] : cell_offsets[id + 1]]
+            data.append((sd, "contact_traction_in_Pa", traction_loc.ravel("F")))
+
+            data.append(
+                (
+                    sd,
+                    "aperture",
+                    apertures[cell_offsets[id] : cell_offsets[id + 1]],
+                )
+            )
+        return data
