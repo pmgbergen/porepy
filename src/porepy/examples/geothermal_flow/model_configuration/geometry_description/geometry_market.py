@@ -204,13 +204,13 @@ class SimpleGeometryHorizontal(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([0.0, 5.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([2000.0, 5.0, 0.0])
+    _dist_from_ref_point: float = 0.5
+    _inlet_centre: np.ndarray = np.array([0.0, 0.5, 0.0])
+    _outlet_centre: np.ndarray = np.array([2000.0, 0.5, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(2000.0, "m")
-        y_length = self.units.convert_units(10.0, "m")
+        y_length = self.units.convert_units(1.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -218,7 +218,7 @@ class SimpleGeometryHorizontal(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -250,12 +250,12 @@ class SimpleGeometryVertical(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([5.0, 0.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([5.0, 2000.0, 0.0])
+    _dist_from_ref_point: float = 0.5
+    _inlet_centre: np.ndarray = np.array([0.5, 0.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([0.5, 2000.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.units.convert_units(10.0, "m")
+        x_length = self.units.convert_units(1.0, "m")
         y_length = self.units.convert_units(2000.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
@@ -264,7 +264,7 @@ class SimpleGeometryVertical(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
