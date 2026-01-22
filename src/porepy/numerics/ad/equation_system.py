@@ -344,6 +344,11 @@ class EquationSystem:
             domains.add(var.domain)
         return list(domains)
 
+    @property
+    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
+        return self._equation_image_size_info
+
+
     ### Variable management ------------------------------------------------------------
 
     def md_variable(

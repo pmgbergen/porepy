@@ -387,7 +387,7 @@ class ResidualExporting:
 
             # Get image_info as dict[GridEntity, int], where
             # GridEntity = Literal["cells", "faces", "nodes"]
-            image_info = self.equation_system._equation_image_size_info[name]
+            image_info = self.equation_system.equation_image_size_info[name]
             dof_start, dof_end = 0, 0
             for g in self.equation_system.equation_image_space_composition[
                 name
