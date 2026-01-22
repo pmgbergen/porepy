@@ -90,7 +90,7 @@ class AdArray:
 
         num_derivatives = jac.size if self._is_diagonal else jac.shape[0]
 
-        if num_derivatives != val.size:
+        if not self._is_diagonal and num_derivatives != val.size:
             raise ValueError(
                 "The Jacobian matrix should have one row per array degree of freedom"
             )
