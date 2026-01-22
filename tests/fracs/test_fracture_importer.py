@@ -33,7 +33,7 @@ def test_single_fracture_2d(file_name):
     f = np.hstack((0, p))
     np.savetxt(file_name, f, delimiter=",")
 
-    network = fracture_importer.network_2d_from_csv(file_name)
+    network = fracture_importer.network_from_csv(file_name)
     known_pts = np.array([[0, 1], [0, 1]])
     assert compare_arrays(known_pts, network._pts)
     known_edges = np.array([[0], [1]])
@@ -50,7 +50,9 @@ def test_return_frac_id(file_name):
     f = np.hstack((frac_id, p))
     np.savetxt(file_name, f, delimiter=",")
 
-    network, fid = fracture_importer.network_2d_from_csv(file_name, return_frac_id=True)
+    network, fid = fracture_importer._network_2d_from_csv(
+        file_name, return_frac_id=True
+    )
 
     assert fid.size == 1
     assert fid[0] == frac_id
@@ -58,7 +60,7 @@ def test_return_frac_id(file_name):
 
 def test_no_data(file_name):
     np.savetxt(file_name, [], delimiter=",")
-    network = fracture_importer.network_2d_from_csv(file_name)
+    network = fracture_importer._network_2d_from_csv(file_name)
     assert network._pts.shape == (2, 0)
     assert network._edges.shape == (2, 0)
     assert network.domain is None
@@ -71,14 +73,14 @@ def test_max_num_fracs_keyword(file_name):
     np.savetxt(file_name, f, delimiter=",")
 
     # First load one fracture only
-    network = fracture_importer.network_2d_from_csv(file_name, max_num_fracs=1)
+    network = fracture_importer._network_2d_from_csv(file_name, max_num_fracs=1)
     known_pts = np.array([[0, 1], [0, 1]])
     assert compare_arrays(known_pts, network._pts)
     known_edges = np.array([[0], [1]])
     assert compare_arrays(known_edges, network._edges)
 
     # Then load no data
-    network = fracture_importer.network_2d_from_csv(file_name, max_num_fracs=0)
+    network = fracture_importer._network_2d_from_csv(file_name, max_num_fracs=0)
     assert network._pts.shape == (2, 0)
     assert network._edges.shape == (2, 0)
     assert network.domain is None
@@ -91,7 +93,7 @@ def test_domain_assignment(file_name):
     np.savetxt(file_name, f, delimiter=",")
     domain = pp.Domain({"xmin": -1, "xmax": 0, "ymin": -2, "ymax": 2})
 
-    network = fracture_importer.network_2d_from_csv(file_name, domain=domain)
+    network = fracture_importer._network_2d_from_csv(file_name, domain=domain)
 
     assert network.domain.bounding_box["xmin"] == -1
     assert network.domain.bounding_box["ymin"] == -2
@@ -105,7 +107,7 @@ def test_polyline_single_branch(file_name):
     f = np.hstack((frac_id * np.ones(2).reshape((-1, 1)), p))
     np.savetxt(file_name, f, delimiter=",")
 
-    network, fid = fracture_importer.network_2d_from_csv(
+    network, fid = fracture_importer._network_2d_from_csv(
         file_name, polyline=True, return_frac_id=True
     )
     known_pts = np.array([[0, 1], [0, 1]])
@@ -127,7 +129,7 @@ def test_polyline_two_branches(file_name):
     f = np.hstack((frac_id * np.ones(3).reshape((-1, 1)), p))
     np.savetxt(file_name, f, delimiter=",")
 
-    network, fid = fracture_importer.network_2d_from_csv(
+    network, fid = fracture_importer._network_2d_from_csv(
         file_name, polyline=True, return_frac_id=True
     )
     known_pts = np.array([[0, 1, 2], [0, 1, 2]])
@@ -153,7 +155,7 @@ def test_polyline_two_fractures(file_name):
     )
     np.savetxt(file_name, f, delimiter=",")
 
-    network, fid = fracture_importer.network_2d_from_csv(
+    network, fid = fracture_importer._network_2d_from_csv(
         file_name, polyline=True, return_frac_id=True
     )
     known_pts = np.array([[0, 1, 2, 4, 5], [0, 1, 2, 4, 5]])
@@ -171,7 +173,7 @@ def test_polyline_two_fractures(file_name):
 
 @pytest.fixture(
     params=[
-        fracture_importer.network_3d_from_csv,
+        fracture_importer._network_3d_from_csv,
         fracture_importer.elliptic_network_3d_from_csv,
     ]
 )
@@ -197,7 +199,7 @@ def test_single_fracture(file_name):
     p = np.atleast_2d(np.array([0, 0, 0, 1, 1, 1, 1, 0, 1]))
     np.savetxt(file_name, p, delimiter=",")
 
-    network = fracture_importer.network_3d_from_csv(file_name, has_domain=False)
+    network = fracture_importer._network_3d_from_csv(file_name, has_domain=False)
     known_p = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1]])
     assert len(network.fractures) == 1
     assert compare_arrays(known_p, network.fractures[0].pts)
@@ -210,7 +212,7 @@ def test_two_fractures(file_name):
     )
     np.savetxt(file_name, p, delimiter=",")
 
-    network = fracture_importer.network_3d_from_csv(file_name, has_domain=False)
+    network = fracture_importer._network_3d_from_csv(file_name, has_domain=False)
     known_p = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1]])
     assert len(network.fractures) == 2
     assert compare_arrays(known_p, network.fractures[0].pts)
@@ -245,7 +247,7 @@ def test_one_fracture_dfn(file_name):
     f = np.hstack((0, p))
     np.savetxt(file_name, f, delimiter=",")
 
-    network = fracture_importer.network_2d_from_csv(file_name)
+    network = fracture_importer._network_2d_from_csv(file_name)
 
     mesh_args = {"mesh_size_frac": 0.3, "mesh_size_bound": 0.3}
     mdg = network.mesh(mesh_args, dfn=True)
@@ -266,7 +268,7 @@ def test_two_fractures_dfn(file_name):
     np.savetxt(file_name, f, delimiter=",")
 
     domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1.1})
-    network = fracture_importer.network_2d_from_csv(file_name, domain=domain)
+    network = fracture_importer._network_2d_from_csv(file_name, domain=domain)
     mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
     mdg = network.mesh(mesh_args, dfn=True)
 
@@ -290,7 +292,7 @@ def test_two_intersecting_fractures_dfn():
     file_name = Path("frac.csv")
     np.savetxt(file_name, f, delimiter=",")
 
-    network = fracture_importer.network_2d_from_csv(file_name)
+    network = fracture_importer._network_2d_from_csv(file_name)
     mesh_args = {"mesh_size_frac": 0.2, "mesh_size_bound": 0.2}
     mdg = network.mesh(mesh_args, dfn=True)
 

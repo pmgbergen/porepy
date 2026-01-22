@@ -340,7 +340,7 @@ def benchmark_3d_case_2(
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
+    network = pp.fracture_importer._network_3d_from_csv(fracture_network_path)
 
     return mdg, network
 
@@ -398,6 +398,6 @@ def benchmark_3d_case_3(
     # Set file permissions. This turned out to be important for GH actions.
     fracture_network_path.chmod(777)
 
-    network = pp.fracture_importer.network_3d_from_csv(fracture_network_path)
+    network = pp.fracture_importer._network_3d_from_csv(fracture_network_path)
 
     return mdg, network
