@@ -32,15 +32,16 @@ import logging
 import time
 from datetime import datetime
 
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+import os
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 
-from .config import MODEL_PARAMS
-from .geometry import PointWells
-from .model import (
+from porepy.examples.cold_injection.config import MODEL_PARAMS
+from porepy.examples.cold_injection.geometry import PointWells
+from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
     NoFluxRediscretization,
@@ -56,6 +57,7 @@ newton_tol = 1e-7
 newton_tol_increment = 5e-6
 
 time_schedule = [i * 30 * pp.DAY for i in range(30 + 1)]
+time_schedule = [0.0, pp.DAY]
 dt_init = 3 * pp.HOUR
 dt_max = 30 * pp.DAY
 
@@ -121,6 +123,7 @@ if __name__ == "__main__":
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
+    pp.run_time_dependent_model(model, model_params)
     try:
         pp.run_time_dependent_model(model, model_params)
     except Exception as err:

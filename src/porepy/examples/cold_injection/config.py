@@ -142,7 +142,7 @@ flash_params.update(phase_property_params)
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 5e-1,
+        "cell_size": 4.0,
         "cell_size_fracture": 5e-1,
     },
 }
@@ -160,13 +160,14 @@ solver_params = {
     "armijo_line_search_max_iterations": 10,
     "armijo_stop_after_residual_reaches": 1e0,
     "appplyard_chop": 0.3,
+    "newton_chop": 1.0,
     "anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
     "anderson_acceleration_constrained": False,
     "anderson_acceleration_regularization_parameter": 1e-3,
     "anderson_start_after_residual_reaches": 1e2,
     "solver_statistics_file_name": "solver_statistics.json",
-    "flag_failure_as_diverged": True,
+    # "flag_failure_as_diverged": True,
 }
 
 MODEL_PARAMS = {

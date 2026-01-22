@@ -12,9 +12,9 @@ from datetime import datetime
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
 
-from .config import MODEL_PARAMS
-from .geometry import RandomFracturesAndPointWells2D
-from .model import (
+from porepy.examples.cold_injection.config import MODEL_PARAMS
+from porepy.examples.cold_injection.geometry import RandomFracturesAndPointWells2D
+from porepy.examples.cold_injection.model import (
     BuoyancyModel,
     ColdInjectionMixins,
     NoFluxRediscretization,

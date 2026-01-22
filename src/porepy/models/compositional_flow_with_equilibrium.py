@@ -22,13 +22,10 @@ import time
 from functools import cached_property, partial
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
-    Literal,
     Optional,
     Sequence,
     cast,
-    overload,
 )
 
 import numpy as np
@@ -756,7 +753,10 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
                 [self.temperature([sd])],  # type: ignore[arg-type]
                 iterate_index=0,
             )
-        if isinstance(self, pp.energy_balance.EnthalpyVariable):
+        if results.specification not in [
+            pc.FlashSpec.ph,
+            pc.FlashSpec.vh,
+        ] and isinstance(self, pp.energy_balance.EnthalpyVariable):
             self.equation_system.set_variable_values(
                 results.h,
                 [self.enthalpy([sd])],  # type: ignore[arg-type]
@@ -1193,7 +1193,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                     "Isochoric specifications not yet implemented."
                 )
 
-            specification = cast(StateSpecDict, spec)
+            specification = spec  # type:ignore
 
         initial_state: pc.FluidProperties | None
         feed: np.ndarray
@@ -1210,6 +1210,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 ]
             )
 
+        assert specification is not None, "Failed to specify flash."
         results = self.flash.flash(
             specification,
             [z for z in feed],
@@ -1328,10 +1329,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
         """
         failure = ~results.converged
-        spec = dict([(k, v[failure]) for k, v in flash_spec.items()])  # type:ignore[index]
+        spec: StateSpecDict = dict([(k, v[failure]) for k, v in flash_spec.items()])  # type:ignore
 
         sub_results = self.flash.flash(
-            cast(StateSpecDict, spec),
+            spec,
             cast(Sequence[np.ndarray], results.z[:, failure]),
             params=self.params.get("flash_params", None),  # type:ignore[arg-type]
         )

@@ -1552,6 +1552,8 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
         """
 
+        equilibrium_defined = pc.has_equilibrium_specified(self)
+
         # Set the initial values on individual grids for the iterate indices.
         for sd in self.mdg.subdomains():
             for phase in self.fluid.phases:
@@ -1571,7 +1573,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                     phase,
                     phase_props,
                     0,
-                    update_fugacities=pc.has_equilibrium_specified(self),
+                    update_fugacities=equilibrium_defined,
                 )
 
 
@@ -1637,6 +1639,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         sense, on all subdomains."""
 
         subdomains = self.mdg.subdomains()
+        equilibrium_defined = pc.has_equilibrium_specified(self)
 
         for grid in subdomains:
             for phase in self.fluid.phases:
@@ -1660,7 +1663,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                     phase,
                     phase_state,
                     0,
-                    update_fugacities=pc.has_equilibrium_specified(self),
+                    update_fugacities=equilibrium_defined,
                 )
 
     def after_nonlinear_convergence(self) -> None:

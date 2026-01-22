@@ -107,7 +107,7 @@ class NewtonSolver:
                     nonlinear_increment, residual, reference_residual, self.params
                 )
             except Exception as err:
-                if self.params["flag_failure_as_diverged"]:
+                if self.params.get("flag_failure_as_diverged", False):
                     import traceback
 
                     logger.warning(

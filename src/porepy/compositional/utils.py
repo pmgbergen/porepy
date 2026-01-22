@@ -329,3 +329,8 @@ class FlashSpec(IntEnum):
     """Equilibrium at fixed volume and enthalpy."""
     vu = 12
     """Equilibrium at fixed volume and internal energy."""
+
+
+FlashSpecMember_NUMBA_TYPE: nb.types.Type = nb.types.IntEnumMember(FlashSpec, nb.int_)
+"""Numba type for function signatures which take members of :class:`FlashSpec`
+as arguments or as a return value."""

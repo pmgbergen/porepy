@@ -105,6 +105,12 @@ class PVEEquations(pp.PorePyModel):
     volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
 
+    __ad_capped_log: pp.ad.Function = pp.ad.Function(
+        # pp.ad.log,
+        lambda x: pp.ad.functions.log(pp.ad.maximum(x, 1e-14)),
+        "capped_log",
+    )
+
     def set_equations(self) -> None:
         """The base class method without defined equilibrium condition performs a model
         validation to ensure that the assumptions for the unified flash are fulfilled.
@@ -223,16 +229,16 @@ class PVEEquations(pp.PorePyModel):
         phase: pp.Phase,
         subdomains: Sequence[pp.Grid],
     ) -> pp.ad.Operator:
-        """Construct the local isofugacity constraint for a component between a given
-        phase and the reference phase.
+        r"""Construct the local isofugacity constraint for a component between a given
+        phase and the reference phase in the log space.
 
         .. math::
 
-            x_{ij} \\varphi_{ij} - x_{iR} \\varphi_{iR} = 0.
+            \log{x_{ij}} + \log{\varphi_{ij}} - \log{x_{iR}} -  \log{\varphi_{iR}} = 0.
 
         - :math:`x_{ij}` : :attr:`~porepy.compositional.base.Phase.extended_fraction_of`
           component
-        - :math:`\\varphi_{ij}` : Phase
+        - :math:`\varphi_{ij}` : Phase
           :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of` component
 
         Parameters:
@@ -264,7 +270,7 @@ class PVEEquations(pp.PorePyModel):
         phi_ij = phase.fugacity_coefficient_of[component](subdomains)
         phi_ir = rphase.fugacity_coefficient_of[component](subdomains)
 
-        equ = x_ij * phi_ij - x_ir * phi_ir
+        equ = self.__ad_capped_log(x_ij) + phi_ij - self.__ad_capped_log(x_ir) - phi_ir
 
         equ.set_name(
             f"isofugacity_constraint_{component.name}_{phase.name}_{rphase.name}"

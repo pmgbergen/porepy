@@ -24,20 +24,13 @@ import porepy as pp
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow as cf
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.compositional._numba_interface import njit
+from porepy.compositional._numba_interface import njit as _COMPILER
 from porepy.compositional.compiled_eos import ScalarFunction, VectorFunction
 
 from .config import ModelConfig
 
 if TYPE_CHECKING:
     import porepy.compositional.flash as pf
-
-_COMPILER = njit
-"""Decorator for compiling functions in this module.
-
-Uses :func:`~porepy.compositional._numba_interface.njit`.
-
-"""
 
 
 class FluidEoS(pr.CompiledPengRobinson):
@@ -275,7 +268,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
                 self.local_equilibrium(
                     sd,
                     state=state,
-                    specification=cast(pf.StateSpecDict, equ_spec),
+                    specification=equ_spec,
                 )
             elif do_flash:
                 self.local_equilibrium(sd, state=state)
@@ -839,10 +832,11 @@ def set_schur_complement(model: ColdInjectionMixins) -> None:
     primary_equations += [
         eq for eq in model.equation_system.equations.keys() if "flux" in eq
     ]
-    primary_equations += [
-        "production_pressure_constraint",
-        "injection_temperature_constraint",
-    ]
+    if "production_pressure_constraint" in model.equation_system.equations:
+        primary_equations += ["production_pressure_constraint"]
+    if "injection_temperature_constraint" in model.equation_system.equations:
+        primary_equations += ["injection_temperature_constraint"]
+
     primary_variables = cf.get_primary_variables_cf(model)
     primary_variables += list(
         set([v.name for v in model.equation_system.variables if "flux" in v.name])

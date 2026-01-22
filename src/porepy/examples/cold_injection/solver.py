@@ -126,7 +126,9 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
         size from the line search."""
         # dx = super().iteration(model)
 
-        dx = pp.NewtonSolver.iteration(self, model)
+        dx = pp.NewtonSolver.iteration(self, model) * float(
+            self.params.get("newton_chop", 1.0)
+        )
 
         dx *= self.armijo_line_search(model, dx)
         dx = self.appleyard_chop(model, dx)
