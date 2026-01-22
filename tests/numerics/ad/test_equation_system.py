@@ -945,7 +945,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
     )
 
     # Check that the equation size has been set correctly
-    blocks = equation_system._equation_image_space_composition
+    blocks = equation_system.equation_image_space_composition
     assert np.allclose(
         blocks[model.eq_single_subdomain.name][model.sd_top],
         np.arange(model.sd_top.num_cells * dof_info_subdomain["cells"]),
@@ -1475,7 +1475,7 @@ def test_schur_complement(eq_var_to_exclude):
         # kept on all subdomains (which we somewhat cumbersomely obtain from a private
         # variable of EquationSystem).
         equations = {
-            eq: list(equation_system._equation_image_space_composition[eq].keys())
+            eq: list(equation_system.equation_image_space_composition[eq].keys())
             for eq in eq_names
         }
         # In addition, we keep 'eq_all_subdomains' on the top subdomain.

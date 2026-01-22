@@ -389,7 +389,7 @@ class ResidualExporting:
             # GridEntity = Literal["cells", "faces", "nodes"]
             image_info = self.equation_system._equation_image_size_info[name]
             dof_start, dof_end = 0, 0
-            for g in self.equation_system._equation_image_space_composition[
+            for g in self.equation_system.equation_image_space_composition[
                 name
             ].keys():
                 # Add number of dofs for each entity in image_info.
