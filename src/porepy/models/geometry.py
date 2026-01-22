@@ -820,11 +820,11 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Load fracture network from csv file.
         if self.nd == 2:
             # Type is guaranteed because ``return_frac_id=False``.
-            self.fracture_network = pp.fracture_importer.network_2d_from_csv(  # type: ignore[assignment]
+            self.fracture_network = pp.fracture_importer._network_2d_from_csv(  # type: ignore[assignment]
                 fracture_network_path, has_domain=True
             )
         else:
-            self.fracture_network = pp.fracture_importer.network_3d_from_csv(
+            self.fracture_network = pp.fracture_importer._network_3d_from_csv(
                 fracture_network_path, has_domain=True
             )
 
