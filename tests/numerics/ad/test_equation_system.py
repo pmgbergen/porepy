@@ -69,7 +69,11 @@ def test_evaluate_variables():
         ad_array = var.value_and_jacobian(equation_system)
         assert isinstance(ad_array, pp.ad.AdArray)
         assert np.allclose(ad_array.val, 2)
-        assert np.allclose(ad_array.jac.toarray(), known_jac)
+        if ad_array._is_diagonal:
+            jac = sps.diags(ad_array.jac)
+        else:
+            jac = ad_array.jac
+        assert np.allclose(jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
