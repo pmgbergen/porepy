@@ -313,6 +313,22 @@ class EquationSystem:
         return self._equations
 
     @property
+    def equation_image_space_composition(
+        self,
+    ) -> dict[str, dict[pp.GridLike, np.ndarray]]:
+        """Definition of image space for all equations.
+
+        Contains for every equation name (key) a dictionary, which provides again for
+        every involved grid (key) the indices of equations expressed through the
+        equation operator. The ordering of the items in the grid-array dictionaries is
+        consistent with the remaining PorePy framework. The ordering is local to the
+        equation, so it can be used to slice an eqution prior to concatenation of
+        equations into a global matrix.
+
+        """
+        return self._equation_image_space_composition
+
+    @property
     def variables(self) -> list[Variable]:
         """List containing all :class:`~porepy.numerics.ad.Variable`s known to this
         system.
