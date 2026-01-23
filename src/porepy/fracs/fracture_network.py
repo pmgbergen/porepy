@@ -1114,7 +1114,9 @@ class MeshSizeComputer:
                 - "refinement_buffer": Buffer factor for mesh size around fractures (in
                   units of fracture mesh size).
                 - "mesh_size_min": Minimum mesh size [m]. If not provided, it is set
-                  equal to the fracture mesh size times the buffer factor.
+                  equal to the fracture mesh size times the buffer factor. If set to a
+                  value larger than the fracture mesh size, the fracture mesh size is
+                  used.
                 - "farfield_transition": Factor controlling the distance from fractures
                   where far-field mesh size is reached (in units of far-field mesh
                   size).
@@ -1137,7 +1139,12 @@ class MeshSizeComputer:
         self._buffer: float = mesh_args.get("refinement_buffer")  # type: ignore
         # By default, we let the minimum mesh size scale with the buffer and the
         # fracture mesh size.
-        self._hmin: float = mesh_args.get("mesh_size_min", self._hfrac * self._buffer)
+        h_min = self._hfrac * self._buffer
+        if "mesh_size_min" in mesh_args:
+            # If the user has set a value, use this, but do not permit values less than
+            # the fracture size.
+            h_min = min(self._hfrac, mesh_args.get("mesh_size_min"))  # type: ignore
+        self._hmin: float = h_min
         self._farfield_transition: float = mesh_args.get(  # type: ignore
             "farfield_transition"
         )
