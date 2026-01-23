@@ -341,15 +341,15 @@ def parallel_solver(
     num_iter = np.zeros(n, dtype=np.int_)
     exitcodes = np.ones(n, dtype=np.int_) * 5
 
-    # try:
-    for i in numba.prange(n):
-        res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
-        exitcodes[i] = e_i
-        num_iter[i] = n_i
-        result[i] = res_i
-    # except:
-    #     print('Parallel solver threw exception, falling back to sequential solver.')
-    #     return sequential_solver(X0, F, DF, solver, solver_params, spec)
+    try:
+        for i in numba.prange(n):
+            res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
+            exitcodes[i] = e_i
+            num_iter[i] = n_i
+            result[i] = res_i
+    except:
+        print("Parallel solver threw exception, falling back to sequential solver.")
+        return sequential_solver(X0, F, DF, solver, solver_params, spec)
 
     return result, exitcodes, num_iter
 

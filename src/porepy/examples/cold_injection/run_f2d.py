@@ -32,9 +32,8 @@ import logging
 import time
 from datetime import datetime
 
-import os
-
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
@@ -81,6 +80,8 @@ model_params["nl_convergence_tol_increment"] = newton_tol_increment
 model_params["time_manager"] = time_manager
 model_params["times_to_export"] = time_schedule
 
+model_params["_well_surrounding_permeability"] = 1e-13
+
 model_params["fractional_flow"] = BUOYANCY_ON
 model_params["enable_buoyancy_effects"] = BUOYANCY_ON
 
@@ -123,7 +124,6 @@ if __name__ == "__main__":
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
-    pp.run_time_dependent_model(model, model_params)
     try:
         pp.run_time_dependent_model(model, model_params)
     except Exception as err:

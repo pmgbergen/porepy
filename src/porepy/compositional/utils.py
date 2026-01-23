@@ -235,7 +235,7 @@ def _compute_saturations_parallel(
 
 
 def compute_saturations(
-    y: np.ndarray, rho: np.ndarray, eps: float = 1e-10
+    y: np.ndarray, rho: np.ndarray, eps: float = 1e-7
 ) -> np.ndarray:
     r"""Computes the saturation values by solving the phase mass conservation
 

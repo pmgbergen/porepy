@@ -273,10 +273,7 @@ class SolutionStrategy(cfle.SolutionStrategyCFLE):
             elif do_flash:
                 self.local_equilibrium(sd, state=state)
             else:
-                cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
-                    self,
-                    state,
-                )
+                self.update_thermodynamic_properties_of_phases_on_grid(sd, state=state)
 
 
 class AdjustedPointWellModel(ModelConfig):

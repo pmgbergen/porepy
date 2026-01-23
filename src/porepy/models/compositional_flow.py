@@ -1553,6 +1553,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
         """
 
         equilibrium_defined = pc.has_equilibrium_specified(self)
+        is_persistent = pc.is_persistent_variable_form(self)
 
         # Set the initial values on individual grids for the iterate indices.
         for sd in self.mdg.subdomains():
@@ -1573,6 +1574,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                     phase,
                     phase_props,
                     0,
+                    use_extended_derivatives=is_persistent,
                     update_fugacities=equilibrium_defined,
                 )
 
@@ -1638,33 +1640,41 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         and derivative values of phase properties and to update them in the iterative
         sense, on all subdomains."""
 
-        subdomains = self.mdg.subdomains()
+        for grid in self.mdg.subdomains():
+            self.update_thermodynamic_properties_of_phases_on_grid(grid, state=state)
+
+    def update_thermodynamic_properties_of_phases_on_grid(
+        self, grid: pp.Grid, state: Optional[np.ndarray] = None
+    ) -> None:
+        """Grid-wise function of :meth:`update_thermodynamic_properties_of_phases`."""
+
         equilibrium_defined = pc.has_equilibrium_specified(self)
+        is_persistent = pc.is_persistent_variable_form(self)
 
-        for grid in subdomains:
-            for phase in self.fluid.phases:
-                # Compute the values of variables/state functions on which the phase
-                # properties depend.
-                dep_vals = [
-                    self.equation_system.evaluate(d([grid]), state=state)
-                    for d in self.dependencies_of_phase_properties(phase)
-                ]
-                # Compute phase properties using the phase EoS.
-                phase_state = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals),
-                    params=self.params.get("phase_property_params", None),
-                )
+        for phase in self.fluid.phases:
+            # Compute the values of variables/state functions on which the phase
+            # properties depend.
+            dep_vals = [
+                self.equation_system.evaluate(d([grid]), state=state)
+                for d in self.dependencies_of_phase_properties(phase)
+            ]
+            # Compute phase properties using the phase EoS.
+            phase_state = phase.compute_properties(
+                *cast(list[np.ndarray], dep_vals),
+                params=self.params.get("phase_property_params", None),
+            )
 
-                # Set current iterate indices of values and derivatives.
-                # NOTE: Setting depth to zero does not shift the properties in the
-                # iterative sense, but updates only the current iterate.
-                update_phase_properties(
-                    grid,
-                    phase,
-                    phase_state,
-                    0,
-                    update_fugacities=equilibrium_defined,
-                )
+            # Set current iterate indices of values and derivatives.
+            # NOTE: Setting depth to zero does not shift the properties in the
+            # iterative sense, but updates only the current iterate.
+            update_phase_properties(
+                grid,
+                phase,
+                phase_state,
+                0,
+                use_extended_derivatives=is_persistent,
+                update_fugacities=equilibrium_defined,
+            )
 
     def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.

@@ -104,7 +104,7 @@ NUM_MONTHS = 15
 time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
 
 phase_property_params = {
-    "phase_property_params": [0.0],
+    "phase_property_params": [1e-4, 1e-2],
 }
 
 basalt_ = basalt.copy()
@@ -152,7 +152,7 @@ solver_params = {
     "nl_convergence_tol": 5e-7,
     "nl_convergence_tol_res": 1e-7,
     "apply_schur_complement_reduction": True,
-    "linear_solver": "pypardiso",
+    "linear_solver": "scipy_sparse",
     "nonlinear_solver": NewtonArmijoAndersonSolver,
     "armijo_line_search": True,
     "armijo_line_search_weight": 0.95,
@@ -167,7 +167,7 @@ solver_params = {
     "anderson_acceleration_regularization_parameter": 1e-3,
     "anderson_start_after_residual_reaches": 1e2,
     "solver_statistics_file_name": "solver_statistics.json",
-    # "flag_failure_as_diverged": True,
+    "flag_failure_as_diverged": True,
 }
 
 MODEL_PARAMS = {

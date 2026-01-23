@@ -999,7 +999,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             if do_flash:
                 self.local_equilibrium(sd, state=state)  # type:ignore
             else:
-                super().update_thermodynamic_properties_of_phases(state=state)
+                self.update_thermodynamic_properties_of_phases_on_grid(sd, state=state)
 
     def current_fluid_state(
         self,
@@ -1229,6 +1229,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             self._full_equilibrium(results, specification)
 
         self.postprocess_equilibrium(results, sd, state=state)
+        results.postprocess_fractions()
         results.evaluate_saturations()
         results.evaluate_extensive_state()
 

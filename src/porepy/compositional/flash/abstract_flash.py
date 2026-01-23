@@ -16,7 +16,7 @@ from numpy.typing import NDArray
 
 import porepy as pp
 
-from ..utils import FlashSpec
+from ..utils import FlashSpec, normalize_rows
 
 __all__ = [
     "IsobaricSpecifications",
@@ -147,6 +147,32 @@ class FlashResults(pp.compositional.FluidProperties):
     def diverged(self) -> NDArray[np.bool_]:
         """Flags indicating where the flash diverged."""
         return self.exitcode == 2
+
+    def postprocess_fractions(self, eps: float = 1e-7) -> None:
+        """Ensures fractions are strictly in the interval [0, 1] and fulfill the
+        unity constraint.
+
+        Overall fractions :attr:`z` are not modified.
+
+        Parameters:
+            eps: Used to determine absence of a phase and whether partial fractions
+                should be normalized.
+
+        """
+
+        self.y[self.y < 0] = 0.0
+        self.y[self.y > 1] = 1.0
+        self.y = normalize_rows(self.y.T).T
+        self.sat[self.sat < 0] = 0.0
+        self.sat[self.sat > 1] = 1.0
+        self.sat = normalize_rows(self.sat.T).T
+
+        for y, phase in zip(self.y, self.phases):
+            idx = y > eps
+            phase.x[phase.x < 0] = 0.0
+            phase.x[phase.x > 1] = 1.0
+            if np.any(idx):
+                phase.x[:, idx] = normalize_rows(phase.x[:, idx].T).T
 
 
 class AbstractFlash(abc.ABC):

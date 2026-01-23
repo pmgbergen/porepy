@@ -257,7 +257,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         u_c = self._eos.funcs["u"]
         du_c = self._eos.funcs["du"]
 
-        logger.info(f"Compiling {args} flash systems ...")
+        logger.info(f"Compiling {[a.name for a in args]} flash systems ...")
         start = time.time()
 
         if FlashSpec.pT in args and FlashSpec.pT not in self.residuals:

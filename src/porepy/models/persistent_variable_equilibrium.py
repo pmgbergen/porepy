@@ -108,7 +108,7 @@ class PVEEquations(pp.PorePyModel):
     __ad_capped_log: pp.ad.Function = pp.ad.Function(
         # pp.ad.log,
         lambda x: pp.ad.functions.log(pp.ad.maximum(x, 1e-14)),
-        "capped_log",
+        "ad_capped_log",
     )
 
     def set_equations(self) -> None:
@@ -118,7 +118,6 @@ class PVEEquations(pp.PorePyModel):
         assert isinstance(self, EquationMixin)
         super().set_equations()  # type:ignore[safe-super]
 
-        ncomp = self.fluid.num_components
         nphase = self.fluid.num_phases
 
         if not pp.compositional.is_persistent_variable_form(self):

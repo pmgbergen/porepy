@@ -609,7 +609,7 @@ class FlashInitializer:
         rho_c = self._eos.funcs["rho"]
         drho_c = self._eos.funcs["drho"]
 
-        logger.info(f"Compiling {args} flash initialization routines ..")
+        logger.info(f"Compiling {[a.name for a in args]} flash initializations ..")
         start = time.time()
 
         @_COMPILER(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]))

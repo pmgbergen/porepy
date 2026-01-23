@@ -35,7 +35,7 @@ from ..compiled_eos import (
     ScalarFunction,
     VectorFunction,
 )
-from ..ideal import IdealFluid, IdealProperty_T
+from ..ideal import IdealFluid
 from ..ideal.ideal_fluid import grad_ideal_rho, ideal_rho
 from ..materials import FluidComponent
 from ..states import PhysicalState
