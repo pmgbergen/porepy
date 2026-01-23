@@ -575,7 +575,7 @@ class FractureNetwork(ABC):
                 gmsh.model.mesh.field.setNumber(
                     threshold,
                     "SizeMax",
-                    mesh_size_computer.size_farfield(ent in boundary_tags),
+                    mesh_size_computer.size_farfield(True),
                 )
                 restriction = gmsh.model.mesh.field.add("Restrict")
                 gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
