@@ -269,8 +269,10 @@ from porepy.numerics.nonlinear.convergence_check import (
     ResidualBasedNanCriterion,
     IncrementBasedAbsoluteDivergenceCriterion,
     IncrementBasedRelativeDivergenceCriterion,
+    IncrementBasedCombinedDivergenceCriterion,
     ResidualBasedAbsoluteDivergenceCriterion,
     ResidualBasedRelativeDivergenceCriterion,
+    ResidualBasedCombinedDivergenceCriterion,
 )
 
 # Convergence criteria
