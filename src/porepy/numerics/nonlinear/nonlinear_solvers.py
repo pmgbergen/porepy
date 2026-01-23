@@ -37,15 +37,18 @@ class NewtonSolver:
         self.params = params
         """Dictionary of parameters for the nonlinear solver."""
 
-        # Default parameters for convergence and divergence criteria.
-        max_iterations = params.get("nl_max_iterations", 10)
-        inc_atol = params.get("nl_convergence_inc_atol", 1e-6)
-        inc_rtol = params.get("nl_convergence_inc_rtol", np.inf)
-        res_atol = params.get("nl_convergence_res_atol", 1e-6)
-        res_rtol = params.get("nl_convergence_res_rtol", np.inf)
-        inc_div_tol = params.get("nl_divergence_inc_tol", np.inf)
-        res_div_tol = params.get("nl_divergence_res_tol", np.inf)
-        metric = params.get("nl_metric", pp.EuclideanMetric())
+        self.init_criteria()
+        self.init_solver_progressbar()
+
+    def init_criteria(self) -> None:
+        """Parse and initialize convergence and divergence criteria."""
+
+        # Default parameters for convergence criteria.
+        inc_atol = self.params.get("nl_convergence_inc_atol", 1e-6)
+        inc_rtol = self.params.get("nl_convergence_inc_rtol", np.inf)
+        res_atol = self.params.get("nl_convergence_res_atol", 1e-6)
+        res_rtol = self.params.get("nl_convergence_res_rtol", np.inf)
+        metric = self.params.get("nl_metric", pp.EuclideanMetric())
 
         if "nl_convergence_criteria" not in self.params:
             self.params["nl_convergence_criteria"] = {
@@ -62,11 +65,31 @@ class NewtonSolver:
                     tol=res_rtol, metric=metric
                 ),
             }
+        else:
+            assert not any(
+                [
+                    key in self.params
+                    for key in [
+                        "nl_convergence_inc_atol",
+                        "nl_convergence_inc_rtol",
+                        "nl_convergence_res_atol",
+                        "nl_convergence_res_rtol",
+                        "nl_metric",
+                    ]
+                ]
+            ), (
+                "If 'nl_convergence_criteria' is provided, do not provide "
+                + "individual convergence tolerances."
+            )
         self.convergence_criteria = ConvergenceCriteria(
             self.params.get("nl_convergence_criteria")
         )
         """Convergence criterion used in the convergence check."""
 
+        # Default parameters for divergence criteria.
+        max_iterations = self.params.get("nl_max_iterations", 10)
+        inc_div_tol = self.params.get("nl_divergence_inc_tol", np.inf)
+        res_div_tol = self.params.get("nl_divergence_res_tol", np.inf)
         if "nl_divergence_criteria" not in self.params:
             self.params["nl_divergence_criteria"] = {
                 "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
@@ -79,12 +102,31 @@ class NewtonSolver:
                     tol=res_div_tol, metric=metric
                 ),
             }
+        else:
+            assert not any(
+                [
+                    key in self.params
+                    for key in [
+                        # "nl_max_iterations", # Currently nl_max_iterations is used also
+                        # for controlling the progress bar length, as well as iteration exporting.
+                        # Thus, skip this check for now.
+                        "nl_divergence_inc_tol",
+                        "nl_divergence_res_tol",
+                    ]
+                ]
+            ), (
+                "If 'nl_divergence_criteria' is provided, do not provide "
+                + "individual divergence tolerances."
+            )
+            for c in self.params["nl_divergence_criteria"].values():
+                if isinstance(c, pp.MaxIterationsCriterion):
+                    assert c.max_iterations == max_iterations, (
+                        "Inconsistent max iterations across criteria."
+                    )
         self.divergence_criteria = DivergenceCriteria(
             self.params.get("nl_divergence_criteria")
         )
         """Divergence criterion used in the convergence check."""
-
-        self.init_solver_progressbar()
 
     def init_solver_progressbar(self) -> None:
         use_progress_bar = bool(self.params.get("progressbars", False))
