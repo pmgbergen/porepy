@@ -21,9 +21,8 @@ from porepy.numerics.nonlinear.convergence_check import (
 
 logger = logging.getLogger(__name__)
 
+
 # Auxiliary functions for appending dictionaries and exporting to json.
-
-
 def _leafs_only(d: dict) -> dict:
     """Recursive function to extract only leafs of a dictionary."""
     if isinstance(d, dict):
@@ -196,6 +195,10 @@ class SolverStatistics:
         """Save the statistics object to a JSON file."""
         # Save to file.
         if self.path is not None:
+            # Data management and data format safety.
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path = self.path.with_suffix(".json")
+
             # Load existing data if the file exists.
             if self.path.exists():
                 with self.path.open("r") as file:
