@@ -198,7 +198,10 @@ class DataSavingMixin(pp.PorePyModel):
             length_scale=self.units.m,
         )
 
-        if "solver_statistics_file_name" in self.params:
+        if (
+            "solver_statistics_file_name" in self.params
+            and self.params["solver_statistics_file_name"] is not None
+        ):
             self.nonlinear_solver_statistics.path = (
                 Path(self.params["folder_name"])
                 / self.params["solver_statistics_file_name"]
