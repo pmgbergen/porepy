@@ -193,7 +193,7 @@ class NewtonSolver:
                 )
 
                 # Logging and progress bar update.
-                self.logging(model, convergence_info)
+                self.logging(model, convergence_info, nonlinear_increment)
 
                 # Update model status.
                 model.after_nonlinear_iteration(nonlinear_increment)
@@ -304,6 +304,7 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         convergence_info: dict[str, dict | float],
+        nonlinear_increment: np.ndarray,
     ) -> None:
         """Log the current state of the nonlinear solver.
 
@@ -313,8 +314,12 @@ class NewtonSolver:
         Parameters:
             model: The model instance specifying the problem to be solved.
             convergence_info: Convergence information containing norms.
+            nonlinear_increment: Newly obtained solution increment vector.
 
         """
+        # TODO: The logging should be agnostic to the chosen criteria and metric.
+        # Use currently the old norms for logging instead of convergence_info.
+        # To be revisited - remove nonlinear_increment parameter then as well.
         assert isinstance(
             model.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
         )
@@ -324,17 +329,20 @@ class NewtonSolver:
             + f"{model.nonlinear_solver_statistics.num_iteration}"
             + f" of {max_iterations}"
         )
-        # TODO: Provide logging which is agnostic to the chosen criteria and metric.
-        # logger.info(
-        #    f"Nonlinear increment norm: {info.nonlinear_increment_norm:.2e}, "
-        #    f"Nonlinear residual norm: {info.residual_norm:.2e}"
-        # )
-        # TODO: Same for the progress bar.
+        nonlinear_increment_norm = (
+            np.linalg.norm(nonlinear_increment) / nonlinear_increment.size
+        )
+        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        residual_norm = np.linalg.norm(residual) / residual.size
+        logger.info(
+            f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
+            f"Nonlinear residual norm: {residual_norm:.2e}"
+        )
         self.solver_progressbar.update(n=1)
-        # self.solver_progressbar.set_postfix_str(
-        #    f"""Increment {info.nonlinear_increment_norm:.2e} """
-        #    f"""Residual {info.residual_norm:.2e}"""
-        # )
+        self.solver_progressbar.set_postfix_str(
+            f"""Increment {nonlinear_increment_norm:.2e} """
+            f"""Residual {residual_norm:.2e}"""
+        )
 
     def update_solver_statistics(
         self,
