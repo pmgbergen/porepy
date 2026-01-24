@@ -179,12 +179,17 @@ class NewtonSolver:
                 # Prepare a nonlinear iteration.
                 model.before_nonlinear_iteration()
 
+                # Increase the iteration count at the start to ensure natural counting
+                # and logging (starting at 1 for a total of one iteration etc.).
+                # Keep the control with the nonlinear solver, instead of the model.
+                model.nonlinear_solver_statistics.advance_iteration()
+
                 # Perform a single Newton iteration.
                 nonlinear_increment = self.nonlinear_iteration(model)
 
                 # Monitor convergence.
-                convergence_status, convergence_info = self.check_convergence(
-                    model, nonlinear_increment
+                convergence_status, divergence_status, convergence_info = (
+                    self.check_convergence(model, nonlinear_increment)
                 )
 
                 # Logging and progress bar update.
@@ -202,15 +207,15 @@ class NewtonSolver:
                 )
 
                 # Exit the Newton loop.
-                if convergence_status.is_converged() or convergence_status.is_failed():
+                if convergence_status.is_converged() or divergence_status.is_failed():
                     break
 
-        # React to convergence status.
+        # React to convergence status. Let convergence trump divergence.
         if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
             self.update_solver_statistics(model, simulation_status=simulation_status)
             model.after_nonlinear_convergence()
-        elif convergence_status.is_failed():
+        elif divergence_status.is_failed():
             simulation_status = SimulationStatus.FAILED
             self.update_solver_statistics(model, simulation_status=simulation_status)
             # TODO: Get back to this when reimplementing time stepping.
@@ -247,7 +252,11 @@ class NewtonSolver:
         self,
         model: SolutionStrategy,
         nonlinear_increment: np.ndarray,
-    ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
+    ) -> tuple[
+        ConvergenceStatusCollection,
+        ConvergenceStatusCollection,
+        ConvergenceInfoCollection,
+    ]:
         """Check convergence and divergence based on passed criteria.
 
         Parameters:
@@ -256,8 +265,9 @@ class NewtonSolver:
             nonlinear_increment: Newly obtained solution increment vector.
 
         Returns:
-            tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]: Status and
-                info about convergence.
+            tuple[ConvergenceStatusCollection, ConvergenceStatusCollection,
+            ConvergenceInfoCollection]: Status and
+                info about convergence and divergence.
 
         """
         # Fetch the residual and current iterate.
@@ -288,11 +298,7 @@ class NewtonSolver:
             num_iterations=model.nonlinear_solver_statistics.num_iteration,
         )
 
-        # Combine convergence and divergence status.
-        return (
-            convergence_status.union(divergence_status),
-            convergence_info,
-        )
+        return convergence_status, divergence_status, convergence_info
 
     def logging(
         self,
@@ -352,7 +358,6 @@ class NewtonSolver:
 
         # Convergence-related information.
         if convergence_status is not None and convergence_info is not None:
-            model.nonlinear_solver_statistics.advance_iteration()
             model.nonlinear_solver_statistics.log_convergence_status(convergence_status)
             model.nonlinear_solver_statistics.log_convergence_info(convergence_info)
 
