@@ -1,9 +1,3 @@
-# TODO check placement of advance calls. Check with before nonlinear_loop.
-# TODO can the setups be simplified?
-# TODO upgrad log_mesh_information to handle more complex meshes: num_cells per dimension in a dict {0: ...} and num_domains per dimension {0: ...}
-# TODO test replace?
-# TODO require advance_time_step method?
-
 """Tests of functionality of :class:`~porepy.viz.solver_statistics.SolverStatistics`."""
 
 from pathlib import Path
@@ -58,7 +52,8 @@ def reference_solver_statistics_dict() -> dict:
     return {
         # SolverStatistics data
         "global": {
-            "num_cells": [6, 5, 4],
+            "num_cells": {"0": 6, "1": 5, "2": 4},
+            "num_domains": {"0": 1, "1": 1, "2": 1},
             "simulation_status_history": [
                 SimulationStatus.FAILED,
                 SimulationStatus.SUCCESSFUL,
@@ -212,7 +207,8 @@ def test_solver_statistics_initialization():
     stats = SolverStatistics()
     assert stats.counter == 0
     assert stats.path is None
-    assert stats.num_cells == []
+    assert stats.num_cells == {}
+    assert stats.num_domains == {}
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -226,6 +222,7 @@ def test_solver_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "counter")
     assert hasattr(model.nonlinear_solver_statistics, "path")
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
+    assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
@@ -234,17 +231,31 @@ def test_solver_statistic_attributes():
 
 
 @pytest.mark.parametrize(
-    "subdomains, expected",
+    "subdomains, expected_num_cells, expected_num_domains",
     [
-        ([DummySubdomain(0, 1)], [1]),
-        ([DummySubdomain(1, 2), DummySubdomain(0, 3)], [3, 2]),
-        ([DummySubdomain(2, 4), DummySubdomain(1, 5), DummySubdomain(0, 6)], [6, 5, 4]),
+        ([DummySubdomain(0, 1)], {"0": 1}, {"0": 1}),
+        (
+            [DummySubdomain(1, 2), DummySubdomain(0, 3)],
+            {"0": 3, "1": 2},
+            {"0": 1, "1": 1},
+        ),
+        (
+            [DummySubdomain(2, 4), DummySubdomain(1, 5), DummySubdomain(0, 6)],
+            {"0": 6, "1": 5, "2": 4},
+            {"0": 1, "1": 1, "2": 1},
+        ),
+        (
+            [DummySubdomain(2, 4), DummySubdomain(2, 5), DummySubdomain(1, 6)],
+            {"1": 6, "2": 9},
+            {"1": 1, "2": 2},
+        ),
     ],
 )
-def test_log_mesh_information(subdomains, expected):
+def test_log_mesh_information(subdomains, expected_num_cells, expected_num_domains):
     stats = SolverStatistics()
     stats.log_mesh_information(subdomains)
-    assert stats.num_cells == expected
+    assert stats.num_cells == expected_num_cells
+    assert stats.num_domains == expected_num_domains
 
 
 @pytest.mark.parametrize(
@@ -337,7 +348,15 @@ def test_solver_statistics_append_global_data():
 
     # Compare against reference data.
     reference_data = {"global": reference_solver_statistics_dict()["global"]}
-    assert DeepDiff(out, reference_data, ignore_string_type_changes=True) == {}
+    assert (
+        DeepDiff(
+            out,
+            reference_data,
+            ignore_numeric_type_changes=True,
+            ignore_string_type_changes=True,
+        )
+        == {}
+    )
 
 
 def test_solver_statistics_append_custom_data():
@@ -415,7 +434,15 @@ def test_solver_statistics_append_data_solver_statistics():
 
     # Compare against reference data.
     reference_data = reference_solver_statistics_dict()
-    assert DeepDiff(out, reference_data, ignore_string_type_changes=True) == {}
+    assert (
+        DeepDiff(
+            out,
+            reference_data,
+            ignore_numeric_type_changes=True,
+            ignore_string_type_changes=True,
+        )
+        == {}
+    )
 
 
 def test_solver_statistics_save():
@@ -424,6 +451,8 @@ def test_solver_statistics_save():
     Mimick two iterations to test the accumulation of data in the saved file.
 
     """
+    if Path("solver_statistics.json").exists():
+        Path("solver_statistics.json").unlink()
     # Use some dummy domains.
     subdomains = [DummySubdomain(2, 4), DummySubdomain(1, 5), DummySubdomain(0, 6)]
 
@@ -456,7 +485,15 @@ def test_solver_statistics_save():
 
     # Compare against reference data.
     reference_data = reference_solver_statistics_dict()
-    assert DeepDiff(data, reference_data, ignore_string_type_changes=True) == {}
+    assert (
+        DeepDiff(
+            data,
+            reference_data,
+            ignore_numeric_type_changes=True,
+            ignore_string_type_changes=True,
+        )
+        == {}
+    )
 
     # Clean up.
     Path("solver_statistics.json").unlink()
@@ -512,7 +549,8 @@ def test_nonlinear_solver_statistics_initialization():
     # Check SolverStatistics attributes.
     assert stats.counter == 0
     assert stats.path is None
-    assert stats.num_cells == []
+    assert stats.num_cells == {}
+    assert stats.num_domains == {}
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -532,6 +570,7 @@ def test_nonlinear_solver_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "counter")
     assert hasattr(model.nonlinear_solver_statistics, "path")
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
+    assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
@@ -652,7 +691,8 @@ def test_nonlinear_solver_statistics_append_global_data():
     stats = NonlinearSolverStatistics()
 
     # Previous data logged.
-    stats.num_cells = [6, 5, 4]
+    stats.num_cells = {"0": 6, "1": 5, "2": 4}
+    stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
         SimulationStatus.FAILED,
         SimulationStatus.SUCCESSFUL,
@@ -813,7 +853,8 @@ def test_nonlinear_solver_statistics_save():
 
     # Mimick status after two iterations (see e.g.
     # test_nonlinear_solver_statistics_append_data).
-    stats.num_cells = [6, 5, 4]
+    stats.num_cells = {"0": 6, "1": 5, "2": 4}
+    stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
         SimulationStatus.FAILED,
         SimulationStatus.SUCCESSFUL,
@@ -955,7 +996,8 @@ def test_time_statistics_initialization():
     # Check SolverStatistics attributes.
     assert stats.counter == 0
     assert stats.path is None
-    assert stats.num_cells == []
+    assert stats.num_cells == {}
+    assert stats.num_domains == {}
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -975,6 +1017,7 @@ def test_time_statistic_attributes():
     assert hasattr(model.nonlinear_solver_statistics, "counter")
     assert hasattr(model.nonlinear_solver_statistics, "path")
     assert hasattr(model.nonlinear_solver_statistics, "num_cells")
+    assert hasattr(model.nonlinear_solver_statistics, "num_domains")
     assert hasattr(model.nonlinear_solver_statistics, "simulation_status_history")
     assert hasattr(model.nonlinear_solver_statistics, "custom_data")
 
@@ -1033,7 +1076,8 @@ def test_time_statistics_append_global_data():
     stats.final_time_reached = True
 
     # Previous data logged.
-    stats.num_cells = [6, 5, 4]
+    stats.num_cells = {"0": 6, "1": 5, "2": 4}
+    stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
         SimulationStatus.SUCCESSFUL,
         SimulationStatus.SUCCESSFUL,
@@ -1142,7 +1186,8 @@ def test_time_statistics_save():
 
     # Mimick status after two time steps (see e.g.
     # test_nonlinear_solver_statistics_append_data).
-    stats.num_cells = [6, 5, 4]
+    stats.num_cells = {"0": 6, "1": 5, "2": 4}
+    stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
         SimulationStatus.SUCCESSFUL,
         SimulationStatus.SUCCESSFUL,
@@ -1245,7 +1290,8 @@ def test_nonlinear_solver_and_time_statistics_initialization():
     # Check SolverStatistics attributes.
     assert stats.counter == 0
     assert stats.path is None
-    assert stats.num_cells == []
+    assert stats.num_cells == {}
+    assert stats.num_domains == {}
     assert stats.simulation_status_history == []
     assert stats.custom_data == {}
 
@@ -1387,7 +1433,8 @@ def test_nonlinear_solver_and_time_statistics_save():
 
     # Mimick status after two time steps (see
     # test_nonlinear_solver_and_time_statistics_append_data).
-    stats.num_cells = [6, 5, 4]
+    stats.num_cells = {"0": 6, "1": 5, "2": 4}
+    stats.num_domains = {"0": 1, "1": 1, "2": 1}
     stats.simulation_status_history = [
         SimulationStatus.FAILED,
         SimulationStatus.SUCCESSFUL,

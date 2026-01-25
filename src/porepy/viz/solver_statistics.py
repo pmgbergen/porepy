@@ -58,8 +58,10 @@ class SolverStatistics:
     """Counter for the number of times the statistics object has been updated."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
-    num_cells: list[int] = field(default_factory=list)
+    num_cells: dict[str, int] = field(default_factory=dict)
     """Number of cells in each dimension."""
+    num_domains: dict[str, int] = field(default_factory=dict)
+    """Number of domains in each dimension."""
     simulation_status_history: list[SimulationStatus] = field(default_factory=list)
     """Overall simulation status."""
     custom_data: dict[str, Any] = field(default_factory=dict)
@@ -77,12 +79,16 @@ class SolverStatistics:
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
-        max_dim = -1
+        self.num_cells = dict[str, int]()
+        self.num_domains = dict[str, int]()
         for sd in subdomains:
-            max_dim = max(max_dim, sd.dim)
-        self.num_cells = [0] * (max_dim + 1)
-        for sd in subdomains:
-            self.num_cells[sd.dim] += sd.num_cells
+            dim_str = str(sd.dim)
+            if dim_str not in self.num_cells:
+                self.num_cells[dim_str] = 0
+            self.num_cells[dim_str] += sd.num_cells
+            if dim_str not in self.num_domains:
+                self.num_domains[dim_str] = 0
+            self.num_domains[dim_str] += 1
 
     def log_simulation_status(
         self, simulation_status: SimulationStatus, **kwargs
@@ -144,6 +150,7 @@ class SolverStatistics:
 
         data["global"] = {
             "num_cells": self.num_cells,
+            "num_domains": self.num_domains,
             "simulation_status_history": str_simulation_status_history,
             "final_simulation_status": final_str_simulation_status,
             "latest_counter": self.counter,
