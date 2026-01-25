@@ -3,23 +3,24 @@
 import numpy as np
 import pytest
 from deepdiff import DeepDiff
+
 import porepy as pp
 
 # Import "non-public" classes tests in convergence_check.
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
+    AbsoluteConvergenceCriterion,
+    AbsoluteDivergenceCriterion,
+    CombinedConvergenceCriterion,
+    CombinedDivergenceCriterion,
+    ConvergenceInfoCollection,
+    ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
     ConvergenceStatusHistory,
-    ConvergenceInfoCollection,
-    ConvergenceInfoHistory,
     NanDivergenceCriterion,
-    AbsoluteConvergenceCriterion,
-    AbsoluteDivergenceCriterion,
     RelativeConvergenceCriterion,
     RelativeDivergenceCriterion,
-    CombinedConvergenceCriterion,
-    CombinedDivergenceCriterion,
+    SimulationStatus,
 )
 
 
@@ -781,11 +782,12 @@ def test_combined_divergence_criterion_dict(
 @pytest.mark.parametrize(
     ("num_iterations", "max_iterations", "expected_status"),
     [
-        (0, 3, ConvergenceStatus.CONVERGED),
-        (1, 3, ConvergenceStatus.CONVERGED),
-        (2, 3, ConvergenceStatus.CONVERGED),
+        (0, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
+        (1, 3, ConvergenceStatus.CONVERGED),  # First active iteration
+        (2, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
+        # Third active and final iteration - exit iteration and thus 'diverge'
         (3, 3, ConvergenceStatus.DIVERGED),
-        (4, 3, ConvergenceStatus.DIVERGED),
+        (4, 3, ConvergenceStatus.DIVERGED),  # Fourth active iteration - exceeded
     ],
 )
 def test_max_iterations_criterion(num_iterations, max_iterations, expected_status):
