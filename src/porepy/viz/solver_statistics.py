@@ -186,6 +186,8 @@ class SolverStatistics:
             dict: Updated dictionary with all data.
 
         """
+        if str(self.counter) not in data:
+            data[str(self.counter)] = {}
         data = self.append_global_data(data)
         data = self.append_iterative_data(data)
         data = self.append_custom_data(data)
@@ -350,8 +352,8 @@ class NonlinearSolverStatistics(SolverStatistics):
                     if len(self.simulation_status_history) == 0
                     else self.simulation_status_history[-1]
                 ),
-                "convergence_status": self.convergence_status.to_str(),
-                "convergence_info": self.convergence_info,
+                "convergence_status": self.convergence_status.to_str().copy(),
+                "convergence_info": self.convergence_info.copy(),
             }
         )
 
