@@ -186,7 +186,8 @@ def _recursive_append(d: dict, v: dict) -> dict:
             elif isinstance(d[key_v], list):
                 d[key_v].append(value_v)
             else:
-                raise ValueError
+                assert type(d[key_v]) == type(value_v)
+                d[key_v] = [d[key_v], value_v]
 
     return d
 
@@ -942,6 +943,11 @@ class MaxIterationsCriterion(DivergenceCriterion):
     def check(self, num_iterations: int, **kwargs) -> ConvergenceStatus:
         """Check if the maximum number of iterations has been reached.
 
+        NOTE: Assume the criterion is called at the end of each iteration,
+        and the iteration count is increased before the call. Thus, if the
+        maximum number of iterations is reached, divergence is declared,
+        to exit any further iterations.
+
         Parameters:
             num_iterations: Current number of iterations.
 
@@ -949,7 +955,6 @@ class MaxIterationsCriterion(DivergenceCriterion):
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        # Assume iteration counting starts at 0.
         if num_iterations >= self.max_iterations:
             logger.info(self.divergence_msg())
             return ConvergenceStatus.DIVERGED
