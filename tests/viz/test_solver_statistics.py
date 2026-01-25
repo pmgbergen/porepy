@@ -139,6 +139,8 @@ def reference_time_statistics_dict() -> dict:
                 SimulationStatus.SUCCESSFUL,
             ],
             "final_time_reached": True,
+            "total_num_time_steps": 2,
+            "total_num_failed_time_steps": 0,
         }
     )
     # Add TimeStatistics data to each iteration
@@ -176,6 +178,8 @@ def reference_nonlinear_time_statistics_dict() -> dict:
     reference_dict["global"].update(
         {
             "final_time_reached": True,
+            "total_num_time_steps": 2,
+            "total_num_failed_time_steps": 1,
         }
     )
     # Add TimeStatistics data to each iteration
