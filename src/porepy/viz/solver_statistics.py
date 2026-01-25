@@ -319,8 +319,8 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
         data = super().append_global_data(data)
 
-        # Store global number of iterations. Need to allocate space for current
-        # iteration.
+        # Store global number of (attempted) iterations.
+        # Need to allocate space for current iteration.
         while len(self.num_iterations_history) <= self.counter:
             self.num_iterations_history.append(0)
         self.num_iterations_history[self.counter] = self.num_iteration
@@ -422,9 +422,24 @@ class TimeStatistics(SolverStatistics):
 
         """
         data = super().append_global_data(data)
+
+        # Store global number of (attempted) time steps.
+        # Equals current counter + 1, as counter starts from 0.
+        total_num_time_steps = self.counter + 1
+
+        # Determine number of failed time steps.
+        # Simulation status identifies success of time step.
+        total_num_failed_time_steps = 0
+        for simulation_status in self.simulation_status_history:
+            if simulation_status != SimulationStatus.SUCCESSFUL:
+                total_num_failed_time_steps += 1
+
+        # Update global data.
         data["global"].update(
             {
                 "final_time_reached": int(self.final_time_reached),
+                "total_num_time_steps": total_num_time_steps,
+                "total_num_failed_time_steps": total_num_failed_time_steps,
             }
         )
         return data
