@@ -119,8 +119,8 @@ class SolverStatistics:
             # Overwrite existing data.
             self.custom_data.update(kwargs)
 
-    def reset(self) -> None:
-        """Reset the statistics object, and restart counting iterations."""
+    def advance(self) -> None:
+        """Reset the statistics object, and advance counting iterations."""
         self.counter += 1
         self.custom_data = dict[str, Any]()
 
@@ -289,9 +289,9 @@ class NonlinearSolverStatistics(SolverStatistics):
         """
         self.convergence_info.append(convergence_info)
 
-    def reset(self) -> None:
+    def advance(self) -> None:
         """Reset the statistics object, and restart counting iterations."""
-        super().reset()
+        super().advance()
         self.num_iteration = 0
         self.convergence_status.clear()
         self.convergence_info.clear()

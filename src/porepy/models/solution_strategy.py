@@ -593,8 +593,8 @@ class SolutionStrategy(pp.PorePyModel):
         """
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
-        # Empty the log in the statistics object.
-        self.nonlinear_solver_statistics.reset()
+        # Advance the statistics object and reset counters.
+        self.nonlinear_solver_statistics.advance()
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
         # Update other dependent quantities such as discretizations.
