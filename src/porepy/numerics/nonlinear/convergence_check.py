@@ -940,22 +940,20 @@ class MaxIterationsCriterion(DivergenceCriterion):
         self.max_iterations = max_iterations
         """Maximum allowed iterations (where counter starts at 0)."""
 
-    def check(self, num_iterations: int, **kwargs) -> ConvergenceStatus:
+    def check(self, iteration_index: int, **kwargs) -> ConvergenceStatus:
         """Check if the maximum number of iterations has been reached.
 
-        NOTE: Assume the criterion is called at the end of each iteration,
-        and the iteration count is increased before the call. Thus, if the
-        maximum number of iterations is reached, divergence is declared,
-        to exit any further iterations.
+        NOTE: Assume iteration_index is still 0 during the check, and it is
+        only increased at the end of the call of the  iterative algorithm.
 
         Parameters:
-            num_iterations: Current number of iterations.
+            iteration_index: Current iteration index.
 
         Returns:
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        if num_iterations >= self.max_iterations:
+        if iteration_index >= self.max_iterations - 1:
             logger.info(self.divergence_msg())
             return ConvergenceStatus.DIVERGED
         else:
