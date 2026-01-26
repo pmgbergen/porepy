@@ -54,22 +54,29 @@ class SolverStatistics:
 
     """
 
-    counter: int = field(default=0)
-    """Counter for the number of times the statistics object has been updated."""
+    index: int = field(default=-1)
+    """Current index of the statistics object."""
     path: Optional[Path] = None
     """Path to save the statistics object to."""
     num_cells: dict[str, int] = field(default_factory=dict)
     """Number of cells in each dimension."""
     num_domains: dict[str, int] = field(default_factory=dict)
     """Number of domains in each dimension."""
-    simulation_status_history: list[SimulationStatus] = field(default_factory=list)
+    simulation_status: SimulationStatus = field(default=SimulationStatus.IN_PROGRESS)
     """Overall simulation status."""
+    simulation_status_history: list[SimulationStatus] = field(default_factory=list)
+    """Overall simulation status history."""
     custom_data: dict[str, Any] = field(default_factory=dict)
     """Custom data to be added to the statistics object."""
 
     def __replace__(self, **kwargs) -> "SolverStatistics":
         """Create a new instance with updated fields."""
         return type(self)(**{**self.__dict__, **kwargs})
+
+    def increase_index(self) -> None:
+        """Advance counting iterations, and reset the statistics object."""
+        self.index += 1
+        self.custom_data = dict[str, Any]()
 
     def log_mesh_information(self, subdomains: list, **kwargs) -> None:
         """Collect mesh information.
@@ -100,9 +107,12 @@ class SolverStatistics:
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
-        while len(self.simulation_status_history) <= self.counter:
-            self.simulation_status_history.append(SimulationStatus.IN_PROGRESS)
-        self.simulation_status_history[self.counter] = simulation_status
+        if simulation_status is not None:
+            self.simulation_status = simulation_status
+            if len(self.simulation_status_history) <= self.index:
+                self.simulation_status_history.append(self.simulation_status)
+            else:
+                self.simulation_status_history[-1] = self.simulation_status
 
     def log_custom_data(self, append: bool = False, **kwargs) -> None:
         """Log custom data to be added to the statistics object with custom keys.
@@ -124,11 +134,6 @@ class SolverStatistics:
         else:
             # Overwrite existing data.
             self.custom_data.update(kwargs)
-
-    def advance(self) -> None:
-        """Reset the statistics object, and advance counting iterations."""
-        self.counter += 1
-        self.custom_data = dict[str, Any]()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary.
@@ -153,7 +158,7 @@ class SolverStatistics:
             "num_domains": self.num_domains,
             "simulation_status_history": str_simulation_status_history,
             "final_simulation_status": final_str_simulation_status,
-            "latest_counter": self.counter,
+            "index": self.index,
         }
 
         return data
@@ -168,11 +173,11 @@ class SolverStatistics:
             dict: Updated dictionary with custom data.
 
         """
-        data[str(self.counter)].update(self.custom_data)
+        data[str(self.index)].update(self.custom_data)
         return data
 
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary at current counter.
+        """Append the current statistics to the data dictionary at current index.
 
         Parameters:
             data: Dictionary to append the statistics to.
@@ -181,6 +186,11 @@ class SolverStatistics:
             dict: Updated dictionary with iterative data.
 
         """
+        data[str(self.index)].update(
+            {
+                "simulation_status": str(self.simulation_status),
+            }
+        )
         return data
 
     def append_data(self, data: dict[str, dict]) -> dict[str, dict]:
@@ -193,8 +203,8 @@ class SolverStatistics:
             dict: Updated dictionary with all data.
 
         """
-        if str(self.counter) not in data:
-            data[str(self.counter)] = {}
+        if str(self.index) not in data:
+            data[str(self.index)] = {}
         data = self.append_global_data(data)
         data = self.append_iterative_data(data)
         data = self.append_custom_data(data)
@@ -213,8 +223,8 @@ class SolverStatistics:
                 with self.path.open("r") as file:
                     data = json.load(file)
                 # Clean up obsolete information.
-                max_counter = max(int(k) for k in data.keys() if k.isdigit())
-                for k in range(self.counter + 1, max_counter + 1):
+                max_index = max(int(k) for k in data.keys() if k.isdigit())
+                for k in range(self.index + 1, max_index + 1):
                     data.pop(str(k), None)
             else:
                 data = {}
@@ -253,8 +263,8 @@ class NonlinearSolverStatistics(SolverStatistics):
 
     """
 
-    num_iteration: int = field(default=0)
-    """Number of non-linear iterations performed for current time step."""
+    num_iterations: int = field(default=0)
+    """Number of (logged) non-linear iterations."""
     num_iterations_history: list[int] = field(default_factory=list)
     """History of number of iterations for entire run."""
     convergence_status: ConvergenceStatusHistory = field(
@@ -270,9 +280,12 @@ class NonlinearSolverStatistics(SolverStatistics):
         """Create a new instance with updated fields."""
         return type(self)(**{**self.__dict__, **kwargs})
 
-    def advance_iteration(self) -> None:
-        """Advance the iteration count by one."""
-        self.num_iteration += 1
+    def increase_index(self) -> None:
+        """Reset the statistics object."""
+        super().increase_index()
+        self.num_iterations = 0
+        self.convergence_status.clear()
+        self.convergence_info.clear()
 
     def log_convergence_status(
         self, convergence_status: ConvergenceStatusCollection, **kwargs
@@ -284,7 +297,19 @@ class NonlinearSolverStatistics(SolverStatistics):
             **kwargs: Additional keyword arguments, for potential extension.
 
         """
+        # Append convergence status.
         self.convergence_status.append(convergence_status)
+
+        # Update the number of iterations - equal to the length of the convergence status.
+        num_convergence_status = [len(s) for s in self.convergence_status.values()]
+        assert len(set(num_convergence_status)) == 1
+        self.num_iterations = num_convergence_status[0]
+
+        # Store global number of (attempted) iterations.
+        if len(self.num_iterations_history) <= self.index:
+            self.num_iterations_history.append(self.num_iterations)
+        else:
+            self.num_iterations_history[-1] = self.num_iterations
 
     def log_convergence_info(
         self, convergence_info: ConvergenceInfoCollection, **kwargs
@@ -297,13 +322,6 @@ class NonlinearSolverStatistics(SolverStatistics):
 
         """
         self.convergence_info.append(convergence_info)
-
-    def advance(self) -> None:
-        """Reset the statistics object, and restart counting iterations."""
-        super().advance()
-        self.num_iteration = 0
-        self.convergence_status.clear()
-        self.convergence_info.clear()
 
     def append_global_data(self, data: dict[str, dict]) -> dict[str, dict]:
         """Append the current statistics to the data dictionary.
@@ -318,12 +336,6 @@ class NonlinearSolverStatistics(SolverStatistics):
 
         """
         data = super().append_global_data(data)
-
-        # Store global number of (attempted) iterations.
-        # Need to allocate space for current iteration.
-        while len(self.num_iterations_history) <= self.counter:
-            self.num_iterations_history.append(0)
-        self.num_iterations_history[self.counter] = self.num_iteration
 
         # Extract final convergence status.
         final_convergence_status = _leafs_only(self.convergence_status.to_str())
@@ -348,12 +360,12 @@ class NonlinearSolverStatistics(SolverStatistics):
         return data
 
     def append_iterative_data(self, data: dict[str, dict]) -> dict[str, dict]:
-        """Append the current statistics to the data dictionary at current counter."""
+        """Append the current statistics to the data dictionary at current index."""
 
         data = super().append_iterative_data(data)
-        data[str(self.counter)].update(
+        data[str(self.index)].update(
             {
-                "num_iteration": self.num_iteration,
+                "num_iterations": self.num_iterations,
                 "simulation_status": str(
                     None
                     if len(self.simulation_status_history) == 0
@@ -372,7 +384,7 @@ class TimeStatistics(SolverStatistics):
     """Mixin making SolverStatistics aware of time information for each iteration.
 
     Note: This class is intended to be used as a mixin with SolverStatistics.
-    It assumes that the class it is mixed into has a `counter` attribute.
+    It assumes that the class it is mixed into has a `index` attribute.
 
     """
 
@@ -423,14 +435,12 @@ class TimeStatistics(SolverStatistics):
         """
         data = super().append_global_data(data)
 
-        # Store global number of (attempted) time steps.
-        # Equals current counter + 1, as counter starts from 0.
-        total_num_time_steps = self.counter + 1
-
-        # Determine number of failed time steps.
+        # Determine number of total and failed time steps.
         # Simulation status identifies success of time step.
+        total_num_time_steps = 0
         total_num_failed_time_steps = 0
         for simulation_status in self.simulation_status_history:
+            total_num_time_steps += 1
             if simulation_status != SimulationStatus.SUCCESSFUL:
                 total_num_failed_time_steps += 1
 
@@ -454,12 +464,14 @@ class TimeStatistics(SolverStatistics):
             dict: Updated dictionary with iterative data.
         """
         data = super().append_iterative_data(data)
-        data[str(self.counter)] = {
-            "final_time_reached": int(self.final_time_reached),
-            "time_index": self.time_index,
-            "time": self.time,
-            "dt": self.dt,
-        }
+        data[str(self.index)].update(
+            {
+                "final_time_reached": int(self.final_time_reached),
+                "time_index": self.time_index,
+                "time": self.time,
+                "dt": self.dt,
+            }
+        )
         return data
 
 
