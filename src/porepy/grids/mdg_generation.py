@@ -779,7 +779,7 @@ def create_mdg(
                         cell_size in the z-direction.
             fracture_network: fracture network specification. **kwargs: A dictionary
             with extra meshing keys associated with each grid_type:
-                if grid_type == "simplex" see signature for the `mesh` function in:
+                if grid_type == "simplex":
                     constraints: ``np.ndarray``: Index list of the fractures that should
                         be treated as constraints in meshing, but not added as separate
                         fracture grids (no splitting of nodes etc.). Useful to define
@@ -787,6 +787,17 @@ def create_mdg(
                         properties, etc.).
                     dfn: ``bool``: Defaults to False. Directive for generating a DFN
                         mesh. Providing True activates the directive.
+                    file_name: ``str``: Defaults to None. If provided, the generated
+                        mesh will be saved to a file with this name (in .msh format).
+                    refinement_threshold: ``float``: Threshold for refinement around
+                        proximate fractures. See tutorial on mixed-dimensional grids for
+                        details.
+                    farfield_transition: ``float``: Distance from fractures where the
+                        mesh size transitions to far-field mesh size. See tutorial on
+                        mixed-dimensional grids for details.
+                    refinement_buffer: ``float``: Size of buffer zone around fractures
+                        where refinement is applied. See tutorial on mixed-dimensional
+                        grids for details.
                 if grid_type == "simplex" or "tensor_grid":
                     offset: ``float``: Defaults to 0. Parameter that quantifies a
                         perturbation to nodes around the faces that are split. NOTE:

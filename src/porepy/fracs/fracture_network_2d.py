@@ -191,7 +191,7 @@ class FractureNetwork2d(FractureNetwork):
             "refinement_buffer": 0.5,
             "farfield_transition": 5.0,
         }
-        extra_mesh_args = default_mesh_args | kwargs
+        extra_mesh_args = default_mesh_args | mesh_args
 
         # Helper class to keep track of mesh size computations.
         mesh_size_computer = MeshSizeComputer(mesh_args | extra_mesh_args)

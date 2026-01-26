@@ -47,6 +47,31 @@ class FractureNetwork(ABC):
         ) = []
         """List of fractures in the network. Will be populated in derived classes."""
 
+        self._extra_meshing_args: dict[str, float | int] = {
+            # See the usage in code for definition of this parameter.
+            "extend_mesh_size_from_boundary": 0,
+            # Use Frontal-Delaunay (5) for 2d, HXT (10) for 3d as default meshing
+            # algorithms.
+            "meshing_algorithm": 10 if self.nd == 3 else 5,
+            # Use a single processor by default to ensure deterministic meshing.
+            "num_processors": 1,
+        }
+        """Extra meshing arguments for fracture network meshing.
+        
+        This dictionary is meant to store extra meshing arguments that can be used for
+        customizing the meshing process. While some such arguments get their defaults
+        defined in the module 'mdg_generation', this dictionary defines what is
+        considered more exotic arguments that are not commonly used, and therefore not
+        exposed at a higher level.
+
+        The default arguments can be overridden by providing keyword arguments to the
+        mesh method; the override happens in the method _prepare_mesh_inputs.
+
+        More information on the individual arguments may be found in the code where they
+        are used.
+
+        """
+
     def num_frac(self) -> int:
         """Return the number of fractures in the network."""
         return len(self.fractures)
@@ -121,25 +146,22 @@ class FractureNetwork(ABC):
             constraints = np.atleast_1d(constraints)
             constraints.sort()
 
-        # Set the number of processors for Gmsh. By default, use a single processor. Be
-        # aware that using multiple processors may lead to non-deterministic meshes.
-        num_procs = kwargs.get("num_processors", 1)
-        gmsh.option.setNumber("General.NumThreads", num_procs)
+        # Update extra meshing arguments based on provided kwargs.
+        for key in self._extra_meshing_args:
+            if key in kwargs:
+                self._extra_meshing_args[key] = kwargs[key]
 
+        # Set the number of processors for Gmsh.
+        gmsh.option.setNumber(
+            "General.NumThreads", self._extra_meshing_args["num_processors"]
+        )
+
+        # See the Gmsh documentation for an overview of the available algorithms.
+        meshing_algorithm = self._extra_meshing_args.get("meshing_algorithm", 10)
         if self.nd == 3:
-            # Use HXT algorithm for 3d meshing by default. Note to self: It is important
-            # to use Mesh.Algorithm3D, not Mesh3D.Algorithm, which triggers all sorts of
-            # issues.
-            meshing_algorithm = kwargs.get("meshing_algorithm", 10)
+            # Note to self: It is important to use Mesh.Algorithm3D, not Mesh.Algorithm.
             gmsh.option.setNumber("Mesh.Algorithm3D", meshing_algorithm)
         else:
-            # By default, use the standard Delaunay algorithm for 2d meshing as this,
-            # according to the Gmsh documentation, handles large gradients in mesh sizes
-            # better. The documentation also generally recommends using the
-            # Frontal-Delaunay algorithm, so this may be a preferred choice for problems
-            # without such large gradients. See the Gmsh documentation for an overview
-            # of the available algorithms.
-            meshing_algorithm = kwargs.get("meshing_algorithm", 5)
             gmsh.option.setNumber("Mesh.Algorithm", meshing_algorithm)
 
         return file_name, constraints
@@ -600,9 +622,13 @@ class FractureNetwork(ABC):
         # In cases where the far-field mesh size is large compared to the fracture size,
         # but where refinement is triggered by fractures close to the boundary, we may
         # end up in situations where the mesh size on the boundary is much smaller than
-        # in the interior. To circumvent this, we let the mesh size on the boundary
-        # influence the mesh size in the interior.
-        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1)
+        # in the interior. To avoid this, the user is given the option to extend the
+        # mesh size from the boundary into the domain. This is off by default, in line
+        # with the recommendations in the Gmsh documentation.
+        gmsh.option.setNumber(
+            "Mesh.MeshSizeExtendFromBoundary",
+            int(self._extra_meshing_args["extend_mesh_size_from_boundary"]),
+        )
 
     def _uniquify_mesh_size_dictionary(
         self, mesh_size_points: dict[int, list[tuple[np.ndarray, float]]]
