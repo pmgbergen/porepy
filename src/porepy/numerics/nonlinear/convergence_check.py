@@ -143,7 +143,8 @@ class ConvergenceStatusCollection(dict[str, ConvergenceStatus]):
         return any(status.is_stopped() for status in self.values())
 
     def is_max_iterations_reached(self) -> bool:
-        """Check if any status indicates that the maximum number of iterations was reached."""
+        """Check if any status indicates that the maximum number of iterations
+        was reached."""
         return any(status.is_max_iterations_reached() for status in self.values())
 
     def is_failed(self) -> bool:

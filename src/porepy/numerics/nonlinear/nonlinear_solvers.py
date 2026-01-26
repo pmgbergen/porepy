@@ -109,9 +109,9 @@ class NewtonSolver:
                 [
                     key in self.params
                     for key in [
-                        # "nl_max_iterations", # Currently nl_max_iterations is used also
-                        # for controlling the progress bar length, as well as iteration exporting.
-                        # Thus, skip this check for now.
+                        # "nl_max_iterations", # Currently nl_max_iterations is used
+                        # also for controlling the progress bar length, as well as
+                        # iteration exporting. Thus, skip this check for now.
                         "nl_divergence_inc_tol",
                         "nl_divergence_res_tol",
                     ]

@@ -560,7 +560,7 @@ def test_solver_statistics_save_in_model(path, exists):
 
 
 def test_nonlinear_solver_statistics_initialization():
-    """Tests initialization of NonlinearSolverStatistics combined with SolverStatistics."""
+    """Tests initialization of NonlinearSolverStatistics with SolverStatistics."""
     stats = NonlinearSolverStatistics()
 
     # Check SolverStatistics attributes.

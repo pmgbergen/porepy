@@ -358,7 +358,7 @@ def test_solve_convergence_statistics(default_newton_solver):
 
 
 def test_solve_convergence_time_dependent(default_newton_solver):
-    """Test that the solver returns SUCCESSFUL on convergence for a time-dependent model."""
+    """Test that the solver returns SUCCESSFUL for converged time-dependent model."""
     # Minimal setup.
     model = TimeDependentMockModel(
         nonlinear_increment_history=[[2.0, 0.5], [2.0, 1.0, 0.5]],
@@ -779,7 +779,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     with open("solver_and_time_statistics.json", "r") as f:
         data = json.load(f)
 
-    # Check only the first time step (first loop). Need to adapt the global data accordingly.
+    # Check the first time step (first loop). Adapt the global data accordingly.
     assert (
         DeepDiff(
             data,

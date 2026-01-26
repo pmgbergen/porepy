@@ -82,7 +82,7 @@ def test_convergence_status_methods():
     ],
 )
 def test_convergence_status_not_failed(status):
-    """Test the negative result of is_failed method of ConvergenceStatus enum members."""
+    """Test the negative result of is_failed method of ConvergenceStatus members."""
     assert not status.is_failed()
 
 
@@ -97,7 +97,7 @@ def test_convergence_status_not_failed(status):
     ],
 )
 def test_convergence_status_failed(status):
-    """Test the positive result of is_failed method of ConvergenceStatus enum members."""
+    """Test the positive result of is_failed method of ConvergenceStatus members."""
     assert status.is_failed()
 
 
@@ -241,7 +241,7 @@ def test_convergence_status_collection_union_with_overlap():
 
 
 def test_convergence_status_collection_union_without_overlap():
-    """Test behavior for union of ConvergenceStatusCollection objects without overlap."""
+    """Test union of ConvergenceStatusCollection objects without overlap."""
     c1 = ConvergenceStatusCollection(
         {
             "crit1": ConvergenceStatus.CONVERGED,

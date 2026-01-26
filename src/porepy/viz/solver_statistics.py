@@ -300,7 +300,7 @@ class NonlinearSolverStatistics(SolverStatistics):
         # Append convergence status.
         self.convergence_status.append(convergence_status)
 
-        # Update the number of iterations - equal to the length of the convergence status.
+        # Update the number of iterations = length of the convergence status.
         num_convergence_status = [len(s) for s in self.convergence_status.values()]
         assert len(set(num_convergence_status)) == 1
         self.num_iterations = num_convergence_status[0]
