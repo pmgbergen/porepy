@@ -504,7 +504,7 @@ class RelativeConvergenceCriterion(RelativeCriterion, ConvergenceCriterion):
         if self.tol == np.inf:
             return ConvergenceStatus.CONVERGED, 0.0
 
-        reference_value = kwargs["reference"]
+        reference_value = self.metric(kwargs["reference"])
         if reference_value is not None:
             self.set_reference_value(reference_value)
 
@@ -625,7 +625,7 @@ class CombinedConvergenceCriterion(CombinedCriterion, ConvergenceCriterion):
                 non-linear iteration and information about the convergence check.
 
         """
-        reference_value = kwargs["reference"]
+        reference_value = self.metric(kwargs["reference"])
         if reference_value is not None:
             self.set_reference_value(reference_value)
 
