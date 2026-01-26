@@ -4,6 +4,7 @@ Implemented classes
     NewtonSolver
 """
 
+import copy
 import logging
 from typing import cast
 
@@ -11,7 +12,6 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
-import copy
 
 # from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
@@ -105,14 +105,14 @@ class NewtonSolver:
                     tol=res_div_tol, metric=metric
                 ),
             }
+            self.nl_max_iterations = max_iterations
         else:
+            # Ensure no double specification of tolerances.
             assert not any(
                 [
                     key in self.params
                     for key in [
-                        # "nl_max_iterations", # Currently nl_max_iterations is used
-                        # also for controlling the progress bar length, as well as
-                        # iteration exporting. Thus, skip this check for now.
+                        "nl_max_iterations",
                         "nl_divergence_inc_tol",
                         "nl_divergence_res_tol",
                     ]
@@ -121,11 +121,12 @@ class NewtonSolver:
                 "If 'nl_divergence_criteria' is provided, do not provide "
                 + "individual divergence tolerances."
             )
+
+            # Fetch max iterations from the provided criteria.
             for c in self.params["nl_divergence_criteria"].values():
                 if isinstance(c, pp.MaxIterationsCriterion):
-                    assert c.max_iterations == max_iterations, (
-                        "Inconsistent max iterations across criteria."
-                    )
+                    self.nl_max_iterations = c.max_iterations
+
         self.divergence_criteria = DivergenceCriteria(
             self.params.get("nl_divergence_criteria")
         )
@@ -152,7 +153,7 @@ class NewtonSolver:
 
             # Length is the maximal number of Newton iterations.
             self.solver_progressbar = progressbar_class(  # type: ignore
-                range(self.params["nl_max_iterations"]),
+                range(self.nl_max_iterations),
                 desc="Newton loop",
                 position=progress_bar_position,
                 leave=False,
@@ -353,7 +354,7 @@ class NewtonSolver:
         )
 
         # Log iteration number.
-        max_iterations = self.params.get("nl_max_iterations", 10)
+        max_iterations = self.nl_max_iterations
         logger.info(
             f"Newton iteration number {self.iteration_index + 1} of {max_iterations}"
         )
