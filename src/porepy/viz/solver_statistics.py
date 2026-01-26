@@ -223,9 +223,11 @@ class SolverStatistics:
                 with self.path.open("r") as file:
                     data = json.load(file)
                 # Clean up obsolete information.
-                max_index = max(int(k) for k in data.keys() if k.isdigit())
-                for k in range(self.index + 1, max_index + 1):
-                    data.pop(str(k), None)
+                available_indices = [int(k) for k in data.keys() if k.isdigit()]
+                if len(available_indices) > 0:
+                    max_index = max(int(k) for k in data.keys() if k.isdigit())
+                    for k in range(self.index + 1, max_index + 1):
+                        data.pop(str(k), None)
             else:
                 data = {}
 
