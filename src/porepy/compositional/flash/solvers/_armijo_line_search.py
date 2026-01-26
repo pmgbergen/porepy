@@ -24,20 +24,20 @@ __all__ = [
 
 
 _ARMIJO_LINE_SEARCH_PARAMS_KEYS: TypeAlias = Literal[
-    "armijo_step_size", "armijo_incline", "armijo_max_iterations"
+    "armijo_step_size", "armijo_decline", "armijo_max_iterations"
 ]
 """Keys (names) for Armijo line search parameters."""
 
 
 DEFAULT_ARMIJO_LINE_SEARCH_PARAMS: dict[_ARMIJO_LINE_SEARCH_PARAMS_KEYS, float] = {
     "armijo_step_size": 0.99,
-    "armijo_incline": 0.4,
+    "armijo_decline": 0.4,
     "armijo_max_iterations": 50.0,
 }
 """Default parameters for :func:`armijo_line_search`.
 
 - ``'armijo_step_size': 0.99`` initial step size factor for Armijo line search.
-- ``'armijo_incline': 0.5`` steepness of line for line search.
+- ``'armijo_decline': 0.5`` steepness of line for line search.
 - ``'armijo_max_iterations': 50.`` maximal number of line search iterations.
 
 """
@@ -77,7 +77,7 @@ def armijo_line_search(
 
     """
     rho = float(params["armijo_step_size"])
-    kappa = float(params["armijo_incline"])
+    kappa = float(params["armijo_decline"])
     max_iter = int(params["armijo_max_iterations"])
 
     f_0 = F(X0)

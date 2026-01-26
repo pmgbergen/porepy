@@ -64,8 +64,8 @@ model_params["fractional_flow"] = BUOYANCY_ON
 model_params["enable_buoyancy_effects"] = BUOYANCY_ON
 model_params["armijo_stop_after_residual_reaches"] = 1e-3
 
-model_params["flash_params"]["solver_params"]["npipm_u1"] = 1.0  # type:ignore[index]
-model_params["flash_params"]["solver_params"]["npipm_u2"] = 1.0  # type:ignore[index]
+model_params["flash_params"]["solver_params"]["npipm_penalty_cc"] = 1.0  # type:ignore[index]
+model_params["flash_params"]["solver_params"]["npipm_penalty_neg"] = 1.0  # type:ignore[index]
 
 
 if BUOYANCY_ON:
