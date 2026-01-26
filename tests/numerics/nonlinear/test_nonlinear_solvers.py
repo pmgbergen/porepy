@@ -1,17 +1,19 @@
-import porepy as pp
-from porepy.models.fluid_mass_balance import SinglePhaseFlow
+import copy
+import json
+from pathlib import Path
+
+import numpy as np
 import pytest
 from deepdiff import DeepDiff
-import numpy as np
+
+import porepy as pp
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
-    ConvergenceStatus,
     ConvergenceInfoHistory,
+    ConvergenceStatus,
     ConvergenceStatusCollection,
+    SimulationStatus,
 )
-from pathlib import Path
-import json
-import copy
 
 # ! ---- Auxiliary fixtures and classes ---- ! #
 
@@ -330,7 +332,7 @@ def test_solve_convergence_statistics(default_newton_solver):
                     },
                 },
                 "0": {
-                    "num_iteration": 2,
+                    "num_iterations": 2,
                     "simulation_status": "successful",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "converged"],
@@ -423,7 +425,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
             "time_index": 1,
             "time": 0.5,
             "dt": 0.5,
-            "num_iteration": 2,
+            "num_iterations": 2,
             "simulation_status": "successful",
             "convergence_status": {
                 "inc_abs": ["not_converged", "converged"],
@@ -467,7 +469,7 @@ def test_solve_convergence_time_dependent_statistics(default_newton_solver):
         "time_index": 2,
         "time": 1.0,
         "dt": 0.5,
-        "num_iteration": 3,
+        "num_iterations": 3,
         "simulation_status": "successful",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
@@ -571,7 +573,7 @@ def test_solve_failure_statistics(default_newton_solver):
                     },
                 },
                 "0": {
-                    "num_iteration": 2,
+                    "num_iterations": 2,
                     "simulation_status": "failed",
                     "convergence_status": {
                         "inc_abs": ["not_converged", "not_converged"],
@@ -674,7 +676,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
             "time_index": 1,
             "time": 0.5,
             "dt": 0.5,
-            "num_iteration": 2,
+            "num_iterations": 2,
             "simulation_status": "failed",
             "convergence_status": {
                 "inc_abs": ["not_converged", "not_converged"],
@@ -718,7 +720,7 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         "time_index": 1,
         "time": 0.5,
         "dt": 0.5,
-        "num_iteration": 3,
+        "num_iterations": 3,
         "simulation_status": "successful",
         "convergence_status": {
             "inc_abs": ["not_converged", "not_converged", "converged"],
