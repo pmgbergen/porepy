@@ -28,7 +28,7 @@ Note:
 
 from __future__ import annotations
 
-REFINEMENT_LEVEL: int = 3
+REFINEMENT_LEVEL: int = 0
 """Chose mesh size with h = 4 * 0.5 ** i, with i being the refinement level."""
 EQUILIBRIUM_CONDITION: Literal["unified-p-T", "unified-p-h"] = "unified-p-h"
 """Define the equilibrium condition to determin the flash type used in the solution
@@ -50,7 +50,7 @@ This option is for obtaining the uninfluenced results of the time stepping schem
 If True, a schedule is used at specified times for plotting purposes.
 
 """
-DISABLE_COMPILATION: bool = False
+DISABLE_COMPILATION: bool = True
 """For disabling numba compilation and faster start of simulation. Intended for
 debugging."""
 BUOYANCY_ON: bool = False
@@ -66,7 +66,7 @@ MESH_SIZES: dict[int, float] = {
     1: 2.0,  # 1204 cells
     2: 1.0,  # 4636 cells
     3: 0.5,  # 18,464 cells
-    # 4: 0.25,  # 73,748 cells
+    4: 0.25,  # 73,748 cells
 }
 """Tested mesh sizes in meters."""
 
@@ -104,6 +104,7 @@ if DISABLE_COMPILATION:
     os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
+import pp_solvers
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import add_mixin
@@ -210,6 +211,7 @@ class DataCollectionMixin(pp.PorePyModel):
         start = time.time()
         sol = super().solve_linear_system()
         self._time_tracker["linsolve"].append(time.time() - start)
+        print("linear solve took:", self._time_tracker["linsolve"][-1])
         return sol
 
     def before_nonlinear_loop(self) -> None:
@@ -302,10 +304,16 @@ class QuadraticRelPerm(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Quadratic relative permeability model."""
         return phase.saturation(domains) ** pp.ad.Scalar(2)
+    
 
-
-if __name__ == "__main__":
-    # region Argparsing
+def make_model(pc_factory):
+# region Argparsing
+    global REFINEMENT_LEVEL
+    global FLASH_TOL_CASE
+    global LOCAL_SOLVER_STRIDE
+    global NUM_MONTHS
+    global REL_PERM
+    global RUN_WITH_SCHEDULE
     parser = argparse.ArgumentParser(prog="Cold CO2 injection run script")
     parser.add_argument(
         "-e",
@@ -366,7 +374,7 @@ if __name__ == "__main__":
         ),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args([])
 
     if args.equilibrium:
         if isinstance(args.equilibrium, list):
@@ -474,7 +482,12 @@ if __name__ == "__main__":
     else:
         newton_tol = 1e-7
         newton_tol_increment = 5e-6
-    dt_init = pp.DAY / 2.0
+    
+    if REFINEMENT_LEVEL >= 4:
+        newton_tol = 5e-7
+
+    # dt_init = pp.DAY / 2.0
+    dt_init = pp.MINUTE
 
     if RUN_WITH_SCHEDULE:
         time_schedule = [i * 30 * pp.DAY for i in range(NUM_MONTHS + 1)]
@@ -486,7 +499,7 @@ if __name__ == "__main__":
     time_manager = pp.TimeManager(
         schedule=time_schedule,
         dt_init=dt_init,
-        dt_min_max=(1 * pp.HOUR, dt_max),
+        dt_min_max=(1 * pp.SECOND, dt_max),
         iter_max=max_iterations,
         iter_optimal_range=iter_range,
         iter_relax_factors=(0.75, 2),
@@ -591,6 +604,59 @@ if __name__ == "__main__":
     else:
         model_class = ColdInjectionModel
 
+    # MARK: Iterative Linear Solver
+    from pp_solvers.solver_selection.selector import SolverSelector
+    from pp_solvers.solver_selection.solver_space import (
+        SolverSpace,
+        NumericalChoices,
+        CategoricalChoices,
+    )
+    from pp_solvers.solver_selection.performance_predictor import (
+        assemble_default_performance_predictor,
+    )
+
+    solver_space_scheme = {
+        "cpr-ilu": {
+            "pc_hypre_ilu_level": NumericalChoices([0, 1, 2]),
+            "pc_hypre_ilu_maxiter": NumericalChoices([5, 10]),
+        },
+        "identity": {
+            "pc_type": CategoricalChoices(
+                [
+                    "none",
+                    "jacobi",
+                ]
+            ),
+        },
+        "amgaaaa": {
+            "pc_hypre_boomeramg_strong_threshold": NumericalChoices([0.1, 0.25, 0.4]),
+            "pc_hypre_boomeramg_relax_type_all": CategoricalChoices(
+                [
+                    "Jacobi",
+                    "SOR/Jacobi",
+                    "l1scaled-Jacobi",
+                    "Chebyshev",
+                ]
+            ),
+        },
+    }
+    solver_space = SolverSpace(solver_space_scheme=solver_space_scheme)
+    solver_selector = SolverSelector(
+        solver_space=solver_space,
+        performance_predictor=assemble_default_performance_predictor(),
+    )
+
+    model_class = add_mixin(pp_solvers.IterativeSolverMixin, model_class)
+    model_params["linear_solver"] = {
+        "preconditioner_factory": pc_factory,
+        "solver_selector": solver_selector,
+        "options": {
+            "ksp_max_it": 300,
+            "ksp_gmres_restart": 100,
+            "ksp_monitor": None,
+        },
+    }
+
     model_class = add_mixin(DataCollectionMixin, model_class)
 
     if BUOYANCY_ON:
@@ -624,6 +690,10 @@ if __name__ == "__main__":
 
     model.schur_complement_primary_equations = primary_equations
     model.schur_complement_primary_variables = primary_variables
+    return model, model_params, prep_sim_time, file_name, data_path
+
+if __name__ == "__main__":
+    model, model_params, prep_sim_time, file_name, data_path = make_model()
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
