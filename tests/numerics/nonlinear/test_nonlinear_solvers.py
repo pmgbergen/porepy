@@ -966,7 +966,7 @@ def test_update_solver_statistics(default_newton_solver):
     )
 
     # Check that the solver statistics have been updated correctly
-    assert model.nonlinear_solver_statistics.num_iteration == 1
+    assert model.nonlinear_solver_statistics.num_iterations == 1
     assert model.nonlinear_solver_statistics.convergence_status == {
         "inc_abs": ["not_converged"],
         "res_abs": ["not_converged"],
@@ -1002,7 +1002,7 @@ def test_integration_nonlinear_iteration_count(num_iterations):
         },
     )
 
-    assert model.nonlinear_solver_statistics.num_iteration == num_iterations
+    assert model.nonlinear_solver_statistics.num_iterations == num_iterations
     for key in model.nonlinear_solver_statistics.convergence_status:
         assert (
             len(model.nonlinear_solver_statistics.convergence_status[key])

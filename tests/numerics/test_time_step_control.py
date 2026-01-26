@@ -897,22 +897,42 @@ def test_model_time_step_control(params: dict):
     class DynamicNewtonSolver(pp.NewtonSolver):
         def check_convergence(
             self, model, nonlinear_increment
-        ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
+        ) -> tuple[
+            ConvergenceStatusCollection,
+            ConvergenceStatusCollection,
+            ConvergenceInfoCollection,
+        ]:
             if (
                 model.nonlinear_solver_statistics.num_iterations
                 < model.num_nonlinear_iterations[model.time_step_idx] - 1
             ):
-                return ConvergenceStatusCollection(
-                    {"crit": ConvergenceStatus.NOT_CONVERGED}
-                ), ConvergenceInfoCollection({"crit": 1.0})
+                return (
+                    ConvergenceStatusCollection(
+                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                    ),
+                    ConvergenceStatusCollection(
+                        {"div_crit": ConvergenceStatus.CONVERGED}
+                    ),
+                    ConvergenceInfoCollection({"crit": 1.0}),
+                )
             if model.time_step_converged[model.time_step_idx] is True:
-                return ConvergenceStatusCollection(
-                    {"crit": ConvergenceStatus.CONVERGED}
-                ), ConvergenceInfoCollection({"crit": 0.0})
+                return (
+                    ConvergenceStatusCollection({"crit": ConvergenceStatus.CONVERGED}),
+                    ConvergenceStatusCollection(
+                        {"div_crit": ConvergenceStatus.CONVERGED}
+                    ),
+                    ConvergenceInfoCollection({"crit": 0.0}),
+                )
             else:
-                return ConvergenceStatusCollection(
-                    {"crit": ConvergenceStatus.DIVERGED}
-                ), ConvergenceInfoCollection({"crit": np.nan})
+                return (
+                    ConvergenceStatusCollection(
+                        {"crit": ConvergenceStatus.NOT_CONVERGED}
+                    ),
+                    ConvergenceStatusCollection(
+                        {"div_crit": ConvergenceStatus.DIVERGED}
+                    ),
+                    ConvergenceInfoCollection({"crit": np.nan}),
+                )
 
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,
