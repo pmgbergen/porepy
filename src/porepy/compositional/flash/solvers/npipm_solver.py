@@ -534,9 +534,13 @@ def npipm(
     was_cycling = False
     is_cycling = False
     detected_cycle = 0
-    iter_cycle_detected = 0
     lb_res = 0.0  # Lower bound for residual when cycling or stagnation detected.
     do_perturb = False
+
+    iter_cyst_detected = np.inf  # Iteration when cycling ot stagnation detected.
+    num_trial_iter_cyst = (
+        4  # Number of trial iterations to see if adaption after detection has effect.
+    )
 
     # endregion
 
@@ -715,12 +719,13 @@ def npipm(
             if num_iter > res_history.size:
                 # Stagnation check
                 r_stag = res_history[-stag_window:]
+                scaled_tol = eps_stag * r_stag.max()
                 slope_stag = (r_stag[-1] / r_stag[0]) ** (1 / (stag_window - 1))
 
-                if (
-                    r_stag.max() - r_stag.min()
-                ) < eps_stag * r_stag.max() and slope_stag > lb_stag:
+                if (r_stag.max() - r_stag.min()) < scaled_tol and slope_stag > lb_stag:
                     is_stagnating = True
+                    iter_cyst_detected = num_iter
+                    lb_res = r_stag.min() - scaled_tol
                 else:
                     is_stagnating = False
 
@@ -748,7 +753,7 @@ def npipm(
                     ls_ss = max(0.5, 0.5 * ls_ss)
                     ls_max_iter = max(80, int(params["armijo_max_iterations"]) * 3)
                     ls_dec = min(1.5 * ls_dec, 0.5)
-                    iter_cycle_detected = num_iter
+                    iter_cyst_detected = num_iter
 
                     # Special case when cycling detected is often around the isofugacity
                     # constraints, in case there are absent phases. To shortcut the
@@ -799,7 +804,7 @@ def npipm(
                 do_perturb = (
                     is_cycling
                     and was_cycling
-                    and num_iter - iter_cycle_detected > detected_cycle
+                    and num_iter - iter_cyst_detected > detected_cycle
                 ) | do_perturb
 
                 # Add random perturbation to escape cycle if still cycling.
