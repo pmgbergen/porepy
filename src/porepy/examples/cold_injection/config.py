@@ -117,8 +117,8 @@ flash_params = {
     "solver_params": {
         "tolerance": 1e-3,
         "max_iterations": 80,
-        "armijo_rho": 0.99,
-        "armijo_kappa": 0.4,
+        "armijo_step_size": 0.99,
+        "armijo_incline": 0.4,
         "armijo_max_iterations": 30,
         "npipm_u1": 10,
         "npipm_u2": 10,
@@ -142,22 +142,22 @@ flash_params.update(phase_property_params)
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 4.0,
+        "cell_size": 5e-1,
         "cell_size_fracture": 5e-1,
     },
 }
 
 solver_params = {
     "max_iterations": 30,
-    "nl_convergence_tol": 5e-7,
-    "nl_convergence_tol_res": 1e-7,
+    "nl_convergence_tol": 5e-6,
+    "nl_convergence_tol_res": 1e-6,
     "apply_schur_complement_reduction": True,
     "linear_solver": "scipy_sparse",
     "nonlinear_solver": NewtonArmijoAndersonSolver,
     "armijo_line_search": True,
-    "armijo_line_search_weight": 0.95,
+    "armijo_line_search_weight": 0.9,
     "armijo_line_search_incline": 0.2,
-    "armijo_line_search_max_iterations": 10,
+    "armijo_line_search_max_iterations": 15,
     "armijo_stop_after_residual_reaches": 1e0,
     "appplyard_chop": 0.3,
     "newton_chop": 1.0,
@@ -167,7 +167,7 @@ solver_params = {
     "anderson_acceleration_regularization_parameter": 1e-3,
     "anderson_start_after_residual_reaches": 1e2,
     "solver_statistics_file_name": "solver_statistics.json",
-    "flag_failure_as_diverged": True,
+    "flag_failure_as_diverged": False,
 }
 
 MODEL_PARAMS = {

@@ -590,8 +590,8 @@ if __name__ == "__main__":
         "solver_params": {
             "tolerance": 1e-5,
             "max_iterations": 80,
-            "armijo_rho": 0.99,
-            "armijo_kappa": 0.4,
+            "armijo_step_size": 0.99,
+            "armijo_incline": 0.4,
             "armijo_max_iterations": 30,
             "npipm_u1": 10,
             "npipm_u2": 10,

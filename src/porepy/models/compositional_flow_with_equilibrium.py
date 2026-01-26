@@ -893,43 +893,29 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
     def update_derived_quantities(self):
         """Normalizes fractional variables in the case of violation of the bound
         [0,1], before calling the base method."""
-        self._normalize_fractions()
+        self.make_fractions_feasible()
         super().update_derived_quantities()
 
-    def _normalize_fractions(self) -> None:
-        """Sub-routine to normalize the fractions."""
+    def make_fractions_feasible(self) -> None:
+        """Sub-routine to bind fractions to interval [0,1] and normalize where
+        applicable.
+
+        This method overwrites the state of the system, i.e. values stored for DOFs.
+
+        """
         subdomains = self.mdg.subdomains()
 
-        fluid_state = self.current_fluid_state(subdomains)
+        # NOTE: eps=0 to not modify feed fractions.
+        state = self.current_fluid_state(subdomains, eps=0.0)
 
-        # Normalizing fractions in case of overshooting
-        eps = 1e-7  # binding overall fractions away from zero
-        if self.fluid.num_components == 1:
-            z = np.ones_like(fluid_state.z)
-        else:
-            z = fluid_state.z
-            z[z >= 1.0] = 1.0 - eps
-            z[z <= 0.0] = 0.0 + eps
-            z = pc.normalize_rows(z.T).T
-
-        s = fluid_state.sat
-        s[s >= 1.0] = 1.0
-        s[s <= 0.0] = 0.0
-        s = pc.normalize_rows(s.T).T
-
-        y = fluid_state.y
-        y[y >= 1.0] = 1.0
-        y[y <= 0.0] = 0.0
-        y = pc.normalize_rows(y.T).T
-
-        for z_i, comp in zip(z, self.fluid.components):
+        for z_i, comp in zip(state.z, self.fluid.components):
             if self.has_independent_fraction(comp):
                 self.equation_system.set_variable_values(
                     z_i,
                     [comp.fraction(subdomains)],  # type:ignore[arg-type]
                     iterate_index=0,
                 )
-        for j, data in enumerate(zip(s, y, self.fluid.phases)):
+        for j, data in enumerate(zip(state.sat, state.y, self.fluid.phases)):
             s_j, y_j, phase = data
             if self.has_independent_saturation(phase):
                 self.equation_system.set_variable_values(
@@ -944,20 +930,17 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                     iterate_index=0,
                 )
 
-            phase_state = fluid_state.phases[j]
-            x_sum = phase_state.x.sum(axis=0)
-            idx = x_sum > 1.0 + 1e-8
-            if np.any(idx):
-                phase_state.x[:, idx] = pc.normalize_rows(phase_state.x[:, idx].T).T
-
-            phase_state.x[phase_state.x < 0] = 0.0
-            phase_state.x[phase_state.x > 1.0] = 1.0
-
             for i, comp in enumerate(self.fluid.components):
                 if self.has_independent_extended_fraction(comp, phase):
                     self.equation_system.set_variable_values(
-                        phase_state.x[i],
+                        state.phases[j].x[i],
                         [phase.extended_fraction_of[comp](subdomains)],  # type:ignore[arg-type]
+                        iterate_index=0,
+                    )
+                elif self.has_independent_partial_fraction(comp, phase):
+                    self.equation_system.set_variable_values(
+                        state.phases[j].x[i],
+                        [phase.partial_fraction_of[comp](subdomains)],  # type:ignore[arg-type]
                         iterate_index=0,
                     )
 
@@ -1005,6 +988,8 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         self,
         subdomains: Sequence[pp.Grid] | pp.Grid,
         state: Optional[np.ndarray] = None,
+        feasible_fractions: bool = True,
+        eps: float = 1e-7,
     ) -> pc.FluidProperties:
         """Method to assemble the state of the fluid at the current iterate.
 
@@ -1019,6 +1004,10 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         Parameters:
             subdomains: One or multiple subdomains in the md-grid.
             state: A global state vector for evaluating the state variables.
+            feasible_fractions: If true, fractional quantities are ensured to be bound
+                in the interval [0,1] and fulfill the unity constraint.
+            eps: Used to bind overall fractions away from zero and detect absent
+                phases.
 
         Returns:
             The base method returns a fluid state containing the current iterate values
@@ -1031,6 +1020,11 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             subdomains = [subdomains]
 
         is_persistent = pc.is_persistent_variable_form(self)
+
+        # EPS for fractions of absent phases in persistent form.
+        # Used to detect absence of phase (y) and to bind extended fractions away
+        # from zero.
+        eps_persistent = 1e-5
 
         z = np.array(
             [
@@ -1075,6 +1069,41 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
             for phase in self.fluid.phases
         ]
 
+        if feasible_fractions:
+            z[z < 0] = eps
+            z[z > 1] = 1.0 - eps
+            z = pc.normalize_rows(z.T).T
+
+            sat[sat < 0] = 0.0
+            sat[sat > 1] = 1.0
+            sat = pc.normalize_rows(sat.T).T
+
+            y[y < 0] = 0.0
+            y[y > 1] = 1.0
+            y = pc.normalize_rows(y.T).T
+
+            for y_, x_ in zip(y, x):
+                x_[x_ < 0] = 0.0
+                x_[x_ > 1] = 1.0
+                # NOTE: In persistent-variable form, phase can be absent despite
+                # numerically small fraction. Extended partial fractions do not fulfill
+                # unity constraint there. We avoid normalization to not mess with this
+                # sensitivity.
+                idx = (
+                    y_ > max(eps, eps_persistent)
+                    if is_persistent
+                    else np.ones_like(y_, dtype=bool)
+                )
+                if np.any(idx):
+                    x_[:, idx] = pc.normalize_rows(x_[:, idx].T).T
+
+                # If extended fractions (phase vanished) violate unity, we can safely
+                # normalize them as they have no physical meaning. The flash should
+                # resolve the correct values.
+                idx = (x_.sum(axis=0) > 1) & (y_ <= max(eps, eps_persistent))
+                if np.any(idx):
+                    x_[:, idx] = pc.normalize_rows(x_[:, idx].T).T
+
         p = cast(
             np.ndarray,
             self.equation_system.evaluate(self.pressure(subdomains), state=state),
@@ -1090,7 +1119,12 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
                 self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
             )
         else:
-            h = np.zeros(0)
+            h = cast(
+                np.ndarray,
+                self.equation_system.evaluate(
+                    self.fluid.specific_enthalpy(subdomains), state=state
+                ),
+            )
 
         return pc.FluidProperties(
             z=z,
@@ -1348,7 +1382,7 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
         results.num_iter[failure] += sub_results.num_iter
 
         # We treat max iter reached as success, and hope for the best globally.
-        sub_results.exitcode[sub_results.exitcode == 1] = 0
+        # sub_results.exitcode[sub_results.exitcode == 1] = 0
         results.exitcode[failure] = sub_results.exitcode
 
         # Update phase properties.

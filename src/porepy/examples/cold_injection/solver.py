@@ -58,8 +58,8 @@ class AndersonAcceleration:
             self._Fk: np.ndarray = np.zeros((dimension, self._depth))
             self._Gk: np.ndarray = np.zeros((dimension, self._depth))
             self._xk: np.ndarray = np.zeros((dimension, self._depth))
-            # self._fkm1: np.ndarray = np.zeros(dimension)
-            # self._gkm1: np.ndarray = np.zeros(dimension)
+            self._fkm1: np.ndarray = np.zeros(dimension)
+            self._gkm1: np.ndarray = np.zeros(dimension)
 
         mk = min(iteration, self._depth)
 
@@ -130,11 +130,13 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
             self.params.get("newton_chop", 1.0)
         )
 
-        dx *= self.armijo_line_search(model, dx)
-        dx = self.appleyard_chop(model, dx)
+        norm_dx_raw = np.linalg.norm(dx)
 
         res = model.equation_system.assemble(evaluate_jacobian=False)
         self._last_res_norm = model.compute_residual_norm(res, res)  # type:ignore[attr-defined]
+
+        dx *= self.armijo_line_search(model, dx)
+        dx = self.appleyard_chop(model, dx)
 
         if self.params.get("anderson_acceleration", False):
             iteration = model.nonlinear_solver_statistics.num_iteration
@@ -149,6 +151,10 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
                     "anderson_stop_after_residual_reaches", 0.0
                 ):
                     dx = xp1 - x
+
+        logger.info(
+            f"Change in update norm: {norm_dx_raw:.4f} -> ({np.linalg.norm(dx):.4f})"
+        )
 
         return dx
 
@@ -179,13 +185,17 @@ class NewtonArmijoAndersonSolver(pp.NewtonSolver, AndersonAcceleration):
             n = i
             rho_i = rho**i
 
-            pot_i = self.armijo_objective_function(model, dx, rho_i)
+            try:
+                pot_i = self.armijo_objective_function(model, dx, rho_i)
+            except:
+                continue
+
             if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
                 break
 
         if hasattr(model.nonlinear_solver_statistics, "num_iteration_armijo"):
             model.nonlinear_solver_statistics.num_iteration_armijo += n  # type:ignore
-        logger.info(f"Armijo line search determined weight: {rho_i} ({n})")
+        logger.info(f"Armijo line search determined weight: {rho_i:.4f} ({n})")
         return rho_i
 
     def armijo_objective_function(

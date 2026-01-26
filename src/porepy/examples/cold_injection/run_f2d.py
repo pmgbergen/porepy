@@ -124,11 +124,11 @@ if __name__ == "__main__":
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
-    try:
-        pp.run_time_dependent_model(model, model_params)
-    except Exception as err:
-        SIMULATION_SUCCESS = False
-        print(f"Simulation failed:\n{str(err)}")
+    # try:
+    pp.run_time_dependent_model(model, model_params)
+    # except Exception as err:
+    #     SIMULATION_SUCCESS = False
+    #     print(f"Simulation failed:\n{str(err)}")
     sim_time = time.time() - t_0
 
     print(f"Simulation prepared after {prep_sim_time:.2f} (s).")
