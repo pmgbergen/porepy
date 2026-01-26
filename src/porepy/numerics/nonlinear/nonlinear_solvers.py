@@ -11,6 +11,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.solution_strategy import SolutionStrategy
+import copy
 
 # from porepy.numerics.linear_solvers import LinearSolver
 from porepy.numerics.nonlinear.convergence_check import (
@@ -34,7 +35,7 @@ class NewtonSolver:
     def __init__(self, params=None) -> None:
         if params is None:
             params = {}
-        self.params = params
+        self.params = copy.deepcopy(params)
         """Dictionary of parameters for the nonlinear solver."""
         self.iteration_index: int = -1
         """Current iteration index."""
