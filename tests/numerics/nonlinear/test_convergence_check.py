@@ -780,20 +780,19 @@ def test_combined_divergence_criterion_dict(
 
 
 @pytest.mark.parametrize(
-    ("num_iterations", "max_iterations", "expected_status"),
+    ("iteration_index", "max_iterations", "expected_status"),
     [
-        (0, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
-        (1, 3, ConvergenceStatus.CONVERGED),  # First active iteration
-        (2, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
-        # Third active and final iteration - exit iteration and thus 'diverge'
+        (-1, 3, ConvergenceStatus.CONVERGED),  # Before first iteration
+        (0, 3, ConvergenceStatus.CONVERGED),  # First active iteration
+        (1, 3, ConvergenceStatus.CONVERGED),  # Second active iteration
+        (2, 3, ConvergenceStatus.DIVERGED),  # Third active iteration (max reached)
         (3, 3, ConvergenceStatus.DIVERGED),
-        (4, 3, ConvergenceStatus.DIVERGED),  # Fourth active iteration - exceeded
     ],
 )
-def test_max_iterations_criterion(num_iterations, max_iterations, expected_status):
+def test_max_iterations_criterion(iteration_index, max_iterations, expected_status):
     """Test of the MaxIterationsCriterion."""
     crit = pp.MaxIterationsCriterion(max_iterations=max_iterations)
-    status = crit.check(num_iterations=num_iterations)
+    status = crit.check(iteration_index=iteration_index)
     assert status == expected_status
 
 
