@@ -418,7 +418,7 @@ def slow_test_buoyancy_flow_benchmark(
             super().after_nonlinear_convergence()
             print(
                 "\nNumber of iterations: ",
-                self.nonlinear_solver_statistics.num_iteration,
+                self.nonlinear_solver_statistics.num_iterations,
             )
             print("Time value: ", self.time_manager.time)
             print("Time index: ", self.time_manager.time_index)

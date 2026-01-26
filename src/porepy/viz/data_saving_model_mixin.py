@@ -334,7 +334,7 @@ class IterationExporting(pp.PorePyModel):
         self.iteration_exporter.write_vtu(
             self.data_to_export_iteration(),
             time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iteration
+            time_step=self.nonlinear_solver_statistics.num_iterations
             + 10**r * self.time_manager.time_index,
         )
 

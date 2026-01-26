@@ -593,12 +593,12 @@ class SolutionStrategy(pp.PorePyModel):
         """
         # Update time step size.
         self.ad_time_step.set_value(self.time_manager.dt)
-        # Advance the statistics object and reset counters.
-        self.nonlinear_solver_statistics.advance()
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
         # Update other dependent quantities such as discretizations.
         self.update_derived_quantities()
+        # Reset the statistics object for next call.
+        self.nonlinear_solver_statistics.increase_index()
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -648,7 +648,7 @@ class SolutionStrategy(pp.PorePyModel):
                 self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
             )
             self.time_manager.compute_time_step(
-                iterations=self.nonlinear_solver_statistics.num_iteration
+                iterations=self.nonlinear_solver_statistics.num_iterations
             )
         self.update_solution(solution)
 

@@ -899,7 +899,7 @@ def test_model_time_step_control(params: dict):
             self, model, nonlinear_increment
         ) -> tuple[ConvergenceStatusCollection, ConvergenceInfoCollection]:
             if (
-                model.nonlinear_solver_statistics.num_iteration
+                model.nonlinear_solver_statistics.num_iterations
                 < model.num_nonlinear_iterations[model.time_step_idx] - 1
             ):
                 return ConvergenceStatusCollection(
