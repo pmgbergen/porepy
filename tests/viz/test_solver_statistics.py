@@ -1,26 +1,26 @@
 """Tests of functionality of :class:`~porepy.viz.solver_statistics.SolverStatistics`."""
 
+import json
 from pathlib import Path
+
+import pytest
 from deepdiff import DeepDiff
 
 import porepy as pp
-import json
-import pytest
-import porepy as pp
-from porepy.viz.solver_statistics import (
-    SolverStatistics,
-    NonlinearSolverStatistics,
-    TimeStatistics,
-    NonlinearSolverAndTimeStatistics,
-    SolverStatisticsFactory,
-)
 from porepy.numerics.nonlinear.convergence_check import (
-    SimulationStatus,
+    ConvergenceInfoCollection,
+    ConvergenceInfoHistory,
     ConvergenceStatus,
     ConvergenceStatusCollection,
-    ConvergenceInfoCollection,
     ConvergenceStatusHistory,
-    ConvergenceInfoHistory,
+    SimulationStatus,
+)
+from porepy.viz.solver_statistics import (
+    NonlinearSolverAndTimeStatistics,
+    NonlinearSolverStatistics,
+    SolverStatistics,
+    SolverStatisticsFactory,
+    TimeStatistics,
 )
 
 # ! ---- Helper classes ---- !
