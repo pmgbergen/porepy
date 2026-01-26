@@ -593,10 +593,16 @@ class FractureNetwork(ABC):
         gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", gmsh_fields)
         gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
         # The background mesh incorporates all mesh size specifications. We turn off
-        # other mesh size specifications.
-        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        # most other mesh size options in Gmsh to avoid conflicts, as is recommended in
+        # the Gmsh documentation.
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+        # In cases where the far-field mesh size is large compared to the fracture size,
+        # but where refinement is triggered by fractures close to the boundary, we may
+        # end up in situations where the mesh size on the boundary is much smaller than
+        # in the interior. To circumvent this, we let the mesh size on the boundary
+        # influence the mesh size in the interior.
+        gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 1)
 
     def _uniquify_mesh_size_dictionary(
         self, mesh_size_points: dict[int, list[tuple[np.ndarray, float]]]
