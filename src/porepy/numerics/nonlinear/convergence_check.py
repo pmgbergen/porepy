@@ -13,7 +13,7 @@ import logging
 from abc import ABC, abstractmethod
 from copy import copy
 from enum import StrEnum
-from typing import Callable
+from typing import Callable, cast
 
 import numpy as np
 
@@ -430,7 +430,9 @@ class AbsoluteDivergenceCriterion(AbsoluteCriterion, DivergenceCriterion):
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        status, _ = AbsoluteConvergenceCriterion.check(self, *args, **kwargs)
+        status, _ = AbsoluteConvergenceCriterion.check(
+            cast(AbsoluteConvergenceCriterion, self), *args, **kwargs
+        )
         if status.is_not_converged():
             status = ConvergenceStatus.DIVERGED
         if status.is_failed():
@@ -553,7 +555,9 @@ class RelativeDivergenceCriterion(RelativeCriterion, DivergenceCriterion):
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        status, _ = RelativeConvergenceCriterion.check(self, *args, **kwargs)
+        status, _ = RelativeConvergenceCriterion.check(
+            cast(RelativeConvergenceCriterion, self), *args, **kwargs
+        )
         if status.is_not_converged():
             status = ConvergenceStatus.DIVERGED
         if status.is_failed():
@@ -664,7 +668,9 @@ class CombinedDivergenceCriterion(CombinedCriterion, DivergenceCriterion):
             ConvergenceStatus: Convergence status of the non-linear iteration.
 
         """
-        status, _ = CombinedConvergenceCriterion.check(self, *args, **kwargs)
+        status, _ = CombinedConvergenceCriterion.check(
+            cast(CombinedConvergenceCriterion, self), *args, **kwargs
+        )
         if status.is_not_converged():
             status = ConvergenceStatus.DIVERGED
         if status.is_failed():
