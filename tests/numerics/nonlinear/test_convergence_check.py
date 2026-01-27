@@ -551,12 +551,12 @@ def test_relative_convergence_criterion_single(
 @pytest.mark.parametrize(
     ("value", "reference_value", "expected_status", "expected_info"),
     [
-        ([1e-5], {"a": 1e-2, "b": 1e-2}, ConvergenceStatus.CONVERGED, 1e-3),
+        ([1e-5], [1e-2], ConvergenceStatus.CONVERGED, 1e-3),
         (
             [1e-2, 1e-2],
-            {"a": 1e-1, "b": 1e-1},
+            [1e-1, 1e-1],
             ConvergenceStatus.NOT_CONVERGED,
-            np.sqrt(2) * 1e-1,
+            1e-1,
         ),
     ],
 )
@@ -572,12 +572,13 @@ def test_relative_convergence_criterion_dict(
     """Test of the general RelativeConvergenceCriterion with dict metric."""
     crit = CriterionClass(
         tol=1e-2,
-        metric=lambda x: {"a": np.linalg.norm(x), "b": 2.0 * np.linalg.norm(x)},
+        metric=lambda x: {"a": np.linalg.norm(x), "b": np.linalg.norm(x) ** 2},
     )
     status, info = crit.check(**{key: np.array(value), reference_key: reference_value})
+    print(status, info)
     assert status == expected_status
     assert np.isclose(info["a"], expected_info)
-    assert np.isclose(info["b"], 2 * expected_info)
+    assert np.isclose(info["b"], expected_info**2)
 
 
 @pytest.mark.parametrize(
@@ -623,8 +624,8 @@ def test_relative_divergence_criterion_single(
 @pytest.mark.parametrize(
     ("value", "reference_value", "expected_status"),
     [
-        ([1e-5], {"a": 1e-2, "b": 1e-2}, ConvergenceStatus.CONVERGED),
-        ([1e-2, 1e-2], {"a": 1e-1, "b": 1e-1}, ConvergenceStatus.DIVERGED),
+        ([1e-5], [1e-2], ConvergenceStatus.CONVERGED),
+        ([1e-2, 1e-2], [1e-1, 1e-1], ConvergenceStatus.DIVERGED),
     ],
 )
 def test_relative_divergence_criterion_dict(
@@ -685,10 +686,10 @@ def test_combined_convergence_criterion_single(
 @pytest.mark.parametrize(
     ("value", "reference_value", "expected_status", "expected_info"),
     [
-        ([1e-5], {"a": 1e-2, "b": 1e-2}, ConvergenceStatus.CONVERGED, 1e-5),
+        ([1e-5], [1e-2], ConvergenceStatus.CONVERGED, 1e-5),
         (
             [1e-2, 1e-2],
-            {"a": 1e-1, "b": 1e-1},
+            [1e-1, 1e-1],
             ConvergenceStatus.NOT_CONVERGED,
             np.sqrt(2) * 1e-2,
         ),
@@ -762,8 +763,8 @@ def test_combined_divergence_criterion_single(
 @pytest.mark.parametrize(
     ("value", "reference_value", "expected_status"),
     [
-        ([1e-5], {"a": 1e-2, "b": 1e-2}, ConvergenceStatus.CONVERGED),
-        ([1e-2, 1e-2], {"a": 1e-1, "b": 1e-1}, ConvergenceStatus.DIVERGED),
+        ([1e-5], [1e-2], ConvergenceStatus.CONVERGED),
+        ([1e-2, 1e-2], [1e-1, 1e-1], ConvergenceStatus.DIVERGED),
     ],
 )
 def test_combined_divergence_criterion_dict(
