@@ -22,7 +22,6 @@ from porepy.numerics.nonlinear.convergence_check import (
 def default_newton_solver():
     return pp.NewtonSolver(
         params={
-            "nl_max_iterations": 3,  # Increased to avoid premature divergence
             "nl_convergence_criteria": {
                 "inc_abs": pp.IncrementBasedAbsoluteCriterion(
                     tol=1.0, metric=pp.EuclideanMetric()
@@ -32,7 +31,7 @@ def default_newton_solver():
                 ),
             },
             "nl_divergence_criteria": {
-                "max_iter": pp.MaxIterationsCriterion(max_iterations=3),  # Increased
+                "max_iter": pp.MaxIterationsCriterion(max_iterations=3),
                 "inc_inf": pp.IncrementBasedAbsoluteDivergenceCriterion(
                     tol=10.0, metric=pp.EuclideanMetric()
                 ),
@@ -172,34 +171,66 @@ def test_init_criteria():
     assert solver.divergence_criteria == custom_div_criteria
 
 
+def test_init_criteria_valid_max_iterations(default_newton_solver):
+    """Test that max_iterations attribute is correctly fetched."""
+    solver = pp.NewtonSolver()
+    assert solver.max_iterations == 10  # From default params.
+    assert default_newton_solver.max_iterations == 3  # From criteria.
+
+
 @pytest.mark.parametrize(
-    "nl_max_iterations_1, nl_max_iterations_2, valid",
+    "key, value",
     [
-        (10, 10, True),
-        (9, 10, False),
+        ("nl_convergence_inc_atol", 5.0),
+        ("nl_convergence_res_atol", 5.0),
+        ("nl_convergence_inc_rtol", 5.0),
+        ("nl_convergence_res_rtol", 5.0),
     ],
 )
-def test_init_criteria_invalid_nl_max_iterations(
-    nl_max_iterations_1, nl_max_iterations_2, valid
-):
-    """Test that inconsistent nl_max_iterations raises an error."""
+def test_init_convergence_criteria_sanity_check(key, value):
+    """Test sanity check in convergence criteria."""
     try:
         pp.NewtonSolver(
             params={
-                "nl_max_iterations": nl_max_iterations_1,
+                key: value,
                 "nl_convergence_criteria": {
-                    "max_iter": pp.MaxIterationsCriterion(
-                        max_iterations=nl_max_iterations_2
-                    )
+                    "inc_abs": pp.IncrementBasedAbsoluteCriterion(
+                        tol=1e-1, metric=pp.EuclideanMetric()
+                    ),
                 },
             }
         )
 
+        raise ValueError("Expected error not raised.")
+
     except Exception as e:
-        if valid:
-            raise e
-        else:
-            assert isinstance(e, AssertionError)
+        assert isinstance(e, AssertionError)
+
+
+@pytest.mark.parametrize(
+    "key, value",
+    [
+        ("nl_max_iterations", 5),
+        ("nl_divergence_inc_atol", 5.0),
+        ("nl_divergence_res_atol", 5.0),
+    ],
+)
+def test_init_divergence_criteria_sanity_check(key, value):
+    """Test sanity check in divergence criteria."""
+    try:
+        pp.NewtonSolver(
+            params={
+                key: value,
+                "nl_divergence_criteria": {
+                    "max_iter": pp.MaxIterationsCriterion(max_iterations=3)
+                },
+            }
+        )
+
+        raise ValueError("Expected error not raised.")
+
+    except Exception as e:
+        assert isinstance(e, AssertionError)
 
 
 def test_increase_iteration_index(default_newton_solver):
@@ -213,61 +244,6 @@ def test_increase_iteration_index(default_newton_solver):
     assert solver.iteration_index == 0
     solver.increase_iteration_index()
     assert solver.iteration_index == 1
-
-
-@pytest.mark.parametrize(
-    "inc_history, res_history, is_converged, is_diverged",
-    [
-        ([2.0, 2.0], [1.0, 1.0], False, False),  # no convergence after 2 iterations
-        ([2.0, 0.5], [1.0, 0.5], True, False),  # convergence in 2 iterations
-        ([2.0, 2.0, 2.0], [1.0, 1.0, 1.0], False, True),  # divergence due to max iter.
-        ([2.0, 2.0, 0.5], [1.0, 1.0, 0.5], True, True),  # convergence and divergence
-        ([2.0, 11.0], [1.0, 1.0], False, True),  # divergence due to increment
-        ([2.0, 2.0], [1.0, 11.0], False, True),  # divergence due to residual
-        ([2.0, np.nan], [1.0, 1.0], False, True),  # divergence due to increment nan
-        ([2.0, 2.0], [1.0, np.nan], False, True),  # divergence due to residual nan
-    ],
-)
-def test_solve_exit_loop(
-    inc_history, res_history, is_converged, is_diverged, default_newton_solver
-):
-    """Test that the Newton loop exits correctly."""
-    model = MockModel(
-        nonlinear_increment_history=inc_history, residual_history=res_history
-    )
-    solver = default_newton_solver
-
-    # Identify number of iterations from history.
-    num_iter = len(inc_history)
-
-    # Prepare model for Newton loop.
-    model.before_nonlinear_loop()
-
-    try:
-        while True:
-            # Call the inner part of the Newton loop
-            convergence_status, divergence_status, _ = solver.nonlinear_iteration(model)
-            if convergence_status.is_converged() or divergence_status.is_failed():
-                break
-        # Check iteration index.
-        assert solver.iteration_index == num_iter - 1
-
-        # Check convergence and divergence status.
-        if is_converged:
-            assert convergence_status.is_converged()
-        else:
-            assert convergence_status.is_not_converged()
-        if is_diverged:
-            assert divergence_status.is_diverged()
-        else:
-            assert divergence_status.is_converged()
-
-    except Exception as e:
-        # Newton loop only stops on convergence or divergence.
-        # Need to handle the non-convergence and non-divergence case.
-        assert not (is_converged or is_diverged), f"Unexpected exception: {e}"
-        assert convergence_status.is_not_converged()
-        assert divergence_status.is_converged()
 
 
 def test_solve_convergence(default_newton_solver):
@@ -829,6 +805,138 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
     Path("solver_and_time_statistics.json").unlink()
 
 
+def test_before_nonlinear_loop(default_newton_solver):
+    """Unit test for the before_nonlinear_loop method of the Newton solver."""
+    # Init model and solver.
+    model = MockModel()
+    solver = default_newton_solver
+
+    # Perform one iteration to change the iteration index.
+    solver.increase_iteration_index()
+
+    # Ensure that the iteration index is not at initial value.
+    assert solver.iteration_index == 0
+    assert model.nonlinear_solver_statistics.index == -1
+
+    # Call before_nonlinear_loop.
+    solver.before_nonlinear_loop(model)
+
+    # Check that the iteration and statistics indices have been updated.
+    assert solver.iteration_index == -1
+    assert model.nonlinear_solver_statistics.index == 0
+
+
+@pytest.mark.parametrize(
+    "inc_history, res_history, is_converged, is_diverged",
+    [
+        ([2.0, 2.0], [1.0, 1.0], False, False),  # no convergence after 2 iterations
+        ([2.0, 0.5], [1.0, 0.5], True, False),  # convergence in 2 iterations
+        ([2.0, 2.0, 2.0], [1.0, 1.0, 1.0], False, True),  # divergence due to max iter.
+        ([2.0, 2.0, 0.5], [1.0, 1.0, 0.5], True, True),  # convergence and divergence
+        ([2.0, 11.0], [1.0, 1.0], False, True),  # divergence due to increment
+        ([2.0, 2.0], [1.0, 11.0], False, True),  # divergence due to residual
+        ([2.0, np.nan], [1.0, 1.0], False, True),  # divergence due to increment nan
+        ([2.0, 2.0], [1.0, np.nan], False, True),  # divergence due to residual nan
+    ],
+)
+def test_nonlinear_loop(
+    inc_history, res_history, is_converged, is_diverged, default_newton_solver
+):
+    """Test that the Newton loop exits correctly."""
+    model = MockModel(
+        nonlinear_increment_history=inc_history, residual_history=res_history
+    )
+    solver = default_newton_solver
+
+    # Identify number of iterations from history.
+    num_iter = len(inc_history)
+
+    # Prepare for Newton loop.
+    solver.before_nonlinear_loop(model)
+
+    # Perform Newton loop.
+    try:
+        convergence_status, divergence_status = solver.nonlinear_loop(model)
+
+        # Check that the returned statuses match expected values
+        if is_converged:
+            assert convergence_status.is_converged()
+        else:
+            assert convergence_status.is_not_converged()
+        if is_diverged:
+            assert divergence_status.is_diverged()
+        else:
+            assert divergence_status.is_converged()
+
+        # Check that the number of iterations is as expected.
+        assert solver.iteration_index == num_iter - 1
+
+    except Exception as e:
+        # Newton loop only stops on convergence or divergence.
+        # Need to handle the non-convergence and non-divergence case.
+        assert not (is_converged or is_diverged), f"Unexpected exception: {e}"
+
+
+@pytest.mark.parametrize(
+    "convergence_status, divergence_status, expected_simulation_status",
+    [
+        (
+            ConvergenceStatus.CONVERGED,
+            ConvergenceStatus.CONVERGED,
+            SimulationStatus.SUCCESSFUL,
+        ),
+        (
+            ConvergenceStatus.CONVERGED,
+            ConvergenceStatus.DIVERGED,
+            SimulationStatus.SUCCESSFUL,  # Convergence trumps divergence
+        ),
+        (
+            ConvergenceStatus.NOT_CONVERGED,
+            ConvergenceStatus.DIVERGED,
+            SimulationStatus.FAILED,
+        ),
+    ],
+)
+def test_after_nonlinear_loop(
+    convergence_status,
+    divergence_status,
+    expected_simulation_status,
+    default_newton_solver,
+):
+    """Unit test for the after_nonlinear_loop method of the Newton solver."""
+    # Init model and solver.
+    model = MockModel()
+    solver = default_newton_solver
+
+    # Minimal mimicking of loop.
+    model.nonlinear_solver_statistics.simulation_status_history = [
+        SimulationStatus.SUCCESSFUL
+    ]
+
+    simulation_status = solver.after_nonlinear_loop(
+        model, convergence_status, divergence_status
+    )
+
+    # Check that the returned simulation status matches expected value.
+    assert simulation_status == expected_simulation_status
+
+
+def test_before_nonlinear_iteration(default_newton_solver):
+    """Unit test for the before_nonlinear_iteration method of the Newton solver."""
+    # Init model and solver.
+    model = MockModel(nonlinear_increment_history=[2.0], residual_history=[1.0])
+    solver = default_newton_solver
+
+    # Check initial iteration index.
+    assert solver.iteration_index == -1
+
+    # Call before_nonlinear_iteration.
+    solver.before_nonlinear_iteration(model)
+
+    # Check that the iteration index has been increased.
+    assert solver.iteration_index == 0
+
+
 @pytest.mark.parametrize(
     "inc, res, iteration_index, is_converged, is_diverged",
     [
@@ -844,27 +952,27 @@ def test_solve_failure_time_dependent_statistics(default_newton_solver):
         ([0.5, np.nan, 0, False, True]),  # Due to residual nan
     ],
 )
-def test_nonlinear_iteration(
+def test_after_nonlinear_iteration(
     inc, res, iteration_index, is_converged, is_diverged, default_newton_solver
 ):
-    """Unit test for the nonlinear_iteration method of the Newton solver."""
+    """Test the after_nonlinear_iteration method of the Newton solver."""
     # Init model and solver.
-    model = MockModel(
-        nonlinear_increment_history=[inc],
-        residual_history=[res],
-        path=Path("solver_statistics.json"),
-    )
+    model = MockModel()
     solver = default_newton_solver
 
-    # Mimick number of previous iterations.
-    solver.iteration_index = iteration_index - 1
+    # Mock the nonlinear increment and residual for the last iteration.
+    model.nonlinear_increment = np.array([inc])
+    model.equation_system.residual = np.array([res])
 
-    # Prepare model for calling a nonlinear_iteration.
-    model.before_nonlinear_loop()
+    # Mock the number of iterations.
+    solver.iteration_index = iteration_index
 
-    # Call the nonlinear iteration.
-    convergence_status, divergence_status, convergence_info = (
-        solver.nonlinear_iteration(model)
+    # Minimal setup needed of the model statistics.
+    model.nonlinear_solver_statistics.num_iterations_history = [iteration_index + 1]
+
+    # Check convergence.
+    convergence_status, divergence_status = solver.after_nonlinear_iteration(
+        model, model.nonlinear_increment
     )
 
     # Check that the returned statuses match expected values
@@ -876,14 +984,6 @@ def test_nonlinear_iteration(
         assert divergence_status.is_diverged()
     else:
         assert divergence_status.is_converged()
-    assert (
-        DeepDiff(
-            convergence_info,
-            {"inc_abs": inc, "res_abs": res},
-            ignore_numeric_type_changes=True,
-        )
-        == {}
-    )
 
 
 @pytest.mark.parametrize(
