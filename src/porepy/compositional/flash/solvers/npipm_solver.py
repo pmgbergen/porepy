@@ -12,7 +12,7 @@ import numpy as np
 
 from ..._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ...utils import FlashSpec
-from ..flash_equations import parse_xy
+from ..flash_equations import parse_xy, parse_generic_arg
 from ._armijo_line_search import (  # armijo_line_search,
     _ARMIJO_LINE_SEARCH_PARAMS_KEYS,
     DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,
@@ -423,6 +423,8 @@ def npipm(
     aa_reg = float(params["anderson_acceleration_regularization"])
     # endregion
 
+    gen_arg = parse_generic_arg(X0, n_C, n_P, spec)
+
     # region Right-preconditioning for non-isothermal or isochoric flashes.
     do_rpc_T = False
     rpc_T_idx = -1  # Default value, not used.
@@ -466,8 +468,8 @@ def npipm(
 
     # Computing initial value for slack variable, as sum of violations of
     # complementarity.
-    xf, yf = parse_xy(X_i[:-1], n_C, n_P)
-    X_i[-1] = np.abs(np.sum(yf * (1 - np.sum(xf, axis=1))))
+    x, y = parse_xy(X_i[:-1], n_C, n_P)
+    X_i[-1] = np.abs(np.sum(y * (1 - np.sum(x, axis=1))))
 
     def eval_F(X_loc: np.ndarray) -> np.ndarray:
         nu_loc = X_loc[-1]
@@ -492,13 +494,13 @@ def npipm(
     # endregion
 
     # Adding default value to keep track of residuals for dynamic acceleration switch.
-    default_anderson = 3
+    aa_depth_default = 3
     if aa_depth > 0:
         Fk = np.zeros((f_dim, aa_depth))
         Gk = np.zeros((f_dim, aa_depth))
     else:
-        Fk = np.zeros((f_dim, default_anderson))
-        Gk = np.zeros((f_dim, default_anderson))
+        Fk = np.zeros((f_dim, aa_depth_default))
+        Gk = np.zeros((f_dim, aa_depth_default))
     fk = np.zeros(f_dim)
     fk1m = np.zeros(f_dim)
     gk = np.zeros(f_dim)
@@ -508,7 +510,7 @@ def npipm(
     L_scheme = 0.0
     tau = 0.0  # Starting value for diagonal regularization
     tau_min = 1e-8  # Minimal value.
-    tau_max = 1e6  # M<aximal value.
+    tau_max = 1e6  # Maximal value.
     tau_loc = tau  # Iteration-local regularization parameter.
     do_LM = False  # Levenberg-Marquardt normalization
     do_sd = False  # Steepest descent
@@ -519,6 +521,8 @@ def npipm(
     tr_delta_max = 1e2  # Largest trust-region radius
     ls_dec_min = 1e-6  # Smallest decrease required by linesearch
     ls_dec_max = 0.45  # Largest decrease required by linesearch
+    ls_ss_min = 0.5  # Smallest line search step size.
+    ls_ss_max = 0.99  # Largest line search step size.
 
     tr_delta_hist = np.zeros(5)
     tau_hist = np.zeros(5)
@@ -535,12 +539,8 @@ def npipm(
     is_cycling = False
     detected_cycle = 0
     lb_res = 0.0  # Lower bound for residual when cycling or stagnation detected.
-    do_perturb = False
 
     iter_cyst_detected = np.inf  # Iteration when cycling ot stagnation detected.
-    num_trial_iter_cyst = (
-        4  # Number of trial iterations to see if adaption after detection has effect.
-    )
 
     # endregion
 
@@ -553,8 +553,6 @@ def npipm(
     if res_history[-1] <= tol:
         exitcode = 0  # root already found
     else:
-        tr_delta_hist[-1] = tr_delta
-        tau_hist[-1] = tau
         for i in range(max_iter):
             num_iter = i + 1
 
@@ -569,15 +567,31 @@ def npipm(
                 exitcode = 4
                 break
 
-            A = df_i
-            b = -f_i
             alpha = alpha_max  # Initial step size.
             tau_loc = tau  # Iteration-local regularization.
-
+            A = df_i
             if do_rpc_T:
                 A[:, rpc_T_idx] *= T_rpc
             if do_rpc_p:
                 A[:, rpc_p_idx] *= p_rpc
+            b = -f_i
+            g = df_i.T @ f_i  # gradient  # TODO only f_i?
+            gn2 = g.dot(g)  # norm gradient squared
+
+            # Newton as first attempty to include full curvature information
+            if not do_LM:
+                dX_i = ...
+            else:
+                dX_i = np.zeros(f_dim)
+
+            # If Newton not accepted or LM requested, go to LM and hybrid mode.
+            if do_LM or np.dot(g, dX_i) >= 0:
+                b = A.T @ b
+                A = A.T @ A
+                if tau_loc > 0:
+                    np.fill_diagonal(A, A.diagonal() + L_scheme)
+
+            tau_loc = min(tau_min if tau_loc == 0 else tau_loc * 10, tau_max)
 
             if do_LM:
                 b = A.T @ b
@@ -602,6 +616,14 @@ def npipm(
             if np.any(np.isnan(dX_i)) or np.any(np.isinf(dX_i)):
                 exitcode = 2
                 break
+
+            # Check if step accepted
+            if f_i.dot(dX_i) < 0:  # Step in direction of -f
+                if do_LM:
+                    tau_local *= 0.3
+            else:
+                if do_LM:
+                    tau_local *= 10
 
             # region Trust-region and feasibility scaling
             dX_i *= _trust_region_scale(dX_i[:-1], tr_delta)
@@ -694,19 +716,29 @@ def npipm(
                 exitcode = 0
                 break
 
-            if alpha > 0.9:
-                tau = max(tau_min, tau_loc / 10.0)
-            else:
-                tau = tau_loc
             tau_hist = np.roll(tau_hist, -1)
             tau_hist[-1] = tau
 
-            if alpha > 0.75:
-                tr_delta = min(1.5 * tr_delta, tr_delta_max)
-            elif alpha < 0.1:
-                tr_delta = max(0.5 * tr_delta, tr_delta_min)
+            reduction = (pot_i - pot_i_j) / (
+                -f_i.dot(dX_i) - dX_i.dot(df_i @ dX_i) * 0.5
+            )
+            # If actual reduction is large enough, decrease tau.
+            if reduction > 0.75:
+                tau = max(tau_min, tau_loc / 10.0)
+            # If actual reduction is too small, increase tau.
+            elif reduction < 0.25:
+                tau = min(tau_max, tau_loc * 10.0)
+            # if alpha > 0.9:
+            #     tau = max(tau_min, tau_loc / 10.0)
+            # else:
+            #     tau = tau_loc
+
             tr_delta_hist = np.roll(tr_delta_hist, -1)
             tr_delta_hist[-1] = tr_delta
+            if alpha > 0.75:
+                tr_delta = min(1.5 * tr_delta, tr_delta_max)
+            elif alpha < 0.25:
+                tr_delta = max(0.5 * tr_delta, tr_delta_min)
 
             if alpha < 1e-3:
                 ls_dec = max(ls_dec * 0.5, ls_dec_min)
@@ -724,129 +756,176 @@ def npipm(
 
                 if (r_stag.max() - r_stag.min()) < scaled_tol and slope_stag > lb_stag:
                     is_stagnating = True
-                    iter_cyst_detected = num_iter
+                    # Keep original iteration when detected.
+                    iter_cyst_detected = (
+                        num_iter if not is_stagnating else iter_cyst_detected
+                    )
                     lb_res = r_stag.min() - scaled_tol
                 else:
                     is_stagnating = False
 
-                was_cycling = is_cycling
-                # Looky for cycles with period 2 to max cycles.
-                for c in range(2, max_cycle):
-                    check_len = 2 * c
+                # First, adapt solver params to stagnation.
+                if is_stagnating:
+                    # Stagnation and low progress -> mobilize
+                    if (np.linalg.norm(dX_i) < 1e-4) and res_history[-1] < 1.0:
+                        if iter_cyst_detected == num_iter:
+                            alpha_max = 2.0
+                        elif num_iter >= iter_cyst_detected + 3:
+                            alpha_max = 4.0
 
-                    recent = res_history[-check_len:]
-                    scaled_tol = np.max(np.abs(recent)) * eps_cyc
+                        tr_f2b = min(tr_f2b * 1.01, 0.999)
+                        ls_dec = min(max(ls_dec * 0.1, ls_dec_min), ls_dec_max)
+                        aa_depth = max(aa_depth_default, aa_depth)
+                    # TODO Stagnations far from convergence need stabilization.
+                    else:
+                        ...
+                # If not stagnating, check for cycling and see if stagnation mode can
+                # be reverted.
+                else:
+                    # Revert maximal step size in any case if stagnation is broken.
+                    alpha_max = 1.0
+                    was_cycling = is_cycling
+                    # Look for cycles with period 2 to max cycles - 1s.
+                    for c in range(2, max_cycle):
+                        check_len = 2 * c
 
-                    is_cycling = True
-                    for i in range(c, check_len):
-                        if np.abs(recent[i] - recent[i - c]) >= scaled_tol:
-                            is_cycling = False
+                        recent = res_history[-check_len:]
+                        scaled_tol = np.max(np.abs(recent)) * eps_cyc
+
+                        is_cycling = True
+                        for i in range(c, check_len):
+                            if np.abs(recent[i] - recent[i - c]) >= scaled_tol:
+                                is_cycling = False
+                                break
+
+                        if is_cycling:
+                            detected_cycle = c
+                            # Keep original iteration when was cycling already detected.
+                            iter_cyst_detected = (
+                                num_iter if not was_cycling else iter_cyst_detected
+                            )
+                            lb_res = np.min(recent) - scaled_tol
                             break
 
-                    if is_cycling:
-                        detected_cycle = c
-                        lb_res = np.min(recent) - scaled_tol
-                        break
+                    # If not cycling, revert parameters.
+                    if not (is_cycling or was_cycling):
+                        tr_f2b = float(params["trustregion_fraction_to_boundary"])
+                        ls_dec = float(params["armijo_decline"])
+                        aa_depth = int(params["anderson_acceleration"])
+                    # If cycling detected, adapt solver parameters, make line search
+                    # more aggressive.
+                    elif is_cycling and not was_cycling:
+                        ls_ss = max(ls_ss_min, 0.5 * ls_ss)
+                        ls_max_iter = max(80, int(params["armijo_max_iterations"]) * 3)
+                        ls_dec = min(max(ls_dec * 1.5, ls_dec_min), ls_dec_max)
+                    # If cycle breaking detected, check if really broken.
+                    elif not is_cycling and was_cycling:
+                        # Check that really not cycling anymore for some iterations.
+                        if (
+                            np.all(np.diff(res_history[-2 * detected_cycle :]) < 0)
+                            and res_history[-1] < lb_res
+                        ):
+                            # Gradually reset line search parameters.
+                            ls_ss = (ls_ss + ls_ss_max) * 0.5
+                            ls_dec = (ls_dec + ls_dec_max) * 0.5
+                            ls_max_iter = int(params["armijo_max_iterations"])
+                            aa_depth = int(params["anderson_acceleration"])
+                        # If residual decreases but unsure about cycling, activate
+                        # stabilization and acceleration techniques.
+                        elif not do_LM:
+                            # else:
+                            if res_history[-1] < lb_res:
+                                L_scheme = 0.7
+                            else:
+                                is_cycling = True
+                    # If was cycling and continues to cycle, make more adaptions.
+                    elif (
+                        is_cycling
+                        and was_cycling
+                        and (num_iter - iter_cyst_detected > detected_cycle)
+                    ):
+                        cond = np.linalg.cond(df_i)
 
-                # Detected new cycling, make line search more aggressive.
-                if is_cycling and not was_cycling:
-                    ls_ss = max(0.5, 0.5 * ls_ss)
-                    ls_max_iter = max(80, int(params["armijo_max_iterations"]) * 3)
-                    ls_dec = min(1.5 * ls_dec, 0.5)
-                    iter_cyst_detected = num_iter
+                        if cond > 1e5 and not do_LM:
+                            # tau = min(max(10.0, 10 * tau), tau_max)
+                            L_scheme = 10.0 if cond > 1e6 else 1.0
+                            do_LM = True
+                            aa_depth = max(aa_depth, aa_depth_default)
+                    else:
+                        ...
 
-                    # Special case when cycling detected is often around the isofugacity
-                    # constraints, in case there are absent phases. To shortcut the
-                    # routine, go immediately to perturbation, which maximizes 1-sum(x)
+                # Stagnation or cycling is often observed due to extended fractions
+                # being stuck at too low values. Try to break free by perturbing using
+                # feed fractions.
+                if is_cycling or is_stagnating:
                     idx = np.zeros(f_dim, dtype=np.bool)
                     idx[-(n_P + 1 + n_C * (n_P - 1)) : -(n_P + 1)] = True
-                    if np.linalg.norm(f_i[~idx]) < tol:
-                        do_perturb = True
+                    # Partial residual excluding isofugacity constraints.
+                    res_part = np.linalg.norm(f_i[~idx])
 
-                # No longer cycling.
-                elif not is_cycling and was_cycling:
-                    # Check that really not cycling anymore for some iterations.
-                    if (
-                        np.all(np.diff(res_history[-2 * detected_cycle :]) < 0)
-                        and res_history[-1] < lb_res
+                    # Perturb every n-th iteration, with n being maximal cycle detected.
+                    if (res_part < tol) and (
+                        (num_iter - iter_cyst_detected) % (max_cycle - 1) == 0
                     ):
-                        # Gradually reset line search parameters.
-                        ls_ss = (ls_ss + float(params["armijo_step_size"])) * 0.5
-                        ls_dec = (ls_dec + float(params["armijo_decline"])) * 0.5
-                        ls_max_iter = int(params["armijo_max_iterations"])
-                        aa_depth = int(params["anderson_acceleration"])
-                    # If residual decreases but unsure about cycling, activate
-                    # stabilization and acceleration techniques.
-                    elif not do_LM:
-                        # else:
-                        if res_history[-1] < lb_res:
-                            L_scheme = 0.7
+                        z = gen_arg[3]
+                        x, y = parse_xy(X_i[:-1], n_C, n_P)
+                        for j in range(n_P):
+                            xj = x[j, :]
+                            # Perturb extended fractions where phase absent.
+                            # NOTE Perturbing phase fractions is tricky as it often has a
+                            # deteriorating effect. Requires more thinking.
+                            # if xj.sum() <= 1.0 - 1e-3:
+                            if y[j] < 1e-7:
+                                xj = (xj + z + 1 / n_C) / 3.0
+                                # Keep fractions feasible.
+                                sxj = xj.sum()
+                                if sxj > 1.0:
+                                    xj /= sxj
+                            x[j, :] = xj
+                        X_i[-n_C * n_P - 1 : -1] = x.flatten()
+
+                    # TODO Add perturbation of temperature for non-isothermal flashes if
+                    # stagnating or cycling due to flat isotherms (loss of sensitivity).
+
+                    # IF cycling or stagnation and no progress, check conditioning.
+                    # ill_cond = np.linalg.cond(df_i) > 1e5
+                    ill_cond = (
+                        (np.linalg.norm(df_i @ dX_i + f_i) / res_history[-1]) > 1e-4
+                    ) or ((np.linalg.norm(dX_i) / res_history[-1]) > 1e6)
+                    no_progress = (num_iter - iter_cyst_detected) >= max_cycle
+
+                    if no_progress:
+                        J_frob = np.linalg.norm(df_i.flatten())  # Frobenius
+
+                        # We check first, if we are at a stationary point where we lost
+                        # all sensitivy due to small gradient. If yes, perturb slightly.
+                        if gn2 < (tol * max(1.0, J_frob)) ** 2:
+                            X_i += 1e-6 * np.maximum(np.abs(X_i), 1.0)
                         else:
-                            is_cycling = True
+                            # If ill-conditioned -> stabilize using LM
+                            if ill_cond:
+                                do_LM = True
+                                tau = 1e-3 * J_frob
+                            # Else mobilize using AA
+                            else:
+                                aa_depth = max(aa_depth_default, aa_depth)
 
                 if do_LM:
                     if res_history[-1] < res_history[-2]:
+                        # tau = max(tau * 0.5, tau_min)
                         L_scheme = max(1e-5, L_scheme * 0.5)
                     else:
+                        # tau = min(tau_max, tau * 10.0)
                         L_scheme = min(1e12, 10.0 * L_scheme)
 
                     if L_scheme > 1e3:
                         ls_max_iter = 10
-                        ls_dec = 0.1
+                        ls_dec = max(ls_dec_min, ls_dec * 0.1)
                         # Last resort, if everything fails, likely due to a numerically
                         # flat minimized functional, we switch to steepest descent to
                         # stabilize the results until iterations run out.
                         if res_history[-1] < 1e-2:
                             do_sd = True
-
-                # If cycling continued for some time without being broken, we
-                # initiate perturbation.
-                do_perturb = (
-                    is_cycling
-                    and was_cycling
-                    and num_iter - iter_cyst_detected > detected_cycle
-                ) | do_perturb
-
-                # Add random perturbation to escape cycle if still cycling.
-                if do_perturb:
-                    do_perturb = False
-                    is_perturbed = False
-                    # Add perturbation only to extended fractions where phase absent.
-                    xf, yf = parse_xy(X_i[:-1], n_C, n_P)
-                    for j in range(n_P):
-                        xj = xf[j, :]
-                        # Perturb extended fractions to be closer to uniform.
-                        if xj.sum() <= 1.0 - 1e-3:
-                            xj = (xj + 1.0 / n_C) / 2.0
-                            # yf[j] = 0.0
-                            xf[j, :] = xj
-                            is_perturbed = True
-
-                    cond = np.linalg.cond(df_i)
-
-                    # NOTE Perturbing the phase fractions too seems to have negative
-                    # effects on convergence.
-                    # We set it to zero where the extended fractions are obviously
-                    # far from summing to one and re-normalize.
-                    if is_perturbed:
-                        # yf /= np.sum(yf)
-                        # X_i[-(n_P - 1 + n_C * n_P + 1) : -(n_C * n_P + 1)] = yf[1:]
-
-                        X_i[-n_C * n_P - 1 : -1] = xf.flatten()
-
-                        # Reset changes to parameters introduced by cycle-breaking.
-                        is_cycling = False
-                        ls_ss = float(params["armijo_step_size"])
-                        ls_dec = float(params["armijo_decline"])
-                        # L_scheme = 0.0
-                        # LM_mode = False
-                        # anderson = int(params["anderson_acceleration"])
-                    elif cond > 1e5 and not do_LM:
-                        # elif cond > 1e5:
-                        L_scheme = 10.0 if cond > 1e6 else 1.0
-                        do_LM = True
-                        if aa_depth == 0:
-                            aa_depth = default_anderson
             # endregion
 
     if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)):
