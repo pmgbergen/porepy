@@ -6,9 +6,9 @@ import porepy as pp
 import porepy.compositional as ppc
 
 # from porepy.models.compositional_flow import CompositionalFlowTemplate as FlowTemplate
-from porepy.models.compositional_flow import (
-    CompositionalFractionalFlowTemplate as FlowTemplate,
-)
+# from porepy.models.compositional_flow import (
+#     CompositionalFractionalFlowTemplate as FlowModelBase,
+# )
 from porepy.examples.geothermal_flow.flow_model_base import FlowModelBase
 
 from ..vtk_sampler import VTKSampler
@@ -268,7 +268,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         self.postprocessing_overshoots(solution)
 
         # Identify indices where the residual for primary variables exceeds a tolerance
-        residual_tolerance = 1.0
+        residual_tolerance = 1.0e-2
         pressure_high_res_idx = np.where(np.abs(residual_vector[diff_eq_indices['pressure']]) > residual_tolerance)[0]
         composition_high_res_idx = \
         np.where(np.abs(residual_vector[diff_eq_indices['composition_NaCl']]) > residual_tolerance)[0]
@@ -282,9 +282,14 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             enthalpy_high_res_idx,
             temperature_high_res_idx
         ]))
-        n_iter = 5
-        if thermal_indices.size != 0 and self.nonlinear_solver_statistics.num_iteration < n_iter:
-            self.postprocessing_thermal_overshoots(solution)
+        balance_indices = np.unique(np.concatenate([
+            pressure_high_res_idx,
+            composition_high_res_idx,
+            enthalpy_high_res_idx,
+        ]))
+        # n_iter = 5
+        if temperature_high_res_idx.size != 0 and balance_indices.size ==0:
+            self.postprocessing_thermal_overshoots(solution, temperature_high_res_idx)
 
         # # Scale down the Newton correction if the non-linear solver is struggling
         # if self.nonlinear_solver_statistics.num_iteration > n_iter:
@@ -365,7 +370,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         print("Elapsed time for postprocessing overshoots: ", te - tb)
         return np.min([p_scale,z_scale,h_scale,t_scale])
 
-    def postprocessing_thermal_overshoots(self, delta_x):
+    def postprocessing_thermal_overshoots(self, delta_x, idx_temp=[]):
 
         tb = time.time()
         x0 = self.equation_system.get_variable_values(iterate_index=0)
@@ -401,11 +406,11 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
         # saturation
         new_s = delta_x[s_dof_idx] + s_0
         idx_mp = np.where(np.abs(new_s * (1 - new_s)) > 0.0)[0]
-        idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
+        # idx_sp = np.where(np.isclose(np.abs(new_s * (1 - new_s)), 0.0))[0]
 
         if idx_mp.size != 0:
             # correct saturation and temperature from enthalpy
-            par_points = np.array((new_z[idx_mp], new_h[idx_mp], new_p[idx_mp])).T
+            par_points = np.array((z_0[idx_mp], h_0[idx_mp], p_0[idx_mp])).T
             self.vtk_sampler.sample_at(par_points)
 
             star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
@@ -414,15 +419,25 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             star_s = np.clip(star_s, 0.0, 1.0)
             delta_x[s_dof_idx[idx_mp]] = star_s - s_0[idx_mp]
 
-        if idx_sp.size != 0:
-            # correct enthalpy from temperature
-            par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
-            self.vtk_sampler_ptz.sample_at(par_points)
-            star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
-            delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
-            star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
+        if idx_temp.size != 0:
+            # correct temperature from enthalpy
+            par_points = np.array((new_z[idx_temp], new_h[idx_temp], new_p[idx_temp])).T
+            self.vtk_sampler.sample_at(par_points)
+            star_t = self.vtk_sampler.sampled_could.point_data["Temperature"]
+            delta_x[t_dof_idx[idx_temp]] = star_t - t_0[idx_temp]
+            star_s = self.vtk_sampler.sampled_could.point_data["S_v"]
             star_s = np.clip(star_s, 0.0, 1.0)
-            delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
+            delta_x[s_dof_idx[idx_temp]] = star_s - s_0[idx_temp]
+
+        # if idx_sp.size != 0:
+        #     # correct enthalpy from temperature
+        #     par_points = np.array((new_z[idx_sp], new_t[idx_sp], new_p[idx_sp])).T
+        #     self.vtk_sampler_ptz.sample_at(par_points)
+        #     star_h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        #     delta_x[h_dof_idx[idx_sp]] = star_h - h_0[idx_sp]
+        #     star_s = self.vtk_sampler_ptz.sampled_could.point_data["S_v"]
+        #     star_s = np.clip(star_s, 0.0, 1.0)
+        #     delta_x[s_dof_idx[idx_sp]] = star_s - s_0[idx_sp]
 
 
         te = time.time()

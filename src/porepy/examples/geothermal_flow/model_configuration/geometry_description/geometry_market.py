@@ -204,9 +204,9 @@ class SimpleGeometryHorizontal(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 0.5
-    _inlet_centre: np.ndarray = np.array([0.0, 0.5, 0.0])
-    _outlet_centre: np.ndarray = np.array([2000.0, 0.5, 0.0])
+    _dist_from_ref_point: float = 2.5
+    _inlet_centre: np.ndarray = np.array([0.0, 2.5, 0.0])
+    _outlet_centre: np.ndarray = np.array([2000.0, 2.5, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(2000.0, "m")
@@ -218,7 +218,7 @@ class SimpleGeometryHorizontal(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(5.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -250,9 +250,9 @@ class SimpleGeometryVertical(Geometry):
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
-    _dist_from_ref_point: float = 0.5
-    _inlet_centre: np.ndarray = np.array([0.5, 0.0, 0.0])
-    _outlet_centre: np.ndarray = np.array([0.5, 2000.0, 0.0])
+    _dist_from_ref_point: float = 2.5
+    _inlet_centre: np.ndarray = np.array([2.5, 0.0, 0.0])
+    _outlet_centre: np.ndarray = np.array([2.5, 2000.0, 0.0])
 
     def set_domain(self) -> None:
         x_length = self.units.convert_units(1.0, "m")
@@ -264,7 +264,7 @@ class SimpleGeometryVertical(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(5.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 

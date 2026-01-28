@@ -7,6 +7,7 @@ import numpy as np
 
 import porepy as pp
 
+from porepy.numerics.nonlinear import line_search
 # geometry description horizontal case
 from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
     SimpleGeometryHorizontal as ModelGeometryH,
@@ -48,7 +49,7 @@ to_Mega = 1.0e-6
 simulation_cases = {
     "case_lP": {
         "tf": final_times[geometry_case][0] * day_to_second,  # final time [years]
-        "dt": 0.015625 *  365.0 * day_to_second,  # final time [1 years]
+        "dt": 0.25 *  365.0 * day_to_second,  # final time [1 years]
         "bc": BC,
         "ic": IC,
     }
@@ -100,11 +101,13 @@ params = {
     "prepare_simulation": False,
     "apply_schur_complement_reduction": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-5,
+    "nl_convergence_tol_res": 1.0e-3,
     "flag_failure_as_diverged": False,
     "max_iterations": 100,
+    # "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
+    # "global_line_search": 1,
     "use_petsc": True,  # Set to True to use PETSc with MUMPS solver
-    "petsc_preconditioner": "lu",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
+    "petsc_preconditioner": "cpr",  # Options: 'bjacobi', 'asm', 'jacobi', 'lump_colsum', 'amg_hypre', 'ilu0', 'lu', 'cpr'
 }
 # params = {
 #     "material_constants": material_constants,
@@ -134,7 +137,7 @@ class GeothermalWaterFlowModel(
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
-parametric_space_ref_level = 0
+parametric_space_ref_level = 2
 folder_prefix = "src/porepy/examples/geothermal_flow/"
 file_name_prefix = (
     "model_configuration/constitutive_description/driesner_vtk_files/"
