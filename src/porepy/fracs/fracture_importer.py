@@ -107,6 +107,23 @@ def validate_csv_file(file_name: Path) -> None:
 def network_from_csv(
     file_name: Path, has_domain: bool = True, tol: float = 1e-4, **kwargs
 ) -> FractureNetwork2d | FractureNetwork3d:
+    """_summary_
+
+    Note: Loading an elliptic fracture network is currently not supported. There exists
+        no option to identify whether a network consists of 3D plane fractures, or
+        elliptic fractures, or both. The latter is also not supported by any importing
+        function.
+
+    Parameters:
+        file_name: Path to the CSV file.
+        has_domain: Whether the first line in the CSV file specifies the domain.
+            Defaults to True.
+        tol: Geometric tolerance used in the computations. Defaults to 1e-4.
+
+    Returns:
+        The loaded fracture network.
+
+    """
     # TODO All following functions call ``setup_csv_reader`` individually. It is
     # probably better to call it once and pass the csv_reader to the functions. This
     # makes ``_network_2d_from_csv`` and ``_network_3d_from_csv`` harder to use.
@@ -158,6 +175,9 @@ def _network_3d_from_csv(
         Three-dimensional fracture network object.
 
     """
+    # PvS: Possibly a stupid question, but should the default value in the parameters
+    # above not come after the description and in the form of a full sentence?
+
     # The first line of the csv file defines the bounding box for the domain.
     frac_list = []
 
