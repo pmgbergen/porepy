@@ -528,9 +528,6 @@ class FractureNetwork2d(FractureNetwork):
     ) -> list:
         ### Get hold of lines representing fractures and boundaries.
         domain_entities = gmsh.model.get_entities(2)
-        # TODO: If there is more than one domain entity (the domain is split into parts
-        # by fractures), we need to pick out the outer boundary, that is, the ones which
-        # only occurs once.
         boundaries = gmsh.model.get_boundary(
             [(self.nd, tag) for _, tag in domain_entities]
         )
@@ -564,27 +561,24 @@ class FractureNetwork2d(FractureNetwork):
             extra_points = (
                 np.array([d[0] for d in info]).T if len(info) > 0 else np.empty((3, 0))
             )
+            if extra_points.size == 0:
+                continue
 
             points, _, ind_map = pp.array_operations.uniquify_point_set(
-                np.hstack((end_points, extra_points)), tol=tol
+                extra_points, tol=tol
             )
-            # Distance to other objects for each point, as computed previously. Assign
-            # h_frac or h_bound to the endpoints, depending on whether the line is a
-            # fracture or boundary line. We also assign h_frac, since no refinement is
-            # needed just because this is an intersection point (if it is an
-            # intersection with a bad angle, this should be picked up by a close point
-            # on another line).
-            h_end = mesh_size_computer.h_end(line in boundary_tags)
-
+            # Distance to other objects for each point, as computed previously. We
+            # assign h_frac for intersections (d==0), since no refinement is needed just
+            # because this is an intersection point (if it is an intersection with a bad
+            # angle, this should be picked up by a close point on another line).
             other_object_distances_all = np.hstack(
                 (
-                    np.array([h_end, h_end]),
                     np.array(
                         [
-                            d[1] if d[1] > 0 else mesh_size_computer.h_frac()
+                            d[1] if d[1] > self._tol else mesh_size_computer.h_frac()
                             for d in info
                         ]
-                    ),
+                    )
                 )
             )
             # Reduce to one distance per unique point, picking the minimum distance if
@@ -595,7 +589,7 @@ class FractureNetwork2d(FractureNetwork):
                 min_dist = np.min(other_object_distances_all[inds])
                 other_object_distances.append(min_dist)
 
-            if points.shape[1] > 0:
+            if points.size > 0:
                 # If there is more than one point in addition to the end points, we can
                 # compute the point-point distances in pairs along this line.
                 point_point_distances = pp.distances.pointset(points, max_diag=True)
