@@ -58,17 +58,17 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
 
         # specific enthalpy of phase
         h = self.vtk_sampler.sampled_could.point_data["H_l"] * 1.0e-6
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0]
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1]
+        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0] * 1.0e-6
+        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1] * 1.0e-6
         dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 2]
-        dh = np.vstack((dhdp, dhdH, dhdz)) * 1.0e-6
+        dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
         mu = self.vtk_sampler.sampled_could.point_data["mu_l"] * 1.0e-6
-        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 0]
-        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 1]
+        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 0] * 1.0e-6
+        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 1] * 1.0e-6
         dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 2]
-        dmu = np.vstack((dmudp, dmudH, dmudz)) * 1.0e-6
+        dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
@@ -145,17 +145,17 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
 
         # specific enthalpy of phase
         h = self.vtk_sampler.sampled_could.point_data["H_v"] * 1.0e-6
-        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0]
-        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1]
+        dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0] * 1.0e-6
+        dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1] * 1.0e-6
         dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 2]
-        dh = np.vstack((dhdp, dhdH, dhdz)) * 1.0e-6
+        dh = np.vstack((dhdp, dhdH, dhdz))
 
         # dynamic viscosity of phase
         mu = self.vtk_sampler.sampled_could.point_data["mu_v"] * 1.0e-6
-        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 0]
-        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 1]
+        dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 0] * 1.0e-6
+        dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 1] * 1.0e-6
         dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 2]
-        dmu = np.vstack((dmudp, dmudH, dmudz)) * 1.0e-6
+        dmu = np.vstack((dmudp, dmudH, dmudz))
 
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
