@@ -485,6 +485,8 @@ class FractureNetwork(ABC):
             gmsh.model.mesh.field.setNumber(restriction, "InField", threshold)
             if codim:
                 if self.nd == 3 and surface_lines is not None:
+                    # Intersection lines on the surface should also have the same mesh
+                    # size field applied.
                     gmsh.model.mesh.field.setNumbers(
                         restriction, "CurvesList", surface_lines
                     )
