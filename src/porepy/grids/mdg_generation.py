@@ -520,6 +520,15 @@ def _preprocess_simplex_args(
         "cell_size_fracture", cell_size
     )
 
+    lower_level_args["refinement_buffer"] = meshing_args.get("refinement_buffer", 1.0)
+    lower_level_args["refinement_threshold"] = meshing_args.get(
+        "refinement_threshold", 1.0
+    )
+    farfield = meshing_args.get("farfield_transition", 10.0)
+    # The farfield transition should be strictly greater than 1, or else it may not
+    # function as intended (Gmsh may decide not to coarsen the mesh).
+    lower_level_args["farfield_transition"] = max(farfield, 1.01)
+
     return (lower_level_args, extra_args_list, kwargs)
 
 
