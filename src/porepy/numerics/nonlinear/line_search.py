@@ -8,16 +8,12 @@ Main active classes, combined in the NonlinearSolver class:
 - SplineInterpolationLineSearch - implements a line search using spline interpolation.
 - ConstraintLineSearch - implements a line search based on constraint functions for
     contact mechanics.
+- ConstraintLineSearchNonlinearSolver - a mixer class combining all three approaches
+    listed above.
 
 The functionality is invoked by specifying the solver in the solver parameters, e.g.:
 
     ```python
-    class ConstraintLineSearchNonlinearSolver(
-        ConstraintLineSearch,
-        SplineInterpolationLineSearch,
-        LineSearchNewtonSolver,
-    ):
-        pass
     solver_params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
     Pass 'solver_params' to a solver model, e.g.:
     pp.run_time_dependent_model(model, solver_params)
@@ -728,3 +724,14 @@ class ConstraintLineSearch:
             violation_tol = violation_tol / 2
 
         return weights
+
+
+class ConstraintLineSearchNonlinearSolver(
+    # The tailoring to contact constraints.
+    ConstraintLineSearch,
+    # Technical implementation of the actual search along given update direction.
+    SplineInterpolationLineSearch,
+    # General line search.
+    LineSearchNewtonSolver,
+):
+    """A mixer class combining all available line search strategies."""

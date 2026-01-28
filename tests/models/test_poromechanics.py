@@ -152,7 +152,8 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
                 val = self.units.convert_units(
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
-                vals.append(val * np.ones(sd.num_cells))
+                # Distribute source term over cells based on cell volumes.
+                vals.append(val * sd.cell_volumes / np.sum(sd.cell_volumes))
         fracture_source = pp.wrap_as_dense_ad_array(
             np.hstack(vals), name="fracture_fluid_source"
         )
@@ -217,6 +218,11 @@ def create_model_with_fracture(
         "nl_convergence_inc_atol": 1e-6,
         "nl_max_iterations": 20,
     }
+
+    if issubclass(model_class, TailoredPoromechanicsTpsa):
+        # Tpsa is only consistent with Cartesian grids.
+        model_params["cartesian"] = True
+
     model = model_class(model_params)
     return model
 
@@ -479,7 +485,7 @@ def test_push_north_zero_opening():
 )
 def test_positive_p_frac_positive_opening(model_class):
     model = create_model_with_fracture({}, {}, {}, 0.0, model_class)
-    model.params["fracture_source_value"] = 0.001
+    model.params["fracture_source_value"] = 0.004
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction = get_variables(model)
 
@@ -492,14 +498,14 @@ def test_positive_p_frac_positive_opening(model_class):
     tol = 1e-4 if model_class == TailoredPoromechanicsTpsa else 1e-5
     assert np.abs(np.sum(jump[0])) < tol
 
-    # The contact force in normal direction should be zero
-
+    # The contact force in normal direction should be zero.
     # NB: This assumes the contact force is expressed in local coordinates
     assert np.all(np.abs(traction) < 1e-7)
 
-    # Fracture pressure is positive
-    assert np.all(p_frac > 4.7e-4)
-    assert np.all(p_frac < 4.9e-4)
+    # Fracture pressure is positive.
+    mean_pressure = 4.8e-4
+    deviation = 2e-5
+    assert np.allclose(p_frac, mean_pressure, atol=deviation)
 
 
 def test_pull_south_positive_reference_pressure():

@@ -295,14 +295,6 @@ class GeothermalReservoirWellBCs(  # type: ignore[misc]
     """
 
 
-class ConstraintLineSearchNonlinearSolver(
-    line_search.ConstraintLineSearch,
-    line_search.SplineInterpolationLineSearch,
-    line_search.LineSearchNewtonSolver,
-):
-    """Collect line search nonlinear solver classes. Passed in solver_params."""
-
-
 if __name__ == "__main__":
     # Define time schedule for the simulation.
     schedule = np.array([0, pp.HOUR, 10 * pp.HOUR, 100 * pp.DAY])
@@ -403,7 +395,7 @@ if __name__ == "__main__":
         # improving the robustness of the nonlinear solver at the cost of some
         # additional computational overhead. Delete/comment the following lines for the
         # default Newton's method.
-        "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
+        "nonlinear_solver": line_search.ConstraintLineSearchNonlinearSolver,
         # Set to 1 to use turn on a residual-based line search. This involves some extra
         # residual evaluations and may be quite costly.
         "global_line_search": 0,
