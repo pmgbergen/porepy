@@ -35,26 +35,58 @@ class NewtonSolver:
     def __init__(self, params=None) -> None:
         if params is None:
             params = {}
-        self.params = copy.deepcopy(params)
+        self.params = params
         """Dictionary of parameters for the nonlinear solver."""
         self.iteration_index: int = -1
         """Current iteration index."""
 
-        self.init_criteria()
+        self.init_convergence_criteria()
+        self.init_divergence_criteria()
         self.init_solver_progressbar()
 
-    def init_criteria(self) -> None:
-        """Parse and initialize convergence and divergence criteria."""
+    def init_convergence_criteria(self) -> None:
+        """Parse and initialize convergence criteria.
 
-        # Default parameters for convergence criteria.
-        inc_atol = self.params.get("nl_convergence_inc_atol", 1e-6)
-        inc_rtol = self.params.get("nl_convergence_inc_rtol", np.inf)
-        res_atol = self.params.get("nl_convergence_res_atol", 1e-6)
-        res_rtol = self.params.get("nl_convergence_res_rtol", np.inf)
-        metric = self.params.get("nl_metric", pp.EuclideanMetric())
+        Convergence criteria can either be provided as a dictionary in the
+        'nl_convergence_criteria' parameter, or default criteria are used
+        controlled by individual tolerance parameters based on the following template.
 
-        if "nl_convergence_criteria" not in self.params:
-            self.params["nl_convergence_criteria"] = {
+        - Increment-based absolute criterion: 'nl_convergence_inc_atol'
+        - Increment-based relative criterion: 'nl_convergence_inc_rtol'
+        - Residual-based absolute criterion: 'nl_convergence_res_atol'
+        - Residual-based relative criterion: 'nl_convergence_res_rtol'
+        - Metric: 'nl_metric'
+
+        """
+
+        if "nl_convergence_criteria" in self.params:
+            # Use user-provided convergence criteria.
+            convergence_criteria = self.params["nl_convergence_criteria"]
+
+            # Perform sanity check to avoid double specification of tolerances.
+            assert not any(
+                [
+                    key in self.params
+                    for key in [
+                        "nl_convergence_inc_atol",
+                        "nl_convergence_inc_rtol",
+                        "nl_convergence_res_atol",
+                        "nl_convergence_res_rtol",
+                        # "nl_metric", # Potentially, used for divergence
+                    ]
+                ]
+            ), (
+                "If 'nl_convergence_criteria' is provided, do not provide "
+                + "individual convergence tolerances."
+            )
+        else:
+            # If no custom convergence criteria are provided, use default ones.
+            inc_atol = self.params.get("nl_convergence_inc_atol", 1e-6)
+            inc_rtol = self.params.get("nl_convergence_inc_rtol", np.inf)
+            res_atol = self.params.get("nl_convergence_res_atol", 1e-6)
+            res_rtol = self.params.get("nl_convergence_res_rtol", np.inf)
+            metric = self.params.get("nl_metric", pp.EuclideanMetric())
+            convergence_criteria = {
                 "inc_abs": pp.IncrementBasedAbsoluteCriterion(
                     tol=inc_atol, metric=metric
                 ),
@@ -68,53 +100,38 @@ class NewtonSolver:
                     tol=res_rtol, metric=metric
                 ),
             }
-        else:
-            assert not any(
-                [
-                    key in self.params
-                    for key in [
-                        "nl_convergence_inc_atol",
-                        "nl_convergence_inc_rtol",
-                        "nl_convergence_res_atol",
-                        "nl_convergence_res_rtol",
-                        "nl_metric",
-                    ]
-                ]
-            ), (
-                "If 'nl_convergence_criteria' is provided, do not provide "
-                + "individual convergence tolerances."
-            )
-        self.convergence_criteria = ConvergenceCriteria(
-            self.params.get("nl_convergence_criteria")
-        )
+
+        # Initialize convergence criteria.
+        self.convergence_criteria = ConvergenceCriteria(convergence_criteria)
         """Convergence criterion used in the convergence check."""
 
-        # Default parameters for divergence criteria.
-        max_iterations = self.params.get("nl_max_iterations", 10)
-        inc_div_tol = self.params.get("nl_divergence_inc_tol", np.inf)
-        res_div_tol = self.params.get("nl_divergence_res_tol", np.inf)
-        if "nl_divergence_criteria" not in self.params:
-            self.params["nl_divergence_criteria"] = {
-                "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
-                "inc_nan": pp.IncrementBasedNanCriterion(),
-                "res_nan": pp.ResidualBasedNanCriterion(),
-                "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
-                    tol=inc_div_tol, metric=metric
-                ),
-                "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
-                    tol=res_div_tol, metric=metric
-                ),
-            }
-            self.nl_max_iterations = max_iterations
-        else:
-            # Ensure no double specification of tolerances.
+    def init_divergence_criteria(self) -> None:
+        """Parse and initialize divergence criteria.
+
+        Divergence criteria can either be provided as a dictionary in the
+        'nl_divergence_criteria' parameter, or default criteria are used based on
+        the following template.
+
+        - Maximum number of iterations: 'nl_max_iterations'
+        - Increment-based divergence tolerance: 'nl_divergence_inc_atol'
+        - Residual-based divergence tolerance: 'nl_divergence_res_atol'
+        - Metric: 'nl_metric'
+
+        """
+
+        if "nl_divergence_criteria" in self.params:
+            # Use user-provided divergence criteria.
+            divergence_criteria = self.params["nl_divergence_criteria"]
+
+            # Perform sanity check to avoid double specification of tolerances.
             assert not any(
                 [
                     key in self.params
                     for key in [
                         "nl_max_iterations",
-                        "nl_divergence_inc_tol",
-                        "nl_divergence_res_tol",
+                        "nl_divergence_inc_atol",
+                        "nl_divergence_res_atol",
+                        # "nl_metric", # Potentially, used for convergence
                     ]
                 ]
             ), (
@@ -122,17 +139,44 @@ class NewtonSolver:
                 + "individual divergence tolerances."
             )
 
-            # Fetch max iterations from the provided criteria.
+            # Fetch max iterations from the provided criteria. Note, it may not
+            # be provided.
+            max_iterations = None
             for c in self.params["nl_divergence_criteria"].values():
                 if isinstance(c, pp.MaxIterationsCriterion):
-                    self.nl_max_iterations = c.max_iterations
+                    max_iterations = c.max_iterations
+        else:
+            # Default parameters for divergence criteria.
+            max_iterations = self.params.get("nl_max_iterations", 10)
+            inc_div_atol = self.params.get("nl_divergence_inc_atol", np.inf)
+            res_div_atol = self.params.get("nl_divergence_res_atol", np.inf)
+            metric = self.params.get("nl_metric", pp.EuclideanMetric())
+            divergence_criteria = {
+                "max_iter": pp.MaxIterationsCriterion(max_iterations=max_iterations),
+                "inc_nan": pp.IncrementBasedNanCriterion(),
+                "res_nan": pp.ResidualBasedNanCriterion(),
+                "inc_max": pp.IncrementBasedAbsoluteDivergenceCriterion(
+                    tol=inc_div_atol, metric=metric
+                ),
+                "res_max": pp.ResidualBasedAbsoluteDivergenceCriterion(
+                    tol=res_div_atol, metric=metric
+                ),
+            }
 
-        self.divergence_criteria = DivergenceCriteria(
-            self.params.get("nl_divergence_criteria")
-        )
+        # Cache maximum number of iterations for easy access.
+        self.max_iterations: int | None = max_iterations
+        """Maximum number of nonlinear iterations."""
+
+        # Initialize divergence criteria.
+        self.divergence_criteria = DivergenceCriteria(divergence_criteria)
         """Divergence criterion used in the convergence check."""
 
     def init_solver_progressbar(self) -> None:
+        """Initialize the solver progress bar.
+
+        To enable the progress bar, set the 'progressbars' parameter to True.
+
+        """
         use_progress_bar = bool(self.params.get("progressbars", False))
         if use_progress_bar and progressbar_class is DummyProgressBar:
             logger.warning(
@@ -153,7 +197,9 @@ class NewtonSolver:
 
             # Length is the maximal number of Newton iterations.
             self.solver_progressbar = progressbar_class(  # type: ignore
-                range(self.nl_max_iterations),
+                range(
+                    self.max_iterations or 10
+                ),  # Fallback to 10 iterations if not set
                 desc="Newton loop",
                 position=progress_bar_position,
                 leave=False,
@@ -177,6 +223,26 @@ class NewtonSolver:
             SimulationStatus: The status of the nonlinear solver.
 
         """
+        # Prepare for nonlinear loop.
+        self.before_nonlinear_loop(model)
+
+        # Actual Newton loop.
+        convergence_status, divergence_status = self.nonlinear_loop(model)
+
+        # Finalize the nonlinear loop.
+        simulation_status = self.after_nonlinear_loop(
+            model, convergence_status, divergence_status
+        )
+
+        return simulation_status
+
+    def before_nonlinear_loop(self, model: SolutionStrategy) -> None:
+        """Prepare for the nonlinear loop.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+
+        """
         # Prepare model for nonlinear loop.
         model.before_nonlinear_loop()
 
@@ -184,26 +250,57 @@ class NewtonSolver:
         self.iteration_index = -1
         self.convergence_criteria.reset()
 
+    def nonlinear_loop(
+        self, model: SolutionStrategy
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+        """Perform the nonlinear loop (Newton iterations).
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+
+        Returns:
+            tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+                Convergence and divergence status.
+
+        """
         # Redirect all loggers to not interfere with the progressbar.
         with logging_redirect_tqdm([logging.root]):
-            # Newton loop.
+            # Perform at least one Newton iteration.
             while True:
-                # Perform nonlinear iteration.
-                convergence_status, divergence_status, convergence_info = (
-                    self.nonlinear_iteration(model)
-                )
+                # Prepare for nonlinear iteration.
+                self.before_nonlinear_iteration(model)
 
-                # Update (iteration-based) solver statistics.
-                self.update_solver_statistics(
-                    model,
-                    convergence_status=convergence_status.union(divergence_status),
-                    convergence_info=convergence_info,
+                # Perform nonlinear iteration and obtain increment.
+                nonlinear_increment = self.nonlinear_iteration(model)
+
+                # Finalize nonlinear iteration and determine status.
+                (convergence_status, divergence_status) = (
+                    self.after_nonlinear_iteration(model, nonlinear_increment)
                 )
 
                 # Exit the Newton loop.
                 if convergence_status.is_converged() or divergence_status.is_failed():
                     break
 
+        return convergence_status, divergence_status
+
+    def after_nonlinear_loop(
+        self,
+        model: SolutionStrategy,
+        convergence_status: ConvergenceStatusCollection,
+        divergence_status: ConvergenceStatusCollection,
+    ) -> SimulationStatus:
+        """Finalize the nonlinear loop.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+            convergence_status: The convergence status collection.
+            divergence_status: The divergence status collection.
+
+        Returns:
+            SimulationStatus: The status of the nonlinear solver.
+
+        """
         # React to convergence status. Let convergence trump divergence.
         if convergence_status.is_converged():
             simulation_status = SimulationStatus.SUCCESSFUL
@@ -225,50 +322,21 @@ class NewtonSolver:
 
         return simulation_status
 
-    def nonlinear_iteration(
-        self, model: SolutionStrategy
-    ) -> tuple[
-        ConvergenceStatusCollection,
-        ConvergenceStatusCollection,
-        ConvergenceInfoCollection,
-    ]:
-        """Perform nonlinear iterations and check convergence/divergence.
+    def before_nonlinear_iteration(self, model: SolutionStrategy) -> None:
+        """Prepare for a nonlinear iteration.
 
         Parameters:
             model: The model instance specifying the problem to be solved.
-
-        Returns:
-            tuple[
-                ConvergenceStatusCollection,
-                ConvergenceStatusCollection,
-                ConvergenceInfoCollection,
-            ]: Convergence/divergence status and information.
 
         """
         # Start iteration.
         self.increase_iteration_index()
 
-        # Prepare a nonlinear iteration.
+        # Prepare model for a nonlinear iteration.
         model.before_nonlinear_iteration()
 
-        # Perform a linear iteration.
-        nonlinear_increment = self.iteration(model)
-
-        # Update model status.
-        model.after_nonlinear_iteration(nonlinear_increment)
-
-        # Monitor convergence.
-        convergence_status, divergence_status, convergence_info = (
-            self.check_convergence(model, nonlinear_increment)
-        )
-
-        # Logging and progress bar update.
-        self.logging(model, convergence_info, nonlinear_increment)
-
-        return convergence_status, divergence_status, convergence_info
-
-    def iteration(self, model: SolutionStrategy) -> np.ndarray:
-        """A single nonlinear iteration.
+    def nonlinear_iteration(self, model: SolutionStrategy) -> np.ndarray:
+        """Perform a single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate
         function to prepare for possible future introduction of more advanced schemes.
@@ -280,9 +348,58 @@ class NewtonSolver:
             np.ndarray: Solution to linearized system, i.e. the update increment.
 
         """
+        nonlinear_increment = self.iteration(model)
+        return nonlinear_increment
+
+    def iteration(self, model: SolutionStrategy) -> np.ndarray:
+        """A single linearization step.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+
+        Returns:
+            np.ndarray: Solution to linearized system, i.e. the update increment.
+
+        """
         model.assemble_linear_system()
         nonlinear_increment = model.solve_linear_system()
         return nonlinear_increment
+
+    def after_nonlinear_iteration(
+        self, model: SolutionStrategy, nonlinear_increment: np.ndarray
+    ) -> tuple[ConvergenceStatusCollection, ConvergenceStatusCollection]:
+        """Finalize a nonlinear iteration.
+
+        Parameters:
+            model: The model instance specifying the problem to be solved.
+            nonlinear_increment: Newly obtained solution increment vector.
+
+        Returns:
+            tuple[
+                ConvergenceStatusCollection,
+                ConvergenceStatusCollection,
+            ]: Convergence and divergence status.
+
+        """
+        # Update model status.
+        model.after_nonlinear_iteration(nonlinear_increment)
+
+        # Monitor convergence.
+        convergence_status, divergence_status, convergence_info = (
+            self.check_convergence(model, nonlinear_increment)
+        )
+
+        # Logging and progress bar update.
+        self.logging(model, convergence_info, nonlinear_increment)
+
+        # Update (iteration-based) solver statistics.
+        self.update_solver_statistics(
+            model,
+            convergence_status=convergence_status.union(divergence_status),
+            convergence_info=convergence_info,
+        )
+
+        return convergence_status, divergence_status
 
     def check_convergence(
         self,
@@ -354,10 +471,10 @@ class NewtonSolver:
         )
 
         # Log iteration number.
-        max_iterations = self.nl_max_iterations
-        logger.info(
-            f"Newton iteration number {self.iteration_index + 1} of {max_iterations}"
-        )
+        iteration_msg = f"Newton iteration number {self.iteration_index + 1}"
+        if self.max_iterations is not None:
+            iteration_msg += f" of {self.max_iterations}"
+        logger.info(iteration_msg)
 
         # Log norms.
         nonlinear_increment_norm = np.linalg.norm(nonlinear_increment)

@@ -103,8 +103,8 @@ solver_params = {
     "nl_convergence_res_atol": 1e-6,  # Residual norm
     "nl_convergence_inc_rtol": 1e-4,  # Increment norm (relative)
     "nl_convergence_res_rtol": 1e-4,  # Residual norm (relative)
-    "nl_divergence_inc_tol": np.inf,
-    "nl_divergence_res_tol": np.inf,
+    "nl_divergence_inc_atol": np.inf,
+    "nl_divergence_res_atol": np.inf,
     "nl_metric": pp.EuclideanMetric(),  # Metric for norms.
     # Detailed convergence and divergence criteria - overwrite the defaults.
     "nl_convergence_criteria": {

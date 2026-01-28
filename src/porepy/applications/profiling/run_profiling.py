@@ -240,8 +240,8 @@ def run_model_with_tracer(args, model) -> None:
             "nl_max_iterations": 25,
             "nl_convergence_inc_atol": 1e-2,
             "nl_convergence_res_atol": 1e-2,
-            "nl_divergence_inc_tol": 1e8,
-            "nl_divergence_res_tol": 1e8,
+            "nl_divergence_inc_atol": 1e8,
+            "nl_divergence_res_atol": 1e8,
         },
     )
     tracer.stop()

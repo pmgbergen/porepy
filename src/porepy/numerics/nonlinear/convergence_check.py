@@ -941,7 +941,7 @@ class ResidualBasedCombinedDivergenceCriterion(CombinedDivergenceCriterion):
 
 
 class MaxIterationsCriterion(DivergenceCriterion):
-    """Convergence criterion based on maximum number of iterations."""
+    """Divergence criterion based on maximum number of iterations."""
 
     def __init__(self, max_iterations: int) -> None:
         self.max_iterations = max_iterations
