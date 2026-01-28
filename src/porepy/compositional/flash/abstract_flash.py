@@ -148,6 +148,11 @@ class FlashResults(pp.compositional.FluidProperties):
         """Flags indicating where the flash diverged."""
         return self.exitcode == 2
 
+    @property
+    def failure(self) -> NDArray[np.bool_]:
+        """Flags indicating where the flash failed for unknown reasons."""
+        return self.exitcode == 3
+
     def postprocess_fractions(self, eps: float = 1e-7) -> None:
         """Ensures fractions are strictly in the interval [0, 1] and fulfill the
         unity constraint.
