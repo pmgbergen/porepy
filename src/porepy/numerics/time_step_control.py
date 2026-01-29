@@ -99,7 +99,17 @@ from numpy.typing import ArrayLike
 
 import porepy as pp
 
-__all__ = ["TimeManager"]
+__all__ = ["TimeManager", "TimeSteppingError"]
+
+
+class TimeSteppingError(Exception):
+    """Error class dedicated to mathematical errors in time stepping algorithms.
+
+    To be used for when the time stepping strategy fails to reach the simulation end
+    time, e.g. due to nonlinear failure with constant or minimal admissible time step
+    size.
+
+    """
 
 
 class TimeManager:
@@ -337,7 +347,7 @@ class TimeManager:
                     " two are compatible, or consider adjusting the tolerances of the"
                     " sanity check."
                 )
-                raise ValueError(msg)
+                raise TimeSteppingError(msg)
 
         # Schedule, initial, and final times
         self.schedule = schedule
@@ -577,7 +587,7 @@ class TimeManager:
                     "Recomputation will not have any effect since the time step "
                     f"achieved its minimum admissible value -> dt = dt_min = {self.dt}."
                 )
-                raise ValueError(msg)
+                raise TimeSteppingError(msg)
 
             # Raise a warning if iterations is not None
             if self._iters is not None:
@@ -620,7 +630,7 @@ class TimeManager:
                 f"Solution did not converge after {self.recomp_max} recomputing "
                 "attempts."
             )
-            raise ValueError(msg)
+            raise TimeSteppingError(msg)
 
     def _correction_based_on_dt_min(self) -> None:
         """Correct time step if dt < dt_min."""

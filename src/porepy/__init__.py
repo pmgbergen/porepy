@@ -163,7 +163,7 @@ from porepy.numerics.ad.ad_utils import (
 )
 
 # Time stepping control
-from porepy.numerics.time_step_control import TimeManager
+from porepy.numerics.time_step_control import TimeManager, TimeSteppingError
 
 from porepy import models
 from porepy.models.abstract_equations import (
