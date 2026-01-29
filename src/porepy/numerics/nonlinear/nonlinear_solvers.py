@@ -8,6 +8,7 @@ import logging
 
 import numpy as np
 
+from porepy.models.run_models import ModelType
 from porepy.utils.ui_and_logging import DummyProgressBar
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
@@ -43,7 +44,7 @@ class NewtonSolver:
         # loop or inside a stationary problem (default).
         self.progress_bar_position: int = params.get("_nl_progress_bar_position", 0)
 
-    def solve(self, model) -> bool:
+    def solve(self, model: ModelType) -> bool:
         """Solve the nonlinear problem.
 
         Parameters:
@@ -162,7 +163,7 @@ class NewtonSolver:
 
         return is_converged
 
-    def iteration(self, model) -> np.ndarray:
+    def iteration(self, model: ModelType) -> np.ndarray:
         """A single nonlinear iteration.
 
         Right now, this is an almost trivial function. However, we keep it as a separate

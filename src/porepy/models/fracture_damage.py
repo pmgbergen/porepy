@@ -72,9 +72,7 @@ class DamageHistoryVariable(pp.PorePyModel):
         # stored at, say, two time steps for other purposes than computing the damage
         # history.
         for cls in self.__class__.__mro__:
-            if cls is DamageHistoryVariable:
-                continue
-            if cls is pp.SolutionStrategy:
+            if cls in (DamageHistoryVariable, pp.ModelSolverInterface):
                 continue
             # Check if the class has its own implementation of update_solution
             update_solution_method = cls.__dict__.get("update_solution", None)

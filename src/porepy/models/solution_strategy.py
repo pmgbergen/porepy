@@ -21,7 +21,497 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(pp.PorePyModel):
+class ModelSolverInterface(pp.PorePyModel):
+    """Class defining API and hooks for simulation routines to work with a model.
+
+    These include time step management, nonlinear and linear solvers.
+
+    """
+
+    def is_nonlinear_problem(self) -> bool:
+        """Specifies whether the Model problem is nonlinear.
+
+        Returns:
+            bool: True if the problem is nonlinear, False otherwise.
+
+        """
+        return True
+
+    def is_time_dependent(self) -> bool:
+        """Specifies whether the Model problem is time-dependent.
+
+        Returns:
+            bool: True if the problem is time-dependent, False otherwise.
+        """
+        return True
+
+    @property
+    def time_step_indices(self) -> np.ndarray:
+        """Indices for storing time step solutions.
+
+        Index 0 corresponds to the most recent time step with the know solution, 1 to
+        the previous time step, etc.
+
+        Models with only 1 time step index (default) indicate stationary models.
+
+        Returns:
+            An array of the indices of which time step solutions will be stored,
+            counting from 0. Defaults to storing the most recently computed solution
+            only.
+
+        """
+        return np.array([0])
+
+    @property
+    def iterate_indices(self) -> np.ndarray:
+        """Indices for storing iterate solutions.
+
+        Returns:
+            An array of the indices of which iterate solutions will be stored.
+
+        """
+        return np.array([0])
+
+    @property
+    def schur_complement_primary_equations(self) -> list[str]:
+        """Names of the primary equations for the Schur complement reduction of the
+        linear system.
+
+        They define the row-block which does not contain the sub-matrix which is to be
+        inverted for the Schur complement.
+
+        See also:
+
+            - :meth:`assemble_linear_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
+
+        Parameters:
+            names: List of equation names to be set as primary equations.
+
+        Raises:
+            ValueError: If any name is not known to the model's equation system or the
+                given names are not unique.
+
+        Returns:
+            The names of the equations (currently) defined as primary equations.
+
+        """
+        return self._schur_complement_primary_equations
+
+    @schur_complement_primary_equations.setter
+    def schur_complement_primary_equations(self, names: list[str]) -> None:
+        known_equations = list(self.equation_system.equations.keys())
+        for n in names:
+            if n not in known_equations:
+                raise ValueError(f"Equation {n} unknown to the equation system.")
+        if len(set(names)) != len(names):
+            raise ValueError("Primary equation names must be unique.")
+        # Shallow copy for safety, and keep order of equation system.
+        self._schur_complement_primary_equations = [
+            n for n in known_equations if n in names
+        ]
+
+    @property
+    def schur_complement_primary_variables(self) -> list[str]:
+        """Names of the primary variables for the Schur complement reduction of the
+        linear system.
+
+        They define the column-block which does not contain the sub-matrix which is to
+        be inverted for the Schur complement.
+
+        See also:
+
+            - :meth:`assemble_linear_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
+
+        Parameters:
+            names: List of variable names to be set as primary variables.
+
+        Raises:
+            ValueError: If any name is not known to the model's equation system or the
+                given names are not unique.
+
+        Returns:
+            The names of the variables (currently) defined as primary variables.
+
+        """
+        return self._schur_complement_primary_variables
+
+    @schur_complement_primary_variables.setter
+    def schur_complement_primary_variables(self, names: list[str]) -> None:
+        known_variables = list(set(v.name for v in self.equation_system.variables))
+        for n in names:
+            if n not in known_variables:
+                raise ValueError(f"Variable {n} unknown to the equation system.")
+        if len(set(names)) != len(names):
+            raise ValueError("Primary variables names must be unique.")
+        # Shallow copy for safety
+        self._schur_complement_primary_variables = [n for n in names]
+
+    def before_nonlinear_loop(self) -> None:
+        """Method to be called before entering the non-linear solver, thus at the start
+        of a new time step.
+
+        The base method does the following:
+
+        1. Update the time step size in :attr:`ad_time_step`.
+        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
+           SolverStatistics.reset`.
+        3. Calls :meth:`update_time_dependent_ad_arrays`.
+        4. Calls :meth:`update_derived_quantities`.
+
+        """
+        # Update time step size.
+        self.ad_time_step.set_value(self.time_manager.dt)
+        # Empty the log in the statistics object.
+        self.nonlinear_solver_statistics.reset()
+        # Update the boundary conditions to both the time step and iterate solution.
+        self.update_time_dependent_ad_arrays()
+        # Update other dependent quantities such as discretizations.
+        self.update_derived_quantities()
+
+    def before_nonlinear_iteration(self) -> None:
+        """Method to be called at the start of every non-linear iteration.
+
+        The base method only defines the method signature.
+
+        """
+
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Method to be called after every non-linear iteration.
+
+        The base method does the following:
+
+        1. Shift the existing solutions backwards in the iterative sense.
+        2. Store the ``nonlinear_increment`` in the current iterate additively.
+        3. Calls :meth:`update_derived_quantities`.
+
+        Parameters:
+            The new increment computed by the non-linear solver.
+
+        """
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
+        self.equation_system.set_variable_values(
+            values=nonlinear_increment, additive=True, iterate_index=0
+        )
+        self.update_derived_quantities()
+        self.nonlinear_solver_statistics.num_iteration += 1
+
+    def after_nonlinear_convergence(self) -> None:
+        """Method to be called after the non-linear iterations converge.
+
+        The base method does the following:
+
+        1. Shift existing solutions backwards in time.
+        2. Saves the current iterate values as the most recent time step values
+           (see :meth:`update_solution`).
+        3. Flags the model as converged (:attr:`convergence_status`).
+        4. Calls :meth:`save_data_time_step`.
+
+        Possible usage is to distribute information on the solution, visualization, etc.
+
+        """
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+
+        # Update the time step magnitude if the dynamic scheme is used.
+        if not self.time_manager.is_constant:
+            self.time_manager.compute_time_step(
+                iterations=self.nonlinear_solver_statistics.num_iteration
+            )
+        self.update_solution(solution)
+
+        self.convergence_status = True
+        self.save_data_time_step()
+
+    def update_solution(self, solution: np.ndarray) -> None:
+        """Shifts the solution per time step index and sets the provided solution
+        as the recent time step solution.
+
+        Parameters:
+            solution: Global, accepted solution vector.
+
+        """
+        self.equation_system.shift_time_step_values(
+            max_index=len(self.time_step_indices)
+        )
+        self.equation_system.set_variable_values(
+            values=solution, time_step_index=0, additive=False
+        )
+
+    def after_nonlinear_failure(self) -> None:
+        """Method to be called if the non-linear solver fails to converge."""
+        self.save_data_time_step()
+        if not self.is_nonlinear_problem():
+            raise ValueError("Failed to solve linear system for the linear problem.")
+
+        if self.time_manager.is_constant:
+            # We cannot decrease the constant time step.
+            raise ValueError("Nonlinear iterations did not converge.")
+        else:
+            # Update the time step magnitude if the dynamic scheme is used.
+            # Note: It will also raise a ValueError if the minimal time step is reached.
+            self.time_manager.compute_time_step(recompute_solution=True)
+
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
+    def after_simulation(self) -> None:
+        """Run at the end of simulation. Can be used for cleanup etc."""
+        pass
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Implements a convergence check, to be called by a non-linear solver.
+
+        Parameters:
+            nonlinear_increment: Newly obtained solution increment vector
+            residual: Residual vector of non-linear system, evaluated at the newly
+                obtained solution vector. Potentially None, if not needed.
+            reference_residual: Reference residual vector of non-linear system,
+                evaluated for the initial guess at current time step.
+            nl_params: Dictionary of parameters used for the convergence check.
+                Which items are required will depend on the convergence test to be
+                implemented.
+
+        Returns:
+            A 2-tuple containing two bools.
+
+            1. ``converged``: True if the solution is converged according to the
+                test implemented by this method.
+            2. ``diverged``: True if the solution is diverged according to the test
+                implemented by this method.
+
+        """
+        if not self.is_nonlinear_problem():
+            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
+            # error (but a warning) is raised for singular matrices, but a nan solution
+            # is returned. We check for this.
+            diverged = bool(np.any(np.isnan(nonlinear_increment)))
+            converged: bool = not diverged
+            residual_norm: float = np.nan if diverged else 0.0
+            nonlinear_increment_norm: float = np.nan if diverged else 0.0
+        else:
+            # First a simple check for nan values.
+            if np.any(np.isnan(nonlinear_increment)):
+                # If the solution contains nan values, we have diverged.
+                return False, True
+
+            # nonlinear_increment based norm
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+            # Residual based norm
+            residual_norm = self.compute_residual_norm(residual, reference_residual)
+            logger.info(
+                f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
+                f"Nonlinear residual norm: {residual_norm:.2e}"
+            )
+            # # Check divergence.
+            diverged = (
+                nl_params["nl_divergence_tol"] is not np.inf
+                and residual_norm > nl_params["nl_divergence_tol"]
+            )
+            # Check convergence requiring both the increment and residual to be small.
+            converged_inc = (
+                nl_params["nl_convergence_tol"] is np.inf
+                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                nl_params["nl_convergence_tol_res"] is np.inf
+                or residual_norm < nl_params["nl_convergence_tol_res"]
+            )
+            converged = converged_inc and converged_res
+
+        # Log the errors (here increments and residuals)
+        self.nonlinear_solver_statistics.log_error(
+            nonlinear_increment_norm, residual_norm
+        )
+
+        return converged, diverged
+
+    def compute_residual_norm(
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+    ) -> float:
+        """Compute the residual norm for a nonlinear iteration.
+
+        Parameters:
+            residual: Residual of current iteration.
+            reference_residual: Reference residual value (initial residual expected),
+                allowing for defining relative criteria.
+
+        Returns:
+            float: Residual norm; np.nan if the residual is None.
+
+        """
+        if residual is None:
+            return np.nan
+        residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
+        return residual_norm
+
+    def compute_nonlinear_increment_norm(
+        self, nonlinear_increment: np.ndarray
+    ) -> float:
+        """Compute the norm based on the update increment for a nonlinear iteration.
+
+        Parameters:
+            nonlinear_increment: Solution to the linearization.
+
+        Returns:
+            float: Update increment norm.
+
+        """
+        # Simple but fairly robust convergence criterions. More advanced options are
+        # e.g. considering norms for each variable and/or each grid separately,
+        # possibly using _l2_norm_cell
+        # We normalize by the size of the solution vector.
+        nonlinear_increment_norm = np.linalg.norm(nonlinear_increment) / np.sqrt(
+            nonlinear_increment.size
+        )
+        return nonlinear_increment_norm
+
+    def assemble_linear_system(self) -> None:
+        """Assemble the linearized system and store it in :attr:`linear_system`.
+
+        The linear system is defined by the current state of the model.
+
+        If ``params['apply_schur_complement_reduction']`` is True, the
+        :meth:`schur_complement_primary_variables` and
+        :meth:`schur_complement_primary_equations` are used to perform a Schur
+        complement technique.
+
+        To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
+        EquationSystem.default_schur_complement_inverter` is used by default.
+        This inverter assumes the secondary equations to consist of non-overlapping
+        blocks (local equations, block-diagonal matrix).
+        The user can provide a custom inverter
+        ``model.params['schur_complement_inverter']``, which is a callable taking a
+        sparse matrix and returning the inverse (sparse) matrix.
+
+        See Also:
+
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+              assemble_schur_complement_system`
+            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
+
+        """
+        t_0 = time.time()
+
+        if self._apply_schur_complement_reduction():
+            assert self.schur_complement_primary_variables, (
+                "Primary column block for Schur technique not found."
+            )
+            assert self.schur_complement_primary_equations, (
+                "Primary row block for Schur technique not defined."
+            )
+            self.linear_system = self.equation_system.assemble_schur_complement_system(
+                self.schur_complement_primary_equations,
+                self.schur_complement_primary_variables,
+                inverter=cast(
+                    Callable[[sps.spmatrix], sps.spmatrix],
+                    self.params.get("schur_complement_inverter", None),
+                ),
+            )
+        else:
+            self.linear_system = self.equation_system.assemble()
+
+        t_1 = time.time()
+        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+
+    def solve_linear_system(self) -> np.ndarray:
+        """Solve linear system.
+
+        Default method is a direct solver according to the
+        ``model.params['linear_solver']``. Available options are ``'pypardiso',
+        'umfpack', 'scipy_sparse'``.
+
+        Returns:
+            np.ndarray: Solution vector.
+
+        """
+        A, b = self.linear_system
+        t_0 = time.time()
+        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
+        logger.debug(
+            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
+            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
+        )
+
+        solver = self.linear_solver
+        if solver == "pypardiso":
+            # This is the default option which is invoked unless explicitly overridden
+            # by the user. We need to check if the pypardiso package is available.
+            try:
+                from pypardiso import spsolve as sparse_solver  # type: ignore
+            except ImportError:
+                # Fall back on the standard scipy sparse solver.
+                sparse_solver = sps.linalg.spsolve
+                warnings.warn(
+                    """PyPardiso could not be imported,
+                    falling back on scipy.sparse.linalg.spsolve"""
+                )
+            x = sparse_solver(A, b)
+        elif solver == "umfpack":
+            # Following may be needed:
+            # A.indices = A.indices.astype(np.int64)
+            # A.indptr = A.indptr.astype(np.int64)
+            x = sps.linalg.spsolve(A, b, use_umfpack=True)
+        elif solver == "scipy_sparse":
+            x = sps.linalg.spsolve(A, b)
+        else:
+            raise ValueError(
+                f"AbstractModel does not know how to apply the linear solver {solver}"
+            )
+
+        x = np.atleast_1d(x)
+        if self._apply_schur_complement_reduction():
+            x = self.equation_system.expand_schur_complement_solution(x)
+
+        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
+        return x
+
+    def _initialize_linear_solver(self) -> None:
+        """Initialize linear solver.
+
+        The default linear solver is Pardiso; this can be overridden by user choices.
+        If Pardiso is not available, backup solvers will automatically be invoked in
+        :meth:`solve_linear_system`.
+
+        To use a custom solver in a model, override this method (and possibly
+        :meth:`solve_linear_system`).
+
+        Raises:
+            ValueError if the chosen solver is not among the three currently supported,
+            see linear_solve.
+
+        """
+        solver = self.params["linear_solver"]
+        self.linear_solver = solver
+
+        if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
+            raise ValueError(f"Unknown linear solver {solver}")
+
+    def _apply_schur_complement_reduction(self) -> bool:
+        """Returns the model parameter on whether the linear system should be reduced
+        via Schur complement using the defined primary and secondary equations and
+        variables.
+
+        Can be set via ``model.params['apply_schur_complement_reduction'].
+        Returns False by default.
+
+        """
+        return bool(self.params.get("apply_schur_complement_reduction", False))
+
+
+class SolutionStrategy(ModelSolverInterface):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
 
@@ -226,109 +716,6 @@ class SolutionStrategy(pp.PorePyModel):
             raise ValueError(
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
-
-    @property
-    def time_step_indices(self) -> np.ndarray:
-        """Indices for storing time step solutions.
-
-        Index 0 corresponds to the most recent time step with the know solution, 1 to
-        the previous time step, etc.
-
-        Returns:
-            An array of the indices of which time step solutions will be stored,
-            counting from 0. Defaults to storing the most recently computed solution
-            only.
-
-        """
-        return np.array([0])
-
-    @property
-    def iterate_indices(self) -> np.ndarray:
-        """Indices for storing iterate solutions.
-
-        Returns:
-            An array of the indices of which iterate solutions will be stored.
-
-        """
-        return np.array([0])
-
-    @property
-    def schur_complement_primary_equations(self) -> list[str]:
-        """Names of the primary equations for the Schur complement reduction of the
-        linear system.
-
-        They define the row-block which does not contain the sub-matrix which is to be
-        inverted for the Schur complement.
-
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of equation names to be set as primary equations.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the equations (currently) defined as primary equations.
-
-        """
-        return self._schur_complement_primary_equations
-
-    @schur_complement_primary_equations.setter
-    def schur_complement_primary_equations(self, names: list[str]) -> None:
-        known_equations = list(self.equation_system.equations.keys())
-        for n in names:
-            if n not in known_equations:
-                raise ValueError(f"Equation {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary equation names must be unique.")
-        # Shallow copy for safety, and keep order of equation system.
-        self._schur_complement_primary_equations = [
-            n for n in known_equations if n in names
-        ]
-
-    @property
-    def schur_complement_primary_variables(self) -> list[str]:
-        """Names of the primary variables for the Schur complement reduction of the
-        linear system.
-
-        They define the column-block which does not contain the sub-matrix which is to
-        be inverted for the Schur complement.
-
-        See also:
-
-            - :meth:`assemble_linear_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-
-        Parameters:
-            names: List of variable names to be set as primary variables.
-
-        Raises:
-            ValueError: If any name is not known to the model's equation system or the
-                given names are not unique.
-
-        Returns:
-            The names of the variables (currently) defined as primary variables.
-
-        """
-        return self._schur_complement_primary_variables
-
-    @schur_complement_primary_variables.setter
-    def schur_complement_primary_variables(self, names: list[str]) -> None:
-        known_variables = list(set(v.name for v in self.equation_system.variables))
-        for n in names:
-            if n not in known_variables:
-                raise ValueError(f"Variable {n} unknown to the equation system.")
-        if len(set(names)) != len(names):
-            raise ValueError("Primary variables names must be unique.")
-        # Shallow copy for safety
-        self._schur_complement_primary_variables = [n for n in names]
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
@@ -569,382 +956,6 @@ class SolutionStrategy(pp.PorePyModel):
             - :meth:`add_nonlinear_diffusive_flux_discretization`
 
         """
-
-    def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver, thus at the start
-        of a new time step.
-
-        The base method does the following:
-
-        1. Update the time step size in :attr:`ad_time_step`.
-        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
-           SolverStatistics.reset`.
-        3. Calls :meth:`update_time_dependent_ad_arrays`.
-        4. Calls :meth:`update_derived_quantities`.
-
-        """
-        # Update time step size.
-        self.ad_time_step.set_value(self.time_manager.dt)
-        # Empty the log in the statistics object.
-        self.nonlinear_solver_statistics.reset()
-        # Update the boundary conditions to both the time step and iterate solution.
-        self.update_time_dependent_ad_arrays()
-        # Update other dependent quantities such as discretizations.
-        self.update_derived_quantities()
-
-    def before_nonlinear_iteration(self) -> None:
-        """Method to be called at the start of every non-linear iteration.
-
-        The base method only defines the method signature.
-
-        """
-
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Method to be called after every non-linear iteration.
-
-        The base method does the following:
-
-        1. Shift the existing solutions backwards in the iterative sense.
-        2. Store the ``nonlinear_increment`` in the current iterate additively.
-        3. Calls :meth:`update_derived_quantities`.
-
-        Parameters:
-            nonlinear_increment: The new solution, as computed by the non-linear solver.
-
-        """
-        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
-        self.equation_system.set_variable_values(
-            values=nonlinear_increment, additive=True, iterate_index=0
-        )
-        self.update_derived_quantities()
-        self.nonlinear_solver_statistics.num_iteration += 1
-
-    def after_nonlinear_convergence(self) -> None:
-        """Method to be called after the non-linear iterations converge.
-
-        The base method does the following:
-
-        1. Shift existing solutions backwards in time.
-        2. Saves the current iterate values as the most recent time step values
-           (see :meth:`update_solution`).
-        3. Flags the model as converged (:attr:`convergence_status`).
-        4. Calls :meth:`save_data_time_step`.
-
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-
-        # Update the time step magnitude if the dynamic scheme is used.
-        if not self.time_manager.is_constant:
-            self.time_manager.compute_time_step(
-                iterations=self.nonlinear_solver_statistics.num_iteration
-            )
-        self.update_solution(solution)
-
-        self.convergence_status = True
-        self.save_data_time_step()
-
-    def update_solution(self, solution: np.ndarray) -> None:
-        self.equation_system.shift_time_step_values(
-            max_index=len(self.time_step_indices)
-        )
-        self.equation_system.set_variable_values(
-            values=solution, time_step_index=0, additive=False
-        )
-
-    def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge."""
-        self.save_data_time_step()
-        if not self._is_nonlinear_problem():
-            raise ValueError("Failed to solve linear system for the linear problem.")
-
-        if self.time_manager.is_constant:
-            # We cannot decrease the constant time step.
-            raise ValueError("Nonlinear iterations did not converge.")
-        else:
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            self.time_manager.compute_time_step(recompute_solution=True)
-
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
-    def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleanup etc."""
-        pass
-
-    def check_convergence(
-        self,
-        nonlinear_increment: np.ndarray,
-        residual: Optional[np.ndarray],
-        reference_residual: np.ndarray,
-        nl_params: dict[str, Any],
-    ) -> tuple[bool, bool]:
-        """Implements a convergence check, to be called by a non-linear solver.
-
-        Parameters:
-            nonlinear_increment: Newly obtained solution increment vector
-            residual: Residual vector of non-linear system, evaluated at the newly
-                obtained solution vector. Potentially None, if not needed.
-            reference_residual: Reference residual vector of non-linear system,
-                evaluated for the initial guess at current time step.
-            nl_params: Dictionary of parameters used for the convergence check.
-                Which items are required will depend on the convergence test to be
-                implemented.
-
-        Returns:
-            The method returns the following tuple:
-
-            boolean:
-                True if the solution is converged according to the test implemented by
-                this method.
-            boolean:
-                True if the solution is diverged according to the test implemented by
-                this method.
-
-        """
-        if not self._is_nonlinear_problem():
-            # At least for the default direct solver, scipy.sparse.linalg.spsolve, no
-            # error (but a warning) is raised for singular matrices, but a nan solution
-            # is returned. We check for this.
-            diverged = bool(np.any(np.isnan(nonlinear_increment)))
-            converged: bool = not diverged
-            residual_norm: float = np.nan if diverged else 0.0
-            nonlinear_increment_norm: float = np.nan if diverged else 0.0
-        else:
-            # First a simple check for nan values.
-            if np.any(np.isnan(nonlinear_increment)):
-                # If the solution contains nan values, we have diverged.
-                return False, True
-
-            # nonlinear_increment based norm
-            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                nonlinear_increment
-            )
-            # Residual based norm
-            residual_norm = self.compute_residual_norm(residual, reference_residual)
-            logger.info(
-                f"Nonlinear increment norm: {nonlinear_increment_norm:.2e}, "
-                f"Nonlinear residual norm: {residual_norm:.2e}"
-            )
-            # # Check divergence.
-            diverged = (
-                nl_params["nl_divergence_tol"] is not np.inf
-                and residual_norm > nl_params["nl_divergence_tol"]
-            )
-            # Check convergence requiring both the increment and residual to be small.
-            converged_inc = (
-                nl_params["nl_convergence_tol"] is np.inf
-                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            )
-            converged_res = (
-                nl_params["nl_convergence_tol_res"] is np.inf
-                or residual_norm < nl_params["nl_convergence_tol_res"]
-            )
-            converged = converged_inc and converged_res
-
-        # Log the errors (here increments and residuals)
-        self.nonlinear_solver_statistics.log_error(
-            nonlinear_increment_norm, residual_norm
-        )
-
-        return converged, diverged
-
-    def compute_residual_norm(
-        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
-    ) -> float:
-        """Compute the residual norm for a nonlinear iteration.
-
-        Parameters:
-            residual: Residual of current iteration.
-            reference_residual: Reference residual value (initial residual expected),
-                allowing for defining relative criteria.
-
-        Returns:
-            float: Residual norm; np.nan if the residual is None.
-
-        """
-        if residual is None:
-            return np.nan
-        residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
-        return residual_norm
-
-    def compute_nonlinear_increment_norm(
-        self, nonlinear_increment: np.ndarray
-    ) -> float:
-        """Compute the norm based on the update increment for a nonlinear iteration.
-
-        Parameters:
-            nonlinear_increment: Solution to the linearization.
-
-        Returns:
-            float: Update increment norm.
-
-        """
-        # Simple but fairly robust convergence criterions. More advanced options are
-        # e.g. considering norms for each variable and/or each grid separately,
-        # possibly using _l2_norm_cell
-        # We normalize by the size of the solution vector.
-        nonlinear_increment_norm = np.linalg.norm(nonlinear_increment) / np.sqrt(
-            nonlinear_increment.size
-        )
-        return nonlinear_increment_norm
-
-    def _initialize_linear_solver(self) -> None:
-        """Initialize linear solver.
-
-        The default linear solver is Pardiso; this can be overridden by user choices.
-        If Pardiso is not available, backup solvers will automatically be invoked in
-        :meth:`solve_linear_system`.
-
-        To use a custom solver in a model, override this method (and possibly
-        :meth:`solve_linear_system`).
-
-        Raises:
-            ValueError if the chosen solver is not among the three currently supported,
-            see linear_solve.
-
-        """
-        solver = self.params["linear_solver"]
-        self.linear_solver = solver
-
-        if solver not in ["scipy_sparse", "pypardiso", "umfpack"]:
-            raise ValueError(f"Unknown linear solver {solver}")
-
-    def assemble_linear_system(self) -> None:
-        """Assemble the linearized system and store it in :attr:`linear_system`.
-
-        The linear system is defined by the current state of the model.
-
-        If ``params['apply_schur_complement_reduction']`` is True, the
-        :meth:`schur_complement_primary_variables` and
-        :meth:`schur_complement_primary_equations` are used to perform a Schur
-        complement technique.
-
-        To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
-        EquationSystem.default_schur_complement_inverter` is used by default.
-        This inverter assumes the secondary equations to consist of non-overlapping
-        blocks (local equations, block-diagonal matrix).
-        The user can provide a custom inverter
-        ``model.params['schur_complement_inverter']``, which is a callable taking a
-        sparse matrix and returning the inverse (sparse) matrix.
-
-        See Also:
-
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
-              assemble_schur_complement_system`
-            - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
-
-        """
-        t_0 = time.time()
-
-        if self._apply_schur_complement_reduction():
-            assert self.schur_complement_primary_variables, (
-                "Primary column block for Schur technique not found."
-            )
-            assert self.schur_complement_primary_equations, (
-                "Primary row block for Schur technique not defined."
-            )
-            self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.schur_complement_primary_equations,
-                self.schur_complement_primary_variables,
-                inverter=cast(
-                    Callable[[sps.spmatrix], sps.spmatrix],
-                    self.params.get("schur_complement_inverter", None),
-                ),
-            )
-        else:
-            self.linear_system = self.equation_system.assemble()
-
-        t_1 = time.time()
-        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
-
-    def solve_linear_system(self) -> np.ndarray:
-        """Solve linear system.
-
-        Default method is a direct solver. The linear solver is chosen in the
-        initialize_linear_solver of this model. Implemented options are
-            - scipy.sparse.spsolve with and without call to umfpack
-            - pypardiso.spsolve
-
-        See also:
-            :meth:`initialize_linear_solver`
-
-        Returns:
-            np.ndarray: Solution vector.
-
-        """
-        A, b = self.linear_system
-        t_0 = time.time()
-        logger.debug(f"Max element in A {np.max(np.abs(A)):.2e}")
-        logger.debug(
-            f"""Max {np.max(np.sum(np.abs(A), axis=1)):.2e} and min
-            {np.min(np.sum(np.abs(A), axis=1)):.2e} A sum."""
-        )
-
-        solver = self.linear_solver
-        if solver == "pypardiso":
-            # This is the default option which is invoked unless explicitly overridden
-            # by the user. We need to check if the pypardiso package is available.
-            try:
-                from pypardiso import spsolve as sparse_solver  # type: ignore
-            except ImportError:
-                # Fall back on the standard scipy sparse solver.
-                sparse_solver = sps.linalg.spsolve
-                warnings.warn(
-                    """PyPardiso could not be imported,
-                    falling back on scipy.sparse.linalg.spsolve"""
-                )
-            x = sparse_solver(A, b)
-        elif solver == "umfpack":
-            # Following may be needed:
-            # A.indices = A.indices.astype(np.int64)
-            # A.indptr = A.indptr.astype(np.int64)
-            x = sps.linalg.spsolve(A, b, use_umfpack=True)
-        elif solver == "scipy_sparse":
-            x = sps.linalg.spsolve(A, b)
-        else:
-            raise ValueError(
-                f"AbstractModel does not know how to apply the linear solver {solver}"
-            )
-
-        x = np.atleast_1d(x)
-        if self._apply_schur_complement_reduction():
-            x = self.equation_system.expand_schur_complement_solution(x)
-
-        logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
-        return x
-
-    def _apply_schur_complement_reduction(self) -> bool:
-        """Returns the model parameter on whether the linear system should be reduced
-        via Schur complement using the defined primary and secondary equations and
-        variables.
-
-        Can be set via ``model.params['apply_schur_complement_reduction'].
-        Returns False by default.
-
-        """
-        return bool(self.params.get("apply_schur_complement_reduction", False))
-
-    def _is_nonlinear_problem(self) -> bool:
-        """Specifies whether the Model problem is nonlinear.
-
-        Returns:
-            bool: True if the problem is nonlinear, False otherwise.
-
-        """
-        return True
-
-    def _is_time_dependent(self) -> bool:
-        """Specifies whether the Model problem is time-dependent.
-
-        Returns:
-            bool: True if the problem is time-dependent, False otherwise.
-        """
-        return True
 
     def _is_reference_phase_eliminated(self) -> bool:
         """Returns True if ``params['eliminate_reference_phase'] == True`.

@@ -131,7 +131,7 @@ class TestParameterInputs:
             "Mismatch between the time step and scheduled time. Make sure the two are "
             "compatible, or consider adjusting the tolerances of the sanity check."
         )
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(pp.TimeSteppingError) as excinfo:
             pp.TimeManager(schedule=schedule, dt_init=dt_init, constant_dt=True)
         assert msg in str(excinfo.value)
 
@@ -479,7 +479,7 @@ class TestTimeControl:
         # attempts
         time_manager = pp.TimeManager([0, 1], 0.1, recomp_max=5)
         time_manager._recomp_num = 5
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(pp.TimeSteppingError) as excinfo:
             msg = (
                 f"Solution did not converge after {time_manager.recomp_max} recomputing"
                 " attempts."
@@ -545,7 +545,7 @@ class TestTimeControl:
 
         # For these parameters, we have time_manager.dt = time_manager.dt_init =
         # time_manager.dt_min_max[0] Attempting a recomputation should raise an error
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(pp.TimeSteppingError) as excinfo:
             msg = (
                 "Recomputation will not have any effect since the time step achieved "
                 f"its minimum admissible value -> dt = dt_min = {time_manager.dt}."
@@ -812,7 +812,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
         self.num_nonlinear_iters += 1
 
-    def _is_nonlinear_problem(self):
+    def is_nonlinear_problem(self):
         return True
 
     def check_convergence(
@@ -877,7 +877,7 @@ MAX_NONLINEAR_ITER = 10
         # Case 2: constant_dt. Should fail after nonlinear divergence.
         {
             "constant_dt": True,
-            "should_fail": True,
+            "should_fail": ValueError,
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
             "exported_dt_expected": [1, 1],
@@ -885,7 +885,7 @@ MAX_NONLINEAR_ITER = 10
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and failed.
         {
-            "should_fail": True,
+            "should_fail": pp.TimeSteppingError,
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
             "exported_dt_expected": [1, 0.3, 0.1],
@@ -927,7 +927,8 @@ def test_model_time_step_control(params: dict):
     )
 
     if should_fail:
-        with pytest.raises(ValueError):
+        assert issubclass(should_fail, Exception), 'Test needs error specification.'
+        with pytest.raises(should_fail):
             pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
     else:
         pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})

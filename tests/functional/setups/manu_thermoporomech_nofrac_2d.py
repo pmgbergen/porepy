@@ -1077,7 +1077,7 @@ class ManuThermoPoroMechSolutionStrategy2d(
             name="source_energy", values=energy_source, data=data, time_step_index=0
         )
 
-    def _is_nonlinear_problem(self) -> bool:
+    def is_nonlinear_problem(self) -> bool:
         """The problem is non-linear due to the coupling between fluid flux and
         advective energy transport.
         """

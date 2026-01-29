@@ -299,7 +299,7 @@ class InterfaceDisplacementArray(pp.PorePyModel):
 
     def update_time_dependent_ad_arrays(self) -> None:
         """Update values of external sources and boundary conditions."""
-        super().update_time_dependent_ad_arrays()  # type: ignore[misc]
+        super().update_time_dependent_ad_arrays()  # type: ignore[safe-super]
         self.update_interface_displacement_parameter()
 
     def update_interface_displacement_parameter(self) -> None:
@@ -563,7 +563,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         characteristic.set_name("characteristic_function_of_b_p")
         return characteristic
 
-    def _is_nonlinear_problem(self) -> bool:
+    def is_nonlinear_problem(self) -> bool:
         """The contact mechanics problem is nonlinear, but it may happen that this
         method is called from a model with no fractures. In this case, we fall back to
         the default.
@@ -571,7 +571,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         """
         if self.mdg.dim_min() < self.nd:
             return True
-        return super()._is_nonlinear_problem()
+        return super().is_nonlinear_problem()
 
 
 class ContactMechanics(

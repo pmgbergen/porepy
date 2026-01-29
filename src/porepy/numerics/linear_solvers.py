@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from porepy.models.run_models import ModelType
 from porepy.models.solution_strategy import SolutionStrategy
 
 
@@ -31,7 +32,7 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, model: SolutionStrategy) -> bool:
+    def solve(self, model: ModelType) -> bool:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
@@ -67,6 +68,9 @@ class LinearSolver:
             # implemented to be valid for both linear and non-linear problems, as is the
             # case for ContactMechanics and possibly others). Thus, we first call
             # after_nonlinear_iteration(), and then after_nonlinear_convergence()
+
+            # TODO use update_solution in combination with get solution value, and
+            # pull this step to after solve_linear_system
             model.after_nonlinear_iteration(nonlinear_increment)
             model.after_nonlinear_convergence()
         else:

@@ -503,7 +503,7 @@ class BaseFlowModel(
     ) -> tuple[bool, bool]:
         """Check nonlinear convergence."""
 
-        if self._is_nonlinear_problem():
+        if self.is_nonlinear_problem():
             total_volume = 0.0
             for sd in self.mdg.subdomains():
                 total_volume += np.sum(

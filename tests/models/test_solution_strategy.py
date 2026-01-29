@@ -477,7 +477,7 @@ def test_linear_or_nonlinear_model(params: dict):
     is_nonlinear: bool = params["is_nonlinear"]
 
     model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
-    assert model._is_nonlinear_problem() == is_nonlinear
+    assert model.is_nonlinear_problem() == is_nonlinear
 
 
 # ---------------------------------------------------------------------

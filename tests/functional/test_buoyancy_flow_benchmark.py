@@ -453,7 +453,7 @@ def slow_test_buoyancy_flow_benchmark(
             reference_residual: np.ndarray,
             nl_params: dict[str, Any],
         ) -> tuple[bool, bool]:
-            if self._is_nonlinear_problem():
+            if self.is_nonlinear_problem():
                 total_volume = 0.0
                 for sd in self.mdg.subdomains():
                     total_volume += np.sum(

@@ -495,7 +495,264 @@ else:
 
             """
 
-    class SolutionStrategyProtocol(Protocol):
+    class ModelSolverInterfaceProtocol(Protocol):
+        """This protocol provides the API for time stepping algorithms, nonlinear and
+        linear solvers."""
+
+        def is_nonlinear_problem(self) -> bool:
+            """Specifies whether the Model problem is nonlinear.
+
+            Returns:
+                bool: True if the problem is nonlinear, False otherwise.
+
+            """
+
+        def is_time_dependent(self) -> bool:
+            """Specifies whether the Model problem is time-dependent.
+
+            Returns:
+                bool: True if the problem is time-dependent, False otherwise.
+            """
+
+        @property
+        def time_step_indices(self) -> np.ndarray:
+            """Indices for storing time step solutions.
+
+            Index 0 corresponds to the most recent time step with the know solution, 1
+            to the previous time step, etc.
+
+            Models with only 1 time step index (default) indicate stationary models.
+
+            Returns:
+                An array of the indices of which time step solutions will be stored,
+                counting from 0. Defaults to storing the most recently computed solution
+                only.
+
+            """
+
+        @property
+        def iterate_indices(self) -> np.ndarray:
+            """Indices for storing iterate solutions.
+
+            Returns:
+                An array of the indices of which iterate solutions will be stored.
+
+            """
+
+        @property
+        def schur_complement_primary_equations(self) -> list[str]:
+            """Names of the primary equations for the Schur complement reduction of the
+            linear system.
+
+            They define the row-block which does not contain the sub-matrix which is to
+            be inverted for the Schur complement.
+
+            See also:
+
+                - :meth:`assemble_linear_system`
+                - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+                assemble_schur_complement_system`
+
+            Parameters:
+                names: List of equation names to be set as primary equations.
+
+            Raises:
+                ValueError: If any name is not known to the model's equation system or
+                    the given names are not unique.
+
+            Returns:
+                The names of the equations (currently) defined as primary equations.
+
+            """
+
+        @property
+        def schur_complement_primary_variables(self) -> list[str]:
+            """Names of the primary variables for the Schur complement reduction of the
+            linear system.
+
+            They define the column-block which does not contain the sub-matrix which is
+            to be inverted for the Schur complement.
+
+            See also:
+
+                - :meth:`assemble_linear_system`
+                - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+                assemble_schur_complement_system`
+
+            Parameters:
+                names: List of variable names to be set as primary variables.
+
+            Raises:
+                ValueError: If any name is not known to the model's equation system or
+                    the given names are not unique.
+
+            Returns:
+                The names of the variables (currently) defined as primary variables.
+
+            """
+
+        def before_nonlinear_loop(self) -> None:
+            """Method to be called before entering the non-linear solver, thus at the
+            start of a new time step.
+
+            The base method does the following:
+
+            1. Update the time step size in :attr:`ad_time_step`.
+            2. Reset the nonlinear solver statistics
+               :meth:`~porepy.viz.solver_statistics.SolverStatistics.reset`.
+            3. Calls :meth:`update_time_dependent_ad_arrays`.
+            4. Calls :meth:`update_derived_quantities`.
+
+            """
+
+        def before_nonlinear_iteration(self) -> None:
+            """Method to be called at the start of every non-linear iteration.
+
+            The base method only defines the method signature.
+
+            """
+
+        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+            """Method to be called after every non-linear iteration.
+
+            The base method does the following:
+
+            1. Shift the existing solutions backwards in the iterative sense.
+            2. Store the ``nonlinear_increment`` in the current iterate additively.
+            3. Calls :meth:`update_derived_quantities`.
+
+            Parameters:
+                The new increment computed by the non-linear solver.
+
+            """
+
+        def after_nonlinear_convergence(self) -> None:
+            """Method to be called after the non-linear iterations converge.
+
+            The base method does the following:
+
+            1. Shift existing solutions backwards in time.
+            2. Saves the current iterate values as the most recent time step values
+            (see :meth:`update_solution`).
+            3. Flags the model as converged (:attr:`convergence_status`).
+            4. Calls :meth:`save_data_time_step`.
+
+            Possible usage is to distribute information on the solution, visualization,
+            etc.
+
+            """
+
+        def update_solution(self, solution: np.ndarray) -> None:
+            """Shifts the solution per time step index and sets the provided solution
+            as the recent time step solution.
+
+            Parameters:
+                solution: Global, accepted solution vector.
+
+            """
+
+        def after_nonlinear_failure(self) -> None:
+            """Method to be called if the non-linear solver fails to converge."""
+
+        def after_simulation(self) -> None:
+            """Run at the end of simulation. Can be used for cleanup etc."""
+
+        def check_convergence(
+            self,
+            nonlinear_increment: np.ndarray,
+            residual: Optional[np.ndarray],
+            reference_residual: np.ndarray,
+            nl_params: dict[str, Any],
+        ) -> tuple[bool, bool]:
+            """Implements a convergence check, to be called by a non-linear solver.
+
+            Parameters:
+                nonlinear_increment: Newly obtained solution increment vector
+                residual: Residual vector of non-linear system, evaluated at the newly
+                    obtained solution vector. Potentially None, if not needed.
+                reference_residual: Reference residual vector of non-linear system,
+                    evaluated for the initial guess at current time step.
+                nl_params: Dictionary of parameters used for the convergence check.
+                    Which items are required will depend on the convergence test to be
+                    implemented.
+
+            Returns:
+                A 2-tuple containing two bools.
+
+                1. ``converged``: True if the solution is converged according to the
+                   test implemented by this method.
+                2. ``diverged``: True if the solution is diverged according to the test
+                   implemented by this method.
+
+            """
+
+        def compute_residual_norm(
+            self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+        ) -> float:
+            """Compute the residual norm for a nonlinear iteration.
+
+            Parameters:
+                residual: Residual of current iteration.
+                reference_residual: Reference residual value (initial residual expected)
+                    allowing for defining relative criteria.
+
+            Returns:
+                float: Residual norm; np.nan if the residual is None.
+
+            """
+
+        def compute_nonlinear_increment_norm(
+            self, nonlinear_increment: np.ndarray
+        ) -> float:
+            """Compute the norm based on the update increment for a nonlinear iteration.
+
+            Parameters:
+                nonlinear_increment: Solution to the linearization.
+
+            Returns:
+                float: Update increment norm.
+
+            """
+
+        def assemble_linear_system(self) -> None:
+            """Assemble the linearized system and store it in :attr:`linear_system`.
+
+            The linear system is defined by the current state of the model.
+
+            If ``params['apply_schur_complement_reduction']`` is True, the
+            :meth:`schur_complement_primary_variables` and
+            :meth:`schur_complement_primary_equations` are used to perform a Schur
+            complement technique.
+
+            To invert the secondary block, :meth:`~porepy.numerics.ad.equation_system.
+            EquationSystem.default_schur_complement_inverter` is used by default.
+            This inverter assumes the secondary equations to consist of non-overlapping
+            blocks (local equations, block-diagonal matrix).
+            The user can provide a custom inverter
+            ``model.params['schur_complement_inverter']``, which is a callable taking a
+            sparse matrix and returning the inverse (sparse) matrix.
+
+            See Also:
+
+                - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+                  assemble_schur_complement_system`
+                - :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
+
+            """
+
+        def solve_linear_system(self) -> np.ndarray:
+            """Solve linear system.
+
+            Default method is a direct solver according to the
+            ``model.params['linear_solver']``. Available options are ``'pypardiso',
+            'umfpack', 'scipy_sparse'``.
+
+            Returns:
+                np.ndarray: Solution vector.
+
+            """
+
+    class SolutionStrategyProtocol(ModelSolverInterfaceProtocol, Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in SolutionStrategy."""
 
@@ -563,50 +820,8 @@ else:
 
             """
 
-        @property
-        def time_step_indices(self) -> np.ndarray:
-            """Indices for storing time step solutions.
-
-            Index 0 corresponds to the most recent time step with the know solution, 1 -
-            to the previous time step, etc.
-
-            Returns:
-                An array of the indices of which time step solutions will be stored,
-                counting from 0. Defaults to storing the most recently computed solution
-                only.
-
-            """
-
-        @property
-        def iterate_indices(self) -> np.ndarray:
-            """Indices for storing iterate solutions.
-
-            Returns:
-                An array of the indices of which iterate solutions will be stored.
-
-            """
-
         def prepare_simulation(self) -> None:
             """Run at the start of simulation. Used for initialization etc."""
-
-        def after_simulation(self) -> None:
-            """Run at the end of simulation. Can be used for cleanup etc."""
-
-        def _is_time_dependent(self) -> bool:
-            """Specifies whether the Model problem is time-dependent.
-
-            Returns:
-                bool: True if the problem is time-dependent, False otherwise.
-
-            """
-
-        def _is_nonlinear_problem(self) -> bool:
-            """Specifies whether the Model problem is nonlinear.
-
-            Returns:
-                bool: True if the problem is nonlinear, False otherwise.
-
-            """
 
         def _is_reference_phase_eliminated(self) -> bool:
             """Returns True if ``params['eliminate_reference_phase'] == True`.
@@ -616,42 +831,11 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
-        def before_nonlinear_iteration(self) -> None:
-            """Method to be called at the start of every non-linear iteration.
-
-            Possible usage is to update non-linear parameters, discretizations etc.
-
-            """
-
-        def after_nonlinear_convergence(self) -> None:
-            """Method to be called after every non-linear iteration.
-
-            Possible usage is to distribute information on the solution, visualization,
-            etc.
-
-            """
-
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.
 
             This method is called before the discretization is performed. It is intended
             to be used to set the list of nonlinear discretizations.
-
-            """
-
-        def solve_linear_system(self) -> np.ndarray:
-            """Solve linear system.
-
-            Default method is a direct solver. The linear solver is chosen in the
-            initialize_linear_solver of this model. Implemented options are
-                - scipy.sparse.spsolve with and without call to umfpack
-                - pypardiso.spsolve
-
-            See also:
-                :meth:`initialize_linear_solver`
-
-            Returns:
-                np.ndarray: Solution vector.
 
             """
 
@@ -662,6 +846,43 @@ else:
             The base method only defines the signature and individual physics model have
             to override this method. A super-call to trigger other physics' update is
             required.
+
+            """
+
+        def update_time_dependent_ad_arrays(self) -> None:
+            """Update the time dependent arrays before a new time step.
+
+            The base implementation updates those for the boundary condition values.
+            Override it to update other model-specific time dependent arrays.
+
+            """
+
+        def update_derived_quantities(self) -> None:
+            """Performs an update of derived and secondary quantities entering the
+            equations.
+
+            These updates include flux values and discretization matrices, or surrogate
+            operators which wrap externalized computations. In principle, anything not
+            part of the evaluation process in the AD framework, can be put here if it
+            requires an update for the evaluation to lead to correct values.
+
+            The base method performs the following updates:
+
+            1. Update material properties (if necessary) based on the current state
+            (see :meth:`update_material_properties`).
+            2. Update discretization parameters, most crucially those entering the flux
+            discretization (see :meth:`update_discretization_parameters`).
+            3. Rediscretize the non-linear fluxes depending on above tensors
+            (see :meth:`rediscretize_fluxes`).
+            4. Evaluate and store fluxes for upstream discretizations
+            (see :meth:`update_flux_values`).
+            5. Rediscretize upstream (and possibly other) discretizations
+            (see :meth:`rediscretize`).
+
+            For a consistent evaluation of the system, this method is called in
+            :meth:`after_nonlinear_iteration` (after the global state vector changes)
+            and in :meth:`before_nonlinear_loop` (after the boundary conditions and
+            other time-dependent quantities change).
 
             """
 

@@ -705,7 +705,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                     },
                 )
 
-    def _is_nonlinear_problem(self) -> bool:
+    def is_nonlinear_problem(self) -> bool:
         """
         If there is no fracture, the problem is usually linear. Overwrite this function
         if e.g. parameter nonlinearities are included.

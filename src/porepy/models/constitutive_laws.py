@@ -4153,7 +4153,7 @@ class FrictionDamage(pp.PorePyModel):
     (2014) https://doi.org/10.1002/nag.2247, as
 
     .. math::
-        d = 1+(d_0-1)  exp⁡(-c h)
+        d = 1+(d_0-1)  exp(-c h)
 
     where :math:`d_0` is the initial damage and c is a material parameter. The
     damage is used to compute the frictional bound according to
@@ -4257,7 +4257,7 @@ class DilationDamage(pp.PorePyModel):
     (2014) https://doi.org/10.1002/nag.2247, as
 
     .. math::
-        d = 1+(d_0-1)  exp⁡(-c h)
+        d = 1+(d_0-1)  exp(-c h)
 
     where :math:`d_0` is the initial damage and c is a material parameter. The damage is
     used to compute the shear dilation gap according to

@@ -145,12 +145,12 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
 from porepy.models.protocol import PorePyModel
 
 # Related to models and solvers
-from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
-from porepy.numerics.linear_solvers import LinearSolver
 from porepy.models.run_models import (
     run_stationary_model,
     run_time_dependent_model,
 )
+from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
+from porepy.numerics.linear_solvers import LinearSolver
 
 
 from porepy.numerics import ad
@@ -178,7 +178,7 @@ from porepy.models.units import Units
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
-from porepy.models.solution_strategy import SolutionStrategy
+from porepy.models.solution_strategy import ModelSolverInterface, SolutionStrategy
 from porepy.models import constitutive_laws
 
 # composite subpackage

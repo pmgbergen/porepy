@@ -133,7 +133,7 @@ class ConvergenceAnalysis:
         """Initial model containing the 'base-line' information."""
 
         # We need to know whether the model is time-dependent or not
-        self._is_time_dependent: bool = model._is_time_dependent()
+        self._is_time_dependent: bool = model.is_time_dependent()
         """Whether the model is time-dependent."""
 
         if not self._is_time_dependent and self.temporal_refinement_rate > 1:
@@ -179,8 +179,8 @@ class ConvergenceAnalysis:
         """
         convergence_results: list = []
         for level in range(self.levels):
-            model = self.model_class(deepcopy(self.model_params[level]))
-            if not model._is_time_dependent():
+            model: pp.PorePyModel = self.model_class(deepcopy(self.model_params[level]))
+            if not model.is_time_dependent():
                 # Run stationary model
                 pp.run_stationary_model(model, deepcopy(self.model_params[level]))
                 # Complement information in results

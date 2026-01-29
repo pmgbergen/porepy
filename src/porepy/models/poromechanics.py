@@ -245,7 +245,7 @@ class SolutionStrategyPoromechanics(
                 scalar_vector_mappings
             )
 
-    def _is_nonlinear_problem(self) -> bool:
+    def is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
         return True
 

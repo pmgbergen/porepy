@@ -209,7 +209,7 @@ class SolutionStrategyThermoporomechanics(
             ).flux(),
         )
 
-    def _is_nonlinear_problem(self) -> bool:
+    def is_nonlinear_problem(self) -> bool:
         """The thermoporomechanics model is nonlinear."""
         return True
 

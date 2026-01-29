@@ -52,7 +52,7 @@ def stationary_mock_model():
         def prepare_simulation(self) -> None:
             """Prepare simulation. Nothing to do here."""
 
-        def _is_time_dependent(self) -> bool:
+        def is_time_dependent(self) -> bool:
             """Define whether the model is time-dependent."""
             return False
 
@@ -87,7 +87,7 @@ def time_dependent_mock_model():
             """Prepare simulation by setting minimum required arguments."""
             self.time_manager = self.set_time_manager()
 
-        def _is_time_dependent(self) -> bool:
+        def is_time_dependent(self) -> bool:
             """Define whether the model is time-dependent."""
             return True
 
@@ -486,11 +486,11 @@ def stationary_model():
 
         results: list[StationaryModelSaveData]
 
-        def _is_nonlinear_problem(self) -> bool:
+        def is_nonlinear_problem(self) -> bool:
             """Whether the model is non-linear."""
             return False
 
-        def _is_time_dependent(self) -> bool:
+        def is_time_dependent(self) -> bool:
             """Whether the model is time-dependent."""
             return False
 
@@ -551,11 +551,11 @@ def time_dependent_model():
 
         results: list[TimeDependentModelSaveData]
 
-        def _is_nonlinear_problem(self) -> bool:
+        def is_nonlinear_problem(self) -> bool:
             """Whether the problem is non-linear."""
             return True
 
-        def _is_time_dependent(self) -> bool:
+        def is_time_dependent(self) -> bool:
             """Whether the problem is time-dependent."""
             return True
 

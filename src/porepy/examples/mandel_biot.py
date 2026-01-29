@@ -1395,7 +1395,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         if self.params.get("plot_results", False):
             self.plot_results()
 
-    def _is_nonlinear_problem(self) -> bool:
+    def is_nonlinear_problem(self) -> bool:
         """The problem is linear."""
         return False
 

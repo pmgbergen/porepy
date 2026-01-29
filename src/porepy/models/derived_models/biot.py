@@ -66,7 +66,7 @@ fluid dynamic viscosity.
 
 References:
 
-    - [1] Biot, M. A. (1941). General theory of three‐dimensional consolidation.
+    - [1] Biot, M. A. (1941). General theory of three-dimensional consolidation.
       Journal of applied physics, 12(2), 155-164.
 
     - [2] Lewis, R. W., & Schrefler, B. A. (1987). The finite element method in the

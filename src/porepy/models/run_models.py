@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Union
+from typing import Optional, TypeVar, no_type_check
 
 import numpy as np
 
@@ -18,7 +18,11 @@ from porepy.utils.ui_and_logging import progressbar_class
 logger = logging.getLogger(__name__)
 
 
-def run_stationary_model(model, params: dict) -> None:
+ModelType = TypeVar("ModelType", bound=pp.PorePyModel)
+"""Type variable for objects inheriting from the PorePy model protocol."""
+
+
+def run_stationary_model(model: ModelType, params: dict) -> None:
     """Run a stationary model.
 
     Note:
@@ -46,7 +50,7 @@ def run_stationary_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
+def run_time_dependent_model(model: ModelType, params: Optional[dict] = None) -> None:
     """Run a time dependent model.
 
     Note:
@@ -144,7 +148,10 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     model.after_simulation()
 
 
-def _run_iterative_model(model, params: dict) -> None:
+# TODO Model attributes here are nowhere defined, likely an artifact of fracture
+# propagation. Mark for deprecation?
+@no_type_check
+def _run_iterative_model(model: ModelType, params: dict) -> None:
     """Run an iterative model.
 
     The intended use is for multi-step models with iterative couplings. Only known
@@ -246,7 +253,7 @@ def _run_iterative_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def _choose_solver(model, params: dict) -> Union[pp.LinearSolver, pp.NewtonSolver]:
+def _choose_solver(model: ModelType, params: dict) -> pp.LinearSolver | pp.NewtonSolver:
     """Choose between linear and non-linear solver.
 
     Parameters:
@@ -258,7 +265,7 @@ def _choose_solver(model, params: dict) -> Union[pp.LinearSolver, pp.NewtonSolve
     """
     if "nonlinear_solver" in params:
         solver = params["nonlinear_solver"](params)
-    elif model._is_nonlinear_problem():
+    elif model.is_nonlinear_problem():
         solver = pp.NewtonSolver(params)
     else:
         solver = pp.LinearSolver(params)

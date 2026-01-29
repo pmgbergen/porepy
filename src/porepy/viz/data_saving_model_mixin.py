@@ -63,7 +63,7 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Collecting and storing data in runtime for analysis. If default value of None
         # is returned, nothing is stored to not burden memory.
-        if not self._is_time_dependent():  # stationary problem
+        if not self.is_time_dependent():  # stationary problem
             if (
                 self.nonlinear_solver_statistics.num_iteration > 0
             ):  # avoid saving initial condition
@@ -345,7 +345,7 @@ class IterationExporting(pp.PorePyModel):
         iterate subdictionary.
 
         """
-        super().after_nonlinear_iteration(solution_vector)  # type: ignore[misc]
+        super().after_nonlinear_iteration(solution_vector)  # type: ignore[safe-super]
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
 

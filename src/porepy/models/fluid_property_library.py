@@ -1277,7 +1277,7 @@ class ConstantViscosity(pp.PorePyModel):
 
 
 class ConstantFluidThermalConductivity(pp.PorePyModel):
-    """Ïmplementation of a constant thermal conductivity for a single-phase fluid."""
+    """Implementation of a constant thermal conductivity for a single-phase fluid."""
 
     def thermal_conductivity_of_phase(
         self, phase: pp.Phase
