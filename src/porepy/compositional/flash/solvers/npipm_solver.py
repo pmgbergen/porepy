@@ -48,7 +48,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
     "npipm_penalty_neg": 1.0,
     "npipm_slack_decline": 0.5,
     "armijo_step_size": 0.99,
-    "armijo_decline": 0.4,
+    "armijo_decline": 1e-4,
     "armijo_max_iterations": 50.0,
     "rpc_T": 1.0,
     "rpc_T_damp": 1.0,
@@ -335,7 +335,7 @@ def _feasible_fractions_scale(
 
     """
     alpha = 1.0  # Default scale.
-    rel_tol = 1e-2  # Default relative scale for fractions denoting significance.
+    rel_tol = 1e-3  # Default relative scale for fractions denoting significance.
 
     emv = 1.0 - v
     v0 = np.abs(v) < eps
@@ -360,6 +360,11 @@ def _feasible_fractions_scale(
     dx, dy = parse_xy(d, n_C, n_P)
     vx, vy = parse_xy(v, n_C, n_P)
 
+    # NOTE phase fractions contain 1 dependent variable. The net-change for the
+    # dependent phase fraction is different. This does not hold for partial fractions
+    # as they are all independent in the persistent-variable formulation.
+    dy[0] = -dy[1:].sum()
+
     sdy = dy.sum()
     sy = vy.sum()
     asdy = np.abs(sdy)
@@ -376,6 +381,13 @@ def _feasible_fractions_scale(
     return alpha
 
 
+@_COMPILER(
+    nb.types.Tuple((nb.f8[:], nb.f8, nb.f8, nb.f8))(
+        nb.f8[:, :], nb.f8[:], nb.bool, nb.f8
+    ),
+    fastmath=NUMBA_FAST_MATH,
+    cache=True,
+)
 def get_descent(
     A: np.ndarray,
     b: np.ndarray,
@@ -413,6 +425,7 @@ def get_descent(
     tau_min = 0.0
 
     d = b.copy()  # default return value is steepest-descent direction
+    g = A.T @ b
 
     # Do Newton, if not requested to go directly to LM.
     if not do_LM:
@@ -422,7 +435,7 @@ def get_descent(
             do_LM = True
         else:
             # Newton found a descend direction.
-            if d.dot(b) > descent_tol * np.linalg.norm(
+            if d.dot(g) > descent_tol * np.linalg.norm(
                 d
             ):  # Descending direction found.
                 return d, tau_min, tau, tau_max
@@ -441,7 +454,7 @@ def get_descent(
         while tau < tau_max:
             d_LM = np.linalg.solve(B + tau * I, c)
             # LM found descend direction. Assign to d and break.
-            if d_LM.dot(b) > descent_tol * np.linalg.norm(d_LM):
+            if d_LM.dot(g) > descent_tol * np.linalg.norm(d_LM):
                 d = d_LM
                 break
             # Else increase regularization by 1 order.
@@ -473,7 +486,8 @@ def npipm(
     # Default return values.
     num_iter = 0
     exitcode = 1
-    EPS = np.finfo(np.float64).eps
+    # Fractional values below this value are considered 0.
+    eps_frac = 1e-8
 
     # region Extracting system and user-given parameters.
     f_dim = int(params["f_dim"]) + 1  # + Slack variable
@@ -502,9 +516,15 @@ def npipm(
     aa_reg = float(params["anderson_acceleration_regularization"])
     # endregion
 
+    # region System set-up
+    # Get generic argument for easy access to constant parts.
     gen_arg = parse_generic_arg(X0, n_C, n_P, spec)
 
-    # region Right-preconditioning for non-isothermal or isochoric flashes.
+    # Scaling for right-preconditioning pressure and temperature values for higher
+    # flashes. Making pressure and temperature non-dimensional.
+    # NOTE we must fix the eps for rcond used in least-squares (Anderson) because it is
+    # different depending on JIT mode.
+    EPS = f_dim * np.finfo(np.float64).eps
     do_rpc_T = False
     rpc_T_idx = -1  # Default value, not used.
     T_rpc = 1.0
@@ -521,17 +541,6 @@ def npipm(
         # Shift index because T-derivatives come after p-derivatives.
         rpc_T_idx += 1
         do_rpc_p = True
-    # endregion
-
-    # region System set-up
-    # NOTE rcond is the limit to cutting off singular values.
-    # This has quite large effects on the robustness of the flash in the
-    # vh case for example, which is not yet fully understood.
-    # NOTE also, the default value in numba is machine precision, while
-    # with no-jit (pure numpy) is shape[0] * eps.
-    # The latter is chosen and set to avoid differences between jit and
-    # no-jit computations.
-    rcond = float(f_dim * EPS)
 
     # Generic part of the flash argument vector.
     X_gen = X0[: -f_dim + 1].copy()
@@ -586,12 +595,14 @@ def npipm(
     tau_min = 1e-8  # Minimal value.
     tau_max = 1e6  # Maximal value.
     do_LM = False  # Levenberg-Marquardt normalization
-    alpha_min = 1e-7  # Minimal step size.
+    alpha_min = 1e-5  # Minimal step size.
     alpha_max = 1.0  # Maximal step size.
 
-    tr_delta_min = 1e-8  # Smallest trust-region radius
+    tr_delta_min = 1e-4 * tr_delta  # Smallest trust-region radius
     tr_delta_max = 1e2  # Largest trust-region radius
-    ls_dec_min = 1e-6  # Smallest decrease required by linesearch
+    # Descent criteria in line search.
+    # NOTE Increase lc_dec_min if too many small updates
+    ls_dec_min = 1e-5  # Smallest decrease required by linesearch
     ls_dec_max = 0.45  # Largest decrease required by linesearch
     ls_ss_min = 0.5  # Smallest line search step size.
     ls_ss_max = 0.99  # Largest line search step size.
@@ -600,12 +611,14 @@ def npipm(
     tau_hist = np.zeros(5)
     res_history = np.zeros(10)
 
-    eps_stag = 1e-3  # Relative tolerance for detecting stagnation.
+    # Relative tolerances for detecting cycling/stagnation. NOTE Tighten for subtle
+    # changes when near-critical or near-phase border.
+    eps_stag = 1e-3
+    eps_cyc = 1e-2
     stag_window = 5  # Last m residuals to detect stagnation.
     is_stagnating = False
-    lb_stag = 0.995  # Lower bound for residual slope in case of stagnation.
+    lb_stag = 0.99  # Lower bound for residual slope in case of stagnation.
 
-    eps_cyc = 1e-2  # Relative tolerance for detecting cycling
     max_cycle = 6  # Expecting cycles of size 2 .. max_cycle - 1.
     was_cycling = False
     is_cycling = False
@@ -640,6 +653,7 @@ def npipm(
                 break
 
             alpha = alpha_max  # Initial step size.
+            alpha_min = 1e-5 * alpha_max
             A = df_i
             if do_rpc_T:
                 A[:, rpc_T_idx] *= T_rpc
@@ -648,6 +662,7 @@ def npipm(
 
             dX_i, tau_min, tau, tau_max = get_descent(A, -f_i, do_LM, tau)
 
+            # Catch divergence early to avoid unexplainable crashes.
             if np.any(np.isnan(dX_i)) or np.any(np.isinf(dX_i)):
                 exitcode = 2
                 break
@@ -671,18 +686,15 @@ def npipm(
                     b = B.T @ b
                     B = B.T @ B + aa_reg * np.eye(B.shape[1])
 
-                h = np.linalg.lstsq(B, b, rcond=rcond)[0]
-
+                h = np.linalg.lstsq(B, b, rcond=EPS)[0]
                 dX_i = gk - np.dot(Gk[:, :mk], h) - X_i
             # endregion
 
             # region Trust-region and feasibility scaling
-            dX_i *= _trust_region_scale(dX_i[:-1], tr_delta)
-            f2b = _feasible_fractions_scale(X_i[:-1], dX_i[:-1], n_C, n_P, 1e-8, 1e-12)
+            alpha *= _trust_region_scale(dX_i[:-1], tr_delta)
+            f2b = _feasible_fractions_scale(X_i[:-1], dX_i[:-1], n_C, n_P, 1e-8, 1e-10)
             if f2b < 1.0:
-                f2b *= tr_f2b
-            dX_i *= f2b
-            alpha *= f2b
+                alpha *= tr_f2b * f2b
             # endregion
 
             if do_rpc_T:
@@ -762,9 +774,9 @@ def npipm(
                 tau = min(tau_max, tau * 10.0)
                 tr_delta = max(0.5 * tr_delta, tr_delta_min)
 
-            if alpha < 1e-3 or tau > 0.5 * tau_max:
+            if alpha < 1e-3 * alpha_max or tau > 0.5 * tau_max:
                 ls_dec = max(ls_dec * 0.5, ls_dec_min)
-            elif alpha > 1 - rcond:
+            elif alpha > 0.9 * alpha_max:
                 ls_dec = min(ls_dec * 1.25, ls_dec_max)
 
             # endregion
@@ -789,7 +801,9 @@ def npipm(
                 # First, adapt solver params to stagnation.
                 if is_stagnating:
                     # Stagnation and low progress -> mobilize
-                    if (np.linalg.norm(dX_i) < 1e-4) and res_history[-1] < 1.0:
+                    if (
+                        np.linalg.norm(dX_i) / np.linalg.norm(X_i) < 1e-4
+                    ) and res_history[-1] < 1.0:
                         if iter_cyst_detected == num_iter:
                             alpha_max = 2.0
                         elif num_iter >= iter_cyst_detected + 3:
@@ -879,7 +893,7 @@ def npipm(
                             # NOTE Perturbing phase fractions is tricky as it often has
                             # a deteriorating effect. Requires more thinking.
                             # if xj.sum() <= 1.0 - 1e-3:
-                            if y[j] < 1e-7:
+                            if y[j] < eps_frac:
                                 xj = (xj + z + 1 / n_C) / 3.0
                                 # Keep fractions feasible.
                                 sxj = xj.sum()
@@ -893,7 +907,7 @@ def npipm(
 
                     # If was_cycling and one of the y is zero, likely stuck at border.
                     # Relaxe fraction-to-boundary-rule
-                    if was_cycling and np.any(y < 1e-6):
+                    if was_cycling and np.any(y < eps_frac):
                         tr_f2b = 0.999
 
                     # If cycling or stagnation and no progress, investigate
@@ -907,10 +921,11 @@ def npipm(
                         tr_delta = max(tr_delta * 0.5, tr_delta_min)
                         Jf = float(np.linalg.norm(df_i.flatten()))  # Frobenius
                         gn2 = grad_merit.dot(grad_merit)  # gradient norm squared
-                        # TODO revise this criterion for no progress.
+
                         # We check first, if we are at a stationary point where we lost
                         # all sensitivy due to small gradient. If yes, perturb slightly.
-                        if gn2 < (tol * max(1.0, Jf)) ** 2:
+                        if gn2 < tol * max(1.0, Jf) ** 2:
+                            # NOTE tighten to 1e-7 if perturbation leads to worsening.
                             X_i += 1e-6 * np.maximum(np.abs(X_i), 1.0)
                         # Else investigate conditioning and react.
                         else:
@@ -926,6 +941,6 @@ def npipm(
     if np.any(np.isnan(X_i)) or np.any(np.isinf(X_i)):
         # Return initial guess back to not break subsequent code.
         X_i[:-1] = X0[-f_dim + 1 :].copy()
-        assert exitcode > 1, "Expecting exitcode > 1 in case of divergence."
+        assert exitcode > 1, "Expecting exitcode > 1 in case of failure."
 
     return np.hstack((X_gen, X_i[:-1])), exitcode, num_iter
