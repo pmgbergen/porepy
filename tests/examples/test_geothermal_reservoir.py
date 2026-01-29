@@ -9,36 +9,35 @@ import porepy as pp
 import pytest
 from porepy.examples.geothermal_reservoir import (
     GeothermalReservoirWellBCs,
+    NeumannWellBCsFirstTimeInterval, 
 )
+import porepy.applications.md_grids.model_geometries
+from porepy.applications.test_utils import models, well_models
 
-@pytest.fixture
-def geothermal_model():
+class geothermal_model(
+    well_models.OneVerticalWell,
+    porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+    NeumannWellBCsFirstTimeInterval,
+    pp.Poromechanics,
+):
+    pass
 
-    model = GeothermalReservoirWellBCs()
-    model.prepare_simulation()
+model = geothermal_model()
+model.prepare_simulation()
 
-    return model
-
-@pytest.fixture
-def well_subdomains(geothermal_model): 
-    model = geothermal_model
-    wells = [
-        sd for sd in model.mdg.subdomains()
-        if "parent_well_index" in sd.tags
-    ]
+def well_subdomains(): 
+    wells = [sd for sd in model.mdg.subdomains() if model.is_well_grid(sd)]
+ 
     assert len(wells) > 0
     return wells
 
-def test_NeumannWellBCs_in_FirstTimeInterval(
-    geothermal_model, well_subdomains
-): 
+def test_NeumannWellBCs_in_FirstTimeInterval(): 
     """
     Test that well grids have Neumann BCs during the first time interval.
     """
-    model = geothermal_model
     model.time_manager.time = model.time_manager.schedule[0]
-
-    for sd in well_subdomains:
+    for sd in well_subdomains():
         bc = model.bc_type_darcy_flux(sd)
         assert not np.any(bc.is_dir)
+
 
