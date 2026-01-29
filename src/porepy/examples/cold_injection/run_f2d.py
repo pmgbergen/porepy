@@ -37,7 +37,6 @@ from datetime import datetime
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-
 from porepy.examples.cold_injection.config import MODEL_PARAMS
 from porepy.examples.cold_injection.geometry import PointWells
 from porepy.examples.cold_injection.model import (

@@ -20,13 +20,7 @@ from __future__ import annotations
 import logging
 import time
 from functools import cached_property, partial
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Optional,
-    Sequence,
-    cast,
-)
+from typing import TYPE_CHECKING, Callable, Optional, Sequence, cast
 
 import numpy as np
 

@@ -12,11 +12,7 @@ import numpy as np
 
 from ..._numba_interface import NUMBA_CACHE, NUMBA_FAST_MATH, njit
 from ...utils import FlashSpec
-from ..flash_equations import parse_xy, parse_generic_arg
-from ._armijo_line_search import (  # armijo_line_search,
-    _ARMIJO_LINE_SEARCH_PARAMS_KEYS,
-    DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,
-)
+from ..flash_equations import parse_generic_arg, parse_xy
 from ._core import SOLVER_FUNCTION_SIGNATURE
 
 __all__ = [
@@ -29,41 +25,40 @@ _COMPILER = njit
 """Compiler to be used for functions in this module."""
 
 
-_NPIPM_SOLVER_PARAMS_KEYS: TypeAlias = Literal[
-    "npipm_penalty_cc",
-    "npipm_penalty_neg",
-    "npipm_slack_decline",
-    "rpc_T",
-    "rpc_T_damp",
-    "rpc_p",
-    "rpc_p_damp",
-    "trustregion_delta",
-    "trustregion_fraction_to_boundary",
-    "anderson_acceleration",
-    "anderson_acceleration_regularization",
-]
-"""Keys (names) for NPIPM solver parameters."""
-
-
 DEFAULT_NPIPM_SOLVER_PARAMS: dict[
-    Literal[_NPIPM_SOLVER_PARAMS_KEYS, _ARMIJO_LINE_SEARCH_PARAMS_KEYS],
+    Literal[
+        "npipm_penalty_cc",
+        "npipm_penalty_neg",
+        "npipm_slack_decline",
+        "armijo_step_size",
+        "armijo_decline",
+        "armijo_max_iterations",
+        "rpc_T",
+        "rpc_T_damp",
+        "rpc_p",
+        "rpc_p_damp",
+        "trustregion_delta",
+        "trustregion_fraction_to_boundary",
+        "anderson_acceleration",
+        "anderson_acceleration_regularization",
+    ],
     float,
-] = dict(
-    **{
-        "npipm_penalty_cc": 1.0,
-        "npipm_penalty_neg": 1.0,
-        "npipm_slack_decline": 0.5,
-        "rpc_T": 1.0,
-        "rpc_T_damp": 1.0,
-        "rpc_p": 1.0,
-        "rpc_p_damp": 1.0,
-        "trustregion_delta": 0.5,
-        "trustregion_fraction_to_boundary": 0.95,
-        "anderson_acceleration": 0,
-        "anderson_acceleration_regularization": 1e-7,
-    },
-    **DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,  # type:ignore[arg-type,dict-item]
-)
+] = {
+    "npipm_penalty_cc": 1.0,
+    "npipm_penalty_neg": 1.0,
+    "npipm_slack_decline": 0.5,
+    "armijo_step_size": 0.99,
+    "armijo_decline": 0.4,
+    "armijo_max_iterations": 50.0,
+    "rpc_T": 1.0,
+    "rpc_T_damp": 1.0,
+    "rpc_p": 1.0,
+    "rpc_p_damp": 1.0,
+    "trustregion_delta": 0.5,
+    "trustregion_fraction_to_boundary": 0.95,
+    "anderson_acceleration": 0,
+    "anderson_acceleration_regularization": 1e-7,
+}
 """Default solver parameters required by the :func:`npipm_solver`.
 
 - ``'npipm_penalty_cc': 1.`` penalty for violating complementarity.
@@ -486,14 +481,23 @@ def npipm(
     n_P = int(params["num_phases"])
     tol = float(params["tolerance"])
     max_iter = int(params["max_iterations"])
-    ls_ss = float(params["armijo_step_size"])
-    ls_dec = float(params["armijo_decline"])
-    ls_max_iter = int(params["armijo_max_iterations"])
+
     npipm_cc = float(params["npipm_penalty_cc"])
     npipm_neg = float(params["npipm_penalty_neg"])
     npipm_dec = float(params["npipm_slack_decline"])
-    tr_f2b = float(params["trustregion_fraction_to_boundary"])
+
+    ls_ss = float(params["armijo_step_size"])
+    ls_dec = float(params["armijo_decline"])
+    ls_max_iter = int(params["armijo_max_iterations"])
+
+    T_rpc = float(params["rpc_T"])
+    rpc_T_damp = float(params["rpc_T_damp"])
+    p_rpc = float(params["rpc_p"])
+    rpc_p_damp = float(params["rpc_p_damp"])
+
     tr_delta = float(params["trustregion_delta"])
+    tr_f2b = float(params["trustregion_fraction_to_boundary"])
+
     aa_depth = int(params["anderson_acceleration"])
     aa_reg = float(params["anderson_acceleration_regularization"])
     # endregion
@@ -504,19 +508,15 @@ def npipm(
     do_rpc_T = False
     rpc_T_idx = -1  # Default value, not used.
     T_rpc = 1.0
-    rpc_T_damp = float(params["rpc_T_damp"])
     do_rpc_p = False
     rpc_p_idx = -1
     p_rpc = 1.0
-    rpc_p_damp = float(params["rpc_p_damp"])
 
     if spec not in (FlashSpec.pT, FlashSpec.vT):
-        T_rpc = float(params["rpc_T"])
         rpc_T_idx = 0
         do_rpc_T = True
 
     if spec >= FlashSpec.vT:
-        p_rpc = float(params["rpc_p"])
         rpc_p_idx = 0
         # Shift index because T-derivatives come after p-derivatives.
         rpc_T_idx += 1

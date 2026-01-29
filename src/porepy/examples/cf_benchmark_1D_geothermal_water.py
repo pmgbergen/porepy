@@ -374,7 +374,7 @@ class GeothermalWaterModel(  # type:ignore[misc]
         print("")
 
     def data_to_export(self):
-        data: list = super().data_to_export()
+        data = super().data_to_export()
 
         for sd in self.mdg.subdomains():
             data.append(

@@ -215,11 +215,14 @@ class AbstractFlash(abc.ABC):
 
         self.solver_params: dict[str, float] = {
             "tolerance": 1e-8,
-            "max_iterations": 150.0,
+            "max_iterations": 100.0,
             "num_phases": float(fluid.num_phases),
             "num_components": float(fluid.num_components),
         }
         """A dictionary containing solver parameters.
+
+        Base class provides all general solver parameters, except the flash dimension
+        which must be provided inside a call to :meth:`flash`.
 
         Note:
             Expects values which are convertible to floats. Numba is extensively used

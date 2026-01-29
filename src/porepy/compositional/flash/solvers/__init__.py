@@ -10,16 +10,13 @@ import numpy as np
 __all__ = []
 
 from . import _core
-from ._armijo_line_search import DEFAULT_ARMIJO_LINE_SEARCH_PARAMS, armijo_line_search
 from ._core import *
 from .brent_method import DEFAULT_BRENT_PARAMS, brent
 from .npipm_solver import DEFAULT_NPIPM_SOLVER_PARAMS, npipm
 
 __all__ = [
-    "armijo_line_search",
     "brent",
     "npipm",
-    "DEFAULT_ARMIJO_LINE_SEARCH_PARAMS",
     "DEFAULT_BRENT_PARAMS",
     "DEFAULT_NPIPM_SOLVER_PARAMS",
     "SOLVERS",

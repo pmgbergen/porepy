@@ -13,8 +13,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.models.compositional_flow_with_equilibrium as cfle
-
-from porepy.examples.flow_benchmark_3d_case_4 import Geometry as Geometry3D
 from porepy.examples.cold_injection.config import MODEL_PARAMS
 from porepy.examples.cold_injection.model import (
     BuoyancyModel,
@@ -23,6 +21,7 @@ from porepy.examples.cold_injection.model import (
     NoFluxRediscretization,
     set_schur_complement,
 )
+from porepy.examples.flow_benchmark_3d_case_4 import Geometry as Geometry3D
 
 
 BUOYANCY_ON = False
