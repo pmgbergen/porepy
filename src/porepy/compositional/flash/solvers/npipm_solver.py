@@ -404,15 +404,18 @@ def get_descent(
 
     """
 
-    EPS = A.shape[0] * np.finfo(np.float64).eps
+    # Relative tolerance for descent criterion.
+    descent_tol = 1e-7 * np.linalg.norm(b)
 
     # Updated bounds for regularization parameter.
     # Frobenius norm to estimate maximum singular value, square it for JtJ.
-    Af = float(np.linalg.norm(A.flatten()))
+    Af = A.flatten()
 
-    tau_min = 1e-8 * Af
-    tau_max = Af**2
-    tau_loc = tau
+    # Squared Frobenius norm. Singular values of A.T @ A are smaller than this value.
+    tau_max = float(Af.dot(Af))
+    # This value is returned if Newton succeeds in finding a descent direction.
+    # I.e., the Matrix is not close to singular, so regularization is not needed.
+    tau_min = 0.0
 
     d = b.copy()  # default return value is steepest-descent direction
 
@@ -424,8 +427,10 @@ def get_descent(
             do_LM = True
         else:
             # Newton found a descend direction.
-            if d.dot(b) > EPS:  # Descending direction found.
-                return d, tau_min, tau_loc, tau_max
+            if d.dot(b) > descent_tol * np.linalg.norm(
+                d
+            ):  # Descending direction found.
+                return d, tau_min, tau, tau_max
             else:
                 do_LM = True
 
@@ -434,23 +439,21 @@ def get_descent(
         c = A.T @ b
         I = np.eye(B.shape[0])
 
-        # Gershgorin lower-bound for eigenvalues of B.
-        # B is SPSD, semi-definite. Lg <= hints at singularity, but it is a loose bound
-        # it can also be negative for non-singular matrices.
-        dB = np.diag(B)
-        Lg = np.min(dB - (np.sum(np.abs(B), axis=1) - np.abs(dB)))
+        # Refine lower bound since B is computed.
+        tau_min = 1e-6 * np.diag(B).max()
+        tau = max(tau_min, tau)
 
-        while tau_loc < tau_max:
-            d_LM = np.linalg.solve(B + tau_loc * I, c)
+        while tau < tau_max:
+            d_LM = np.linalg.solve(B + tau * I, c)
             # LM found descend direction. Assign to d and break.
-            if d_LM.dot(b) > EPS:
+            if d_LM.dot(b) > descent_tol * np.linalg.norm(d_LM):
                 d = d_LM
                 break
             # Else increase regularization by 1 order.
             else:
-                tau_loc *= 10
+                tau *= 10
 
-    return d, tau_min, tau_loc, tau_max
+    return d, tau_min, tau, tau_max
 
 
 @_COMPILER(SOLVER_FUNCTION_SIGNATURE, cache=NUMBA_CACHE)
@@ -696,6 +699,8 @@ def npipm(
             # region Armijo line search.
             pot_i = f_i.dot(f_i) * 0.5
             pot_i_j = pot_i
+            grad_merit = df_i.T @ f_i
+            lin_dec = grad_merit.dot(dX_i)
             alpha_j = 1.0
 
             for j in range(0, ls_max_iter + 1):
@@ -715,7 +720,8 @@ def npipm(
 
                 pot_i_j = f_i_j.dot(f_i_j) * 0.5
 
-                if pot_i_j <= (1 - 2 * ls_dec * alpha_j) * pot_i:
+                # if pot_i_j <= (1 - 2 * ls_dec * alpha_j) * pot_i:
+                if pot_i_j <= pot_i + ls_dec * alpha_j * lin_dec:
                     break
                 # If update becomes too small, risking progress, break.
                 if alpha_j < alpha_min:
@@ -741,6 +747,8 @@ def npipm(
 
             tau_hist = np.roll(tau_hist, -1)
             tau_hist[-1] = tau
+            tr_delta_hist = np.roll(tr_delta_hist, -1)
+            tr_delta_hist[-1] = tr_delta
 
             # Actual reduction of potential divided by linearized decline of merit
             # function.
@@ -748,15 +756,10 @@ def npipm(
             # If actual reduction is large enough, decrease tau.
             if reduction > 0.75:
                 tau = max(tau_min, tau * 0.1)
+                tr_delta = min(1.5 * tr_delta, tr_delta_max)
             # If actual reduction is too small, increase tau.
             elif reduction < 0.25:
                 tau = min(tau_max, tau * 10.0)
-
-            tr_delta_hist = np.roll(tr_delta_hist, -1)
-            tr_delta_hist[-1] = tr_delta
-            if alpha > 0.75:
-                tr_delta = min(1.5 * tr_delta, tr_delta_max)
-            elif alpha < 0.25:
                 tr_delta = max(0.5 * tr_delta, tr_delta_min)
 
             if alpha < 1e-3 or tau > 0.5 * tau_max:
@@ -900,9 +903,10 @@ def npipm(
                     )
 
                     if no_progress:
+                        # Restrict steps be precise.
+                        tr_delta = max(tr_delta * 0.5, tr_delta_min)
                         Jf = float(np.linalg.norm(df_i.flatten()))  # Frobenius
-                        g = df_i.T @ f_i
-                        gn2 = g.dot(g)  # gradient  norm squared
+                        gn2 = grad_merit.dot(grad_merit)  # gradient norm squared
                         # TODO revise this criterion for no progress.
                         # We check first, if we are at a stationary point where we lost
                         # all sensitivy due to small gradient. If yes, perturb slightly.
