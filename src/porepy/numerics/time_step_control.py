@@ -103,7 +103,8 @@ __all__ = ["TimeManager", "TimeSteppingError"]
 
 
 class TimeSteppingError(Exception):
-    """Error class dedicated to mathematical errors in time stepping algorithms.
+    """Exception class dedicated to mathematical errors in time stepping algorithms
+    leading to simulation failure.
 
     To be used for when the time stepping strategy fails to reach the simulation end
     time, e.g. due to nonlinear failure with constant or minimal admissible time step
