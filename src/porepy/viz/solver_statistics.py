@@ -203,11 +203,19 @@ class SolverStatistics:
             dict: Updated dictionary with all data.
 
         """
+        # Disable appending in invalid mode.
+        if self.index == -1:
+            return data
+
+        # Initialize index entry if non-existing.
         if str(self.index) not in data:
             data[str(self.index)] = {}
+
+        # Append data.
         data = self.append_global_data(data)
         data = self.append_iterative_data(data)
         data = self.append_custom_data(data)
+
         return data
 
     def save(self) -> None:
