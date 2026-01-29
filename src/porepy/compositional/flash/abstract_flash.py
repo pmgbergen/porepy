@@ -5,7 +5,6 @@ from __future__ import annotations
 import abc
 import logging
 from dataclasses import dataclass, field
-from enum import IntEnum
 from typing import Any, NotRequired, Optional, Sequence, TypeAlias, TypedDict, cast
 
 import numpy as np
