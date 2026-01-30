@@ -867,21 +867,26 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF):
 
     def set_flash(self) -> None:
         """Sub-routine of :meth:`set_materials` to set the flash class for equilibrium
-        calculations, after the fluid is defined."""
+        calculations, after the fluid is defined.
+
+        The base method uses the :class:`~porepy.compositional.flash.
+        persistent_variable_flash.CompiledPersistentVariableFlash` and the
+        :class:`~porepy.compositional.flash.flash_initializer.
+        HeuristicTwoPhaseInitializer`.
+
+        """
 
         # Import here for runtime reasons of global import (compilation).
-        import porepy.compositional.compiled_eos as ceos
         import porepy.compositional.flash as pf
 
-        self.flash = pf.CompiledPersistentVariableFlash(
-            self.fluid,
-            self.params.get("flash_params", None),  # type:ignore[arg-type]
-        )
+        params = cast(dict, self.params.get("flash_params", {}))
+        assert isinstance(params, dict), "'flash_params' expected to be dictionary."
+        if "initializer" not in params:
+            params["initializer"] = pf.HeuristicTwoPhaseInitializer
+
+        self.flash = pf.CompiledPersistentVariableFlash(self.fluid, params=params)
 
         if self.params.get("compile", True):
-            assert isinstance(self.fluid.reference_phase.eos, ceos.CompiledEoS), (
-                "EoS of phases must be instance of CompiledEoS."
-            )
             self.flash.compile(*self.params.get("flash_compiler_args", tuple()))
 
     def update_derived_quantities(self):

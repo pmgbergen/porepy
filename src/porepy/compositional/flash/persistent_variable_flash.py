@@ -30,7 +30,7 @@ import numpy as np
 
 import porepy as pp
 
-from .._numba_interface import njit
+from .._numba_interface import get_empty_numba_dict, njit
 from ..compiled_eos import CompiledEoS
 from ..utils import FlashSpec, _chainrule_fractional_derivatives, normalize_rows
 from .abstract_flash import AbstractFlash, FlashResults, StateSpecDict
@@ -49,14 +49,13 @@ from .flash_equations import (
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
 )
-from .flash_initializer import FlashInitializer
+from .flash_initializer import FlashInitializer, UniformFlashInitializer
 from .solvers import (
     DEFAULT_SOLVER_PARAMS,
     FLASH_JACOBIAN_SIGNATURE,
     FLASH_RESIDUAL_SIGNATURE,
     MULTI_SOLVERS,
     SOLVERS,
-    get_empty_solver_params,
 )
 
 __all__ = ["CompiledPersistentVariableFlash"]
@@ -136,13 +135,13 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         """A sequence containing the physical phase state per phase."""
 
         eos = fluid.reference_phase.eos
-        assert isinstance(eos, CompiledEoS)
+        assert isinstance(eos, CompiledEoS), "Expecting compiled EoS."
         self._eos: CompiledEoS = eos
         """Compiled EoS of the reference phase, assuming all phases have the same EoS.
         """
 
         initializer: type[FlashInitializer] = self.params.get(
-            "initializer", FlashInitializer
+            "initializer", UniformFlashInitializer
         )
         self.initializer: FlashInitializer = initializer(fluid)
         """Flash initializer passed during instantiation.
@@ -216,7 +215,7 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         numba-conformal type."""
 
         if not hasattr(self, "_nb_solver_params"):
-            self._nb_solver_params = get_empty_solver_params()
+            self._nb_solver_params = get_empty_numba_dict()
 
         for k, v in solver_params.items():
             self._nb_solver_params[k] = float(v)

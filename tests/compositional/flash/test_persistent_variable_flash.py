@@ -59,11 +59,16 @@ def flash(
         def __init__(self, fluid, params=None):
             pass
 
+        def __getitem__(self, key):
+            return lambda x: x
+
         def compile(self, *args):
             pass
 
     fluid = pp.Fluid(components, phases)
-    fl = pf.CompiledPersistentVariableFlash(fluid, {"initializer": DummyInitializer})
+    fl = pf.CompiledPersistentVariableFlash(
+        fluid, params={"initializer": DummyInitializer}
+    )
     return fl
 
 

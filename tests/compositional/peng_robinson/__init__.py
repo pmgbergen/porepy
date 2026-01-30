@@ -6,7 +6,7 @@ from __future__ import annotations
 # NOTE: Consider making this either default for all tests, and run the tests in pure
 # Python, or somehow parametrize the test suite, which runs the compiled code only
 # during the weekend.
-import os
+# import os
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 from threading import Lock

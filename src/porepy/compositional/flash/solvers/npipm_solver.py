@@ -524,7 +524,7 @@ def npipm(
     # flashes. Making pressure and temperature non-dimensional.
     # NOTE we must fix the eps for rcond used in least-squares (Anderson) because it is
     # different depending on JIT mode.
-    EPS = f_dim * np.finfo(np.float64).eps
+    EPS = float(f_dim * np.finfo(np.float64).eps)
     do_rpc_T = False
     rpc_T_idx = -1  # Default value, not used.
     T_rpc = 1.0

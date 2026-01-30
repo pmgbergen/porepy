@@ -3,13 +3,13 @@ problem."""
 
 from __future__ import annotations
 
+import abc
 import logging
 import time
 from functools import partial
 from typing import Callable, Optional, cast
 
-import numba
-import numba.typed
+import numba as nb
 import numpy as np
 
 import porepy as pp
@@ -20,6 +20,7 @@ from .._numba_interface import (
     NUMBA_FAST_MATH,
     NUMBA_PARALLEL,
     cfunc,
+    get_empty_numba_dict,
     njit,
     typeof,
 )
@@ -43,7 +44,11 @@ from .flash_equations import (
 )
 from .solvers._core import SOLVER_PARAMETERS_TYPE
 
-__all__ = ["FlashInitializer"]
+__all__ = [
+    "FlashInitializer",
+    "UniformFlashInitializer",
+    "HeuristicTwoPhaseInitializer",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +63,7 @@ Uses :func:`~porepy.compositional._numba_interface.njit`
 # region Rachford-Rice equations
 
 
-@_COMPILER(
-    numba.f8[:](numba.f8[:], numba.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True
-)
+@_COMPILER(nb.f8[:](nb.f8[:], nb.f8[:, :]), fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     """
     Parameters:
@@ -81,7 +84,7 @@ def _rr_poles(y: np.ndarray, K: np.ndarray) -> np.ndarray:
     return 1 + (K.T - 1) @ y[1:]  # K-values given for each independent phase
 
 
-@_COMPILER(numba.f8(numba.f8[:], numba.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
 def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     """Inverts the Rachford-Rice equation for the binary 2-phase case.
 
@@ -106,10 +109,7 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
     return n / np.sum(d)
 
 
-@_COMPILER(
-    numba.f8(numba.f8[:], numba.f8[:], numba.f8[:, :]),
-    cache=NUMBA_CACHE,
-)
+@_COMPILER(nb.f8(nb.f8[:], nb.f8[:], nb.f8[:, :]), cache=NUMBA_CACHE)
 def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     r"""Calculates the potential according to [1] for the j-th Rachford-Rice equation.
 
@@ -145,7 +145,7 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 # region General routines and helper methods
 
 
-@cfunc(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]), cache=True)
+@cfunc(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:, :], nb.f8[:]), cache=True)
 def get_K_values_template_func(
     p: float, T: float, x: np.ndarray, params: np.ndarray
 ) -> np.ndarray:
@@ -164,7 +164,7 @@ def get_K_values_template_func(
     return x * p * T
 
 
-@cfunc(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE), cache=True)
+@cfunc(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE), cache=True)
 def update_state_template_func(
     X_gen: np.ndarray, params: dict[str, float]
 ) -> np.ndarray:
@@ -183,12 +183,12 @@ def update_state_template_func(
 
 
 @_COMPILER(
-    numba.f8[:](
+    nb.f8[:](
         typeof(get_K_values_template_func),
-        numba.f8[:],
+        nb.f8[:],
         SOLVER_PARAMETERS_TYPE,
         FlashSpecMember_NUMBA_TYPE,
-        numba.bool,
+        nb.bool,
     ),
     cache=NUMBA_CACHE,
 )
@@ -347,9 +347,9 @@ def fractions_from_rr(
 
 
 @_COMPILER(
-    numba.f8[:, :](
+    nb.f8[:, :](
         typeof(get_K_values_template_func),
-        numba.f8[:, :],
+        nb.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
     parallel=NUMBA_PARALLEL,
@@ -376,17 +376,17 @@ def rachford_rice_initializer(
         ``X_gen`` with initialized fraction values.
 
     """
-    for f in numba.prange(X_gen.shape[0]):
+    for f in nb.prange(X_gen.shape[0]):
         X_gen[f] = fractions_from_rr(get_K_values, X_gen[f], params, FlashSpec.pT, True)
     return X_gen
 
 
 @_COMPILER(
-    numba.f8[:, :](
+    nb.f8[:, :](
         typeof(get_K_values_template_func),
         typeof(update_state_template_func),
         FlashSpecMember_NUMBA_TYPE,
-        numba.f8[:, :],
+        nb.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
     parallel=NUMBA_PARALLEL,
@@ -419,7 +419,7 @@ def nested_initializer(
     """
     N3 = int(params["N3"])
     # tol = params['tolerance']
-    for f in numba.prange(X_gen.shape[0]):
+    for f in nb.prange(X_gen.shape[0]):
         xf = X_gen[f]
         for _ in range(N3):
             xf = update_state_func(xf, params)
@@ -433,49 +433,229 @@ def nested_initializer(
     return X_gen
 
 
+@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def linear_mix(x: np.ndarray, phis: np.ndarray) -> float:
+    """Simple mixing rule, weighing the ``phis`` with ``x`` and summing.
+
+    Parameters:
+        x: Fractions.
+        phis: Quantity to be mixed.
+
+    Returns:
+        Approximation of the quantity for the mixture corresponding to the fractions.
+
+    """
+    assert x.shape == phis.shape, "Require equally shaped arrays."
+    return np.dot(x, phis)
+
+
+@_COMPILER(nb.f8(nb.f8[:], nb.f8[:]), fastmath=NUMBA_FAST_MATH, cache=True)
+def cubic_mix(x: np.ndarray, phis: np.ndarray) -> float:
+    """Advanced mixing rule of Lorentz-Berthelot-type, used for volume-like quantities.
+
+    Parameters:
+        x: Fractions.
+        phis: Quantity to be mixed.
+
+    Returns:
+        Approximation of the quantity for the mixture corresponding to the fractions.
+
+    """
+    assert x.shape == phis.shape, "Require equally shaped arrays."
+    n = x.size
+    phi_mix = 0.0
+    cphis = np.cbrt(phis)
+    for i in range(n):
+        phi_mix += phis[i] * x[i] ** 2
+        phi_mix += x[i] * np.sum(x[i + 1 :] * (cphis[i] + cphis[i + 1 :]) ** 3) / 4.0
+    return phi_mix
+
+
+@_COMPILER(
+    nb.f8(nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:]),
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def critical_pressure_guess(
+    x: np.ndarray, p_cs: np.ndarray, T_cs: np.ndarray, v_cs: np.ndarray
+) -> float:
+    """Guess for critical pressure of a mixture using heuristics.
+
+    See also:
+
+        - Kay's rule, Prausnitz-Gunn rule, Lorentz-Berthelot-type mixing.
+        - :func:`linear_mix`
+        - :func:`cubic_mix`
+        - `Saha, Carrol 1997: The isoenergetic-isochoric flash
+          <https://doi.org/10.1016/S0378-3812(97)00151-9>`_
+
+    Parameters:
+        x: Fractions.
+        p_pcs: Critical pressure values.
+        T_pcs: Critical temperature values.
+        v_pcs: Critical specific volume values.
+
+    Returns:
+        A guess for the pseudo-critical pressure.
+
+    """
+    x_max = x.max()
+    # Kay's rule if 1 component clearly dominates.
+    if x_max >= 0.9:
+        p_pc = linear_mix(x, p_cs)
+    # Prausnitz-Gunn rule if 1 component is almost dominant.
+    # Other components influence pseudo-critical value more.
+    elif 0.5 < x_max < 0.9:
+        T_pc = linear_mix(x, T_cs)
+        p_pc = T_pc / linear_mix(x, T_cs / p_cs)
+    # Modified Prausnitz-Gunn rule if no clear dominance.
+    # Include information on critical specific volume.
+    else:
+        T_pc = linear_mix(x, T_cs)
+        v_pc = cubic_mix(x, v_cs)
+        v_pc_lin = linear_mix(x, v_cs)
+        # Pseudo-critical compressibility factor.
+        Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
+        p_pc_cub = Z_pc * R_U * T_pc / v_pc
+        p_pc_lin = linear_mix(x, p_cs)
+        # For high-variability mixtures, average with Kay's rule.
+        v_var = np.abs((v_cs - v_pc_lin) / v_pc_lin).max()
+        # NOTE: The weighing towards Kay's rule should be influenced by strong
+        # variability. For polar fluids like water mixed with CO2/H2S for example, it
+        # might be more beneficial to lean more towards Kay.
+        if v_var > 0.1:
+            # 0.7 is upper bound, at most that much Kay's rule.
+            # 0.2 is lower bound, at least that much Kay's rule.
+            # 1.2 is a slope for variability, more variability, more Kay's rule.
+            w = min(0.7, 0.2 + 1.2 * v_var)
+            p_pc = w * p_pc_lin + (1 - w) * p_pc_cub
+        # Else use the cubic rule.
+        else:
+            p_pc = p_pc_cub
+
+    return p_pc
+
+
 # endregion
 
 
-class FlashInitializer:
-    """Container for compiled flash initialization methods providing an initial guess
-    for the equilibrium problem.
+class FlashInitializer(abc.ABC):
+    """Abstract flash initializer defining the API.
 
-    The base class uses heuristics and Rachford-Rice equations to provide initial values
-    for fractions, pressure and temperature, depending on the flash type.
+    This is a container for initialization routines per flash specification.
+    It can be compiled, if required for the numba framework.
 
-    Important:
-        If pressure and temperature should be guessed, they must be passed as zeros
-        in the generic flash argument.
+    Supports only non-trivial fluid mixtures, i.e. with at least two phases and one
+    component.
 
     Parameters:
-        fluid: The fluid for which the flash is compiled. Supports currently only
-            2-phase fluids.
-        params: Initialization parameters (see :attr:`params`).
+        fluid: A fluid mixture.
+        params: ``default=None``
+
+            Initialization parameters.
 
     """
-
-    SUPPORTED_SPECIFICATIONS: tuple[FlashSpec, ...] = (
-        FlashSpec.pT,
-        FlashSpec.ph,
-        FlashSpec.vh,
-        FlashSpec.vu,
-    )
-    """Supported flash types. Used for checking flash input."""
 
     def __init__(
         self,
         fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]],
         params: Optional[dict[str, float]] = None,
     ) -> None:
+        super().__init__()
+
         ncomp = fluid.num_components
         nphase = fluid.num_phases
 
-        assert nphase == 2, "Supports only 2-phase mixtures."
+        assert nphase >= 2, "Require at least two phases."
+        assert ncomp >= 1, "Require at least one component."
 
         self._n_PC: tuple[int, int] = (nphase, ncomp)
         """Tuple containing the number of phases and components in the fluid."""
 
-        # data used in initializers
+        self.params: dict[str, float | int | bool] = (
+            params if isinstance(params, dict) else {}
+        )
+        """Parameters for initialization routines passed at instantiation.
+        
+        Defaults to empty dict.
+    
+        """
+
+    @abc.abstractmethod
+    def __getitem__(self, key: FlashSpec) -> Callable[[np.ndarray], np.ndarray]:
+        """Abstract getter defining the interface to access initialization routines per
+        flash specification.
+
+        An initialization routine takes a generic flash argument and returns a populated
+        one containing the initial guess. It may take vectorized input.
+
+        Parameters:
+            key: A supported flash specification.
+
+        Returns:
+            A callable taking a (vectorized) generic flash argument and returning
+            a populated argument with initial values.
+
+        """
+
+    def compile(self, *args: FlashSpec) -> None:
+        """Compilation interface for initialization routines per flash specification.
+
+        The base method is empty, not abstract.
+
+        Parameters:
+            *args: Specify subset of flash types which should be compiled to safe time.
+
+        """
+
+
+class UniformFlashInitializer(FlashInitializer):
+    """Simple class providing initial values for the flash using a uniform distribution
+    of mass for phases and components in phases.
+
+    The default initialization uses a uniform distribution for all fractions.
+
+    Two types of bias can be specified:
+
+    ``feed_bias``:
+
+    The uniform distribution is averaged with the feed fraction for each
+    component. Favorable when a phase is present at equilibrium.
+
+    ``liquid_bias`` for liquid phases only:
+
+    If multiple liquid phases, each phase is assumed to be
+    dominated by 1 component, i.e., its partial fraction is set to be larger than
+    uniform. The value for how large can be set with ``params['liquid_bias'] = 0.9``.
+    The rest is split uniformly accross the remaining components in that phase.
+    If the ``feed_bias`` is also active, it is applied. Note, however, if the
+    feed fraction is such that the average would be pulled below uniform value,
+    the feed bias is skipped for this liquid phase, as it runs into conflict with the
+    liquid bias. The liquid bias is favorable if the liquid phase is present at
+    equilibrium.
+
+    Pseudo-critical values for pressure or temperature are computed as an
+    initial guess, if the specification requires it. Saturations are set to be equal to
+    phase fractions.
+
+    Parameters:
+        fluid: A fluid containing at least 2 phases and 1 component.
+        params: ``default=None``
+
+            Initial parametrization, defaulting to no bias.
+
+    """
+
+    def __init__(
+        self,
+        fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]],
+        params: Optional[dict[str, float]] = None,
+    ) -> None:
+        super().__init__(fluid, params)
+        assert self._n_PC[0] <= self._n_PC[1], (
+            "Not expecting more phases than components + gas phase."
+        )
+
         self._pcrits: np.ndarray = np.array(
             [comp.critical_pressure for comp in fluid.components]
         )
@@ -499,8 +679,247 @@ class FlashInitializer:
         self._gas_phase_index: Optional[int] = fluid.gas_phase_index
         """The index of the gas phase. None if gas not existent."""
 
+        self._initializer: Callable[[FlashSpec, dict, np.ndarray], np.ndarray]
+        """The actual initialization routine created by this class during compilation.
+
+        Takes the flash specification, the parameter dictionary and an initial generic
+        flash argument, and returns the initial guess.
+
+        """
+
+        # Provide new default parameters, if not already present.
+        default_params: dict[str, float | int | bool] = {
+            "liquid_bias": 0.9,
+            "feed_bias": False,
+        }
+        default_params.update(self.params)
+        self.params = default_params
+
+        self.nb_params: dict[str, float]
+        """Numba-compiled version of :attr:`params`.
+        
+        Must be created during the first call to the getter of this class using
+        :meth:`compile_nb_params`
+
+        This supports only floats as values as per convention in the flash solver
+        package.
+
+        """
+
+    def __getitem__(self, key: FlashSpec) -> Callable[[np.ndarray], np.ndarray]:
+        """Shortcut for accessing flash initial guess methods for flash types denoted by
+        ``key``.
+
+        The key is meaningless at this point, since the same routine is used for all
+        flashes.
+
+        Raises:
+            KeyError: If initializer is not compiled.
+
+        """
+
+        if not hasattr(self, "_initializer"):
+            raise KeyError("Uniform flash initializer not compiled.")
+
+        if not hasattr(self, "nb_params"):
+            self.compile_nb_params()
+
+        def initializer(x: np.ndarray) -> np.ndarray:
+            """Wrapper for initialization routine, updating parameters and feeding
+            them to the initialization method."""
+            params = self.nb_params
+            for k, v in self.params.items():
+                params[str(k)] = float(v)
+            return self._initializer(key, params, x)
+
+        return initializer
+
+    def compile_nb_params(self) -> None:
+        """Creates :attr:`nb_params` during the first call to the getter."""
+        assert not hasattr(self, "nb_params"), (
+            "Numba-parameter dictionary already compiled."
+        )
+
+        d: dict[str, float] = get_empty_numba_dict()
+        self.nb_params = cast(dict[str, float], d)
+        self.nb_params["num_phases"] = float(self._n_PC[0])
+        self.nb_params["num_components"] = float(self._n_PC[1])
+        self.nb_params["gas_phase_index"] = float(
+            -1 if self._gas_phase_index is None else self._gas_phase_index
+        )
+        self.nb_params["liquid_bias"] = float(self.params["liquid_bias"])
+        self.nb_params["feed_bias"] = float(self.params["feed_bias"])
+
+        # Adding also some component parameters which are required
+        for i in range(self._n_PC[1]):
+            self.nb_params[f"_T_crit_{i}"] = float(self._Tcrits[i])
+            self.nb_params[f"_p_crit_{i}"] = float(self._pcrits[i])
+            self.nb_params[f"_v_crit_{i}"] = float(self._vcrits[i])
+            self.nb_params[f"_omega_{i}"] = float(self._omegas[i])
+
+    def compile(self, *args: FlashSpec) -> None:
+        """Triggers the compilation of initialization routine.
+
+        Parameters:
+            *args: Specify subset of flash types which should be compiled to safe time.
+                The uniform initializer supports all flash types. This signature is
+                left for inheritance reasons.
+
+        """
+
+        logger.info(f"Compiling uniform flash initialization ..")
+        start = time.time()
+
+        @_COMPILER(
+            nb.f8[:](FlashSpecMember_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:])
+        )
+        def initializer(
+            spec: FlashSpec, params: dict[str, float], X_gen: np.ndarray
+        ) -> np.ndarray:
+            # Parsing parameters.
+            nphase = int(params["num_phases"])
+            ncomp = int(params["num_components"])
+            gas_phase_idx = int(params["gas_phase_index"])
+            liquid_bias = params["liquid_bias"]
+            feed_bias = params["feed_bias"]
+
+            # Critical values per component.
+            T_crits = np.empty(ncomp)
+            p_crits = np.empty(ncomp)
+            v_crits = np.empty(ncomp)
+            for i in range(ncomp):
+                T_crits[i] = params[f"_T_crit_{i}"]
+                p_crits[i] = params[f"_p_crit_{i}"]
+                v_crits[i] = params[f"_v_crit_{i}"]
+
+            approx_T = spec not in (FlashSpec.pT, FlashSpec.vT)
+            approx_p = spec >= FlashSpec.vT
+
+            _, _, _, z, p, T, s1, s2, x_p = parse_generic_arg(
+                X_gen, ncomp, nphase, spec
+            )
+            # Critical value approximations for pressure and temperature.
+            if approx_T:
+                T = linear_mix(z, T_crits)
+
+            if approx_p:
+                p = critical_pressure_guess(z, p_crits, T_crits, v_crits)
+
+            # Phase fractions and saturations are always uniformly guessed.
+            y = np.ones(nphase) / nphase
+            s = y.copy()
+
+            # Uniform distribution as starting point for partial fractions.
+            x = np.ones((nphase, ncomp)) / ncomp
+
+            # Applying bias.
+            if max(feed_bias, liquid_bias) > 0:
+                # Cap liquid bias at 1.0 for safety.
+                liquid_bias = float(min(1.0, liquid_bias))
+                # Rest of mass in case of liquid biase is distributed uniformly accross
+                # other components.
+                lr = (1 - liquid_bias) / max(ncomp - 1, 1)
+                # Component index for keeping track of liquid bias in multiphase case.
+                k = 0
+
+                # Apply liquid-bias only if more than 1 liquid phase and parameter is
+                # not zero. If no gas, gas_phase_idx is -1.
+                apply_liq_bias = (liquid_bias > 0) and (
+                    (nphase - max(gas_phase_idx, 0)) > 1
+                )
+
+                for j in range(nphase):
+                    # Averaging weight according to number of bias applied.
+                    w = 1
+
+                    # Feed bias is applicable to any phase.
+                    if feed_bias > 0:
+                        xfb = z
+                        w += 1
+                    else:
+                        xfb = np.zeros(ncomp)
+
+                    # Apply liquid bias only to liquid phases.
+                    # If no gas, index is -1 and never equal to j.
+                    if apply_liq_bias and j != gas_phase_idx:
+                        xlb = np.ones(ncomp) * lr
+                        xlb[k] = liquid_bias
+                        w += 1
+                        # Cancel the feed bias, if the resulting value for the partial
+                        # fraction of the dominant component would be smaller than
+                        # uniform.
+                        if (
+                            feed_bias > 0
+                            and (x[j, k] + liquid_bias + z[k]) / 3 <= x[j, k]
+                        ):
+                            xfb = np.zeros(ncomp)
+                            w -= 1
+                        k += 1
+                    else:
+                        xlb = np.zeros(ncomp)
+
+                    x[j] = (x[j] + xfb + xlb) / w
+
+                # Unity should be achieved by above maths, but we play safe.
+                x = normalize_rows(x)
+
+            return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, spec)
+
+        @_COMPILER(
+            nb.f8[:, :](
+                FlashSpecMember_NUMBA_TYPE, SOLVER_PARAMETERS_TYPE, nb.f8[:, :]
+            ),
+            parallel=NUMBA_PARALLEL,
+        )
+        def init_par(
+            spec: FlashSpec, params: dict[str, float], X_gen: np.ndarray
+        ) -> np.ndarray:
+            for i in nb.prange(X_gen.shape[0]):
+                X_gen[i] = initializer(spec, params, X_gen[i].copy())
+
+            return X_gen
+
+        self._initializer = init_par
+        logger.info(
+            "Flash initialization routine compiled"
+            + " (elapsed time: %.4f (s))." % (time.time() - start)
+        )
+
+
+class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
+    """Initializer using heuristics and Rachford-Rice equations to provide initial
+    values for fractions, pressure and temperature, depending on the flash type.
+
+    Important:
+        If pressure and temperature should be guessed, they must be passed as zeros
+        in the generic flash argument.
+
+    Parameters:
+        fluid: The fluid for which the flash is compiled. Supports currently only
+            2-phase, gas-liquid mixtures.
+        params: Initialization parameters (see :attr:`params`).
+
+    """
+
+    SUPPORTED_SPECIFICATIONS: tuple[FlashSpec, ...] = (
+        FlashSpec.pT,
+        FlashSpec.ph,
+        FlashSpec.vh,
+        FlashSpec.vu,
+    )
+    """Supported flash types. Used for checking flash input."""
+
+    def __init__(
+        self,
+        fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]],
+        params: Optional[dict[str, float]] = None,
+    ) -> None:
+        super().__init__(fluid, params)
+
+        assert self._n_PC[0] == 2, "Supports only 2-phase mixtures."
+
         eos = fluid.reference_phase.eos
-        assert isinstance(eos, CompiledEoS)
+        assert isinstance(eos, CompiledEoS), "Suppors only mixtures with compiled EoS."
         self._eos: CompiledEoS = eos
         """Compiled EoS of the reference phase, assuming all phases have the same EoS.
         """
@@ -509,7 +928,7 @@ class FlashInitializer:
             FlashSpec,
             Callable[[np.ndarray, dict[str, float]], np.ndarray],
         ] = {}
-        """Storage of initialization routines.
+        """Storage of initialization routines per flash.
         
         Initialization routines take a generic argument and a parameter dictionary as
         arguments, and return the updated generic argument.
@@ -518,63 +937,34 @@ class FlashInitializer:
 
         """
 
+        # Provide new default parameters, if not already present.
         default_params: dict[str, float] = {
             "N1": 3.0,
             "N2": 1.0,
             "N3": 5.0,
             "tolerance": 1e-6,
         }
-        if params is None:
-            params = default_params
-        else:
-            default_params.update(params)
-            params = default_params
-
-        self.params = params
-        """Initialization parameters passed at instantiation.
-        
-        Default parameters are:
-
-        - ``'N1'``: Number of loop for fraction guess.
-        - ``'N2'``: Number of loops used for the update of other state functions.
-        - ``'N3'``: Number of alternations between fraction and state function update.
-        - ``'tolerance'``: Criterion for early stopping of initialization.
-
-        """
-
-        self._nb_params: dict[str, float]
-        """Numba-type dictionary, to be filled with :attr:`params` and passed to the
-        flash initialization methods"""
+        default_params.update(self.params)
+        self.params = default_params
 
     def __getitem__(self, key: FlashSpec) -> Callable[[np.ndarray], np.ndarray]:
-        """Shortcut for accessing flash initial guess methods for flash types denoted by
-        ``key``."""
-        # This will raise a key error on time.
+        """Accesses the right initialization routine for the requested flash.
+
+        Raises:
+            KeyError: If the requested flash initialization is not compiled.
+
+        """
         _ = self._initializers[key]
+        if key not in self._initializers:
+            raise KeyError(f"{key.name} flash initialization not compiled.")
 
-        if not hasattr(self, "_nb_params"):
-            # Creation of numba-typed dict upon first call.
-            d = numba.typed.Dict.empty(
-                key_type=numba.types.unicode_type, value_type=numba.types.float64
-            )
-            self._nb_params = cast(dict[str, float], d)
-            self._nb_params["num_phases"] = float(self._n_PC[0])
-            self._nb_params["num_components"] = float(self._n_PC[1])
-            self._nb_params["gas_phase_index"] = float(
-                -1 if self._gas_phase_index is None else self._gas_phase_index
-            )
-
-            # Adding also some component parameters which are required
-            for i in range(self._n_PC[1]):
-                self._nb_params[f"_T_crit_{i}"] = float(self._Tcrits[i])
-                self._nb_params[f"_p_crit_{i}"] = float(self._pcrits[i])
-                self._nb_params[f"_v_crit_{i}"] = float(self._vcrits[i])
-                self._nb_params[f"_omega_{i}"] = float(self._omegas[i])
+        if not hasattr(self, "nb_params"):
+            self.compile_nb_params()
 
         def initializer(x: np.ndarray) -> np.ndarray:
             """Wrapper for initialization routine, updating parameters and feeding
             them to the initialization method."""
-            params = self._nb_params
+            params = self.nb_params
             for k, v in self.params.items():
                 params[str(k)] = float(v)
             return self._initializers[key](x, params)
@@ -588,6 +978,9 @@ class FlashInitializer:
             *args: Specify subset of flash types which should be compiled to safe time.
                 Due to some internal structures, the pT initializer is always compiled.
 
+        Raises:
+            ValueError: If unsupported flash specification is passed as an argument.
+
         """
 
         # If not specified, compile all.
@@ -596,6 +989,10 @@ class FlashInitializer:
 
         if not self._eos.is_compiled:
             self._eos.compile()
+
+        for a in args:
+            if a not in self.SUPPORTED_SPECIFICATIONS:
+                raise ValueError(f"Unsupported flash specification {a.name}")
 
         # Setting outer scope variables to avoid referencing self in JIT functions.
         nphase, ncomp = self._n_PC
@@ -612,7 +1009,7 @@ class FlashInitializer:
         logger.info(f"Compiling {[a.name for a in args]} flash initializations ..")
         start = time.time()
 
-        @_COMPILER(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]))
+        @_COMPILER(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:, :], nb.f8[:]))
         def get_K_values(
             p: float, T: float, x: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
@@ -640,7 +1037,7 @@ class FlashInitializer:
         if FlashSpec.ph in args and FlashSpec.ph not in self._initializers:
             logger.debug("Compiling ph flash initialization ..")
 
-            @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
+            @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_T_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
@@ -659,11 +1056,11 @@ class FlashInitializer:
                 # If T has not been initialized at all (zero value), compute
                 # pseudo-critical value as starting point
                 if T == 0.0:
-                    T_crits = np.empty(ncomp)
+                    T_cs = np.empty(ncomp)
                     for i in range(ncomp):
-                        T_crits[i] = params[f"_T_crit_{i}"]
+                        T_cs[i] = params[f"_T_crit_{i}"]
 
-                    T_pc = (T_crits * z).sum()
+                    T_pc = linear_mix(z, T_cs)
                     X_gen = assemble_generic_arg(
                         s, x, y, z, p, T_pc, s1, s2, x_p, FlashSpec.ph
                     )
@@ -713,7 +1110,7 @@ class FlashInitializer:
         if FlashSpec.vh in args and FlashSpec.vh not in self._initializers:
             logger.debug("Compiling vh flash initialization ..")
 
-            @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
+            @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
@@ -740,37 +1137,32 @@ class FlashInitializer:
                 y_g = 0.0
 
                 # If no p or T value are provided at all, create initial guess using
-                # pseudo-critical values
+                # pseudo-critical values.
                 if p == 0.0 or T == 0.0:
-                    T_crits = np.empty(ncomp)
-                    v_crits = np.empty(ncomp)
+                    T_cs = np.empty(ncomp)
+                    v_cs = np.empty(ncomp)
+                    p_cs = np.empty(ncomp)
                     for i in range(ncomp):
-                        T_crits[i] = params[f"_T_crit_{i}"]
-                        v_crits[i] = params[f"_v_crit_{i}"]
+                        T_cs[i] = params[f"_T_crit_{i}"]
+                        v_cs[i] = params[f"_v_crit_{i}"]
+                        p_cs[i] = params[f"_p_crit_{i}"]
                     # pseudo_critical T_guess
-                    T = (z * T_crits).sum()
+                    T = linear_mix(z, T_cs)
 
                     # pseudo-critical pressure guess
-                    v_pc = 0.0
-                    for i in range(ncomp):
-                        v_pc += v_crits[i] * z[i] ** 2
-                        for k in range(i + 1, ncomp):
-                            v_pc += (
-                                z[i]
-                                * z[k]
-                                / 8
-                                * (np.cbrt(v_crits[i]) + np.cbrt(v_crits[k])) ** 3
-                            )
+                    v_pc = cubic_mix(z, v_cs)
+                    p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
+                    # Pseudo-critical compressibility factor.
+                    Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
 
+                    # Refining pressure and temperature guess based on ratio of
+                    # pseudo-critical volume and given volume.
                     R = v_pc / s1
                     if R > 1:  # liquid-like
-                        Z = 0.2
-                        # T correction for liquid-like guess
+                        p *= 0.2 / Z_pc
                         T = T / np.sqrt(R)
                     else:  # gas-like
-                        Z = 0.7
-
-                    p = Z * T * R_U / s1
+                        p *= 0.7 / Z_pc
 
                     # Make first fraction guess based on pseudo-critical values.
                     xf = assemble_generic_arg(
@@ -911,7 +1303,7 @@ class FlashInitializer:
         if FlashSpec.vu in args and FlashSpec.vu not in self._initializers:
             logger.debug("Compiling vh flash initialization ..")
 
-            @_COMPILER(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE))
+            @_COMPILER(nb.f8[:](nb.f8[:], SOLVER_PARAMETERS_TYPE))
             def update_pT_guess_saha(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
@@ -932,36 +1324,31 @@ class FlashInitializer:
                 # If no p or T value are provided at all, create initial guess using
                 # pseudo-critical values
                 if p == 0.0 or T == 0.0:
-                    T_crits = np.empty(ncomp)
-                    v_crits = np.empty(ncomp)
+                    T_cs = np.empty(ncomp)
+                    v_cs = np.empty(ncomp)
+                    p_cs = np.empty(ncomp)
                     for i in range(ncomp):
-                        T_crits[i] = params[f"_T_crit_{i}"]
-                        v_crits[i] = params[f"_v_crit_{i}"]
+                        T_cs[i] = params[f"_T_crit_{i}"]
+                        v_cs[i] = params[f"_v_crit_{i}"]
+                        p_cs[i] = params[f"_p_crit_{i}"]
                     # pseudo_critical T_guess
-                    T = (z * T_crits).sum()
+                    T = linear_mix(z, T_cs)
 
                     # pseudo-critical pressure guess
-                    v_pc = 0.0
-                    for i in range(ncomp):
-                        v_pc += v_crits[i] * z[i] ** 2
-                        for k in range(i + 1, ncomp):
-                            v_pc += (
-                                z[i]
-                                * z[k]
-                                / 8
-                                * (np.cbrt(v_crits[i]) + np.cbrt(v_crits[k])) ** 3
-                            )
+                    v_pc = cubic_mix(z, v_cs)
+                    p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
+                    p = critical_pressure_guess(z, p_cs, T_cs, v_cs)
+                    # Pseudo-critical compressibility factor.
+                    Z_pc = linear_mix(x, p_cs * v_cs / T_cs) / R_U
 
+                    # Refining pressure and temperature guess based on ratio of
+                    # pseudo-critical volume and given volume.
                     R = v_pc / s1
-                    # Initial Z guess base on volume ratio and refinement of T guess.
                     if R > 1:  # liquid-like
-                        Z = 0.2
+                        p *= 0.2 / Z_pc
                         T = T / np.sqrt(R)
                     else:  # gas-like
-                        Z = 0.7
-                        T = T * (1.0 + R**2)
-
-                    p = Z * T * R_U / s1
+                        p *= 0.7 / Z_pc
 
                     # Make first fraction guess based on pseudo-critical values.
                     xf = assemble_generic_arg(
@@ -1059,5 +1446,5 @@ class FlashInitializer:
 
         logger.info(
             "Flash initialization routines compiled"
-            + " (elapsed time: %.5f (s))." % (time.time() - start)
+            + " (elapsed time: %.4f (s))." % (time.time() - start)
         )

@@ -237,6 +237,16 @@ class AbstractFlash(abc.ABC):
         self._phasesplit_code_shift = 1000
         """Used for encoding phasesplit plot."""
 
+    def compile(self, *args: FlashSpec) -> None:
+        """Compilation interface for flash methods per flash specification.
+
+        The base method is empty, not abstract.
+
+        Parameters:
+            *args: Specify subset of flash types which should be compiled to safe time.
+
+        """
+
     def parse_flash_arguments(
         self,
         specification: StateSpecDict,
@@ -700,6 +710,8 @@ class AbstractFlash(abc.ABC):
             case _:
                 raise ValueError("Exactly two of the 3 ranges must be arrays.")
 
+        shape: tuple[int, int] = xm.shape
+        assert ym.shape == shape, "Failed to reshape axis values."
         spec = {specification.name[0]: s1, specification.name[1]: s2}
 
         # Compute results for plot.
@@ -714,15 +726,16 @@ class AbstractFlash(abc.ABC):
 
         # Parse field and format values to be plotted.
         vals: np.ndarray = self._parse_field(results, field, kwargs.get("eps", 1e-7))
-        vals = vals.reshape(xm.shape)
+        vals = vals.reshape(shape)
         xlabel = specification.name[1]
         ylabel = specification.name[0]
         if transpose:
             vals = vals.transpose()
             xm, ym = [ym.transpose(), xm.transpose()]
             xlabel, ylabel = [ylabel, xlabel]
-        xm = kwargs.get("xtransform", lambda x: x)(xm.flatten()).reshape(ym.shape)
-        ym = kwargs.get("ytransform", lambda x: x)(ym.flatten()).reshape(xm.shape)
+        xm = kwargs.get("xtransform", lambda x: x)(xm.flatten()).reshape(shape)
+        ym = kwargs.get("ytransform", lambda x: x)(ym.flatten()).reshape(shape)
+        vals = kwargs.get("vtransform", lambda x: x)(vals.flatten()).reshape(shape)
 
         # Parse plottign options and create figure.
 

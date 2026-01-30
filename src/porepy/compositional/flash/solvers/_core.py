@@ -16,13 +16,10 @@ from __future__ import annotations
 
 from typing import Callable, Literal
 
-# NOTE import numba.typed like this to avoid importing the spurious py.typed file in the
-# typed sub-package, which confuses mypy.
-import numba
-import numba.typed
+import numba as nb
 import numpy as np
 
-from ..._numba_interface import NUMBA_PARALLEL, cfunc, typeof
+from ..._numba_interface import NUMBA_PARALLEL, cfunc, get_empty_numba_dict, typeof
 from ...utils import FlashSpec, FlashSpecMember_NUMBA_TYPE
 
 __all__ = [
@@ -36,7 +33,6 @@ __all__ = [
     "sequential_solver",
     "parallel_solver",
     "MULTI_SOLVERS",
-    "get_empty_solver_params",
 ]
 
 
@@ -56,25 +52,7 @@ a solver.
 """
 
 
-def get_empty_solver_params() -> dict[str, float]:
-    """Returns an empty solver parameter dictionary.
-
-    Used for type-inference in numba-compiled functions.
-
-    Returns:
-        An empty dictionary of type ``dict[str, float]``.
-
-    """
-    d = numba.typed.Dict.empty(
-        key_type=numba.types.unicode_type, value_type=numba.types.float64
-    )
-    # NOTE For unknown reasons, numba sometimes fails to infer the type of an empty
-    # dict. Hence, we set a dummy key-value pair.
-    d["__dummy_key__"] = 0.0
-    return d
-
-
-SOLVER_PARAMETERS_TYPE = typeof(get_empty_solver_params())
+SOLVER_PARAMETERS_TYPE = typeof(get_empty_numba_dict())
 """Numba-type definition of the solver parameter dictionary.
 
 A solver parameter dictionary has strings as keys and ``float64`` as values.
@@ -87,7 +65,7 @@ Note:
 """
 
 
-FLASH_RESIDUAL_SIGNATURE = numba.f8[:](numba.f8[:])
+FLASH_RESIDUAL_SIGNATURE = nb.f8[:](nb.f8[:])
 """Numba-signature for a flash residual function.
 
 Takes a 1D array of ``float64`` values and returns a 1D array of ``float64``.
@@ -123,7 +101,7 @@ See also:
 """
 
 
-FLASH_JACOBIAN_SIGNATURE = numba.f8[:, :](numba.f8[:])
+FLASH_JACOBIAN_SIGNATURE = nb.f8[:, :](nb.f8[:])
 """Numba-signature for a flash Jacobian function.
 
 Takes a 1D array of ``float64`` values and returns a 2D array of ``float64``.
@@ -162,8 +140,8 @@ See also:
 """
 
 
-SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple((numba.f8[:], numba.int_, numba.int_))(
-    numba.f8[:],
+SOLVER_FUNCTION_SIGNATURE = nb.types.Tuple((nb.f8[:], nb.int_, nb.int_))(
+    nb.f8[:],
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
@@ -237,12 +215,12 @@ See also:
 """
 
 
-_multi_solver_signature = numba.types.Tuple(
+_multi_solver_signature = nb.types.Tuple(
     # NOTE: Since the return values are created internally, they are contiguous arrays.
     # Numba requires that information explicitly by using ::1 in the last dimension.
-    (numba.f8[:, ::1], numba.int_[::1], numba.int_[::1])
+    (nb.f8[:, ::1], nb.int_[::1], nb.int_[::1])
 )(
-    numba.f8[:, :],
+    nb.f8[:, :],
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_FUNCTION_TYPE,
@@ -252,7 +230,7 @@ _multi_solver_signature = numba.types.Tuple(
 """Multi-solver signature for compiled sequential or parallel application of solvers."""
 
 
-@numba.njit(_multi_solver_signature, cache=True)
+@nb.njit(_multi_solver_signature, cache=True)
 def sequential_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -308,7 +286,7 @@ def sequential_solver(
     return result, exitcodes, num_iter
 
 
-@numba.njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL, nogil=True)
+@nb.njit(_multi_solver_signature, cache=True, parallel=NUMBA_PARALLEL, nogil=True)
 def parallel_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -345,7 +323,7 @@ def parallel_solver(
     exitcodes = np.ones(n, dtype=np.int_) * 3
 
     try:
-        for i in numba.prange(n):
+        for i in nb.prange(n):
             res_i, e_i, n_i = solver(X0[i], F, DF, solver_params, spec)
             exitcodes[i] = e_i
             num_iter[i] = n_i
