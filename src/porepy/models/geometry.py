@@ -44,16 +44,9 @@ class ModelGeometry(pp.PorePyModel):
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
+        # Set up well network and add wells to the mixed-dimensional grid.
         self.set_well_network()
-        if len(self.well_network.wells) > 0:
-            # Compute intersections
-            assert isinstance(self.fracture_network, FractureNetwork3d)
-            pp.compute_well_fracture_intersections(
-                self.well_network, self.fracture_network
-            )
-            # Mesh wells and add fracture + intersection grids to mixed-dimensional
-            # grid along with these grids' new interfaces to fractures.
-            self.well_network.mesh(self.mdg)
+        self.add_wells_to_mdg()
 
     @property
     def domain(self) -> pp.Domain:
@@ -100,6 +93,18 @@ class ModelGeometry(pp.PorePyModel):
     def set_well_network(self) -> None:
         """Assign well network class."""
         self.well_network = pp.WellNetwork3d(domain=self._domain)
+
+    def add_wells_to_mdg(self) -> None:
+        """Add wells to the mixed-dimensional grid."""
+        if len(self.well_network.wells) > 0:
+            # Compute intersections
+            assert isinstance(self.fracture_network, FractureNetwork3d)
+            pp.compute_well_fracture_intersections(
+                self.well_network, self.fracture_network
+            )
+            # Mesh wells and add fracture + intersection grids to mixed-dimensional
+            # grid along with these grids' new interfaces to fractures.
+            self.well_network.mesh(self.mdg)
 
     def is_well_grid(self, grid: pp.Grid | pp.MortarGrid) -> bool:
         """Check if a subdomain is a well.
