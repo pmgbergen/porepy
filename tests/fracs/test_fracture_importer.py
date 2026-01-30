@@ -19,18 +19,15 @@ from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs import fracture_importer
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
-# ---------- Testing network_2d_from_csv ----------
-
-
-@pytest.fixture
-def file_name(tmp_path) -> Generator[Path, None, None]:
-    file_name = tmp_path / "frac.csv"
-    yield file_name
-
 
 @pytest.fixture(params=[2, 3])
 def nd(request) -> Literal[2, 3]:
     return request.param
+
+
+@pytest.fixture
+def file_name(tmp_path: Path) -> Path:
+    return tmp_path / "fracture_network.csv"
 
 
 @pytest.fixture
@@ -104,10 +101,10 @@ def test_fracture_importer(
 
     if num_fracs == 0 and not has_domain:
         with pytest.raises(ValueError):
-            _ = fracture_importer.network_from_csv_ek(file_name, has_domain=has_domain)
+            _ = fracture_importer.network_from_csv(file_name, has_domain=has_domain)
         return
 
-    network = pp.fracture_importer.network_from_csv_ek(file_name, has_domain=has_domain)
+    network = pp.fracture_importer.network_from_csv(file_name, has_domain=has_domain)
 
     # Verify domain geometry.
     if has_domain:
