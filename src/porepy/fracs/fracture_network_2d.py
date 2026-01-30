@@ -1215,20 +1215,18 @@ class FractureNetwork2d:
         self,
         file_name: Path,
         write_header: bool = True,
-        domain: Optional[pp.Domain] = None,
     ) -> None:
         """Save the 2D network on a CSV file with comma as separator.
 
-        The format is ``FID, START_X, START_Y, END_X, END_Y``, where ``FID`` is the
-        fracture ID, and ``START_X, ..., END_Y`` are the point coordinates.
+            The format is ``START_X, START_Y, END_X, END_Y``, where  ``START_X, ...,
+            END_Y`` are the point coordinates.
 
         Warning:
             If ``file_name`` is already present, it will be overwritten without
             prompting any warning.
 
         Parameters:
-            file_name: Name of the CSV file.
-            write_header: ``default=True``
+            file_name: Name of the CSV file. write_header: ``default=True``
 
                 Flag for writing headers for the five columns in the first row.
 
@@ -1241,15 +1239,15 @@ class FractureNetwork2d:
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
-                header = ["FID", "START_X", "START_Y", "END_X", "END_Y"]
+                header = ["# ", "START_X", "START_Y", "END_X", "END_Y"]
                 csv_writer.writerow(header)
-            if domain is not None:
+            if self.domain is not None:
                 order = ["xmin", "ymin", "xmax", "ymax"]
-                # Write the domain bounding box. -1 as entity id.
-                csv_writer.writerow(["-1"] + [domain.bounding_box[o] for o in order])
+                # Write the domain bounding box.
+                csv_writer.writerow([self.domain.bounding_box[o] for o in order])
             # Write all the fractures.
-            for edge_id, edge in enumerate(self._edges.T):
-                data = [edge_id]
+            for edge in self._edges.T:
+                data = []
                 data.extend(self._pts[:, edge[0]])
                 data.extend(self._pts[:, edge[1]])
                 csv_writer.writerow(data)
