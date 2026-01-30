@@ -107,6 +107,138 @@ def validate_csv_file(file_name: Path) -> None:
 def network_from_csv(
     file_name: Path, has_domain: bool = True, tol: float = 1e-4, **kwargs
 ) -> FractureNetwork2d | FractureNetwork3d:
+    """Create the fracture network from a CSV file.
+
+    The file is assumed to have the following structure:
+    - If has_domain is True, the first line describes the domain as a cuboid with
+        ``X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX`` for 3D or ``X_MIN, Y_MIN,
+        X_MAX, Y_MAX`` for 2D.
+    - In 2D, the remaining lines describe the fractures as a list of points (one line
+        per fracture) ``START_X, START_Y, END_X, END_Y``.
+    - In 3D, Polygonal fractures are described as a list of points (one line per
+        fracture) ``P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``.
+        Elliptic fractures are described as ``CENTER_X, CENTER_Y, CENTER_Z,
+        MAJOR_AXIS, MINOR_AXIS, MAJOR_AXIS_ANGLE, STRIKE_ANGLE, DIP_ANGLE, NUM_POINTS``.
+    Lines starting with ``#`` will be ignored.
+
+    Parameters:
+        file_name: Path to the CSV file.
+        has_domain: Whether the first line in the CSV file specifies the domain.
+            Defaults to True.
+        tol: Geometric tolerance used in the computations. Defaults to 1e-4.
+        **kwargs: Keyword arguments passed to
+            :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d` or
+            :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3d`.
+
+    Raises:
+        ValueError: If the CSV file contains no data.
+        ValueError: If lines in the CSV file have an invalid number of entries.
+
+    Returns:
+        The loaded fracture network.
+
+    """
+    # Marker for whether the file contains any non-comment content.
+    has_nontrival_content = False
+    # Marker for whether the domain line has been read.
+    domain_read = False
+    # The dimension of the network. Set to None, but inferred from the first non-comment
+    # line.
+    nd = None
+
+    fractures = []
+
+    with open(file_name, "r") as csv_file:
+        while True:
+            line = csv_file.readline()
+            if not line:
+                # End of file.
+                break
+            if line.startswith("#") or line.strip() == "":
+                # Skip comments and empty lines.
+                continue
+
+            # There is data to be read, the file is not trivial.
+            has_nontrival_content = True
+            data = np.array([line.strip().split(",")], dtype=float).ravel("F")
+            if nd is None:
+                if data.size == 4:
+                    # Both 2d box domains and fractures have four entries.
+                    nd = 2
+                else:
+                    # This can be an elliptic fracture, a 3d domain or a 3d point-based
+                    # fracture, depending on the context.
+                    nd = 3
+
+            if has_domain and not domain_read:
+                # Read the domain line.
+                domain_points = data.ravel()
+                domain_read = True
+                if nd == 2 and domain_points.size != 4:
+                    raise ValueError(
+                        "Domain line should have four entries in 2d, but has "
+                        + f"{domain_points.size}."
+                    )
+                elif nd == 3 and domain_points.size != 6:
+                    raise ValueError(
+                        "Domain line should have six entries in 3d, but has "
+                        + f"{domain_points.size}."
+                    )
+                continue
+
+            # This is a fracture.
+            if nd == 2:
+                if data.size != 4:
+                    raise ValueError(
+                        "Fracture line should have four entries in 2d, but has "
+                        + f"{data.size}."
+                    )
+                fractures.append(pp.LineFracture(data.reshape((2, -1), order="F")))
+            else:  # nd == 3
+                if data.size == 8:
+                    # This will be interpreted as an elliptic fracture. The number of
+                    # points should be represented as an integer.
+                    frac = pp.create_elliptic_fracture(
+                        data[:3], data[3], data[4], data[5], data[6], int(data[7])
+                    )
+                    fractures.append(frac)
+                else:
+                    if data.size < 9 or not data.size % 3 == 0:
+                        raise ValueError(
+                            "Fracture line should at least 9 and a multiple of 3"
+                            f" entries in 3d, but has {data.size}."
+                        )
+                    fractures.append(pp.PlaneFracture(data.reshape((3, -1), order="F")))
+
+    if not has_nontrival_content:
+        raise ValueError("The CSV file contains no data.")
+
+    if has_domain:
+        if nd == 2:
+            domain = {
+                "xmin": domain_points[0],
+                "xmax": domain_points[2],
+                "ymin": domain_points[1],
+                "ymax": domain_points[3],
+            }
+        else:  # nd == 3
+            domain = {
+                "xmin": domain_points[0],
+                "xmax": domain_points[3],
+                "ymin": domain_points[1],
+                "ymax": domain_points[4],
+                "zmin": domain_points[2],
+                "zmax": domain_points[5],
+            }
+
+    return pp.create_fracture_network(
+        fractures, pp.Domain(domain) if has_domain else None, tol=tol
+    )
+
+
+def network_from_csv_old(
+    file_name: Path, has_domain: bool = True, tol: float = 1e-4, **kwargs
+) -> FractureNetwork2d | FractureNetwork3d:
     """_summary_
 
     Note: Loading an elliptic fracture network is currently not supported. There exists
