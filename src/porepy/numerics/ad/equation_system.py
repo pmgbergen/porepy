@@ -324,6 +324,14 @@ class EquationSystem:
         return self._equation_image_space_composition
 
     @property
+    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
+        """Dictionary containing, for every equation set in this EquationSystem,
+        the number of equations per grid entity.
+
+        """
+        return self._equation_image_size_info
+
+    @property
     def variables(self) -> list[Variable]:
         """List containing all :class:`~porepy.numerics.ad.Variable`s known to this
         system.
@@ -338,10 +346,6 @@ class EquationSystem:
         for var in self.variables:
             domains.add(var.domain)
         return list(domains)
-
-    @property
-    def equation_image_size_info(self) -> dict[str, dict["GridEntity", int]]:
-        return self._equation_image_size_info
 
     ### Variable management ------------------------------------------------------------
 
