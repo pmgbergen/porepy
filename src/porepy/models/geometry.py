@@ -787,7 +787,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         file_name = Path(self.meshing_kwargs()["file_name"])
         folder_path = file_name.parent
         msh_path = (folder_path / file_name.stem).with_suffix(".msh")
-        geo_path = (folder_path / file_name.stem).with_suffix(".geo")
+        geo_path = (folder_path / file_name.stem).with_suffix(".geo_unrolled")
         fracture_network_path = folder_path / self.meshing_kwargs()["csv_file_name"]
 
         # Check whether the msh or geo file exists. If used as in the docstring example,
@@ -796,7 +796,7 @@ class LoadGeometryMixin(pp.PorePyModel):
             if not geo_path.exists():
                 raise ValueError(
                     "Either 'folder_path` / `file_name.msh` or 'folder_path` /"
-                    + " `file_name.geo` must exist."
+                    + " `file_name.geo_unrolled` must exist."
                 )
             else:
                 logger.info(f"msh file not found, remeshing from {geo_path}.")
@@ -814,24 +814,12 @@ class LoadGeometryMixin(pp.PorePyModel):
         fracture_network_path.chmod(777)
 
         # Load mixed-dimensional grid from geo or msh file.
-        self.nd = pp.fracture_importer.infer_network_dimension(fracture_network_path)
+        self.fracture_network = pp.fracture_importer.network_from_csv(
+            fracture_network_path
+        )
+        self.nd = self.fracture_network.domain.dim
+
         self.mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
-
-        # PvS: Not sure if this check is necessary or if this would anyway raise an
-        # error in ``dfm_from_gmsh``.
-        if self.nd != self.mdg.dim_max():
-            raise ValueError("Dimension mismatch between fracture network and mesh.")
-
-        # Load fracture network from csv file.
-        if self.nd == 2:
-            # Type is guaranteed because ``return_frac_id=False``.
-            self.fracture_network = pp.fracture_importer._network_2d_from_csv(  # type: ignore[assignment]
-                fracture_network_path, has_domain=True
-            )
-        else:
-            self.fracture_network = pp.fracture_importer._network_3d_from_csv(
-                fracture_network_path, has_domain=True
-            )
 
         # Obtain domain and fracture list directly from the fracture network.
         self._domain = cast(pp.Domain, self.fracture_network.domain)
@@ -866,7 +854,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         folder_path = Path(self.meshing_kwargs()["file_name"]).parent
         csv_file_name = self.meshing_kwargs()["csv_file_name"]
         fracture_network_path = folder_path / csv_file_name
-        self.fracture_network.to_csv(fracture_network_path, domain=self.domain)
+        self.fracture_network.to_csv(fracture_network_path)
 
     def meshing_kwargs(self) -> dict:
         """Provide default meshing kwargs for storing and loading `mdg` and the fracture
