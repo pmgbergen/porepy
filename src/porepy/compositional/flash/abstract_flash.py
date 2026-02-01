@@ -148,9 +148,14 @@ class FlashResults(pp.compositional.FluidProperties):
         return self.exitcode == 2
 
     @property
+    def stationary(self) -> NDArray[np.bool_]:
+        """Flags indicating where the flash problem stagnated unrecoverably."""
+        return self.exitcode == 3
+
+    @property
     def failure(self) -> NDArray[np.bool_]:
         """Flags indicating where the flash failed for unknown reasons."""
-        return self.exitcode == 3
+        return (self.exitcode == 4) | (self.exitcode == 5)
 
     def postprocess_fractions(self, eps: float = 1e-7) -> None:
         """Ensures fractions are strictly in the interval [0, 1] and fulfill the

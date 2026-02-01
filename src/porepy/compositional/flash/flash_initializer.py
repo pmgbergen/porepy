@@ -632,7 +632,7 @@ class UniformFlashInitializer(FlashInitializer):
     feed fraction is such that the average would be pulled below uniform value,
     the feed bias is skipped for this liquid phase, as it runs into conflict with the
     liquid bias. The liquid bias is favorable if the liquid phase is present at
-    equilibrium.
+    equilibrium. Makes only sense if the value is greater than ``1/num_phases``.
 
     Pseudo-critical values for pressure or temperature are computed as an
     initial guess, if the specification requires it. Saturations are set to be equal to
@@ -652,7 +652,7 @@ class UniformFlashInitializer(FlashInitializer):
         params: Optional[dict[str, float]] = None,
     ) -> None:
         super().__init__(fluid, params)
-        assert self._n_PC[0] <= self._n_PC[1], (
+        assert self._n_PC[0] <= self._n_PC[1] + 1, (
             "Not expecting more phases than components + gas phase."
         )
 
@@ -825,7 +825,7 @@ class UniformFlashInitializer(FlashInitializer):
                 # Apply liquid-bias only if more than 1 liquid phase and parameter is
                 # not zero. If no gas, gas_phase_idx is -1.
                 apply_liq_bias = (liquid_bias > 0) and (
-                    (nphase - max(gas_phase_idx, 0)) > 1
+                    (nphase - (1 if gas_phase_idx >= 0 else 0)) > 1
                 )
 
                 for j in range(nphase):

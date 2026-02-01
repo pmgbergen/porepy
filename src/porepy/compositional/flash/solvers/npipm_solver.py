@@ -32,7 +32,6 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
         "npipm_slack_decline",
         "armijo_step_size",
         "armijo_decline",
-        "armijo_max_iterations",
         "rpc_T",
         "rpc_T_damp",
         "rpc_p",
@@ -46,10 +45,9 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
 ] = {
     "npipm_penalty_cc": 1.0,
     "npipm_penalty_neg": 1.0,
-    "npipm_slack_decline": 0.5,
-    "armijo_step_size": 0.99,
-    "armijo_decline": 1e-4,
-    "armijo_max_iterations": 50.0,
+    "npipm_slack_decline": 0.45,
+    "armijo_step_size": 0.95,
+    "armijo_decline": 1e-3,
     "rpc_T": 1.0,
     "rpc_T_damp": 1.0,
     "rpc_p": 1.0,
@@ -63,7 +61,7 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
 
 - ``'npipm_penalty_cc': 1.`` penalty for violating complementarity.
 - ``'npipm_penalty_neg': 1.`` penalty for violating negativity of fractions.
-- ``'npipm_slack_decline': 0.5`` linear decline in slack variable.
+- ``'npipm_slack_decline': 0.45`` linear decline in slack variable.
 
 
 This solver uses also the :func:`armijo_line_search`, and respective
@@ -356,34 +354,48 @@ def _feasible_fractions_scale(
         alpha = min(alpha, np.min(emv[upidx] / d[upidx]))
 
     # Simplex feasibility for updates:
+    # NOTE This turns out to be very aggressive, hence disable.
     # The sum of each family of fractions must remain smaller or equal to 1.
-    dx, dy = parse_xy(d, n_C, n_P)
-    vx, vy = parse_xy(v, n_C, n_P)
+    # dx, dy = parse_xy(d, n_C, n_P)
+    # vx, vy = parse_xy(v, n_C, n_P)
 
     # NOTE phase fractions contain 1 dependent variable. The net-change for the
     # dependent phase fraction is different. This does not hold for partial fractions
     # as they are all independent in the persistent-variable formulation.
-    dy[0] = -dy[1:].sum()
+    # dy[0] = -dy[1:].sum()
 
-    sdy = dy.sum()
-    sy = vy.sum()
-    asdy = np.abs(sdy)
-    if (sdy > 0) & (asdy >= eps) & ((asdy / max(sy, 1 - sy, rel_tol)) >= d_min):
-        alpha = min(alpha, (1.0 - vy.sum()) / sdy)
+    # sdy = dy.sum()
+    # svy = vy.sum()
+    # asdy = np.abs(sdy)
+    # # NOTE By checking that the simplex is not active (sum is not close to 1),
+    # # we avoid canceling updates to zero. In principle, these checsk cover
+    # # fractions which are about to "emerge".
+    # if (
+    #     (sdy > 0)
+    #     & (asdy >= eps)
+    #     & ((asdy / max(svy, 1 - svy, rel_tol)) >= d_min)
+    #     & (svy < (1 - eps))
+    # ):
+    #     alpha = min(alpha, (1.0 - svy) / sdy)
 
-    for j in range(n_P):
-        sdx = dx[j].sum()
-        svx = vx[j].sum()
-        asdx = np.abs(sdx)
-        if (sdx > 0) & (asdx >= eps) & ((asdx / max(svx, 1 - svx, rel_tol)) >= d_min):
-            alpha = min(alpha, (1.0 - svx) / sdx)
+    # for j in range(n_P):
+    #     sdx = dx[j].sum()
+    #     svx = vx[j].sum()
+    #     asdx = np.abs(sdx)
+    #     if (
+    #         (sdx > 0)
+    #         & (asdx >= eps)
+    #         & ((asdx / max(svx, 1 - svx, rel_tol)) >= d_min)
+    #         & (svx < (1 - eps))
+    #     ):
+    #         alpha = min(alpha, (1.0 - svx) / sdx)
 
     return alpha
 
 
 @_COMPILER(
     nb.types.Tuple((nb.f8[:], nb.f8, nb.f8, nb.f8))(
-        nb.f8[:, :], nb.f8[:], nb.bool, nb.f8
+        nb.f8[:, :], nb.f8[:], nb.bool, nb.f8, nb.f8
     ),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
@@ -393,6 +405,7 @@ def get_descent(
     b: np.ndarray,
     do_LM: bool,
     tau: float,
+    rtol: float,
 ) -> tuple[np.ndarray, float, float, float]:
     """ "Go through the Newton - Levenberg-Marquardt - Steepest-descent ladder until
     a descenting direction is found.
@@ -401,31 +414,27 @@ def get_descent(
         A: Square matrix (Hessian of minimized function)
         b: Righ-hand side (-Grad of minimized function)
         do_LM: Flag to skip Newton and go straight to LM.
-        tau_min: Minimal value for regularization of LM.
         tau: Global value for regularization.
-        tau_max: Maximal value for regularization before switching to steepest-descent.
+        rtol: Relative tolerance for descent criterion.
 
     Returns:
         A descent direction which solves the system ``Ax=b``, and updated values
         for ``tau_min, tau, tau_max``.
 
     """
-
-    # Relative tolerance for descent criterion.
-    descent_tol = 1e-7 * np.linalg.norm(b)
-
     # Updated bounds for regularization parameter.
-    # Frobenius norm to estimate maximum singular value, square it for JtJ.
-    Af = A.flatten()
-
     # Squared Frobenius norm. Singular values of A.T @ A are smaller than this value.
+    # Beyond this regularization parameter, we are in SD regime.
+    Af = A.flatten()
     tau_max = float(Af.dot(Af))
     # This value is returned if Newton succeeds in finding a descent direction.
     # I.e., the Matrix is not close to singular, so regularization is not needed.
     tau_min = 0.0
 
-    d = b.copy()  # default return value is steepest-descent direction
+    d = b.copy()  # Default return value is steepest-descent direction.
     g = A.T @ b
+    # Relative tolerance for descent criterion.
+    descent_tol = rtol * np.linalg.norm(g)
 
     # Do Newton, if not requested to go directly to LM.
     if not do_LM:
@@ -435,16 +444,13 @@ def get_descent(
             do_LM = True
         else:
             # Newton found a descend direction.
-            if d.dot(g) > descent_tol * np.linalg.norm(
-                d
-            ):  # Descending direction found.
+            if d.dot(g) > descent_tol * np.linalg.norm(d):
                 return d, tau_min, tau, tau_max
             else:
                 do_LM = True
 
     if do_LM:
         B = A.T @ A
-        c = A.T @ b
         I = np.eye(B.shape[0])
 
         # Refine lower bound since B is computed.
@@ -452,7 +458,7 @@ def get_descent(
         tau = max(tau_min, tau)
 
         while tau < tau_max:
-            d_LM = np.linalg.solve(B + tau * I, c)
+            d_LM = np.linalg.solve(B + tau * I, g)
             # LM found descend direction. Assign to d and break.
             if d_LM.dot(g) > descent_tol * np.linalg.norm(d_LM):
                 d = d_LM
@@ -486,8 +492,6 @@ def npipm(
     # Default return values.
     num_iter = 0
     exitcode = 1
-    # Fractional values below this value are considered 0.
-    eps_frac = 1e-8
 
     # region Extracting system and user-given parameters.
     f_dim = int(params["f_dim"]) + 1  # + Slack variable
@@ -502,7 +506,6 @@ def npipm(
 
     ls_ss = float(params["armijo_step_size"])
     ls_dec = float(params["armijo_decline"])
-    ls_max_iter = int(params["armijo_max_iterations"])
 
     T_rpc = float(params["rpc_T"])
     rpc_T_damp = float(params["rpc_T_damp"])
@@ -591,21 +594,29 @@ def npipm(
     gk1m = np.zeros(f_dim)
 
     # region Adaptive solver parameters
+
+    atol_frac = 1e-8  # abs. tol for considering fractions to be zero.
+    atol_num = 1e-8  # abs. tol for update norm considered numerically relevant.
+    rtol_desc = 1e-7  # rel. tol for descent criterion.
+    rtol_pert = 1e-6  # rel. tol for perturbing solutions.
+
     tau = 0.0  # Starting value for diagonal regularization
     tau_min = 1e-8  # Minimal value.
     tau_max = 1e6  # Maximal value.
     do_LM = False  # Levenberg-Marquardt normalization
-    alpha_min = 1e-5  # Minimal step size.
     alpha_max = 1.0  # Maximal step size.
+    alpha_min_s = 1e-5  # Scale of alpha max to obtain alpha min
 
+    tr_delta_max = 10.0 * f_dim  # Largest trust-region radius
+    tr_delta = tr_delta if tr_delta > 0 else tr_delta_max
     tr_delta_min = 1e-4 * tr_delta  # Smallest trust-region radius
-    tr_delta_max = 1e2  # Largest trust-region radius
     # Descent criteria in line search.
     # NOTE Increase lc_dec_min if too many small updates
     ls_dec_min = 1e-5  # Smallest decrease required by linesearch
     ls_dec_max = 0.45  # Largest decrease required by linesearch
     ls_ss_min = 0.5  # Smallest line search step size.
     ls_ss_max = 0.99  # Largest line search step size.
+    ls_fail_count = 0
 
     tr_delta_hist = np.zeros(5)
     tau_hist = np.zeros(5)
@@ -613,9 +624,9 @@ def npipm(
 
     # Relative tolerances for detecting cycling/stagnation. NOTE Tighten for subtle
     # changes when near-critical or near-phase border.
-    eps_stag = 1e-3
-    eps_cyc = 1e-2
-    stag_window = 5  # Last m residuals to detect stagnation.
+    rtol_stag = 1e-3
+    rtol_cyc = 1e-2
+    stag_window = 4  # Last m residuals to detect stagnation.
     is_stagnating = False
     lb_stag = 0.99  # Lower bound for residual slope in case of stagnation.
 
@@ -633,36 +644,38 @@ def npipm(
         f_i = eval_F(X_i)
     except:  # whatever happens, residual evaluation is faulty.
         return X0, 4, num_iter
+    else:
+        # Initial guess is already bad.
+        if np.any(np.isnan(f_i)):
+            return X0, 4, num_iter
+        # Divergence.
+        if np.any(np.isinf(f_i)):
+            return X0, 2, num_iter
 
     res_history[-1] = np.linalg.norm(f_i)
-    if res_history[-1] <= tol:
+    res_0 = res_history[-1]  # First residual
+    if res_0 <= tol:
         exitcode = 0  # root already found
     else:
         for i in range(max_iter):
             num_iter = i + 1
 
-            # Need this test otherwise np.linalg.solve raises an error.
-            if np.any(np.isnan(f_i)) or np.any(np.isinf(f_i)):
-                exitcode = 2
-                break
-
             try:
                 df_i = eval_DF(X_i)
             except:  # whatever happens, Jacobian assembly is faulty
-                exitcode = 5
+                exitcode = 4
                 break
 
             alpha = alpha_max  # Initial step size.
-            alpha_min = 1e-5 * alpha_max
             A = df_i
             if do_rpc_T:
                 A[:, rpc_T_idx] *= T_rpc
             if do_rpc_p:
                 A[:, rpc_p_idx] *= p_rpc
 
-            dX_i, tau_min, tau, tau_max = get_descent(A, -f_i, do_LM, tau)
+            dX_i, tau_min, tau, tau_max = get_descent(A, -f_i, do_LM, tau, rtol_desc)
 
-            # Catch divergence early to avoid unexplainable crashes.
+            # Divergence.
             if np.any(np.isnan(dX_i)) or np.any(np.isinf(dX_i)):
                 exitcode = 2
                 break
@@ -691,10 +704,13 @@ def npipm(
             # endregion
 
             # region Trust-region and feasibility scaling
-            alpha *= _trust_region_scale(dX_i[:-1], tr_delta)
-            f2b = _feasible_fractions_scale(X_i[:-1], dX_i[:-1], n_C, n_P, 1e-8, 1e-10)
-            if f2b < 1.0:
-                alpha *= tr_f2b * f2b
+            if np.linalg.norm(dX_i) > atol_num:  # Only if update numerically relevant.
+                dX_i *= _trust_region_scale(dX_i[:-1], tr_delta)
+                f2b = _feasible_fractions_scale(
+                    X_i[:-1], dX_i[:-1], n_C, n_P, atol_num, atol_frac
+                )
+                if f2b < 1.0:
+                    alpha *= tr_f2b * f2b
             # endregion
 
             if do_rpc_T:
@@ -710,46 +726,77 @@ def npipm(
 
             # region Armijo line search.
             pot_i = f_i.dot(f_i) * 0.5
+            alpha_j = alpha
+            f_i_j = f_i
             pot_i_j = pot_i
-            grad_merit = df_i.T @ f_i
-            lin_dec = grad_merit.dot(dX_i)
-            alpha_j = 1.0
+            ls_i = 0
+            ls_failed = True
+            alpha_min = alpha_min_s * alpha_max
 
-            for j in range(0, ls_max_iter + 1):
-                alpha_j = ls_ss**j * alpha
-                X_i_j = X_i + alpha * dX_i
+            while alpha_j >= alpha_min and np.linalg.norm(alpha_j * dX_i) >= atol_num:
+                alpha_j = ls_ss**ls_i * alpha
+                ls_i += 1
+                X_i_j = X_i + alpha_j * dX_i
 
+                # NOTE we allow eval to fail in line search to not break the main
+                # algorithm.
                 try:
                     f_i_j = eval_F(X_i_j)
                 except:
-                    # NOTE Here we allow the residual evaluation to fail and skip the
-                    # line search step, as this might happen when dealing with
-                    # non-smooth F.
-                    # By continuing the step size comes closer to the old iterate
-                    # making the line search more robust, but slowing the overall
-                    # progress
                     continue
 
                 pot_i_j = f_i_j.dot(f_i_j) * 0.5
 
-                # if pot_i_j <= (1 - 2 * ls_dec * alpha_j) * pot_i:
-                if pot_i_j <= pot_i + ls_dec * alpha_j * lin_dec:
-                    break
-                # If update becomes too small, risking progress, break.
-                if alpha_j < alpha_min:
+                if pot_i_j <= (1 - 2 * ls_dec * alpha_j) * pot_i:
+                    ls_failed = False
                     break
             alpha = alpha_j
             # endregion
+            # Keep track of numerically relevant updates.
+            if (
+                alpha_j < alpha_min
+                or ls_failed
+                or np.linalg.norm(alpha * dX_i) < atol_num
+            ):
+                ls_failed = True
+                ls_fail_count += 1
+                reduction = 0.0
+            else:
+                ls_fail_count = 0
+                reduction = (pot_i_j - pot_i) / dX_i.dot(
+                    df_i.T @ (f_i + df_i @ dX_i * 0.5)
+                )
 
-            # region Apply update, adapt solver parameters
+            # Due to MPCC nature, we accept even bad steps and allow the algorithm
+            # to climb out of bad basins.
+            alpha = alpha_j
             X_i += alpha * dX_i
+            # NOTE in edgecases where LS eval fails right before while criterion fails,
+            # the residual is lagged by one alpha iteration. Negligable for small
+            # alpha.
+            f_i = f_i_j
+            # try:
+            #     f_i = eval_F(X_i)
+            # except:  # whatever happens, residual evaluation is faulty.
+            #     exitcode = 4
+            #     break
+            # else:
+            #     # Initial guess is already bad.
+            #     if np.any(np.isnan(f_i)):
+            #         exitcode = 4
+            #         break
+            #     # Divergence.
+            #     if np.any(np.isinf(f_i)):
+            #         exitcode = 2
+            #         break
 
-            try:
-                f_i = eval_F(X_i)
-            except:
-                exitcode = 4
+            # Last evaluation in line search which is required for next lin-solve
+            # shows divergence.
+            if np.any(np.isnan(f_i)) or np.any(np.isinf(f_i)):
+                exitcode = 2
                 break
 
+            # region Adapt solver parameters
             res_history = np.roll(res_history, -1)
             res_history[-1] = np.linalg.norm(f_i)
             # print(res_history[-4:])
@@ -764,13 +811,13 @@ def npipm(
 
             # Actual reduction of potential divided by linearized decline of merit
             # function.
-            reduction = (pot_i_j - pot_i) / dX_i.dot(f_i + df_i @ dX_i * 0.5)
+
             # If actual reduction is large enough, decrease tau.
             if reduction > 0.75:
                 tau = max(tau_min, tau * 0.1)
                 tr_delta = min(1.5 * tr_delta, tr_delta_max)
             # If actual reduction is too small, increase tau.
-            elif reduction < 0.25:
+            elif reduction < 0.25 or ls_failed:
                 tau = min(tau_max, tau * 10.0)
                 tr_delta = max(0.5 * tr_delta, tr_delta_min)
 
@@ -779,22 +826,33 @@ def npipm(
             elif alpha > 0.9 * alpha_max:
                 ls_dec = min(ls_dec * 1.25, ls_dec_max)
 
+            # Special action if line search failed, since this means no progress at all.
+            if ls_failed:
+                do_LM = True
+                if ls_fail_count == 2:
+                    alpha_max = 2.0
+                    ls_dec = max(ls_dec * 0.5, ls_dec_min)
+                # If keeps failing, we hit a stationary point far from convergence.
+                elif ls_fail_count == 5:
+                    exitcode = 3
+                    break
+
             # endregion
 
             # region Cycling and stagnation detection.
             if num_iter > res_history.size:
                 # Stagnation check
                 r_stag = res_history[-stag_window:]
-                scaled_tol = eps_stag * r_stag.max()
+                rtol = rtol_stag * r_stag.max()
                 slope_stag = (r_stag[-1] / r_stag[0]) ** (1 / (stag_window - 1))
 
-                if (r_stag.max() - r_stag.min()) < scaled_tol and slope_stag > lb_stag:
+                if (r_stag.max() - r_stag.min()) < rtol and slope_stag > lb_stag:
                     # Keep original iteration in case earlier detected.
                     iter_cyst_detected = (
                         num_iter if not is_stagnating else iter_cyst_detected
                     )
                     is_stagnating = True
-                    lb_res = r_stag.min() - scaled_tol
+                    lb_res = r_stag.min() * 0.99
                 else:
                     is_stagnating = False
 
@@ -810,9 +868,9 @@ def npipm(
                             alpha_max = 4.0
 
                         tr_f2b = min(tr_f2b * 1.01, 0.999)
-                        ls_dec = min(max(ls_dec * 0.1, ls_dec_min), ls_dec_max)
+                        ls_dec = max(ls_dec * 0.5, ls_dec_min)
                         aa_depth = max(aa_depth_default, aa_depth)
-                        do_LM = False
+                        do_LM = False if not ls_failed else True
                     # Stagnations far from convergence, likely do divergence which is
                     # kept at bay by trust-region or caps -> stabilize
                     else:
@@ -821,19 +879,17 @@ def npipm(
                 # If not stagnating, check for cycling and see if stagnation mode can
                 # be reverted.
                 else:
-                    # Revert maximal step size since not stagnating.
-                    alpha_max = 1.0
                     was_cycling = is_cycling
                     # Look for cycles with period 2 to max cycles - 1s.
                     for c in range(2, max_cycle):
                         check_len = 2 * c
 
                         recent = res_history[-check_len:]
-                        scaled_tol = np.max(np.abs(recent)) * eps_cyc
+                        rtol = np.max(np.abs(recent)) * rtol_cyc
 
                         is_cycling = True
                         for i in range(c, check_len):
-                            if np.abs(recent[i] - recent[i - c]) >= scaled_tol:
+                            if np.abs(recent[i] - recent[i - c]) >= rtol:
                                 is_cycling = False
                                 break
 
@@ -843,21 +899,27 @@ def npipm(
                                 detected_cycle = c
                                 iter_cyst_detected = num_iter
                             # But make new lower bound in any case.
-                            lb_res = np.min(recent) * 0.99
+                            lb_res = recent.min() * 0.99
                             break
 
+                    # If residual did not change due to failure in line search,
+                    # reject false cycling detection.
+                    if ls_fail_count >= 2:
+                        is_cycling = False
+
                     # If also not cycling, revert parameters.
-                    if not (is_cycling or was_cycling):
+                    if not (is_cycling or was_cycling or ls_failed):
                         tr_f2b = float(params["trustregion_fraction_to_boundary"])
                         ls_ss = float(params["armijo_step_size"])
                         ls_dec = float(params["armijo_decline"])
                         aa_depth = int(params["anderson_acceleration"])
                         do_LM = False
+                        alpha_max = 1.0
+                        rtol_desc = 1e-7
                     # If cycling detected, make line search more aggressive.
                     elif is_cycling and not was_cycling:
                         ls_ss = max(ls_ss_min, 0.5 * ls_ss)
-                        ls_max_iter = max(80, int(params["armijo_max_iterations"]) * 3)
-                        ls_dec = min(max(ls_dec * 1.5, ls_dec_min), ls_dec_max)
+                        ls_dec = min(ls_dec * 1.5, ls_dec_max)
                     # If no cycle anymore detected.
                     elif not is_cycling and was_cycling:
                         # Check if cycling really broken. Restore parameters.
@@ -866,16 +928,16 @@ def npipm(
                         ):
                             ls_ss = (ls_ss + ls_ss_max) * 0.5
                             ls_dec = (ls_dec + ls_dec_max) * 0.5
-                            ls_max_iter = int(params["armijo_max_iterations"])
                             aa_depth = int(params["anderson_acceleration"])
                             do_LM = False
                         else:
                             is_cycling = True
 
+                alpha_min_s = 1e-5
                 # Stagnation or cycling is often observed due to extended fractions
                 # being stuck at too low values. Try to break free by perturbing using
                 # feed fractions.
-                if is_cycling or is_stagnating:
+                if is_cycling or is_stagnating or ls_fail_count >= 2:
                     idx = np.zeros(f_dim, dtype=np.bool)
                     idx[-(n_P + 1 + n_C * (n_P - 1)) : -(n_P + 1)] = True
                     # Partial residual excluding isofugacity constraints.
@@ -893,7 +955,7 @@ def npipm(
                             # NOTE Perturbing phase fractions is tricky as it often has
                             # a deteriorating effect. Requires more thinking.
                             # if xj.sum() <= 1.0 - 1e-3:
-                            if y[j] < eps_frac:
+                            if y[j] < atol_frac:
                                 xj = (xj + z + 1 / n_C) / 3.0
                                 # Keep fractions feasible.
                                 sxj = xj.sum()
@@ -907,34 +969,38 @@ def npipm(
 
                     # If was_cycling and one of the y is zero, likely stuck at border.
                     # Relaxe fraction-to-boundary-rule
-                    if was_cycling and np.any(y < eps_frac):
+                    if was_cycling and np.any(y < atol_frac):
                         tr_f2b = 0.999
 
-                    # If cycling or stagnation and no progress, investigate
+                    # If cycling/ stagnation/ ls failure and no progress, investigate
                     # conditioning or if stationary point reached.
                     no_progress = (num_iter - iter_cyst_detected) >= (
                         detected_cycle if was_cycling else max_cycle
-                    )
+                    ) or ls_fail_count >= 3
 
                     if no_progress:
                         # Restrict steps be precise.
                         tr_delta = max(tr_delta * 0.5, tr_delta_min)
                         Jf = float(np.linalg.norm(df_i.flatten()))  # Frobenius
-                        gn2 = grad_merit.dot(grad_merit)  # gradient norm squared
+                        g = df_i.T @ f_i
+                        gn2 = g.dot(g)  # gradient norm squared
+                        ill_cond = np.linalg.cond(df_i, p=1) >= 1e5
 
                         # We check first, if we are at a stationary point where we lost
                         # all sensitivy due to small gradient. If yes, perturb slightly.
-                        if gn2 < tol * max(1.0, Jf) ** 2:
+                        if gn2 < tol * max(1.0, Jf) ** 2 or ls_fail_count >= 3:
                             # NOTE tighten to 1e-7 if perturbation leads to worsening.
-                            X_i += 1e-6 * np.maximum(np.abs(X_i), 1.0)
-                        # Else investigate conditioning and react.
+                            X_i += rtol_pert * np.maximum(np.abs(X_i), 1.0)
+
+                        # If ill-conditioned -> stabilize using LM. 1-norm cheaper.
+                        if ill_cond:
+                            do_LM = True
+                            if ls_fail_count >= 4:
+                                alpha_min_s = 1e-7
+                                rtol_desc = 1e-10
+                        # Else mobilize using AA
                         else:
-                            # If ill-conditioned -> stabilize using LM. 1-norm cheaper.
-                            if np.linalg.cond(df_i, p=1) >= 1e5:
-                                do_LM = True
-                            # Else mobilize using AA
-                            else:
-                                aa_depth = max(aa_depth_default, aa_depth)
+                            aa_depth = max(aa_depth_default, aa_depth)
 
             # endregion
 
