@@ -35,8 +35,13 @@ def infer_network_dimension(file_name: Path) -> int:
     """
     sniffer = csv.Sniffer()
     with open(file_name, "r") as csv_file:
-        dialect = sniffer.sniff(csv_file.read(20))
-        has_header = sniffer.has_header(csv_file.read(20))
+        # Sample first 1024 bytes and reset file pointer.
+        sample = csv_file.read(1024)
+        csv_file.seek(0)
+
+        # Infer delimiter and header from the file.
+        dialect = sniffer.sniff(sample)
+        has_header = sniffer.has_header(sample)
 
         spam_reader = csv.reader(csv_file, dialect)
 
@@ -54,15 +59,15 @@ def infer_network_dimension(file_name: Path) -> int:
                 "Could not find a non-comment line to infer dimension from."
             )
 
-        # Number of columns to determine dimension. 5 (or 4 for the domain line) columns
-        # for a 2D network and 7 (or 6) columns for a 3D network.
-        # Check with
+        # Number of columns to determine dimension. 5 (fracture id + 4 coordinates)
+        # columns for a 2D network and >= 7 (fracture id + at least 6 coordinates)
+        # columns for a 3D network. Check
         # :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2D.to_csv``
         # and :meth:`~porepy.fracs.fracture_network_3d.FractureNetwork3D.to_csv`
         # for the exact structure of the csv files.
-        if len(line) in (4, 5):
+        if len(line) == 5:
             return 2
-        elif len(line) in (6, 7):
+        elif len(line) >= 7:
             return 3
         else:
             raise ValueError(
@@ -108,12 +113,17 @@ def network_3d_from_csv(
     frac_list = []
 
     # Extract the data from the csv file.
-    sniffer = csv.Sniffer()
     with open(file_name, "r") as csv_file:
-        dialect = sniffer.sniff(csv_file.read(20))
-        skip_header = int(sniffer.has_header(csv_file.read(20)))
+        # Sample first 1024 bytes and reset file pointer.
+        sample = csv_file.read(1024)
+        csv_file.seek(0)
 
+        # Infer delimiter, load file, and skip header.
+        sniffer = csv.Sniffer()
+        dialect = sniffer.sniff(sample)
         spam_reader = csv.reader(csv_file, dialect)
+        if sniffer.has_header(sample):
+            next(spam_reader)
 
         # Read the domain first.
         if has_domain:
@@ -121,34 +131,37 @@ def network_3d_from_csv(
 
             while not read_domain:
                 line = next(spam_reader)
-                if len(line) == 0 or line[0][0] != "#":
+                if len(line) == 0 or line[0][0] == "#":
+                    # Skip comments and empty lines.
                     continue
                 else:
-                    data = np.asarray(line, dtype=float)
+                    # Remove possible empty entries at the end of the line.
+                    data = np.asarray(line[:7], dtype=float)
+                    # 0th field is the domain tag -1.
                     bbox = {
-                        "xmin": data[0],
-                        "xmax": data[3],
-                        "ymin": data[1],
-                        "ymax": data[4],
-                        "zmin": data[2],
-                        "zmax": data[5],
+                        "xmin": data[1],
+                        "xmax": data[4],
+                        "ymin": data[2],
+                        "ymax": data[5],
+                        "zmin": data[3],
+                        "zmax": data[6],
                     }
                     domain = pp.Domain(bbox)
                     read_domain = True
 
         for line in spam_reader:
-            # If the line starts with a '#', we consider this a comment.
             if len(line) == 0 or line[0][0] == "#":
+                # Skip comments and empty lines.
                 continue
 
-            # Read the points
-            pts = np.asarray(line, dtype=float)
+            # Remove possible empty entries at the end of the line.
+            while line and line[-1] == "":
+                line.pop()
+
+            # Read the points. First field is the fracture id.
+            pts = np.asarray(line[1:], dtype=float)
             if not pts.size % 3 == 0:
                 raise ValueError("Points are always 3d")
-
-            # Skip empty lines. Useful if the file ends with a blank line.
-            if pts.size == 0:
-                continue
 
             frac_list.append(
                 pp.PlaneFracture(
@@ -223,8 +236,8 @@ def elliptic_network_3d_from_csv(
             domain = pp.Domain(bbox)
 
         for line in spam_reader:
-            # If the line starts with a '#', we consider this a comment.
-            if line[0][0] == "#":
+            if len(line) == 0 or line[0][0] == "#":
+                # Skip comments and empty lines.
                 continue
 
             # Read the data.
@@ -322,25 +335,31 @@ def network_2d_from_csv(
 
     sniffer = csv.Sniffer()
     with open(file_name, "r") as csv_file:
+        # Sample first 1024 bytes and reset file pointer.
+        sample = csv_file.read(1024)
+        csv_file.seek(0)
+
         # Infer delimiter and header from the file.
-        dialect = sniffer.sniff(csv_file.read(20))
+        dialect = sniffer.sniff(sample)
         npargs["delimiter"] = dialect.delimiter
-        npargs["skip_header"] = int(sniffer.has_header(csv_file.read(20)))
+        npargs["skip_header"] = int(sniffer.has_header(sample))
 
         spam_reader = csv.reader(csv_file, dialect)
+        # Skip header line if present.
+        if npargs["skip_header"] > 0:
+            next(spam_reader)
 
         if has_domain:
             # Skip over the domain line if present.
             npargs["skip_header"] += 1
 
             bbox_as_array = np.asarray(next(spam_reader), dtype=float)
+            # Ignore tag field at the start of the line.
             bbox = {
-                "xmin": bbox_as_array[0],
+                "xmin": bbox_as_array[1],
                 "xmax": bbox_as_array[3],
-                "ymin": bbox_as_array[1],
+                "ymin": bbox_as_array[2],
                 "ymax": bbox_as_array[4],
-                "zmin": bbox_as_array[2],
-                "zmax": bbox_as_array[5],
             }
             domain = pp.Domain(bbox)
 

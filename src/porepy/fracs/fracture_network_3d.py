@@ -2712,9 +2712,9 @@ class FractureNetwork3d(object):
         The format is as follows:
 
             - If :attr:`domain` is given ,the first line describes the domain as a
-              cuboid ``X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX``.
+              cuboid ``-1, X_MIN, Y_MIN, Z_MIN, X_MAX, Y_MAX, Z_MAX``.
             - The other lines describe the ``N`` fractures as a list of points
-              ``P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``.
+              ``FID, P0_X, P0_Y, P0_Z, ..., PN_X, PN_Y, PN_Z``.
 
         Warning:
             If ``file_name`` is already present, it will be overwritten without
@@ -2731,17 +2731,40 @@ class FractureNetwork3d(object):
                 Domain specification.
 
         """
+        # Determine the maximum number of points in a fracture. Minimum is 2 for the
+        # domain specification.
+        max_pts = max(max(frac.pts.shape[1] for frac in self.fractures), 2)
+
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
-                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+                header = ["FID"] + [
+                    f"P{i}_{coord}" for i in range(max_pts) for coord in ["X", "Y", "Z"]
+                ]
                 csv_writer.writerow(header)
             if domain is not None:
                 order = ["xmin", "ymin", "zmin", "xmax", "ymax", "zmax"]
-                csv_writer.writerow([domain.bounding_box[o] for o in order])
+                # Write the domain bounding box.
+                csv_writer.writerow(
+                    # -1 instead of fracture id.
+                    ["-1"]
+                    + [domain.bounding_box[o] for o in order]
+                    # Fill up with empty entries
+                    + [""] * (max_pts - 2) * 3
+                )
+
             # Write all the fractures.
-            for f in self.fractures:
-                csv_writer.writerow(f.pts.ravel(order="F"))
+            # NOTE fracture_id is not necessarily identical to fracture.index. The
+            # latter is non-unique.
+            for fracture_id, fracture in enumerate(self.fractures):
+                num_pts = fracture.pts.shape[1]
+                data = (
+                    [fracture_id]
+                    + list(fracture.pts.ravel(order="F"))
+                    # Fill up with empty entries
+                    + [""] * (max_pts - num_pts) * 3
+                )
+                csv_writer.writerow(data)
 
     def to_fab(self, file_name: Path) -> None:
         """Save the 3D network on a fab file, as specified by FracMan.

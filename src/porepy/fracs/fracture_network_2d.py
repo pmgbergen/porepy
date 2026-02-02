@@ -1241,11 +1241,12 @@ class FractureNetwork2d:
         with open(file_name, "w") as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=",")
             if write_header:
-                header = ["# FID", "START_X", "START_Y", "END_X", "END_Y"]
+                header = ["FID", "START_X", "START_Y", "END_X", "END_Y"]
                 csv_writer.writerow(header)
             if domain is not None:
                 order = ["xmin", "ymin", "xmax", "ymax"]
-                csv_writer.writerow([domain.bounding_box[o] for o in order])
+                # Write the domain bounding box. -1 as fracture id.
+                csv_writer.writerow(["-1"] + [domain.bounding_box[o] for o in order])
             # Write all the fractures.
             for edge_id, edge in enumerate(self._edges.T):
                 data = [edge_id]
