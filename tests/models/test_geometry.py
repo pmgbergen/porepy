@@ -681,14 +681,14 @@ class TestGeometry:
         assert np.allclose(val @ val.T, np.eye(val.shape[0]))
 
 
-@pytest.mark.parametrize(
-    "benchmark_geometry_class", [Benchmark2dCase1Geometry, Benchmark3dCase2Geometry]
-)
-def test_load_geometry_mixin(benchmark_geometry_class, tmp_path) -> None:
+@pytest.mark.parametrize("geometry_class", geometry_list)
+@pytest.mark.parametrize("num_fractures", [0, 2])
+def test_load_geometry_mixin(geometry_class, num_fractures: int, tmp_path) -> None:
     """Test the LoadGeometryMixin class.
 
     Parameters:
-        benchmark: 2D or 3D case.
+        geometry_class: Geometry class to test.
+        num_fractures: Number of fractures to include in the test.
         tmp_path: Temporary path for storing files.
 
     """
@@ -701,18 +701,29 @@ def test_load_geometry_mixin(benchmark_geometry_class, tmp_path) -> None:
         models.NoPhysics,
     )
     params = {
+        "num_fractures": num_fractures,
+        "fracture_indices": [i for i in range(num_fractures)],
         "meshing_kwargs": {
             "file_name": str(folder_path / gmsh_file_name),
             "csv_file_name": csv_file_name,
-        }
+        },
+        "grid_type": "simplex",
     }
     model_1 = model_class(params)
     model_2 = model_class(params)
 
     model_1.create_and_export_geometry(
-        set_geometry_class=benchmark_geometry_class,
+        set_geometry_class=geometry_class,
     )
     model_2.set_geometry()
+
+    def frac_pts_equal(a: np.ndarray, b: np.ndarray) -> bool:
+        """Check if two arrays of fracture points are equal, disregarding order of
+        points.
+        """
+        if a.shape != b.shape:
+            return False
+        return np.array_equal(np.sort(a), np.sort(b))
 
     # Check that loaded geometry is identical.
     assert model_1.domain == model_2.domain
@@ -730,12 +741,3 @@ def test_load_geometry_mixin(benchmark_geometry_class, tmp_path) -> None:
         assert sd1.num_faces == sd2.num_faces
         assert np.allclose(sd1.cell_centers, sd2.cell_centers)
         assert np.allclose(sd1.face_centers, sd2.face_centers)
-
-
-def frac_pts_equal(a: np.ndarray, b: np.ndarray) -> bool:
-    """Check if two arrays of fracture points are equal, disregarding order of
-    points.
-    """
-    if a.shape != b.shape:
-        return False
-    return np.array_equal(np.sort(a), np.sort(b))
