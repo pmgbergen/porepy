@@ -825,7 +825,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         self._domain = cast(pp.Domain, self.fracture_network.domain)
         self._fractures = self.fracture_network.fractures
 
-        # Create projection between local and global coordinates fracture grids.
+        # Create projection between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
 
         # Create well network and mesh.
