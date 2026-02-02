@@ -1247,7 +1247,7 @@ class FractureNetwork2d:
                 csv_writer.writerow([self.domain.bounding_box[o] for o in order])
             # Write all the fractures.
             for edge in self._edges.T:
-                data = []
+                data: list[float] = []
                 data.extend(self._pts[:, edge[0]])
                 data.extend(self._pts[:, edge[1]])
                 csv_writer.writerow(data)

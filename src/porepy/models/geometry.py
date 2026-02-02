@@ -817,7 +817,15 @@ class LoadGeometryMixin(pp.PorePyModel):
         self.fracture_network = pp.fracture_importer.network_from_csv(
             fracture_network_path
         )
-        self.nd = self.fracture_network.domain.dim
+        # TODO (part of GH 1576): Replace with fracture_network.dim, which is introduced
+        # in that PR.
+        self.nd = (
+            2
+            if isinstance(
+                self.fracture_network, pp.fracs.fracture_network_2d.FractureNetwork2d
+            )
+            else 3
+        )
 
         self.mdg = pp.fracture_importer.dfm_from_gmsh(gmsh_path, dim=self.nd)
 
@@ -886,7 +894,7 @@ class LoadGeometryMixin(pp.PorePyModel):
             # The latter two are used by `LoadGeometryMixin.set_geometry`.
             "csv_file_name": "fracture_network.csv",
         }
-        meshing_kwargs = ModelGeometry.meshing_kwargs(self)  # type: ignore[attr-defined]
+        meshing_kwargs = super().meshing_kwargs()  # type: ignore[safe-super]
         default_meshing_kwargs.update(meshing_kwargs)
 
         return default_meshing_kwargs
