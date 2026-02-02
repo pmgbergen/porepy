@@ -58,7 +58,7 @@ def network_from_csv(
     # line.
     nd = None
 
-    fractures = []
+    fractures: list[pp.LineFracture] | list[pp.PlaneFracture] = []
 
     with open(file_name, "r") as csv_file:
         while True:
@@ -105,7 +105,11 @@ def network_from_csv(
                         "Fracture line should have four entries in 2d, but has "
                         + f"{data.size}."
                     )
-                fractures.append(pp.LineFracture(data.reshape((2, -1), order="F")))
+                # Mypy does not understand that fractures will only contain
+                # LineFractures in this branch (nd does not change after being set).
+                fractures.append(
+                    pp.LineFracture(data.reshape((2, -1), order="F"))  # type: ignore
+                )
             else:  # nd == 3
                 if data.size == 8:
                     # This will be interpreted as an elliptic fracture. The number of
@@ -113,14 +117,18 @@ def network_from_csv(
                     frac = pp.create_elliptic_fracture(
                         data[:3], data[3], data[4], data[5], data[6], int(data[7])
                     )
-                    fractures.append(frac)
+                    fractures.append(frac)  # type: ignore
                 else:
                     if data.size < 9 or not data.size % 3 == 0:
                         raise ValueError(
                             "Fracture line should at least 9 and a multiple of 3"
                             f" entries in 3d, but has {data.size}."
                         )
-                    fractures.append(pp.PlaneFracture(data.reshape((3, -1), order="F")))
+                    fractures.append(
+                        pp.PlaneFracture(  # type: ignore
+                            data.reshape((3, -1), order="F")
+                        )
+                    )
 
     if not has_nontrival_content:
         raise ValueError("The CSV file contains no data.")

@@ -773,7 +773,9 @@ def test_load_geometry_mixin(
 
 
 def frac_pts_equal(a: np.ndarray, b: np.ndarray) -> bool:
-    """Check if two arrays of fracture points are equal, disregarding order of points."""
+    """Check if two arrays of fracture points are equal, disregarding order of
+    points.
+    """
     if a.shape != b.shape:
         return False
     return np.array_equal(np.sort(a), np.sort(b))
