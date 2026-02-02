@@ -772,7 +772,7 @@ class LoadGeometryMixin(pp.PorePyModel):
         # Paths to geometry files. The structure is how `self.fracture_network.mesh` and
         # `self.create_and_export_geometry` create them.
         file_name = Path(self.meshing_kwargs()["file_name"])
-        folder_path = Path(self.meshing_kwargs()["file_name"]).parent
+        folder_path = file_name.parent
         msh_path = (folder_path / file_name.stem).with_suffix(".msh")
         geo_path = (folder_path / file_name.stem).with_suffix(".geo")
         fracture_network_path = folder_path / self.meshing_kwargs()["csv_file_name"]
