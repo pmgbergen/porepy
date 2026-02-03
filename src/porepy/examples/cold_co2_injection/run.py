@@ -304,16 +304,9 @@ class QuadraticRelPerm(pp.PorePyModel):
     ) -> pp.ad.Operator:
         """Quadratic relative permeability model."""
         return phase.saturation(domains) ** pp.ad.Scalar(2)
-    
 
-def make_model(pc_factory):
-# region Argparsing
-    global REFINEMENT_LEVEL
-    global FLASH_TOL_CASE
-    global LOCAL_SOLVER_STRIDE
-    global NUM_MONTHS
-    global REL_PERM
-    global RUN_WITH_SCHEDULE
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="Cold CO2 injection run script")
     parser.add_argument(
         "-e",
@@ -482,7 +475,7 @@ def make_model(pc_factory):
     else:
         newton_tol = 1e-7
         newton_tol_increment = 5e-6
-    
+
     if REFINEMENT_LEVEL >= 4:
         newton_tol = 5e-7
 
@@ -605,56 +598,78 @@ def make_model(pc_factory):
         model_class = ColdInjectionModel
 
     # MARK: Iterative Linear Solver
-    from pp_solvers.solver_selection.selector import SolverSelector
-    from pp_solvers.solver_selection.solver_space import (
-        SolverSpace,
-        NumericalChoices,
-        CategoricalChoices,
-    )
-    from pp_solvers.solver_selection.performance_predictor import (
-        assemble_default_performance_predictor,
-    )
-
-    solver_space_scheme = {
-        "cpr-ilu": {
-            "pc_hypre_ilu_level": NumericalChoices([0, 1, 2]),
-            "pc_hypre_ilu_maxiter": NumericalChoices([5, 10]),
-        },
-        "identity": {
-            "pc_type": CategoricalChoices(
-                [
-                    "none",
-                    "jacobi",
-                ]
-            ),
-        },
-        "amgaaaa": {
-            "pc_hypre_boomeramg_strong_threshold": NumericalChoices([0.1, 0.25, 0.4]),
-            "pc_hypre_boomeramg_relax_type_all": CategoricalChoices(
-                [
-                    "Jacobi",
-                    "SOR/Jacobi",
-                    "l1scaled-Jacobi",
-                    "Chebyshev",
-                ]
-            ),
-        },
-    }
-    solver_space = SolverSpace(solver_space_scheme=solver_space_scheme)
-    solver_selector = SolverSelector(
-        solver_space=solver_space,
-        performance_predictor=assemble_default_performance_predictor(),
-    )
+    # from pp_solvers.solver_selection.selector import SolverSelector
+    # from pp_solvers.solver_selection.solver_space import (
+    #     SolverSpace,
+    #     NumericalChoices,
+    #     CategoricalChoices,
+    # )
+    # from pp_solvers.solver_selection.performance_predictor import (
+    #     assemble_default_performance_predictor,
+    # )
+    # solver_space_scheme = {
+    #     "gmres": {
+    #         "ksp_max_it": 300,
+    #         "ksp_gmres_restart": 100,
+    #         "ksp_monitor": None,
+    #     },
+    #     "cpr_stage1_ilu": {
+    #         "pc_type": "hypre",
+    #         "pc_hypre_type": "ilu",
+    #         "pc_hypre_ilu_level": NumericalChoices([0, 1, 2]),
+    #         "pc_hypre_ilu_maxiter": NumericalChoices([5, 10]),
+    #     },
+    #     "cpr_stage0_identity": {
+    #         "pc_type": CategoricalChoices(
+    #             [
+    #                 "none",
+    #                 "jacobi",
+    #             ]
+    #         ),
+    #     },
+    #     "cpr_stage0_amg": {
+    #         "pc_hypre_boomeramg_strong_threshold": NumericalChoices([0.1, 0.25, 0.4]),
+    #         "pc_hypre_boomeramg_relax_type_all": CategoricalChoices(
+    #             [
+    #                 "Jacobi",
+    #                 "SOR/Jacobi",
+    #                 "l1scaled-Jacobi",
+    #                 "Chebyshev",
+    #             ]
+    #         ),
+    #     },
+    # }
+    # solver_space = SolverSpace(solver_space_scheme=solver_space_scheme)
+    # solver_selector = SolverSelector(
+    #     solver_space=solver_space,
+    #     performance_predictor=assemble_default_performance_predictor(),
+    # )
+    from pp_solvers.preconditioners import cfle_factory
 
     model_class = add_mixin(pp_solvers.IterativeSolverMixin, model_class)
     model_params["linear_solver"] = {
-        "preconditioner_factory": pc_factory,
-        "solver_selector": solver_selector,
+        "preconditioner_factory": cfle_factory,
         "options": {
-            "ksp_max_it": 300,
-            "ksp_gmres_restart": 100,
-            "ksp_monitor": None,
+            "gmres": {
+                "ksp_max_it": 300,
+                "ksp_gmres_restart": 100,
+                "ksp_monitor": None,
+            },
+            "cpr_stage1_ilu": {
+                "pc_type": "hypre",
+                "pc_hypre_type": "ilu",
+                "pc_hypre_ilu_level": 2,
+                "pc_hypre_ilu_maxiter": 10,
+            },
+            "cpr_stage0_identity": {
+                "pc_type": "jacobi",
+            },
+            "cpr_stage0_amg": {
+                "pc_hypre_boomeramg_strong_threshold": 0.25,
+                "pc_hypre_boomeramg_relax_type_all": "Chebyshev",
+            },
         },
+        # "solver_selector": solver_selector,
     }
 
     model_class = add_mixin(DataCollectionMixin, model_class)
@@ -690,10 +705,6 @@ def make_model(pc_factory):
 
     model.schur_complement_primary_equations = primary_equations
     model.schur_complement_primary_variables = primary_variables
-    return model, model_params, prep_sim_time, file_name, data_path
-
-if __name__ == "__main__":
-    model, model_params, prep_sim_time, file_name, data_path = make_model()
 
     t_0 = time.time()
     SIMULATION_SUCCESS: bool = True
