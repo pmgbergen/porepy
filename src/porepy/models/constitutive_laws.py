@@ -1346,6 +1346,15 @@ class AdTpfaFlux(pp.PorePyModel):
         ) @ potential(domains)
         vector_source_difference = vector_source_c_to_f @ vector_source_cells
 
+        # Get boundary condition values and compose a boundary value operator that also
+        # includes the interface fluxes.
+        boundary_value_operator = boundary_operator(domains)
+        boundary_value = (
+            boundary_value_operator
+            + intf_projection.mortar_to_primary_int()
+            @ getattr(self, "interface_" + flux_name)(interfaces)
+        )
+
         # Fetch the discretization of the Darcy flux
         base_discr = getattr(self, flux_name + "_discretization")(domains)
 
@@ -1364,7 +1373,8 @@ class AdTpfaFlux(pp.PorePyModel):
             # To obtain a mixture of Tpfa and Mpfa, we utilize pp.ad.Function, one for
             # the flux and one for the vector source.
 
-            # Define the Ad function for the flux
+            # Define the Ad function for the flux, including the impact of boundary
+            # conditions internal and external.
             flux_p = pp.ad.Function(
                 # Mypy raises an error here since functool.partial returns a 'partial',
                 # while pp.ad.Function expects a Callable. partial.__call__ is a
@@ -1374,7 +1384,7 @@ class AdTpfaFlux(pp.PorePyModel):
                     self.__mpfa_flux_discretization, base_discr
                 ),
                 "differentiable_mpfa",
-            )(t_f, potential_difference, potential(domains))
+            )(t_f, potential_difference, potential(domains), boundary_value)
 
             # Define the Ad function for the vector source
             vector_source_d = pp.ad.Function(
@@ -1387,7 +1397,7 @@ class AdTpfaFlux(pp.PorePyModel):
         else:
             # The base discretization is Tpfa, so we can rely on the Ad machinery to
             # compose the full expression.
-            flux_p = t_f * potential_difference
+            flux_p = t_f * potential_difference + t_bnd * boundary_value
             vector_source_d = t_f * vector_source_difference
 
         # As the base discretization is only invoked inside a function, and then only by
@@ -1400,22 +1410,10 @@ class AdTpfaFlux(pp.PorePyModel):
         # have to do for now.
         flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
-        # Get boundary condition values
-        boundary_value_operator = boundary_operator(domains)
-
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
         # conditions, and the flux due to the vector source.
-        flux: pp.ad.Operator = (
-            flux_p
-            + t_bnd
-            * (
-                boundary_value_operator
-                + intf_projection.mortar_to_primary_int()
-                @ getattr(self, "interface_" + flux_name)(interfaces)
-            )
-            + vector_source_d
-        )
+        flux: pp.ad.Operator = flux_p + vector_source_d
         flux.set_name("Differentiable diffusive flux")
         return flux
 
@@ -1604,8 +1602,13 @@ class AdTpfaFlux(pp.PorePyModel):
         return t_f_full, diff_discr, hf_to_f, d_vec
 
     def __mpfa_flux_discretization(
-        self, base_discr: pp.ad.MpfaAd, T_f: ArrayType, p_diff: ArrayType, p: ArrayType
-    ) -> ArrayType:
+        self,
+        base_discr: pp.ad.MpfaAd,
+        T_f: ArrayType,
+        p_diff: ArrayType,
+        p: ArrayType,
+        bv,
+    ) -> tuple[ArrayType, ArrayType]:
         """Approximate the product rule for the expression d(T_MPFA * p), where T_MPFA
         is the transmissibility matrix for an Mpfa discretization.
 
@@ -1634,13 +1637,15 @@ class AdTpfaFlux(pp.PorePyModel):
         # We know that base_discr.flux is a sparse matrix, so we can call parse
         # directly.
         base_flux = base_discr.flux().parse(self.mdg)
+        base_bound_flux = base_discr.bound_flux().parse(self.mdg)
         # If the function has been called using .value, p is a numpy array and we pass
         # only the value.
         if not isinstance(p, pp.ad.AdArray):
-            return base_flux @ p
+            return base_flux @ p + base_bound_flux @ bv
         # Otherwise, at the time of evaluation, p will be an AdArray, thus we can access
         # its val and jac attributes.
-        val = base_flux @ p.val
+        val = base_flux @ p.val + base_bound_flux @ bv.val
+        # No contribution from differentiating the boundary flux, as bv is constant.
         jac = base_flux @ p.jac
 
         if hasattr(T_f, "jac"):
@@ -1648,7 +1653,7 @@ class AdTpfaFlux(pp.PorePyModel):
             # transmissibility matrix times the pressure difference. To see why this is
             # correct, it may be useful to consider the flux over a single face
             # (corresponding to one row in the Jacobian matrix).
-            jac += sps.diags(p_diff.val) @ T_f.jac
+            jac += sps.diags(p_diff.val + bv.val) @ T_f.jac
 
         return pp.ad.AdArray(val, jac)
 
