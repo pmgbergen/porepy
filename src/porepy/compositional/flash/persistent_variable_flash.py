@@ -32,7 +32,12 @@ import porepy as pp
 
 from .._numba_interface import get_empty_numba_dict, njit
 from ..compiled_eos import CompiledEoS
-from ..utils import FlashSpec, _chainrule_fractional_derivatives, normalize_rows
+from ..utils import (
+    FlashSpec,
+    FlashSpecMember_NUMBA_TYPE,
+    _chainrule_fractional_derivatives,
+    normalize_rows,
+)
 from .abstract_flash import AbstractFlash, FlashResults, StateSpecDict
 from .flash_equations import (
     complementary_conditions_jac,
@@ -42,8 +47,8 @@ from .flash_equations import (
     generic_arg_from_flash_results,
     isofugacity_constraints_jac,
     isofugacity_constraints_res,
-    mass_conservation_jac,
-    mass_conservation_res,
+    mass_constraint_jac,
+    mass_constraint_res,
     parse_generic_arg,
     parse_vectorized_generic_arg,
     phase_mass_constraints_jac,
@@ -161,6 +166,14 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         """Numba typed dict which can be passed to compiled functions. Created during
         first call to :meth:`_convert_solver_params`."""
 
+        self._template_res: Callable[[np.ndarray, FlashSpec], np.ndarray]
+        """Compiled flash residual template returning a uniform system depending on
+        flash specification and flash argument."""
+
+        self._template_jac: Callable[[np.ndarray, FlashSpec], np.ndarray]
+        """Compiled flash residual template returning a uniform system depending on
+        flash specification and flash argument."""
+
         # Setting default solver parameters.
         self.params["rpc_T_default"] = np.array(
             [c.critical_temperature for c in fluid.components]
@@ -238,6 +251,12 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         if not self._eos.is_compiled:
             self._eos.compile()
 
+        no_supp: list[str] = [
+            s.name for s in args if s not in self.SUPPORTED_SPECIFICATIONS
+        ]
+        if no_supp:
+            raise NotImplementedError(f"Specifications {no_supp} not supported.")
+
         self.initializer.compile(*args)
 
         # Setting outer scope variables to avoid referencing self in JIT functions.
@@ -259,403 +278,263 @@ class CompiledPersistentVariableFlash(AbstractFlash):
         logger.info(f"Compiling {[a.name for a in args]} flash systems ...")
         start = time.time()
 
-        if FlashSpec.pT in args and FlashSpec.pT not in self.residuals:
-            logger.debug("Compiling pT flash ...")
+        if not hasattr(self, "_template_res"):
+            logger.debug("Compiling template flash residual ...")
 
-            @njit(FLASH_RESIDUAL_SIGNATURE)
-            def F_pT(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.pT
+            @njit(nb.f8[:](nb.f8[:], FlashSpecMember_NUMBA_TYPE))
+            def template_res(X_gen: np.ndarray, spec: FlashSpec) -> np.ndarray:
                 n_P = int(nphase)
                 n_C = int(ncomp)
                 states = nb.literal_unroll(phasestates)
 
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                x = gen_arg[1]
-                y = gen_arg[2]
-                z = gen_arg[3]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                params = gen_arg[8]
-
-                # EoS specific computations
-                xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-
-                for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
-
-                res_1 = mass_conservation_res(x, y, z)
-                res_2 = isofugacity_constraints_res(x, phis)
-                res_3 = complementary_conditions_res(x, y)
-
-                return np.hstack((res_1, res_2, res_3))
-
-            @njit(FLASH_JACOBIAN_SIGNATURE)
-            def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.pT
-                n_P = int(nphase)
-                n_C = int(ncomp)
-                states = nb.literal_unroll(phasestates)
-
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                x = gen_arg[1]
-                y = gen_arg[2]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                params = gen_arg[8]
-
-                # EoS specific computations
-                xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-                dphis = np.empty((n_P, n_C, 2 + n_C))
-
-                for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    for i in range(n_C):
-                        dphis[j, i, :] = _chainrule_fractional_derivatives(
-                            d_phi_j[i], x[j]
-                        )
-
-                jac_1 = mass_conservation_jac(x, y)
-                jac_2 = isofugacity_constraints_jac(x, phis, dphis)
-                jac_3 = complementary_conditions_jac(x, y)
-
-                # Stack Jacobians and return only derivatives w.r.t. y and x
-                return np.vstack((jac_1, jac_2, jac_3))[:, 2 + n_P - 1 :]
-
-            self.residuals[FlashSpec.pT] = F_pT
-            self.jacobians[FlashSpec.pT] = DF_pT
-
-        if FlashSpec.ph in args and FlashSpec.ph not in self.residuals:
-            logger.debug("Compiling ph flash ...")
-
-            @njit(FLASH_RESIDUAL_SIGNATURE)
-            def F_ph(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.ph
-                n_P = int(nphase)
-                n_C = int(ncomp)
-                states = nb.literal_unroll(phasestates)
-
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                x = gen_arg[1]
-                y = gen_arg[2]
-                z = gen_arg[3]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                h_target = gen_arg[7]
-                params = gen_arg[8]
-
-                # EoS specific computations
-                xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-                h = np.empty(n_P)
-
-                for j in range(nphase):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    h[j] = h_c(pre_res_j, p, T, xn[j])
-
-                res_1 = mass_conservation_res(x, y, z)
-                # Adding additional term with T appearing in first order conditions.
-                res_2 = first_order_constraint_res(h_target, y, h)  # / T**2
-                # Non-dimensional scaling of enthalpy constraint.
-                if np.abs(h_target) > 1.0:
-                    res_2 /= h_target
-
-                res_3 = isofugacity_constraints_res(x, phis)
-                res_4 = complementary_conditions_res(x, y)
-
-                return np.hstack((res_1, res_2, res_3, res_4))
-
-            @njit(FLASH_JACOBIAN_SIGNATURE)
-            def DF_ph(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.ph
-                n_P = int(nphase)
-                n_C = int(ncomp)
-                states = nb.literal_unroll(phasestates)
-
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                x = gen_arg[1]
-                y = gen_arg[2]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                h_target = gen_arg[7]
-                params = gen_arg[8]
-
-                # EoS specific computations
-                xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-                dphis = np.empty((n_P, n_C, 2 + n_C))
-                hs = np.empty(n_P)
-                dhs = np.empty((n_P, 2 + n_C))
-
-                for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    for i in range(n_C):
-                        dphis[j, i, :] = _chainrule_fractional_derivatives(
-                            d_phi_j[i], x[j]
-                        )
-                    hs[j] = h_c(pre_res_j, p, T, xn[j])
-                    dhs[j] = _chainrule_fractional_derivatives(
-                        dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
-                    )
-
-                jac_1 = mass_conservation_jac(x, y)
-                # Product rule for extra term 1/T**2.
-                # TT = T**2
-                # cT = -2.0 / (TT * T)
-                jac_2 = first_order_constraint_jac(y, hs, dhs, True)  # / TT
-                # jac_2[0, 1] += cT * first_order_constraint_res(h_target, y, hs)[0]
-                # Scaling of constraint with target value.
-                if np.abs(h_target) > 1.0:
-                    jac_2 /= h_target
-
-                jac_3 = isofugacity_constraints_jac(x, phis, dphis)
-                jac_4 = complementary_conditions_jac(x, y)
-
-                # No derivatives w.r.t. pressure and saturations.
-                jac = np.vstack((jac_1, jac_2, jac_3, jac_4))
-                # NOTE, this is cumbersome, but Numba does not allow stacking of
-                # single column (1D array) with other columns (2D array). So we slice
-                # out only the columns belonging to saturations, and stack. Final slice
-                # which removes column belonging to p is done after stack.
-                return np.hstack((jac[:, :2], jac[:, 2 + n_P - 1 :]))[:, 1:]
-
-            self.residuals[FlashSpec.ph] = F_ph
-            self.jacobians[FlashSpec.ph] = DF_ph
-
-        if FlashSpec.vh in args and FlashSpec.vh not in self.residuals:
-            logger.debug("Compiling vh flash ...")
-
-            @njit(FLASH_RESIDUAL_SIGNATURE)
-            def F_vh(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.vh
-                n_P = int(nphase)
-                n_C = int(ncomp)
-                states = nb.literal_unroll(phasestates)
-
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                s = gen_arg[0]
-                x = gen_arg[1]
-                y = gen_arg[2]
-                z = gen_arg[3]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                v_target = gen_arg[6]
-                h_target = gen_arg[7]
-                params = gen_arg[8]
-
-                # EoS specific computations
-                xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-                hs = np.empty(n_P)
-                rhos = np.empty(n_P)
-
-                for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    hs[j] = h_c(pre_res_j, p, T, xn[j])
-                    rhos[j] = rho_c(pre_res_j, p, T, xn[j])
-
-                res_1 = mass_conservation_res(x, y, z)
-                res_2 = first_order_constraint_res(h_target, y, hs) / T**2
-                # Non-dimensional scaling of first order constraints.
-                res_2 /= h_target
-                # res_4 *= v_target
-                # NOTE due to v * rho = 1, the scaling of the volume constraint is
-                # performed differently than for the enthalpy constraint.
-                res_3 = first_order_constraint_res(1.0, s, v_target * rhos)
-                res_4 = phase_mass_constraints_res(s, y, rhos)
-
-                res_5 = isofugacity_constraints_res(x, phis)
-                res_6 = complementary_conditions_res(x, y)
-
-                return np.hstack((res_1, res_2, res_3, res_4, res_5, res_6))
-
-            @njit(FLASH_JACOBIAN_SIGNATURE)
-            def DF_vh(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.vh
-                n_P = int(nphase)
-                n_C = int(ncomp)
-                states = nb.literal_unroll(phasestates)
-
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                s = gen_arg[0]
-                x = gen_arg[1]
-                y = gen_arg[2]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                v_target = gen_arg[6]
-                h_target = gen_arg[7]
-                params = gen_arg[8]
-
-                # EoS specific computations
-                xn = normalize_rows(x)
-                phis = np.empty((n_P, n_C))
-                dphis = np.empty((n_P, n_C, 2 + n_C))
-                hs = np.empty(n_P)
-                dhs = np.empty((n_P, 2 + n_C))
-                rhos = np.empty(n_P)
-                drhos = np.empty((n_P, 2 + n_C))
-
-                for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
-                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    for i in range(n_C):
-                        dphis[j, i, :] = _chainrule_fractional_derivatives(
-                            d_phi_j[i], x[j]
-                        )
-                    hs[j] = h_c(pre_res_j, p, T, xn[j])
-                    dhs[j] = _chainrule_fractional_derivatives(
-                        dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
-                    )
-                    rhos[j] = rho_c(pre_res_j, p, T, xn[j])
-                    drhos[j] = _chainrule_fractional_derivatives(
-                        drho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
-                    )
-
-                jac_1 = mass_conservation_jac(x, y)
-                # Product rule for extra term 1/T**2.
-                TT = T**2
-                jac_2 = first_order_constraint_jac(y, hs, dhs, True) / TT
-                h_res = first_order_constraint_res(h_target, y, hs)[0]
-                jac_2[0, 1] -= 2.0 / (TT * T) * h_res
-                jac_3 = first_order_constraint_jac(s, rhos, drhos, False)
-                # Non-dimensional scaling of constraints.
-                jac_2 /= h_target
-                jac_3 *= v_target
-                jac_4 = phase_mass_constraints_jac(s, y, rhos, drhos)
-
-                jac_5 = isofugacity_constraints_jac(x, phis, dphis)
-                jac_6 = complementary_conditions_jac(x, y)
-
-                return np.vstack((jac_1, jac_2, jac_3, jac_4, jac_5, jac_6))
-
-            self.residuals[FlashSpec.vh] = F_vh
-            self.jacobians[FlashSpec.vh] = DF_vh
-
-        if FlashSpec.vu in args and FlashSpec.vu not in self.residuals:
-            logger.debug("Compiling vu flash ...")
-
-            @njit(FLASH_RESIDUAL_SIGNATURE)
-            def F_vu(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.vu
-                n_P = int(nphase)
-                n_C = int(ncomp)
-                states = nb.literal_unroll(phasestates)
-
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                s = gen_arg[0]
-                x = gen_arg[1]
-                y = gen_arg[2]
-                z = gen_arg[3]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                v_target = gen_arg[6]
-                u_target = gen_arg[7]
-                params = gen_arg[8]
+                sat, x, y, z, p, T, s1, s2, xp = parse_generic_arg(
+                    X_gen, n_C, n_P, spec
+                )
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty((n_P, n_C))
                 us = np.empty(n_P)
+                hs = np.empty(n_P)
                 rhos = np.empty(n_P)
 
                 for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], xp)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
-                    us[j] = u_c(pre_res_j, p, T, xn[j])
-                    rhos[j] = rho_c(pre_res_j, p, T, xn[j])
 
-                res_1 = mass_conservation_res(x, y, z)
-                res_2 = first_order_constraint_res(u_target, y, us) / T**2
-                # Non-dimensional scaling of first order constraints.
-                if np.abs(u_target) > 1.0:
-                    res_2 /= u_target
-                # res_4 *= v_target
-                # NOTE due to v * rho = 1, the scaling of the volume constraint is
-                # performed differently than for the enthalpy constraint.
-                res_3 = first_order_constraint_res(1.0, s, v_target * rhos)
-                res_4 = phase_mass_constraints_res(s, y, rhos)
+                    if spec >= FlashSpec.vT:
+                        rhos[j] = rho_c(pre_res_j, p, T, xn[j])
 
-                res_5 = isofugacity_constraints_res(x, phis)
-                res_6 = complementary_conditions_res(x, y)
+                    if spec in (FlashSpec.ph, FlashSpec.vh):
+                        hs[j] = h_c(pre_res_j, p, T, xn[j])
+                    elif spec == FlashSpec.vu:
+                        us[j] = u_c(pre_res_j, p, T, xn[j])
 
-                return np.hstack((res_1, res_2, res_3, res_4, res_5, res_6))
+                # Block which all flashes have in common.
+                res = np.hstack(
+                    (
+                        isofugacity_constraints_res(x, phis),
+                        mass_constraint_res(x, y, z),
+                        complementary_conditions_res(x, y),
+                    )
+                )
 
-            @njit(FLASH_JACOBIAN_SIGNATURE)
-            def DF_vu(X_gen: np.ndarray) -> np.ndarray:
-                spec = FlashSpec.vu
+                # Pre-append volume block for isochoric specifications.
+                if spec >= FlashSpec.vT:
+                    res = np.hstack(
+                        (
+                            # NOTE: Scaling volume constraint with target volume s1
+                            first_order_constraint_res(1.0, sat, s1 * rhos),
+                            phase_mass_constraints_res(sat, y, rhos),
+                            res,
+                        )
+                    )
+
+                # Pre-append energy block for non-isothermal specifications.
+                if spec in (FlashSpec.ph, FlashSpec.vh):
+                    res_e = first_order_constraint_res(s2, y, hs)
+                elif spec == FlashSpec.vu:  # NOTE Energy-blocks are mutually exclusive.
+                    res_e = first_order_constraint_res(s2, y, us)
+                else:
+                    res_e = np.zeros((0,))
+
+                # Scaling of energy residual.
+                if res_e.size > 0:
+                    res_e /= T**2
+                    # Non-dimensional scaling of energy residual.
+                    if np.abs(s2) > 1.0:
+                        res_e /= s2
+
+                return np.hstack((res_e, res))
+
+            self._template_res = template_res
+
+        if not hasattr(self, "_template_jac"):
+            logger.debug("Compiling template flash Jacobian ...")
+
+            @njit(nb.f8[:, :](nb.f8[:], FlashSpecMember_NUMBA_TYPE))
+            def template_jac(X_gen: np.ndarray, spec: FlashSpec) -> np.ndarray:
                 n_P = int(nphase)
                 n_C = int(ncomp)
                 states = nb.literal_unroll(phasestates)
 
-                gen_arg = parse_generic_arg(X_gen, n_C, n_P, spec)
-                s = gen_arg[0]
-                x = gen_arg[1]
-                y = gen_arg[2]
-                p = gen_arg[4]
-                T = gen_arg[5]
-                v_target = gen_arg[6]
-                u_target = gen_arg[7]
-                params = gen_arg[8]
+                # Analogous to template_res, but for derivatives.
+                sat, x, y, _, p, T, s1, s2, xp = parse_generic_arg(
+                    X_gen, n_C, n_P, spec
+                )
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty((n_P, n_C))
-                dphis = np.empty((n_P, n_C, 2 + n_C))
                 us = np.empty(n_P)
+                hs = np.empty(n_P)
+                rhos = np.empty(n_P)
+
+                dphis = np.empty((n_P, n_C, 2 + n_C))
                 dus = np.empty((n_P, 2 + n_C))
-                rhos = np.empty(n_P)
+                dhs = np.empty((n_P, 2 + n_C))
                 drhos = np.empty((n_P, 2 + n_C))
 
                 for j in range(n_P):
-                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], params)
-                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], params)
+                    pre_res_j = prearg_val_c(states[j], p, T, xn[j], xp)
+                    pre_jac_j = prearg_jac_c(pre_res_j, p, T, xn[j], xp)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
+
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(n_C):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
                         )
-                    us[j] = u_c(pre_res_j, p, T, xn[j])
-                    dus[j] = _chainrule_fractional_derivatives(
-                        du_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+
+                    if spec >= FlashSpec.vT:
+                        rhos[j] = rho_c(pre_res_j, p, T, xn[j])
+                        drhos[j] = _chainrule_fractional_derivatives(
+                            drho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        )
+
+                    if spec in (FlashSpec.ph, FlashSpec.vh):
+                        hs[j] = h_c(pre_res_j, p, T, xn[j])
+                        dhs[j] = _chainrule_fractional_derivatives(
+                            dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        )
+                    elif spec == FlashSpec.vu:
+                        us[j] = u_c(pre_res_j, p, T, xn[j])
+                        dus[j] = _chainrule_fractional_derivatives(
+                            du_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        )
+
+                # Common block.
+                jac = np.vstack(
+                    (
+                        isofugacity_constraints_jac(x, phis, dphis),
+                        mass_constraint_jac(x, y),
+                        complementary_conditions_jac(x, y),
                     )
-                    rhos[j] = rho_c(pre_res_j, p, T, xn[j])
-                    drhos[j] = _chainrule_fractional_derivatives(
-                        drho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                )
+
+                # Pre-append volume block for isochoric specifications.
+                if spec >= FlashSpec.vT:
+                    jac = np.vstack(
+                        (
+                            first_order_constraint_jac(sat, rhos, drhos, False) * s1,
+                            phase_mass_constraints_jac(sat, y, rhos, drhos),
+                            jac,
+                        )
                     )
 
-                jac_1 = mass_conservation_jac(x, y)
-                # Product rule for extra term 1/T**2.
-                TT = T**2
-                jac_2 = first_order_constraint_jac(y, us, dus, True) / TT
-                u_res = first_order_constraint_res(u_target, y, us)[0]
-                jac_2[0, 1] -= 2.0 / (TT * T) * u_res
-                jac_3 = first_order_constraint_jac(s, rhos, drhos, False)
-                # Non-dimensional scaling of constraints.
-                if np.abs(u_target) > 1.0:
-                    jac_2 /= u_target
-                jac_3 *= v_target
-                jac_4 = phase_mass_constraints_jac(s, y, rhos, drhos)
+                # Pre-append energy block for non-isothermal specifications.
+                if spec in (FlashSpec.ph, FlashSpec.vh):
+                    jac_e = first_order_constraint_jac(y, hs, dhs, True)
+                    res_e = first_order_constraint_res(s2, y, hs)[0]
+                elif spec == FlashSpec.vu:
+                    jac_e = first_order_constraint_jac(y, us, dus, True)
+                    res_e = first_order_constraint_res(s2, y, us)[0]
+                else:
+                    jac_e = np.empty((0, jac.shape[1]))
+                    res_e = 0.0
 
-                jac_5 = isofugacity_constraints_jac(x, phis, dphis)
-                jac_6 = complementary_conditions_jac(x, y)
+                if jac_e.size > 0:
+                    TT = T**2
+                    jac_e /= TT
+                    jac_e[0, 1] -= 2.0 / (TT * T) * res_e
 
-                return np.vstack((jac_1, jac_2, jac_3, jac_4, jac_5, jac_6))
+                    if np.abs(s2) > 1.0:
+                        jac_e /= s2
 
-            self.residuals[FlashSpec.vu] = F_vu
-            self.jacobians[FlashSpec.vu] = DF_vu
+                return np.vstack((jac_e, jac))
+
+            self._template_jac = template_jac
+
+        template_res = self._template_res
+        template_jac = self._template_jac
+
+        res_compiler = njit(FLASH_RESIDUAL_SIGNATURE)
+        jac_compiler = njit(FLASH_JACOBIAN_SIGNATURE)
+
+        # NOTE Cannot compile in loop over args, only reference of last is stored.
+
+        if FlashSpec.pT in args:
+            if FlashSpec.pT not in self.residuals:
+                logger.debug("Compiling pT-flash residual ...")
+
+                @res_compiler
+                def res_pT(X_gen: np.ndarray) -> np.ndarray:
+                    return template_res(X_gen, FlashSpec.pT)
+
+                self.residuals[FlashSpec.pT] = res_pT
+
+            if FlashSpec.pT not in self.jacobians:
+                logger.debug("Compiling pT-flash Jacobian ...")
+
+                @jac_compiler
+                def jac_pT(X_gen: np.ndarray) -> np.ndarray:
+                    n_P = int(nphase)
+                    J = template_jac(X_gen, FlashSpec.pT)
+                    return J[:, 2 + n_P - 1 :]
+
+                self.jacobians[FlashSpec.pT] = jac_pT
+
+        if FlashSpec.ph in args:
+            if FlashSpec.ph not in self.residuals:
+                logger.debug("Compiling ph-flash residual ...")
+
+                @res_compiler
+                def res_ph(X_gen: np.ndarray) -> np.ndarray:
+                    return template_res(X_gen, FlashSpec.ph)
+
+                self.residuals[FlashSpec.ph] = res_ph
+
+            if FlashSpec.ph not in self.jacobians:
+                logger.debug("Compiling ph-flash Jacobian ...")
+
+                @jac_compiler
+                def jac_ph(X_gen: np.ndarray) -> np.ndarray:
+                    n_P = int(nphase)
+                    J = template_jac(X_gen, FlashSpec.ph)
+                    idx = np.zeros(J.shape[1], dtype=np.bool_)
+                    idx[1] = True
+                    idx[2 + n_P - 1 :] = True
+                    return J[:, idx]
+
+                self.jacobians[FlashSpec.ph] = jac_ph
+
+        if FlashSpec.vu in args:
+            if FlashSpec.vu not in self.residuals:
+                logger.debug("Compiling vu-flash residual ...")
+
+                @res_compiler
+                def res_vu(X_gen: np.ndarray) -> np.ndarray:
+                    return template_res(X_gen, FlashSpec.vu)
+
+                self.residuals[FlashSpec.vu] = res_vu
+
+            if FlashSpec.vu not in self.jacobians:
+                logger.debug("Compiling vu-flash Jacobian ...")
+
+                @jac_compiler
+                def jac_vu(X_gen: np.ndarray) -> np.ndarray:
+                    return template_jac(X_gen, FlashSpec.vu)
+
+                self.jacobians[FlashSpec.vu] = jac_vu
+
+        if FlashSpec.vh in args:
+            if FlashSpec.vh not in self.residuals:
+                logger.debug("Compiling vh-flash residual ...")
+
+                @res_compiler
+                def res_vh(X_gen: np.ndarray) -> np.ndarray:
+                    return template_res(X_gen, FlashSpec.vh)
+
+                self.residuals[FlashSpec.vh] = res_vh
+
+            if FlashSpec.vh not in self.jacobians:
+                logger.debug("Compiling vh-flash Jacobian ...")
+
+                @jac_compiler
+                def jac_vh(X_gen: np.ndarray) -> np.ndarray:
+                    return template_jac(X_gen, FlashSpec.vh)
+
+                self.jacobians[FlashSpec.vh] = jac_vh
 
         logger.info(
             f"{nphase}-phase, {ncomp}-component flash compiled"

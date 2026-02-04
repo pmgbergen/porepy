@@ -6,6 +6,7 @@ residuals and Jacobians for different flash specifications.
 from __future__ import annotations
 
 from itertools import product
+from threading import Lock
 
 import numpy as np
 import pytest
@@ -19,6 +20,13 @@ from porepy.applications.test_utils.derivative_testing import (
     get_EOC_taylor,
 )
 from tests.compositional.peng_robinson import components, comps_and_phases, pr_eos
+
+
+_flash_cache: dict[tuple[str, ...], pr.CompiledPengRobinson] = {}
+"""Caching expensive to create flash classes."""
+_cache_lock = Lock()
+"""Threading lock in case of parallel test execution, to avoid race conditions between
+different test processes."""
 
 
 @pytest.fixture(scope="module")
@@ -54,6 +62,8 @@ def flash(
     for p in phases:
         p.components = components
 
+    fluid = pp.Fluid(components, phases)
+
     # Default initializer supports only 2-phase mixtures.
     class DummyInitializer(pf.FlashInitializer):
         def __init__(self, fluid, params=None):
@@ -65,10 +75,20 @@ def flash(
         def compile(self, *args):
             pass
 
-    fluid = pp.Fluid(components, phases)
-    fl = pf.CompiledPersistentVariableFlash(
-        fluid, params={"initializer": DummyInitializer}
+    cache_key = tuple(
+        str(c) for c in [comps_and_phases[0], comps_and_phases[1], request.param]
     )
+
+    with _cache_lock:
+        if cache_key in _flash_cache:
+            fl = _flash_cache[cache_key]
+        else:
+            fl = pf.CompiledPersistentVariableFlash(
+                fluid, params={"initializer": DummyInitializer}
+            )
+            fl.compile()
+            _flash_cache[cache_key] = fl
+
     return fl
 
 
@@ -89,6 +109,27 @@ def test_error_when_flashing_with_one_phase(
     assert False, "Fixture fetching should fail with CompositionalModellingError."
 
 
+def _get_base_dim(cp: tuple[int, str], spec: pc.FlashSpec) -> int:
+    """Calculates the base dimension of a flash system based on numbers of components,
+    phases and flash specification"""
+    ncomp = cp[0]
+    nphase = len(cp[1])
+    # Phase fractions and partial fractions
+    base_dim = ncomp * nphase + nphase - 1
+
+    match spec:
+        case pc.FlashSpec.pT | pc.FlashSpec.vT:
+            pass
+        case pc.FlashSpec.ph:
+            base_dim += 1
+        case pc.FlashSpec.vh | pc.FlashSpec.vu:
+            base_dim += 2 + nphase - 1
+        case _:
+            assert False, "Uncovered flash specification in test."
+
+    return base_dim
+
+
 def _dh_from_cp(
     cp: tuple[int, str], spec: pc.FlashSpec
 ) -> list[tuple[np.ndarray, np.ndarray]]:
@@ -96,9 +137,9 @@ def _dh_from_cp(
     nphase = len(cp[1])
     dim_gen_arg = pf.dim_gen_arg(ncomp, nphase, spec)
     # Base dimension covers phase fractions and extended partial fractions.
-    base_dim = ncomp * nphase + nphase - 1
+    dim_base = _get_base_dim(cp, spec)
     directions = np.hstack(
-        (np.zeros((base_dim, dim_gen_arg - base_dim)), np.eye(base_dim))
+        (np.zeros((dim_base, dim_gen_arg - dim_base)), np.eye(dim_base))
     )
     h_fractions = np.logspace(0, -6, 7)
     h_p = np.logspace(3, -3, 7)
@@ -107,11 +148,11 @@ def _dh_from_cp(
     h_all: list[np.ndarray]
     match spec:
         case pc.FlashSpec.pT | pc.FlashSpec.vT:
-            h_all = [h_fractions] * base_dim
+            h_all = [h_fractions] * dim_base
         case pc.FlashSpec.ph:
-            h_all = [h_T] + [h_fractions] * (base_dim - 1)
+            h_all = [h_T] + [h_fractions] * (dim_base - 1)
         case pc.FlashSpec.vh | pc.FlashSpec.vu:
-            h_all = [h_p, h_T] + [h_fractions] * (base_dim - 2)
+            h_all = [h_p, h_T] + [h_fractions] * (dim_base - 2)
         case _:
             assert False, "Uncovered flash specification in test."
     return [(d, h) for d, h in zip(directions, h_all)]
@@ -133,7 +174,7 @@ def _dh_from_cp(
                 (3, "LL"),
                 (3, "LLL"),
             ],
-            [pc.FlashSpec.pT, pc.FlashSpec.ph, pc.FlashSpec.vh],
+            [pc.FlashSpec.pT, pc.FlashSpec.ph, pc.FlashSpec.vh, pc.FlashSpec.vu],
         )
         for d, h in _dh_from_cp(cp, spec)
     ],
@@ -160,32 +201,22 @@ def test_assembly_of_flash_systems(
     dim_gen_arg = pf.dim_gen_arg(ncomp, nphase, flash_spec)
 
     # Base dimension covers phase fractions and extended partial fractions.
-    base_dim = ncomp * nphase + nphase - 1
-
-    match flash_spec:
-        case pc.FlashSpec.pT | pc.FlashSpec.vT:
-            pass
-        case pc.FlashSpec.ph:
-            base_dim += 1
-        case pc.FlashSpec.vh | pc.FlashSpec.vu:
-            base_dim += 2 + nphase - 1
-        case _:
-            assert False, "Uncovered flash specification in test."
+    dim_base = _get_base_dim(comps_and_phases, flash_spec)
 
     assert flash._eos.nc == ncomp, "Failure in test setup."
     assert flash._eos.is_compiled, "EoS not compiled."
-    # This takes some time, but should not fail.
-    flash.compile(flash_spec)
-    # If flash not available, this will raise an Key error.
+
+    # If flash not available, this will raise a key error. Error in test setup.
     res = flash.residuals[flash_spec]
     jac = flash.jacobians[flash_spec]
 
     # Assume state to be in an area of the domain where the residual is smooth, despite
     # complementary conditions
     z = np.ones(ncomp) / ncomp
-    y = np.ones(nphase) / nphase * 0.5
+    # NOTE: scale with 0.9 to avoid linear dependent complementarity conditions
+    y = np.ones(nphase) / nphase * 0.9
     sat = y.copy()
-    x = np.ones((nphase, ncomp)) / ncomp * 0.5
+    x = np.ones((nphase, ncomp)) / ncomp * 0.9
     p = 1e7
     T = 400.0
     # Isochoric of isobaric.
@@ -194,7 +225,7 @@ def test_assembly_of_flash_systems(
     else:
         state1 = p
     # Can only be energetic, if relevant at all.
-    state2 = -3e4
+    state2 = 3e4
 
     x0 = pf.assemble_generic_arg(
         sat, x, y, z, p, T, state1, state2, np.zeros(0), flash_spec
@@ -202,13 +233,13 @@ def test_assembly_of_flash_systems(
 
     def func(x):
         r = res(x)
-        assert r.shape == (base_dim,)
+        assert r.shape == (dim_base,)
         return r
 
     def dfunc(x):
         j = jac(x)
-        j.shape == (base_dim, base_dim)
-        return np.hstack((np.zeros((base_dim, dim_gen_arg - base_dim)), j))
+        assert j.shape == (dim_base, dim_base)
+        return np.hstack((np.zeros((dim_base, dim_gen_arg - dim_base)), j))
 
     orders = get_EOC_taylor(func, dfunc, x0.copy(), d, h)
     assert_order_at_least(
@@ -216,4 +247,5 @@ def test_assembly_of_flash_systems(
         2.0,
         tol=2e-2,
         asymptotic=3,
+        err_msg=f"({flash_spec.name}, {comps_and_phases}, {d})",
     )

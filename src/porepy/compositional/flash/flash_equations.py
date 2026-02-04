@@ -56,8 +56,8 @@ __all__ = [
     "assemble_generic_arg",
     "parse_vectorized_generic_arg",
     "assemble_vectorized_generic_arg",
-    "mass_conservation_res",
-    "mass_conservation_jac",
+    "mass_constraint_res",
+    "mass_constraint_jac",
     "complementary_conditions_res",
     "complementary_conditions_jac",
     "isofugacity_constraints_res",
@@ -631,7 +631,7 @@ def assemble_vectorized_generic_arg(
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
+def mass_constraint_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
     r"""Assembles the residual of the mass conservation equations.
 
     For each component ``i``, except reference component, it holds
@@ -684,9 +684,9 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
-def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+def mass_constraint_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Returns the Jacobian of the residual described in
-    :func:`mass_conservation_res`.
+    :func:`mass_constraint_res`.
 
     Derivatives are computed w.r.t. independent phase fractions and extended partial
     fractions, where the order of derivatives for the latter is phase-major.

@@ -37,7 +37,7 @@ __all__ = [
 
 
 GENERAL_SOLVER_PARAMS: dict[
-    Literal["num_components", "num_phases", "max_iterations", "tolerance", "f_dim"],
+    Literal["num_components", "num_phases", "max_iterations", "atol_res", "f_dim"],
     float,
 ] = {}
 """Dummy dictionary typing general solver parameters which are expected to be passed to
@@ -46,7 +46,7 @@ a solver.
 - ``'num_components'`` the number of components.
 - ``'num_phases'`` the number of phases.
 - ``'max_iterations'`` maximal number of iterations.
-- ``'tolerance'`` the tolerance for the convergence criterion.
+- ``'atol_res'`` the tolerance for the convergence criterion.
 - ``'f_dim'`` dimension of the flash system.
 
 """
@@ -200,9 +200,9 @@ The exit codes must be as follows:
 
 - 0: converged (success)
 - 1: maximal number of iterations reached
-- 2: diverged (``NAN`` or ``infty`` detected in update or residual)
-- 3: stationary point (unresolved stagnation)
-- 4: failure in evaluation of residual or Jacobian
+- 2: stationary point (unresolved stagnation)
+- 3: diverged (``NAN`` or ``infty`` detected in update or residual)
+- 4: failure in evaluation of residual or Jacobian (nans).
 - 5: error caught by multisolvers
 
 Note:

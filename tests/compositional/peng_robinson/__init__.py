@@ -230,13 +230,14 @@ def pr_eos(
 
     with _cache_lock:
         if cache_key in _pr_eos_cache:
-            return _pr_eos_cache[cache_key]
-        eos = PRLBC(
-            components=components,
-            ideal_fluids=ideal_fluids[:ncomp],
-            bip_matrix=bips[:ncomp, :ncomp],
-        )
-        eos.compile()
-        _pr_eos_cache[cache_key] = eos
+            eos = _pr_eos_cache[cache_key]
+        else:
+            eos = PRLBC(
+                components=components,
+                ideal_fluids=ideal_fluids[:ncomp],
+                bip_matrix=bips[:ncomp, :ncomp],
+            )
+            eos.compile()
+            _pr_eos_cache[cache_key] = eos
 
     return eos

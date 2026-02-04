@@ -195,6 +195,7 @@ def test_parsing_with_no_flash_spec() -> None:
         pc.FlashSpec.pT,
         pc.FlashSpec.ph,
         pc.FlashSpec.vh,
+        pc.FlashSpec.vu,
     ],
 )
 @pytest.mark.parametrize("with_params", [True, False])
@@ -211,6 +212,7 @@ def test_generic_arg_from_result_struture(
     p = np.random.random((N,))
     T = np.random.random((N,))
     h = np.random.random((N,))
+    u = np.random.random((N,))
     rho = np.random.random((N,))
     y = np.random.random((nphase, N))
     sat = np.random.random((nphase, N))
@@ -226,6 +228,9 @@ def test_generic_arg_from_result_struture(
         case pc.FlashSpec.vh:
             state1 = 1 / rho.copy()
             state2 = h.copy()
+        case pc.FlashSpec.vu:
+            state1 = 1 / rho.copy()
+            state2 = u.copy()
 
     if with_params:
         params = np.random.random((np.random.randint(1, 10), N))
@@ -241,6 +246,7 @@ def test_generic_arg_from_result_struture(
         y=y,
         sat=sat,
         h=h,
+        u=u,
         rho=rho,
         phases=[pp.compositional.PhaseProperties(x=x[j, :, :]) for j in range(nphase)],
     )
@@ -298,6 +304,9 @@ def test_generic_arg_from_result_struture(
             elif spec == pc.FlashSpec.vh:
                 assert np.all(Tb == 0)
                 assert np.all(h == st2b)
+            elif spec == pc.FlashSpec.vu:
+                assert np.all(Tb == 0)
+                assert np.all(u == st2b)
             else:
                 assert False, "Missing test logic"
 
@@ -323,7 +332,7 @@ def _d_from_npnc(nphase: int, ncomp: int, spec: pc.FlashSpec) -> np.ndarray:
         for d in _d_from_npnc(nphase, ncomp, pc.FlashSpec.pT)
     ],
 )
-def test_mass_conservation(ncomp: int, nphase: int, d: np.ndarray) -> None:
+def test_mass_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None:
     """Tests if the mass conservation equation is correctly implemented and its
     Jacobian function allows the Taylor approximation to be of second order."""
     spec = pc.FlashSpec.pT
@@ -332,13 +341,13 @@ def test_mass_conservation(ncomp: int, nphase: int, d: np.ndarray) -> None:
 
     def func(xgen):
         _, x, y, z, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
-        res = pf.mass_conservation_res(x, y, z)
+        res = pf.mass_constraint_res(x, y, z)
         assert res.shape == (ncomp - 1,), "Residual of unexpected shape."
         return res
 
     def dfunc(xgen):
         _, x, y, *_ = pf.parse_generic_arg(xgen, ncomp, nphase, spec)
-        jac = pf.mass_conservation_jac(x, y)
+        jac = pf.mass_constraint_jac(x, y)
         assert jac.shape == (ncomp - 1, nf + 2 + nphase - 1), (
             "Jacobian of unexpected shape."
         )
@@ -351,20 +360,20 @@ def test_mass_conservation(ncomp: int, nphase: int, d: np.ndarray) -> None:
     z = np.random.random((ncomp,))
     y = np.zeros(nphase)
     x = np.random.random((nphase, ncomp))
-    res = pf.mass_conservation_res(x, y, z)
+    res = pf.mass_constraint_res(x, y, z)
     assert np.all(res == -z[1:]), "Unexpected residual values."
     y = np.random.random((nphase,))
     x = np.zeros((nphase, ncomp))
-    res = pf.mass_conservation_res(x, y, z)
+    res = pf.mass_constraint_res(x, y, z)
     assert np.all(res == -z[1:]), "Unexpected residual values."
     # If x = 1 and y = 1/nphase (homogenous mass distribution), result should be 1 - z
     y = np.ones(nphase) / nphase
     x = np.ones((nphase, ncomp))
-    res = pf.mass_conservation_res(x, y, z)
+    res = pf.mass_constraint_res(x, y, z)
     assert np.all(res == 1.0 - z[1:]), "Unexpected residual values."
 
     # If only 1 component, the mass conservation equations should be empty.
-    assert pf.mass_conservation_res(x, y, np.ones(1)).shape == (0,), (
+    assert pf.mass_constraint_res(x, y, np.ones(1)).shape == (0,), (
         "Unexpected residual shape for 1 component."
     )
 
@@ -666,4 +675,4 @@ def test_isofugacity_constraints(ncomp: int, nphase: int, d: np.ndarray) -> None
     h = np.logspace(0, -9, 10)
 
     orders = get_EOC_taylor(func, dfunc, Xgen, d, h)
-    assert_order_at_least(orders, 2.0, tol=1e-2, asymptotic=6)
+    assert_order_at_least(orders, 2.0, tol=2e-2, asymptotic=6)

@@ -9,8 +9,8 @@ import numba as nb
 import numpy as np
 import pytest
 
-from porepy.compositional._numba_interface import get_empty_numba_dict
 from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
+from porepy.compositional._numba_interface import get_empty_numba_dict, njit
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ def test_brent(test_case: tuple[Callable[[float], float], float, float, float]) 
 
     func, root_target, a, b = test_case
 
-    func_c = nb.njit(nb.f8(nb.f8))(func)
+    func_c = njit(nb.f8(nb.f8))(func)
     root, converged, iter = brent(func_c, a, b, params)
 
     assert converged == 0

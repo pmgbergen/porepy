@@ -252,14 +252,14 @@ def test_mixture_member_assignment(
     if eliminate_reference:
         assert len(model.overall_fraction_variables) == ncomp - 1
         assert len(model.saturation_variables) == nphase - 1
-        if not pc.has_equilibrium_specified(model):
+        if pc.has_equilibrium_specified(model):
             assert len(model.phase_fraction_variables) == nphase - 1
         else:
             assert len(model.phase_fraction_variables) == 0
     else:
         assert len(model.overall_fraction_variables) == ncomp
         assert len(model.saturation_variables) == nphase
-        if not pc.has_equilibrium_specified(model):
+        if pc.has_equilibrium_specified(model):
             assert len(model.phase_fraction_variables) == nphase
         else:
             assert len(model.phase_fraction_variables) == 0
@@ -474,7 +474,11 @@ def test_mixture_member_assignment(
 # Parametrization to test for any combination
 @pytest.mark.parametrize(
     "equilibrium_specification",
-    [None, (pc.FlashSpec.pT, "persistent-variables"), (pc.FlashSpec.pT,)],
+    [
+        (pc.FlashSpec.none,),
+        (pc.FlashSpec.pT, "persistent-variables"),
+        (pc.FlashSpec.pT,),
+    ],
 )
 @pytest.mark.parametrize("phase_names", [["L"], ["L", "G"]])
 @pytest.mark.parametrize("species", [["H2O"], ["H2O", "CO2"]])

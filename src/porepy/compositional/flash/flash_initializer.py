@@ -1083,12 +1083,12 @@ class HeuristicTwoPhaseInitializer(UniformFlashInitializer):
                         dh_dTs[j] = dh_c(pre_val_j, pre_jac_j, p, T, xn[j])[1]
 
                     h_mix = (hs * y).sum()
-                    h_constr_res = 1 - h_mix / s2
+                    h_constr_res = h_mix / s2 - 1
                     if np.abs(h_constr_res) < tol:
                         break
                     else:
-                        dT_h_constr = -(dh_dTs * y).sum() / s2
-                        dT = 0 - h_constr_res / dT_h_constr  # Newton iteration
+                        dT_h_constr = (dh_dTs * y).sum() / s2
+                        dT = -h_constr_res / dT_h_constr  # Newton iteration
 
                         # corrections to unfeasible updates because of decoupling
                         if np.abs(dT) > T:

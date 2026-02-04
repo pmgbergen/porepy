@@ -61,7 +61,7 @@ def brent(
         f: Scalar function with ``f(a)`` and ``f(b)`` having opposite signs.
         a: Left bracket to the supposed root.
         b: Right bracket to the supposed root.
-        params: A dictionary containing ``'max_iterations'`` and ``'tolerance'``.
+        params: A dictionary containing ``'max_iterations'`` and ``"atol_res"``.
 
     Raises:
         ValueError: If ``f(a)`` and ``f(b)`` have the same sign.

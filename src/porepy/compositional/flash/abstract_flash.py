@@ -143,19 +143,32 @@ class FlashResults(pp.compositional.FluidProperties):
         return self.exitcode == 1
 
     @property
-    def diverged(self) -> NDArray[np.bool_]:
-        """Flags indicating where the flash diverged."""
+    def stationary(self) -> NDArray[np.bool_]:
+        """Flags indicating where the flash problem became stationary."""
         return self.exitcode == 2
 
     @property
-    def stationary(self) -> NDArray[np.bool_]:
-        """Flags indicating where the flash problem stagnated unrecoverably."""
+    def diverged(self) -> NDArray[np.bool_]:
+        """Flags indicating where the flash diverged."""
         return self.exitcode == 3
 
     @property
     def failure(self) -> NDArray[np.bool_]:
         """Flags indicating where the flash failed for unknown reasons."""
         return (self.exitcode == 4) | (self.exitcode == 5)
+
+    @property
+    def exitcode_parsed(self) -> NDArray[np.str_]:
+        """Human-readable exitcode translating to the code to its classification."""
+        # NOTE object-dtype to avoid capping of strings.
+        v = np.array(["converged"] * self.exitcode.size, dtype=object)
+        v[self.max_iter_reached] = "max. iterations reached"
+        v[self.stationary] = "stationary point"
+        v[self.diverged] = "diverged"
+        v[self.exitcode == 4] = "failure in evaluation"
+        v[self.exitcode == 5] = "unspecified exception (multisolver)"
+        v[self.exitcode > 5] = "unknown"
+        return v.astype(str)
 
     def postprocess_fractions(self, eps: float = 1e-7) -> None:
         """Ensures fractions are strictly in the interval [0, 1] and fulfill the
@@ -218,7 +231,7 @@ class AbstractFlash(abc.ABC):
         self.params["gas_phase_index"] = fluid.gas_phase_index
 
         self.solver_params: dict[str, float] = {
-            "tolerance": 1e-8,
+            "atol_res": 1e-7,
             "max_iterations": 100.0,
             "num_phases": float(fluid.num_phases),
             "num_components": float(fluid.num_components),
@@ -552,7 +565,7 @@ class AbstractFlash(abc.ABC):
         spec1range: np.ndarray | pp.number,
         spec2range: np.ndarray | pp.number,
         zrange: Optional[Sequence[np.ndarray | pp.number]] = None,
-        field: str = "phasesplit",
+        field: str | list[str] = "phasesplit",
         /,
         *,
         zindex: int = 0,
@@ -616,6 +629,9 @@ class AbstractFlash(abc.ABC):
           will plot a phase as absent.)
         - ``'show_not_converged'``: If ``True``, non-converged flash points will be
           plotted with a cross. Default is ``False``.
+        - ``'max_cols'``: If given, sets the number of columns for multi-field plots.
+          Defaults to 3.
+        - ``'figsize'``: A 2-tuple of floats containing width and height of the figure.
 
         Parameters:
             specification: The flash to be calculated.
@@ -623,6 +639,7 @@ class AbstractFlash(abc.ABC):
             spec2range: Range or value of the second fixed state function
             zrange: Ranges or values for the compositions. For pure fluids, this is
                 always assumed to be just the value 1.
+            field: One or multiple fields to be plotted.
             zindex: ``default=0``
 
                 If ``zrange`` is a sequence of compositions, this defines which one
@@ -729,71 +746,100 @@ class AbstractFlash(abc.ABC):
             **kwargs.get("flash_kwargs", {}),
         )
 
-        # Parse field and format values to be plotted.
-        vals: np.ndarray = self._parse_field(results, field, kwargs.get("eps", 1e-7))
-        vals = vals.reshape(shape)
+        not_conv = ~results.converged
+
+        # Shape axis values.
         xlabel = specification.name[1]
         ylabel = specification.name[0]
         if transpose:
-            vals = vals.transpose()
             xm, ym = [ym.transpose(), xm.transpose()]
             xlabel, ylabel = [ylabel, xlabel]
         xm = kwargs.get("xtransform", lambda x: x)(xm.flatten()).reshape(shape)
         ym = kwargs.get("ytransform", lambda x: x)(ym.flatten()).reshape(shape)
-        vals = kwargs.get("vtransform", lambda x: x)(vals.flatten()).reshape(shape)
 
-        # Parse plottign options and create figure.
-
-        default_plotkwargs: dict[str, Any] = {
-            "shading": "nearest",
-            "label": field,
-        }
-        if field == "phasesplit":
-            cmap, norm, cbticks, cblabels = self._get_split_cmap(vals)
-            default_plotkwargs.update(
-                {
-                    "cmap": cmap,
-                    "norm": norm,
-                }
-            )
+        # Parse field and format values to be plotted.
+        vals: list[np.ndarray] = []
+        if isinstance(field, str):
+            fields = [field]
         else:
-            default_plotkwargs.update(
-                {
-                    "cmap": "viridis",
-                }
-            )
-        if plotkwargs is None:
-            plotkwargs = {}
-        default_plotkwargs.update(plotkwargs)
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+            fields = field
+        for f in fields:
+            v = self._parse_field(results, f, kwargs.get("eps", 1e-7))
+            v = kwargs.get("vtransform", lambda x: x)(v).reshape(shape)
+            if transpose:
+                v = v.transpose()
+            vals.append(v)
 
-        img = ax.pcolormesh(
-            xm,
-            ym,
-            vals,
-            **default_plotkwargs,
+        # Parse plotting options and create figure.
+        nf = len(fields)
+        ni = 1
+        if nf == 1:
+            nrows = 1
+            ncols = 1
+        else:
+            max_cols = int(kwargs.get("max_cols", 3))
+            assert max_cols > 0, "Require at least 1 column."
+            if nf <= max_cols:
+                ncols = nf
+                nrows = 1
+            else:
+                ncols = max_cols
+                nrows = int(np.floor(nf / ncols))
+                if nf % ncols > 0:
+                    nrows += 1
+            assert nrows >= 1, "Require at least 1 row."
+
+        base_fh = 5.0  # Base height for 1 plot.
+        base_fw = 5.5  # Base width for 1 plot.
+        fig = plt.figure(
+            figsize=kwargs.get("figsize", (ncols * base_fw, nrows * base_fh))
         )
-        cax = ax.inset_axes((1.01, 0.2, 0.05, 0.6))
-        cb_rr = fig.colorbar(img, ax=ax, cax=cax, orientation="vertical")
-        if field == "phasesplit":
-            cb_rr.set_ticks(cbticks)
-            cb_rr.set_ticklabels(cblabels)
 
-        nonc = ~results.converged
-        if np.any(nonc) and kwargs.get("show_not_converged", False):
-            img_nc = ax.scatter(
-                xm.flatten()[nonc],
-                ym.flatten()[nonc],
-                s=5,
-                c="firebrick",
-                marker="x",
-                label="No convergence",
+        for v, f in zip(vals, fields):
+            default_plotkwargs: dict[str, Any] = {
+                "shading": "nearest",
+                "label": f,
+                "cmap": "viridis",
+            }
+            default_plotkwargs.update(
+                plotkwargs if isinstance(plotkwargs, dict) else {}
             )
-            ax.legend(handles=[img_nc], loc="upper center")
+            if f == "phasesplit":
+                cmap, norm, cbticks, cblabels = self._get_split_cmap(v)
+                default_plotkwargs["cmap"] = cmap
+                default_plotkwargs["norm"] = norm
 
+            ax = fig.add_subplot(nrows, ncols, ni)
+            ni += 1
+            ax.set_box_aspect(1)
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
+            ax.set_title(f)
+
+            img = ax.pcolormesh(
+                xm,
+                ym,
+                v,
+                **default_plotkwargs,
+            )
+            cax = ax.inset_axes((1.01, 0.2, 0.05, 0.6))
+            cb_rr = fig.colorbar(img, ax=ax, cax=cax, orientation="vertical")
+            if f == "phasesplit":
+                cb_rr.set_ticks(cbticks)
+                cb_rr.set_ticklabels(cblabels)
+
+            if np.any(not_conv) and kwargs.get("show_not_converged", False):
+                img_nc = ax.scatter(
+                    xm.flatten()[not_conv],
+                    ym.flatten()[not_conv],
+                    s=5,
+                    c="firebrick",
+                    marker="x",
+                    label="No convergence",
+                )
+                ax.legend(handles=[img_nc], loc="upper center")
+
+        fig.tight_layout()
         return fig, results
 
     def _parse_field(self, results: FlashResults, field: str, eps: float) -> np.ndarray:

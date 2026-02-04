@@ -24,10 +24,6 @@ from porepy.compositional.peng_robinson.compressibility_factor import (
     dc_from_AB,
     extended_factor,
     extended_factor_derivatives,
-    extended_factor_scg,
-    extended_factor_scg_derivatives,
-    extended_factor_scl,
-    extended_factor_scl_derivatives,
     get_compressibility_factor,
     get_compressibility_factor_derivatives,
     is_extended_factor,
@@ -288,19 +284,7 @@ def test_root_derivative_computation_smoothed(
 @pytest.mark.parametrize(
     "d", [np.array([1.0, 0]), np.array([0.0, 1.0]), np.array([1.0, 1.0])]
 )
-@pytest.mark.parametrize(
-    ["Ze", "dZe"],
-    [
-        (extended_factor, extended_factor_derivatives),
-        (extended_factor_scg, extended_factor_scg_derivatives),
-        (extended_factor_scl, extended_factor_scl_derivatives),
-    ],
-)
-def test_extended_root_derivative_function(
-    Ze: Callable[[float, float], float],
-    dZe: Callable[[np.ndarray], np.ndarray],
-    d: np.ndarray,
-) -> None:
+def test_extended_root_derivative_function(d: np.ndarray) -> None:
     """Tests the derivative computation of the extended root. Taylorexpansion must
     converge with second order.
 
@@ -311,14 +295,11 @@ def test_extended_root_derivative_function(
 
     def func(x):
         Z = sum(a**2 for a in x)
-        return Ze(float(Z), float(x[-1]))
+        return extended_factor(float(Z), float(x[-1]))
 
     def dfunc(x):
         dz = np.array([2 * a for a in x]).astype(float)
-        if dZe == extended_factor_scg_derivatives:
-            return dZe(dz, float(x[-1]))
-        else:
-            return dZe(dz)
+        return extended_factor_derivatives(dz)
 
     x0 = np.random.rand(2)
     orders = get_EOC_taylor(func, dfunc, x0, d, np.logspace(0, -10, 11))

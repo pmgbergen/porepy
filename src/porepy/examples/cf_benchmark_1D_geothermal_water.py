@@ -588,10 +588,10 @@ if __name__ == "__main__":
         "mode": "sequential",
         "solver": "npipm",
         "solver_params": {
-            "tolerance": 1e-5,
+            "atol_res": 1e-5,
             "max_iterations": 80,
             "armijo_step_size": 0.95,
-            "armijo_decline": 1e-3,
+            "armijo_decline": 0.495,
             "npipm_penalty_cc": 10,
             "npipm_penalty_neg": 10,
             "npipm_slack_decline": 0.45,

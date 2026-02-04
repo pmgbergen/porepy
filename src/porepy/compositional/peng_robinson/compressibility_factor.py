@@ -313,7 +313,6 @@ See :data:`B_CRIT`, data:`A_CRIT`.
 
 """
 
-
 WIDOM_LINE: np.ndarray = np.array(
     [
         [0.0, widom_line(0.0)],
@@ -526,87 +525,6 @@ def extended_factor_derivatives(dZ: np.ndarray) -> np.ndarray:
 
 
 @_COMPILER(
-    nb.f8(nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def extended_factor_scl(Z: float, B: float) -> float:
-    """Extended compressibility factor for the liquid root in the super-critical area.
-
-    Parameters:
-        Z: The 1 real root.
-        B: Dimensionless co-volume.
-
-    Returns:
-        :math:`\\frac{B + Z}{2}`
-
-    """
-    return (Z + B) * 0.5
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8[:]),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def extended_factor_scl_derivatives(dZ: np.ndarray) -> np.ndarray:
-    """The derivatives of :func:`extended_factor_scl` dependent on the derivatives of
-    the 1 real root.
-
-    Parameters:
-        d_Z: ``shape=(2,)``
-
-            The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-
-    Returns:
-        The derivative of :func:`extended_factor_scl` w.r.t. the cohesion and covolume.
-
-    """
-    return 0.5 * (dZ + np.array([0.0, 1.0]))
-
-
-@_COMPILER(
-    nb.f8(nb.f8, nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def extended_factor_scg(Z: float, B: float) -> float:
-    """Extended compressibility factor for the gas root in the super-critical area.
-
-    Parameters:
-        Z: The 1 real root.
-        B: Dimensionless co-volume.
-
-    Returns:
-        :math:`B(B - B_{crit}) + \\frac{1 - B - Z}{2}`
-
-    """
-    return B * (B - B_CRIT) + extended_factor(Z, B)
-
-
-@_COMPILER(
-    nb.f8[:](nb.f8[:], nb.f8),
-    fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,
-)
-def extended_factor_scg_derivatives(dZ: np.ndarray, B: float) -> np.ndarray:
-    """The derivatives of :func:`extended_factor_scg` dependent on the derivatives of
-    the 1 real root.
-
-    Parameters:
-        d_Z: ``shape=(2,)``
-
-            The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
-        B: Dimensionless co-volume.
-
-    Returns:
-        The derivative of :func:`extended_factor_scg` w.r.t. the cohesion and covolume.
-
-    """
-    return np.array([0.0, 2.0 * B - B_CRIT]) + extended_factor_derivatives(dZ)
-
-
-@_COMPILER(
     nb.int_(nb.f8, nb.f8, nb.bool, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,
@@ -738,12 +656,6 @@ def get_compressibility_factor(
 
     extension_case = is_extended_factor(A, B, gaslike, eps)
 
-    # Shortcuts for quick switching between models.
-    Wgsub = extended_factor
-    Wlsub = extended_factor
-    Wgsc = extended_factor_scg
-    Wlsc = extended_factor_scl
-
     # Index for super-critical smoothing. Switches to zero or -1 indicating which root
     # needs smoothing. Using potential indices as indicators.
     smooth_sc_idx: Literal[-1, 0, 1] = 1
@@ -759,17 +671,17 @@ def get_compressibility_factor(
         # Sub-critical liquid extension.
         case 1:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 1."
-            roots[0] = Wlsub(roots[-1], B)
+            roots[0] = extended_factor(roots[-1], B)
         # Sub-critical gas extension.
         case 2:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 2."
-            roots[-1] = Wgsub(roots[0], B)
+            roots[-1] = extended_factor(roots[0], B)
         # Super-critical liquid extension.
         # There are non-physical regions with num_roots != 1, which need treatment.
         # We cannot use the Ben Gharbia extension, as that value goes below B in the
         # supercritical area. Includes the 2 root point A,B = (0, 0)
         case 11 | 12 | 13:
-            roots[0] = Wlsc(roots[-1], B)
+            roots[0] = (roots[-1] + B) * 0.5
             smooth_sc_idx = 0
         # Known super-critical triple points is the critical point Ac Bc.
         # Raise not implemented error if it is not
@@ -783,7 +695,7 @@ def get_compressibility_factor(
         # 1-root case.
         case 21:
             assert roots.size == 1, "Expecting only 1 real root in extension cases 21."
-            roots[-1] = Wgsc(roots[0], B)
+            roots[-1] = B * (B - B_CRIT) + extended_factor(roots[0], B)
             smooth_sc_idx = -1
         # Extension case 22 and 23 are uncovered.
         case _:
@@ -844,7 +756,7 @@ def get_compressibility_factor(
                 # Near A=B=0, it can lead to more than 1 real root. In any case it is
                 # the gas root which is real and which is used for the extension.
                 Z = calculate_roots(c_p, eps)
-                W = Wlsub(Z[-1], AB_p[1])
+                W = extended_factor(Z[-1], AB_p[1])
                 out = np.array([roots[0], W])
                 _smooth_supercritical_transition(0, d, smooth_sc, out)
                 roots[0] = out[0]
@@ -940,13 +852,6 @@ def get_compressibility_factor_derivatives(
 
     extension_case = is_extended_factor(A, B, gaslike, eps)
 
-    # Shortcuts for quick switching between models.
-    Wgsub = extended_factor
-    dWgsub = extended_factor_derivatives
-    dWlsub = extended_factor_derivatives
-    dWgsc = extended_factor_scg_derivatives
-    dWlsc = extended_factor_scl_derivatives
-
     smooth_sc_idx: Literal[-1, 0, 1] = 1
 
     match extension_case:
@@ -961,14 +866,15 @@ def get_compressibility_factor_derivatives(
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension cases 1."
             )
-            droots[0] = dWlsub(droots[0])
+            droots[0] = extended_factor_derivatives(droots[0])
         case 2:
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension cases 2."
             )
-            droots[-1] = dWgsub(droots[-1])
+            droots[-1] = extended_factor_derivatives(droots[-1])
         case 11 | 12 | 13:
-            droots[0] = dWlsc(droots[-1])
+            droots[0] = 0.5 * droots[-1]
+            droots[0, 1] += 0.5
             smooth_sc_idx = 0
         case 10 | 20:
             if not np.allclose((A, B), (A_CRIT, B_CRIT)):
@@ -979,7 +885,8 @@ def get_compressibility_factor_derivatives(
             assert droots.shape == (1, 2), (
                 "Expecting shape (1, 2) of root derivatives in extension cases 21."
             )
-            droots[-1] = dWgsc(droots[0], B)
+            droots[-1] = extended_factor_derivatives(droots[0])
+            droots[-1, 1] += 2.0 * B - B_CRIT
             smooth_sc_idx = -1
         case _:
             raise NotImplementedError(
@@ -1031,7 +938,7 @@ def get_compressibility_factor_derivatives(
                 c_p = c_from_AB(AB_p[0], AB_p[1])
                 dZ = calculate_root_derivatives(c_p, eps)
                 dZ = np.dot(dZ, dc_dAB)
-                dW = dWlsub(dZ[-1])
+                dW = extended_factor_derivatives(dZ[-1])
                 out = np.empty((2, 2))
                 out[0] = droots[0]
                 out[1] = dW
