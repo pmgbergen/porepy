@@ -1646,7 +1646,7 @@ class AdTpfaFlux(pp.PorePyModel):
         # its val and jac attributes.
         val = base_flux @ p.val + base_bound_flux @ bv.val
         # No contribution from differentiating the boundary flux, as bv is constant.
-        jac = base_flux @ p.jac
+        jac = base_flux @ p.jac + base_bound_flux @ bv.jac
 
         if hasattr(T_f, "jac"):
             # Add the contribution to the Jacobian matrix from the derivative of the
