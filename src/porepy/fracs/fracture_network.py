@@ -55,6 +55,9 @@ class FractureNetwork(ABC):
             "meshing_algorithm": 10 if self.nd == 3 else 5,
             # Use a single processor by default to ensure deterministic meshing.
             "num_processors": 1,
+            # Set a moderate verbosity level for Gmsh output. See the Gmsh documentation
+            # for details on the available levels.
+            "gmsh_verbosity_level": 3,
         }
         """Extra meshing arguments for fracture network meshing.
         
@@ -154,6 +157,9 @@ class FractureNetwork(ABC):
         # Set the number of processors for Gmsh.
         gmsh.option.setNumber(
             "General.NumThreads", self._extra_meshing_args["num_processors"]
+        )
+        gmsh.option.setNumber(
+            "General.Verbosity", self._extra_meshing_args["gmsh_verbosity_level"]
         )
 
         # See the Gmsh documentation for an overview of the available algorithms.
