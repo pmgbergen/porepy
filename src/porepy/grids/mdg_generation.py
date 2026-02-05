@@ -95,12 +95,11 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
             - cell_size_min is not strictly positive
             - cell_size_boundary is not strictly positive
             - cell_size_fracture is not strictly positive
-            - cell_size or cell_size_min are not provided
             - cell_size or cell_size_boundary are not provided
             - cell_size or cell_size_fracture are not provided
 
     """
-    # Get expected arguments
+    # Get expected arguments.
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
     cell_size_min: Optional[float] = meshing_args.get("cell_size_min", cell_size)
     cell_size_boundary: Optional[float] = meshing_args.get(
@@ -110,7 +109,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
         "cell_size_fracture", cell_size
     )
 
-    # validate cell_size
+    # Validate cell_size.
     cell_size_q: bool = cell_size is not None
     if cell_size_q:
         if not isinstance(cell_size, float):
@@ -118,19 +117,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
         if not cell_size > 0:
             raise ValueError("cell_size must be strictly positive %r" % cell_size)
 
-    # validate cell_size_min
-    cell_size_min_q: bool = cell_size_min is not None
-    if cell_size_min_q:
-        if not isinstance(cell_size_min, float):
-            raise TypeError("cell_size_min must be float, not %r" % type(cell_size_min))
-        if not cell_size_min > 0:
-            raise ValueError(
-                "cell_size_min must be strictly positive %r" % cell_size_min
-            )
-    else:
-        raise ValueError("cell_size or cell_size_min must be provided.")
-
-    # validate cell_size_boundary
+    # Validate cell_size_boundary.
     cell_size_boundary_q: bool = cell_size_boundary is not None
     if cell_size_boundary_q:
         if not isinstance(cell_size_boundary, float):
@@ -144,7 +131,7 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
     else:
         raise ValueError("cell_size or cell_size_boundary must be provided.")
 
-    # validate cell_size_fracture
+    # Validate cell_size_fracture.
     cell_size_fracture_q: bool = cell_size_fracture is not None
     if cell_size_fracture_q:
         if not isinstance(cell_size_fracture, float):
@@ -157,6 +144,19 @@ def _validate_simplex_meshing_args_values(meshing_args: dict):
             )
     else:
         raise ValueError("cell_size or cell_size_fracture must be provided.")
+
+    # Validate cell_size_min.
+    cell_size_min_q: bool = cell_size_min is not None
+    if cell_size_min_q:
+        if not isinstance(cell_size_min, float):
+            raise TypeError("cell_size_min must be float, not %r" % type(cell_size_min))
+        if not cell_size_min > 0:
+            raise ValueError(
+                "cell_size_min must be strictly positive %r" % cell_size_min
+            )
+    else:
+        # This is okay; a default value based on the other sizes will be used.
+        pass
 
 
 def _validate_cartesian_meshing_args_values(dimension: int, meshing_args: dict):
@@ -512,22 +512,33 @@ def _preprocess_simplex_args(
     # translating quantities to lower level signature
     lower_level_args: dict = {}
     cell_size: Optional[float] = meshing_args.get("cell_size", None)
-    lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", cell_size)
+
     lower_level_args["mesh_size_bound"] = meshing_args.get(
         "cell_size_boundary", cell_size
     )
     lower_level_args["mesh_size_frac"] = meshing_args.get(
         "cell_size_fracture", cell_size
     )
-
-    lower_level_args["refinement_buffer"] = meshing_args.get("refinement_buffer", 1.0)
-    lower_level_args["refinement_threshold"] = meshing_args.get(
-        "refinement_threshold", 1.0
+    # By default set mesh_size_min to 10% of the minimum of the other sizes.
+    default_min = 0.1 * min(
+        lower_level_args["mesh_size_bound"], lower_level_args["mesh_size_frac"]
     )
-    farfield = meshing_args.get("farfield_transition", 10.0)
-    # The farfield transition should be strictly greater than 1, or else it may not
+    lower_level_args["mesh_size_min"] = meshing_args.get("cell_size_min", default_min)
+
+    lower_level_args["refinement_size_multiplier"] = meshing_args.get(
+        "refinement_size_multiplier", 1.0
+    )
+    lower_level_args["refinement_proximity_multiplier"] = meshing_args.get(
+        "refinement_proximity_multiplier", 1.0
+    )
+    background_transition_multiplier = meshing_args.get(
+        "background_transition_multiplier", 10.0
+    )
+    # The background transition should be strictly greater than 1, or else it may not
     # function as intended (Gmsh may decide not to coarsen the mesh).
-    lower_level_args["farfield_transition"] = max(farfield, 1.01)
+    lower_level_args["background_transition_multiplier"] = max(
+        background_transition_multiplier, 1.01
+    )
 
     return (lower_level_args, extra_args_list, kwargs)
 
@@ -798,15 +809,15 @@ def create_mdg(
                         mesh. Providing True activates the directive.
                     file_name: ``str``: Defaults to None. If provided, the generated
                         mesh will be saved to a file with this name (in .msh format).
-                    refinement_threshold: ``float``: Threshold for refinement around
-                        proximate fractures. See tutorial on mixed-dimensional grids for
-                        details.
-                    farfield_transition: ``float``: Distance from fractures where the
-                        mesh size transitions to far-field mesh size. See tutorial on
-                        mixed-dimensional grids for details.
-                    refinement_buffer: ``float``: Size of buffer zone around fractures
-                        where refinement is applied. See tutorial on mixed-dimensional
+                    refinement_proximity_multiplier: ``float``: Threshold for refinement
+                        around proximate fractures. See tutorial on mixed-dimensional
                         grids for details.
+                    background_transition_multiplier: ``float``: Distance from fractures
+                        where the mesh size transitions to far-field mesh size. See
+                        tutorial on mixed-dimensional grids for details.
+                    refinement_size_multiplier: ``float``: Size of buffer zone around
+                        fractures where refinement is applied. See tutorial on
+                        mixed-dimensional grids for details.
                 if grid_type == "simplex" or "tensor_grid":
                     offset: ``float``: Defaults to 0. Parameter that quantifies a
                         perturbation to nodes around the faces that are split. NOTE:

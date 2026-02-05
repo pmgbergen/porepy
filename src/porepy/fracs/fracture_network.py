@@ -1149,17 +1149,17 @@ class MeshSizeComputer:
                 - "mesh_size_frac": Fracture mesh size [m].
                 - "mesh_size_bound": Far-field mesh size [m]. If not provided, it is
                   set equal to the fracture mesh size.
-                - "refinement_threshold": Threshold for triggering refinement around
+                - "refinement_proximity_multiplier": Threshold for triggering refinement
+                  around fractures (in units of fracture mesh size).
+                - "refinement_size_multiplier": Buffer factor for mesh size around
                   fractures (in units of fracture mesh size).
-                - "refinement_buffer": Buffer factor for mesh size around fractures (in
-                  units of fracture mesh size).
                 - "mesh_size_min": Minimum mesh size [m]. If not provided, it is set
                   equal to the fracture mesh size times the buffer factor. If set to a
                   value larger than the fracture mesh size, the fracture mesh size is
                   used.
-                - "farfield_transition": Factor controlling the distance from fractures
-                  where far-field mesh size is reached (in units of far-field mesh
-                  size).
+                - "background_transition_multiplier": Factor controlling the distance
+                  from fractures where far-field mesh size is reached (in units of
+                  far-field mesh size).
 
         Raises:
             ValueError: If required mesh size parameters are missing.
@@ -1175,8 +1175,10 @@ class MeshSizeComputer:
         self._hfarfield: float = mesh_args.get(  # type: ignore
             "mesh_size_bound", self._hfrac
         )
-        self._threshold: float = mesh_args.get("refinement_threshold")  # type: ignore
-        self._buffer: float = mesh_args.get("refinement_buffer")  # type: ignore
+        self._threshold: float = mesh_args.get(  # type: ignore
+            "refinement_proximity_multiplier"
+        )
+        self._buffer: float = mesh_args.get("refinement_size_multiplier")  # type: ignore
         # By default, we let the minimum mesh size scale with the buffer and the
         # fracture mesh size.
         h_min = self._hfrac * self._buffer
@@ -1186,7 +1188,7 @@ class MeshSizeComputer:
             h_min = min(self._hfrac, mesh_args.get("mesh_size_min"))  # type: ignore
         self._hmin: float = h_min
         self._farfield_transition: float = mesh_args.get(  # type: ignore
-            "farfield_transition"
+            "background_transition_multiplier", 1.0
         )
 
     def refinement_threshold(self) -> float:
