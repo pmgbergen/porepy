@@ -18,17 +18,17 @@ class EllipticFracture(Fracture):
     """
     Class representing an elliptic fracture embedded in a 3D domain.
 
-    The fracture is represented directly as an OpenCASCADE surface in Gmsh,
-    avoiding polygonal approximation. The generated entity is a 2D OCC disk
-    (elliptic face) that can be used for meshing and geometric Boolean operations.
+    The fracture is represented directly as an OpenCASCADE surface in Gmsh, avoiding
+    polygonal approximation. The generated entity is a 2D OCC disk (elliptic face) that
+    can be used for meshing and geometric Boolean operations.
 
-    The fracture is defined by its center position, major and minor axes,
-    and its spatial orientation given by three rotation angles in radians.
+    The fracture is defined by its center position, major and minor axes, and its
+    spatial orientation given by three rotation angles in radians.
 
     Example:
         Fracture centered at ``[0, 1, 0]``, with a ratio of lengths of 2, rotation in
-        xy-plane of 45 degrees, and an incline of 30 degrees
-        rotated around the x-axis:
+        xy-plane of 45 degrees, and an incline of 30 degrees rotated around the x-axis,
+        due to the strike angle of 0 radians:
 
 
         >>> import numpy as np
@@ -48,9 +48,9 @@ class EllipticFracture(Fracture):
         major_axis: Length of major axis (radius-like, not diameter).
         minor_axis: Length of minor axis.
 
-            There are no checks on whether the minor axis is less or equal the major.
+            There are no checks on whether the minor axis is less or equal to the major.
         major_axis_angle: Rotation of the major axis from the x-axis in radians.
-            Measured before strike-dip rotation, see above.
+            Measured before strike-dip rotation, see below.
         strike_angle: Line of rotation for the dip. Given as angle in radians from the
             x-direction.
         dip_angle: Dip angle in radians, i.e., rotation around the strike direction.
