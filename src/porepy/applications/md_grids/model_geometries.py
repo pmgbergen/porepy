@@ -132,6 +132,7 @@ class RectangularDomainThreeFractures(pp.PorePyModel):
         return mesh_sizes
 
     def set_domain(self) -> None:
+        """A default grid type ('simplex') is set if none is provided."""
 
         self.params["grid_type"] = self.params.get("grid_type", "simplex")
 
