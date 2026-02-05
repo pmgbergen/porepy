@@ -78,6 +78,19 @@ class CubeDomainOrthogonalFractures(pp.PorePyModel):
         """Set the cube domain."""
         self._domain = domains.nd_cube_domain(3, self.domain_size)
 
+    def meshing_arguments(self) -> dict:
+        """Set default cell sizes for subdomains."""
+        # Length scale:
+        ls = self.units.convert_units(1, "m")
+
+        mesh_sizes = {
+            "cell_size": 0.5 * ls,
+            "cell_size_fracture": 0.5 * ls,
+            "cell_size_boundary": 0.5 * ls,
+            "cell_size_min": 0.2 * ls,
+        }
+        return mesh_sizes
+
 
 class RectangularDomainThreeFractures(pp.PorePyModel):
     """A rectangular domain with up to three fractures.
@@ -131,31 +144,6 @@ class RectangularDomainThreeFractures(pp.PorePyModel):
         phys_dims = np.array([2, 1]) * ls
         box = {"xmin": 0, "xmax": phys_dims[0], "ymin": 0, "ymax": phys_dims[1]}
         self._domain = pp.Domain(box)
-
-
-class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
-    """A 3d domain of the unit cube with up to three orthogonal fractures.
-
-    The fractures have constant `x`, `y` and `z` coordinates equal to 0.5, respectively,
-    and are situated in a unit cube domain. The number of fractures is controlled by
-    the parameter ``num_fracs``, which can be 0, 1, 2 or 3.
-
-    """
-
-    params: dict
-    """Model parameters."""
-
-    def meshing_arguments(self) -> dict:
-        # Length scale:
-        ls = self.units.convert_units(1, "m")
-
-        mesh_sizes = {
-            "cell_size": 0.5 * ls,
-            "cell_size_fracture": 0.5 * ls,
-            "cell_size_boundary": 0.5 * ls,
-            "cell_size_min": 0.2 * ls,
-        }
-        return mesh_sizes
 
 
 class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
