@@ -169,17 +169,17 @@ class TimeDependentModelRunner(ModelRunner):
 
         Note:
             If the ``"progressbars"`` key in ``params`` is set to ``True`` (default is
-            ``False``), the progress of time steps and nonlinear iterations will be shown on
-            a progressbar. This requires the ``tqdm`` package to be installed. The package
-            is not included in the dependencies, but can be installed with
+            ``False``), the progress of time steps and nonlinear iterations will be
+            shown on a progressbar. This requires the ``tqdm`` package to be installed.
+            The package is not included in the dependencies, but can be installed with
             ```
             pip install tqdm
             ```
 
         Parameters:
             model: Model class containing all information on parameters, variables,
-                discretization, geometry. Various methods such as those relating to solving
-                the system, see the appropriate solver for documentation.
+                discretization, geometry. Various methods such as those relating to
+                solving the system, see the appropriate solver for documentation.
             params: Parameters related to the solution procedure.
 
         """

@@ -150,27 +150,26 @@ class ModelSolverInterface(pp.PorePyModel):
         # Shallow copy for safety
         self._schur_complement_primary_variables = [n for n in names]
 
-    def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver, thus at the start
-        of a new time step.
+    def before_time_step(self) -> None:
+        """Method to be called at the start of each time step by
+        :meth:``porepy.models.run_models.run_time_dependent_model`.
 
         The base method does the following:
-
-        1. Update the time step size in :attr:`ad_time_step`.
-        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
-           SolverStatistics.reset`.
-        3. Calls :meth:`update_time_dependent_ad_arrays`.
-        4. Calls :meth:`update_derived_quantities`.
+        1. Call :meth:`update_time_dependent_ad_arrays`.
+        2. Call :meth:`update_derived_quantities`.
 
         """
-        # Update time step size.
-        self.ad_time_step.set_value(self.time_manager.dt)
-        # Empty the log in the statistics object.
-        self.nonlinear_solver_statistics.reset()
         # Update the boundary conditions to both the time step and iterate solution.
         self.update_time_dependent_ad_arrays()
         # Update other dependent quantities such as discretizations.
         self.update_derived_quantities()
+
+    def before_nonlinear_loop(self) -> None:
+        """Method to be called before entering the non-linear solver.
+
+        The base method is empty
+        """
+        pass
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -185,7 +184,8 @@ class ModelSolverInterface(pp.PorePyModel):
         The base method does the following:
 
         1. Shift the existing solutions backwards in the iterative sense.
-        2. Store the ``nonlinear_increment`` in the current iterate additively.
+        2. Store the ``nonlinear_increment`` to the model state in the current iterate
+           additively.
         3. Calls :meth:`update_derived_quantities`.
 
         Parameters:
@@ -197,7 +197,6 @@ class ModelSolverInterface(pp.PorePyModel):
             values=nonlinear_increment, additive=True, iterate_index=0
         )
         self.update_derived_quantities()
-        self.nonlinear_solver_statistics.num_iteration += 1
 
     def after_nonlinear_convergence(self) -> None:
         """Method to be called after the non-linear iterations converge.
@@ -207,22 +206,11 @@ class ModelSolverInterface(pp.PorePyModel):
         1. Shift existing solutions backwards in time.
         2. Saves the current iterate values as the most recent time step values
            (see :meth:`update_solution`).
-        3. Flags the model as converged (:attr:`convergence_status`).
-        4. Calls :meth:`save_data_time_step`.
+        3. Calls :meth:`save_data_time_step`.
 
         Possible usage is to distribute information on the solution, visualization, etc.
 
         """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-
-        # Update the time step magnitude if the dynamic scheme is used.
-        if not self.time_manager.is_constant:
-            self.time_manager.compute_time_step(
-                iterations=self.nonlinear_solver_statistics.num_iteration
-            )
-        self.update_solution(solution)
-
-        self.convergence_status = True
         self.save_data_time_step()
 
     def update_solution(self, solution: np.ndarray) -> None:
@@ -242,10 +230,27 @@ class ModelSolverInterface(pp.PorePyModel):
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
-        self.save_data_time_step()
-        if not self.is_nonlinear_problem():
+        if self.is_nonlinear_problem():
+            raise ValueError("Failed to solve the nonlinear problem")
+        else:
             raise ValueError("Failed to solve linear system for the linear problem.")
 
+    def after_time_step_convergence(self) -> None:
+        """Method to be called after a new time step solution has been achieved.
+
+        The base method does the following:
+
+        1. Shift previous time step solutions backwards in time.
+        2. Saves the new time step solution, i.e., what is stored at the current iterate
+           values (see :meth:`update_solution`).
+
+        Possible usage is to distribute information on the solution, visualization, etc.
+
+        """
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+        self.update_solution(solution)
+
+    def after_time_step_failure(self) -> None:
         if self.time_manager.is_constant:
             # We cannot decrease the constant time step.
             raise ValueError("Nonlinear iterations did not converge.")

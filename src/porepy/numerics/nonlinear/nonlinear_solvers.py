@@ -8,12 +8,10 @@ import logging
 
 import numpy as np
 
-from porepy.models.run_models import ModelType
-from porepy.utils.ui_and_logging import DummyProgressBar
+from porepy.utils.ui_and_logging import DummyProgressBar, progressbar_class
 from porepy.utils.ui_and_logging import (
     logging_redirect_tqdm_with_level as logging_redirect_tqdm,
 )
-from porepy.utils.ui_and_logging import progressbar_class
 
 # Module-wide logger
 logger = logging.getLogger(__name__)
@@ -57,6 +55,9 @@ class NewtonSolver:
                 True if the solution is converged.
 
         """
+        # Empty the log in the model's statistics object.
+        model.nonlinear_solver_statistics.reset()
+        # Any model bookkeeping that has to happen before a nonlinear loop.
         model.before_nonlinear_loop()
 
         is_converged = False
@@ -90,6 +91,7 @@ class NewtonSolver:
             model.before_nonlinear_iteration()
             nonlinear_increment = self.iteration(model)
             model.after_nonlinear_iteration(nonlinear_increment)
+            model.nonlinear_solver_statistics.num_iteration += 1
 
             if (
                 self.params["nl_convergence_tol_res"] is not np.inf
@@ -107,7 +109,7 @@ class NewtonSolver:
                 nonlinear_increment, residual, reference_residual, self.params
             )
 
-        # Redirect all loggers to not interfere with the progressbar.
+        # Redirect the root logger, to avoid logger-progressbars interference.
         with logging_redirect_tqdm([logging.root]):
             # Check if the user wants a progress bar. Initialize an instance of the
             # progressbar_class, which is either :class:`~tqdm.trange` or
