@@ -338,6 +338,96 @@ class SolutionStrategy(pp.PorePyModel):
         # Shallow copy for safety
         self._schur_complement_primary_variables = [n for n in names]
 
+    def before_time_step(self) -> None:
+        """Method to be called at the start of each time step by
+        :meth:``porepy.models.run_models.run_time_dependent_model`.
+
+        The base method does the following:
+        1. Update the time step size in :attr:`ad_time_step`.
+        2. Call :meth:`update_time_dependent_ad_arrays`.
+        3. Call :meth:`update_derived_quantities`.
+
+        """
+        # Update time step size.
+        self.ad_time_step.set_value(self.time_manager.dt)
+        # Update the boundary conditions to both the time step and iterate solution.
+        self.update_time_dependent_ad_arrays()
+        # Update other dependent quantities such as discretizations.
+        self.update_derived_quantities()
+
+    def before_nonlinear_loop(self) -> None:
+        """Method to be called before entering the non-linear solver.
+
+        The base method does the following:
+
+        1. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
+           SolverStatistics.reset`.
+
+        """
+        # Empty the log in the statistics object.
+        self.nonlinear_solver_statistics.increase_index()
+
+    def after_nonlinear_convergence(self) -> None:
+        """Method to be called after the non-linear iterations converge.
+
+        The base method does the following:
+
+        1. Shift existing solutions backwards in time.
+        2. Saves the current iterate values as the most recent time step values
+           (see :meth:`update_solution`).
+        3. Calls :meth:`save_data_time_step`.
+
+        Possible usage is to distribute information on the solution, visualization, etc.
+
+        """
+        self.save_data_time_step()
+
+    def after_nonlinear_failure(self) -> pp.SimulationStatus:
+        """Method to be called if the non-linear solver fails to converge."""
+        if self._is_nonlinear_problem():
+            warn("Failed to solve the nonlinear problem.")
+            return SimulationStatus.FAILED
+        else:
+            warn("Failed to solve linear system for the linear problem.")
+            return SimulationStatus.STOPPED
+
+    def after_time_step_convergence(self) -> None:
+        """Method to be called after a new time step solution has been achieved.
+
+        The base method does the following:
+
+        1. Shift previous time step solutions backwards in time.
+        2. Saves the new time step solution, i.e., what is stored at the current iterate
+           values (see :meth:`update_solution`).
+
+        Possible usage is to distribute information on the solution, visualization, etc.
+
+        """
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+        self.update_solution(solution)
+
+    def after_time_step_failure(self) -> pp.SimulationStatus:
+        if self.time_manager.is_constant:
+            warn("Failed to solve the nonlinear problem.")
+            return SimulationStatus.STOPPED
+        else:
+            # Update the time step magnitude if the dynamic scheme is used.
+            # Note: It will also raise a ValueError if the minimal time step is reached.
+            try:
+                self.time_manager.compute_time_step(recompute_solution=True)
+            except ValueError as e:
+                # Redirect the exception as a warning, and give the control to
+                # the run_models module to stop the simulation.
+                warn(str(e))
+                return SimulationStatus.STOPPED
+
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
+        return SimulationStatus.FAILED
+
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
 
@@ -578,28 +668,6 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
 
-    def before_nonlinear_loop(self) -> None:
-        """Method to be called before entering the non-linear solver, thus at the start
-        of a new time step.
-
-        The base method does the following:
-
-        1. Update the time step size in :attr:`ad_time_step`.
-        2. Reset the nonlinear solver statistics :meth:`~porepy.viz.solver_statistics.
-           SolverStatistics.reset`.
-        3. Calls :meth:`update_time_dependent_ad_arrays`.
-        4. Calls :meth:`update_derived_quantities`.
-
-        """
-        # Update time step size.
-        self.ad_time_step.set_value(self.time_manager.dt)
-        # Empty the log in the statistics object.
-        self.nonlinear_solver_statistics.increase_index()
-        # Update the boundary conditions to both the time step and iterate solution.
-        self.update_time_dependent_ad_arrays()
-        # Update other dependent quantities such as discretizations.
-        self.update_derived_quantities()
-
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
 
@@ -626,33 +694,6 @@ class SolutionStrategy(pp.PorePyModel):
         )
         self.update_derived_quantities()
 
-    def after_nonlinear_convergence(self) -> None:
-        """Method to be called after the non-linear iterations converge.
-
-        The base method does the following:
-
-        1. Shift existing solutions backwards in time.
-        2. Saves the current iterate values as the most recent time step values
-           (see :meth:`update_solution`).
-        3. Flags the model as converged (:attr:`convergence_status`).
-        4. Calls :meth:`save_data_time_step`.
-
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-
-        # Update the time step magnitude if the dynamic scheme is used.
-        if not self.time_manager.is_constant:
-            assert isinstance(
-                self.nonlinear_solver_statistics, pp.NonlinearSolverStatistics
-            )
-            self.time_manager.compute_time_step(
-                iterations=self.nonlinear_solver_statistics.num_iterations
-            )
-        self.update_solution(solution)
-
-        self.save_data_time_step()
 
     def update_solution(self, solution: np.ndarray) -> None:
         self.equation_system.shift_time_step_values(
@@ -661,43 +702,6 @@ class SolutionStrategy(pp.PorePyModel):
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
-
-    def after_nonlinear_failure(self) -> SimulationStatus:
-        """Method to be called if the non-linear solver fails to converge.
-
-        Allowed to adapt the convergence status, used for orchestration of the
-        simulation.
-
-        Returns:
-            SimulationStatus: The status of the simulation - either failed or stopped
-                if serious issues are detected.
-
-        """
-        self.save_data_time_step()
-        if not self._is_nonlinear_problem():
-            warn("Failed to solve linear system for the linear problem.")
-            return SimulationStatus.STOPPED
-
-        if self.time_manager.is_constant:
-            warn("Failed to solve the nonlinear problem.")
-            return SimulationStatus.STOPPED
-        else:
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            try:
-                self.time_manager.compute_time_step(recompute_solution=True)
-            except ValueError as e:
-                # Redirect the exception as a warning, and give the control to
-                # the run_models module to stop the simulation.
-                warn(str(e))
-                return SimulationStatus.STOPPED
-
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
-        return SimulationStatus.FAILED
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
