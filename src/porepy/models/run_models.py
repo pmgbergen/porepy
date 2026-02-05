@@ -126,6 +126,8 @@ class TimeDependentModelRunner(ModelRunner):
         # Update the model's AD time step object.
         self.model.ad_time_step.set_value(self.model.time_manager.dt)
 
+        self.model.before_time_step()
+
         # Logging and progressbar update.
         logger.info(
             f"\nTime step {self.model.time_manager.time_index} at time"

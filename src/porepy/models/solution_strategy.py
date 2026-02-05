@@ -150,6 +150,48 @@ class ModelSolverInterface(pp.PorePyModel):
         # Shallow copy for safety
         self._schur_complement_primary_variables = [n for n in names]
 
+    def prepare_simulation(self) -> None:
+        """Run at the start of simulation. Used for initialization etc."""
+        # Set the material and geometry of the problem. The geometry method must be
+        # implemented in a ModelGeometry class.
+        self.set_materials()
+        self.set_geometry()
+
+        # Exporter initialization must be done after grid creation,
+        # but prior to data initialization.
+        self.initialize_data_saving()
+
+        # Set variables, constitutive relations, discretizations and equations.
+        # Order of operations is important here.
+        self.set_equation_system_manager()
+        self.create_variables()
+        # After fluid and variables are defined, we can define the secondary quantities
+        # like fluid properties (which depend on variables). Creating fluid and
+        # variables before defining secondary thermodynamic properties is critical in
+        # the case where properties depend on some fractions. since the callables for
+        # secondary variables are dynamically created during create_variables, as
+        # opposed to e.g. pressure or temperature.
+        self.assign_thermodynamic_properties_to_phases()
+        self.initial_condition()
+        self.initialize_previous_iterate_and_time_step_values()
+
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays()
+        self.reset_state_from_file()
+        self.set_equations()
+
+        self.update_discretization_parameters()
+        self.discretize()
+        self._initialize_linear_solver()
+        self.set_nonlinear_discretizations()
+
+        # Export initial condition
+        self.save_data_time_step()
+
+    def after_simulation(self) -> None:
+        """Run at the end of simulation. Can be used for cleanup etc."""
+        pass
+
     def before_time_step(self) -> None:
         """Method to be called at the start of each time step by
         :meth:``porepy.models.run_models.run_time_dependent_model`.
@@ -164,12 +206,56 @@ class ModelSolverInterface(pp.PorePyModel):
         # Update other dependent quantities such as discretizations.
         self.update_derived_quantities()
 
+    def after_nonlinear_failure(self) -> None:
+        """Method to be called if the non-linear solver fails to converge."""
+        if self.is_nonlinear_problem():
+            raise ValueError("Failed to solve the nonlinear problem")
+        else:
+            raise ValueError("Failed to solve linear system for the linear problem.")
+        # TODO Check if any models overwrite this method and if that functionality has
+        # to be moved to ``after_time_step_failure``.
+
+    def after_time_step_convergence(self) -> None:
+        """Method to be called after a new time step solution has been achieved.
+
+        The base method does the following:
+
+        1. Shift previous time step solutions backwards in time.
+        2. Saves the new time step solution, i.e., what is stored at the current iterate
+           values (see :meth:`update_solution`).
+        3. Calls :meth:`save_data_time_step`.
+
+        Possible usage is to distribute information on the solution, visualization, etc.
+
+        """
+        solution = self.equation_system.get_variable_values(iterate_index=0)
+        self.update_solution(solution)
+        self.save_data_time_step()
+
+    def after_time_step_failure(self) -> None:
+        if self.time_manager.is_constant:
+            # We cannot decrease the constant time step.
+            raise pp.TimeSteppingError(
+                "Solver failed to converge. The time step is fixed and cannot be"
+                + " reduced further."
+            )
+        else:
+            # Update the time step magnitude if the dynamic scheme is used.
+            # Note: It will also raise a ValueError if the minimal time step is reached.
+            self.time_manager.compute_time_step(recompute_solution=True)
+
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
     def before_nonlinear_loop(self) -> None:
         """Method to be called before entering the non-linear solver.
 
-        The base method is empty
+        The base method only defines the method signature.
         """
-        pass
+        # TODO Check if any models overwrite this method and if that functionality has
+        # to be moved to ``before_time_step``.
 
     def before_nonlinear_iteration(self) -> None:
         """Method to be called at the start of every non-linear iteration.
@@ -201,17 +287,16 @@ class ModelSolverInterface(pp.PorePyModel):
     def after_nonlinear_convergence(self) -> None:
         """Method to be called after the non-linear iterations converge.
 
-        The base method does the following:
+        The base method only defines the method signature.. This is a relict from when
+        time stepping was handled here.
 
-        1. Shift existing solutions backwards in time.
-        2. Saves the current iterate values as the most recent time step values
-           (see :meth:`update_solution`).
-        3. Calls :meth:`save_data_time_step`.
-
-        Possible usage is to distribute information on the solution, visualization, etc.
+        Possible usage for advanced nonlinear solvers and/or models that overwrite this
+        method.
 
         """
-        self.save_data_time_step()
+        # TODO Check if any models overwrite this method and if that functionality has
+        # to be moved to ``after_time_step_convergence``.
+        pass
 
     def update_solution(self, solution: np.ndarray) -> None:
         """Shifts the solution per time step index and sets the provided solution
@@ -227,46 +312,6 @@ class ModelSolverInterface(pp.PorePyModel):
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
-
-    def after_nonlinear_failure(self) -> None:
-        """Method to be called if the non-linear solver fails to converge."""
-        if self.is_nonlinear_problem():
-            raise ValueError("Failed to solve the nonlinear problem")
-        else:
-            raise ValueError("Failed to solve linear system for the linear problem.")
-
-    def after_time_step_convergence(self) -> None:
-        """Method to be called after a new time step solution has been achieved.
-
-        The base method does the following:
-
-        1. Shift previous time step solutions backwards in time.
-        2. Saves the new time step solution, i.e., what is stored at the current iterate
-           values (see :meth:`update_solution`).
-
-        Possible usage is to distribute information on the solution, visualization, etc.
-
-        """
-        solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.update_solution(solution)
-
-    def after_time_step_failure(self) -> None:
-        if self.time_manager.is_constant:
-            # We cannot decrease the constant time step.
-            raise ValueError("Nonlinear iterations did not converge.")
-        else:
-            # Update the time step magnitude if the dynamic scheme is used.
-            # Note: It will also raise a ValueError if the minimal time step is reached.
-            self.time_manager.compute_time_step(recompute_solution=True)
-
-            # Reset the iterate values. This ensures that the initial guess for an
-            # unknown time step equals the known time step.
-            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
-    def after_simulation(self) -> None:
-        """Run at the end of simulation. Can be used for cleanup etc."""
-        pass
 
     def check_convergence(
         self,
@@ -633,44 +678,6 @@ class SolutionStrategy(ModelSolverInterface):
         """See :meth:`schur_complement_primary_equations`."""
 
         self.set_solver_statistics()
-
-    def prepare_simulation(self) -> None:
-        """Run at the start of simulation. Used for initialization etc."""
-        # Set the material and geometry of the problem. The geometry method must be
-        # implemented in a ModelGeometry class.
-        self.set_materials()
-        self.set_geometry()
-
-        # Exporter initialization must be done after grid creation,
-        # but prior to data initialization.
-        self.initialize_data_saving()
-
-        # Set variables, constitutive relations, discretizations and equations.
-        # Order of operations is important here.
-        self.set_equation_system_manager()
-        self.create_variables()
-        # After fluid and variables are defined, we can define the secondary quantities
-        # like fluid properties (which depend on variables). Creating fluid and
-        # variables before defining secondary thermodynamic properties is critical in
-        # the case where properties depend on some fractions. since the callables for
-        # secondary variables are dynamically created during create_variables, as
-        # opposed to e.g. pressure or temperature.
-        self.assign_thermodynamic_properties_to_phases()
-        self.initial_condition()
-        self.initialize_previous_iterate_and_time_step_values()
-
-        # Initialize time dependent ad arrays, including those for boundary values.
-        self.update_time_dependent_ad_arrays()
-        self.reset_state_from_file()
-        self.set_equations()
-
-        self.update_discretization_parameters()
-        self.discretize()
-        self._initialize_linear_solver()
-        self.set_nonlinear_discretizations()
-
-        # Export initial condition
-        self.save_data_time_step()
 
     def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in

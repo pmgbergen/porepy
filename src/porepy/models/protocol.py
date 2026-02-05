@@ -591,6 +591,34 @@ else:
 
             """
 
+        def before_time_step(self) -> None:
+            """Method to be called at the start of each time step by
+            :meth:``porepy.models.run_models.run_time_dependent_model`.
+
+            The base method does the following:
+            1. Call :meth:`update_time_dependent_ad_arrays`.
+            2. Call :meth:`update_derived_quantities`.
+
+            """
+
+        def after_time_step_convergence(self) -> None:
+            """Method to be called after a new time step solution has been achieved.
+
+            The base method does the following:
+
+            1. Shift previous time step solutions backwards in time.
+            2. Saves the new time step solution, i.e., what is stored at the current
+               iterate values (see :meth:`update_solution`).
+            3. Calls :meth:`save_data_time_step`.
+
+            Possible usage is to distribute information on the solution, visualization,
+            etc.
+
+            """
+
+        def after_time_step_failure(self) -> None:
+            """"""
+
         def before_nonlinear_loop(self) -> None:
             """Method to be called before entering the non-linear solver, thus at the
             start of a new time step.
