@@ -132,10 +132,8 @@ class RectangularDomainThreeFractures(pp.PorePyModel):
         return mesh_sizes
 
     def set_domain(self) -> None:
-        if not self.params.get("cartesian", False):
-            self.params["grid_type"] = "simplex"
-        else:
-            self.params["grid_type"] = "cartesian"
+
+        self.params["grid_type"] = self.params.get("grid_type", "simplex")
 
         # Length scale:
         ls = self.units.convert_units(1, "m")

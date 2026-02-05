@@ -378,7 +378,7 @@ def test_without_fracture(biot_coefficient, model_class):
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "u_north": [0.0, 0.001],
-        "cartesian": True,
+        "grid_type": "cartesian",
         "times_to_export": [],
     }
     model = model_class(params)
@@ -560,7 +560,7 @@ def test_unit_conversion(units, model_class):
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
-        "cartesian": True,
+        "grid_type": "cartesian",
         "u_north": [0.0, 1e-5],
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
